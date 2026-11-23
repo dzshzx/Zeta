@@ -1,5 +1,7 @@
 package com.dzshzx.zeta.core
 
+import com.dzshzx.zeta.i18n.Strings
+
 /**
  * 正式版（`com.dzshzx.zeta`，用户日常用的）和测试版（`com.dzshzx.zeta.dev`，开发测试装的）可以同时装在手机上。
  * 两个包里要互相区分的名字都从包名推出来，不写死：组件名、Provider 的 authority、广播 action、 Linux 里 Zeta 自己的目录。
@@ -41,7 +43,7 @@ class AppVariant(val packageName: String) {
 
     /** 给人看的名字：「Zeta 正式版」或「Zeta 测试版」。 */
     val label: String
-        get() = if (isDev) "Zeta 测试版" else "Zeta 正式版"
+        get() = if (isDev) Strings.coreVariantDev() else Strings.coreVariantRelease()
 
     /** 电源键接管（xposed/PowerKeyHook.kt）写日志用的标签；本包的诊断页按它找本包模块的记录。 正式版、测试版分开，两个名字互不包含，按子串找时也不会串。 */
     val powerKeyTag: String
@@ -52,7 +54,8 @@ class AppVariant(val packageName: String) {
         get() = if (isDev) "ZetaDevAppTools" else "ZetaAppTools"
 
     /** 通知标题：测试版前面注明，免得和正式版的通知混在一起。 */
-    fun notificationTitle(title: String): String = if (isDev) "测试版 · $title" else title
+    fun notificationTitle(title: String): String =
+        if (isDev) Strings.coreVariantNotificationTitle(title) else title
 
     companion object {
         const val RELEASE_PACKAGE = "com.dzshzx.zeta"

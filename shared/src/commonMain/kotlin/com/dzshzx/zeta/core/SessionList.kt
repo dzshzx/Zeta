@@ -5,6 +5,7 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import com.dzshzx.zeta.core.conv.SessionActivity
 import com.dzshzx.zeta.core.conv.sessionActivitiesOf
+import com.dzshzx.zeta.i18n.Strings
 import java.util.concurrent.ConcurrentHashMap
 import kotlin.concurrent.thread
 import kotlinx.serialization.json.JsonObject
@@ -48,7 +49,10 @@ class SessionList constructor(private val hub: ConversationHub) {
             return when {
                 mine.isEmpty() -> null
                 listed.size == 1 -> mine.single().second
-                else -> mine.joinToString("\n") { (b, why) -> hub.backendName(b) + "：" + why }
+                else ->
+                    mine.joinToString("\n") { (b, why) ->
+                        Strings.coreSessionsHostProblem(hub.backendName(b), why)
+                    }
             }
         }
 
@@ -102,7 +106,7 @@ class SessionList constructor(private val hub: ConversationHub) {
                 onHello = hub.helloFrom(backend),
                 onProblem = { why ->
                     main.post {
-                        if (current()) noted(backend, why?.let { "没读到会话列表：$it" })
+                        if (current()) noted(backend, why?.let(Strings::coreSessionsReadFailed))
                     }
                 },
             )
@@ -269,7 +273,7 @@ class SessionList constructor(private val hub: ConversationHub) {
         freshTitles.remove(summary.id)
         sessions = sessions.map { if (it.id == summary.id) it.copy(title = clean) else it }
         write(
-            "改名",
+            Strings::coreSessionsRenameFailed,
             summary.backend,
             "sessions.rename",
             buildJsonObject {
@@ -306,7 +310,8 @@ class SessionList constructor(private val hub: ConversationHub) {
         for (summary in group.distinctBy { it.id }) {
             val changed = summary.archived != archived
             write(
-                if (archived) "归档" else "取消归档",
+                if (archived) Strings::coreSessionsArchiveFailed
+                else Strings::coreSessionsUnarchiveFailed,
                 backend,
                 "sessions.archive",
                 buildJsonObject {
@@ -343,7 +348,7 @@ class SessionList constructor(private val hub: ConversationHub) {
             DeskWindows.close(hub, backend, group.map { it.id })
             // sessions.delete 一次一个会话：核心里开着它的对话时要先等进程退出
             for (id in group.map { it.id }.distinct()) write(
-                "删除",
+                Strings::coreSessionsDeleteFailed,
                 backend,
                 "sessions.delete",
                 buildJsonObject { put("session", id) },
@@ -359,7 +364,7 @@ class SessionList constructor(private val hub: ConversationHub) {
      */
     fun endElsewhere(sessionId: String, backend: String) =
         write(
-            "结束别处的 Claude Code",
+            Strings::coreSessionsEndElsewhereFailed,
             backend,
             "sessions.end_elsewhere",
             buildJsonObject { put("session", sessionId) },
@@ -368,10 +373,10 @@ class SessionList constructor(private val hub: ConversationHub) {
 
     /**
      * 把界面上已经改了的经核心的方法 [method] 写进 [backend] 上的会话记录：界面先改，操作马上看得到；写在后台跑。没写成时在主线程上做 [undo]
-     * （把界面改回去，和会话记录对上），Zeta 在前台时说一声“[what]没成功”和原因。[done] 在写完（成没成都算）后在主线程上调用。
+     * （把界面改回去，和会话记录对上），Zeta 在前台时用 [failed] 说一声没成功和原因。[done] 在写完（成没成都算）后在主线程上调用。
      */
     private fun write(
-        what: String,
+        failed: (error: String) -> String,
         backend: String,
         method: String,
         params: JsonObject,
@@ -387,7 +392,7 @@ class SessionList constructor(private val hub: ConversationHub) {
             main.post {
                 if (failure != null) {
                     undo()
-                    if (hub.foreground) hub.platform.toast("${what}没成功：${failure.message}")
+                    if (hub.foreground) hub.platform.toast(failed(failure.message.toString()))
                 }
                 done()
             }

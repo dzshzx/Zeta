@@ -8,6 +8,7 @@ import com.dzshzx.zeta.core.TaskOutput
 import com.dzshzx.zeta.core.bool
 import com.dzshzx.zeta.core.int
 import com.dzshzx.zeta.core.str
+import com.dzshzx.zeta.i18n.Strings
 import kotlin.concurrent.thread
 import kotlinx.serialization.json.JsonElement
 import kotlinx.serialization.json.JsonObject
@@ -222,7 +223,7 @@ class ConvClient(private val link: ServeRequests, internal val listener: ConvLis
     fun updateClaude(): ClaudeUpdate {
         val reply =
             link.call("system.claude_update", JsonObject(emptyMap()), CLAUDE_UPDATE_TIMEOUT_MS)
-                as? JsonObject ?: throw ServeError("主机上的 Zeta 服务没有答更新的结果")
+                as? JsonObject ?: throw ServeError(Strings.coreConvNoUpdateReply())
         return ClaudeUpdate(
             ok = reply.bool("ok") == true,
             before = reply.str("before"),
@@ -232,7 +233,7 @@ class ConvClient(private val link: ServeRequests, internal val listener: ConvLis
     }
 
     private fun minutesOf(reply: JsonElement?): Int =
-        (reply as? JsonObject)?.int("minutes") ?: throw ServeError("主机上的 Zeta 服务没有答闲置时长")
+        (reply as? JsonObject)?.int("minutes") ?: throw ServeError(Strings.coreConvNoIdleReply())
 
     /** 订阅（[watch] 为真）或退订各会话的忙闲（conv.activity，经 [ConvListener.activity] 交来）；重连后照样再订阅。 */
     fun watchActivity(watch: Boolean) {

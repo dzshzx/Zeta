@@ -13,6 +13,7 @@ import com.dzshzx.zeta.core.conv.ConvSubagent
 import com.dzshzx.zeta.core.conv.ConvTurn
 import com.dzshzx.zeta.core.conv.ConvView
 import com.dzshzx.zeta.core.conv.CoreConversation
+import com.dzshzx.zeta.i18n.Strings
 import java.util.Base64
 import java.util.UUID
 import java.util.concurrent.CompletableFuture
@@ -204,7 +205,8 @@ class Conversation(
      * 换成它指向的那个。那台还没起过进程、清单没到时，默认模型说不出是哪个，才写「默认」。
      */
     fun shownModelName(models: List<ModelOption>): String =
-        modelName(shownModel ?: hub.claudeDefaults(backend)?.model ?: DEFAULT_MODEL, models) ?: "默认"
+        modelName(shownModel ?: hub.claudeDefaults(backend)?.model ?: DEFAULT_MODEL, models)
+            ?: Strings.coreModelDefault()
 
     /** 用户在这个对话里的权限模式；null 是还没选过、也还没报过。 */
     val permissionMode: String?
@@ -256,8 +258,9 @@ class Conversation(
     private fun offlineText(): String? {
         if (!offline) return null
         val reason = view.problem ?: hub.convLinks.problem(backend)
-        return "和「${hub.backendName(backend)}」的连接断了，正在重连" +
-            reason?.takeIf { it.isNotEmpty() }?.let { "：$it" }.orEmpty()
+        val host = hub.backendName(backend)
+        return reason?.takeIf { it.isNotEmpty() }?.let { Strings.coreConvOfflineWhy(host, it) }
+            ?: Strings.coreConvOffline(host)
     }
 
     /** 最近一次有动静的时刻（核心记的，Unix 毫秒），界面据此显示“已等待多久”。还没有过、或刚发出消息核心还没答（这时核心那份还是上一次的）时为 null。 */
@@ -346,8 +349,8 @@ class Conversation(
         return try {
             pending.get()
         } catch (e: ExecutionException) {
-            val reason = e.cause?.message ?: "原对话没有开着"
-            main.post { notice("分支没有建成：$reason") }
+            val reason = e.cause?.message ?: Strings.coreConvForkSourceClosed()
+            main.post { notice(Strings.coreConvForkFailed(reason)) }
             null
         }
     }
@@ -479,7 +482,7 @@ class Conversation(
                     done()
                 }
             } catch (e: Exception) {
-                main.post { failed?.invoke(e) ?: notice(e.message ?: "没有做成") }
+                main.post { failed?.invoke(e) ?: notice(e.message ?: Strings.coreFailedGeneric()) }
             }
         }
     }
@@ -520,7 +523,7 @@ class Conversation(
             failed = { e ->
                 sending = false
                 putBack(QueuedMessage(UUID.randomUUID().toString(), text, attachments, files))
-                notice("没有发出：${e.message}")
+                notice(Strings.coreConvNotSent(e.message.toString()))
                 hub.onActivityChanged()
             },
             done = { sending = false },
@@ -683,7 +686,12 @@ class Conversation(
                     main.post {
                         tasks.outputRead(
                             id,
-                            TaskOutput("", 0, false, error = e.message ?: "没有读到输出"),
+                            TaskOutput(
+                                "",
+                                0,
+                                false,
+                                error = e.message ?: Strings.coreConvNoOutput(),
+                            ),
                         )
                     }
             }
@@ -703,7 +711,7 @@ class Conversation(
                         null -> EarlierState.Idle
                         else ->
                             EarlierState.Failed(
-                                failure.message ?: "没有读到更早的记录",
+                                failure.message ?: Strings.coreConvNoEarlier(),
                                 retry = (failure as? ServeError)?.code != HISTORY_CHANGED,
                             )
                     }
@@ -789,7 +797,7 @@ class Conversation(
     }
 
     private fun turnFinished(turn: ConvTurn) {
-        val text = turn.text.ifEmpty { "已完成" }
+        val text = turn.text.ifEmpty { Strings.coreTurnDone() }
         // 先于这一轮算闲下来：胶囊要据此判断结束的是不是正显示着的那个
         hub.onTurnEnding(this, text)
         turnRunning = false

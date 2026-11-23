@@ -4,6 +4,7 @@ import android.os.Build
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
+import com.dzshzx.zeta.i18n.Strings
 import kotlin.concurrent.thread
 
 /** 一个位置上的 Debian 环境装到了哪一步。 */
@@ -20,13 +21,17 @@ data class EnvStatus(
         get() = base && tools && user != null && claude
 }
 
-enum class InstallStep(val title: String) {
-    Check("检查设备"),
-    Download("下载 Debian 13"),
-    Extract("解压并配置"),
-    Tools("安装常用工具"),
-    User("创建用户"),
-    Claude("安装 Claude Code"),
+enum class InstallStep(private val titleText: () -> String) {
+    Check(Strings::coreInstallCheck),
+    Download(Strings::coreInstallDownload),
+    Extract(Strings::coreInstallExtract),
+    Tools(Strings::coreInstallTools),
+    User(Strings::coreInstallUser),
+    Claude(Strings::coreInstallClaude);
+
+    /** 安装页上这一步的名字。 */
+    val title: String
+        get() = titleText()
 }
 
 /** 环境体检的结果。 */
@@ -41,7 +46,7 @@ data class EnvHealth(
     val uv: String = "",
     val node: String = "",
     val go: String = "",
-    /** APK 分析工具：Zeta 装的显示各工具版本，别处装的是“版本未知”，没装是空的。 */
+    /** APK 分析工具：Zeta 装的是各工具的版本，别处装的是“?”（显示成“版本未知”，见 [version]），没装是空的。 */
     val apk: String = "",
     /** 哪些可选工具是 Zeta 自己装的（只有这些能在 Zeta 里更新、卸载）。 */
     val zetaOwned: Set<String> = emptySet(),
@@ -51,7 +56,7 @@ data class EnvHealth(
         when (name) {
             "go" -> go
             "node" -> node
-            "apk" -> apk
+            "apk" -> if (apk == "?") Strings.coreToolVersionUnknown() else apk
             else -> uv
         }
 
@@ -170,7 +175,10 @@ class EnvInstaller(private val hub: ConversationHub, private val assets: (String
         step = null
         hub.onActivityChanged()
         thread(name = "zeta-install", isDaemon = true) {
-            val failure = runCatching { install(userName) }.fold({ it }, { it.message ?: "安装中断" })
+            val failure = runCatching {
+                install(userName)
+            }
+                .fold({ it }, { it.message ?: Strings.coreInstallInterrupted() })
             main.post {
                 running = false
                 progress = null
@@ -197,8 +205,11 @@ class EnvInstaller(private val hub: ConversationHub, private val assets: (String
         val base = LinuxEnv.OWN_BASE
         val rootfs = LinuxEnv.OWN_ROOTFS
         val artifact =
-            artifact() ?: return "暂不支持这台设备的架构：${Build.SUPPORTED_ABIS.firstOrNull() ?: "未知"}"
-        if (!LinuxEnv.hasRoot()) return "没有 root 权限，请先在 root 管理器里给 Zeta 授权"
+            artifact()
+                ?: return Strings.coreInstallUnsupportedAbi(
+                    Build.SUPPORTED_ABIS.firstOrNull() ?: Strings.coreInstallUnknownAbi(),
+                )
+        if (!LinuxEnv.hasRoot()) return Strings.coreInstallNoRoot()
 
         runAndroid(InstallStep.Check, "check", base)?.let {
             return it
@@ -237,7 +248,7 @@ class EnvInstaller(private val hub: ConversationHub, private val assets: (String
                 return it
             }
         val ready = status(base)
-        val user = ready.user ?: return "没有找到刚建的用户"
+        val user = ready.user ?: return Strings.coreInstallNoUser()
         if (ready.claude) {
             markDone(InstallStep.Claude)
         } else {
@@ -271,7 +282,7 @@ class EnvInstaller(private val hub: ConversationHub, private val assets: (String
         }
 
     private fun run(step: InstallStep, launch: () -> Process): String? {
-        if (cancelled) return "已取消"
+        if (cancelled) return Strings.coreCancelled()
         main.post {
             this.step = step
             progress = null
@@ -281,7 +292,7 @@ class EnvInstaller(private val hub: ConversationHub, private val assets: (String
         val tail = ArrayDeque<String>()
         val started =
             runCatching(launch).getOrElse {
-                return "启动不了安装脚本：${it.message}"
+                return Strings.coreInstallScriptFailed(it.message.orEmpty())
             }
         process = started
         runCatching { started.outputStream.close() }
@@ -290,13 +301,13 @@ class EnvInstaller(private val hub: ConversationHub, private val assets: (String
         }
         val code = started.waitFor()
         process = null
-        if (cancelled) return "已取消"
+        if (cancelled) return Strings.coreCancelled()
         if (code == 0) {
             markDone(step)
             return null
         }
         return reported
-            ?: ("“${step.title}”没有成功（退出码 $code）" +
+            ?: (Strings.coreInstallStepFailed(step.title, code) +
                 if (tail.isEmpty()) "" else "\n" + tail.joinToString("\n"))
     }
 
@@ -332,7 +343,7 @@ class EnvInstaller(private val hub: ConversationHub, private val assets: (String
             if [ -f "${'$'}m" ]; then
               echo "apk=apktool ${'$'}(sed -n 's/^apktool=//p' "${'$'}m") · jadx ${'$'}(sed -n 's/^jadx=//p' "${'$'}m") · smali ${'$'}(sed -n 's/^smali=//p' "${'$'}m")"
             elif command -v apktool >/dev/null 2>&1 || command -v jadx >/dev/null 2>&1; then
-              echo "apk=版本未知"
+              echo "apk=?"
             fi
             """
                 .trimIndent()
@@ -389,7 +400,7 @@ class EnvInstaller(private val hub: ConversationHub, private val assets: (String
             LinuxEnv.start(target, "$command 2>&1")
         }
             .getOrElse {
-                return false to (it.message ?: "启动失败")
+                return false to (it.message ?: Strings.coreStartFailed())
             }
         runCatching { started.outputStream.close() }
         val tail = ArrayDeque<String>()

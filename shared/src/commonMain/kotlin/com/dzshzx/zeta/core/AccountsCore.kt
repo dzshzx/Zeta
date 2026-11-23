@@ -1,6 +1,7 @@
 package com.dzshzx.zeta.core
 
 import androidx.compose.runtime.Immutable
+import com.dzshzx.zeta.i18n.Strings
 import kotlinx.serialization.json.JsonArray
 import kotlinx.serialization.json.JsonElement
 import kotlinx.serialization.json.JsonObject
@@ -86,7 +87,7 @@ class AccountsCore(
     /** 把在用的号存档并退出登录，在主机上起 `claude auth login`，返回授权网址。 */
     fun loginStart(): LoginStarted {
         val result = request("accounts.login_start") as? JsonObject
-        val url = result?.str("url") ?: throw ServeError("主机上的 Zeta 服务没有给出授权网址")
+        val url = result?.str("url") ?: throw ServeError(Strings.coreAccountsNoAuthUrl())
         return LoginStarted(url, result.str("name").orEmpty())
     }
 
@@ -124,11 +125,19 @@ class AccountsCore(
             runCatching {
                 program.ensure { command, stdin -> shell.run(command, stdin, 60_000, plain = true) }
             }
-                .getOrElse { throw ServeError("装不上 claude-switch：${it.message}") }
-                ?: throw ServeError("装不上 claude-switch：进不了 Linux 环境")
+                .getOrElse {
+                    throw ServeError(Strings.coreAccountsSwitchInstallFailed(it.message.toString()))
+                }
+                ?: throw ServeError(
+                    Strings.coreAccountsSwitchInstallFailed(Strings.coreCantEnterLinuxEnv()),
+                )
         if (result.exitCode != 0)
             throw ServeError(
-                "装不上 claude-switch：" + result.stderr.trim().ifEmpty { "退出码 ${result.exitCode}" },
+                Strings.coreAccountsSwitchInstallFailed(
+                    result.stderr.trim().ifEmpty {
+                        Strings.coreExitCode(result.exitCode.toString())
+                    },
+                ),
             )
     }
 
@@ -153,7 +162,7 @@ class AccountsCore(
 
         /** accounts.list 的结果 → 账号状态。读不懂时抛 [ServeError]。 */
         fun parse(result: JsonElement?): AccountsState {
-            val o = result as? JsonObject ?: throw ServeError("读不懂主机上 Zeta 服务给的账号")
+            val o = result as? JsonObject ?: throw ServeError(Strings.coreAccountsBadReply())
             return AccountsState(
                 current = o.obj("current")?.let(::account),
                 all =

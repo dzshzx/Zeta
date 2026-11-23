@@ -4,6 +4,7 @@ import androidx.compose.runtime.Immutable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
+import com.dzshzx.zeta.i18n.Strings
 
 /** 后台任务是什么：后台命令（Bash 的 run_in_background）、监视器（Monitor）、后台子代理，或别的种类。 */
 enum class TaskKind {
@@ -73,9 +74,9 @@ fun formatElapsed(ms: Long): String {
     val m = seconds % 3600 / 60
     val s = seconds % 60
     return when {
-        h > 0 -> "$h 小时 %02d 分".format(m)
-        m > 0 -> "$m 分 %02d 秒".format(s)
-        else -> "$s 秒"
+        h > 0 -> Strings.coreElapsedHours(h.toString(), "%02d".format(m))
+        m > 0 -> Strings.coreElapsedMinutes(m.toString(), "%02d".format(s))
+        else -> Strings.coreElapsedSeconds(s.toString())
     }
 }
 

@@ -35,6 +35,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import com.dzshzx.zeta.core.conv.ConvMessage
+import com.dzshzx.zeta.i18n.Strings
 import com.dzshzx.zeta.ui.components.FoldEnter
 import com.dzshzx.zeta.ui.components.FoldExit
 import com.dzshzx.zeta.ui.components.coui2.FlatIconButton
@@ -85,7 +86,8 @@ fun QueueStrip(
             } else {
                 Spacer(Modifier.weight(1f))
                 // 插话会让排队的消息依次开始，所以只放在标题行上，不分条
-                if (!steering) ActionIcon(ZetaIcons.Bolt, "立即插话", colors.primary, onSteer)
+                if (!steering)
+                    ActionIcon(ZetaIcons.Bolt, Strings.chatSteerNow(), colors.primary, onSteer)
             }
         }
         AnimatedVisibility(
@@ -130,9 +132,9 @@ private fun QueueTitle(count: Int, steering: Boolean, expanded: Boolean, onToggl
         Text(
             text =
                 when {
-                    steering -> "插话中"
-                    multiple -> "排队中 · $count"
-                    else -> "排队中"
+                    steering -> Strings.chatSteering()
+                    multiple -> Strings.chatQueuedCount(count)
+                    else -> Strings.chatQueued()
                 },
             style = COUITheme.textStyles.bodyS,
             fontWeight = FontWeight.Medium,
@@ -142,7 +144,7 @@ private fun QueueTitle(count: Int, steering: Boolean, expanded: Boolean, onToggl
             Spacer(Modifier.width(2.dp))
             Icon(
                 ZetaIcons.ChevronDown,
-                contentDescription = if (expanded) "收起" else "展开",
+                contentDescription = if (expanded) Strings.chatCollapse() else Strings.chatExpand(),
                 modifier = Modifier.size(14.dp).rotate(chevron),
                 tint = colors.primary,
             )
@@ -172,7 +174,9 @@ private fun QueuedRow(
         )
         Spacer(Modifier.width(8.dp))
         Preview(message, onClick = { onRecall(message) }, modifier = Modifier.weight(1f))
-        ActionIcon(COUIIcons.Close, "删除这条排队消息", colors.labelSecondary) { onRemove(message) }
+        ActionIcon(COUIIcons.Close, Strings.chatRemoveQueued(), colors.labelSecondary) {
+            onRemove(message)
+        }
     }
 }
 
@@ -183,14 +187,14 @@ private fun Preview(message: ConvMessage, onClick: () -> Unit, modifier: Modifie
     val text =
         when {
             line.isNotEmpty() -> line
-            message.images.isNotEmpty() -> "[${message.images.size} 张图片]"
-            else -> "[${message.files.size} 个文件]"
+            message.images.isNotEmpty() -> Strings.chatQueuedImages(message.images.size)
+            else -> Strings.chatQueuedFiles(message.files.size)
         }
     Row(
         modifier =
             modifier
                 .clip(RoundedCornerShape(6.dp))
-                .clickable(onClickLabel = "撤回到输入框", onClick = onClick)
+                .clickable(onClickLabel = Strings.chatRecallToInput(), onClick = onClick)
                 .padding(horizontal = 4.dp, vertical = 5.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
@@ -216,8 +220,19 @@ private fun Preview(message: ConvMessage, onClick: () -> Unit, modifier: Modifie
 @Composable
 private fun Actions(steering: Boolean, onSteer: () -> Unit, onRemove: () -> Unit) {
     Row(verticalAlignment = Alignment.CenterVertically) {
-        if (!steering) ActionIcon(ZetaIcons.Bolt, "立即插话", COUITheme.colorScheme.primary, onSteer)
-        ActionIcon(COUIIcons.Close, "删除这条排队消息", COUITheme.colorScheme.labelSecondary, onRemove)
+        if (!steering)
+            ActionIcon(
+                ZetaIcons.Bolt,
+                Strings.chatSteerNow(),
+                COUITheme.colorScheme.primary,
+                onSteer,
+            )
+        ActionIcon(
+            COUIIcons.Close,
+            Strings.chatRemoveQueued(),
+            COUITheme.colorScheme.labelSecondary,
+            onRemove,
+        )
     }
 }
 

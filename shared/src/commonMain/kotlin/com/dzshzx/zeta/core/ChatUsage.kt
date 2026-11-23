@@ -1,6 +1,7 @@
 package com.dzshzx.zeta.core
 
 import androidx.compose.runtime.Immutable
+import com.dzshzx.zeta.i18n.Strings
 import java.util.Locale
 
 /** 一次或几次模型请求的 token 数（helper/usage/tokens.go 的 Tokens）；[total] 是核心给的四项之和。 */
@@ -69,14 +70,15 @@ data class ChatUsage(
  * Claude Code 支持的思考强度（`--effort`、`apply_flag_settings` 的 effortLevel）；null 表示不指定，沿用 Claude Code
  * 自己的设置。
  */
-val EffortLevels: List<Pair<String, String>> =
-    listOf(
-        "low" to "低",
-        "medium" to "中",
-        "high" to "高",
-        "xhigh" to "超高",
-        "max" to "最高",
-    )
+val EffortLevels: List<Pair<String, String>>
+    get() =
+        listOf(
+            "low" to Strings.coreEffortLow(),
+            "medium" to Strings.coreEffortMedium(),
+            "high" to Strings.coreEffortHigh(),
+            "xhigh" to Strings.coreEffortXHigh(),
+            "max" to Strings.coreEffortMax(),
+        )
 
 fun effortLabel(effort: String?): String? = effort?.let { value ->
     EffortLevels.firstOrNull { it.first == value }?.second ?: value

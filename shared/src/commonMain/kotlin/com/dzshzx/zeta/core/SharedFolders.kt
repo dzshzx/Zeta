@@ -1,5 +1,6 @@
 package com.dzshzx.zeta.core
 
+import com.dzshzx.zeta.i18n.Strings
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonArray
 import kotlinx.serialization.json.JsonObject
@@ -102,23 +103,23 @@ object SharedFolders {
 
     /** 源目录不能用的原因；能用返回 null。 */
     fun sourceProblem(source: String, existing: List<SharedFolder>, rootfs: String?): String? {
-        val normalized = normalize(source) ?: return "目录路径无效"
+        val normalized = normalize(source) ?: return Strings.coreSharedPathInvalid()
         val bind = bindSource(normalized)
         if (
             bind == "/" ||
                 (Forbidden + listOfNotNull(rootfs)).any { bind == it || bind.startsWith("$it/") }
         )
-            return "该目录不能共享"
-        if (existing.any { bindSource(it.source) == bind }) return "该目录已共享"
-        if (existing.size >= MAX) return "最多配置 $MAX 个共享文件夹"
+            return Strings.coreSharedNotAllowed()
+        if (existing.any { bindSource(it.source) == bind }) return Strings.coreSharedAlready()
+        if (existing.size >= MAX) return Strings.coreSharedMax(MAX)
         return null
     }
 
     /** 挂载名不能用的原因；能用返回 null。 */
     fun nameProblem(name: String, existing: List<SharedFolder>): String? {
         if (!NamePattern.matches(name) || name == "." || name == "..")
-            return "仅限 1–48 个字母、数字、点、下划线或连字符"
-        if (existing.any { it.name == name }) return "挂载名已被使用"
+            return Strings.coreSharedNameRule()
+        if (existing.any { it.name == name }) return Strings.coreSharedNameTaken()
         return null
     }
 

@@ -10,6 +10,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
+import com.dzshzx.zeta.i18n.Strings
 import java.io.BufferedInputStream
 import java.io.InputStream
 import java.io.OutputStream
@@ -101,7 +102,7 @@ object LinuxFiles {
             output.lineSequence().filter { it.startsWith("{") }.mapNotNull { parse(it) }.toList()
         val head =
             lines.firstOrNull()?.takeIf { it.str("type") == "zeta_ls" }
-                ?: return LinuxListing.Failed("无法读取该路径")
+                ?: return LinuxListing.Failed(Strings.coreFilesCantReadPath())
         head.str("error")?.let {
             return LinuxListing.Failed(problem(it))
         }
@@ -137,7 +138,7 @@ object LinuxFiles {
             }
         val item =
             output.lineSequence().firstOrNull { it.startsWith("{") }?.let(::parse)
-                ?: return LinuxPreview.Failed("无法读取该文件")
+                ?: return LinuxPreview.Failed(Strings.coreFilesCantReadFile())
         item.str("error")?.let {
             return LinuxPreview.Failed(problem(it))
         }
@@ -148,11 +149,11 @@ object LinuxFiles {
 
     private fun problem(error: String): String =
         when (error) {
-            "missing" -> "路径不存在"
-            "not_dir" -> "不是目录"
-            "not_file" -> "不是普通文件"
-            "denied" -> "没有权限读取（Linux 用户看不了这里）"
-            else -> "无法读取该路径"
+            "missing" -> Strings.coreFilesMissing()
+            "not_dir" -> Strings.coreFilesNotDir()
+            "not_file" -> Strings.coreFilesNotFile()
+            "denied" -> Strings.coreFilesDeniedUser()
+            else -> Strings.coreFilesCantReadPath()
         }
 
     private fun parse(line: String): JsonObject? = runCatching {
@@ -262,13 +263,13 @@ object LinuxTransfers {
                 tally.lastName = it
             }
         }
-            .getOrElse { it.message ?: "导入中断" }
+            .getOrElse { it.message ?: Strings.coreFilesImportInterrupted() }
         if (problem == null) {
             tally.imported++
             return true
         }
         if (cancelled) return true
-        tally.failure = "“$name”没有导入：$problem"
+        tally.failure = Strings.coreFilesImportFailed(name, problem)
         return false
     }
 
@@ -276,10 +277,14 @@ object LinuxTransfers {
         val imported = tally.imported
         val failure = tally.failure
         return when {
-            cancelled -> "已取消" + if (imported > 0) "，已导入 $imported 个文件" else ""
-            failure != null -> (if (imported > 0) "已导入 $imported 个文件；" else "") + failure
-            imported == 1 -> "已导入 ${tally.lastName}"
-            else -> "已导入 $imported 个文件"
+            cancelled ->
+                if (imported > 0) Strings.coreFilesCancelledImported(imported)
+                else Strings.coreCancelled()
+            failure != null ->
+                if (imported > 0) Strings.coreFilesImportedThenFailed(imported, failure)
+                else failure
+            imported == 1 -> Strings.coreFilesImportedOne(tally.lastName)
+            else -> Strings.coreFilesImportedCount(imported)
         }
     }
 
@@ -301,7 +306,7 @@ object LinuxTransfers {
         val temp = ".zeta-import-" + UUID.randomUUID().toString().take(8)
         val input =
             runCatching { context.contentResolver.openInputStream(uri) }.getOrNull()
-                ?: return "读取不了这个文件"
+                ?: return Strings.coreFilesCantReadSource()
         input.use { source ->
             val command =
                 "exec bash -c " +
@@ -346,14 +351,14 @@ object LinuxTransfers {
                 )
             }
             return when {
-                cancelled -> "已取消"
-                readFailed -> "读取不了这个文件"
-                code == 3 -> "进不去目录 $directory"
-                code == 4 -> "没有权限写入 $directory"
-                code == 5 -> "写入失败，可能是存储空间不足"
+                cancelled -> Strings.coreCancelled()
+                readFailed -> Strings.coreFilesCantReadSource()
+                code == 3 -> Strings.coreFilesCantEnterDir(directory)
+                code == 4 -> Strings.coreFilesNoWriteDir(directory)
+                code == 5 -> Strings.coreFilesWriteFailedSpace()
                 else ->
                     errors.text().lineSequence().lastOrNull { it.isNotBlank() }?.trim()
-                        ?: output.text().trim().ifBlank { "退出码 $code" }
+                        ?: output.text().trim().ifBlank { Strings.coreFilesExitCode(code) }
             }
         }
     }
@@ -376,14 +381,14 @@ object LinuxTransfers {
             val problem = runCatching {
                 exportOne(app, config, path, name, size, destination)
             }
-                .getOrElse { it.message ?: "导出中断" }
+                .getOrElse { it.message ?: Strings.coreFilesExportInterrupted() }
             if (problem != null)
                 runCatching { DocumentsContract.deleteDocument(app.contentResolver, destination) }
             finish(
                 when {
-                    problem == null -> "已导出 $name"
-                    cancelled -> "已取消"
-                    else -> "“$name”没有导出：$problem"
+                    problem == null -> Strings.coreFilesExported(name)
+                    cancelled -> Strings.coreCancelled()
+                    else -> Strings.coreFilesExportFailed(name, problem)
                 },
                 ok = problem == null,
                 imported = false,
@@ -399,7 +404,8 @@ object LinuxTransfers {
         size: Long?,
         destination: Uri,
     ): String? {
-        val sink = openDestination(context, destination) ?: return "写不了选好的位置"
+        val sink =
+            openDestination(context, destination) ?: return Strings.coreFilesCantWriteDestination()
         sink.use { out ->
             // 文件内容走标准输出。登录 shell 的配置文件万一往标准输出打了字，会混进导出的文件里：
             // 先打一行记号，记号之前的都丢掉
@@ -456,22 +462,26 @@ object LinuxTransfers {
             else -> -1
         }
 
-    /** 导出脚本标准错误的最后一句，读不了的换成中文说法。 */
+    /** 导出脚本标准错误的最后一句，读不了的换成界面语言的说法。 */
     private fun exportErrorReason(errors: Drain): String? =
         errors
             .text()
             .lineSequence()
             .lastOrNull { it.isNotBlank() }
             ?.trim()
-            ?.let { line -> if ("Permission denied" in line) "没有权限读取" else line }
+            ?.let { line -> if ("Permission denied" in line) Strings.coreFilesDenied() else line }
 
     /** 导出的结局：null 是成功，否则是原因。 */
     private fun exportProblem(code: Int, failed: Throwable?, reason: String?): String? =
         when {
-            cancelled -> "已取消"
-            failed != null && failed !is ReadFailure -> "写入失败：" + (failed.message ?: "未知原因")
+            cancelled -> Strings.coreCancelled()
+            failed != null && failed !is ReadFailure ->
+                Strings.coreFilesWriteFailed(failed.message ?: Strings.coreUnknownReason())
             code == 0 && failed == null -> null
-            else -> reason ?: if (code > 0) "退出码 $code" else "读取中断"
+            else ->
+                reason
+                    ?: if (code > 0) Strings.coreFilesExitCode(code)
+                    else Strings.coreFilesReadInterrupted()
         }
 
     fun cancel() {

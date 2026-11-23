@@ -7,5 +7,5132 @@
   "settingsLanguageSystem": "跟随系统",
   "@settingsLanguageSystem": {
     "description": "语言选项：用系统语言，系统语言不是简体中文和英文时用简体中文。"
+  },
+  "chatEndTitle": "结束这个对话？",
+  "@chatEndTitle": {
+    "description": "聊天页结束对话前的确认框标题。"
+  },
+  "chatEnd": "结束",
+  "@chatEnd": {
+    "description": "结束对话确认框的确认按钮。"
+  },
+  "chatEndSummaryAt": "它正在{place}运行，结束会停掉那边的进程，那边在做的也一并停掉。对话内容保留，可以从历史对话里接着聊。",
+  "@chatEndSummaryAt": {
+    "description": "结束确认框的说明：会话正在别处运行。place 是 chatPlace* 那几句说的在哪，或 chatPlaceElsewhere。",
+    "placeholders": {
+      "place": {
+        "type": "String",
+        "example": "work-pc 的终端里"
+      }
+    }
+  },
+  "chatEndSummaryActive": "它还在进行（在回答、等你确认或有后台任务），结束会一并停掉。对话内容保留，可以从历史对话里接着聊。",
+  "@chatEndSummaryActive": {
+    "description": "结束确认框的说明：对话还在这里进行。"
+  },
+  "chatPlaceElsewhere": "别处",
+  "@chatPlaceElsewhere": {
+    "description": "占着会话的进程在哪说不出时，接在「它正在」「会话正在」后面。"
+  },
+  "chatPlaceLocalTerminal": "本机终端里",
+  "@chatPlaceLocalTerminal": {
+    "description": "占着会话的进程在哪：本机的终端。接在「它正在」「会话正在」后面。"
+  },
+  "chatPlaceLocalApp": "本机的{app}里",
+  "@chatPlaceLocalApp": {
+    "description": "占着会话的进程在哪：本机的某个应用（Zeta、VS Code 等）。中文和英文字母相接处会自动加空格。",
+    "placeholders": {
+      "app": {
+        "type": "String",
+        "example": "Zeta 测试版"
+      }
+    }
+  },
+  "chatPlaceDeviceApp": "{device}的{app}里",
+  "@chatPlaceDeviceApp": {
+    "description": "占着会话的进程在哪：某台设备上的某个应用。中文和英文字母相接处会自动加空格。",
+    "placeholders": {
+      "device": {
+        "type": "String",
+        "example": "work-pc"
+      },
+      "app": {
+        "type": "String",
+        "example": "终端"
+      }
+    }
+  },
+  "chatPlaceApp": "{app}里",
+  "@chatPlaceApp": {
+    "description": "占着会话的进程在哪：只知道是哪个应用。中文和英文字母相接处会自动加空格。",
+    "placeholders": {
+      "app": {
+        "type": "String",
+        "example": "VS Code"
+      }
+    }
+  },
+  "chatAppTerminal": "终端",
+  "@chatAppTerminal": {
+    "description": "占着会话的应用：终端里的 Claude Code。放进 chatPlace* 的 app。"
+  },
+  "chatAppZetaDev": "Zeta 测试版",
+  "@chatAppZetaDev": {
+    "description": "占着会话的应用：Zeta 测试版。放进 chatPlace* 的 app。"
+  },
+  "chatAppClaudeDesktop": "Claude 桌面版",
+  "@chatAppClaudeDesktop": {
+    "description": "占着会话的应用：Claude 桌面应用。放进 chatPlace* 的 app。"
+  },
+  "chatSessionRunningAt": "会话正在{place}运行",
+  "@chatSessionRunningAt": {
+    "description": "「别处运行」卡片的标题。place 是 chatPlace* 那几句或 chatPlaceElsewhere。",
+    "placeholders": {
+      "place": {
+        "type": "String",
+        "example": "work-pc 的终端里"
+      }
+    }
+  },
+  "chatOccupantChecking": "正在查询那边的状态。",
+  "@chatOccupantChecking": {
+    "description": "「别处运行」卡片的说明：还没查到那边的样子。"
+  },
+  "chatOccupantIdleZeta": "当前空闲。接管后那边的对话会结束，会话转到这里继续。",
+  "@chatOccupantIdleZeta": {
+    "description": "「别处运行」卡片的说明：占着的是另一个 Zeta，闲着。"
+  },
+  "chatOccupantIdleOther": "当前空闲。接管后那边会退出，会话转到 Zeta 继续。",
+  "@chatOccupantIdleOther": {
+    "description": "「别处运行」卡片的说明：占着的是终端等，闲着。"
+  },
+  "chatOccupantWaiting": "正在等待确认。接管后这个确认作废，要让 Claude 重做这一步。",
+  "@chatOccupantWaiting": {
+    "description": "「别处运行」卡片的说明：那边在等确认，不知道等的是什么。"
+  },
+  "chatOccupantWaitingFor": "正在等待确认：{what}。接管后这个确认作废，要让 Claude 重做这一步。",
+  "@chatOccupantWaitingFor": {
+    "description": "「别处运行」卡片的说明：那边在等确认。what 是核心给的在等什么（原样）。",
+    "placeholders": {
+      "what": {
+        "type": "String",
+        "example": "Bash"
+      }
+    }
+  },
+  "chatOccupantUnknown": "看不出是否空闲。接管会让它退出，进行中的操作会中断。",
+  "@chatOccupantUnknown": {
+    "description": "「别处运行」卡片的说明：看不出那边闲不闲。"
+  },
+  "chatOccupantShell": "正在执行 ! 命令，执行完后可以接管。",
+  "@chatOccupantShell": {
+    "description": "「别处运行」卡片的说明：那边在执行 ! 开头的 shell 命令。"
+  },
+  "chatOccupantAnswering": "正在回答，本轮结束后可以接管。",
+  "@chatOccupantAnswering": {
+    "description": "「别处运行」卡片的说明：那边正在回答。"
+  },
+  "chatTakingOver": "正在接管…",
+  "@chatTakingOver": {
+    "description": "「别处运行」卡片的按钮：正在接管。"
+  },
+  "chatTakeOver": "接管会话",
+  "@chatTakeOver": {
+    "description": "「别处运行」卡片的按钮：把会话接到这里。"
+  },
+  "chatWaitIdle": "等待对方空闲",
+  "@chatWaitIdle": {
+    "description": "「别处运行」卡片的按钮（不可点）：那边忙着，等它空闲。"
+  },
+  "chatHistory": "历史对话",
+  "@chatHistory": {
+    "description": "聊天页顶栏左边打开侧栏的按钮（读屏说明）。"
+  },
+  "chatConnectRemote": "连接远程设备",
+  "@chatConnectRemote": {
+    "description": "手机本机用不了、还没加过远程设备时的按钮：去加一台。"
+  },
+  "chatDisconnectedTitle": "「{name}」已断开",
+  "@chatDisconnectedTitle": {
+    "description": "当前对话所在的远程设备「连接」关着时聊天页的标题。",
+    "placeholders": {
+      "name": {
+        "type": "String",
+        "example": "work-pc"
+      }
+    }
+  },
+  "chatDisconnectedBody": "{note}。连上后接着看。",
+  "@chatDisconnectedBody": {
+    "description": "远程设备断开时聊天页的说明。note 是设备页共用的那句「Zeta 不连这台设备……」。",
+    "placeholders": {
+      "note": {
+        "type": "String"
+      }
+    }
+  },
+  "chatConnect": "连接",
+  "@chatConnect": {
+    "description": "远程设备断开时聊天页的按钮：马上连回去。"
+  },
+  "chatScrollToBottom": "回到底部",
+  "@chatScrollToBottom": {
+    "description": "聊天列表右下角回到最新消息的按钮（读屏说明）。"
+  },
+  "chatWaitedSeconds": "已等待 {seconds} 秒",
+  "@chatWaitedSeconds": {
+    "description": "对话在进行、好一阵没有新输出时，等待行上的字：离上次输出多少秒。",
+    "placeholders": {
+      "seconds": {
+        "type": "int"
+      }
+    }
+  },
+  "chatSwitchModel": "切换模型",
+  "@chatSwitchModel": {
+    "description": "顶栏标题旁的下拉箭头（读屏说明）：点开换模型。"
+  },
+  "chatNewChat": "新对话",
+  "@chatNewChat": {
+    "description": "聊天页右上角菜单：开一个新对话。"
+  },
+  "chatEndChat": "结束对话",
+  "@chatEndChat": {
+    "description": "聊天页右上角菜单：结束当前对话（同终端里的 /exit）。"
+  },
+  "chatFindInChat": "在对话中查找",
+  "@chatFindInChat": {
+    "description": "聊天页右上角菜单项，也是查找栏输入框的占位。"
+  },
+  "chatSettings": "设置",
+  "@chatSettings": {
+    "description": "聊天页右上角菜单：打开设置。"
+  },
+  "chatSuggestProjectTitle": "看看这个项目",
+  "@chatSuggestProjectTitle": {
+    "description": "新对话空白页的建议卡片标题（卡片窄，尽量短）。"
+  },
+  "chatSuggestProjectPrompt": "先浏览当前目录，概括这个项目是做什么的、结构如何。",
+  "@chatSuggestProjectPrompt": {
+    "description": "点「看看这个项目」卡片后替用户发给 Claude 的提问。"
+  },
+  "chatSuggestGitTitle": "检查 Git 状态",
+  "@chatSuggestGitTitle": {
+    "description": "新对话空白页的建议卡片标题（卡片窄，尽量短）。"
+  },
+  "chatSuggestGitPrompt": "查看当前目录的 git 状态和最近的提交，告诉我有哪些未提交的改动。",
+  "@chatSuggestGitPrompt": {
+    "description": "点「检查 Git 状态」卡片后替用户发给 Claude 的提问。"
+  },
+  "chatSuggestResumeTitle": "接着上次做",
+  "@chatSuggestResumeTitle": {
+    "description": "新对话空白页的建议卡片标题（卡片窄，尽量短）。"
+  },
+  "chatSuggestResumePrompt": "回顾这个目录里最近的改动，告诉我上次做到哪了、接下来该做什么。",
+  "@chatSuggestResumePrompt": {
+    "description": "点「接着上次做」卡片后替用户发给 Claude 的提问。"
+  },
+  "chatSuggestDeviceTitle": "设备状况",
+  "@chatSuggestDeviceTitle": {
+    "description": "新对话空白页的建议卡片标题（卡片窄，尽量短）。"
+  },
+  "chatSuggestDevicePrompt": "检查这台设备的内存、存储和负载情况，有异常就指出来。",
+  "@chatSuggestDevicePrompt": {
+    "description": "点「设备状况」卡片后替用户发给 Claude 的提问。"
+  },
+  "chatEmptyGreeting": "有什么可以帮你？",
+  "@chatEmptyGreeting": {
+    "description": "新对话空白页的大标题。"
+  },
+  "chatNotSignedIn": "这个环境里的 Claude Code 还没有登录账号",
+  "@chatNotSignedIn": {
+    "description": "新对话空白页：Claude Code 还没登录时的说明。"
+  },
+  "chatSignIn": "登录 Claude 账号",
+  "@chatSignIn": {
+    "description": "新对话空白页：去登录的按钮。"
+  },
+  "chatCwdTitle": "工作目录",
+  "@chatCwdTitle": {
+    "description": "新对话空白页改工作目录的对话框标题。"
+  },
+  "chatCwdLocal": "这个对话在 Debian 里的哪个目录下进行",
+  "@chatCwdLocal": {
+    "description": "改工作目录对话框的说明：对话在手机的 Debian 里。"
+  },
+  "chatCwdRemote": "这个对话在「{device}」上的哪个目录下进行",
+  "@chatCwdRemote": {
+    "description": "改工作目录对话框的说明：对话在远程设备上。",
+    "placeholders": {
+      "device": {
+        "type": "String",
+        "example": "work-pc"
+      }
+    }
+  },
+  "chatOk": "确定",
+  "@chatOk": {
+    "description": "对话框的确认按钮。"
+  },
+  "chatCollapse": "收起",
+  "@chatCollapse": {
+    "description": "可折叠的条目收起（按钮或读屏说明）。"
+  },
+  "chatExpand": "展开",
+  "@chatExpand": {
+    "description": "可折叠的条目展开（按钮或读屏说明）。"
+  },
+  "chatFromSession": "来自会话 {peer}",
+  "@chatFromSession": {
+    "description": "别的会话发来的消息上方的标签。",
+    "placeholders": {
+      "peer": {
+        "type": "String",
+        "example": "a1b2c3"
+      }
+    }
+  },
+  "chatCopy": "复制",
+  "@chatCopy": {
+    "description": "提问气泡长按菜单：复制。"
+  },
+  "chatSaveAsPrompt": "收藏为常用指令",
+  "@chatSaveAsPrompt": {
+    "description": "提问气泡长按菜单：存进常用指令。"
+  },
+  "chatEdit": "编辑",
+  "@chatEdit": {
+    "description": "提问气泡长按菜单：改了重发。"
+  },
+  "chatDelete": "删除",
+  "@chatDelete": {
+    "description": "提问气泡长按菜单：删除这一轮。"
+  },
+  "chatWorkRunningStep": "正在处理第 {step} 步 · {title}",
+  "@chatWorkRunningStep": {
+    "description": "步骤卡片的标题：正在跑第几步，title 是那一步的标题。",
+    "placeholders": {
+      "step": {
+        "type": "int"
+      },
+      "title": {
+        "type": "String",
+        "example": "读取 main.go"
+      }
+    }
+  },
+  "chatThinking": "正在思考",
+  "@chatThinking": {
+    "description": "步骤卡片、思考条目的标题：还在思考。"
+  },
+  "chatStepsDone": "已完成 {count} 个步骤",
+  "@chatStepsDone": {
+    "description": "步骤卡片的标题：都做完了，做了几步。",
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "chatThinkingDone": "思考已完成",
+  "@chatThinkingDone": {
+    "description": "思考条目的标题：想完了。"
+  },
+  "chatThinkingDoneIn": "思考已完成 · 用时 {seconds} 秒",
+  "@chatThinkingDoneIn": {
+    "description": "思考条目的标题：想完了，想了几秒。",
+    "placeholders": {
+      "seconds": {
+        "type": "int"
+      }
+    }
+  },
+  "chatViewSubagentSteps": "查看子代理的步骤",
+  "@chatViewSubagentSteps": {
+    "description": "子代理那一步右边的按钮（读屏说明）：进子代理查看页。"
+  },
+  "chatDone": "已完成",
+  "@chatDone": {
+    "description": "步骤、任务清单项已完成的标记（读屏说明）。"
+  },
+  "chatFailed": "失败",
+  "@chatFailed": {
+    "description": "步骤失败的标记（读屏说明）。"
+  },
+  "chatToolRunCommand": "执行命令",
+  "@chatToolRunCommand": {
+    "description": "Bash 工具那一步没有说明和命令时的标题。"
+  },
+  "chatToolRead": "读取 {name}",
+  "@chatToolRead": {
+    "description": "Read 工具那一步的标题。",
+    "placeholders": {
+      "name": {
+        "type": "String",
+        "example": "main.go"
+      }
+    }
+  },
+  "chatToolWrite": "写入 {name}",
+  "@chatToolWrite": {
+    "description": "Write 工具那一步的标题。",
+    "placeholders": {
+      "name": {
+        "type": "String",
+        "example": "main.go"
+      }
+    }
+  },
+  "chatToolEdit": "编辑 {name}",
+  "@chatToolEdit": {
+    "description": "Edit 类工具那一步的标题。",
+    "placeholders": {
+      "name": {
+        "type": "String",
+        "example": "main.go"
+      }
+    }
+  },
+  "chatToolGrep": "搜索 {pattern}",
+  "@chatToolGrep": {
+    "description": "Grep 工具那一步的标题。",
+    "placeholders": {
+      "pattern": {
+        "type": "String",
+        "example": "TODO"
+      }
+    }
+  },
+  "chatToolGlob": "查找文件 {pattern}",
+  "@chatToolGlob": {
+    "description": "Glob 工具那一步的标题。",
+    "placeholders": {
+      "pattern": {
+        "type": "String",
+        "example": "**/*.kt"
+      }
+    }
+  },
+  "chatToolWebSearch": "搜索网页：{query}",
+  "@chatToolWebSearch": {
+    "description": "WebSearch 工具那一步的标题。",
+    "placeholders": {
+      "query": {
+        "type": "String"
+      }
+    }
+  },
+  "chatToolWebFetch": "读取网页 {host}",
+  "@chatToolWebFetch": {
+    "description": "WebFetch 工具那一步的标题。",
+    "placeholders": {
+      "host": {
+        "type": "String",
+        "example": "example.com"
+      }
+    }
+  },
+  "chatToolAgent": "子代理：{task}",
+  "@chatToolAgent": {
+    "description": "派子代理那一步的标题，task 是给它的任务说明。",
+    "placeholders": {
+      "task": {
+        "type": "String"
+      }
+    }
+  },
+  "chatToolAsk": "向你提问",
+  "@chatToolAsk": {
+    "description": "AskUserQuestion 工具那一步的标题。"
+  },
+  "chatToolPlan": "提交计划",
+  "@chatToolPlan": {
+    "description": "ExitPlanMode 工具那一步的标题。"
+  },
+  "chatToolSkill": "技能 {name}",
+  "@chatToolSkill": {
+    "description": "Skill 工具那一步的标题。",
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "chatToolGeneric": "工具",
+  "@chatToolGeneric": {
+    "description": "没有名字的工具那一步的标题。"
+  },
+  "chatToolPhone": "手机 · {tool}",
+  "@chatToolPhone": {
+    "description": "手机工具目录里没有的手机工具那一步的标题。",
+    "placeholders": {
+      "tool": {
+        "type": "String",
+        "example": "tap"
+      }
+    }
+  },
+  "chatMoreChanges": "还有 {count} 处改动，展开查看",
+  "@chatMoreChanges": {
+    "description": "改文件卡片收起时下面的链接：还有几处改动没显示。",
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "chatDiffClipped": "内容太长，记录里只留了前一部分，对比到截断处为止",
+  "@chatDiffClipped": {
+    "description": "改文件卡片：工具参数太长被截断，对比不全。"
+  },
+  "chatEmptyFile": "空文件",
+  "@chatEmptyFile": {
+    "description": "改文件卡片：新建的是空文件。"
+  },
+  "chatNoChanges": "没有改动",
+  "@chatNoChanges": {
+    "description": "改文件卡片：前后一样。"
+  },
+  "chatShowAllChanges": "展开全部改动 · 共 {lines} 行",
+  "@chatShowAllChanges": {
+    "description": "改文件卡片底部：展开全部，共几行。",
+    "placeholders": {
+      "lines": {
+        "type": "int"
+      }
+    }
+  },
+  "chatCollapseHidden": "收起 · 还有 {lines} 行太长未显示",
+  "@chatCollapseHidden": {
+    "description": "改文件卡片底部：收起；有几行太长没画。",
+    "placeholders": {
+      "lines": {
+        "type": "int"
+      }
+    }
+  },
+  "chatNewFile": "新文件",
+  "@chatNewFile": {
+    "description": "改文件卡片的标签：新建的文件。"
+  },
+  "chatRewritten": "整份重写",
+  "@chatRewritten": {
+    "description": "改文件卡片的标签：整个文件重写。"
+  },
+  "chatReplaceAll": "全部替换",
+  "@chatReplaceAll": {
+    "description": "改文件卡片的标签：替换了全部匹配处。"
+  },
+  "chatLoadImage": "加载图片 · {host}",
+  "@chatLoadImage": {
+    "description": "回答里的网络图片没自动加载时的按钮，host 是图片所在的网站。",
+    "placeholders": {
+      "host": {
+        "type": "String",
+        "example": "example.com"
+      }
+    }
+  },
+  "chatImage": "图片",
+  "@chatImage": {
+    "description": "图片（读屏说明）。"
+  },
+  "chatImageUnavailable": "图片无法显示",
+  "@chatImageUnavailable": {
+    "description": "图片读不出来时的占位。"
+  },
+  "chatImageUnavailableFile": "图片无法显示：{name}",
+  "@chatImageUnavailableFile": {
+    "description": "本机文件的图片读不出来时的占位，name 是文件名。",
+    "placeholders": {
+      "name": {
+        "type": "String",
+        "example": "shot.png"
+      }
+    }
+  },
+  "chatBack": "返回",
+  "@chatBack": {
+    "description": "看图页左上角的返回按钮（读屏说明）。"
+  },
+  "chatSaveToGallery": "保存到相册",
+  "@chatSaveToGallery": {
+    "description": "看图页的按钮。"
+  },
+  "chatShare": "分享",
+  "@chatShare": {
+    "description": "看图页的按钮。"
+  },
+  "chatZoomActual": "原大",
+  "@chatZoomActual": {
+    "description": "看图页读屏报的缩放：原始大小。"
+  },
+  "chatZoomIn": "放大 {scale} 倍",
+  "@chatZoomIn": {
+    "description": "看图页读屏报的缩放：放大了几倍（一位小数）。",
+    "placeholders": {
+      "scale": {
+        "type": "String",
+        "example": "2.5"
+      }
+    }
+  },
+  "chatZoomOut": "缩小到 {scale} 倍",
+  "@chatZoomOut": {
+    "description": "看图页读屏报的缩放：缩小到几倍（一位小数）。",
+    "placeholders": {
+      "scale": {
+        "type": "String",
+        "example": "0.5"
+      }
+    }
+  },
+  "chatImageCount": "{count} 张图片",
+  "@chatImageCount": {
+    "description": "多张图片的浏览页标题。",
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "chatLoadEarlier": "载入更早的 {count} 条记录",
+  "@chatLoadEarlier": {
+    "description": "聊天列表最上面：点了载入更早的记录。",
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "chatLoadingEarlier": "正在载入更早的记录",
+  "@chatLoadingEarlier": {
+    "description": "聊天列表最上面：正在载入更早的记录。"
+  },
+  "chatTapToRetry": "{message}，点按重试",
+  "@chatTapToRetry": {
+    "description": "载入更早的记录失败、可以重试时：message 是失败原因。",
+    "placeholders": {
+      "message": {
+        "type": "String"
+      }
+    }
+  },
+  "chatPrevious": "上一个",
+  "@chatPrevious": {
+    "description": "查找栏的按钮（读屏说明）：上一个命中。"
+  },
+  "chatNext": "下一个",
+  "@chatNext": {
+    "description": "查找栏的按钮（读屏说明）：下一个命中。"
+  },
+  "chatCloseFind": "关闭查找",
+  "@chatCloseFind": {
+    "description": "查找栏的按钮（读屏说明）：关掉查找栏。"
+  },
+  "chatFindHint": "查提问和回答，不含工具步骤和思考",
+  "@chatFindHint": {
+    "description": "查找栏下面的说明：查什么。"
+  },
+  "chatFindHintEarlierFailed": "查提问和回答，不含工具步骤和思考；{problem}，更早的 {count} 条没查",
+  "@chatFindHintEarlierFailed": {
+    "description": "查找栏下面的说明：更早的记录载入失败，有几条没查。problem 是失败原因。",
+    "placeholders": {
+      "problem": {
+        "type": "String"
+      },
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "chatFindHintEarlierLoading": "查提问和回答，不含工具步骤和思考；正在载入更早的 {count} 条…",
+  "@chatFindHintEarlierLoading": {
+    "description": "查找栏下面的说明：正在载入更早的记录来查。",
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "chatFinding": "查找中",
+  "@chatFinding": {
+    "description": "查找栏的命中计数处：还在载入更早的记录来查。"
+  },
+  "chatNoResults": "无结果",
+  "@chatNoResults": {
+    "description": "查找栏的命中计数处：没有命中。"
+  },
+  "chatElicitUrl": "{server} 请你去网页上操作",
+  "@chatElicitUrl": {
+    "description": "MCP 服务器要用户去网页上操作时的对话框标题。",
+    "placeholders": {
+      "server": {
+        "type": "String",
+        "example": "github"
+      }
+    }
+  },
+  "chatElicitForm": "{server} 需要你填写",
+  "@chatElicitForm": {
+    "description": "MCP 服务器要用户填表时的对话框标题。",
+    "placeholders": {
+      "server": {
+        "type": "String",
+        "example": "github"
+      }
+    }
+  },
+  "chatDecline": "拒绝",
+  "@chatDecline": {
+    "description": "MCP 服务器请求对话框的按钮：不填。"
+  },
+  "chatOpenWebPage": "打开网页",
+  "@chatOpenWebPage": {
+    "description": "MCP 服务器请求对话框的按钮：去网页上操作。"
+  },
+  "chatSubmit": "提交",
+  "@chatSubmit": {
+    "description": "MCP 服务器请求对话框的按钮：交上填好的表。"
+  },
+  "chatDeviceLoad": "设备负载",
+  "@chatDeviceLoad": {
+    "description": "输入栏上负载标识的读屏说明，也是点开的说明框标题。"
+  },
+  "chatDeviceLoadCpu": "设备负载：CPU {percent}%",
+  "@chatDeviceLoadCpu": {
+    "description": "负载标识的读屏说明：带 CPU 使用率。",
+    "placeholders": {
+      "percent": {
+        "type": "int"
+      }
+    }
+  },
+  "chatCpuNotRead": "还没有读到（对话没连上，或那台主机上的 Zeta 服务还没更新）。",
+  "@chatCpuNotRead": {
+    "description": "负载说明框：还没有读数。"
+  },
+  "chatCpuNoAccess": "那台主机不让读 CPU 计数（/proc/stat）。",
+  "@chatCpuNoAccess": {
+    "description": "负载说明框：读不到 CPU 计数。"
+  },
+  "chatCpuUsage": "CPU 使用率 {percent}%，{cores} 个核的平均。",
+  "@chatCpuUsage": {
+    "description": "负载说明框：使用率和核数。",
+    "placeholders": {
+      "percent": {
+        "type": "int"
+      },
+      "cores": {
+        "type": "int"
+      }
+    }
+  },
+  "chatCpuExplain": "{host}：{reading}\n\n整机所有进程的 CPU 忙碌占比，和 Claude Code 状态栏里的 cpu% 同一个算法（两次读 /proc/stat 相减，等磁盘也算空闲）。聊天页开着时每 {seconds} 秒更新一次。",
+  "@chatCpuExplain": {
+    "description": "负载说明框的正文：host 是设备名，reading 是 chatCpuNotRead、chatCpuNoAccess 或 chatCpuUsage 之一。",
+    "placeholders": {
+      "host": {
+        "type": "String",
+        "example": "work-pc"
+      },
+      "reading": {
+        "type": "String"
+      },
+      "seconds": {
+        "type": "int"
+      }
+    }
+  },
+  "chatSubagent": "子代理",
+  "@chatSubagent": {
+    "description": "子代理查看页的标题；子代理没有说明时的名字。"
+  },
+  "chatChatClosed": "这个对话已经收起",
+  "@chatChatClosed": {
+    "description": "子代理查看页：所在的对话已经不在了。"
+  },
+  "chatSteps": "步骤",
+  "@chatSteps": {
+    "description": "子代理查看页的分组标题。"
+  },
+  "chatEarlierNotLoaded": "更早的 {count} 条记录未载入",
+  "@chatEarlierNotLoaded": {
+    "description": "子代理查看页：前面有几条记录没载入。",
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "chatStatus": "状态",
+  "@chatStatus": {
+    "description": "子代理查看页的一行：子代理的状态。"
+  },
+  "chatSubagentType": "子代理类型",
+  "@chatSubagentType": {
+    "description": "子代理查看页的一行。"
+  },
+  "chatModel": "模型",
+  "@chatModel": {
+    "description": "子代理查看页的一行。"
+  },
+  "chatToolCalls": "工具调用",
+  "@chatToolCalls": {
+    "description": "子代理查看页的一行：调了几次工具。"
+  },
+  "chatTimes": "{count} 次",
+  "@chatTimes": {
+    "description": "子代理查看页「工具调用」一行右边的次数。",
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "chatReading": "正在读取",
+  "@chatReading": {
+    "description": "子代理状态：正在读它的记录。"
+  },
+  "chatReadFailed": "读取失败",
+  "@chatReadFailed": {
+    "description": "子代理状态：记录读不出来。"
+  },
+  "chatNoRecord": "没有记录",
+  "@chatNoRecord": {
+    "description": "子代理状态：找不到它的记录。"
+  },
+  "chatUnfinished": "未做完",
+  "@chatUnfinished": {
+    "description": "子代理状态：没跑完就停了。"
+  },
+  "chatSubagentMissing": "没有找到它的记录：Claude Code 还没写出来，或者会话已经删了",
+  "@chatSubagentMissing": {
+    "description": "子代理查看页：没有步骤、也找不到记录时的说明。"
+  },
+  "chatReadingEllipsis": "正在读取…",
+  "@chatReadingEllipsis": {
+    "description": "子代理查看页：正在读步骤。"
+  },
+  "chatNoStepsYet": "还没有步骤",
+  "@chatNoStepsYet": {
+    "description": "子代理查看页：一步都还没有。"
+  },
+  "chatWorking": "正在工作",
+  "@chatWorking": {
+    "description": "子代理查看页最后一行：还在跑。"
+  },
+  "chatInstructions": "交给它的指令",
+  "@chatInstructions": {
+    "description": "子代理查看页的分组标题：派它时给的指令。"
+  },
+  "chatTodoAllDone": "全部完成",
+  "@chatTodoAllDone": {
+    "description": "输入栏上方任务清单条：全部做完了。"
+  },
+  "chatTodoNext": "下一项：{item}",
+  "@chatTodoNext": {
+    "description": "任务清单条：没在做的项时说下一项。",
+    "placeholders": {
+      "item": {
+        "type": "String"
+      }
+    }
+  },
+  "chatTodoCollapse": "收起任务清单",
+  "@chatTodoCollapse": {
+    "description": "任务清单条的点按说明（读屏）。"
+  },
+  "chatTodoExpand": "展开任务清单",
+  "@chatTodoExpand": {
+    "description": "任务清单条的点按说明（读屏）。"
+  },
+  "chatTodoA11y": "任务清单，已完成 {done} 项，共 {total} 项。{summary}",
+  "@chatTodoA11y": {
+    "description": "任务清单条的读屏说明：summary 是条上显示的那句。",
+    "placeholders": {
+      "done": {
+        "type": "int"
+      },
+      "total": {
+        "type": "int"
+      },
+      "summary": {
+        "type": "String"
+      }
+    }
+  },
+  "chatTodoDismiss": "收掉这份任务清单",
+  "@chatTodoDismiss": {
+    "description": "任务清单条右边的关闭按钮（读屏说明）。"
+  },
+  "chatTodoCreate": "新建任务：{subject}",
+  "@chatTodoCreate": {
+    "description": "TaskCreate 工具那一步的标题。",
+    "placeholders": {
+      "subject": {
+        "type": "String"
+      }
+    }
+  },
+  "chatTodoStart": "开始任务 #{id}",
+  "@chatTodoStart": {
+    "description": "TaskUpdate 工具把任务改成进行中那一步的标题。",
+    "placeholders": {
+      "id": {
+        "type": "String",
+        "example": "3"
+      }
+    }
+  },
+  "chatTodoComplete": "完成任务 #{id}",
+  "@chatTodoComplete": {
+    "description": "TaskUpdate 工具把任务改成完成那一步的标题。",
+    "placeholders": {
+      "id": {
+        "type": "String",
+        "example": "3"
+      }
+    }
+  },
+  "chatTodoDelete": "删掉任务 #{id}",
+  "@chatTodoDelete": {
+    "description": "TaskUpdate 工具删任务那一步的标题。",
+    "placeholders": {
+      "id": {
+        "type": "String",
+        "example": "3"
+      }
+    }
+  },
+  "chatTodoUpdate": "更新任务 #{id}",
+  "@chatTodoUpdate": {
+    "description": "TaskUpdate 工具别的改动那一步的标题。",
+    "placeholders": {
+      "id": {
+        "type": "String",
+        "example": "3"
+      }
+    }
+  },
+  "chatTodoListTool": "查看任务清单",
+  "@chatTodoListTool": {
+    "description": "TaskList 工具那一步的标题。"
+  },
+  "chatTodoGet": "查看任务 #{id}",
+  "@chatTodoGet": {
+    "description": "TaskGet 工具那一步的标题。",
+    "placeholders": {
+      "id": {
+        "type": "String",
+        "example": "3"
+      }
+    }
+  },
+  "chatTodoWrite": "更新任务清单",
+  "@chatTodoWrite": {
+    "description": "TodoWrite 工具那一步的标题。"
+  },
+  "chatTodoWriteCount": "更新任务清单（{count} 项）",
+  "@chatTodoWriteCount": {
+    "description": "TodoWrite 工具那一步的标题：清单有几项。",
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "chatSteerNow": "立即插话",
+  "@chatSteerNow": {
+    "description": "排队消息右边的按钮（读屏说明）：不等这一轮结束，马上插进去。"
+  },
+  "chatSteering": "插话中",
+  "@chatSteering": {
+    "description": "排队条的状态：正在插话。"
+  },
+  "chatQueued": "排队中",
+  "@chatQueued": {
+    "description": "排队条的状态：有一条消息在排队。"
+  },
+  "chatQueuedCount": "排队中 · {count}",
+  "@chatQueuedCount": {
+    "description": "排队条的状态：有几条消息在排队。",
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "chatRemoveQueued": "删除这条排队消息",
+  "@chatRemoveQueued": {
+    "description": "排队消息右边的按钮（读屏说明）。"
+  },
+  "chatQueuedImages": "[{count} 张图片]",
+  "@chatQueuedImages": {
+    "description": "排队消息只有图片时的预览。",
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "chatQueuedFiles": "[{count} 个文件]",
+  "@chatQueuedFiles": {
+    "description": "排队消息只有文件时的预览。",
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "chatRecallToInput": "撤回到输入框",
+  "@chatRecallToInput": {
+    "description": "排队消息的点按说明（读屏）：放回输入框里改。"
+  },
+  "chatViewAgentDisplay": "查看后台屏幕",
+  "@chatViewAgentDisplay": {
+    "description": "聊天页后台屏幕条的点按说明（读屏）。"
+  },
+  "chatAgentDisplay": "后台屏幕",
+  "@chatAgentDisplay": {
+    "description": "Claude 操作手机用的后台虚拟屏：聊天页上那一条和查看页的标签。"
+  },
+  "chatAgentDisplayAsleep": "后台屏幕 · 休眠中",
+  "@chatAgentDisplayAsleep": {
+    "description": "后台屏幕条：屏幕休眠了。"
+  },
+  "chatNoAppOpen": "还没有打开应用",
+  "@chatNoAppOpen": {
+    "description": "后台屏幕条：上面还没有应用。"
+  },
+  "chatMoveToMain": "移到主屏",
+  "@chatMoveToMain": {
+    "description": "后台屏幕的按钮：把上面的应用挪到手机屏幕上。"
+  },
+  "chatCloseAgentDisplay": "关闭后台屏幕",
+  "@chatCloseAgentDisplay": {
+    "description": "后台屏幕的按钮。"
+  },
+  "chatCloseView": "关闭查看",
+  "@chatCloseView": {
+    "description": "后台屏幕查看页的关闭按钮（读屏说明）。"
+  },
+  "chatStopReadAloud": "停止朗读",
+  "@chatStopReadAloud": {
+    "description": "回答下面朗读按钮正在读时（读屏说明）。"
+  },
+  "chatReadAloud": "朗读",
+  "@chatReadAloud": {
+    "description": "回答下面的朗读按钮（读屏说明）。"
+  },
+  "chatCheckingEnv": "正在检查环境…",
+  "@chatCheckingEnv": {
+    "description": "聊天页：启动时检查 Linux 环境。"
+  },
+  "chatNeedRoot": "需要 root 权限",
+  "@chatNeedRoot": {
+    "description": "聊天页：没有 root 时的标题。"
+  },
+  "chatNeedRootBody": "Zeta 通过 root 进入 Debian 环境来运行 Claude Code。请在 root 管理器（KernelSU / SukiSU / Magisk）里给 Zeta 授权，然后重试；也可以连远程设备上的 Claude Code。",
+  "@chatNeedRootBody": {
+    "description": "聊天页：没有 root 时的说明。"
+  },
+  "chatRetry": "重试",
+  "@chatRetry": {
+    "description": "聊天页环境检查失败时的按钮。"
+  },
+  "chatNoLinuxEnv": "还没有 Linux 环境",
+  "@chatNoLinuxEnv": {
+    "description": "聊天页：手机上还没装 Debian 时的标题。"
+  },
+  "chatNoLinuxEnvBody": "Zeta 在一个 Debian 环境里运行 Claude Code。可以让 Zeta 现在装一个（约 1 GB），或者在设置里指向已有的环境；也可以不装，直接连远程设备上的 Claude Code。",
+  "@chatNoLinuxEnvBody": {
+    "description": "聊天页：手机上还没装 Debian 时的说明。"
+  },
+  "chatContinueInstallDebian": "继续安装 Debian 环境",
+  "@chatContinueInstallDebian": {
+    "description": "聊天页的按钮：上次没装完，接着装。"
+  },
+  "chatInstallDebian": "安装 Debian 环境",
+  "@chatInstallDebian": {
+    "description": "聊天页的按钮：装 Debian。"
+  },
+  "chatOpenSettings": "打开设置",
+  "@chatOpenSettings": {
+    "description": "聊天页的按钮：去设置。"
+  },
+  "chatSavedToGallery": "已保存到相册",
+  "@chatSavedToGallery": {
+    "description": "看图页保存图片后的提示。"
+  },
+  "chatSaveFailed": "保存失败",
+  "@chatSaveFailed": {
+    "description": "看图页保存图片失败的提示。"
+  },
+  "chatShareFailed": "分享失败",
+  "@chatShareFailed": {
+    "description": "看图页分享图片失败的提示。"
+  },
+  "chatHoldToTalkReady": "可以按住说话了",
+  "@chatHoldToTalkReady": {
+    "description": "授了麦克风权限后的提示：现在能按住输入栏说话。"
+  },
+  "chatNoMicPermission": "没有麦克风权限，到设置的权限页一键授予",
+  "@chatNoMicPermission": {
+    "description": "没授麦克风权限时的提示。"
+  },
+  "composerModeDefault": "逐项确认",
+  "@composerModeDefault": {
+    "description": "权限模式：每次改动和命令都问用户（Claude Code 的 default）。输入栏权限菜单和设置里列。"
+  },
+  "composerModeAcceptEdits": "自动接受编辑",
+  "@composerModeAcceptEdits": {
+    "description": "权限模式：改文件不问（acceptEdits）。"
+  },
+  "composerModePlan": "计划模式",
+  "@composerModePlan": {
+    "description": "权限模式：只出计划不动手（plan）。"
+  },
+  "composerModeAuto": "自动判断",
+  "@composerModeAuto": {
+    "description": "权限模式：由 Claude Code 自己判断要不要问（auto）。"
+  },
+  "composerModeBypass": "完全放行",
+  "@composerModeBypass": {
+    "description": "权限模式：什么都不问（bypassPermissions）。"
+  },
+  "composerModeUnset": "默认权限",
+  "@composerModeUnset": {
+    "description": "没设权限模式时它的名字。"
+  },
+  "composerPermissionMode": "权限模式：{mode}",
+  "@composerPermissionMode": {
+    "description": "输入栏权限模式按钮的无障碍说明。",
+    "placeholders": {
+      "mode": {
+        "type": "String",
+        "example": "计划模式"
+      }
+    }
+  },
+  "composerAttach": "添加附件",
+  "@composerAttach": {
+    "description": "输入栏左边「+」按钮的无障碍说明。"
+  },
+  "composerRemove": "移除",
+  "@composerRemove": {
+    "description": "待发附件右上角的叉的无障碍说明。"
+  },
+  "composerUploadFailed": "复制失败 · {name}",
+  "@composerUploadFailed": {
+    "description": "待发文件没能复制进 Linux 环境时的名字。",
+    "placeholders": {
+      "name": {
+        "type": "String",
+        "example": "report.pdf"
+      }
+    }
+  },
+  "composerUploading": "正在复制 · {name}",
+  "@composerUploading": {
+    "description": "待发文件正在复制进 Linux 环境时的名字。",
+    "placeholders": {
+      "name": {
+        "type": "String",
+        "example": "report.pdf"
+      }
+    }
+  },
+  "composerImageAttachment": "图片附件",
+  "@composerImageAttachment": {
+    "description": "待发图片缩略图的无障碍说明。"
+  },
+  "composerHintBusy": "Claude 正在工作，可以接着发",
+  "@composerHintBusy": {
+    "description": "输入框空着、这一轮还在进行时的占位提示。"
+  },
+  "composerHintIdle": "交给 Claude 去完成",
+  "@composerHintIdle": {
+    "description": "输入框空着时的占位提示。"
+  },
+  "composerRecognizing": "正在识别…",
+  "@composerRecognizing": {
+    "description": "语音输入：松开后正在转文字。"
+  },
+  "composerListening": "正在听…",
+  "@composerListening": {
+    "description": "语音输入：正在录音。"
+  },
+  "composerMenuImages": "图片",
+  "@composerMenuImages": {
+    "description": "附件菜单：选图片。"
+  },
+  "composerMenuFiles": "文件",
+  "@composerMenuFiles": {
+    "description": "附件菜单：选文件。"
+  },
+  "composerMenuFolder": "文件夹",
+  "@composerMenuFolder": {
+    "description": "附件菜单：引用文件夹。"
+  },
+  "composerMenuEnterPath": "输入路径",
+  "@composerMenuEnterPath": {
+    "description": "附件菜单：手动输入要引用的路径。"
+  },
+  "composerMenuPrompts": "常用指令",
+  "@composerMenuPrompts": {
+    "description": "附件菜单：打开常用指令；也是常用指令面板的标题。"
+  },
+  "composerTalkReleased": "松开了，正在识别",
+  "@composerTalkReleased": {
+    "description": "按住说话：已松手，正在转文字。"
+  },
+  "composerTalkReleaseCancel": "松开取消",
+  "@composerTalkReleaseCancel": {
+    "description": "按住说话：手指滑进取消区时。"
+  },
+  "composerTalkReleaseSend": "松开发送，上滑取消",
+  "@composerTalkReleaseSend": {
+    "description": "按住说话时底栏的提示。"
+  },
+  "composerHoldToTalk": "按住说话",
+  "@composerHoldToTalk": {
+    "description": "按住说话按钮的无障碍说明。"
+  },
+  "composerStop": "停止",
+  "@composerStop": {
+    "description": "发送按钮在这一轮进行时变成停止，它的无障碍说明。"
+  },
+  "composerSend": "发送",
+  "@composerSend": {
+    "description": "发送按钮的无障碍说明。"
+  },
+  "composerImagesNotRestored": "有图片取不回来，没有放进输入框",
+  "@composerImagesNotRestored": {
+    "description": "编辑旧消息时，原来的图片有的取不回来（提示条）。"
+  },
+  "composerWaitTurnEnd": "等这一轮结束再发",
+  "@composerWaitTurnEnd": {
+    "description": "改写旧消息后发送，但这一轮还没结束（提示条）。"
+  },
+  "composerRegenerate": "重新生成",
+  "@composerRegenerate": {
+    "description": "消息下方的按钮和确认框的按钮：重新生成这一轮的回复。"
+  },
+  "composerDeleteTurn": "删除这一轮",
+  "@composerDeleteTurn": {
+    "description": "消息下方的按钮：删除这条消息和它的回复。"
+  },
+  "composerBranch": "从这里分支到新对话",
+  "@composerBranch": {
+    "description": "消息下方的按钮：从这条消息分出一个新对话。"
+  },
+  "composerEditing": "编辑消息",
+  "@composerEditing": {
+    "description": "改写旧消息时输入框上方那条的标题。"
+  },
+  "composerEditReplacesLater": "发送后将替换这条消息及之后的内容",
+  "@composerEditReplacesLater": {
+    "description": "改写旧消息时的说明：后面还有别的轮次。"
+  },
+  "composerEditReplacesReply": "发送后将替换这条消息和它的回复",
+  "@composerEditReplacesReply": {
+    "description": "改写旧消息时的说明：这是最后一轮。"
+  },
+  "composerCancelEdit": "取消编辑",
+  "@composerCancelEdit": {
+    "description": "改写旧消息那条右边叉的无障碍说明。"
+  },
+  "composerRegenerateTitle": "重新生成回复？",
+  "@composerRegenerateTitle": {
+    "description": "重新生成前确认框的标题。"
+  },
+  "composerDeleteTurnTitle": "删除这一轮对话？",
+  "@composerDeleteTurnTitle": {
+    "description": "删除一轮前确认框的标题。"
+  },
+  "composerRestoreCode": "还原代码",
+  "@composerRestoreCode": {
+    "description": "删除确认框里选了「只还原代码」时的确认按钮。"
+  },
+  "composerDelete": "删除",
+  "@composerDelete": {
+    "description": "确认框的删除按钮。"
+  },
+  "composerRegenerateLater": "将删除之后 {count} 轮对话，并从这条消息重新生成。",
+  "@composerRegenerateLater": {
+    "description": "重新生成确认框的说明：后面还有几轮。",
+    "placeholders": {
+      "count": {
+        "type": "int",
+        "example": "3"
+      }
+    }
+  },
+  "composerRegenerateOnly": "这一轮的回复将换成新生成的。",
+  "@composerRegenerateOnly": {
+    "description": "重新生成确认框的说明：这是最后一轮。"
+  },
+  "composerDeleteLater": "这条消息及之后 {count} 轮对话将被删除。",
+  "@composerDeleteLater": {
+    "description": "删除确认框的说明：后面还有几轮。",
+    "placeholders": {
+      "count": {
+        "type": "int",
+        "example": "3"
+      }
+    }
+  },
+  "composerDeleteOnly": "这条消息和它的回复将被删除。",
+  "@composerDeleteOnly": {
+    "description": "删除确认框的说明：这是最后一轮。"
+  },
+  "composerFilesChangedSince": "这条消息之后改过 {count} 个文件（+{insertions} −{deletions}）。",
+  "@composerFilesChangedSince": {
+    "description": "确认框说明的第二行：这条消息之后改过几个文件、加减了几行。",
+    "placeholders": {
+      "count": {
+        "type": "int",
+        "example": "2"
+      },
+      "insertions": {
+        "type": "String",
+        "example": "12"
+      },
+      "deletions": {
+        "type": "String",
+        "example": "3"
+      }
+    }
+  },
+  "composerRestoreCodeToo": "同时还原代码",
+  "@composerRestoreCodeToo": {
+    "description": "重新生成确认框里的勾选项：把文件也还原到这条消息之前。"
+  },
+  "composerDeleteAndRestore": "删除并还原代码",
+  "@composerDeleteAndRestore": {
+    "description": "删除确认框的选项：删对话，文件也还原。"
+  },
+  "composerDeleteConversationOnly": "只删除对话",
+  "@composerDeleteConversationOnly": {
+    "description": "删除确认框的选项：只删对话，文件不动。"
+  },
+  "composerRestoreCodeOnly": "只还原代码，对话不动",
+  "@composerRestoreCodeOnly": {
+    "description": "删除确认框的选项：只还原文件。"
+  },
+  "composerAllowTitle": "允许这次操作？",
+  "@composerAllowTitle": {
+    "description": "Claude 请求权限时对话框的标题。"
+  },
+  "composerFromSubagent": "来自子代理：{agent}",
+  "@composerFromSubagent": {
+    "description": "权限对话框的说明：这次请求是哪个子代理发的。",
+    "placeholders": {
+      "agent": {
+        "type": "String",
+        "example": "Explore"
+      }
+    }
+  },
+  "composerDontAskAgain": "以后不再询问",
+  "@composerDontAskAgain": {
+    "description": "权限对话框的勾选项：把下面列的规则加进允许清单。"
+  },
+  "composerDenyHint": "拒绝时告诉 Claude 换个做法（可不填）",
+  "@composerDenyHint": {
+    "description": "权限对话框的输入框占位：拒绝时附给 Claude 的话。"
+  },
+  "composerDeny": "拒绝",
+  "@composerDeny": {
+    "description": "权限对话框的拒绝按钮。"
+  },
+  "composerDenyAndTell": "拒绝并告诉 Claude",
+  "@composerDenyAndTell": {
+    "description": "权限对话框填了话时的拒绝按钮。"
+  },
+  "composerAllow": "允许",
+  "@composerAllow": {
+    "description": "权限对话框的允许按钮。"
+  },
+  "composerPlanTitle": "按这个计划执行？",
+  "@composerPlanTitle": {
+    "description": "计划模式里 Claude 交出计划时对话框的标题。"
+  },
+  "composerPlanAcceptEdits": "批准，自动接受改动",
+  "@composerPlanAcceptEdits": {
+    "description": "计划对话框的选项：批准后改文件不再问。"
+  },
+  "composerPlanAskEach": "批准，改动逐项确认",
+  "@composerPlanAskEach": {
+    "description": "计划对话框的选项：批准后每处改动都问。"
+  },
+  "composerPlanFeedbackHint": "不批准：告诉 Claude 要改什么",
+  "@composerPlanFeedbackHint": {
+    "description": "计划对话框的输入框占位。"
+  },
+  "composerPlanKeepRefining": "继续完善",
+  "@composerPlanKeepRefining": {
+    "description": "计划对话框的按钮：不批准，把填的意见发给 Claude 接着改计划。"
+  },
+  "composerApprove": "批准",
+  "@composerApprove": {
+    "description": "计划对话框的批准按钮。"
+  },
+  "composerQuestionTitle": "需要你的选择",
+  "@composerQuestionTitle": {
+    "description": "Claude 一次问多个问题时对话框的标题。"
+  },
+  "composerQuestionClarify": "先不回答，和 Claude 聊聊这些问题",
+  "@composerQuestionClarify": {
+    "description": "提问对话框底部的链接：先不选，回到对话里聊。"
+  },
+  "composerSkip": "跳过",
+  "@composerSkip": {
+    "description": "提问对话框的按钮：不回答。"
+  },
+  "composerOk": "确定",
+  "@composerOk": {
+    "description": "提问对话框的确定按钮。"
+  },
+  "composerQuestionOther": "其他",
+  "@composerQuestionOther": {
+    "description": "提问对话框里每个问题最后一个选项：自己写答案。"
+  },
+  "composerQuestionOtherHint": "自己写",
+  "@composerQuestionOtherHint": {
+    "description": "选了「其他」时输入框的占位。"
+  },
+  "composerQuestionNotesHint": "备注（可不填）",
+  "@composerQuestionNotesHint": {
+    "description": "提问对话框里选了选项后附备注的输入框占位。"
+  },
+  "composerPromptAlreadySaved": "已经在常用指令里了",
+  "@composerPromptAlreadySaved": {
+    "description": "长按消息选「收藏」，但同样的内容已经存过（提示条）。"
+  },
+  "composerPromptSaved": "已收藏，在输入框左边的“+”里",
+  "@composerPromptSaved": {
+    "description": "长按消息选「收藏」存好后的提示条。"
+  },
+  "composerPromptDeleteTitle": "删除这条常用指令？",
+  "@composerPromptDeleteTitle": {
+    "description": "删除常用指令前确认框的标题。"
+  },
+  "composerPromptDeleteSummary": "“{name}”删除后找不回来。",
+  "@composerPromptDeleteSummary": {
+    "description": "删除常用指令确认框的说明。",
+    "placeholders": {
+      "name": {
+        "type": "String",
+        "example": "检查 Git 状态"
+      }
+    }
+  },
+  "composerPromptsEmpty": "还没有常用指令。点“新建”写一条，或者长按自己发过的消息，选“收藏”。点一条就把它填进输入框，可以改了再发。",
+  "@composerPromptsEmpty": {
+    "description": "常用指令面板没有条目时的说明。「新建」「收藏」是按钮和长按菜单里的字，要和它们一致。"
+  },
+  "composerPromptNew": "新建",
+  "@composerPromptNew": {
+    "description": "常用指令面板的按钮：新建一条。"
+  },
+  "composerClose": "关闭",
+  "@composerClose": {
+    "description": "对话框的关闭按钮。"
+  },
+  "composerEdit": "编辑",
+  "@composerEdit": {
+    "description": "常用指令每行「更多」菜单：编辑。"
+  },
+  "composerMoveUp": "上移",
+  "@composerMoveUp": {
+    "description": "常用指令每行「更多」菜单：往上挪一位。"
+  },
+  "composerMoveDown": "下移",
+  "@composerMoveDown": {
+    "description": "常用指令每行「更多」菜单：往下挪一位。"
+  },
+  "composerMoreActions": "更多操作",
+  "@composerMoreActions": {
+    "description": "常用指令每行右边「更多」按钮的无障碍说明。"
+  },
+  "composerPromptNewTitle": "新建常用指令",
+  "@composerPromptNewTitle": {
+    "description": "新建常用指令对话框的标题。"
+  },
+  "composerPromptEditTitle": "编辑常用指令",
+  "@composerPromptEditTitle": {
+    "description": "编辑常用指令对话框的标题。"
+  },
+  "composerSave": "保存",
+  "@composerSave": {
+    "description": "编辑对话框的保存按钮。"
+  },
+  "composerPromptNameLabel": "名字（可不填）",
+  "@composerPromptNameLabel": {
+    "description": "编辑常用指令时名字输入框的标题。"
+  },
+  "composerPromptTextLabel": "内容",
+  "@composerPromptTextLabel": {
+    "description": "编辑常用指令时内容输入框的标题。"
+  },
+  "composerSharedTextFile": "分享的文字.txt",
+  "@composerSharedTextFile": {
+    "description": "分享进来的文字太长时存成附件文件的文件名（输入栏里显示，也是复制进主机的文件名）。"
+  },
+  "composerScreenshotFile": "截屏-{time}.jpg",
+  "@composerScreenshotFile": {
+    "description": "放不进图片附件的截屏存成文件时的文件名。",
+    "placeholders": {
+      "time": {
+        "type": "String",
+        "example": "20261123-101500"
+      }
+    }
+  },
+  "composerImageUnreadable": "有一张图片读不了，没有加进来",
+  "@composerImageUnreadable": {
+    "description": "「有些内容没有加进来」里的一条：选的图片读不了。"
+  },
+  "composerTooManyFiles": "一次最多收 {max} 个文件，另外 {count} 个没有加进来",
+  "@composerTooManyFiles": {
+    "description": "「有些内容没有加进来」里的一条：一次选的文件太多。",
+    "placeholders": {
+      "max": {
+        "type": "int",
+        "example": "20"
+      },
+      "count": {
+        "type": "int",
+        "example": "3"
+      }
+    }
+  },
+  "composerNotCopied": "「{name}」没有复制：{reason}",
+  "@composerNotCopied": {
+    "description": "「有些内容没有加进来」里的一条：文件没能复制进对话所在的设备。",
+    "placeholders": {
+      "name": {
+        "type": "String",
+        "example": "report.pdf"
+      },
+      "reason": {
+        "type": "String",
+        "example": "用不了这台设备"
+      }
+    }
+  },
+  "composerDeviceUnavailable": "用不了这台设备",
+  "@composerDeviceUnavailable": {
+    "description": "对话所在的设备现在用不了、又说不出具体原因时的兜底说明。"
+  },
+  "composerProblemLine": "{problem}。",
+  "@composerProblemLine": {
+    "description": "「有些内容没有加进来」里每条原因后面加句号。",
+    "placeholders": {
+      "problem": {
+        "type": "String",
+        "example": "有一张图片读不了，没有加进来"
+      }
+    }
+  },
+  "composerIntakeProblemsTitle": "有些内容没有加进来",
+  "@composerIntakeProblemsTitle": {
+    "description": "分享、选附件时有东西没收下，说明原因的对话框标题。"
+  },
+  "composerTooLargeAdvice": "太大的文件复制进 Linux 要多占一份同样大的空间，Claude 也读不完。要让 Claude 处理它，可以在 设置 › Linux 环境 › 共享文件夹 里加上它所在的文件夹，再从附件菜单的「输入路径」引用。",
+  "@composerTooLargeAdvice": {
+    "description": "有文件因为太大没收下时，对话框说明的最后一段。设置里的页面名和附件菜单的「输入路径」要和界面上一致。"
+  },
+  "composerIntakeAskTitled": "收到{lead, select, digit { } other {}}{summary}。接着「{title}」，还是开一个新对话？",
+  "@composerIntakeAskTitled": {
+    "description": "「放进哪个对话」的说明：收到了什么，接着哪个对话。lead 是 digit 时（summary 以数字开头）中文在数字前空一格，英文不用它。",
+    "placeholders": {
+      "lead": {
+        "type": "String",
+        "example": "digit"
+      },
+      "summary": {
+        "type": "String",
+        "example": "3 张图片"
+      },
+      "title": {
+        "type": "String",
+        "example": "修登录页"
+      }
+    }
+  },
+  "composerIntakeAsk": "收到{lead, select, digit { } other {}}{summary}。接着刚才的对话，还是开一个新对话？",
+  "@composerIntakeAsk": {
+    "description": "「放进哪个对话」的说明：收到了什么；刚才的对话还没有标题。lead 同上。",
+    "placeholders": {
+      "lead": {
+        "type": "String",
+        "example": "digit"
+      },
+      "summary": {
+        "type": "String",
+        "example": "3 张图片"
+      }
+    }
+  },
+  "composerIntakeTitle": "放进哪个对话",
+  "@composerIntakeTitle": {
+    "description": "分享、截屏进来时问放进新对话还是接着刚才的对话，对话框的标题。"
+  },
+  "composerNewConversation": "新对话",
+  "@composerNewConversation": {
+    "description": "「放进哪个对话」的按钮：开一个新对话。"
+  },
+  "composerContinueThis": "接着这个对话",
+  "@composerContinueThis": {
+    "description": "「放进哪个对话」的按钮：放进刚才的对话。"
+  },
+  "composerEffortDefault": "默认",
+  "@composerEffortDefault": {
+    "description": "思考强度菜单的第一项：不指定，用默认的。"
+  },
+  "composerEffortDefaultApplied": "默认（{level}）",
+  "@composerEffortDefaultApplied": {
+    "description": "思考强度菜单的第一项，已知默认实际是哪档时。",
+    "placeholders": {
+      "level": {
+        "type": "String",
+        "example": "高"
+      }
+    }
+  },
+  "composerEffortDescription": "思考强度：{level}",
+  "@composerEffortDescription": {
+    "description": "输入栏思考强度按钮的无障碍说明。",
+    "placeholders": {
+      "level": {
+        "type": "String",
+        "example": "高"
+      }
+    }
+  },
+  "composerContextUsage": "上下文用量",
+  "@composerContextUsage": {
+    "description": "输入栏上下文用量按钮的无障碍说明，还没有数时。"
+  },
+  "composerContextUsagePercent": "上下文用量：{percent}%",
+  "@composerContextUsagePercent": {
+    "description": "输入栏上下文用量按钮的无障碍说明：用了窗口的百分之几。",
+    "placeholders": {
+      "percent": {
+        "type": "int",
+        "example": "42"
+      }
+    }
+  },
+  "composerContextUsageTokens": "上下文用量：{tokens} tokens",
+  "@composerContextUsageTokens": {
+    "description": "输入栏上下文用量按钮的无障碍说明：不知道窗口多大时说用了多少 token。",
+    "placeholders": {
+      "tokens": {
+        "type": "String",
+        "example": "26.6K"
+      }
+    }
+  },
+  "composerUsageTitle": "用量",
+  "@composerUsageTitle": {
+    "description": "用量对话框的标题。"
+  },
+  "composerCompact": "压缩上下文",
+  "@composerCompact": {
+    "description": "用量对话框的按钮：让 Claude Code 压缩上下文（/compact）。"
+  },
+  "composerTotals": "本对话累计",
+  "@composerTotals": {
+    "description": "用量对话框的一节：本对话累计用了多少。"
+  },
+  "composerTurnCount": "{count} 轮",
+  "@composerTurnCount": {
+    "description": "「本对话累计」一节右边：一共几轮。",
+    "placeholders": {
+      "count": {
+        "type": "int",
+        "example": "12"
+      }
+    }
+  },
+  "composerInputUncached": "输入（未走缓存）",
+  "@composerInputUncached": {
+    "description": "用量对话框的一行：没走提示缓存的输入 token。"
+  },
+  "composerCacheRead": "缓存读取",
+  "@composerCacheRead": {
+    "description": "用量对话框的一行：从提示缓存读的 token。"
+  },
+  "composerCacheWrite": "缓存写入",
+  "@composerCacheWrite": {
+    "description": "用量对话框的一行：写进提示缓存的 token。"
+  },
+  "composerOutput": "输出",
+  "@composerOutput": {
+    "description": "用量对话框的一行：输出 token。"
+  },
+  "composerCost": "费用（按 API 标价）",
+  "@composerCost": {
+    "description": "用量对话框的一行：按 API 标价算的费用。"
+  },
+  "composerCostEstimatedNote": "带 ≈ 的是按 token 数和 API 标价估的：会话记录里没有费用，子代理的用量不在其中。",
+  "@composerCostEstimatedNote": {
+    "description": "用量对话框累计一节下的注：费用是估的。"
+  },
+  "composerCostPartialNote": "有些轮次用的模型不在价目表里，费用没有计入。",
+  "@composerCostPartialNote": {
+    "description": "用量对话框累计一节下的注：有的模型不知道价钱。"
+  },
+  "composerSkippedHistoryNote": "更早的记录没有载入，也没有计入。",
+  "@composerSkippedHistoryNote": {
+    "description": "用量对话框累计一节下的注：更早的记录没载入。"
+  },
+  "composerSentenceGap": "",
+  "@composerSentenceGap": {
+    "description": "几句注连成一段时句子之间的分隔：中文不加，英文空一格。"
+  },
+  "composerPerTurn": "各轮",
+  "@composerPerTurn": {
+    "description": "用量对话框的一节：每轮的明细。"
+  },
+  "composerContext": "上下文",
+  "@composerContext": {
+    "description": "用量对话框的一节：上下文窗口用了多少。"
+  },
+  "composerContextEmpty": "发出第一条消息后显示。",
+  "@composerContextEmpty": {
+    "description": "上下文一节的说明：还没有数。"
+  },
+  "composerContextFullNoAuto": "快满了，自动压缩已关闭，请手动压缩，不然很快发不出去。",
+  "@composerContextFullNoAuto": {
+    "description": "上下文一节的说明：快满了且关了自动压缩。"
+  },
+  "composerContextNoAuto": "自动压缩已关闭（Zeta 或 Claude Code 的设置），快满时手动压缩。",
+  "@composerContextNoAuto": {
+    "description": "上下文一节的说明：关了自动压缩。"
+  },
+  "composerContextFull": "快满了，Claude Code 马上会自动压缩；也可以现在手动压缩。",
+  "@composerContextFull": {
+    "description": "上下文一节的说明：快满了。"
+  },
+  "composerContextEstimated": "Claude Code 的估算，下一轮后按实测；快到上限时它会自动压缩。",
+  "@composerContextEstimated": {
+    "description": "上下文一节的说明：数是估的。"
+  },
+  "composerContextMeasured": "按上一轮实测；快到上限时 Claude Code 会自动压缩。",
+  "@composerContextMeasured": {
+    "description": "上下文一节的说明：按上一轮实测。"
+  },
+  "composerCompactAt": "自动压缩点：{tokens}。",
+  "@composerCompactAt": {
+    "description": "上下文一节：到多少 token 时自动压缩。",
+    "placeholders": {
+      "tokens": {
+        "type": "String",
+        "example": "160K"
+      }
+    }
+  },
+  "composerCompactAtPercent": "自动压缩点：{tokens}（窗口的 {percent}%）。",
+  "@composerCompactAtPercent": {
+    "description": "上下文一节：到多少 token 时自动压缩，占窗口百分之几。",
+    "placeholders": {
+      "tokens": {
+        "type": "String",
+        "example": "160K"
+      },
+      "percent": {
+        "type": "int",
+        "example": "80"
+      }
+    }
+  },
+  "composerCompactions": "已压缩 {count} 次。",
+  "@composerCompactions": {
+    "description": "上下文一节：这个对话压缩过几次。",
+    "placeholders": {
+      "count": {
+        "type": "int",
+        "example": "2"
+      }
+    }
+  },
+  "composerEffortMeta": "思考 {level}",
+  "@composerEffortMeta": {
+    "description": "上下文一节最后一行，模型名后面：用的思考强度。",
+    "placeholders": {
+      "level": {
+        "type": "String",
+        "example": "高"
+      }
+    }
+  },
+  "composerTurnNumber": "第 {number} 轮",
+  "@composerTurnNumber": {
+    "description": "用量对话框各轮明细的一行标题。",
+    "placeholders": {
+      "number": {
+        "type": "String",
+        "example": "3"
+      }
+    }
+  },
+  "composerTurnTokens": "输入 {input} · 缓存读 {cacheRead} · 缓存写 {cacheWrite} · 输出 {output}",
+  "@composerTurnTokens": {
+    "description": "用量对话框各轮明细：这一轮的各类 token。",
+    "placeholders": {
+      "input": {
+        "type": "String",
+        "example": "1.2K"
+      },
+      "cacheRead": {
+        "type": "String",
+        "example": "26.6K"
+      },
+      "cacheWrite": {
+        "type": "String",
+        "example": "3K"
+      },
+      "output": {
+        "type": "String",
+        "example": "812"
+      }
+    }
+  },
+  "composerQuotaBlocked": "已达上限，暂时发不出请求。",
+  "@composerQuotaBlocked": {
+    "description": "订阅额度用完时额度一节最上面的红字。"
+  },
+  "composerQuotaBlockedUntil": "已达上限，暂时发不出请求，{reset}。",
+  "@composerQuotaBlockedUntil": {
+    "description": "订阅额度用完、知道什么时候重置时额度一节最上面的红字。",
+    "placeholders": {
+      "reset": {
+        "type": "String",
+        "example": "2 小时后重置"
+      }
+    }
+  },
+  "composerExtraUsage": "额外用量（本月）",
+  "@composerExtraUsage": {
+    "description": "额度一节的一行：本月订阅之外的额外用量。"
+  },
+  "composerExtraOn": "已开启",
+  "@composerExtraOn": {
+    "description": "额外用量一行：开着但不知道用了多少、上限多少时。"
+  },
+  "composerQuotaFetching": "正在向 Claude Code 要额度…",
+  "@composerQuotaFetching": {
+    "description": "额度一节的说明：第一次取额度。"
+  },
+  "composerQuotaNoData": "还没有额度数据：发一条消息，或者点刷新。",
+  "@composerQuotaNoData": {
+    "description": "额度一节的说明：还没有数。"
+  },
+  "composerQuotaUnavailable": "这种登录方式（API key、Bedrock、Vertex 等）没有订阅额度。",
+  "@composerQuotaUnavailable": {
+    "description": "额度一节的说明：不是订阅账号。"
+  },
+  "composerQuotaNotYet": "Claude Code 还没拿到这个账号的额度。",
+  "@composerQuotaNotYet": {
+    "description": "额度一节的说明：Claude Code 还没报额度。"
+  },
+  "composerQuotaUpdated": "{age}更新。",
+  "@composerQuotaUpdated": {
+    "description": "额度一节的说明：数是多久以前的。",
+    "placeholders": {
+      "age": {
+        "type": "String",
+        "example": "5 分钟前"
+      }
+    }
+  },
+  "composerQuotaUpdatedRefreshing": "{age}更新，正在刷新…",
+  "@composerQuotaUpdatedRefreshing": {
+    "description": "额度一节的说明：数是多久以前的，正在取新的。",
+    "placeholders": {
+      "age": {
+        "type": "String",
+        "example": "5 分钟前"
+      }
+    }
+  },
+  "composerQuotaTitle": "订阅额度",
+  "@composerQuotaTitle": {
+    "description": "用量对话框最上面一节的标题：订阅账号的用量额度。"
+  },
+  "composerIsFolder": "这是一个文件夹",
+  "@composerIsFolder": {
+    "description": "引用路径：要的是文件，输入的却是文件夹。"
+  },
+  "composerIsFileNotFolder": "这是一个文件，不是文件夹",
+  "@composerIsFileNotFolder": {
+    "description": "引用文件夹：选的却是文件。"
+  },
+  "composerPathMissing": "没有这个路径：{path}",
+  "@composerPathMissing": {
+    "description": "引用路径：对话所在设备上没有这个路径。",
+    "placeholders": {
+      "path": {
+        "type": "String",
+        "example": "/home/zeta/src"
+      }
+    }
+  },
+  "composerPathDenied": "Linux 用户没有权限读取 {path}",
+  "@composerPathDenied": {
+    "description": "引用路径：Linux 用户读不了。",
+    "placeholders": {
+      "path": {
+        "type": "String",
+        "example": "/mnt/shared/Download"
+      }
+    }
+  },
+  "composerPathUnknown": "查不了：进不去 Linux 环境",
+  "@composerPathUnknown": {
+    "description": "引用路径：查不了路径在不在。"
+  },
+  "composerFolderPathInvalid": "目录路径无效",
+  "@composerFolderPathInvalid": {
+    "description": "引用文件夹：输入的手机目录路径不对。"
+  },
+  "composerPickerInternalOnly": "只支持内部存储里的文件夹，其他位置请输入路径",
+  "@composerPickerInternalOnly": {
+    "description": "引用文件夹：系统选择器选了内部存储以外的地方。"
+  },
+  "composerAttachFolderTitle": "引用文件夹",
+  "@composerAttachFolderTitle": {
+    "description": "引用文件夹对话框的标题。"
+  },
+  "composerShareAndAttach": "加为共享文件夹并引用",
+  "@composerShareAndAttach": {
+    "description": "引用文件夹的确认按钮：先把它加为共享文件夹。"
+  },
+  "composerRestartAndAttach": "重启 Claude 并引用",
+  "@composerRestartAndAttach": {
+    "description": "引用路径的确认按钮：对话进程要重启才看得到它。"
+  },
+  "composerAttachRef": "引用",
+  "@composerAttachRef": {
+    "description": "引用文件夹、路径对话框的确认按钮。"
+  },
+  "composerBrowseFailed": "无法打开该目录",
+  "@composerBrowseFailed": {
+    "description": "引用文件夹：列不出这个目录的子文件夹。"
+  },
+  "composerPhoneFolderLabel": "手机上的文件夹",
+  "@composerPhoneFolderLabel": {
+    "description": "引用文件夹对话框里路径输入框的标题。"
+  },
+  "composerUseSystemPicker": "用系统文件选择器选择",
+  "@composerUseSystemPicker": {
+    "description": "引用文件夹对话框里的链接：打开系统的文件夹选择器。"
+  },
+  "composerNoSubfolders": "此处没有子文件夹",
+  "@composerNoSubfolders": {
+    "description": "引用文件夹：这个目录下没有子文件夹。"
+  },
+  "composerLinuxChecking": "正在查看 Linux 里能不能看到它…",
+  "@composerLinuxChecking": {
+    "description": "引用文件夹：正在查选中的目录在 Linux 里看不看得到。"
+  },
+  "composerLinuxPathIs": "在 Linux 里是 {path}",
+  "@composerLinuxPathIs": {
+    "description": "引用文件夹：选中的目录在 Linux 里的路径。",
+    "placeholders": {
+      "path": {
+        "type": "String",
+        "example": "/mnt/shared/Download"
+      }
+    }
+  },
+  "composerLinuxPathNeedsRestart": "在 Linux 里是 {path}，但这个对话的 Claude Code 是在加这个共享文件夹之前启动的，{hint}",
+  "@composerLinuxPathNeedsRestart": {
+    "description": "引用文件夹：目录已共享，但对话进程看不到它。hint 是 composerRestartHintIdle 或 composerRestartHintBusy。",
+    "placeholders": {
+      "path": {
+        "type": "String",
+        "example": "/mnt/shared/Download"
+      },
+      "hint": {
+        "type": "String",
+        "example": "要重启一次才看得到（对话内容不变）"
+      }
+    }
+  },
+  "composerStartedBeforeShare": "这个对话的 Claude Code 是在加这个共享文件夹之前启动的，{hint}",
+  "@composerStartedBeforeShare": {
+    "description": "引用路径：路径在共享文件夹里，但对话进程看不到它。hint 同上。",
+    "placeholders": {
+      "hint": {
+        "type": "String",
+        "example": "要重启一次才看得到（对话内容不变）"
+      }
+    }
+  },
+  "composerRestartHintIdle": "要重启一次才看得到（对话内容不变）",
+  "@composerRestartHintIdle": {
+    "description": "接在「之前启动的，」后面：对话闲着，重启一次就行。"
+  },
+  "composerRestartHintBusy": "要等这一轮结束、重启一次才看得到",
+  "@composerRestartHintBusy": {
+    "description": "接在「之前启动的，」后面：这一轮还在进行。"
+  },
+  "composerNotVisibleCantShare": "Linux 里看不到这个文件夹，也不能共享：{reason}",
+  "@composerNotVisibleCantShare": {
+    "description": "引用文件夹：目录不在共享文件夹里，又不能加。",
+    "placeholders": {
+      "reason": {
+        "type": "String",
+        "example": "名字已被占用"
+      }
+    }
+  },
+  "composerNeedsShare": "Linux 里看不到这个文件夹。加为共享文件夹后，Claude 在 {path} 读到它。",
+  "@composerNeedsShare": {
+    "description": "引用文件夹：目录要先共享；对话进程还没起来。",
+    "placeholders": {
+      "path": {
+        "type": "String",
+        "example": "/mnt/shared/Download"
+      }
+    }
+  },
+  "composerNeedsShareRestart": "Linux 里看不到这个文件夹。加为共享文件夹后，Claude 在 {path} 读到它；这个对话的 Claude Code 会重启一次（对话内容不变）。",
+  "@composerNeedsShareRestart": {
+    "description": "引用文件夹：目录要先共享，对话闲着，会重启一次。",
+    "placeholders": {
+      "path": {
+        "type": "String",
+        "example": "/mnt/shared/Download"
+      }
+    }
+  },
+  "composerNeedsShareWait": "Linux 里看不到这个文件夹。加为共享文件夹后，Claude 在 {path} 读到它；要等这一轮结束，这个对话的 Claude Code 重启一次才看得到。",
+  "@composerNeedsShareWait": {
+    "description": "引用文件夹：目录要先共享，这一轮还在进行。",
+    "placeholders": {
+      "path": {
+        "type": "String",
+        "example": "/mnt/shared/Download"
+      }
+    }
+  },
+  "composerNotRun": "没有跑成",
+  "@composerNotRun": {
+    "description": "让核心换成看得到新挂载的那个时出了错、又没有具体原因时的兜底说明。"
+  },
+  "composerRenewFailed": "没能让 Claude 看到新的共享文件夹：{reason}",
+  "@composerRenewFailed": {
+    "description": "引用文件夹、路径：重启对话进程换核心没成。",
+    "placeholders": {
+      "reason": {
+        "type": "String",
+        "example": "连接超时"
+      }
+    }
+  },
+  "composerNoLinuxEnv": "还没有配置 Linux 环境",
+  "@composerNoLinuxEnv": {
+    "description": "引用文件夹：手机上还没装 Linux 环境。"
+  },
+  "composerSharedButDenied": "已加为共享文件夹，但 Linux 用户读不了它",
+  "@composerSharedButDenied": {
+    "description": "引用文件夹：加了共享文件夹，Linux 用户读不了。"
+  },
+  "composerSharedButUnknown": "已加为共享文件夹，但查不了它能不能读",
+  "@composerSharedButUnknown": {
+    "description": "引用文件夹：加了共享文件夹，查不了。"
+  },
+  "composerSharedButNotMounted": "已加为共享文件夹，但没有挂上",
+  "@composerSharedButNotMounted": {
+    "description": "引用文件夹：加了共享文件夹，没有挂上。"
+  },
+  "composerAttachPathOnTitle": "引用「{device}」上的路径",
+  "@composerAttachPathOnTitle": {
+    "description": "引用路径对话框的标题：对话在远程设备上。",
+    "placeholders": {
+      "device": {
+        "type": "String",
+        "example": "devbox"
+      }
+    }
+  },
+  "composerAttachLinuxPathTitle": "引用 Linux 路径",
+  "@composerAttachLinuxPathTitle": {
+    "description": "引用路径对话框的标题：对话在手机上。"
+  },
+  "composerAttachPathRemoteSummary": "这台设备上一个文件或文件夹的绝对路径，Claude 会直接读到它。",
+  "@composerAttachPathRemoteSummary": {
+    "description": "引用路径对话框的说明：远程设备。"
+  },
+  "composerAttachPathLocalSummary": "Linux 环境里一个文件或文件夹的绝对路径，Claude 会直接读到它。手机上的目录要先加为共享文件夹（{root}/<名字>）。",
+  "@composerAttachPathLocalSummary": {
+    "description": "引用路径对话框的说明：手机上的 Linux 环境。",
+    "placeholders": {
+      "root": {
+        "type": "String",
+        "example": "/mnt/shared"
+      }
+    }
+  },
+  "composerKindFolder": "文件夹",
+  "@composerKindFolder": {
+    "description": "引用路径输入框末尾：查到的是文件夹。"
+  },
+  "composerKindFile": "文件",
+  "@composerKindFile": {
+    "description": "引用路径输入框末尾：查到的是文件。"
+  },
+  "composerKindNotVisible": "进程还看不到",
+  "@composerKindNotVisible": {
+    "description": "引用路径输入框末尾：对话进程要重启才看得到。"
+  },
+  "composerKindUnavailable": "不可用",
+  "@composerKindUnavailable": {
+    "description": "引用路径输入框末尾：不能引用。"
+  },
+  "composerKindChecking": "正在查…",
+  "@composerKindChecking": {
+    "description": "引用路径输入框末尾：正在查。"
+  },
+  "composerPhonePathMapped": "手机上的路径，引用 Linux 里的 {path}",
+  "@composerPhonePathMapped": {
+    "description": "引用路径：输入的是手机上的路径，换成了 Linux 里对应的。",
+    "placeholders": {
+      "path": {
+        "type": "String",
+        "example": "/mnt/shared/Download"
+      }
+    }
+  },
+  "composerPathBadChars": "路径里不能有双引号或控制字符",
+  "@composerPathBadChars": {
+    "description": "引用路径：输入的路径有不许的字符。"
+  },
+  "composerPathNotAbsolute": "要输入以 / 开头的绝对路径",
+  "@composerPathNotAbsolute": {
+    "description": "引用路径：输入的不是绝对路径。"
+  },
+  "composerPathOnPhoneNotShared": "Linux 里没有这个路径。它是手机内部存储里的目录，要先在设置里把它（或上层目录）加为共享文件夹",
+  "@composerPathOnPhoneNotShared": {
+    "description": "引用路径：输入的是手机内部存储里还没共享的目录。"
+  },
+  "composerNoSpeechHeard": "没有听到说话",
+  "@composerNoSpeechHeard": {
+    "description": "按住说话松开后没识别出字（提示条）。"
+  },
+  "composerHoldToTalkTip": "按住说话，松开发送",
+  "@composerHoldToTalkTip": {
+    "description": "点了一下麦克风按钮而不是按住时的提示条。"
+  },
+  "tasksKindCommand": "后台命令",
+  "@tasksKindCommand": {
+    "description": "后台任务的种类：Claude 放到后台跑的命令。"
+  },
+  "tasksKindMonitor": "监视器",
+  "@tasksKindMonitor": {
+    "description": "后台任务的种类：Claude Code 的 Monitor。"
+  },
+  "tasksKindAgent": "子代理",
+  "@tasksKindAgent": {
+    "description": "后台任务的种类：后台子代理；也是子代理详情页的标题。"
+  },
+  "tasksKindAgentType": "子代理 · {type}",
+  "@tasksKindAgentType": {
+    "description": "后台任务的种类：带类型的子代理，type 是 Claude Code 给的子代理类型名。",
+    "placeholders": {
+      "type": {
+        "type": "String"
+      }
+    }
+  },
+  "tasksKindOther": "后台任务",
+  "@tasksKindOther": {
+    "description": "后台任务的种类：认不出种类、Claude Code 也没给类型名时。"
+  },
+  "tasksStopping": "正在停止",
+  "@tasksStopping": {
+    "description": "后台任务的状态：已经叫停，还没停下。"
+  },
+  "tasksStateRunning": "运行中",
+  "@tasksStateRunning": {
+    "description": "后台任务的状态。"
+  },
+  "tasksStateCompleted": "已完成",
+  "@tasksStateCompleted": {
+    "description": "后台任务的状态。"
+  },
+  "tasksStateFailed": "失败",
+  "@tasksStateFailed": {
+    "description": "后台任务的状态。"
+  },
+  "tasksStateStopped": "已停止",
+  "@tasksStateStopped": {
+    "description": "后台任务的状态：被叫停了。"
+  },
+  "tasksStateEnded": "已结束",
+  "@tasksStateEnded": {
+    "description": "后台任务的状态：结束了，不知道结局。"
+  },
+  "tasksSummaryStopping": "正在停止 · 已运行 {time}",
+  "@tasksSummaryStopping": {
+    "description": "后台任务列表里一行的说明（接在种类后面）：正在停止，time 是已经跑了多久。",
+    "placeholders": {
+      "time": {
+        "type": "String"
+      }
+    }
+  },
+  "tasksSummaryRunning": "已运行 {time}",
+  "@tasksSummaryRunning": {
+    "description": "后台任务列表里一行的说明（接在种类后面）：在跑，time 是已经跑了多久。",
+    "placeholders": {
+      "time": {
+        "type": "String"
+      }
+    }
+  },
+  "tasksSummaryEnded": "{state} · 用时 {time}",
+  "@tasksSummaryEnded": {
+    "description": "后台任务列表里一行的说明（接在种类后面）：结束了，state 是状态，time 是一共跑了多久。",
+    "placeholders": {
+      "state": {
+        "type": "String"
+      },
+      "time": {
+        "type": "String"
+      }
+    }
+  },
+  "tasksConvWaiting": "等你确认",
+  "@tasksConvWaiting": {
+    "description": "后台对话一行、侧栏后台入口的状态：在等用户确认。"
+  },
+  "tasksConvAnswering": "正在回答",
+  "@tasksConvAnswering": {
+    "description": "后台对话一行的状态：Claude 在回答。"
+  },
+  "tasksConvTasks": "{count} 个后台任务在跑",
+  "@tasksConvTasks": {
+    "description": "后台对话一行的状态：对话闲着，但有后台任务在跑。",
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "tasksConvIdle": "已结束，稍后收起",
+  "@tasksConvIdle": {
+    "description": "后台对话一行的状态：都结束了，Zeta 过一会儿会放开这个对话。"
+  },
+  "tasksConvSchedule": "定时任务「{name}」 · {state}",
+  "@tasksConvSchedule": {
+    "description": "定时任务在后台起的对话一行的状态：name 是任务名，state 是上面几种状态之一。",
+    "placeholders": {
+      "name": {
+        "type": "String"
+      },
+      "state": {
+        "type": "String"
+      }
+    }
+  },
+  "tasksOutput": "输出",
+  "@tasksOutput": {
+    "description": "后台任务详情里输出区的标题（没读到大小时）。"
+  },
+  "tasksOutputSize": "输出 · {size}",
+  "@tasksOutputSize": {
+    "description": "后台任务详情里输出区的标题：size 是输出多大，比如“3.2 KB”。",
+    "placeholders": {
+      "size": {
+        "type": "String"
+      }
+    }
+  },
+  "tasksOutputTruncated": "输出 · 共 {size}，只显示最后 8 KB",
+  "@tasksOutputTruncated": {
+    "description": "后台任务详情里输出区的标题：输出太长，只显示了最后一段。",
+    "placeholders": {
+      "size": {
+        "type": "String"
+      }
+    }
+  },
+  "tasksListFooter": "Claude 在对话里放到后台跑的命令、监视器和子代理。它们跑在对话的 Claude Code 进程里：对话闲下来被 Zeta 收起、或进程结束时，没跑完的一起结束。结束了的留最近 20 个。",
+  "@tasksListFooter": {
+    "description": "后台任务页任务列表下面的说明。"
+  },
+  "tasksConversationsFooter": "切到别的对话时还在回答、等确认或有后台任务的对话，以及定时任务在后台起的对话。点一个切过去。",
+  "@tasksConversationsFooter": {
+    "description": "后台任务页「后台对话」一组下面的说明。"
+  },
+  "tasksUntitled": "新对话",
+  "@tasksUntitled": {
+    "description": "还没有标题的对话在后台任务页上的叫法。"
+  },
+  "tasksTitle": "后台任务",
+  "@tasksTitle": {
+    "description": "后台任务页的标题。"
+  },
+  "tasksClearFinished": "清除已结束",
+  "@tasksClearFinished": {
+    "description": "后台任务页顶栏的按钮：清掉已经结束的任务。"
+  },
+  "tasksParkedGroup": "后台对话 · {count}",
+  "@tasksParkedGroup": {
+    "description": "后台任务页「后台对话」一组的标题，count 是有几个。",
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "tasksNoParked": "没有在后台运行的对话",
+  "@tasksNoParked": {
+    "description": "后台对话一组是空的时。"
+  },
+  "tasksConversationGone": "这个对话已经收起",
+  "@tasksConversationGone": {
+    "description": "只看一个对话的后台任务、而那个对话已经被 Zeta 收起时。"
+  },
+  "tasksNone": "没有后台任务",
+  "@tasksNone": {
+    "description": "没有后台任务时。"
+  },
+  "tasksNoneSummary": "Claude 用 run_in_background 跑的命令、Monitor 和后台子代理会列在这里",
+  "@tasksNoneSummary": {
+    "description": "没有后台任务时的说明。"
+  },
+  "tasksCurrentConversation": "{name}（当前对话）",
+  "@tasksCurrentConversation": {
+    "description": "后台任务页一组任务的标题：当前对话的名字后面注明。",
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "tasksGone": "这个任务已经不在了",
+  "@tasksGone": {
+    "description": "打开的任务已经被清掉、或对话被收起时。"
+  },
+  "tasksElapsedRunning": "已运行",
+  "@tasksElapsedRunning": {
+    "description": "任务详情里一行的标题，值是跑了多久。"
+  },
+  "tasksElapsedTook": "用时",
+  "@tasksElapsedTook": {
+    "description": "任务详情里一行的标题（任务已结束），值是一共跑了多久。"
+  },
+  "tasksStopConfirm": "停止这个任务？",
+  "@tasksStopConfirm": {
+    "description": "停止任务的确认框标题。"
+  },
+  "tasksStop": "停止",
+  "@tasksStop": {
+    "description": "停止任务确认框的按钮。"
+  },
+  "tasksStopAgentNote": "子代理停下后，Claude 会收到通知并接着处理。",
+  "@tasksStopAgentNote": {
+    "description": "停止子代理的确认框里，接在任务名下面一行的说明。"
+  },
+  "tasksState": "状态",
+  "@tasksState": {
+    "description": "任务详情里一行的标题。"
+  },
+  "tasksConversation": "所属对话",
+  "@tasksConversation": {
+    "description": "任务详情里一行的标题，值是任务所在的对话，点了切过去。"
+  },
+  "tasksStoppingEllipsis": "正在停止…",
+  "@tasksStoppingEllipsis": {
+    "description": "任务详情里停止那一行：已经叫停，还没停下。"
+  },
+  "tasksStopThis": "停止这个任务",
+  "@tasksStopThis": {
+    "description": "任务详情里停止那一行。"
+  },
+  "tasksAgentType": "子代理类型",
+  "@tasksAgentType": {
+    "description": "子代理详情里一行的标题。"
+  },
+  "tasksToolUses": "工具调用",
+  "@tasksToolUses": {
+    "description": "子代理详情里一行的标题，值是调用了几次工具。"
+  },
+  "tasksToolUsesCount": "{count} 次",
+  "@tasksToolUsesCount": {
+    "description": "子代理详情里工具调用一行的值。",
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "tasksProgress": "正在做",
+  "@tasksProgress": {
+    "description": "子代理详情里一行的标题，下面是它正在做什么。"
+  },
+  "tasksViewSteps": "查看它的步骤",
+  "@tasksViewSteps": {
+    "description": "子代理详情里的一行，点了看子代理的每一步。"
+  },
+  "tasksError": "出错",
+  "@tasksError": {
+    "description": "任务详情里出错原因一段的标题。"
+  },
+  "tasksAgentPrompt": "交给它的指令",
+  "@tasksAgentPrompt": {
+    "description": "子代理详情里交给子代理的指令一段的标题。"
+  },
+  "tasksCommand": "命令",
+  "@tasksCommand": {
+    "description": "后台命令详情里命令一段的标题。"
+  },
+  "tasksReport": "报告",
+  "@tasksReport": {
+    "description": "子代理详情里它交回的报告一段的标题。"
+  },
+  "tasksResult": "结果",
+  "@tasksResult": {
+    "description": "后台命令详情里结果一段的标题。"
+  },
+  "tasksOutputLoading": "正在读取…",
+  "@tasksOutputLoading": {
+    "description": "任务输出还没读到时。"
+  },
+  "tasksOutputProcessGone": "进程已经结束，读不到输出了",
+  "@tasksOutputProcessGone": {
+    "description": "Claude Code 进程已经结束、读不到任务输出时。"
+  },
+  "tasksOutputFailed": "没读到：{error}",
+  "@tasksOutputFailed": {
+    "description": "读任务输出出错时，error 是原因原文。",
+    "placeholders": {
+      "error": {
+        "type": "String"
+      }
+    }
+  },
+  "tasksOutputEmpty": "（还没有输出）",
+  "@tasksOutputEmpty": {
+    "description": "任务还没有输出时。"
+  },
+  "tasksOpen": "查看后台任务",
+  "@tasksOpen": {
+    "description": "聊天页后台任务条的无障碍点击说明。"
+  },
+  "tasksStripRunning": "后台任务 · {count} 个在运行",
+  "@tasksStripRunning": {
+    "description": "聊天页输入框上方后台任务条的第一行。",
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "tasksEntryConversations": "{count} 个对话",
+  "@tasksEntryConversations": {
+    "description": "侧栏「后台运行」入口的说明：有几个后台对话。",
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "tasksEntryRunning": "{count} 个任务在运行",
+  "@tasksEntryRunning": {
+    "description": "侧栏「后台运行」入口的说明：有几个后台任务在跑。",
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "tasksEntryFinished": "{count} 个任务已结束",
+  "@tasksEntryFinished": {
+    "description": "侧栏「后台运行」入口的说明：有几个后台任务已经结束。",
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "tasksEntryOpen": "查看后台运行的对话和任务",
+  "@tasksEntryOpen": {
+    "description": "侧栏「后台运行」入口的无障碍点击说明。"
+  },
+  "tasksEntry": "后台运行",
+  "@tasksEntry": {
+    "description": "侧栏里「后台运行」入口的名字。"
+  },
+  "sidebarStatusWaiting": "等你确认",
+  "@sidebarStatusWaiting": {
+    "description": "侧栏会话一行行尾的状态（两三个字）：在等用户确认。"
+  },
+  "sidebarStatusAnswering": "回答中",
+  "@sidebarStatusAnswering": {
+    "description": "侧栏会话一行行尾的状态：Claude 在回答。"
+  },
+  "sidebarStatusBackground": "后台 {count}",
+  "@sidebarStatusBackground": {
+    "description": "侧栏会话一行行尾的状态：闲着但有后台任务在跑，count 是几个。",
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "sidebarStatusUnread": "新回答",
+  "@sidebarStatusUnread": {
+    "description": "侧栏会话一行行尾的状态：有没看过的回答。"
+  },
+  "sidebarStatusIdle": "闲置",
+  "@sidebarStatusIdle": {
+    "description": "侧栏会话一行行尾的状态：开着但闲着。"
+  },
+  "sidebarSwitchDevice": "换设备",
+  "@sidebarSwitchDevice": {
+    "description": "侧栏顶部设备胶囊上下拉箭头的无障碍说明。"
+  },
+  "sidebarDeviceDisconnected": "{target} · 已断开",
+  "@sidebarDeviceDisconnected": {
+    "description": "换设备菜单里远程主机名字下面的小字：target 是地址，「连接」关着时注明已断开。",
+    "placeholders": {
+      "target": {
+        "type": "String"
+      }
+    }
+  },
+  "sidebarAllDevices": "全部设备",
+  "@sidebarAllDevices": {
+    "description": "侧栏设备胶囊和菜单里列全部设备的那一项。"
+  },
+  "sidebarAllDevicesSummary": "各台设备的对话列在一起",
+  "@sidebarAllDevicesSummary": {
+    "description": "换设备菜单里「全部设备」下面的小字。"
+  },
+  "sidebarExportFailed": "导出失败",
+  "@sidebarExportFailed": {
+    "description": "导出或分享对话失败时的提示。"
+  },
+  "sidebarExported": "已导出",
+  "@sidebarExported": {
+    "description": "导出一个对话成功时的提示。"
+  },
+  "sidebarExportedSome": "已导出 {saved} 个对话，{failed} 个没导出成",
+  "@sidebarExportedSome": {
+    "description": "多选导出时有的没导出成：saved 是成了几个，failed 是没成几个。",
+    "placeholders": {
+      "saved": {
+        "type": "int"
+      },
+      "failed": {
+        "type": "int"
+      }
+    }
+  },
+  "sidebarExportedMany": "已导出 {count} 个对话",
+  "@sidebarExportedMany": {
+    "description": "多选导出都成了时的提示。",
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "sidebarUntitled": "未命名对话",
+  "@sidebarUntitled": {
+    "description": "没有标题、也没有开头的话的对话：侧栏一行的标题、导出的文件名。"
+  },
+  "sidebarExportManyName": "{count}个对话",
+  "@sidebarExportManyName": {
+    "description": "几个对话一起导出时文件名里的标题（Zeta-标题-日期.md）。",
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "sidebarExportNameFallback": "对话",
+  "@sidebarExportNameFallback": {
+    "description": "导出文件名里的标题去掉不能用的字符后是空的时用的标题。"
+  },
+  "sidebarExitSelection": "退出多选",
+  "@sidebarExitSelection": {
+    "description": "侧栏多选顶栏左边按钮的无障碍说明。"
+  },
+  "sidebarSelectedCount": "已选 {count} 个",
+  "@sidebarSelectedCount": {
+    "description": "侧栏多选顶栏的标题：选中了几个。",
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "sidebarSelectConversations": "选择对话",
+  "@sidebarSelectConversations": {
+    "description": "侧栏多选顶栏的标题：还没选。"
+  },
+  "sidebarSelectNone": "全不选",
+  "@sidebarSelectNone": {
+    "description": "侧栏多选顶栏右边的按钮：都选着时。"
+  },
+  "sidebarSelectAll": "全选",
+  "@sidebarSelectAll": {
+    "description": "侧栏多选顶栏右边的按钮。"
+  },
+  "sidebarArchive": "归档",
+  "@sidebarArchive": {
+    "description": "会话的操作（长按菜单、多选底部的按钮）。"
+  },
+  "sidebarUnarchive": "取消归档",
+  "@sidebarUnarchive": {
+    "description": "已归档会话的操作（长按菜单、多选底部的按钮）。"
+  },
+  "sidebarExport": "导出",
+  "@sidebarExport": {
+    "description": "会话的操作：存成 Markdown 文件（长按菜单、多选底部的按钮）。"
+  },
+  "sidebarDelete": "删除",
+  "@sidebarDelete": {
+    "description": "会话的操作（长按菜单、多选底部的按钮、删除确认框的按钮）。"
+  },
+  "sidebarRename": "重命名",
+  "@sidebarRename": {
+    "description": "会话长按菜单的一项，也是改标题对话框的标题。"
+  },
+  "sidebarRenameLabel": "对话标题",
+  "@sidebarRenameLabel": {
+    "description": "改标题对话框里输入框的提示。"
+  },
+  "sidebarRenameConfirm": "确定",
+  "@sidebarRenameConfirm": {
+    "description": "改标题对话框的确认按钮。"
+  },
+  "sidebarLookupLinux": "Linux 环境",
+  "@sidebarLookupLinux": {
+    "description": "「没查到这个对话（…没有响应）」里说的手机本机。"
+  },
+  "sidebarLookupNoResponse": "没查到这个对话（{who}没有响应）",
+  "@sidebarLookupNoResponse": {
+    "description": "按会话 id 打开对话（比如从通知点进来）查不到时的提示：who 是「Linux 环境」或「「设备名」」。",
+    "placeholders": {
+      "who": {
+        "type": "String"
+      }
+    }
+  },
+  "sidebarLookupDevice": "「{name}」",
+  "@sidebarLookupDevice": {
+    "description": "「没查到这个对话（…没有响应）」里说的远程设备。",
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "sidebarLookupEmpty": "侧栏里没有这个对话（它没有可显示的内容）",
+  "@sidebarLookupEmpty": {
+    "description": "按会话 id 打开对话、而它没有可显示的内容时的提示。"
+  },
+  "sidebarSearching": "正在搜索…",
+  "@sidebarSearching": {
+    "description": "侧栏搜索还没有结果时。"
+  },
+  "sidebarNoMatches": "没有匹配的对话",
+  "@sidebarNoMatches": {
+    "description": "侧栏搜索没有结果时。"
+  },
+  "sidebarSearchResults": "搜索结果",
+  "@sidebarSearchResults": {
+    "description": "侧栏搜索结果一组的标题。"
+  },
+  "sidebarSearchingContent": "正在搜索对话内容…",
+  "@sidebarSearchingContent": {
+    "description": "侧栏搜索结果末尾：对话内容还在搜。"
+  },
+  "sidebarSearchPartial": "结果较多，只列出了一部分，换个更具体的词试试",
+  "@sidebarSearchPartial": {
+    "description": "侧栏搜索结果末尾：结果太多只列了一部分。"
+  },
+  "sidebarSearchFailed": "对话内容没搜成，只比对了标题",
+  "@sidebarSearchFailed": {
+    "description": "侧栏搜索结果末尾：搜内容出错了。"
+  },
+  "sidebarEmpty": "还没有对话",
+  "@sidebarEmpty": {
+    "description": "侧栏会话列表是空的时。"
+  },
+  "sidebarPinned": "置顶",
+  "@sidebarPinned": {
+    "description": "侧栏会话列表一组的标题。"
+  },
+  "sidebarToday": "今天",
+  "@sidebarToday": {
+    "description": "侧栏会话列表一组的标题。"
+  },
+  "sidebarEarlier": "更早",
+  "@sidebarEarlier": {
+    "description": "侧栏会话列表一组的标题。"
+  },
+  "sidebarArchivedCount": "已归档 · {count}",
+  "@sidebarArchivedCount": {
+    "description": "看归档时会话列表那组的标题，也是侧栏底部进归档的按钮的无障碍说明：count 是几个。",
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "sidebarNewConversation": "新对话",
+  "@sidebarNewConversation": {
+    "description": "侧栏顶部新建对话按钮的无障碍说明。"
+  },
+  "sidebarSettings": "设置",
+  "@sidebarSettings": {
+    "description": "侧栏底部设置按钮的无障碍说明。"
+  },
+  "sidebarBackToAll": "返回全部对话",
+  "@sidebarBackToAll": {
+    "description": "看归档时侧栏底部返回按钮的无障碍说明。"
+  },
+  "sidebarAllRunning": "选中的对话都在进行中，不能删除",
+  "@sidebarAllRunning": {
+    "description": "多选删除时选中的都在进行中。"
+  },
+  "sidebarRunningNotDeleted": "这个对话正在进行，没有删除",
+  "@sidebarRunningNotDeleted": {
+    "description": "删除确认框开着时对话开始进行了。"
+  },
+  "sidebarDeleteBlocked": "这个对话正在进行",
+  "@sidebarDeleteBlocked": {
+    "description": "要删除的对话正在进行时提示框的标题。"
+  },
+  "sidebarDeleteBlockedSummary": "{name}\n先停止它，或等它结束，再删除。",
+  "@sidebarDeleteBlockedSummary": {
+    "description": "要删除的对话正在进行时提示框的说明，name 是对话标题。",
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "sidebarGotIt": "知道了",
+  "@sidebarGotIt": {
+    "description": "提示框的关闭按钮。"
+  },
+  "sidebarDeleteConfirm": "删除这个对话？",
+  "@sidebarDeleteConfirm": {
+    "description": "删除单个对话的确认框标题。"
+  },
+  "sidebarDeleteSummary": "{name}\n会话记录文件会被一并删除，无法恢复。",
+  "@sidebarDeleteSummary": {
+    "description": "删除单个对话的确认框说明，name 是对话标题。",
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "sidebarDeleteMany": "删除 {count} 个对话？",
+  "@sidebarDeleteMany": {
+    "description": "多选删除的确认框标题。",
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "sidebarDeleteManySummary": "会话记录会被删除，Claude Code 为它们存的工具结果、子代理记录等也一并删除，无法恢复。",
+  "@sidebarDeleteManySummary": {
+    "description": "多选删除的确认框说明。"
+  },
+  "sidebarDeleteManySkipped": "另有 {count} 个正在进行的对话不会删除。",
+  "@sidebarDeleteManySkipped": {
+    "description": "多选删除的确认框说明的第二行：有几个正在进行的不删。",
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "sidebarSearch": "搜索对话",
+  "@sidebarSearch": {
+    "description": "侧栏底部搜索框的提示。"
+  },
+  "sidebarSelect": "选择",
+  "@sidebarSelect": {
+    "description": "会话长按菜单的一项：进入多选。"
+  },
+  "sidebarUnpin": "取消置顶",
+  "@sidebarUnpin": {
+    "description": "会话长按菜单的一项。"
+  },
+  "sidebarPin": "置顶对话",
+  "@sidebarPin": {
+    "description": "会话长按菜单的一项。"
+  },
+  "sidebarShare": "分享",
+  "@sidebarShare": {
+    "description": "会话长按菜单的一项。"
+  },
+  "sidebarEnded": "已结束",
+  "@sidebarEnded": {
+    "description": "侧栏一行的无障碍状态：会话没有活着的 Claude Code 进程（灰着显示）。"
+  },
+  "sidebarDraft": "[草稿]",
+  "@sidebarDraft": {
+    "description": "侧栏一行标题下面、没发出的草稿前面的红字标记，后面接一个空格和草稿开头。"
+  },
+  "sidebarRunningElsewhere": "别处运行中",
+  "@sidebarRunningElsewhere": {
+    "description": "侧栏一行标题下面的小字（接在工作目录后面）：会话正被别处的 Claude Code 开着。"
+  },
+  "sidebarArchivedMark": "已归档",
+  "@sidebarArchivedMark": {
+    "description": "侧栏搜索结果一行标题下面的小字（接在工作目录后面）：已归档。"
+  },
+  "sidebarPinnedMark": "已置顶",
+  "@sidebarPinnedMark": {
+    "description": "侧栏一行行尾图钉的无障碍说明。"
+  },
+  "sidebarShareTooLong": "对话太长，没法直接分享，请保存到文件",
+  "@sidebarShareTooLong": {
+    "description": "分享对话时对话太长。"
+  },
+  "sidebarShareChooser": "分享对话",
+  "@sidebarShareChooser": {
+    "description": "系统分享面板的标题。"
+  },
+  "scheduleRuleOnce": "单次",
+  "@scheduleRuleOnce": {
+    "description": "定时任务编辑页「重复」的选项：只跑一次。"
+  },
+  "scheduleRuleDaily": "每天",
+  "@scheduleRuleDaily": {
+    "description": "定时任务编辑页「重复」的选项。"
+  },
+  "scheduleRuleWeekly": "每周",
+  "@scheduleRuleWeekly": {
+    "description": "定时任务编辑页「重复」的选项。"
+  },
+  "scheduleRuleInterval": "间隔",
+  "@scheduleRuleInterval": {
+    "description": "定时任务编辑页「重复」的选项：每隔几小时。"
+  },
+  "scheduleOutcomeRunning": "正在运行",
+  "@scheduleOutcomeRunning": {
+    "description": "定时任务一次运行的结果。"
+  },
+  "scheduleOutcomeDone": "完成",
+  "@scheduleOutcomeDone": {
+    "description": "定时任务一次运行的结果。"
+  },
+  "scheduleOutcomeNoChange": "没有变化",
+  "@scheduleOutcomeNoChange": {
+    "description": "定时任务一次运行的结果：只在有变化时提醒的任务，Claude 说这次没什么新的；也存成这次运行的摘要。"
+  },
+  "scheduleOutcomeFailed": "没有完成",
+  "@scheduleOutcomeFailed": {
+    "description": "定时任务一次运行的结果：出错或没跑成。"
+  },
+  "scheduleOutcomeStopped": "被停止",
+  "@scheduleOutcomeStopped": {
+    "description": "定时任务一次运行的结果：用户叫停了。"
+  },
+  "scheduleOutcomeInterrupted": "中途被关掉",
+  "@scheduleOutcomeInterrupted": {
+    "description": "定时任务一次运行的结果：Zeta 在这一轮结束前被关掉了。"
+  },
+  "scheduleNameMissing": "写一个名字",
+  "@scheduleNameMissing": {
+    "description": "定时任务不能保存的原因：没写名字。"
+  },
+  "scheduleNameTooLong": "名字最多 {max} 个字",
+  "@scheduleNameTooLong": {
+    "description": "定时任务不能保存的原因：名字太长。",
+    "placeholders": {
+      "max": {
+        "type": "int"
+      }
+    }
+  },
+  "schedulePromptMissing": "写上要让 Claude 做什么",
+  "@schedulePromptMissing": {
+    "description": "定时任务不能保存的原因：没写指令。"
+  },
+  "schedulePromptTooLong": "指令最多 {max} 个字",
+  "@schedulePromptTooLong": {
+    "description": "定时任务不能保存的原因：指令太长。",
+    "placeholders": {
+      "max": {
+        "type": "int"
+      }
+    }
+  },
+  "scheduleCwdNotAbsolute": "工作目录要写 Linux 环境里的绝对路径",
+  "@scheduleCwdNotAbsolute": {
+    "description": "定时任务不能保存的原因：工作目录不是绝对路径。"
+  },
+  "scheduleTimePassed": "这个时间已经过了",
+  "@scheduleTimePassed": {
+    "description": "单次定时任务不能保存的原因：时间已过。"
+  },
+  "schedulePickADay": "至少选一天",
+  "@schedulePickADay": {
+    "description": "每周的定时任务不能保存的原因：一天都没选。"
+  },
+  "scheduleIntervalRange": "间隔要在 1 到 {max} 小时之间",
+  "@scheduleIntervalRange": {
+    "description": "间隔的定时任务不能保存的原因：小时数不对。",
+    "placeholders": {
+      "max": {
+        "type": "int"
+      }
+    }
+  },
+  "scheduleDescribeOnce": "仅一次 · {date} {time}",
+  "@scheduleDescribeOnce": {
+    "description": "定时任务列表里怎么重复的一句：单次，date 是月日（见 scheduleMonthDay），time 是「08:00」。",
+    "placeholders": {
+      "date": {
+        "type": "String"
+      },
+      "time": {
+        "type": "String"
+      }
+    }
+  },
+  "scheduleDescribeDaily": "每天 {time}",
+  "@scheduleDescribeDaily": {
+    "description": "定时任务列表里怎么重复的一句：每天，time 是「08:00」。",
+    "placeholders": {
+      "time": {
+        "type": "String"
+      }
+    }
+  },
+  "scheduleDescribeWeekly": "{days} {time}",
+  "@scheduleDescribeWeekly": {
+    "description": "定时任务列表里怎么重复的一句：每周几天，days 是「工作日」「每周一、三」这样的，time 是「08:00」。",
+    "placeholders": {
+      "days": {
+        "type": "String"
+      },
+      "time": {
+        "type": "String"
+      }
+    }
+  },
+  "scheduleDescribeInterval": "每 {hours} 小时 · 从 {time} 起",
+  "@scheduleDescribeInterval": {
+    "description": "定时任务列表里怎么重复的一句：每隔几小时，从 time（「08:00」）起。",
+    "placeholders": {
+      "hours": {
+        "type": "int"
+      },
+      "time": {
+        "type": "String"
+      }
+    }
+  },
+  "scheduleEveryDay": "每天",
+  "@scheduleEveryDay": {
+    "description": "每周的定时任务七天都选了时的说法。"
+  },
+  "scheduleWorkdays": "工作日",
+  "@scheduleWorkdays": {
+    "description": "每周的定时任务选了周一到周五时的说法。"
+  },
+  "scheduleWeekend": "周末",
+  "@scheduleWeekend": {
+    "description": "每周的定时任务选了周六周日时的说法。"
+  },
+  "scheduleWeeklyDays": "每周{days}",
+  "@scheduleWeeklyDays": {
+    "description": "每周的定时任务选了别的几天时的说法：days 是几个星期几的简称，用 scheduleDaySeparator 连起来（「每周一、三、五」）。",
+    "placeholders": {
+      "days": {
+        "type": "String"
+      }
+    }
+  },
+  "scheduleDaySeparator": "、",
+  "@scheduleDaySeparator": {
+    "description": "列几个星期几时中间的分隔。"
+  },
+  "scheduleDayShortMon": "一",
+  "@scheduleDayShortMon": {
+    "description": "星期一的简称：列在「每周一、三」里，也是星期几按钮上的字。"
+  },
+  "scheduleDayShortTue": "二",
+  "@scheduleDayShortTue": {
+    "description": "星期二的简称（同 scheduleDayShortMon）。"
+  },
+  "scheduleDayShortWed": "三",
+  "@scheduleDayShortWed": {
+    "description": "星期三的简称（同 scheduleDayShortMon）。"
+  },
+  "scheduleDayShortThu": "四",
+  "@scheduleDayShortThu": {
+    "description": "星期四的简称（同 scheduleDayShortMon）。"
+  },
+  "scheduleDayShortFri": "五",
+  "@scheduleDayShortFri": {
+    "description": "星期五的简称（同 scheduleDayShortMon）。"
+  },
+  "scheduleDayShortSat": "六",
+  "@scheduleDayShortSat": {
+    "description": "星期六的简称（同 scheduleDayShortMon）。"
+  },
+  "scheduleDayShortSun": "日",
+  "@scheduleDayShortSun": {
+    "description": "星期日的简称（同 scheduleDayShortMon）。"
+  },
+  "scheduleWeekdayName": "周{day}",
+  "@scheduleWeekdayName": {
+    "description": "单独说一个星期几：day 是上面的简称（「周六」）。",
+    "placeholders": {
+      "day": {
+        "type": "String"
+      }
+    }
+  },
+  "scheduleToday": "今天 {time}",
+  "@scheduleToday": {
+    "description": "说一个时刻：今天的，time 是「08:00」。",
+    "placeholders": {
+      "time": {
+        "type": "String"
+      }
+    }
+  },
+  "scheduleTomorrow": "明天 {time}",
+  "@scheduleTomorrow": {
+    "description": "说一个时刻：明天的。",
+    "placeholders": {
+      "time": {
+        "type": "String"
+      }
+    }
+  },
+  "scheduleYesterday": "昨天 {time}",
+  "@scheduleYesterday": {
+    "description": "说一个时刻：昨天的。",
+    "placeholders": {
+      "time": {
+        "type": "String"
+      }
+    }
+  },
+  "scheduleMonthDay": "{month}月{day}日",
+  "@scheduleMonthDay": {
+    "description": "月日：month 是 1 到 12，day 是几号。",
+    "placeholders": {
+      "month": {
+        "type": "String"
+      },
+      "day": {
+        "type": "String"
+      }
+    }
+  },
+  "scheduleYearMonthDay": "{year}年{month}月{day}日",
+  "@scheduleYearMonthDay": {
+    "description": "不是今年的年月日：month 是 1 到 12，day 是几号。",
+    "placeholders": {
+      "year": {
+        "type": "String"
+      },
+      "month": {
+        "type": "String"
+      },
+      "day": {
+        "type": "String"
+      }
+    }
+  },
+  "scheduleDateTime": "{date} {weekday} {time}",
+  "@scheduleDateTime": {
+    "description": "说一个不在昨天到明天之间的时刻：date 是月日（或年月日），weekday 是「周六」，time 是「08:00」。",
+    "placeholders": {
+      "date": {
+        "type": "String"
+      },
+      "weekday": {
+        "type": "String"
+      },
+      "time": {
+        "type": "String"
+      }
+    }
+  },
+  "scheduleStoppedSummary": "已停止",
+  "@scheduleStoppedSummary": {
+    "description": "定时任务被叫停、又没有回答时这次运行的摘要（存下来，列表和通知里显示）。"
+  },
+  "scheduleNotSent": "指令没有发出去",
+  "@scheduleNotSent": {
+    "description": "定时任务这次运行没跑成的原因（存下来）：指令没发出去。"
+  },
+  "scheduleInterruptedSummary": "Zeta 在这次运行结束前被关掉了，结果在对话里",
+  "@scheduleInterruptedSummary": {
+    "description": "定时任务这次运行中断时的摘要（存下来）。"
+  },
+  "scheduleSkipStillRunning": "上一次还没跑完，这次跳过了",
+  "@scheduleSkipStillRunning": {
+    "description": "定时任务到点没跑的原因：上一次还在跑。"
+  },
+  "scheduleDeviceUnavailable": "这台设备现在用不了",
+  "@scheduleDeviceUnavailable": {
+    "description": "定时任务没跑成的原因：那台设备用不了（没有更具体的原因时）。"
+  },
+  "scheduleSkipBusy": "这个对话正在进行，这次跳过了",
+  "@scheduleSkipBusy": {
+    "description": "定时任务到点没跑的原因：接着的那个对话正在进行。"
+  },
+  "scheduleResumeLookupFailed": "查不到原来的对话（那台设备没有响应）",
+  "@scheduleResumeLookupFailed": {
+    "description": "定时任务没跑成的原因：查原来的对话时设备没响应。"
+  },
+  "scheduleNotRunTitle": "{name} · 没有运行",
+  "@scheduleNotRunTitle": {
+    "description": "定时任务没跑成的通知标题，name 是任务名。",
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "scheduleNeedsConfirmTitle": "{name} · 需要你确认",
+  "@scheduleNeedsConfirmTitle": {
+    "description": "定时任务停下来等确认的通知标题。",
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "scheduleNeedsConfirmText": "{notice}，点这里打开对话处理",
+  "@scheduleNeedsConfirmText": {
+    "description": "定时任务停下来等确认的通知内容：notice 是要确认什么（核心给的说明）。",
+    "placeholders": {
+      "notice": {
+        "type": "String"
+      }
+    }
+  },
+  "scheduleNotFinishedTitle": "{name} · 没有完成",
+  "@scheduleNotFinishedTitle": {
+    "description": "定时任务跑完但出错、被打断的通知标题。",
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "scheduleDoneText": "已完成",
+  "@scheduleDoneText": {
+    "description": "定时任务跑完的通知内容（没有摘要时）。"
+  },
+  "scheduleFallbackName": "定时任务",
+  "@scheduleFallbackName": {
+    "description": "查不到任务名、对话也没标题时通知里对定时任务的叫法。"
+  },
+  "coreNoLinuxEnv": "还没有可用的 Linux 环境",
+  "@coreNoLinuxEnv": {
+    "description": "要用手机里的 Linux 环境（Debian）做事、但还没装好或没配置时的错误提示。"
+  },
+  "coreLinuxEnvNoResponse": "Linux 环境没有响应",
+  "@coreLinuxEnvNoResponse": {
+    "description": "在手机的 Linux 环境里执行命令没有结果（超时或进不去）时的错误提示。"
+  },
+  "coreStorageAppCacheTitle": "应用缓存",
+  "@coreStorageAppCacheTitle": {
+    "description": "设置「存储」页能清理的一类：Zeta 自己在 Android 缓存目录里的文件。"
+  },
+  "coreStorageAppCacheWhat": "Zeta 在 Android 缓存目录里的临时文件（截图、分享进来的文件副本等）和内置浏览器的网页缓存",
+  "@coreStorageAppCacheWhat": {
+    "description": "存储页清理确认框里「删除：」后面的内容：应用缓存删什么。不带句号，句号由外面那句加。"
+  },
+  "coreStorageAppCacheKept": "十分钟内写过的文件；有对话在进行时，浏览器缓存先不清",
+  "@coreStorageAppCacheKept": {
+    "description": "存储页清理确认框里「不删：」后面的内容：应用缓存哪些不删。不带句号。"
+  },
+  "coreStorageImageMemoryTitle": "图片缓存",
+  "@coreStorageImageMemoryTitle": {
+    "description": "存储页能清理的一类：内存里的图片缓存。"
+  },
+  "coreStorageImageMemoryWhat": "聊天里显示过的图片在内存里的缓存",
+  "@coreStorageImageMemoryWhat": {
+    "description": "存储页确认框「删除：」后面：图片缓存删什么。不带句号。"
+  },
+  "coreStorageImageMemoryKept": "无（正在显示的图片之后会重新载入）",
+  "@coreStorageImageMemoryKept": {
+    "description": "存储页确认框「不删：」后面：图片缓存全删，正在显示的会重新载入。不带句号。"
+  },
+  "coreStorageZetaFilesTitle": "附件",
+  "@coreStorageZetaFilesTitle": {
+    "description": "存储页能清理的一类：发给 Claude 的文件在 Linux 环境里的副本。"
+  },
+  "coreStorageZetaFilesWhat": "发给 Claude 的文件在 Linux 环境里的副本",
+  "@coreStorageZetaFilesWhat": {
+    "description": "存储页确认框「删除：」后面：附件删什么。不带句号。"
+  },
+  "coreStorageZetaFilesKept": "一小时内送进来的（可能还在输入框里）、进行中的对话提到的。七天以上的平时也会自动清掉",
+  "@coreStorageZetaFilesKept": {
+    "description": "存储页确认框「不删：」后面：附件哪些不删。不带句号。"
+  },
+  "coreStorageZetaHostsTitle": "已结束对话的输出",
+  "@coreStorageZetaHostsTitle": {
+    "description": "存储页能清理的一类：后台对话里进程已结束的输出记录。"
+  },
+  "coreStorageZetaHostsWhat": "后台对话的输出记录里 Claude Code 进程已经结束的那些（对话内容在会话记录里，不受影响）",
+  "@coreStorageZetaHostsWhat": {
+    "description": "存储页确认框「删除：」后面。不带句号。"
+  },
+  "coreStorageZetaHostsKept": "还在运行、或应用还连着的对话的",
+  "@coreStorageZetaHostsKept": {
+    "description": "存储页确认框「不删：」后面。不带句号。"
+  },
+  "coreStorageClaudeResidueTitle": "已删会话的残留",
+  "@coreStorageClaudeResidueTitle": {
+    "description": "存储页能清理的一类：会话记录已删的会话留下的文件。"
+  },
+  "coreStorageClaudeResidueWhat": "会话记录已经不在的会话留下的改动备份（file-history）、会话环境（session-env）、任务清单（tasks、todos）、上传（uploads），以及项目目录里的同名目录",
+  "@coreStorageClaudeResidueWhat": {
+    "description": "存储页确认框「删除：」后面。括号里是 ~/.claude 下的目录名，不翻译。不带句号。"
+  },
+  "coreStorageClaudeResidueKept": "进行中的会话的、十分钟内动过的；会话记录本身一个都不删",
+  "@coreStorageClaudeResidueKept": {
+    "description": "存储页确认框「不删：」后面。不带句号。"
+  },
+  "coreStorageClaudeDebugTitle": "调试日志",
+  "@coreStorageClaudeDebugTitle": {
+    "description": "存储页能清理的一类：Claude Code 的调试日志。"
+  },
+  "coreStorageClaudeDebugWhat": "Claude Code 的调试日志（~/.claude/debug）",
+  "@coreStorageClaudeDebugWhat": {
+    "description": "存储页确认框「删除：」后面。不带句号。"
+  },
+  "coreStorageClaudeDebugKept": "进行中的会话的、十分钟内写过的",
+  "@coreStorageClaudeDebugKept": {
+    "description": "存储页确认框「不删：」后面：调试日志哪些不删。不带句号。"
+  },
+  "coreStorageClaudeSnapshotsTitle": "Shell 快照",
+  "@coreStorageClaudeSnapshotsTitle": {
+    "description": "存储页能清理的一类：Claude Code 的 shell 环境快照。"
+  },
+  "coreStorageClaudeSnapshotsWhat": "Claude Code 执行命令前载入的 shell 环境快照（~/.claude/shell-snapshots），每次启动会重新建",
+  "@coreStorageClaudeSnapshotsWhat": {
+    "description": "存储页确认框「删除：」后面。不带句号。"
+  },
+  "coreStorageClaudeSnapshotsKept": "还在运行的 Claude Code 可能在用的（建于最早那个进程启动之后的）",
+  "@coreStorageClaudeSnapshotsKept": {
+    "description": "存储页确认框「不删：」后面。不带句号。"
+  },
+  "coreStorageClaudePasteTitle": "粘贴缓存",
+  "@coreStorageClaudePasteTitle": {
+    "description": "存储页能清理的一类：终端里粘贴的大段文字。"
+  },
+  "coreStorageClaudePasteWhat": "终端里粘贴的大段文字（~/.claude/paste-cache），只用来在输入历史（上箭头）里调回；删掉后历史里那几条只剩占位",
+  "@coreStorageClaudePasteWhat": {
+    "description": "存储页确认框「删除：」后面。不带句号。"
+  },
+  "coreStorageClaudePasteKept": "还在运行的 Claude Code 启动以后粘贴的",
+  "@coreStorageClaudePasteKept": {
+    "description": "存储页确认框「不删：」后面。不带句号。"
+  },
+  "coreStorageClaudeImageCacheTitle": "图片副本",
+  "@coreStorageClaudeImageCacheTitle": {
+    "description": "存储页能清理的一类：Claude Code 为对话里的图片存的副本。"
+  },
+  "coreStorageClaudeImageCacheWhat": "Claude Code 为对话里的图片存的副本（~/.claude/image-cache），它自己启动时也会清掉别的会话的",
+  "@coreStorageClaudeImageCacheWhat": {
+    "description": "存储页确认框「删除：」后面。不带句号。"
+  },
+  "coreStorageKeptRunningSessions": "进行中的会话的",
+  "@coreStorageKeptRunningSessions": {
+    "description": "存储页确认框「不删：」后面：只留进行中的会话的（图片副本、未发出的使用统计共用）。不带句号。"
+  },
+  "coreStorageClaudeTelemetryTitle": "未发出的使用统计",
+  "@coreStorageClaudeTelemetryTitle": {
+    "description": "存储页能清理的一类：Claude Code 没发出去的使用统计。"
+  },
+  "coreStorageClaudeTelemetryWhat": "没发送成功、等着重发的使用统计（~/.claude/telemetry）",
+  "@coreStorageClaudeTelemetryWhat": {
+    "description": "存储页确认框「删除：」后面。不带句号。"
+  },
+  "coreStorageAptTitle": "apt 缓存",
+  "@coreStorageAptTitle": {
+    "description": "存储页能清理的一类：Debian 里 apt 的缓存。apt 是程序名，保持小写。"
+  },
+  "coreStorageAptWhat": "apt 下载过的软件包和包索引缓存（以 root 执行 apt-get clean），再装软件时会重新下载",
+  "@coreStorageAptWhat": {
+    "description": "存储页确认框「删除：」后面。不带句号。"
+  },
+  "coreStorageAptKept": "正在装软件时整个不清",
+  "@coreStorageAptKept": {
+    "description": "存储页确认框「不删：」后面。不带句号。"
+  },
+  "coreStorageNpmTitle": "npm 缓存",
+  "@coreStorageNpmTitle": {
+    "description": "存储页能清理的一类：npm 的缓存。"
+  },
+  "coreStorageNpmWhat": "npm 的下载缓存和日志（~/.npm/_cacache、_logs），和 npm cache clean 删的一样",
+  "@coreStorageNpmWhat": {
+    "description": "存储页确认框「删除：」后面。不带句号。"
+  },
+  "coreStorageNpmKept": "npx 装的包（~/.npm/_npx），MCP 服务可能正从那里运行；npm 刚启动不到十分钟时整个不清",
+  "@coreStorageNpmKept": {
+    "description": "存储页确认框「不删：」后面。不带句号。"
+  },
+  "coreStoragePipTitle": "pip 缓存",
+  "@coreStoragePipTitle": {
+    "description": "存储页能清理的一类：pip 的缓存。"
+  },
+  "coreStoragePipWhat": "pip 的下载和构建缓存（~/.cache/pip）",
+  "@coreStoragePipWhat": {
+    "description": "存储页确认框「删除：」后面。不带句号。"
+  },
+  "coreStoragePipKept": "pip 正在运行时整个不清",
+  "@coreStoragePipKept": {
+    "description": "存储页确认框「不删：」后面。不带句号。"
+  },
+  "coreStorageTmpTitle": "临时文件",
+  "@coreStorageTmpTitle": {
+    "description": "存储页能清理的一类：Debian /tmp 里的临时文件。"
+  },
+  "coreStorageTmpWhat": "Debian 的 /tmp 里属于你的临时文件，包括 Claude Code 的命令输出和草稿目录（/tmp/claude-<uid>）",
+  "@coreStorageTmpWhat": {
+    "description": "存储页确认框「删除：」后面。不带句号。"
+  },
+  "coreStorageTmpKept": "一天内动过的、有进程正打开着或在里面工作的、带套接字的（tmux、ssh 等）、进行中的会话的",
+  "@coreStorageTmpKept": {
+    "description": "存储页确认框「不删：」后面。不带句号。"
+  },
+  "coreStoragePartProjects": "项目里的同名目录",
+  "@coreStoragePartProjects": {
+    "description": "存储页确认框「其中：」列的一个来源：项目目录里和已删会话同名的目录。"
+  },
+  "coreStoragePartClaude": "Claude Code 的临时目录",
+  "@coreStoragePartClaude": {
+    "description": "存储页确认框「其中：」列的一个来源：/tmp 里 Claude Code 的目录。"
+  },
+  "coreStoragePartOther": "其他",
+  "@coreStoragePartOther": {
+    "description": "存储页确认框「其中：」列的一个来源：别的。"
+  },
+  "coreStorageCounting": "统计中…",
+  "@coreStorageCounting": {
+    "description": "存储页一类下面的说明：正在统计占用。"
+  },
+  "coreStorageCountFailed": "没统计成",
+  "@coreStorageCountFailed": {
+    "description": "存储页一类下面的说明：统计失败。"
+  },
+  "coreStorageBusyLater": "{tool} 正在运行，稍后再清",
+  "@coreStorageBusyLater": {
+    "description": "存储页一类下面的说明：相关的工具正在运行，现在不能清。",
+    "placeholders": {
+      "tool": {
+        "type": "String",
+        "example": "npm"
+      }
+    }
+  },
+  "coreStorageNothing": "没有可清理的",
+  "@coreStorageNothing": {
+    "description": "存储页一类下面的说明：没有能清掉的东西。"
+  },
+  "coreStorageFreeable": "可清理 {size}",
+  "@coreStorageFreeable": {
+    "description": "存储页一类下面的说明：能清掉多少（不分项的一类）。",
+    "placeholders": {
+      "size": {
+        "type": "String",
+        "example": "2 KB"
+      }
+    }
+  },
+  "coreStorageFreeableItems": "可清理 {size}（{count} 项）",
+  "@coreStorageFreeableItems": {
+    "description": "存储页一类下面的说明：能清掉多少、几项。",
+    "placeholders": {
+      "size": {
+        "type": "String",
+        "example": "2 KB"
+      },
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "coreStorageConfirmDelete": "删除：{what}。",
+  "@coreStorageConfirmDelete": {
+    "description": "存储页清理确认框的第一行：删什么。",
+    "placeholders": {
+      "what": {
+        "type": "String"
+      }
+    }
+  },
+  "coreStorageConfirmFree": "能腾出约 {size}。",
+  "@coreStorageConfirmFree": {
+    "description": "存储页清理确认框的第二行：能腾出多少（不分项的一类）。",
+    "placeholders": {
+      "size": {
+        "type": "String",
+        "example": "8 KB"
+      }
+    }
+  },
+  "coreStorageConfirmFreeItems": "能腾出约 {size}（{count} 项）。",
+  "@coreStorageConfirmFreeItems": {
+    "description": "存储页清理确认框的第二行：能腾出多少、几项。",
+    "placeholders": {
+      "size": {
+        "type": "String",
+        "example": "8 KB"
+      },
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "coreStorageConfirmParts": "其中：{parts}。",
+  "@coreStorageConfirmParts": {
+    "description": "存储页清理确认框第二行接在后面的一句：按来源的小计。英文开头带一个空格，和前一句隔开。",
+    "placeholders": {
+      "parts": {
+        "type": "String",
+        "example": "file-history 5 KB，项目里的同名目录 3 KB"
+      }
+    }
+  },
+  "coreStorageListSeparator": "，",
+  "@coreStorageListSeparator": {
+    "description": "存储页确认框「其中：」里各来源之间的分隔。"
+  },
+  "coreStorageConfirmKept": "不删：{kept}。",
+  "@coreStorageConfirmKept": {
+    "description": "存储页清理确认框的最后一行：什么不删。",
+    "placeholders": {
+      "kept": {
+        "type": "String"
+      }
+    }
+  },
+  "coreStorageBusySkipped": "{tool} 正在运行，这次没有清理{kind}",
+  "@coreStorageBusySkipped": {
+    "description": "存储页清理后的提示：相关工具正在运行，这一类没清。",
+    "placeholders": {
+      "tool": {
+        "type": "String",
+        "example": "npm"
+      },
+      "kind": {
+        "type": "String",
+        "example": "npm 缓存"
+      }
+    }
+  },
+  "coreStorageNothingOf": "没有可清理的{kind}",
+  "@coreStorageNothingOf": {
+    "description": "存储页清理后的提示：这一类没有能清的。",
+    "placeholders": {
+      "kind": {
+        "type": "String",
+        "example": "npm 缓存"
+      }
+    }
+  },
+  "coreStorageFreedPartly": "已腾出 {size}，{count} 项没删成（核对时不合要求，留着没动）",
+  "@coreStorageFreedPartly": {
+    "description": "存储页清理后的提示：清掉了一部分，有几项核对不过没删。",
+    "placeholders": {
+      "size": {
+        "type": "String",
+        "example": "2 KB"
+      },
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "coreStorageFreed": "已腾出 {size}",
+  "@coreStorageFreed": {
+    "description": "存储页清理后的提示：腾出了多少。",
+    "placeholders": {
+      "size": {
+        "type": "String",
+        "example": "2 KB"
+      }
+    }
+  },
+  "coreStorageCleanupDaysDefault": "{days} 天（默认）",
+  "@coreStorageCleanupDaysDefault": {
+    "description": "存储页「会话记录保留」的值：没设时 Claude Code 默认保留的天数。",
+    "placeholders": {
+      "days": {
+        "type": "int"
+      }
+    }
+  },
+  "coreStorageCleanupDays": "{days} 天",
+  "@coreStorageCleanupDays": {
+    "description": "存储页「会话记录保留」的值：设了的天数。",
+    "placeholders": {
+      "days": {
+        "type": "int"
+      }
+    }
+  },
+  "coreStorageCleanFailed": "没清理成",
+  "@coreStorageCleanFailed": {
+    "description": "存储页清理失败、核心没给原因时的提示。"
+  },
+  "coreStorageBusyMaintenance": "安装或维护",
+  "@coreStorageBusyMaintenance": {
+    "description": "存储页清 apt 缓存时，应用正在装软件或做环境维护：填进「{tool} 正在运行，这次没有清理…」的 tool。"
+  },
+  "coreStorageAptFailed": "apt-get clean 没有成功",
+  "@coreStorageAptFailed": {
+    "description": "存储页清 apt 缓存失败、没有输出原因时的提示。"
+  },
+  "coreStorageAptFailedReason": "apt-get clean 没有成功：{reason}",
+  "@coreStorageAptFailedReason": {
+    "description": "存储页清 apt 缓存失败的提示，带 apt 输出的最后一行（原文）。",
+    "placeholders": {
+      "reason": {
+        "type": "String"
+      }
+    }
+  },
+  "coreChannelStatus": "运行状态",
+  "@coreChannelStatus": {
+    "description": "通知渠道名（系统设置的通知类别里显示）：对话在跑时的常驻通知。"
+  },
+  "coreChannelAlert": "完成与确认提醒",
+  "@coreChannelAlert": {
+    "description": "通知渠道名：对话答完、等用户确认或回答时的提醒。"
+  },
+  "coreChannelUpdate": "版本更新",
+  "@coreChannelUpdate": {
+    "description": "通知渠道名：有新版本时的提醒。"
+  },
+  "coreStatusWorking": "Claude 正在工作",
+  "@coreStatusWorking": {
+    "description": "常驻通知的标题：有对话在跑。"
+  },
+  "coreStatusHolding": "Claude 会话保持中",
+  "@coreStatusHolding": {
+    "description": "常驻通知的标题：没有对话在跑，但会话还开着。"
+  },
+  "coreStatusRunningCount": "{count} 个对话进行中",
+  "@coreStatusRunningCount": {
+    "description": "常驻通知的正文：同时有几个对话在跑。",
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "coreStatusStopAll": "全部停止",
+  "@coreStatusStopAll": {
+    "description": "常驻通知上的按钮：停止所有在跑的对话。"
+  },
+  "coreStatusStop": "停止",
+  "@coreStatusStop": {
+    "description": "常驻通知上的按钮：停止在跑的对话。"
+  },
+  "coreStatusCapture": "截屏",
+  "@coreStatusCapture": {
+    "description": "常驻通知上的按钮：截下当前屏幕放进 Zeta 对话的输入框。"
+  },
+  "coreStepYouControl": "你在接管",
+  "@coreStepYouControl": {
+    "description": "顶部胶囊、实时通知上的当前步骤：用户正在接管后台屏幕。"
+  },
+  "coreStepPaused": "已暂停",
+  "@coreStepPaused": {
+    "description": "顶部胶囊、实时通知上的当前步骤：手机操作暂停了。"
+  },
+  "coreStepAnswering": "正在回答",
+  "@coreStepAnswering": {
+    "description": "顶部胶囊、实时通知上的当前步骤：Claude 正在写回答。"
+  },
+  "coreStepThinking": "正在思考",
+  "@coreStepThinking": {
+    "description": "顶部胶囊、实时通知上的当前步骤：Claude 在想。"
+  },
+  "coreStepNeedsAnswer": "需要你回答",
+  "@coreStepNeedsAnswer": {
+    "description": "顶部胶囊、实时通知和提醒上的当前步骤：Claude 提了问题或 MCP 服务器要填表。"
+  },
+  "coreStepNeedsApproval": "需要你确认",
+  "@coreStepNeedsApproval": {
+    "description": "顶部胶囊、实时通知和提醒上的当前步骤：Claude 要用工具，等用户批准。"
+  },
+  "coreStepWithDetail": "{step}：{detail}",
+  "@coreStepWithDetail": {
+    "description": "提醒和实时通知收起时的一行：当前步骤加具体的问题或工具标题。",
+    "placeholders": {
+      "step": {
+        "type": "String",
+        "example": "需要你确认"
+      },
+      "detail": {
+        "type": "String",
+        "example": "运行 ls"
+      }
+    }
+  },
+  "coreAlertAllow": "允许",
+  "@coreAlertAllow": {
+    "description": "提醒通知上的按钮：批准 Claude 这次用工具。"
+  },
+  "coreAlertDeny": "拒绝",
+  "@coreAlertDeny": {
+    "description": "提醒通知上的按钮：拒绝 Claude 这次用工具，这一轮停下。"
+  },
+  "coreBridgeOperatingPhone": "操作手机",
+  "@coreBridgeOperatingPhone": {
+    "description": "电脑经桥接操作手机时，顶部胶囊上的当前步骤（没有更具体的说法时）。"
+  },
+  "coreBridgeWaitingNext": "等待下一步",
+  "@coreBridgeWaitingNext": {
+    "description": "电脑经桥接操作手机时，两次调用之间胶囊上的当前步骤。"
+  },
+  "coreBridgeTitle": "电脑在操作",
+  "@coreBridgeTitle": {
+    "description": "电脑经桥接操作手机时，顶部胶囊的标题（第二行，后面可能接「 · 应用名」）。"
+  },
+  "coreBridgeTitleWithApp": "{title} · {app}",
+  "@coreBridgeTitleWithApp": {
+    "description": "电脑经桥接操作手机时胶囊第二行：标题加后台屏幕上的应用名。",
+    "placeholders": {
+      "title": {
+        "type": "String",
+        "example": "电脑在操作"
+      },
+      "app": {
+        "type": "String",
+        "example": "设置"
+      }
+    }
+  },
+  "coreStepShortFinished": "已完成",
+  "@coreStepShortFinished": {
+    "description": "状态栏小胶囊上的词（只放得下几个字）：这一轮结束了。"
+  },
+  "coreStepShortControlling": "接管中",
+  "@coreStepShortControlling": {
+    "description": "状态栏小胶囊上的词：用户在接管后台屏幕。"
+  },
+  "coreStepShortPaused": "已暂停",
+  "@coreStepShortPaused": {
+    "description": "状态栏小胶囊上的词：暂停了。"
+  },
+  "coreStepShortAsking": "待回答",
+  "@coreStepShortAsking": {
+    "description": "状态栏小胶囊上的词：等用户回答。"
+  },
+  "coreStepShortConfirming": "待确认",
+  "@coreStepShortConfirming": {
+    "description": "状态栏小胶囊上的词：等用户批准。"
+  },
+  "coreStepShortStatus": "处理中",
+  "@coreStepShortStatus": {
+    "description": "状态栏小胶囊上的词：重试、压缩上下文这类临时状态。"
+  },
+  "coreStepShortAnswering": "回答中",
+  "@coreStepShortAnswering": {
+    "description": "状态栏小胶囊上的词：正在写回答。"
+  },
+  "coreStepShortPhone": "操作中",
+  "@coreStepShortPhone": {
+    "description": "状态栏小胶囊上的词：在用手机工具。"
+  },
+  "coreStepShortTool": "执行中",
+  "@coreStepShortTool": {
+    "description": "状态栏小胶囊上的词：在跑工具。"
+  },
+  "coreStepShortThinking": "思考中",
+  "@coreStepShortThinking": {
+    "description": "状态栏小胶囊上的词：在想。"
+  },
+  "coreLiveOthers": "另有 {count} 个对话在回答",
+  "@coreLiveOthers": {
+    "description": "实时通知标题旁的一句：除了显示的这个，还有几个对话在回答。",
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "coreUntitledConversation": "新对话",
+  "@coreUntitledConversation": {
+    "description": "还没有标题的对话在通知上的叫法。"
+  },
+  "coreTurnDoneWithTasks": "答完了，后台还有 {count} 个任务在跑",
+  "@coreTurnDoneWithTasks": {
+    "description": "一轮结束时胶囊和提醒上的那句：这一轮答完了，但后台任务（子代理、后台命令）还在跑。",
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "coreStatusRunningInBackground": "{title} · 在后台操作{app}",
+  "@coreStatusRunningInBackground": {
+    "description": "常驻通知正文里一个在跑的对话：对话标题，加它正在后台屏幕上操作的应用。",
+    "placeholders": {
+      "title": {
+        "type": "String",
+        "example": "整理相册"
+      },
+      "app": {
+        "type": "String",
+        "example": "相册"
+      }
+    }
+  },
+  "coreInstallCheck": "检查设备",
+  "@coreInstallCheck": {
+    "description": "安装 Linux 环境的一步：检查设备。"
+  },
+  "coreInstallDownload": "下载 Debian 13",
+  "@coreInstallDownload": {
+    "description": "安装 Linux 环境的一步：下载 Debian 13。"
+  },
+  "coreInstallExtract": "解压并配置",
+  "@coreInstallExtract": {
+    "description": "安装 Linux 环境的一步：解压并配置。"
+  },
+  "coreInstallTools": "安装常用工具",
+  "@coreInstallTools": {
+    "description": "安装 Linux 环境的一步：装常用工具。"
+  },
+  "coreInstallUser": "创建用户",
+  "@coreInstallUser": {
+    "description": "安装 Linux 环境的一步：建 Linux 用户。"
+  },
+  "coreInstallClaude": "安装 Claude Code",
+  "@coreInstallClaude": {
+    "description": "安装 Linux 环境的一步：装 Claude Code。"
+  },
+  "coreInstallInterrupted": "安装中断",
+  "@coreInstallInterrupted": {
+    "description": "安装 Linux 环境意外中断、没有更具体原因时的错误。"
+  },
+  "coreInstallUnsupportedAbi": "暂不支持这台设备的架构：{abi}",
+  "@coreInstallUnsupportedAbi": {
+    "description": "安装 Linux 环境：设备的 CPU 架构没有对应的 Debian 包。",
+    "placeholders": {
+      "abi": {
+        "type": "String",
+        "example": "x86"
+      }
+    }
+  },
+  "coreInstallUnknownAbi": "未知",
+  "@coreInstallUnknownAbi": {
+    "description": "安装 Linux 环境：读不到设备 CPU 架构时填进「暂不支持这台设备的架构」。"
+  },
+  "coreInstallNoRoot": "没有 root 权限，请先在 root 管理器里给 Zeta 授权",
+  "@coreInstallNoRoot": {
+    "description": "安装 Linux 环境：Zeta 没有 root 权限。"
+  },
+  "coreInstallNoUser": "没有找到刚建的用户",
+  "@coreInstallNoUser": {
+    "description": "安装 Linux 环境：建好用户后读不到它。"
+  },
+  "coreCancelled": "已取消",
+  "@coreCancelled": {
+    "description": "操作被用户取消了（安装、导入、导出等）。"
+  },
+  "coreInstallScriptFailed": "启动不了安装脚本：{error}",
+  "@coreInstallScriptFailed": {
+    "description": "安装 Linux 环境：安装脚本起不来。error 是系统给的原文。",
+    "placeholders": {
+      "error": {
+        "type": "String"
+      }
+    }
+  },
+  "coreInstallStepFailed": "“{step}”没有成功（退出码 {code}）",
+  "@coreInstallStepFailed": {
+    "description": "安装 Linux 环境的一步失败了，脚本没给原因；后面可能接几行脚本输出。",
+    "placeholders": {
+      "step": {
+        "type": "String",
+        "example": "安装常用工具"
+      },
+      "code": {
+        "type": "int"
+      }
+    }
+  },
+  "coreStartFailed": "启动失败",
+  "@coreStartFailed": {
+    "description": "环境维护、装可选工具等命令起不来、系统没给原因时的错误。"
+  },
+  "coreToolVersionUnknown": "版本未知",
+  "@coreToolVersionUnknown": {
+    "description": "Linux 环境页可选工具的版本：工具装了，但不是 Zeta 装的，读不出版本。"
+  },
+  "coreMaintainRepair": "修复环境",
+  "@coreMaintainRepair": {
+    "description": "Linux 环境页维护卡片的标题：正在修复软件包、补齐常用工具。"
+  },
+  "coreMaintainUpdateClaude": "更新 Claude Code",
+  "@coreMaintainUpdateClaude": {
+    "description": "Linux 环境页维护卡片的标题：正在更新 Claude Code。"
+  },
+  "coreFailed": "没有成功",
+  "@coreFailed": {
+    "description": "操作失败、没有更具体的原因时的说法。"
+  },
+  "coreSshStart": "启动 SSH 服务",
+  "@coreSshStart": {
+    "description": "Linux 环境页维护卡片的标题：启动 Debian 里的 SSH 服务（失败时显示）。"
+  },
+  "coreSshStop": "停止 SSH 服务",
+  "@coreSshStop": {
+    "description": "Linux 环境页维护卡片的标题：停止 SSH 服务（失败时显示）。"
+  },
+  "coreSshAutostart": "开机自动启动",
+  "@coreSshAutostart": {
+    "description": "Linux 环境页维护卡片的标题：设置 SSH 服务开机自启（失败时显示）。"
+  },
+  "coreSshSetup": "安装 SSH 服务",
+  "@coreSshSetup": {
+    "description": "Linux 环境页维护卡片的标题：安装 SSH 服务。"
+  },
+  "coreSshAddKey": "添加公钥",
+  "@coreSshAddKey": {
+    "description": "Linux 环境页维护卡片的标题：往 authorized_keys 加一把公钥。"
+  },
+  "coreOptionalUpdate": "更新 {tool}",
+  "@coreOptionalUpdate": {
+    "description": "Linux 环境页维护卡片的标题：更新 Zeta 装的可选工具。",
+    "placeholders": {
+      "tool": {
+        "type": "String",
+        "example": "Go"
+      }
+    }
+  },
+  "coreOptionalInstall": "安装 {tool}",
+  "@coreOptionalInstall": {
+    "description": "Linux 环境页维护卡片的标题：安装可选工具。",
+    "placeholders": {
+      "tool": {
+        "type": "String",
+        "example": "Go"
+      }
+    }
+  },
+  "coreOptionalRemove": "卸载 {tool}",
+  "@coreOptionalRemove": {
+    "description": "Linux 环境页维护卡片的标题：卸载 Zeta 装的可选工具。",
+    "placeholders": {
+      "tool": {
+        "type": "String",
+        "example": "Go"
+      }
+    }
+  },
+  "coreMaintainLogout": "退出登录",
+  "@coreMaintainLogout": {
+    "description": "Linux 环境页维护卡片的标题：Claude Code 退出登录。"
+  },
+  "coreOptionalApk": "APK 分析",
+  "@coreOptionalApk": {
+    "description": "可选工具的名字：apktool、jadx、smali 这套 APK 分析工具。"
+  },
+  "coreResultNoAnswer": "这一轮没有文字回答。",
+  "@coreResultNoAnswer": {
+    "description": "结果卡片上的正文：这一轮结束了，但 Claude 没写文字回答。"
+  },
+  "coreShareImage": "分享图片",
+  "@coreShareImage": {
+    "description": "分享图片时系统选择器的标题。"
+  },
+  "coreFilesCantReadPath": "无法读取该路径",
+  "@coreFilesCantReadPath": {
+    "description": "Linux 文件浏览：列不出这个目录、没有更具体的原因。"
+  },
+  "coreFilesCantReadFile": "无法读取该文件",
+  "@coreFilesCantReadFile": {
+    "description": "Linux 文件浏览：预览不了这个文件、没有更具体的原因。"
+  },
+  "coreFilesMissing": "路径不存在",
+  "@coreFilesMissing": {
+    "description": "Linux 文件浏览：路径不存在。"
+  },
+  "coreFilesNotDir": "不是目录",
+  "@coreFilesNotDir": {
+    "description": "Linux 文件浏览：要列的不是目录。"
+  },
+  "coreFilesNotFile": "不是普通文件",
+  "@coreFilesNotFile": {
+    "description": "Linux 文件浏览：要预览的不是普通文件。"
+  },
+  "coreFilesDeniedUser": "没有权限读取（Linux 用户看不了这里）",
+  "@coreFilesDeniedUser": {
+    "description": "Linux 文件浏览：Linux 用户没有权限读这里。"
+  },
+  "coreFilesImportInterrupted": "导入中断",
+  "@coreFilesImportInterrupted": {
+    "description": "往 Linux 环境导入文件时意外中断、没有更具体的原因。"
+  },
+  "coreFilesImportFailed": "“{name}”没有导入：{problem}",
+  "@coreFilesImportFailed": {
+    "description": "往 Linux 环境导入文件：这个文件失败了，后面是原因。",
+    "placeholders": {
+      "name": {
+        "type": "String",
+        "example": "a.txt"
+      },
+      "problem": {
+        "type": "String"
+      }
+    }
+  },
+  "coreFilesCancelledImported": "已取消，已导入 {count} 个文件",
+  "@coreFilesCancelledImported": {
+    "description": "往 Linux 环境导入文件：用户取消了，取消前已经导进去几个。",
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "coreFilesImportedThenFailed": "已导入 {count} 个文件；{failure}",
+  "@coreFilesImportedThenFailed": {
+    "description": "往 Linux 环境导入文件：导了几个后有一个失败；failure 是「“文件名”没有导入：原因」那句。",
+    "placeholders": {
+      "count": {
+        "type": "int"
+      },
+      "failure": {
+        "type": "String"
+      }
+    }
+  },
+  "coreFilesImportedOne": "已导入 {name}",
+  "@coreFilesImportedOne": {
+    "description": "往 Linux 环境导入文件：导入了一个。",
+    "placeholders": {
+      "name": {
+        "type": "String",
+        "example": "a.txt"
+      }
+    }
+  },
+  "coreFilesImportedCount": "已导入 {count} 个文件",
+  "@coreFilesImportedCount": {
+    "description": "往 Linux 环境导入文件：导入了几个。",
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "coreFilesCantReadSource": "读取不了这个文件",
+  "@coreFilesCantReadSource": {
+    "description": "往 Linux 环境导入文件：读不了用户选的文件。"
+  },
+  "coreFilesCantEnterDir": "进不去目录 {dir}",
+  "@coreFilesCantEnterDir": {
+    "description": "往 Linux 环境导入文件：进不了目标目录。",
+    "placeholders": {
+      "dir": {
+        "type": "String",
+        "example": "/workspace"
+      }
+    }
+  },
+  "coreFilesNoWriteDir": "没有权限写入 {dir}",
+  "@coreFilesNoWriteDir": {
+    "description": "往 Linux 环境导入文件：目标目录没有写权限。",
+    "placeholders": {
+      "dir": {
+        "type": "String",
+        "example": "/workspace"
+      }
+    }
+  },
+  "coreFilesWriteFailedSpace": "写入失败，可能是存储空间不足",
+  "@coreFilesWriteFailedSpace": {
+    "description": "往 Linux 环境导入文件：写不进去，可能是空间不够。"
+  },
+  "coreFilesExitCode": "退出码 {code}",
+  "@coreFilesExitCode": {
+    "description": "导入、导出文件失败、没有输出原因时只说退出码。",
+    "placeholders": {
+      "code": {
+        "type": "int"
+      }
+    }
+  },
+  "coreFilesExportInterrupted": "导出中断",
+  "@coreFilesExportInterrupted": {
+    "description": "从 Linux 环境导出文件时意外中断、没有更具体的原因。"
+  },
+  "coreFilesExported": "已导出 {name}",
+  "@coreFilesExported": {
+    "description": "从 Linux 环境导出文件：成功了。",
+    "placeholders": {
+      "name": {
+        "type": "String",
+        "example": "a.txt"
+      }
+    }
+  },
+  "coreFilesExportFailed": "“{name}”没有导出：{problem}",
+  "@coreFilesExportFailed": {
+    "description": "从 Linux 环境导出文件：失败了，后面是原因。",
+    "placeholders": {
+      "name": {
+        "type": "String",
+        "example": "a.txt"
+      },
+      "problem": {
+        "type": "String"
+      }
+    }
+  },
+  "coreFilesCantWriteDestination": "写不了选好的位置",
+  "@coreFilesCantWriteDestination": {
+    "description": "从 Linux 环境导出文件：系统文件选择器里选的位置写不进去。"
+  },
+  "coreFilesDenied": "没有权限读取",
+  "@coreFilesDenied": {
+    "description": "从 Linux 环境导出文件：Linux 用户没有权限读这个文件。"
+  },
+  "coreFilesWriteFailed": "写入失败：{error}",
+  "@coreFilesWriteFailed": {
+    "description": "从 Linux 环境导出文件：写到选好的位置时出错，error 是系统原文。",
+    "placeholders": {
+      "error": {
+        "type": "String"
+      }
+    }
+  },
+  "coreUnknownReason": "未知原因",
+  "@coreUnknownReason": {
+    "description": "出错但系统没给原因时填的说法。"
+  },
+  "coreFilesReadInterrupted": "读取中断",
+  "@coreFilesReadInterrupted": {
+    "description": "从 Linux 环境导出文件：读到一半断了，没有退出码。"
+  },
+  "coreCantEnterLinuxEnv": "进不了 Linux 环境",
+  "@coreCantEnterLinuxEnv": {
+    "description": "在设备上起命令时进程没起来（进不去环境）的原因。 ¦"
+  },
+  "coreNotConnected": "没有连上",
+  "@coreNotConnected": {
+    "description": "连远程设备没连上、又没有更具体的原因时。 ¦"
+  },
+  "coreConnectionTimeout": "连接超时",
+  "@coreConnectionTimeout": {
+    "description": "连远程设备超时。 ¦"
+  },
+  "coreFailedGeneric": "没有做成",
+  "@coreFailedGeneric": {
+    "description": "一项操作失败、拿不到具体原因时的兜底说法。 ¦"
+  },
+  "coreExitCode": "退出码 {code}",
+  "@coreExitCode": {
+    "description": "命令失败、标准错误里什么也没有时的原因，接在冒号后面。",
+    "placeholders": {
+      "code": {
+        "type": "String",
+        "example": "1"
+      }
+    }
+  },
+  "coreTurnDone": "已完成",
+  "@coreTurnDone": {
+    "description": "一轮回答结束、核心没给结束语时的那一句（提醒、结果卡片上显示）。 ¦"
+  },
+  "coreQuotaTimedOut": "等了太久没有结果",
+  "@coreQuotaTimedOut": {
+    "description": "刷新额度等太久放弃时，额度页上的错误。 ¦"
+  },
+  "coreQuotaFetchFailed": "没取到最新的额度。",
+  "@coreQuotaFetchFailed": {
+    "description": "刷新额度失败，没有具体原因时。 ¦"
+  },
+  "coreQuotaFetchFailedWhy": "没取到最新的额度：{reason}。",
+  "@coreQuotaFetchFailedWhy": {
+    "description": "刷新额度失败，后面是原因。",
+    "placeholders": {
+      "reason": {
+        "type": "String",
+        "example": "Claude Code 没有按时回答"
+      }
+    }
+  },
+  "coreQuotaStale": "这次没取到最新的额度，显示的是 {age}的数",
+  "@coreQuotaStale": {
+    "description": "Claude Code 这次没取到服务器的数时，额度页上的说明；age 是 coreAge* 那几句（「5 分钟前」）。",
+    "placeholders": {
+      "age": {
+        "type": "String",
+        "example": "5 分钟前"
+      }
+    }
+  },
+  "coreQuotaClaudeNoAnswer": "Claude Code 没有按时回答",
+  "@coreQuotaClaudeNoAnswer": {
+    "description": "问 Claude Code 额度时它没按时答。 ¦"
+  },
+  "coreQuotaClaudeExited": "Claude Code 起不来（退出码 {code}）",
+  "@coreQuotaClaudeExited": {
+    "description": "问额度时 Claude Code 进程退出了。",
+    "placeholders": {
+      "code": {
+        "type": "String",
+        "example": "1"
+      }
+    }
+  },
+  "coreQuotaClaudeNoUsage": "Claude Code 没有给出额度",
+  "@coreQuotaClaudeNoUsage": {
+    "description": "问额度时 Claude Code 答了但没有额度。 ¦"
+  },
+  "coreQuotaHasReset": "已重置",
+  "@coreQuotaHasReset": {
+    "description": "额度窗口的重置时间已经过了。 ¦"
+  },
+  "coreQuotaResetInMinutes": "{minutes} 分钟后重置",
+  "@coreQuotaResetInMinutes": {
+    "description": "额度窗口一小时内重置。",
+    "placeholders": {
+      "minutes": {
+        "type": "int",
+        "example": "45"
+      }
+    }
+  },
+  "coreQuotaResetInHours": "{hours} 小时后重置",
+  "@coreQuotaResetInHours": {
+    "description": "额度窗口整几个小时后重置。",
+    "placeholders": {
+      "hours": {
+        "type": "int",
+        "example": "3"
+      }
+    }
+  },
+  "coreQuotaResetInHoursMinutes": "{hours} 小时 {minutes} 分钟后重置",
+  "@coreQuotaResetInHoursMinutes": {
+    "description": "额度窗口一天内重置。",
+    "placeholders": {
+      "hours": {
+        "type": "int",
+        "example": "2"
+      },
+      "minutes": {
+        "type": "int",
+        "example": "5"
+      }
+    }
+  },
+  "coreQuotaResetAt": "{time} 重置",
+  "@coreQuotaResetAt": {
+    "description": "额度窗口一天以后重置；time 照 coreQuotaResetTimePattern 写（「周六 01:00」）。",
+    "placeholders": {
+      "time": {
+        "type": "String",
+        "example": "周六 01:00"
+      }
+    }
+  },
+  "coreQuotaResetAtFar": "{time} 重置（{days} 天后）",
+  "@coreQuotaResetAtFar": {
+    "description": "额度窗口七天以后才重置。",
+    "placeholders": {
+      "time": {
+        "type": "String",
+        "example": "周六 01:00"
+      },
+      "days": {
+        "type": "int",
+        "example": "8"
+      }
+    }
+  },
+  "coreQuotaResetTimePattern": "EEE HH:mm",
+  "@coreQuotaResetTimePattern": {
+    "description": "额度重置时间的写法：java.time 的 DateTimeFormatter 模式（星期几和时刻），按界面语言的区域设置出字。不是给人看的句子，只照所在语言的习惯改。 ¦"
+  },
+  "coreAgeJustNow": "刚刚",
+  "@coreAgeJustNow": {
+    "description": "额度是多久以前取的：不到一分钟。接在句中，英文小写开头。 ¦"
+  },
+  "coreAgeMinutes": "{minutes} 分钟前",
+  "@coreAgeMinutes": {
+    "description": "额度是多久以前取的。",
+    "placeholders": {
+      "minutes": {
+        "type": "int",
+        "example": "5"
+      }
+    }
+  },
+  "coreAgeHours": "{hours} 小时前",
+  "@coreAgeHours": {
+    "description": "额度是多久以前取的。",
+    "placeholders": {
+      "hours": {
+        "type": "int",
+        "example": "2"
+      }
+    }
+  },
+  "coreAgeDays": "{days} 天前",
+  "@coreAgeDays": {
+    "description": "额度是多久以前取的。",
+    "placeholders": {
+      "days": {
+        "type": "int",
+        "example": "3"
+      }
+    }
+  },
+  "coreHandoffBadReply": "核心的应答看不懂",
+  "@coreHandoffBadReply": {
+    "description": "接管时核心答的内容认不出（接在「接管失败：」后面）。 ¦"
+  },
+  "coreHandoffBusy": "对方的 Claude Code 正忙，本轮结束后可以接管。",
+  "@coreHandoffBusy": {
+    "description": "点「接管」时，占着会话的那个 Claude Code 正在回答。 ¦"
+  },
+  "coreHandoffStuck": "对方的 Claude Code 没有退出。如需强制结束，请使用右上角菜单中的「结束对话」。",
+  "@coreHandoffStuck": {
+    "description": "点「接管」后占着会话的那个 Claude Code 没退出；「结束对话」是聊天页右上角菜单里的那一项。 ¦"
+  },
+  "coreHandoffFailed": "接管失败：{reason}",
+  "@coreHandoffFailed": {
+    "description": "接管没做成，后面是原因。",
+    "placeholders": {
+      "reason": {
+        "type": "String",
+        "example": "连接超时"
+      }
+    }
+  },
+  "coreCwdNoticeLocal": "Claude Code 没有启动：Linux 环境里进不去工作目录 {cwd}（没有这个目录，或没有权限）。新对话在开始页点工作目录那一行改；默认工作目录在设置里这台设备的页面上改。",
+  "@coreCwdNoticeLocal": {
+    "description": "手机本机的工作目录进不去时聊天页上的提示。",
+    "placeholders": {
+      "cwd": {
+        "type": "String",
+        "example": "/workspace/zeta"
+      }
+    }
+  },
+  "coreCwdNoticeRemote": "Claude Code 没有启动：「{host}」上进不去工作目录 {cwd}（没有这个目录，或没有权限）。新对话在开始页点工作目录那一行改；默认工作目录在设置里这台设备的页面上改。",
+  "@coreCwdNoticeRemote": {
+    "description": "远程设备上的工作目录进不去时聊天页上的提示。",
+    "placeholders": {
+      "host": {
+        "type": "String",
+        "example": "nas"
+      },
+      "cwd": {
+        "type": "String",
+        "example": "/home/me/zeta"
+      }
+    }
+  },
+  "coreCwdMissingLocal": "Linux 环境里没有 {path} 这个目录",
+  "@coreCwdMissingLocal": {
+    "description": "设工作目录时，手机本机上没有这个目录。",
+    "placeholders": {
+      "path": {
+        "type": "String",
+        "example": "/workspace/zeta"
+      }
+    }
+  },
+  "coreCwdMissingRemote": "「{host}」上没有 {path} 这个目录",
+  "@coreCwdMissingRemote": {
+    "description": "设工作目录时，远程设备上没有这个目录。",
+    "placeholders": {
+      "host": {
+        "type": "String",
+        "example": "nas"
+      },
+      "path": {
+        "type": "String",
+        "example": "/home/me/zeta"
+      }
+    }
+  },
+  "coreCwdIsFile": "{path} 是文件，不是目录",
+  "@coreCwdIsFile": {
+    "description": "设工作目录时选的是个文件。",
+    "placeholders": {
+      "path": {
+        "type": "String",
+        "example": "/workspace/notes.md"
+      }
+    }
+  },
+  "coreCwdDeniedLocal": "Linux 环境里的 {path} 没有权限进去",
+  "@coreCwdDeniedLocal": {
+    "description": "设工作目录时，手机本机上这个目录进不去。",
+    "placeholders": {
+      "path": {
+        "type": "String",
+        "example": "/root"
+      }
+    }
+  },
+  "coreCwdDeniedRemote": "「{host}」上的 {path} 没有权限进去",
+  "@coreCwdDeniedRemote": {
+    "description": "设工作目录时，远程设备上这个目录进不去。",
+    "placeholders": {
+      "host": {
+        "type": "String",
+        "example": "nas"
+      },
+      "path": {
+        "type": "String",
+        "example": "/root"
+      }
+    }
+  },
+  "coreVariantDev": "Zeta 测试版",
+  "@coreVariantDev": {
+    "description": "测试版这个包给人看的名字。 ¦"
+  },
+  "coreVariantRelease": "Zeta 正式版",
+  "@coreVariantRelease": {
+    "description": "正式版这个包给人看的名字。 ¦"
+  },
+  "coreVariantNotificationTitle": "测试版 · {title}",
+  "@coreVariantNotificationTitle": {
+    "description": "测试版的通知标题前面注明，免得和正式版的通知混在一起。",
+    "placeholders": {
+      "title": {
+        "type": "String",
+        "example": "Claude 在回答"
+      }
+    }
+  },
+  "coreAccountsOwnBusy": "这里还有对话在进行（在回答、等你确认或有后台任务），等它结束再换",
+  "@coreAccountsOwnBusy": {
+    "description": "账号页：本机还有对话在进行，不能换账号或添加账号。 ¦"
+  },
+  "coreAccountsReadFailed": "读不了账号：{error}",
+  "@coreAccountsReadFailed": {
+    "description": "账号页：读账号清单失败。",
+    "placeholders": {
+      "error": {
+        "type": "String",
+        "example": "连接超时"
+      }
+    }
+  },
+  "coreAccountsBusy": "上一件事还没做完",
+  "@coreAccountsBusy": {
+    "description": "账号页：上一次切换或检查还在进行。 ¦"
+  },
+  "coreAccountsLoggingIn": "正在登录，先完成或取消登录",
+  "@coreAccountsLoggingIn": {
+    "description": "账号页：登录还没完时又点了切换。 ¦"
+  },
+  "coreAccountsSwitching": "正在切换到 {account}",
+  "@coreAccountsSwitching": {
+    "description": "账号页：正在换账号。",
+    "placeholders": {
+      "account": {
+        "type": "String",
+        "example": "me@example.com"
+      }
+    }
+  },
+  "coreAccountsGone": "这个账号已经不在了",
+  "@coreAccountsGone": {
+    "description": "账号页：要切换的账号已经被删了。 ¦"
+  },
+  "coreAccountsSwitchFailed": "没有切换成",
+  "@coreAccountsSwitchFailed": {
+    "description": "账号页：换账号失败，没有具体原因。 ¦"
+  },
+  "coreAccountsRemoveFailed": "没有移除：{error}",
+  "@coreAccountsRemoveFailed": {
+    "description": "账号页：移除账号失败。",
+    "placeholders": {
+      "error": {
+        "type": "String",
+        "example": "连接超时"
+      }
+    }
+  },
+  "coreAccountsChecking": "正在检查",
+  "@coreAccountsChecking": {
+    "description": "账号页：添加账号前正在检查能不能登录。 ¦"
+  },
+  "coreAccountsLoginStartFailed": "没能开始登录：{error}",
+  "@coreAccountsLoginStartFailed": {
+    "description": "登录页：登录命令没起来。",
+    "placeholders": {
+      "error": {
+        "type": "String",
+        "example": "连接超时"
+      }
+    }
+  },
+  "coreAccountsLoginFailed": "登录没有成功",
+  "@coreAccountsLoginFailed": {
+    "description": "登录页：交了授权码后登录失败，没有具体原因。 ¦"
+  },
+  "coreAccountsCodeIncomplete": "授权码不完整：要连中间的 # 和它后面的部分一起复制",
+  "@coreAccountsCodeIncomplete": {
+    "description": "登录页：贴进来的授权码缺了 # 后面那一段。 ¦"
+  },
+  "coreAccountsNoAuthUrl": "主机上的 Zeta 服务没有给出授权网址",
+  "@coreAccountsNoAuthUrl": {
+    "description": "登录页：开始登录时核心没给授权网址。 ¦"
+  },
+  "coreAccountsSwitchInstallFailed": "装不上 claude-switch：{error}",
+  "@coreAccountsSwitchInstallFailed": {
+    "description": "账号页：往设备上装 claude-switch 失败。",
+    "placeholders": {
+      "error": {
+        "type": "String",
+        "example": "退出码 1"
+      }
+    }
+  },
+  "coreAccountsBadReply": "读不懂主机上 Zeta 服务给的账号",
+  "@coreAccountsBadReply": {
+    "description": "账号页：核心给的账号清单认不出。 ¦"
+  },
+  "coreEffortLow": "低",
+  "@coreEffortLow": {
+    "description": "思考强度的一档。 ¦"
+  },
+  "coreEffortMedium": "中",
+  "@coreEffortMedium": {
+    "description": "思考强度的一档。 ¦"
+  },
+  "coreEffortHigh": "高",
+  "@coreEffortHigh": {
+    "description": "思考强度的一档。 ¦"
+  },
+  "coreEffortXHigh": "超高",
+  "@coreEffortXHigh": {
+    "description": "思考强度的一档。 ¦"
+  },
+  "coreEffortMax": "最高",
+  "@coreEffortMax": {
+    "description": "思考强度的一档。 ¦"
+  },
+  "coreHostViaDebian": "经手机 Debian",
+  "@coreHostViaDebian": {
+    "description": "远程设备的连法：经手机 Debian 里的 OpenSSH。也接在「已改成」「正在……连接」这类句子里。 ¦"
+  },
+  "coreHostViaDirect": "Zeta 直连",
+  "@coreHostViaDirect": {
+    "description": "远程设备的连法：Zeta 用自带的 SSH 直连。 ¦"
+  },
+  "coreHostNameTooLong": "名字太长了",
+  "@coreHostNameTooLong": {
+    "description": "给设备起的名字超过 40 个字。 ¦"
+  },
+  "coreHostNameTaken": "已经有叫「{name}」的设备了",
+  "@coreHostNameTaken": {
+    "description": "给设备起的名字和别的设备重了。",
+    "placeholders": {
+      "name": {
+        "type": "String",
+        "example": "nas"
+      }
+    }
+  },
+  "coreHostLocalSummary": "手机里的 Debian",
+  "@coreHostLocalSummary": {
+    "description": "手机本机在设备清单里的小字：它的 Claude Code 跑在哪。 ¦"
+  },
+  "coreHostOffNote": "Zeta 不连这台设备，它上面的对话在那边照样跑",
+  "@coreHostOffNote": {
+    "description": "「连接」关着的远程设备怎样。 ¦"
+  },
+  "coreHostNoClaude": "那台设备上找不到 claude（登录 shell 的 PATH 里和 ~/.local/bin 都没有）",
+  "@coreHostNoClaude": {
+    "description": "检查远程设备时没找到 claude。 ¦"
+  },
+  "coreHostUnsupported": "Zeta 读会话记录的程序只能在 arm64、x86-64 的 Linux 上跑，这台是 {system}",
+  "@coreHostUnsupported": {
+    "description": "检查远程设备时，它的系统跑不了 zeta-helper。",
+    "placeholders": {
+      "system": {
+        "type": "String",
+        "example": "Darwin arm64"
+      }
+    }
+  },
+  "coreHostUnknownSystem": "未知的系统",
+  "@coreHostUnknownSystem": {
+    "description": "上一句里设备没报系统时。 ¦"
+  },
+  "coreHostBadTarget": "地址里不能有空白、引号，也不能以 - 开头",
+  "@coreHostBadTarget": {
+    "description": "添加远程设备时地址写法不对。 ¦"
+  },
+  "coreHostPhoneLinuxUnreachable": "进不了手机里的 Linux 环境",
+  "@coreHostPhoneLinuxUnreachable": {
+    "description": "经手机 Debian 检查远程设备时，进不去手机的 Linux 环境。 ¦"
+  },
+  "coreHostDirectHint": "地址写成 用户@主机，端口不是 22 的写成 用户@主机:端口",
+  "@coreHostDirectHint": {
+    "description": "直连的地址写法，接在添加设备的说明后面。 ¦"
+  },
+  "coreHostDebianHint": "地址写成 用户@主机[:端口]，也可以是手机 Debian 的 ~/.ssh/config 里的别名",
+  "@coreHostDebianHint": {
+    "description": "经 Debian 连的地址写法，接在添加设备的说明后面。 ¦"
+  },
+  "coreHostDebianTimeout": "手机 Debian 没有响应（超时）",
+  "@coreHostDebianTimeout": {
+    "description": "读 ~/.ssh/config 里的别名时手机 Debian 没响应。 ¦"
+  },
+  "coreHostDebianExit": "进不去手机 Debian（退出码 {code}）",
+  "@coreHostDebianExit": {
+    "description": "读 ~/.ssh/config 里的别名时进不去手机 Debian。",
+    "placeholders": {
+      "code": {
+        "type": "String",
+        "example": "1"
+      }
+    }
+  },
+  "coreSshKeyRejected": "对方不认手机 Debian 里的 SSH 密钥（Permission denied）",
+  "@coreSshKeyRejected": {
+    "description": "经 Debian 连远程设备时 ssh 报的原因，翻成一句话。 ¦"
+  },
+  "coreSshHostNotFound": "找不到这台设备（地址解析失败）",
+  "@coreSshHostNotFound": {
+    "description": "同上：地址解析失败。 ¦"
+  },
+  "coreSshHostKeyChanged": "主机密钥和记下的不一样，先在 Debian 里核对 ~/.ssh/known_hosts",
+  "@coreSshHostKeyChanged": {
+    "description": "同上：主机密钥变了。 ¦"
+  },
+  "coreSshRefused": "对方拒绝连接（端口上没有 SSH 服务）",
+  "@coreSshRefused": {
+    "description": "同上：对方拒绝连接。 ¦"
+  },
+  "coreSshUnreachable": "网络不通",
+  "@coreSshUnreachable": {
+    "description": "同上：网络不通。 ¦"
+  },
+  "coreSharedPathInvalid": "目录路径无效",
+  "@coreSharedPathInvalid": {
+    "description": "添加共享文件夹时路径不对。 ¦"
+  },
+  "coreSharedNotAllowed": "该目录不能共享",
+  "@coreSharedNotAllowed": {
+    "description": "添加共享文件夹时选了不许共享的目录。 ¦"
+  },
+  "coreSharedAlready": "该目录已共享",
+  "@coreSharedAlready": {
+    "description": "添加共享文件夹时这个目录已经共享过。 ¦"
+  },
+  "coreSharedMax": "最多配置 {max} 个共享文件夹",
+  "@coreSharedMax": {
+    "description": "共享文件夹已经到上限。",
+    "placeholders": {
+      "max": {
+        "type": "int",
+        "example": "8"
+      }
+    }
+  },
+  "coreSharedNameRule": "仅限 1–48 个字母、数字、点、下划线或连字符",
+  "@coreSharedNameRule": {
+    "description": "共享文件夹的挂载名写法不对。 ¦"
+  },
+  "coreSharedNameTaken": "挂载名已被使用",
+  "@coreSharedNameTaken": {
+    "description": "共享文件夹的挂载名重了。 ¦"
+  },
+  "coreModelDefault": "默认",
+  "@coreModelDefault": {
+    "description": "模型选择器里的默认模型（还说不出指向哪个时）。 ¦"
+  },
+  "coreModelDefaultIs": "默认（{model}）",
+  "@coreModelDefaultIs": {
+    "description": "模型选择器里的默认模型，括号里是它现在指向的模型。",
+    "placeholders": {
+      "model": {
+        "type": "String",
+        "example": "Opus 5.5"
+      }
+    }
+  },
+  "coreHelperTimeout": "Linux 环境没有响应（超时）",
+  "@coreHelperTimeout": {
+    "description": "在设备上跑 zeta-helper 超时。 ¦"
+  },
+  "coreHelperExit": "zeta-helper 出错（退出码 {code}）",
+  "@coreHelperExit": {
+    "description": "zeta-helper 失败、标准错误里什么也没有。",
+    "placeholders": {
+      "code": {
+        "type": "String",
+        "example": "1"
+      }
+    }
+  },
+  "coreProgramNoBuild": "{program} 没有这台机器（{machine}）能用的版本",
+  "@coreProgramNoBuild": {
+    "description": "往设备上装随包程序时，没有它那种 CPU 的版本。",
+    "placeholders": {
+      "program": {
+        "type": "String",
+        "example": "zeta-helper"
+      },
+      "machine": {
+        "type": "String",
+        "example": "riscv64"
+      }
+    }
+  },
+  "coreProgramInstallFailed": "装 {program} 没成功：{error}",
+  "@coreProgramInstallFailed": {
+    "description": "往设备上装随包程序失败，后面是标准错误。",
+    "placeholders": {
+      "program": {
+        "type": "String",
+        "example": "zeta-helper"
+      },
+      "error": {
+        "type": "String",
+        "example": "No space left on device"
+      }
+    }
+  },
+  "coreServeClosed": "和 zeta-helper serve 的连接已关闭",
+  "@coreServeClosed": {
+    "description": "和核心的连接已经关掉后又发请求。 ¦"
+  },
+  "coreServeNoReply": "等了 {seconds} 秒，zeta-helper serve 没有应答",
+  "@coreServeNoReply": {
+    "description": "请求核心超时。",
+    "placeholders": {
+      "seconds": {
+        "type": "int",
+        "example": "60"
+      }
+    }
+  },
+  "coreServeNotConnected": "等了 {seconds} 秒，还没连上 zeta-helper serve",
+  "@coreServeNotConnected": {
+    "description": "等连上核心超时。",
+    "placeholders": {
+      "seconds": {
+        "type": "int",
+        "example": "60"
+      }
+    }
+  },
+  "coreServeCantStart": "zeta-helper serve 起不来",
+  "@coreServeCantStart": {
+    "description": "核心进程起不来，没有具体原因。 ¦"
+  },
+  "coreServeProtocol": "zeta-helper serve 的协议对不上：{line}",
+  "@coreServeProtocol": {
+    "description": "核心的招呼认不出（两边版本对不上），后面是它说的那一行。",
+    "placeholders": {
+      "line": {
+        "type": "String",
+        "example": "{\"type\":\"hello\"}"
+      }
+    }
+  },
+  "coreServeDropped": "和 zeta-helper serve 的连接断了（退出码 {code}）",
+  "@coreServeDropped": {
+    "description": "和核心的连接断了，没有别的原因。",
+    "placeholders": {
+      "code": {
+        "type": "String",
+        "example": "255"
+      }
+    }
+  },
+  "coreServeLinkLost": "连接断了：{reason}",
+  "@coreServeLinkLost": {
+    "description": "和远程设备的 SSH 连接断了，后面是原因。",
+    "placeholders": {
+      "reason": {
+        "type": "String",
+        "example": "网络不通"
+      }
+    }
+  },
+  "coreServeRefused": "zeta-helper serve 拒绝了请求",
+  "@coreServeRefused": {
+    "description": "核心拒绝了请求、没说原因。 ¦"
+  },
+  "coreServeDroppedNoReply": "和 zeta-helper serve 的连接断了，没收到应答",
+  "@coreServeDroppedNoReply": {
+    "description": "请求发出后和核心的连接断了。 ¦"
+  },
+  "coreServeNotInstalled": "zeta-helper 没装上",
+  "@coreServeNotInstalled": {
+    "description": "往设备上装 zeta-helper 失败，没有具体原因。 ¦"
+  },
+  "coreIntakeScreenshots": "{count, plural, =1 {一张截屏} other {# 张截屏}}",
+  "@coreIntakeScreenshots": {
+    "description": "收到的东西里有几张截屏，接在「收到」后面。",
+    "placeholders": {
+      "count": {
+        "type": "int",
+        "example": "2"
+      }
+    }
+  },
+  "coreIntakeImages": "{count, plural, =1 {一张图片} other {# 张图片}}",
+  "@coreIntakeImages": {
+    "description": "收到的东西里有几张图片。",
+    "placeholders": {
+      "count": {
+        "type": "int",
+        "example": "2"
+      }
+    }
+  },
+  "coreIntakeFiles": "{count, plural, =1 {一个文件} other {# 个文件}}",
+  "@coreIntakeFiles": {
+    "description": "收到的东西里有几个文件。",
+    "placeholders": {
+      "count": {
+        "type": "int",
+        "example": "2"
+      }
+    }
+  },
+  "coreIntakeText": "一段文字",
+  "@coreIntakeText": {
+    "description": "收到的东西里有一段文字。 ¦"
+  },
+  "coreIntakeJoin": "{first}和{next}",
+  "@coreIntakeJoin": {
+    "description": "把收到的几样东西连成一句（「一张图片和一个文件」）。",
+    "placeholders": {
+      "first": {
+        "type": "String",
+        "example": "一张图片"
+      },
+      "next": {
+        "type": "String",
+        "example": "一个文件"
+      }
+    }
+  },
+  "coreIntakeEmpty": "空的内容",
+  "@coreIntakeEmpty": {
+    "description": "收到的东西是空的。 ¦"
+  },
+  "coreIntakeTooLarge": "「{name}」有 {size}，超过 {limit} 的上限，没有复制",
+  "@coreIntakeTooLarge": {
+    "description": "分享进来的文件太大，没收。",
+    "placeholders": {
+      "name": {
+        "type": "String",
+        "example": "video.mp4"
+      },
+      "size": {
+        "type": "String",
+        "example": "120 MB"
+      },
+      "limit": {
+        "type": "String",
+        "example": "100 MB"
+      }
+    }
+  },
+  "coreIntakeTooLargeUnsized": "「{name}」超过 {limit} 的上限，没有复制",
+  "@coreIntakeTooLargeUnsized": {
+    "description": "分享进来的文件读到一半发现太大，没收。",
+    "placeholders": {
+      "name": {
+        "type": "String",
+        "example": "video.mp4"
+      },
+      "limit": {
+        "type": "String",
+        "example": "100 MB"
+      }
+    }
+  },
+  "corePromptEmpty": "内容不能为空",
+  "@corePromptEmpty": {
+    "description": "存常用提示词时内容是空的。 ¦"
+  },
+  "corePromptTooLong": "内容太长了（最多 {max} 个字）",
+  "@corePromptTooLong": {
+    "description": "常用提示词的内容超长。",
+    "placeholders": {
+      "max": {
+        "type": "int",
+        "example": "4000"
+      }
+    }
+  },
+  "corePromptNameTooLong": "名字太长了（最多 {max} 个字）",
+  "@corePromptNameTooLong": {
+    "description": "常用提示词的名字超长。",
+    "placeholders": {
+      "max": {
+        "type": "int",
+        "example": "40"
+      }
+    }
+  },
+  "corePromptTooMany": "最多存 {max} 条，先删掉一些",
+  "@corePromptTooMany": {
+    "description": "常用提示词到了上限。",
+    "placeholders": {
+      "max": {
+        "type": "int",
+        "example": "50"
+      }
+    }
+  },
+  "coreHubNoRemote": "还没有添加远程设备，请到设置里添加",
+  "@coreHubNoRemote": {
+    "description": "手机本机没有 Linux 环境、也没有远程设备时。 ¦"
+  },
+  "coreHubNoLinuxEnv": "还没有配置 Linux 环境，请到设置里检查",
+  "@coreHubNoLinuxEnv": {
+    "description": "手机本机的 Linux 环境还没装好。 ¦"
+  },
+  "coreHubHostRemoved": "远程设备已经从设置里删掉了",
+  "@coreHubHostRemoved": {
+    "description": "对话所在的远程设备已经删了。 ¦"
+  },
+  "coreHubHostOff": "「{host}」已断开，在设置里这台设备的页面打开「连接」",
+  "@coreHubHostOff": {
+    "description": "远程设备的「连接」开关关着；「连接」是设置里这台设备页面上那个开关。",
+    "placeholders": {
+      "host": {
+        "type": "String",
+        "example": "nas"
+      }
+    }
+  },
+  "coreHubHostNoDebian": "「{host}」经手机的 Debian 连，Debian 环境还没就绪",
+  "@coreHubHostNoDebian": {
+    "description": "远程设备经手机 Debian 连，但手机的 Debian 还没就绪。",
+    "placeholders": {
+      "host": {
+        "type": "String",
+        "example": "nas"
+      }
+    }
+  },
+  "coreHubCantReachWhy": "连不上「{host}」：{reason}",
+  "@coreHubCantReachWhy": {
+    "description": "远程设备连不上，后面是原因。",
+    "placeholders": {
+      "host": {
+        "type": "String",
+        "example": "nas"
+      },
+      "reason": {
+        "type": "String",
+        "example": "连接超时"
+      }
+    }
+  },
+  "coreHubCantReach": "连不上「{host}」",
+  "@coreHubCantReach": {
+    "description": "远程设备连不上。",
+    "placeholders": {
+      "host": {
+        "type": "String",
+        "example": "nas"
+      }
+    }
+  },
+  "coreHubPhoneLinuxNotReady": "手机里的 Linux 环境还没就绪",
+  "@coreHubPhoneLinuxNotReady": {
+    "description": "经手机 Debian 检查远程设备时，手机的 Linux 环境还没装好。 ¦"
+  },
+  "coreHubDeletedDevice": "已删除的设备",
+  "@coreHubDeletedDevice": {
+    "description": "已经删掉的远程设备的名字。 ¦"
+  },
+  "coreSessionsHostProblem": "{host}：{problem}",
+  "@coreSessionsHostProblem": {
+    "description": "侧栏列着几台设备、某台没读成会话列表时，每条原因前面注明是哪台。",
+    "placeholders": {
+      "host": {
+        "type": "String",
+        "example": "nas"
+      },
+      "problem": {
+        "type": "String",
+        "example": "连接超时"
+      }
+    }
+  },
+  "coreSessionsReadFailed": "没读到会话列表：{error}",
+  "@coreSessionsReadFailed": {
+    "description": "侧栏：读会话列表失败。",
+    "placeholders": {
+      "error": {
+        "type": "String",
+        "example": "连接超时"
+      }
+    }
+  },
+  "coreSessionsRenameFailed": "改名没成功：{error}",
+  "@coreSessionsRenameFailed": {
+    "description": "侧栏：给会话改名失败（toast）。",
+    "placeholders": {
+      "error": {
+        "type": "String",
+        "example": "连接超时"
+      }
+    }
+  },
+  "coreSessionsArchiveFailed": "归档没成功：{error}",
+  "@coreSessionsArchiveFailed": {
+    "description": "侧栏：归档会话失败（toast）。",
+    "placeholders": {
+      "error": {
+        "type": "String",
+        "example": "连接超时"
+      }
+    }
+  },
+  "coreSessionsUnarchiveFailed": "取消归档没成功：{error}",
+  "@coreSessionsUnarchiveFailed": {
+    "description": "侧栏：取消归档失败（toast）。",
+    "placeholders": {
+      "error": {
+        "type": "String",
+        "example": "连接超时"
+      }
+    }
+  },
+  "coreSessionsDeleteFailed": "删除没成功：{error}",
+  "@coreSessionsDeleteFailed": {
+    "description": "侧栏：删除会话失败（toast）。",
+    "placeholders": {
+      "error": {
+        "type": "String",
+        "example": "连接超时"
+      }
+    }
+  },
+  "coreSessionsEndElsewhereFailed": "结束别处的 Claude Code 没成功：{error}",
+  "@coreSessionsEndElsewhereFailed": {
+    "description": "结束 Zeta 之外占着会话的 Claude Code 失败（toast）。",
+    "placeholders": {
+      "error": {
+        "type": "String",
+        "example": "连接超时"
+      }
+    }
+  },
+  "coreElapsedHours": "{hours} 小时 {minutes} 分",
+  "@coreElapsedHours": {
+    "description": "后台任务跑了多久（一小时以上）；minutes 补足两位。",
+    "placeholders": {
+      "hours": {
+        "type": "String",
+        "example": "1"
+      },
+      "minutes": {
+        "type": "String",
+        "example": "03"
+      }
+    }
+  },
+  "coreElapsedMinutes": "{minutes} 分 {seconds} 秒",
+  "@coreElapsedMinutes": {
+    "description": "后台任务跑了多久（一分钟以上）；seconds 补足两位。",
+    "placeholders": {
+      "minutes": {
+        "type": "String",
+        "example": "2"
+      },
+      "seconds": {
+        "type": "String",
+        "example": "05"
+      }
+    }
+  },
+  "coreElapsedSeconds": "{seconds} 秒",
+  "@coreElapsedSeconds": {
+    "description": "后台任务跑了多久（不到一分钟）。",
+    "placeholders": {
+      "seconds": {
+        "type": "String",
+        "example": "3"
+      }
+    }
+  },
+  "coreConvOffline": "和「{host}」的连接断了，正在重连",
+  "@coreConvOffline": {
+    "description": "对话页等待指示旁的状态：和设备的连接断了。",
+    "placeholders": {
+      "host": {
+        "type": "String",
+        "example": "nas"
+      }
+    }
+  },
+  "coreConvOfflineWhy": "和「{host}」的连接断了，正在重连：{reason}",
+  "@coreConvOfflineWhy": {
+    "description": "同上，后面是断开的原因。",
+    "placeholders": {
+      "host": {
+        "type": "String",
+        "example": "nas"
+      },
+      "reason": {
+        "type": "String",
+        "example": "网络不通"
+      }
+    }
+  },
+  "coreConvForkSourceClosed": "原对话没有开着",
+  "@coreConvForkSourceClosed": {
+    "description": "建分支时原对话已经关了（接在「分支没有建成：」后面）。 ¦"
+  },
+  "coreConvForkFailed": "分支没有建成：{reason}",
+  "@coreConvForkFailed": {
+    "description": "对话里的提示：建分支失败。",
+    "placeholders": {
+      "reason": {
+        "type": "String",
+        "example": "原对话没有开着"
+      }
+    }
+  },
+  "coreConvNotSent": "没有发出：{error}",
+  "@coreConvNotSent": {
+    "description": "对话里的提示：消息没发出去。",
+    "placeholders": {
+      "error": {
+        "type": "String",
+        "example": "连接超时"
+      }
+    }
+  },
+  "coreConvNoOutput": "没有读到输出",
+  "@coreConvNoOutput": {
+    "description": "后台任务的输出读不到。 ¦"
+  },
+  "coreConvNoEarlier": "没有读到更早的记录",
+  "@coreConvNoEarlier": {
+    "description": "往上翻载入更早的对话内容失败。 ¦"
+  },
+  "coreConvCantOpen": "打不开这个对话",
+  "@coreConvCantOpen": {
+    "description": "打开对话失败，没有具体原因。 ¦"
+  },
+  "coreConvClosed": "这个对话已经关了",
+  "@coreConvClosed": {
+    "description": "对话已经关了还在发请求。 ¦"
+  },
+  "coreConvHostLost": "和主机的连接断了，正在重连",
+  "@coreConvHostLost": {
+    "description": "对话请求发出时和设备的连接断着。 ¦"
+  },
+  "coreConvNoUpdateReply": "主机上的 Zeta 服务没有答更新的结果",
+  "@coreConvNoUpdateReply": {
+    "description": "更新 Claude Code 时核心没答结果。 ¦"
+  },
+  "coreConvNoIdleReply": "主机上的 Zeta 服务没有答闲置时长",
+  "@coreConvNoIdleReply": {
+    "description": "读闲置超时时核心没答。 ¦"
+  },
+  "coreDraftImages": "{count} 张图片",
+  "@coreDraftImages": {
+    "description": "侧栏里只有图片的草稿的预览。",
+    "placeholders": {
+      "count": {
+        "type": "int",
+        "example": "2"
+      }
+    }
+  },
+  "coreDraftFiles": "{first} 等 {count} 个文件",
+  "@coreDraftFiles": {
+    "description": "侧栏里只有几个文件的草稿的预览：第一个文件名和一共几个（总在两个以上）。",
+    "placeholders": {
+      "first": {
+        "type": "String",
+        "example": "notes.md"
+      },
+      "count": {
+        "type": "int",
+        "example": "3"
+      }
+    }
+  },
+  "coreDirectNoHostKey": "直连的设备没有记下指纹",
+  "@coreDirectNoHostKey": {
+    "description": "直连设备时没有记下的主机指纹。 ¦"
+  },
+  "coreConfigBadReply": "读不懂主机上 Zeta 服务给的结果（{method}）",
+  "@coreConfigBadReply": {
+    "description": "Claude Code 配置页：核心的应答认不出，括号里是请求的方法名。",
+    "placeholders": {
+      "method": {
+        "type": "String",
+        "example": "config.skills.list"
+      }
+    }
+  },
+  "coreConfigNoSha": "主机上的 Zeta 服务没说写成了没有",
+  "@coreConfigNoSha": {
+    "description": "Claude Code 配置页：保存后核心没答结果。 ¦"
+  },
+  "coreConfigZipTooLarge": "文件超过 {mb} MB，不像是一个 Skill 包",
+  "@coreConfigZipTooLarge": {
+    "description": "装 Skill 时选的 ZIP 太大。",
+    "placeholders": {
+      "mb": {
+        "type": "int",
+        "example": "45"
+      }
+    }
+  },
+  "coreBehaviorAllow": "允许",
+  "@coreBehaviorAllow": {
+    "description": "工具权限规则的一种：允许。 ¦"
+  },
+  "coreBehaviorAsk": "询问",
+  "@coreBehaviorAsk": {
+    "description": "工具权限规则的一种：询问。 ¦"
+  },
+  "coreBehaviorDeny": "拒绝",
+  "@coreBehaviorDeny": {
+    "description": "工具权限规则的一种：拒绝。 ¦"
   }
 }

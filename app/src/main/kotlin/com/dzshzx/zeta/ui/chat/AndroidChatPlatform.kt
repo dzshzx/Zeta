@@ -23,6 +23,7 @@ import com.dzshzx.zeta.core.ToolStep
 import com.dzshzx.zeta.core.UriFile
 import com.dzshzx.zeta.core.fromTreeUri
 import com.dzshzx.zeta.core.voice.ReadAloud
+import com.dzshzx.zeta.i18n.Strings
 import com.dzshzx.zeta.phone.PhoneToolCatalog
 import com.dzshzx.zeta.phone.tools.BrowserTools
 import com.dzshzx.zeta.ui.browser.BrowserStepButton
@@ -126,7 +127,7 @@ private fun PhoneReadAloudButton(answer: AnswerItem) {
     val active = reading.id == answer.id
     FlatIconButton(
         icon = if (active) ZetaIcons.Stop else COUIIcons.VolumeUp,
-        contentDescription = if (active) "停止朗读" else "朗读",
+        contentDescription = if (active) Strings.chatStopReadAloud() else Strings.chatReadAloud(),
         size = 30.dp,
         iconSize = if (active) 11.dp else 15.dp,
         backgroundColor =

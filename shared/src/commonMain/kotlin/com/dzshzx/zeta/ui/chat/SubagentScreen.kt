@@ -34,6 +34,7 @@ import com.dzshzx.zeta.core.UserItem
 import com.dzshzx.zeta.core.WorkItem
 import com.dzshzx.zeta.core.conv.ConvSubagent
 import com.dzshzx.zeta.core.conv.SubagentState
+import com.dzshzx.zeta.i18n.Strings
 import com.dzshzx.zeta.ui.components.SlideInPage
 import com.dzshzx.zeta.ui.components.coui2.CardListSegment
 import com.dzshzx.zeta.ui.components.coui2.CouiPage
@@ -62,9 +63,11 @@ fun SubagentScreen(
 ) {
     val conversation = hub.liveConversations.firstOrNull { it.key == conversationKey }
     if (conversation == null) {
-        CouiPage(title = "子代理", onBack = onBack) {
+        CouiPage(title = Strings.chatSubagent(), onBack = onBack) {
             item(key = "gone") {
-                PreferenceGroup { item { BasicComponent(title = "这个对话已经收起", enabled = false) } }
+                PreferenceGroup {
+                    item { BasicComponent(title = Strings.chatChatClosed(), enabled = false) }
+                }
             }
         }
         return
@@ -111,13 +114,15 @@ fun SubagentPage(
     rememberFollowBottom(listState, following = false)
     // 子代理还在跑时步骤随时变；界面看不见时这一页不跟着重组、测量
     val items = whileStarted { log.items }
-    CouiPage(title = "子代理", onBack = onBack, listState = listState) {
+    CouiPage(title = Strings.chatSubagent(), onBack = onBack, listState = listState) {
         item(key = "info") { SubagentSummary(log) }
         prompt?.let { text -> item(key = "prompt") { PromptBlock(text) } }
-        item(key = "steps-title") { PreferenceCategory(title = "步骤") }
+        item(key = "steps-title") { PreferenceCategory(title = Strings.chatSteps()) }
         if (log.skipped > 0)
             item(key = "skipped") {
-                NoticeRow(NoticeItem("skipped", "更早的 ${log.skipped} 条记录未载入", error = false))
+                NoticeRow(
+                    NoticeItem("skipped", Strings.chatEarlierNotLoaded(log.skipped), error = false),
+                )
             }
         val tail = log.state == SubagentState.Running
         val count = items.size + if (tail) 1 else 0
@@ -147,11 +152,13 @@ private fun SubagentSummary(log: ConvSubagent) {
     val meta = log.meta
     PreferenceGroup {
         item(key = "title") {
-            BasicComponent(title = meta?.description?.takeIf { it.isNotBlank() } ?: "子代理")
+            BasicComponent(
+                title = meta?.description?.takeIf { it.isNotBlank() } ?: Strings.chatSubagent(),
+            )
         }
         item(key = "state") {
             BasicComponent(
-                title = "状态",
+                title = Strings.chatStatus(),
                 endActions = {
                     val (text, color) = stateLabel(log.state)
                     PreferenceValue(text, color = color)
@@ -160,19 +167,22 @@ private fun SubagentSummary(log: ConvSubagent) {
         }
         meta?.agentType?.let { value ->
             item(key = "type") {
-                BasicComponent(title = "子代理类型", endActions = { PreferenceValue(value) })
+                BasicComponent(
+                    title = Strings.chatSubagentType(),
+                    endActions = { PreferenceValue(value) },
+                )
             }
         }
         meta?.model?.let { value ->
             item(key = "model") {
-                BasicComponent(title = "模型", endActions = { PreferenceValue(value) })
+                BasicComponent(title = Strings.chatModel(), endActions = { PreferenceValue(value) })
             }
         }
         if (log.toolUses > 0)
             item(key = "tools") {
                 BasicComponent(
-                    title = "工具调用",
-                    endActions = { PreferenceValue("${log.toolUses} 次") },
+                    title = Strings.chatToolCalls(),
+                    endActions = { PreferenceValue(Strings.chatTimes(log.toolUses)) },
                 )
             }
     }
@@ -189,10 +199,10 @@ private fun stateLabel(state: SubagentState): Pair<String, Color> =
         SubagentState.Completed -> taskLabel(TaskState.Completed)
         SubagentState.Failed -> taskLabel(TaskState.Failed)
         SubagentState.Stopped -> taskLabel(TaskState.Stopped)
-        SubagentState.Loading -> "正在读取" to Color.Unspecified
-        SubagentState.ReadFailed -> "读取失败" to Color.Unspecified
-        SubagentState.Missing -> "没有记录" to Color.Unspecified
-        SubagentState.Unfinished -> "未做完" to Color.Unspecified
+        SubagentState.Loading -> Strings.chatReading() to Color.Unspecified
+        SubagentState.ReadFailed -> Strings.chatReadFailed() to Color.Unspecified
+        SubagentState.Missing -> Strings.chatNoRecord() to Color.Unspecified
+        SubagentState.Unfinished -> Strings.chatUnfinished() to Color.Unspecified
     }
 
 @Composable
@@ -201,10 +211,10 @@ private fun taskLabel(state: TaskState) = TaskLabels.state(state) to taskStateCo
 /** 一步都还没有、又不在跑时的说明：读失败时是原因。 */
 private fun noStepsText(log: ConvSubagent): String =
     when (log.state) {
-        SubagentState.Missing -> "没有找到它的记录：Claude Code 还没写出来，或者会话已经删了"
-        SubagentState.ReadFailed -> log.failure ?: "读取失败"
-        SubagentState.Loading -> "正在读取…"
-        else -> "还没有步骤"
+        SubagentState.Missing -> Strings.chatSubagentMissing()
+        SubagentState.ReadFailed -> log.failure ?: Strings.chatReadFailed()
+        SubagentState.Loading -> Strings.chatReadingEllipsis()
+        else -> Strings.chatNoStepsYet()
     }
 
 /** 步骤卡片里的一条（和聊天里的条目一样）；卡片的头尾和里面的条目留开一点。 */
@@ -245,7 +255,7 @@ private fun WorkingRow() {
         TypingIndicator()
         Spacer(Modifier.width(10.dp))
         Text(
-            text = "正在工作",
+            text = Strings.chatWorking(),
             style = COUITheme.textStyles.bodyS,
             color = COUITheme.colorScheme.labelSecondary,
         )
@@ -257,7 +267,7 @@ private fun WorkingRow() {
 private fun PromptBlock(text: String) {
     var expanded by rememberSaveable { mutableStateOf(false) }
     val long = text.length > 240 || text.count { it == '\n' } > 4
-    PreferenceGroup(title = "交给它的指令") {
+    PreferenceGroup(title = Strings.chatInstructions()) {
         item { SelectionContainer { PromptText(text, long, expanded) { expanded = !expanded } } }
     }
 }
@@ -276,7 +286,8 @@ private fun PromptText(text: String, long: Boolean, expanded: Boolean, onToggle:
                 .then(
                     if (long)
                         Modifier.clickable(
-                            onClickLabel = if (expanded) "收起" else "展开",
+                            onClickLabel =
+                                if (expanded) Strings.chatCollapse() else Strings.chatExpand(),
                             onClick = onToggle,
                         )
                     else Modifier,

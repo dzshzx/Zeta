@@ -5,6 +5,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import com.dzshzx.zeta.core.conv.CoreConversation
+import com.dzshzx.zeta.i18n.Strings
 import kotlin.concurrent.thread
 import kotlinx.serialization.json.JsonElement
 import kotlinx.serialization.json.JsonNull
@@ -84,7 +85,7 @@ sealed interface HandoffResult {
     companion object {
         /** conv.handoff 的 result（`{handed, status}`）。 */
         fun of(result: JsonElement?): HandoffResult {
-            val o = result as? JsonObject ?: return Failed("核心的应答看不懂")
+            val o = result as? JsonObject ?: return Failed(Strings.coreHandoffBadReply())
             return when {
                 o.bool("handed") == true -> Handed
                 o.str("status") == STUCK -> Stuck
@@ -124,16 +125,16 @@ class SessionHandoff(private val core: () -> CoreConversation?) {
                 try {
                     target.handoff()
                 } catch (e: Exception) {
-                    HandoffResult.Failed(e.message ?: "没有做成")
+                    HandoffResult.Failed(e.message ?: Strings.coreFailedGeneric())
                 }
             main.post {
                 handing = false
                 problem =
                     when (result) {
                         HandoffResult.Handed -> null
-                        HandoffResult.Busy -> "对方的 Claude Code 正忙，本轮结束后可以接管。"
-                        HandoffResult.Stuck -> "对方的 Claude Code 没有退出。如需强制结束，请使用右上角菜单中的「结束对话」。"
-                        is HandoffResult.Failed -> "接管失败：${result.reason}"
+                        HandoffResult.Busy -> Strings.coreHandoffBusy()
+                        HandoffResult.Stuck -> Strings.coreHandoffStuck()
+                        is HandoffResult.Failed -> Strings.coreHandoffFailed(result.reason)
                     }
             }
         }

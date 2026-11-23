@@ -69,6 +69,7 @@ import com.dzshzx.zeta.core.Backends
 import com.dzshzx.zeta.core.ConversationHub
 import com.dzshzx.zeta.core.SessionStatus
 import com.dzshzx.zeta.core.SessionSummary
+import com.dzshzx.zeta.i18n.Strings
 import com.dzshzx.zeta.ui.components.BackHandler
 import com.dzshzx.zeta.ui.components.LocalHub
 import com.dzshzx.zeta.ui.components.conversationPaneContainerColor
@@ -355,11 +356,11 @@ fun SessionPane(
     )
     TextInputDialog(
         show = renaming != null,
-        title = "重命名",
+        title = Strings.sidebarRename(),
         value = renameDraft,
         onValueChange = { renameDraft = it },
-        label = "对话标题",
-        confirmText = "确定",
+        label = Strings.sidebarRenameLabel(),
+        confirmText = Strings.sidebarRenameConfirm(),
         confirmEnabled = renameDraft.isNotBlank(),
         onConfirm = {
             renaming?.let { onRename(it, renameDraft) }
@@ -596,13 +597,15 @@ private suspend fun findRevealTarget(
     val backend = hub.backend
     val found = withContext(Dispatchers.IO) { hub.sessionList.find(listOf(id), backend) }
     if (found == null) {
-        val who = if (backend == Backends.LOCAL) "Linux 环境" else "「${hub.backendName(backend)}」"
-        hub.platform.toast("没查到这个对话（${who}没有响应）")
+        val who =
+            if (backend == Backends.LOCAL) Strings.sidebarLookupLinux()
+            else Strings.sidebarLookupDevice(hub.backendName(backend))
+        hub.platform.toast(Strings.sidebarLookupNoResponse(who))
         return null
     }
     val target = found.firstOrNull()
     if (target == null) {
-        hub.platform.toast("侧栏里没有这个对话（它没有可显示的内容）")
+        hub.platform.toast(Strings.sidebarLookupEmpty())
         return null
     }
     onFetched(target)
@@ -662,20 +665,23 @@ private fun LazyListScope.searchItems(
 ) {
     if (results.isEmpty()) {
         item(key = "search-empty") {
-            PaneMessage(if (progress == SearchProgress.Running) "正在搜索…" else "没有匹配的对话")
+            PaneMessage(
+                if (progress == SearchProgress.Running) Strings.sidebarSearching()
+                else Strings.sidebarNoMatches(),
+            )
         }
         return
     }
-    item(key = "h-search") { SectionHeader("搜索结果", first = true) }
+    item(key = "h-search") { SectionHeader(Strings.sidebarSearchResults(), first = true) }
     items(results, key = { it.id }) { SessionItem(it, rows, snippet = hits[it.id]) }
     searchFooterText(progress)?.let { text -> item(key = "search-more") { SearchFooter(text) } }
 }
 
 private fun searchFooterText(progress: SearchProgress): String? =
     when (progress) {
-        SearchProgress.Running -> "正在搜索对话内容…"
-        SearchProgress.Partial -> "结果较多，只列出了一部分，换个更具体的词试试"
-        SearchProgress.Failed -> "对话内容没搜成，只比对了标题"
+        SearchProgress.Running -> Strings.sidebarSearchingContent()
+        SearchProgress.Partial -> Strings.sidebarSearchPartial()
+        SearchProgress.Failed -> Strings.sidebarSearchFailed()
         else -> null
     }
 
@@ -684,15 +690,22 @@ private fun LazyListScope.groupItems(groups: SessionGroups, problem: String?, ro
     if (problem != null) {
         item(key = "problem") { PaneMessage(problem) }
     } else if (groups.visible.isEmpty() && !groups.showArchived) {
-        item(key = "empty") { PaneMessage("还没有对话") }
+        item(key = "empty") { PaneMessage(Strings.sidebarEmpty()) }
     }
     val pinned = groups.pinned
     val today = groups.today
-    sessionGroup("pinned", "置顶", first = true, list = pinned, rows = rows)
-    sessionGroup("today", "今天", first = pinned.isEmpty(), list = today, rows = rows)
+    sessionGroup("pinned", Strings.sidebarPinned(), first = true, list = pinned, rows = rows)
+    sessionGroup(
+        "today",
+        Strings.sidebarToday(),
+        first = pinned.isEmpty(),
+        list = today,
+        rows = rows,
+    )
     sessionGroup(
         "earlier",
-        if (groups.showArchived) "已归档 · ${groups.archived.size}" else "更早",
+        if (groups.showArchived) Strings.sidebarArchivedCount(groups.archived.size)
+        else Strings.sidebarEarlier(),
         first = pinned.isEmpty() && today.isEmpty(),
         list = groups.earlier,
         rows = rows,
@@ -744,7 +757,11 @@ private fun PaneBrandHeader(onNewChat: () -> Unit) {
             color = colors.labelPrimary,
             modifier = Modifier.weight(1f),
         )
-        PaneCircleButton(icon = ZetaIcons.NewChat, description = "新对话", onClick = onNewChat)
+        PaneCircleButton(
+            icon = ZetaIcons.NewChat,
+            description = Strings.sidebarNewConversation(),
+            onClick = onNewChat,
+        )
     }
 }
 
@@ -818,7 +835,7 @@ private fun PaneBottomBar(
         Spacer(Modifier.width(8.dp))
         PaneCircleButton(
             icon = COUIIcons.Settings,
-            description = "设置",
+            description = Strings.sidebarSettings(),
             onClick = onOpenSettings,
         )
     }
@@ -836,7 +853,7 @@ private fun ArchiveToggle(
             Spacer(Modifier.width(8.dp))
             PaneCircleButton(
                 icon = COUIIcons.Back,
-                description = "返回全部对话",
+                description = Strings.sidebarBackToAll(),
                 onClick = { onShowArchived(false) },
             )
         }
@@ -844,7 +861,7 @@ private fun ArchiveToggle(
             Spacer(Modifier.width(8.dp))
             PaneCircleButton(
                 icon = ZetaIcons.Archive,
-                description = "已归档 · $archivedCount",
+                description = Strings.sidebarArchivedCount(archivedCount),
                 onClick = { onShowArchived(true) },
             )
         }
@@ -859,7 +876,7 @@ private fun askBatchDelete(
 ) {
     val removable = deletable(chosen, hub::isActive)
     if (removable.isEmpty()) {
-        hub.platform.toast("选中的对话都在进行中，不能删除")
+        hub.platform.toast(Strings.sidebarAllRunning())
     } else {
         onConfirm(removable)
     }
@@ -873,7 +890,7 @@ private fun confirmDelete(
 ) {
     val target = confirmedDeletion(prompt, hub::isActive)
     if (target != null) onDelete(target)
-    else if (prompt != null) hub.platform.toast("这个对话正在进行，没有删除")
+    else if (prompt != null) hub.platform.toast(Strings.sidebarRunningNotDeleted())
 }
 
 /**
@@ -891,16 +908,16 @@ private fun DeleteDialogs(
     val deletingName = lastDeleting?.session?.let { it.title.ifBlank { it.preview }.take(60) }
     NoticeDialog(
         show = deleting is DeletePrompt.Blocked,
-        title = "这个对话正在进行",
-        summary = deletingName?.let { "$it\n先停止它，或等它结束，再删除。" },
-        closeText = "知道了",
+        title = Strings.sidebarDeleteBlocked(),
+        summary = deletingName?.let { Strings.sidebarDeleteBlockedSummary(it) },
+        closeText = Strings.sidebarGotIt(),
         onDismissRequest = onDismiss,
     )
     ConfirmDialog(
         show = deleting is DeletePrompt.Confirm,
-        title = "删除这个对话？",
-        summary = deletingName?.let { "$it\n会话记录文件会被一并删除，无法恢复。" },
-        confirmText = "删除",
+        title = Strings.sidebarDeleteConfirm(),
+        summary = deletingName?.let { Strings.sidebarDeleteSummary(it) },
+        confirmText = Strings.sidebarDelete(),
         destructive = true,
         onConfirm = {
             onDelete(deleting)
@@ -921,11 +938,11 @@ private fun BatchDeleteDialog(
     val lastBatch = rememberRetained(batch)
     ConfirmDialog(
         show = batch != null,
-        title = "删除 ${lastBatch?.size ?: 0} 个对话？",
+        title = Strings.sidebarDeleteMany(lastBatch?.size ?: 0),
         summary =
-            "会话记录会被删除，Claude Code 为它们存的工具结果、子代理记录等也一并删除，无法恢复。" +
-                if (skipped > 0) "\n另有 $skipped 个正在进行的对话不会删除。" else "",
-        confirmText = "删除",
+            Strings.sidebarDeleteManySummary() +
+                if (skipped > 0) "\n" + Strings.sidebarDeleteManySkipped(skipped) else "",
+        confirmText = Strings.sidebarDelete(),
         destructive = true,
         onConfirm = onConfirm,
         onDismissRequest = onDismiss,
@@ -970,7 +987,7 @@ private fun SearchCapsule(
         expanded = expanded,
         onExpandedChange = { expanded = it },
         modifier = modifier,
-        label = "搜索对话",
+        label = Strings.sidebarSearch(),
     )
 }
 
@@ -1110,17 +1127,30 @@ private fun sessionMenu(
         DropdownEntry(
             items =
                 listOf(
-                    menuItem("选择", COUIIcons.SelectAll, { actions().select(session) }),
                     menuItem(
-                        if (pinned) "取消置顶" else "置顶对话",
+                        Strings.sidebarSelect(),
+                        COUIIcons.SelectAll,
+                        { actions().select(session) },
+                    ),
+                    menuItem(
+                        if (pinned) Strings.sidebarUnpin() else Strings.sidebarPin(),
                         if (pinned) COUIIcons.Unpin else COUIIcons.Pin,
                         { actions().togglePin(session) },
                     ),
-                    menuItem("重命名", COUIIcons.Rename, { actions().rename(session) }),
-                    menuItem("导出", COUIIcons.Download, { actions().export(session) }),
-                    menuItem("分享", COUIIcons.Share, { actions().share(session) }),
                     menuItem(
-                        if (session.archived) "取消归档" else "归档",
+                        Strings.sidebarRename(),
+                        COUIIcons.Rename,
+                        { actions().rename(session) },
+                    ),
+                    menuItem(
+                        Strings.sidebarExport(),
+                        COUIIcons.Download,
+                        { actions().export(session) },
+                    ),
+                    menuItem(Strings.sidebarShare(), COUIIcons.Share, { actions().share(session) }),
+                    menuItem(
+                        if (session.archived) Strings.sidebarUnarchive()
+                        else Strings.sidebarArchive(),
                         if (session.archived) ZetaIcons.Unarchive else ZetaIcons.Archive,
                         { actions().archive(session) },
                     ),
@@ -1129,7 +1159,12 @@ private fun sessionMenu(
         DropdownEntry(
             items =
                 listOf(
-                    menuItem("删除", COUIIcons.Delete, { actions().delete(session) }, alert = true),
+                    menuItem(
+                        Strings.sidebarDelete(),
+                        COUIIcons.Delete,
+                        { actions().delete(session) },
+                        alert = true,
+                    ),
                 ),
         ),
     )
@@ -1144,13 +1179,13 @@ private fun RowScope.SessionRowText(
     highlight: String,
 ) {
     val colors = COUITheme.colorScheme
-    val title = session.title.ifBlank { session.preview }.ifBlank { "未命名对话" }
+    val title = session.title.ifBlank { session.preview }.ifBlank { Strings.sidebarUntitled() }
     // 已结束（没有活着的 Claude Code 进程）的会话灰着显示：一眼看出哪些还占着机器
     val ended = !session.live
     Column(
         modifier =
             Modifier.weight(1f).semantics {
-                if (ended) stateDescription = "已结束"
+                if (ended) stateDescription = Strings.sidebarEnded()
             },
     ) {
         Text(
@@ -1195,7 +1230,9 @@ private fun SessionSubtitle(
             Text(
                 text =
                     buildAnnotatedString {
-                        withStyle(SpanStyle(color = colors.error)) { append("[草稿] ") }
+                        withStyle(SpanStyle(color = colors.error)) {
+                            append(Strings.sidebarDraft() + " ")
+                        }
                         append(draft)
                     },
                 style = subtitleStyle,
@@ -1229,8 +1266,9 @@ private fun rowHostName(hub: ConversationHub): ((String) -> String)? =
 private fun sessionPlace(session: SessionSummary, highlight: String, host: String?): String =
     (host?.let { "$it · " } ?: "") +
         session.cwd.trimEnd('/').substringAfterLast('/').ifBlank { "/" } +
-        (if (session.external) " · 别处运行中" else "") +
-        (if (highlight.isNotEmpty() && session.archived) " · 已归档" else "")
+        (if (session.external) " · " + Strings.sidebarRunningElsewhere() else "") +
+        (if (highlight.isNotEmpty() && session.archived) " · " + Strings.sidebarArchivedMark()
+        else "")
 
 /** 正看着的对话，确认面板就在眼前，不标“等你确认”，照在回答的标。 */
 private fun rowStatus(status: SessionStatus?, current: Boolean): SessionStatus? =
@@ -1252,7 +1290,7 @@ private fun SessionRowMark(status: SessionStatus?, showPin: Boolean) {
             Spacer(Modifier.width(6.dp))
             Icon(
                 imageVector = COUIIcons.Pin,
-                contentDescription = "已置顶",
+                contentDescription = Strings.sidebarPinnedMark(),
                 modifier = Modifier.size(16.dp),
                 tint = COUITheme.colorScheme.labelSecondaryVariant,
             )

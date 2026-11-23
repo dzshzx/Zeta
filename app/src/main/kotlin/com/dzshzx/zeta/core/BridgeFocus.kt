@@ -8,6 +8,7 @@ import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableLongStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
+import com.dzshzx.zeta.i18n.Strings
 import com.dzshzx.zeta.phone.OverlayPhase
 import com.dzshzx.zeta.phone.PhoneTools
 
@@ -58,7 +59,7 @@ internal class BridgeFocus(
     }
 
     override val title: String
-        get() = TITLE
+        get() = Strings.coreBridgeTitle()
 
     override val phase: OverlayPhase
         get() =
@@ -72,15 +73,17 @@ internal class BridgeFocus(
     override val step: String
         get() =
             when {
-                phone.userControlling -> "你在接管"
-                phone.paused -> "已暂停"
-                calls > 0 -> phone.currentCall?.text ?: "操作手机"
-                else -> "等待下一步"
+                phone.userControlling -> Strings.coreStepYouControl()
+                phone.paused -> Strings.coreStepPaused()
+                calls > 0 -> phone.currentCall?.text ?: Strings.coreBridgeOperatingPhone()
+                else -> Strings.coreBridgeWaitingNext()
             }
 
     /** 第二行：是谁在操作，有后台屏幕时带上它上面的应用（“电脑在操作 · 设置”）。 */
     override val thought: String
-        get() = TITLE + (appName?.let { " · $it" } ?: "")
+        get() =
+            appName?.let { Strings.coreBridgeTitleWithApp(Strings.coreBridgeTitle(), it) }
+                ?: Strings.coreBridgeTitle()
 
     override val appName: String?
         get() = phone.agentDisplayApp?.takeIf { screen != null && it.isNotBlank() }
@@ -103,8 +106,6 @@ internal class BridgeFocus(
     companion object {
         /** 最后一个调用结束后胶囊再停留多久：工作站上模型想下一步通常要十几秒。 */
         const val LINGER_MS = 30_000L
-
-        const val TITLE = "电脑在操作"
 
         /** 用户在胶囊上点了停止时交给外部客户端的原因。 */
         const val STOPPED = "用户在手机上点了停止，这次手机操作没有执行：先别再操作手机，问用户要不要继续"

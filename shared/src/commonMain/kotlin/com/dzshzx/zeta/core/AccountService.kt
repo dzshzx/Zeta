@@ -3,10 +3,8 @@ package com.dzshzx.zeta.core
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
+import com.dzshzx.zeta.i18n.Strings
 import kotlin.concurrent.thread
-
-/** 本包还有对话在进行，不能动登录状态。 */
-private const val OwnConversationsBusy = "这里还有对话在进行（在回答、等你确认或有后台任务），等它结束再换"
 
 /**
  * 一台主机（[backend]）的账号页背后的状态：那台上 claude-switch 管着哪些账号、当前是哪个、正在切换，以及添加账号的登录（[login]）。
@@ -30,7 +28,7 @@ class AccountService(private val hub: ConversationHub, private val backend: Stri
             },
             shell = {
                 hub.shell(backend)
-                    ?: throw ServeError(hub.unavailable(backend) ?: "还没有可用的 Linux 环境")
+                    ?: throw ServeError(hub.unavailable(backend) ?: Strings.coreNoLinuxEnv())
             },
         )
 
@@ -61,7 +59,10 @@ class AccountService(private val hub: ConversationHub, private val backend: Stri
             main.post {
                 listed
                     .onSuccess { state = it }
-                    .onFailure { if (working == null) problem = "读不了账号：${it.message}" }
+                    .onFailure {
+                        if (working == null)
+                            problem = Strings.coreAccountsReadFailed(it.message.toString())
+                    }
                 then(listed.getOrNull())
             }
         }
@@ -74,9 +75,9 @@ class AccountService(private val hub: ConversationHub, private val backend: Stri
     /** 现在能不能动登录状态（切换或添加账号）；不能时给出原因。在主线程上调用。 */
     private fun localBlocker(): String? =
         when {
-            working != null -> "上一件事还没做完"
-            !hub.canChangeLogin(backend) -> OwnConversationsBusy
-            login.inProgress -> "正在登录，先完成或取消登录"
+            working != null -> Strings.coreAccountsBusy()
+            !hub.canChangeLogin(backend) -> Strings.coreAccountsOwnBusy()
+            login.inProgress -> Strings.coreAccountsLoggingIn()
             else -> null
         }
 
@@ -85,7 +86,7 @@ class AccountService(private val hub: ConversationHub, private val backend: Stri
      * 然后请核心换。换好以后额度、新对话都是新账号的。在主线程上调用。
      */
     fun switchTo(target: ClaudeAccount) {
-        checked("正在切换到 ${target.title}") {
+        checked(Strings.coreAccountsSwitching(target.title)) {
             background("zeta-accounts") { core ->
                 val done = runCatching { synchronized(probeLock) { core.switch(target.id) } }
                 // 换成了的话 switched() 会重读一遍账号，这里不用读
@@ -98,8 +99,8 @@ class AccountService(private val hub: ConversationHub, private val backend: Stri
                         .onFailure {
                             problem =
                                 if ((it as? ServeError)?.code == AccountsCore.NO_ACCOUNT)
-                                    "这个账号已经不在了"
-                                else it.message ?: "没有切换成"
+                                    Strings.coreAccountsGone()
+                                else it.message ?: Strings.coreAccountsSwitchFailed()
                         }
                 }
             }
@@ -122,11 +123,15 @@ class AccountService(private val hub: ConversationHub, private val backend: Stri
             val listed = runCatching { core.list() }
             main.post {
                 listed.getOrNull()?.let { state = it }
-                val blocker = listed.fold({ it.blocker }, { "读不了账号：${it.message}" })
+                val blocker =
+                    listed.fold(
+                        { it.blocker },
+                        { Strings.coreAccountsReadFailed(it.message.toString()) },
+                    )
                 when {
                     blocker != null -> fail(blocker)
                     // 这一刻再看一次：查进程的这会儿可能有对话开始了
-                    !hub.closeIdleConversations(backend) -> fail(OwnConversationsBusy)
+                    !hub.closeIdleConversations(backend) -> fail(Strings.coreAccountsOwnBusy())
                     else -> then()
                 }
             }
@@ -176,7 +181,9 @@ class AccountService(private val hub: ConversationHub, private val backend: Stri
             val listed = runCatching { core.list() }.getOrNull()
             main.post {
                 listed?.let { state = it }
-                removed.onFailure { problem = "没有移除：${it.message}" }
+                removed.onFailure {
+                    problem = Strings.coreAccountsRemoveFailed(it.message.toString())
+                }
             }
         }
     }
@@ -187,7 +194,7 @@ class AccountService(private val hub: ConversationHub, private val backend: Stri
      * 真正的存档在用户点开始登录时由核心做（[LoginFlow.start] 经 accounts.login_start）。
      */
     fun prepareLogin(onReady: () -> Unit) {
-        checked("正在检查") {
+        checked(Strings.coreAccountsChecking()) {
             working = null
             onReady()
         }
@@ -203,7 +210,7 @@ class AccountService(private val hub: ConversationHub, private val backend: Stri
 
     /** 开始登录前（在主线程上）：本包有对话在进行时不能登录，返回原因；能时关掉闲着的对话进程（它们开着时 claude-switch 不存档）。 */
     internal fun closeForLogin(): String? =
-        if (hub.closeIdleConversations(backend)) null else OwnConversationsBusy
+        if (hub.closeIdleConversations(backend)) null else Strings.coreAccountsOwnBusy()
 
     /** 单起的问额度的进程和改登录状态不能同时进行（[QuotaService.probeLock]）。 */
     internal val probeLock: Any
@@ -265,7 +272,11 @@ class LoginFlow internal constructor(private val service: AccountService) {
                 state =
                     started.fold(
                         { LoginState.WaitingCode(it.url) },
-                        { LoginState.Failed("没能开始登录：${it.message}") },
+                        {
+                            LoginState.Failed(
+                                Strings.coreAccountsLoginStartFailed(it.message.toString()),
+                            )
+                        },
                     )
             }
         }
@@ -276,7 +287,7 @@ class LoginFlow internal constructor(private val service: AccountService) {
         val waiting = state as? LoginState.WaitingCode ?: return
         // 授权码是“两段中间夹一个 #”，少了后半段登录命令不会收（核心也会退回，这里先拦下省一趟）
         if ('#' !in code) {
-            state = waiting.copy(notice = INCOMPLETE)
+            state = waiting.copy(notice = Strings.coreAccountsCodeIncomplete())
             return
         }
         val mine = generation
@@ -294,7 +305,7 @@ class LoginFlow internal constructor(private val service: AccountService) {
                         state =
                             if ((it as? ServeError)?.code == AccountsCore.LOGIN_INCOMPLETE)
                                 waiting.copy(notice = it.message)
-                            else LoginState.Failed(it.message ?: "登录没有成功")
+                            else LoginState.Failed(it.message ?: Strings.coreAccountsLoginFailed())
                     }
             }
         }
@@ -317,9 +328,5 @@ class LoginFlow internal constructor(private val service: AccountService) {
         (state as? LoginState.WaitingCode)?.let {
             if (it.notice != null) state = it.copy(notice = null)
         }
-    }
-
-    private companion object {
-        const val INCOMPLETE = "授权码不完整：要连中间的 # 和它后面的部分一起复制"
     }
 }

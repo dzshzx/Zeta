@@ -18,6 +18,7 @@ import com.dzshzx.zeta.core.schedule.ScheduleStore
 import com.dzshzx.zeta.core.ssh.SshKey
 import com.dzshzx.zeta.core.ssh.SshLinks
 import com.dzshzx.zeta.core.ssh.keystore
+import com.dzshzx.zeta.i18n.Strings
 import com.dzshzx.zeta.phone.AccessibilityGuard
 import com.dzshzx.zeta.phone.PhoneBridge
 import com.dzshzx.zeta.phone.PhoneTools
@@ -341,8 +342,10 @@ class AndroidHubPlatform(
         val busy = working || conversations.any { it.active && !it.offline }
         val answering = conversations.filter { it.busy }
         val running = answering.map { conversation ->
-            conversation.title.ifBlank { "新对话" } +
-                (conversation.phone.agentDisplayApp?.let { " · 在后台操作$it" } ?: "")
+            val title = conversation.title.ifBlank { Strings.coreUntitledConversation() }
+            conversation.phone.agentDisplayApp?.let {
+                Strings.coreStatusRunningInBackground(title, it)
+            } ?: title
         }
         AgentService.update(app, active, busy, running, alerts.liveStatus(answering))
         alerts.syncAll()

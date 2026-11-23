@@ -29,6 +29,7 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import com.dzshzx.zeta.core.Conversation
 import com.dzshzx.zeta.core.EarlierState
+import com.dzshzx.zeta.i18n.Strings
 import io.github.suqi8.coui.kmp.basic.InfiniteProgressIndicator
 import io.github.suqi8.coui.kmp.basic.Text
 import io.github.suqi8.coui.kmp.theme.COUITheme
@@ -78,7 +79,7 @@ fun EarlierHistoryRow(
         when (state) {
             EarlierState.Idle ->
                 Text(
-                    text = "载入更早的 $skipped 条记录",
+                    text = Strings.chatLoadEarlier(skipped),
                     style = COUITheme.textStyles.bodyS,
                     color = colors.primary,
                 )
@@ -90,14 +91,15 @@ fun EarlierHistoryRow(
                     InfiniteProgressIndicator(size = 16.dp)
                     Spacer(Modifier.width(8.dp))
                     Text(
-                        text = "正在载入更早的记录",
+                        text = Strings.chatLoadingEarlier(),
                         style = COUITheme.textStyles.bodyS,
                         color = colors.labelSecondary,
                     )
                 }
             is EarlierState.Failed ->
                 Text(
-                    text = state.message + if (state.retry) "，点按重试" else "",
+                    text =
+                        if (state.retry) Strings.chatTapToRetry(state.message) else state.message,
                     style = COUITheme.textStyles.bodyS,
                     color = colors.labelSecondary,
                     textAlign = TextAlign.Center,

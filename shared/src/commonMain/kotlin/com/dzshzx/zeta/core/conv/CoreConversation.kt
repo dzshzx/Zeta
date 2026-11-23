@@ -12,6 +12,7 @@ import com.dzshzx.zeta.core.chatItemOf
 import com.dzshzx.zeta.core.int
 import com.dzshzx.zeta.core.obj
 import com.dzshzx.zeta.core.str
+import com.dzshzx.zeta.i18n.Strings
 import kotlin.concurrent.thread
 import kotlinx.serialization.json.JsonArray
 import kotlinx.serialization.json.JsonElement
@@ -69,7 +70,7 @@ internal constructor(
         val keep = synchronized(client.lock) { opened && !closed }
         if (keep) return
         client.forget(this)
-        throw failure as? ServeError ?: ServeError(failure.message ?: "打不开这个对话")
+        throw failure as? ServeError ?: ServeError(failure.message ?: Strings.coreConvCantOpen())
     }
 
     /** 重连后、条目对不上时重新打开（[close] 时先放开核心里同名的那个），在 [ConvClient] 起的线程上跑。 */
@@ -281,8 +282,8 @@ internal constructor(
         timeoutMs: Long? = null,
     ): JsonElement? {
         synchronized(client.lock) {
-            if (closed) throw ServeError("这个对话已经关了")
-            if (!view.connected) throw ServeError(NOT_CONNECTED)
+            if (closed) throw ServeError(Strings.coreConvClosed())
+            if (!view.connected) throw ServeError(Strings.coreConvHostLost())
         }
         val body = JsonObject(params + ("conv" to JsonPrimitive(name)))
         return if (timeoutMs == null) client.call(method, body)
@@ -556,8 +557,6 @@ internal constructor(
     }
 
     private companion object {
-        const val NOT_CONNECTED = "和主机的连接断了，正在重连"
-
         /** conv.open 带 key 而核心里已经没有那个对话时的 code。 */
         const val GONE = "conversation_gone"
 

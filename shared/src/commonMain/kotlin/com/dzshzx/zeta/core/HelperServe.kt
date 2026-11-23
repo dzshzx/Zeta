@@ -1,5 +1,6 @@
 package com.dzshzx.zeta.core
 
+import com.dzshzx.zeta.i18n.Strings
 import com.dzshzx.zeta.i18n.UiLanguage
 import java.io.IOException
 import java.util.concurrent.CompletableFuture
@@ -96,7 +97,7 @@ class HelperServe(
         val opened =
             synchronized(lock) {
                 closed = true
-                if (ended == null) ended = "和 zeta-helper serve 的连接已关闭"
+                if (ended == null) ended = Strings.coreServeClosed()
                 ready = null
                 failPending(ended!!)
                 lock.notifyAll()
@@ -124,15 +125,16 @@ class HelperServe(
         val (process, id) = register(reply, deadline, timeoutMs)
         if (!write(process, request(id, method, params))) {
             synchronized(lock) { pending.remove(id) }
-            throw ServeError(DROPPED)
+            throw ServeError(Strings.coreServeDroppedNoReply())
         }
         try {
             return reply.get(remainingMs(deadline).coerceAtLeast(1), TimeUnit.MILLISECONDS)
         } catch (_: TimeoutException) {
             synchronized(lock) { pending.remove(id) }
-            throw ServeError("等了 ${timeoutMs / 1000} 秒，zeta-helper serve 没有应答")
+            throw ServeError(Strings.coreServeNoReply((timeoutMs / 1000).toInt()))
         } catch (e: ExecutionException) {
-            throw e.cause as? ServeError ?: ServeError(e.cause?.message ?: DROPPED)
+            throw e.cause as? ServeError
+                ?: ServeError(e.cause?.message ?: Strings.coreServeDroppedNoReply())
         }
     }
 
@@ -146,7 +148,8 @@ class HelperServe(
             while (ready == null) {
                 ended?.let { throw ServeError(it) }
                 val left = remainingMs(deadline)
-                if (left <= 0) throw ServeError("等了 ${timeoutMs / 1000} 秒，还没连上 zeta-helper serve")
+                if (left <= 0)
+                    throw ServeError(Strings.coreServeNotConnected((timeoutMs / 1000).toInt()))
                 lock.wait(left)
             }
             val id = ++nextId
@@ -191,7 +194,7 @@ class HelperServe(
     private fun connectOnce(connected: () -> Unit): String {
         val opened =
             runCatching(open).getOrElse {
-                return it.message ?: "zeta-helper serve 起不来"
+                return it.message ?: Strings.coreServeCantStart()
             }
         synchronized(lock) {
             if (closed) {
@@ -218,7 +221,7 @@ class HelperServe(
                         onProblem(null)
                     }
                     else -> {
-                        refused = "zeta-helper serve 的协议对不上：$line".take(300)
+                        refused = Strings.coreServeProtocol(line).take(300)
                         opened.kill(process)
                     }
                 }
@@ -227,15 +230,17 @@ class HelperServe(
         synchronized(lock) {
             if (current === opened) current = null
             if (ready === process) ready = null
-            failPending(DROPPED)
+            failPending(Strings.coreServeDroppedNoReply())
             lock.notifyAll()
         }
         opened.kill(process)
         val code = runCatching { process.waitFor() }.getOrDefault(-1)
         return refused
             ?: synchronized(stderr) { stderr.toString().trim().takeLast(300) }
-                .ifEmpty { "和 zeta-helper serve 的连接断了（退出码 $code）" }
-                .let { if (code == RemoteShell.CONNECTION_FAILED) "连接断了：$it" else it }
+                .ifEmpty { Strings.coreServeDropped(code.toString()) }
+                .let {
+                    if (code == RemoteShell.CONNECTION_FAILED) Strings.coreServeLinkLost(it) else it
+                }
     }
 
     /** 收到招呼：订阅、开始 ping，之后这个进程能接 [call] 的请求。 */
@@ -272,11 +277,11 @@ class HelperServe(
         when {
             reply == null ->
                 // 订阅、ping 的应答。只有订阅这类请求才会答 false：那边不认这个方法，是两边的版本对不上
-                if (o.bool("ok") == false) onProblem(o.str("error") ?: "zeta-helper serve 拒绝了请求")
+                if (o.bool("ok") == false) onProblem(o.str("error") ?: Strings.coreServeRefused())
             o.bool("ok") == true -> reply.complete(o["result"]?.takeIf { it !is JsonNull })
             else ->
                 reply.completeExceptionally(
-                    ServeError(o.str("error") ?: "zeta-helper serve 拒绝了请求", o.str("code")),
+                    ServeError(o.str("error") ?: Strings.coreServeRefused(), o.str("code")),
                 )
         }
     }
@@ -331,8 +336,6 @@ class HelperServe(
         /** [call] 默认最多等多久：conv.open 可能要先拉起核心、载入历史，要等 Claude Code 应答的 conv.* 请求在核心里最多等 30 秒。 */
         const val CALL_TIMEOUT_MS = 60_000L
 
-        private const val DROPPED = "和 zeta-helper serve 的连接断了，没收到应答"
-
         /** 还会重连的连接：换了界面语言时 [introduceAll] 让它们都再报一次 core.client。 */
         private val live: MutableSet<HelperServe> = ConcurrentHashMap.newKeySet()
 
@@ -370,11 +373,13 @@ class HelperServe(
         ): Opened {
             val installed =
                 program.ensure { command, stdin -> shell.run(command, stdin, 60_000, plain = true) }
-                    ?: error("进不了 Linux 环境")
+                    ?: error(Strings.coreCantEnterLinuxEnv())
             if (installed.exitCode != 0)
                 error(
                     problem(installed)
-                        ?: installed.stderr.trim().takeLast(300).ifEmpty { "zeta-helper 没装上" },
+                        ?: installed.stderr.trim().takeLast(300).ifEmpty {
+                            Strings.coreServeNotInstalled()
+                        },
                 )
             return Opened(shell.startPlain(program.command("serve")), shell::kill)
         }

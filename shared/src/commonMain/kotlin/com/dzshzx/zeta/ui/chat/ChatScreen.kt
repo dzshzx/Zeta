@@ -85,6 +85,7 @@ import com.dzshzx.zeta.core.ThoughtItem
 import com.dzshzx.zeta.core.UserItem
 import com.dzshzx.zeta.core.WorkItem
 import com.dzshzx.zeta.core.userTurns
+import com.dzshzx.zeta.i18n.Strings
 import com.dzshzx.zeta.ui.components.LocalHub
 import com.dzshzx.zeta.ui.components.coui2.AnchoredMenu
 import com.dzshzx.zeta.ui.components.coui2.ConfirmDialog
@@ -138,13 +139,14 @@ private fun requestEnd(hub: ConversationHub, conversation: Conversation, confirm
  * `windows/internal/ui/sessionops.go` 的 endConfirmSummary。
  */
 fun endConfirmSummary(external: Boolean, occupant: Occupant?): String =
-    (if (external)
-        spaced(
-            "它正在",
-            occupant?.let { occupantPlace(it.app, it.device, it.local) } ?: "别处",
-            "运行，结束会停掉那边的进程，那边在做的也一并停掉。",
+    if (external)
+        spaceMixed(
+            Strings.chatEndSummaryAt(
+                occupant?.let { occupantPlace(it.app, it.device, it.local) }
+                    ?: Strings.chatPlaceElsewhere(),
+            ),
         )
-    else "它还在进行（在回答、等你确认或有后台任务），结束会一并停掉。") + "对话内容保留，可以从历史对话里接着聊。"
+    else Strings.chatEndSummaryActive()
 
 /**
  * 聊天页。根上是 COUI 的 Scaffold（页面上的对话框、菜单都画在它里面），顶栏是 COUI 的小顶栏，中间换成对话标题和模型切换。
@@ -249,10 +251,10 @@ fun ChatScreen(
                 )
                 ConfirmDialog(
                     show = confirmingEnd,
-                    title = "结束这个对话？",
+                    title = Strings.chatEndTitle(),
                     summary =
                         endConfirmSummary(conversation.blockedByExternal, conversation.occupant),
-                    confirmText = "结束",
+                    confirmText = Strings.chatEnd(),
                     destructive = true,
                     onConfirm = {
                         confirmingEnd = false
@@ -323,7 +325,9 @@ private fun ChatTopBar(
             color = if (backdrop != null) Color.Transparent else colors.background,
             glow = glow,
             navigationIcon = {
-                onOpenPane?.let { IconActionButton(COUIIcons.Sidebar, "历史对话", onClick = it) }
+                onOpenPane?.let {
+                    IconActionButton(COUIIcons.Sidebar, Strings.chatHistory(), onClick = it)
+                }
             },
             actions = {
                 OverflowMenu(
@@ -351,7 +355,7 @@ private fun ChatTopBar(
 @Composable
 fun RemoteChoice(hub: ConversationHub, onOpenRemoteHosts: () -> Unit) {
     if (hub.settings.remoteHosts.isEmpty()) {
-        TextButton(text = "连接远程设备", onClick = onOpenRemoteHosts)
+        TextButton(text = Strings.chatConnectRemote(), onClick = onOpenRemoteHosts)
     } else {
         HostSwitcher(hub)
     }
@@ -362,11 +366,11 @@ fun RemoteChoice(hub: ConversationHub, onOpenRemoteHosts: () -> Unit) {
 private fun DisconnectedMessage(hub: ConversationHub, backend: String, padding: PaddingValues) {
     SetupMessage(
         padding,
-        "「${hub.backendName(backend)}」已断开",
-        RemoteHosts.OFF_NOTE + "。连上后接着看。",
+        Strings.chatDisconnectedTitle(hub.backendName(backend)),
+        Strings.chatDisconnectedBody(RemoteHosts.OFF_NOTE),
     ) {
         TextButton(
-            text = "连接",
+            text = Strings.chatConnect(),
             onClick = { hub.setConnected(backend, true) },
             colors = ButtonDefaults.textButtonColorsPrimary(),
         )
@@ -645,7 +649,7 @@ private fun BackToBottomButton(visible: Boolean, onClick: () -> Unit, modifier: 
     ) {
         IconActionButton(
             ZetaIcons.ArrowDown,
-            "回到底部",
+            Strings.chatScrollToBottom(),
             iconModifier = Modifier.size(18.dp),
             onClick = onClick,
         )
@@ -688,7 +692,7 @@ private fun ConversationList(
                         ?.takeIf { it >= IdleHintSeconds }
             }
         }
-    val statusText = conversation.status ?: idleSeconds?.let { "已等待 $it 秒" }
+    val statusText = conversation.status ?: idleSeconds?.let { Strings.chatWaitedSeconds(it) }
     val waiting = showsWaiting(conversation, items.last(), statusText)
     LazyColumn(
         state = listState,
@@ -1052,7 +1056,7 @@ private fun ChatHeader(conversation: Conversation, host: String?, models: List<M
                 )
                 Icon(
                     ZetaIcons.ChevronDown,
-                    contentDescription = "切换模型",
+                    contentDescription = Strings.chatSwitchModel(),
                     modifier = Modifier.padding(start = 2.dp).size(16.dp),
                     tint = colors.labelSecondary,
                 )
@@ -1075,20 +1079,20 @@ private fun OverflowMenu(
             DropdownEntry(
                 items =
                     listOf(
-                        menuItem("新对话", ZetaIcons.NewChat, onNewChat),
+                        menuItem(Strings.chatNewChat(), ZetaIcons.NewChat, onNewChat),
                         menuItem(
-                            "结束对话",
+                            Strings.chatEndChat(),
                             ZetaIcons.Exit,
                             { onEnd?.invoke() },
                             enabled = onEnd != null,
                         ),
                         menuItem(
-                            "在对话中查找",
+                            Strings.chatFindInChat(),
                             COUIIcons.Search,
                             { onFind?.invoke() },
                             enabled = onFind != null,
                         ),
-                        menuItem("设置", COUIIcons.Settings, onOpenSettings),
+                        menuItem(Strings.chatSettings(), COUIIcons.Settings, onOpenSettings),
                     ),
             ),
         ),
@@ -1097,12 +1101,25 @@ private fun OverflowMenu(
 
 private class Suggestion(val title: String, val icon: ImageVector, val prompt: String)
 
-private val Suggestions =
+/** 建议卡片：标题和点了替用户发出的提问都按界面语言，显示时取。 */
+private fun suggestions() =
     listOf(
-        Suggestion("看看这个项目", ZetaIcons.FolderOpen, "先浏览当前目录，概括这个项目是做什么的、结构如何。"),
-        Suggestion("检查 Git 状态", COUIIcons.Merge, "查看当前目录的 git 状态和最近的提交，告诉我有哪些未提交的改动。"),
-        Suggestion("接着上次做", ZetaIcons.History, "回顾这个目录里最近的改动，告诉我上次做到哪了、接下来该做什么。"),
-        Suggestion("设备状况", ZetaIcons.Chip, "检查这台设备的内存、存储和负载情况，有异常就指出来。"),
+        Suggestion(
+            Strings.chatSuggestProjectTitle(),
+            ZetaIcons.FolderOpen,
+            Strings.chatSuggestProjectPrompt(),
+        ),
+        Suggestion(Strings.chatSuggestGitTitle(), COUIIcons.Merge, Strings.chatSuggestGitPrompt()),
+        Suggestion(
+            Strings.chatSuggestResumeTitle(),
+            ZetaIcons.History,
+            Strings.chatSuggestResumePrompt(),
+        ),
+        Suggestion(
+            Strings.chatSuggestDeviceTitle(),
+            ZetaIcons.Chip,
+            Strings.chatSuggestDevicePrompt(),
+        ),
     )
 
 @Composable
@@ -1131,7 +1148,7 @@ private fun EmptyState(
             verticalArrangement = Arrangement.Center,
         ) {
             Text(
-                text = "有什么可以帮你？",
+                text = Strings.chatEmptyGreeting(),
                 style = COUITheme.textStyles.displayXS,
                 color = colors.labelPrimary,
             )
@@ -1168,13 +1185,13 @@ private fun EmptyState(
             // 还没登录时发什么都只会报错，先把人领去登录
             if (needsLogin) {
                 Text(
-                    text = "这个环境里的 Claude Code 还没有登录账号",
+                    text = Strings.chatNotSignedIn(),
                     style = COUITheme.textStyles.bodyM,
                     color = colors.labelSecondary,
                 )
                 Spacer(Modifier.height(14.dp))
                 TextButton(
-                    text = "登录 Claude 账号",
+                    text = Strings.chatSignIn(),
                     onClick = onLogin,
                     colors = ButtonDefaults.textButtonColorsPrimary(),
                 )
@@ -1183,7 +1200,7 @@ private fun EmptyState(
                     modifier = Modifier.padding(horizontal = 20.dp),
                     verticalArrangement = Arrangement.spacedBy(10.dp),
                 ) {
-                    Suggestions.chunked(2).forEach { row ->
+                    suggestions().chunked(2).forEach { row ->
                         Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
                             row.forEach { item ->
                                 val shape = remember { SquircleShape(COUIRoundCorner.L) }
@@ -1227,14 +1244,14 @@ private fun EmptyState(
     }
     TextInputDialog(
         show = editingCwd,
-        title = "工作目录",
+        title = Strings.chatCwdTitle(),
         summary =
-            if (hub.backend == Backends.LOCAL) "这个对话在 Debian 里的哪个目录下进行"
-            else "这个对话在「${hub.backendName(hub.backend)}」上的哪个目录下进行",
+            if (hub.backend == Backends.LOCAL) Strings.chatCwdLocal()
+            else Strings.chatCwdRemote(hub.backendName(hub.backend)),
         value = cwdDraft,
         onValueChange = { cwdDraft = it },
         label = "/workspace",
-        confirmText = "确定",
+        confirmText = Strings.chatOk(),
         confirmEnabled = cwdDraft.trim().startsWith("/"),
         onConfirm = {
             val path = cwdDraft.trim()

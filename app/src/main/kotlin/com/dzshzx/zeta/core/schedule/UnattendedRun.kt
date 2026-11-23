@@ -2,6 +2,7 @@ package com.dzshzx.zeta.core.schedule
 
 import android.content.Context
 import com.dzshzx.zeta.core.Unattended
+import com.dzshzx.zeta.i18n.Strings
 import com.dzshzx.zeta.phone.tools.ScheduleTools
 
 /** 一项后台运行的运行记录：上次运行、跳过次数，以及接着同一个对话时用的会话。 */
@@ -95,7 +96,8 @@ private const val ONLY_ON_CHANGE_HINT =
 /** 定时任务的运行记录写在任务清单里。 */
 object ScheduleRecords : RunRecords {
     override val kind = "schedule"
-    override val fallbackName = "定时任务"
+    override val fallbackName: String
+        get() = Strings.scheduleFallbackName()
 
     override fun name(context: Context, id: String): String? = ScheduleStore.find(context, id)?.name
 

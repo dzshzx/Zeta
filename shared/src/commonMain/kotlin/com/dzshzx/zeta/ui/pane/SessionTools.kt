@@ -7,6 +7,7 @@ import com.dzshzx.zeta.core.bool
 import com.dzshzx.zeta.core.callCore
 import com.dzshzx.zeta.core.openCore
 import com.dzshzx.zeta.core.str
+import com.dzshzx.zeta.i18n.Strings
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
@@ -142,7 +143,7 @@ fun exportFileName(
 ): String {
     val clean =
         title.replace(Whitespace, " ").replace(FileNameUnsafe, "").trim().take(40).trim().ifBlank {
-            "对话"
+            Strings.sidebarExportNameFallback()
         }
     return "Zeta-$clean-" +
         SimpleDateFormat("yyyyMMdd-HHmm", Locale.US).format(Date(now)) +

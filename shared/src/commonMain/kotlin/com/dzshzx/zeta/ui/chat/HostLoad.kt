@@ -20,6 +20,7 @@ import androidx.lifecycle.repeatOnLifecycle
 import com.dzshzx.zeta.core.ConversationHub
 import com.dzshzx.zeta.core.QuotaSeverity
 import com.dzshzx.zeta.core.conv.HostCpu
+import com.dzshzx.zeta.i18n.Strings
 import com.dzshzx.zeta.ui.components.StatusWarning
 import com.dzshzx.zeta.ui.components.coui2.NoticeDialog
 import io.github.suqi8.coui.kmp.basic.Text
@@ -80,7 +81,7 @@ private fun severityOf(percent: Int?): QuotaSeverity =
 fun HostCpuButton(cpu: () -> HostCpu?, onClick: () -> Unit) {
     val percent = cpu()?.percent
     BarButton(
-        description = "设备负载" + (percent?.let { "：CPU $it%" } ?: ""),
+        description = percent?.let { Strings.chatDeviceLoadCpu(it) } ?: Strings.chatDeviceLoad(),
         onClick = onClick,
     ) {
         Box(Modifier.size(BarIconSize), contentAlignment = Alignment.Center) {
@@ -115,16 +116,14 @@ fun HostCpuDialog(
     val percent = reading?.percent
     val text =
         when {
-            reading == null -> "还没有读到（对话没连上，或那台主机上的 Zeta 服务还没更新）。"
-            percent == null -> "那台主机不让读 CPU 计数（/proc/stat）。"
-            else -> "CPU 使用率 $percent%，${reading.cores} 个核的平均。"
+            reading == null -> Strings.chatCpuNotRead()
+            percent == null -> Strings.chatCpuNoAccess()
+            else -> Strings.chatCpuUsage(percent, reading.cores)
         }
     NoticeDialog(
         show = visible,
-        title = "设备负载",
-        summary =
-            "$host：$text\n\n整机所有进程的 CPU 忙碌占比，和 Claude Code 状态栏里的 cpu% 同一个算法（两次读 /proc/stat 相减，等磁盘也算空闲）。" +
-                "聊天页开着时每 ${HOST_CPU_POLL_MS / 1000} 秒更新一次。",
+        title = Strings.chatDeviceLoad(),
+        summary = Strings.chatCpuExplain(host, text, (HOST_CPU_POLL_MS / 1000).toInt()),
         onDismissRequest = onDismissRequest,
     )
 }

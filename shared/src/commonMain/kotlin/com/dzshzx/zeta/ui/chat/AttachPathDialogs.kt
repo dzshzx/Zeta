@@ -42,6 +42,7 @@ import com.dzshzx.zeta.core.PathCheck
 import com.dzshzx.zeta.core.PathKind
 import com.dzshzx.zeta.core.SharedFolder
 import com.dzshzx.zeta.core.SharedFolders
+import com.dzshzx.zeta.i18n.Strings
 import com.dzshzx.zeta.ui.components.MonoFont
 import com.dzshzx.zeta.ui.components.coui2.ConfirmDialog
 import com.dzshzx.zeta.ui.components.coui2.TextField
@@ -119,7 +120,8 @@ private sealed interface Resolution {
     /** Linux 里看不到，加为共享文件夹 [name] 后就在 /mnt/shared/[name]；[problem] 不为空时不能加。 */
     data class NeedsShare(val name: String, val problem: String?) : Resolution
 
-    data class Problem(val message: String) : Resolution
+    /** 用不了，[message] 是原因；[missing] 是路径不存在（输入路径时再看它是不是手机上能对应过去的目录）。 */
+    data class Problem(val message: String, val missing: Boolean = false) : Resolution
 }
 
 /** 查对话所在主机上的路径 [linuxPath] 对对话进程是不是可见。手机本机的内部存储读不了时先把 Linux 用户补进 media_rw 组再查一次。 */
@@ -131,7 +133,9 @@ private fun checkLinux(
 ): Resolution {
     val shell =
         hub.shell(conversation.backend)
-            ?: return Resolution.Problem(hub.unavailable(conversation.backend) ?: "用不了这台设备")
+            ?: return Resolution.Problem(
+                hub.unavailable(conversation.backend) ?: Strings.composerDeviceUnavailable(),
+            )
     val config = hub.settings.env?.takeIf { conversation.backend == Backends.LOCAL }
     // 按对话进程的挂载查看不看得到（加共享文件夹后要不要重启）；还没接着进程时查新进程会看到的
     var kind = PathCheck.check(shell, linuxPath, hostKey = conversation.hostKey)
@@ -145,20 +149,21 @@ private fun checkLinux(
     }
     return when (kind) {
         PathKind.Folder ->
-            if (wantFolder == false) Resolution.Problem("这是一个文件夹")
+            if (wantFolder == false) Resolution.Problem(Strings.composerIsFolder())
             else Resolution.Ready(linuxPath, true)
         PathKind.File ->
-            if (wantFolder == true) Resolution.Problem("这是一个文件，不是文件夹")
+            if (wantFolder == true) Resolution.Problem(Strings.composerIsFileNotFolder())
             else Resolution.Ready(linuxPath, false)
         PathKind.FolderNotInProcess ->
-            if (wantFolder == false) Resolution.Problem("这是一个文件夹")
+            if (wantFolder == false) Resolution.Problem(Strings.composerIsFolder())
             else Resolution.NeedsRestart(linuxPath, true)
         PathKind.FileNotInProcess ->
-            if (wantFolder == true) Resolution.Problem("这是一个文件，不是文件夹")
+            if (wantFolder == true) Resolution.Problem(Strings.composerIsFileNotFolder())
             else Resolution.NeedsRestart(linuxPath, false)
-        PathKind.Missing -> Resolution.Problem(NotThere + linuxPath)
-        PathKind.Denied -> Resolution.Problem("Linux 用户没有权限读取 $linuxPath")
-        PathKind.Unknown -> Resolution.Problem("查不了：进不去 Linux 环境")
+        PathKind.Missing ->
+            Resolution.Problem(Strings.composerPathMissing(linuxPath), missing = true)
+        PathKind.Denied -> Resolution.Problem(Strings.composerPathDenied(linuxPath))
+        PathKind.Unknown -> Resolution.Problem(Strings.composerPathUnknown())
     }
 }
 
@@ -177,7 +182,7 @@ private class AndroidFolderBrowser(start: String) {
         val normalized =
             SharedFolders.normalize(target)
                 ?: run {
-                    error = "目录路径无效"
+                    error = Strings.composerFolderPathInvalid()
                     return
                 }
         path = normalized
@@ -200,13 +205,14 @@ private fun FolderAttachDialog(
     val browser = remember(opens) { AndroidFolderBrowser("/sdcard") }
     val pickTree =
         ChatPlatform.current.rememberFolderTreePicker { path ->
-            if (path == null) browser.error = "只支持内部存储里的文件夹，其他位置请输入路径" else browser.navigate(path)
+            if (path == null) browser.error = Strings.composerPickerInternalOnly()
+            else browser.navigate(path)
         }
     val resolution = browser.resolution
     val idle = conversation.canRestart()
     ConfirmDialog(
         show = visible,
-        title = "引用文件夹",
+        title = Strings.composerAttachFolderTitle(),
         summary = null,
         confirmText = folderConfirmText(resolution),
         confirmEnabled =
@@ -233,9 +239,9 @@ private fun FolderAttachDialog(
 /** 引用文件夹对话框的确认键文字：要先共享或重启时说清楚。 */
 private fun folderConfirmText(resolution: Resolution): String =
     when (resolution) {
-        is Resolution.NeedsShare -> "加为共享文件夹并引用"
-        is Resolution.NeedsRestart -> "重启 Claude 并引用"
-        else -> "引用"
+        is Resolution.NeedsShare -> Strings.composerShareAndAttach()
+        is Resolution.NeedsRestart -> Strings.composerRestartAndAttach()
+        else -> Strings.composerAttachRef()
     }
 
 /** 按查到的结果能不能引用：要重启的得等这一轮结束；要共享的不能有问题，且（已在跑的进程要重启）得空闲。 */
@@ -324,7 +330,7 @@ private fun FolderDialogContent(
         val resolving = async(Dispatchers.IO) { resolveFolder(hub, conversation, path) }
         val found = withContext(Dispatchers.IO) { SharedFolders.subfolders(path) }
         browser.entries = found.orEmpty()
-        browser.browseError = if (found == null) "无法打开该目录" else null
+        browser.browseError = if (found == null) Strings.composerBrowseFailed() else null
         browser.resolution = resolving.await()
     }
     Column(modifier = Modifier.fillMaxWidth()) {
@@ -334,7 +340,7 @@ private fun FolderDialogContent(
                 browser.input = it
                 browser.error = null
             },
-            label = "手机上的文件夹",
+            label = Strings.composerPhoneFolderLabel(),
             // 框里一开始就有路径：标题浮在上面，不当占位提示
             useLabelAsPlaceholder = false,
             singleLine = true,
@@ -345,7 +351,10 @@ private fun FolderDialogContent(
         )
         // 不用对话框的 neutral 按钮：COUI 把它画成红色的危险操作
         LinkText(
-            text = buildAnnotatedString { appendLink("用系统文件选择器选择", onClick = onPickTree) },
+            text =
+                buildAnnotatedString {
+                    appendLink(Strings.composerUseSystemPicker(), onClick = onPickTree)
+                },
             style = COUITheme.textStyles.bodyS,
             modifier = Modifier.padding(vertical = 8.dp),
         )
@@ -391,7 +400,8 @@ private fun LazyListScope.folderEntries(browser: AndroidFolderBrowser) {
                     InfiniteProgressIndicator(size = 20.dp)
                 }
             }
-        entries.isEmpty() && browser.browseError == null -> item(key = "empty") { Note("此处没有子文件夹") }
+        entries.isEmpty() && browser.browseError == null ->
+            item(key = "empty") { Note(Strings.composerNoSubfolders()) }
         else ->
             items(entries, key = { it }) { entry ->
                 FolderRow(entry) { browser.navigate(browser.path.trimEnd('/') + "/" + entry) }
@@ -406,29 +416,30 @@ private fun folderStatus(
     running: Boolean,
 ): Pair<String, Boolean> =
     when (resolution) {
-        Resolution.Checking -> "正在查看 Linux 里能不能看到它…" to false
-        is Resolution.Ready -> "在 Linux 里是 ${resolution.linuxPath}" to false
+        Resolution.Checking -> Strings.composerLinuxChecking() to false
+        is Resolution.Ready -> Strings.composerLinuxPathIs(resolution.linuxPath) to false
         is Resolution.NeedsRestart ->
-            "在 Linux 里是 ${resolution.linuxPath}，但这个对话的 Claude Code 是在加这个共享文件夹之前启动的，" +
-                restartHint(idle) to !idle
+            Strings.composerLinuxPathNeedsRestart(resolution.linuxPath, restartHint(idle)) to !idle
         is Resolution.NeedsShare ->
-            (resolution.problem?.let { "Linux 里看不到这个文件夹，也不能共享：$it" }
-                ?: ("Linux 里看不到这个文件夹。加为共享文件夹后，Claude 在 ${SharedFolders.LINUX_ROOT}/${resolution.name} 读到它" +
-                    shareRestartHint(idle, running))) to
-                (resolution.problem != null || (running && !idle))
+            (resolution.problem?.let { Strings.composerNotVisibleCantShare(it) }
+                ?: needsShareText(
+                    "${SharedFolders.LINUX_ROOT}/${resolution.name}",
+                    idle,
+                    running,
+                )) to (resolution.problem != null || (running && !idle))
         is Resolution.Problem -> resolution.message to true
     }
 
 /** 进程要重启才看得到时，空闲与否的说法。 */
 private fun restartHint(idle: Boolean): String =
-    if (idle) "要重启一次才看得到（对话内容不变）" else "要等这一轮结束、重启一次才看得到"
+    if (idle) Strings.composerRestartHintIdle() else Strings.composerRestartHintBusy()
 
-/** 加了共享文件夹以后，对话的 Claude Code 要不要重启、什么时候重启。 */
-private fun shareRestartHint(idle: Boolean, running: Boolean): String =
+/** 目录要先共享时的说明：共享后在 Linux 里的路径 [path]，对话的 Claude Code 要不要重启、什么时候重启。 */
+private fun needsShareText(path: String, idle: Boolean, running: Boolean): String =
     when {
-        !running -> "。"
-        idle -> "；这个对话的 Claude Code 会重启一次（对话内容不变）。"
-        else -> "；要等这一轮结束，这个对话的 Claude Code 重启一次才看得到。"
+        !running -> Strings.composerNeedsShare(path)
+        idle -> Strings.composerNeedsShareRestart(path)
+        else -> Strings.composerNeedsShareWait(path)
     }
 
 /**
@@ -446,12 +457,12 @@ private suspend fun renewCore(
     val takeover: () -> Unit = {
         done.complete(
             runCatching { hub.helper("core-takeover", backend = conversation.backend) }
-                .getOrElse { HelperResult.Failed(it.message ?: "没有跑成") },
+                .getOrElse { HelperResult.Failed(it.message ?: Strings.composerNotRun()) },
         )
     }
     if (end) conversation.shutdown(takeover) else withContext(Dispatchers.IO) { takeover() }
     val failed = done.await() as? HelperResult.Failed ?: return null
-    return "没能让 Claude 看到新的共享文件夹：${failed.reason}"
+    return Strings.composerRenewFailed(failed.reason)
 }
 
 /** 引用要重启才看得到的 [target]：先结束进程、换核心（[renewCore]），成了再引用并关掉对话框；没成返回原因，对话框留着。 */
@@ -476,7 +487,7 @@ private fun resolveFolder(
     conversation: Conversation,
     path: String,
 ): Resolution {
-    val config = hub.settings.env ?: return Resolution.Problem("还没有配置 Linux 环境")
+    val config = hub.settings.env ?: return Resolution.Problem(Strings.composerNoLinuxEnv())
     val shares = hub.settings.sharedFolders
     val linux =
         AttachedPaths.linuxPathFor(path, shares, config.rootfs)
@@ -489,7 +500,7 @@ private fun resolveFolder(
 
 /** 把 [path] 加为共享文件夹 [name]，再以 Linux 用户的身份（新进入的环境）确认读得到。成功返回 null，否则是原因。 */
 private fun shareAndCheck(hub: ConversationHub, path: String, name: String): String? {
-    val config = hub.settings.env ?: return "还没有配置 Linux 环境"
+    val config = hub.settings.env ?: return Strings.composerNoLinuxEnv()
     val shares = hub.settings.sharedFolders
     (SharedFolders.sourceProblem(path, shares, config.rootfs)
             ?: SharedFolders.nameProblem(name, shares))
@@ -501,9 +512,9 @@ private fun shareAndCheck(hub: ConversationHub, path: String, name: String): Str
     if (SharedFolders.isMediaStorage(path)) SharedFolders.ensureMediaGroup(config)
     return when (PathCheck.check(EnvShell(config), "${SharedFolders.LINUX_ROOT}/$name", null)) {
         PathKind.Folder -> null
-        PathKind.Denied -> "已加为共享文件夹，但 Linux 用户读不了它"
-        PathKind.Unknown -> "已加为共享文件夹，但查不了它能不能读"
-        else -> "已加为共享文件夹，但没有挂上"
+        PathKind.Denied -> Strings.composerSharedButDenied()
+        PathKind.Unknown -> Strings.composerSharedButUnknown()
+        else -> Strings.composerSharedButNotMounted()
     }
 }
 
@@ -535,12 +546,15 @@ private fun PathAttachDialog(
     val idle = conversation.canRestart()
     ConfirmDialog(
         show = visible,
-        title = if (remote) "引用「${hub.backendName(conversation.backend)}」上的路径" else "引用 Linux 路径",
+        title =
+            if (remote) Strings.composerAttachPathOnTitle(hub.backendName(conversation.backend))
+            else Strings.composerAttachLinuxPathTitle(),
         summary =
-            if (remote) "这台设备上一个文件或文件夹的绝对路径，Claude 会直接读到它。"
-            else
-                "Linux 环境里一个文件或文件夹的绝对路径，Claude 会直接读到它。手机上的目录要先加为共享文件夹（${SharedFolders.LINUX_ROOT}/<名字>）。",
-        confirmText = if (current is Resolution.NeedsRestart) "重启 Claude 并引用" else "引用",
+            if (remote) Strings.composerAttachPathRemoteSummary()
+            else Strings.composerAttachPathLocalSummary(SharedFolders.LINUX_ROOT),
+        confirmText =
+            if (current is Resolution.NeedsRestart) Strings.composerRestartAndAttach()
+            else Strings.composerAttachRef(),
         confirmEnabled =
             !working &&
                 (current is Resolution.Ready || (current is Resolution.NeedsRestart && idle)),
@@ -632,10 +646,11 @@ private fun PathDialogContent(
 /** 跟在路径输入框末尾的查询结果；还没输入时没有。 */
 private fun pathKindLabel(current: Resolution?): String? =
     when (current) {
-        is Resolution.Ready -> if (current.folder) "文件夹" else "文件"
-        is Resolution.NeedsRestart -> "进程还看不到"
-        is Resolution.Problem -> "不可用"
-        Resolution.Checking -> "正在查…"
+        is Resolution.Ready ->
+            if (current.folder) Strings.composerKindFolder() else Strings.composerKindFile()
+        is Resolution.NeedsRestart -> Strings.composerKindNotVisible()
+        is Resolution.Problem -> Strings.composerKindUnavailable()
+        Resolution.Checking -> Strings.composerKindChecking()
         else -> null
     }
 
@@ -644,15 +659,12 @@ private fun pathNote(current: Resolution?, input: String, home: String?, idle: B
     when (current) {
         is Resolution.Ready ->
             if (current.linuxPath != AttachedPaths.normalize(input, home))
-                "手机上的路径，引用 Linux 里的 ${current.linuxPath}"
+                Strings.composerPhonePathMapped(current.linuxPath)
             else null
-        is Resolution.NeedsRestart -> "这个对话的 Claude Code 是在加这个共享文件夹之前启动的，" + restartHint(idle)
+        is Resolution.NeedsRestart -> Strings.composerStartedBeforeShare(restartHint(idle))
         is Resolution.Problem -> current.message
         else -> null
     }
-
-/** 查不到路径时说明的开头。 */
-private const val NotThere = "没有这个路径："
 
 /** 输入的路径：先当对话所在主机上的路径查；手机本机上没有的话，看它是不是手机上能对应到 Linux 的目录。 */
 private fun resolvePath(
@@ -662,22 +674,25 @@ private fun resolvePath(
     home: String?,
 ): Resolution {
     if (hub.shell(conversation.backend) == null)
-        return Resolution.Problem(hub.unavailable(conversation.backend) ?: "用不了这台设备")
+        return Resolution.Problem(
+            hub.unavailable(conversation.backend) ?: Strings.composerDeviceUnavailable(),
+        )
     val path =
         AttachedPaths.normalize(input, home)
             ?: return Resolution.Problem(
-                if (input.trim().let { it.startsWith("/") || it.startsWith("~") }) "路径里不能有双引号或控制字符"
-                else "要输入以 / 开头的绝对路径",
+                if (input.trim().let { it.startsWith("/") || it.startsWith("~") })
+                    Strings.composerPathBadChars()
+                else Strings.composerPathNotAbsolute(),
             )
     val direct = checkLinux(hub, conversation, path, wantFolder = null)
-    if (direct !is Resolution.Problem || !direct.message.startsWith(NotThere)) return direct
+    if (direct !is Resolution.Problem || !direct.missing) return direct
     val config =
         hub.settings.env?.takeIf { conversation.backend == Backends.LOCAL } ?: return direct
     val shares = hub.settings.sharedFolders
     val mapped = AttachedPaths.linuxPathFor(path, shares, config.rootfs)?.takeIf { it != path }
     if (mapped != null) return checkLinux(hub, conversation, mapped, wantFolder = null)
     if (SharedFolders.bindSource(path).startsWith("/data/media/")) {
-        return Resolution.Problem("Linux 里没有这个路径。它是手机内部存储里的目录，要先在设置里把它（或上层目录）加为共享文件夹")
+        return Resolution.Problem(Strings.composerPathOnPhoneNotShared())
     }
     return direct
 }

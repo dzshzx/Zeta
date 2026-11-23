@@ -17,6 +17,7 @@ import androidx.compose.ui.input.pointer.PointerInputChange
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.unit.dp
 import com.dzshzx.zeta.core.voice.SpeechState
+import com.dzshzx.zeta.i18n.Strings
 import com.dzshzx.zeta.ui.components.LocalHub
 import kotlinx.coroutines.flow.StateFlow
 
@@ -50,7 +51,9 @@ class HoldToTalk(val input: TalkInput, private val toast: (String) -> Unit) {
     fun begin(onText: (String) -> Unit): Boolean {
         cancelling = false
         return input.start(
-            onResult = { text -> if (text.isBlank()) toast("没有听到说话") else onText(text.trim()) },
+            onResult = { text ->
+                if (text.isBlank()) toast(Strings.composerNoSpeechHeard()) else onText(text.trim())
+            },
             onError = toast,
         )
     }
@@ -66,7 +69,7 @@ class HoldToTalk(val input: TalkInput, private val toast: (String) -> Unit) {
         cancelling = false
     }
 
-    fun tapped() = toast("按住说话，松开发送")
+    fun tapped() = toast(Strings.composerHoldToTalkTip())
 
     companion object {
         /** 按住多久才算说话；更短的是轻点，只提示怎么用。 */

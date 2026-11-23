@@ -44,6 +44,7 @@ import com.dzshzx.zeta.core.formatCost
 import com.dzshzx.zeta.core.formatElapsed
 import com.dzshzx.zeta.core.formatExactTokens
 import com.dzshzx.zeta.core.formatTokens
+import com.dzshzx.zeta.i18n.Strings
 import com.dzshzx.zeta.ui.components.StatusWarning
 import com.dzshzx.zeta.ui.components.coui2.ConfirmDialog
 import com.dzshzx.zeta.ui.components.coui2.ZetaIcons
@@ -66,7 +67,10 @@ fun EffortChip(
     onChange: (String?) -> Unit,
 ) {
     val choose by rememberUpdatedState(onChange)
-    val defaultText = if (effort == null && applied != null) "默认（${effortLabel(applied)}）" else "默认"
+    val defaultText =
+        if (effort == null && applied != null)
+            Strings.composerEffortDefaultApplied(effortLabel(applied).orEmpty())
+        else Strings.composerEffortDefault()
     val entries =
         remember(defaultText, effort) {
             val items =
@@ -89,7 +93,7 @@ fun EffortChip(
     // 第几档，从 1 数；不知道是哪档时为 0
     val level = EffortLevels.indexOfFirst { it.first == (effort ?: applied) } + 1
     BarMenuButton(
-        description = "思考强度：${effortLabel(effort) ?: defaultText}",
+        description = Strings.composerEffortDescription(effortLabel(effort) ?: defaultText),
         entries = entries,
         enabled = enabled,
         colors = if (effort == null) barChipColors(null) else barChipThemeColors(),
@@ -127,10 +131,9 @@ fun UsageButton(usage: ChatUsage, onClick: () -> Unit) {
     val loud = level != ContextLevel.Normal && percent != null
     BarButton(
         description =
-            "上下文用量" +
-                (percent?.let { "：$it%" }
-                    ?: usage.contextTokens?.let { "：${formatTokens(it)} tokens" }
-                    ?: ""),
+            percent?.let { Strings.composerContextUsagePercent(it) }
+                ?: usage.contextTokens?.let { Strings.composerContextUsageTokens(formatTokens(it)) }
+                ?: Strings.composerContextUsage(),
         onClick = onClick,
         colors = barChipColors(if (loud) color else null),
     ) {
@@ -189,11 +192,11 @@ fun UsageDialog(
 ) {
     ConfirmDialog(
         show = visible,
-        title = "用量",
+        title = Strings.composerUsageTitle(),
         summary = null,
-        confirmText = "压缩上下文",
+        confirmText = Strings.composerCompact(),
         confirmEnabled = canCompact,
-        cancelText = "关闭",
+        cancelText = Strings.composerClose(),
         onConfirm = {
             onDismissRequest()
             onCompact()
@@ -222,30 +225,34 @@ fun UsageDialog(
 @Composable
 private fun TotalsSection(usage: ChatUsage, skippedHistory: Int) {
     val total = usage.total
-    SectionHeader("本对话累计", if (usage.turns.isEmpty()) null else "${usage.turns.size} 轮")
+    SectionHeader(
+        Strings.composerTotals(),
+        if (usage.turns.isEmpty()) null else Strings.composerTurnCount(usage.turns.size),
+    )
     Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
-        StatRow("输入（未走缓存）", "${formatExactTokens(total.input)} tok")
-        StatRow("缓存读取", "${formatExactTokens(total.cacheRead)} tok")
-        StatRow("缓存写入", "${formatExactTokens(total.cacheWrite)} tok")
-        StatRow("输出", "${formatExactTokens(total.output)} tok")
+        StatRow(Strings.composerInputUncached(), "${formatExactTokens(total.input)} tok")
+        StatRow(Strings.composerCacheRead(), "${formatExactTokens(total.cacheRead)} tok")
+        StatRow(Strings.composerCacheWrite(), "${formatExactTokens(total.cacheWrite)} tok")
+        StatRow(Strings.composerOutput(), "${formatExactTokens(total.output)} tok")
         StatRow(
-            "费用（按 API 标价）",
+            Strings.composerCost(),
             usage.totalCost?.let { costLabel(it, usage.costEstimated) } ?: "—",
         )
     }
     val notes = buildList {
-        if (usage.costEstimated) add("带 ≈ 的是按 token 数和 API 标价估的：会话记录里没有费用，子代理的用量不在其中。")
-        if (usage.costPartial) add("有些轮次用的模型不在价目表里，费用没有计入。")
-        if (skippedHistory > 0) add("更早的记录没有载入，也没有计入。")
+        if (usage.costEstimated) add(Strings.composerCostEstimatedNote())
+        if (usage.costPartial) add(Strings.composerCostPartialNote())
+        if (skippedHistory > 0) add(Strings.composerSkippedHistoryNote())
     }
-    if (notes.isNotEmpty()) Note(notes.joinToString(""), Modifier.padding(top = 8.dp))
+    if (notes.isNotEmpty())
+        Note(notes.joinToString(Strings.composerSentenceGap()), Modifier.padding(top = 8.dp))
 }
 
 /** 各轮明细，新的在上；太长的对话只列最近 50 轮。 */
 @Composable
 private fun TurnsSection(usage: ChatUsage) {
     Spacer(Modifier.height(18.dp))
-    SectionHeader("各轮", null)
+    SectionHeader(Strings.composerPerTurn(), null)
     Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
         usage.turns.withIndex().reversed().take(50).forEach { (index, turn) ->
             TurnRow(index + 1, turn)
@@ -260,7 +267,7 @@ private fun ContextSection(usage: ChatUsage) {
     val window = usage.contextWindow
     val percent = usage.fraction?.let { String.format(java.util.Locale.US, "%.1f%%", it * 100) }
     SectionHeader(
-        "上下文",
+        Strings.composerContext(),
         when {
             tokens == null -> null
             window == null -> "${formatTokens(tokens)} tokens"
@@ -276,25 +283,28 @@ private fun ContextSection(usage: ChatUsage) {
     val detail = buildList {
         add(
             when {
-                tokens == null -> "发出第一条消息后显示。"
+                tokens == null -> Strings.composerContextEmpty()
                 usage.autoCompact == false && usage.level == ContextLevel.Critical ->
-                    "快满了，自动压缩已关闭，请手动压缩，不然很快发不出去。"
-                usage.autoCompact == false -> "自动压缩已关闭（Zeta 或 Claude Code 的设置），快满时手动压缩。"
-                usage.level == ContextLevel.Critical -> "快满了，Claude Code 马上会自动压缩；也可以现在手动压缩。"
-                usage.contextEstimated -> "Claude Code 的估算，下一轮后按实测；快到上限时它会自动压缩。"
-                else -> "按上一轮实测；快到上限时 Claude Code 会自动压缩。"
+                    Strings.composerContextFullNoAuto()
+                usage.autoCompact == false -> Strings.composerContextNoAuto()
+                usage.level == ContextLevel.Critical -> Strings.composerContextFull()
+                usage.contextEstimated -> Strings.composerContextEstimated()
+                else -> Strings.composerContextMeasured()
             },
         )
         if (compactAt != null && usage.autoCompact != false) {
             add(
-                "自动压缩点：${formatTokens(compactAt)}" +
-                    (usage.compactFraction?.let { "（窗口的 ${(it * 100).toInt()}%）" } ?: "") +
-                    "。",
+                usage.compactFraction?.let {
+                    Strings.composerCompactAtPercent(formatTokens(compactAt), (it * 100).toInt())
+                } ?: Strings.composerCompactAt(formatTokens(compactAt)),
             )
         }
-        if (usage.compactions > 0) add("已压缩 ${usage.compactions} 次。")
+        if (usage.compactions > 0) add(Strings.composerCompactions(usage.compactions))
         val meta =
-            listOfNotNull(usage.model, effortLabel(usage.appliedEffort)?.let { "思考 $it" })
+            listOfNotNull(
+                    usage.model,
+                    effortLabel(usage.appliedEffort)?.let { Strings.composerEffortMeta(it) },
+                )
                 .joinToString(" · ")
         if (meta.isNotEmpty()) add(meta)
     }
@@ -389,7 +399,9 @@ private fun TurnRow(number: Int, turn: TurnUsage) {
     Column(modifier = Modifier.fillMaxWidth()) {
         Row(verticalAlignment = Alignment.CenterVertically) {
             Text(
-                text = "第 $number 轮" + (turn.durationMs?.let { " · ${formatElapsed(it)}" } ?: ""),
+                text =
+                    Strings.composerTurnNumber(number.toString()) +
+                        (turn.durationMs?.let { " · ${formatElapsed(it)}" } ?: ""),
                 style = COUITheme.textStyles.bodyS.copy(fontSize = 12.5.sp, lineHeight = 18.sp),
                 color = colors.labelPrimary.copy(alpha = 0.84f),
                 modifier = Modifier.weight(1f),
@@ -407,7 +419,12 @@ private fun TurnRow(number: Int, turn: TurnUsage) {
         }
         Text(
             text =
-                "输入 ${formatTokens(t.input)} · 缓存读 ${formatTokens(t.cacheRead)} · 缓存写 ${formatTokens(t.cacheWrite)} · 输出 ${formatTokens(t.output)}",
+                Strings.composerTurnTokens(
+                    formatTokens(t.input),
+                    formatTokens(t.cacheRead),
+                    formatTokens(t.cacheWrite),
+                    formatTokens(t.output),
+                ),
             style =
                 COUITheme.textStyles.bodyS.copy(
                     fontSize = 11.5.sp,

@@ -1,5 +1,7 @@
 package com.dzshzx.zeta.core
 
+import com.dzshzx.zeta.i18n.Strings
+
 /**
  * 随消息附带的 Linux 路径。[UserItem.files]、发送、排队和撤回时传的都是“附件说明”字符串，有两种：
  * - 以 / 开头：复制进 Linux 环境的文件（~/.cache/zeta/files/…）。消息里写成 `[Attached file: 路径]`，Claude 自己用工具去读。
@@ -172,22 +174,23 @@ object CwdProblem {
 
     /** 进不去时聊天页上的提示：说清 Claude Code 没启动、是哪台上的哪个目录、去哪改。 */
     fun notice(hub: ConversationHub, backend: String, cwd: String): String =
-        "Claude Code 没有启动：${where(hub, backend)}进不去工作目录 $cwd（没有这个目录，或没有权限）。" +
-            "新对话在开始页点工作目录那一行改；默认工作目录在设置里这台设备的页面上改。"
+        if (backend == Backends.LOCAL) Strings.coreCwdNoticeLocal(cwd)
+        else Strings.coreCwdNoticeRemote(hub.backendName(backend), cwd)
 
     /** 要把 [path] 设成主机 [backend] 上的工作目录：进不去时返回给用户的原因，进得去（或那台这会儿查不了）返回 null。耗时，别在主线程调用。 */
     fun check(hub: ConversationHub, backend: String, path: String): String? {
         val shell = hub.shell(backend) ?: return null
         return when (PathCheck.check(shell, path, null)) {
-            PathKind.Missing -> "${where(hub, backend)}没有 $path 这个目录"
-            PathKind.File -> "$path 是文件，不是目录"
-            PathKind.Denied -> "${where(hub, backend)}的 $path 没有权限进去"
+            PathKind.Missing ->
+                if (backend == Backends.LOCAL) Strings.coreCwdMissingLocal(path)
+                else Strings.coreCwdMissingRemote(hub.backendName(backend), path)
+            PathKind.File -> Strings.coreCwdIsFile(path)
+            PathKind.Denied ->
+                if (backend == Backends.LOCAL) Strings.coreCwdDeniedLocal(path)
+                else Strings.coreCwdDeniedRemote(hub.backendName(backend), path)
             else -> null
         }
     }
-
-    private fun where(hub: ConversationHub, backend: String): String =
-        if (backend == Backends.LOCAL) "Linux 环境里" else "「${hub.backendName(backend)}」上"
 }
 
 object PathCheck {

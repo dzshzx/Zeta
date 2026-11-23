@@ -1,5 +1,6 @@
 package com.dzshzx.zeta.core
 
+import com.dzshzx.zeta.i18n.Strings
 import com.dzshzx.zeta.ui.chat.presentTool
 
 /*
@@ -16,12 +17,16 @@ sealed interface AlertReply {
     val unlock: Boolean
 
     data object Allow : AlertReply {
-        override val label = "允许"
+        override val label: String
+            get() = Strings.coreAlertAllow()
+
         override val unlock = true
     }
 
     data object Deny : AlertReply {
-        override val label = "拒绝"
+        override val label: String
+            get() = Strings.coreAlertDeny()
+
         override val unlock = false
     }
 
@@ -48,7 +53,8 @@ internal object AlertNotice {
 
     /** 胶囊、实时通知和提醒共用的那一句：提问和 MCP 表单是“需要你回答”，别的是“需要你确认”。 */
     fun waitingStep(prompt: UserPrompt): Step =
-        if (prompt.asksInput) Step("需要你回答", StepKind.ASKING) else Step("需要你确认", StepKind.CONFIRMING)
+        if (prompt.asksInput) Step(Strings.coreStepNeedsAnswer(), StepKind.ASKING)
+        else Step(Strings.coreStepNeedsApproval(), StepKind.CONFIRMING)
 
     fun waiting(prompt: UserPrompt): WaitingNotice {
         val step = waitingStep(prompt).text
@@ -63,7 +69,7 @@ internal object AlertNotice {
         if (request.toolName == ASK) {
             val question = request.questions.singleOrNull()?.question?.takeIf { it.isNotBlank() }
             return WaitingNotice(
-                text = question?.let { "$step：$it" } ?: step,
+                text = question?.let { Strings.coreStepWithDetail(step, it) } ?: step,
                 detail = (question ?: step).clipChars(DETAIL_CHARS, "…"),
                 replies = replies(request),
             )
@@ -72,7 +78,7 @@ internal object AlertNotice {
         // 退出计划模式时细节是整份计划，提醒上只说要你看计划
         val detail = if (request.toolName == PLAN) "" else presentation.detail
         return WaitingNotice(
-            text = "$step：${presentation.title}",
+            text = Strings.coreStepWithDetail(step, presentation.title),
             detail =
                 listOf(presentation.title, detail)
                     .filter { it.isNotBlank() }

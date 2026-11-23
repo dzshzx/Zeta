@@ -1,6 +1,8 @@
 package com.dzshzx.zeta.core
 
 import androidx.compose.runtime.Immutable
+import com.dzshzx.zeta.i18n.Strings
+import com.dzshzx.zeta.i18n.UiLanguage
 import java.time.Instant
 import java.time.OffsetDateTime
 import java.time.ZoneId
@@ -147,32 +149,36 @@ object Quota {
     fun resetText(resetsAt: Long?, now: Long, zone: ZoneId = ZoneId.systemDefault()): String? {
         resetsAt ?: return null
         val left = resetsAt - now
-        if (left <= 0) return "已重置"
-        val minutes = (left + 59_999) / 60_000
+        if (left <= 0) return Strings.coreQuotaHasReset()
+        val minutes = ((left + 59_999) / 60_000).toInt()
         return when {
-            minutes < 60 -> "$minutes 分钟后重置"
+            minutes < 60 -> Strings.coreQuotaResetInMinutes(minutes)
             minutes < 24 * 60 ->
-                "${minutes / 60} 小时" +
-                    (if (minutes % 60 != 0L) " ${minutes % 60} 分钟" else "") +
-                    "后重置"
+                if (minutes % 60 == 0) Strings.coreQuotaResetInHours(minutes / 60)
+                else Strings.coreQuotaResetInHoursMinutes(minutes / 60, minutes % 60)
             else -> {
                 val at = Instant.ofEpochMilli(resetsAt).atZone(zone)
                 val days = (left / 86_400_000).toInt()
-                DateTimeFormatter.ofPattern("EEE HH:mm", Locale.CHINA).format(at) +
-                    " 重置" +
-                    if (days >= 7) "（${days} 天后）" else ""
+                val time =
+                    DateTimeFormatter.ofPattern(
+                            Strings.coreQuotaResetTimePattern(),
+                            Locale.forLanguageTag(UiLanguage.current),
+                        )
+                        .format(at)
+                if (days >= 7) Strings.coreQuotaResetAtFar(time, days)
+                else Strings.coreQuotaResetAt(time)
             }
         }
     }
 
     /** “刚刚”“3 分钟前”。 */
     fun ageText(updatedAt: Long, now: Long): String {
-        val minutes = (now - updatedAt) / 60_000
+        val minutes = ((now - updatedAt) / 60_000).toInt()
         return when {
-            minutes < 1 -> "刚刚"
-            minutes < 60 -> "$minutes 分钟前"
-            minutes < 24 * 60 -> "${minutes / 60} 小时前"
-            else -> "${minutes / (24 * 60)} 天前"
+            minutes < 1 -> Strings.coreAgeJustNow()
+            minutes < 60 -> Strings.coreAgeMinutes(minutes)
+            minutes < 24 * 60 -> Strings.coreAgeHours(minutes / 60)
+            else -> Strings.coreAgeDays(minutes / (24 * 60))
         }
     }
 

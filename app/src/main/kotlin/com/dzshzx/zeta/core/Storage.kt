@@ -2,6 +2,7 @@ package com.dzshzx.zeta.core
 
 import android.os.Environment
 import android.os.StatFs
+import com.dzshzx.zeta.i18n.Strings
 import java.io.File
 import java.io.IOException
 import java.nio.file.FileVisitResult
@@ -31,108 +32,120 @@ enum class StorageGroup {
 enum class StorageKind(
     val key: String,
     val group: StorageGroup,
-    val title: String,
-    val what: String,
-    val kept: String,
+    private val titleText: () -> String,
+    private val whatText: () -> String,
+    private val keptText: () -> String,
 ) {
     AppCache(
         "app-cache",
         StorageGroup.Zeta,
-        "应用缓存",
-        "Zeta 在 Android 缓存目录里的临时文件（截图、分享进来的文件副本等）和内置浏览器的网页缓存",
-        "十分钟内写过的文件；有对话在进行时，浏览器缓存先不清",
+        Strings::coreStorageAppCacheTitle,
+        Strings::coreStorageAppCacheWhat,
+        Strings::coreStorageAppCacheKept,
     ),
     ImageMemory(
         "image-memory",
         StorageGroup.Zeta,
-        "图片缓存",
-        "聊天里显示过的图片在内存里的缓存",
-        "无（正在显示的图片之后会重新载入）",
+        Strings::coreStorageImageMemoryTitle,
+        Strings::coreStorageImageMemoryWhat,
+        Strings::coreStorageImageMemoryKept,
     ),
     ZetaFiles(
         "zeta-files",
         StorageGroup.Zeta,
-        "附件",
-        "发给 Claude 的文件在 Linux 环境里的副本",
-        "一小时内送进来的（可能还在输入框里）、进行中的对话提到的。七天以上的平时也会自动清掉",
+        Strings::coreStorageZetaFilesTitle,
+        Strings::coreStorageZetaFilesWhat,
+        Strings::coreStorageZetaFilesKept,
     ),
     ZetaHosts(
         "zeta-hosts",
         StorageGroup.Zeta,
-        "已结束对话的输出",
-        "后台对话的输出记录里 Claude Code 进程已经结束的那些（对话内容在会话记录里，不受影响）",
-        "还在运行、或应用还连着的对话的",
+        Strings::coreStorageZetaHostsTitle,
+        Strings::coreStorageZetaHostsWhat,
+        Strings::coreStorageZetaHostsKept,
     ),
     ClaudeResidue(
         "claude-residue",
         StorageGroup.Claude,
-        "已删会话的残留",
-        "会话记录已经不在的会话留下的改动备份（file-history）、会话环境（session-env）、任务清单（tasks、todos）、上传（uploads），以及项目目录里的同名目录",
-        "进行中的会话的、十分钟内动过的；会话记录本身一个都不删",
+        Strings::coreStorageClaudeResidueTitle,
+        Strings::coreStorageClaudeResidueWhat,
+        Strings::coreStorageClaudeResidueKept,
     ),
     ClaudeDebug(
         "claude-debug",
         StorageGroup.Claude,
-        "调试日志",
-        "Claude Code 的调试日志（~/.claude/debug）",
-        "进行中的会话的、十分钟内写过的",
+        Strings::coreStorageClaudeDebugTitle,
+        Strings::coreStorageClaudeDebugWhat,
+        Strings::coreStorageClaudeDebugKept,
     ),
     ClaudeSnapshots(
         "claude-snapshots",
         StorageGroup.Claude,
-        "Shell 快照",
-        "Claude Code 执行命令前载入的 shell 环境快照（~/.claude/shell-snapshots），每次启动会重新建",
-        "还在运行的 Claude Code 可能在用的（建于最早那个进程启动之后的）",
+        Strings::coreStorageClaudeSnapshotsTitle,
+        Strings::coreStorageClaudeSnapshotsWhat,
+        Strings::coreStorageClaudeSnapshotsKept,
     ),
     ClaudePaste(
         "claude-paste",
         StorageGroup.Claude,
-        "粘贴缓存",
-        "终端里粘贴的大段文字（~/.claude/paste-cache），只用来在输入历史（上箭头）里调回；删掉后历史里那几条只剩占位",
-        "还在运行的 Claude Code 启动以后粘贴的",
+        Strings::coreStorageClaudePasteTitle,
+        Strings::coreStorageClaudePasteWhat,
+        Strings::coreStorageClaudePasteKept,
     ),
     ClaudeImageCache(
         "claude-image-cache",
         StorageGroup.Claude,
-        "图片副本",
-        "Claude Code 为对话里的图片存的副本（~/.claude/image-cache），它自己启动时也会清掉别的会话的",
-        "进行中的会话的",
+        Strings::coreStorageClaudeImageCacheTitle,
+        Strings::coreStorageClaudeImageCacheWhat,
+        Strings::coreStorageKeptRunningSessions,
     ),
     ClaudeTelemetry(
         "claude-telemetry",
         StorageGroup.Claude,
-        "未发出的使用统计",
-        "没发送成功、等着重发的使用统计（~/.claude/telemetry）",
-        "进行中的会话的",
+        Strings::coreStorageClaudeTelemetryTitle,
+        Strings::coreStorageClaudeTelemetryWhat,
+        Strings::coreStorageKeptRunningSessions,
     ),
     Apt(
         "apt",
         StorageGroup.Debian,
-        "apt 缓存",
-        "apt 下载过的软件包和包索引缓存（以 root 执行 apt-get clean），再装软件时会重新下载",
-        "正在装软件时整个不清",
+        Strings::coreStorageAptTitle,
+        Strings::coreStorageAptWhat,
+        Strings::coreStorageAptKept,
     ),
     Npm(
         "npm",
         StorageGroup.Debian,
-        "npm 缓存",
-        "npm 的下载缓存和日志（~/.npm/_cacache、_logs），和 npm cache clean 删的一样",
-        "npx 装的包（~/.npm/_npx），MCP 服务可能正从那里运行；npm 刚启动不到十分钟时整个不清",
+        Strings::coreStorageNpmTitle,
+        Strings::coreStorageNpmWhat,
+        Strings::coreStorageNpmKept,
     ),
     Pip(
         "pip",
         StorageGroup.Debian,
-        "pip 缓存",
-        "pip 的下载和构建缓存（~/.cache/pip）",
-        "pip 正在运行时整个不清",
+        Strings::coreStoragePipTitle,
+        Strings::coreStoragePipWhat,
+        Strings::coreStoragePipKept,
     ),
     Tmp(
         "tmp",
         StorageGroup.Debian,
-        "临时文件",
-        "Debian 的 /tmp 里属于你的临时文件，包括 Claude Code 的命令输出和草稿目录（/tmp/claude-<uid>）",
-        "一天内动过的、有进程正打开着或在里面工作的、带套接字的（tmux、ssh 等）、进行中的会话的",
+        Strings::coreStorageTmpTitle,
+        Strings::coreStorageTmpWhat,
+        Strings::coreStorageTmpKept,
     );
+
+    /** 列表和确认框里的名字（按界面语言）。 */
+    val title: String
+        get() = titleText()
+
+    /** 确认框里的“删什么”。 */
+    val what: String
+        get() = whatText()
+
+    /** 确认框里的“什么不删”。 */
+    val kept: String
+        get() = keptText()
 
     /** 在 Linux 环境里：环境没准备好时看不了。 */
     val inLinux: Boolean
@@ -273,51 +286,59 @@ object Storage {
     /** 小计的来源名：残留按 ~/.claude 下的目录，/tmp 分 Claude Code 的和别的。 */
     fun partName(name: String): String =
         when (name) {
-            "projects" -> "项目里的同名目录"
-            "claude" -> "Claude Code 的临时目录"
-            "other" -> "其他"
+            "projects" -> Strings.coreStoragePartProjects()
+            "claude" -> Strings.coreStoragePartClaude()
+            "other" -> Strings.coreStoragePartOther()
             else -> name
         }
 
     /** 列表里一类的说明：能清多少，或者为什么现在不能清。 */
     fun summary(kind: StorageKind, usage: StorageUsage?): String =
         when {
-            usage == null -> "统计中…"
-            usage.failed -> "没统计成"
-            usage.busy != null -> "${usage.busy} 正在运行，稍后再清"
-            usage.freeable <= 0 -> "没有可清理的"
-            kind == StorageKind.ImageMemory -> "可清理 ${size(usage.freeable)}"
-            else -> "可清理 ${size(usage.freeable)}（${usage.items} 项）"
+            usage == null -> Strings.coreStorageCounting()
+            usage.failed -> Strings.coreStorageCountFailed()
+            usage.busy != null -> Strings.coreStorageBusyLater(usage.busy)
+            usage.freeable <= 0 -> Strings.coreStorageNothing()
+            kind == StorageKind.ImageMemory -> Strings.coreStorageFreeable(size(usage.freeable))
+            else -> Strings.coreStorageFreeableItems(size(usage.freeable), usage.items)
         }
 
     /** 确认框里的说明：删什么、能腾出多少、什么不删。 */
     fun confirmMessage(kind: StorageKind, usage: StorageUsage): String = buildString {
-        append("删除：").append(kind.what).append("。\n")
-        append("能腾出约 ").append(size(usage.freeable))
-        if (kind != StorageKind.ImageMemory) append("（").append(usage.items).append(" 项）")
-        append("。")
+        append(Strings.coreStorageConfirmDelete(kind.what)).append("\n")
+        append(
+            if (kind == StorageKind.ImageMemory)
+                Strings.coreStorageConfirmFree(size(usage.freeable))
+            else Strings.coreStorageConfirmFreeItems(size(usage.freeable), usage.items),
+        )
         val parts = usage.parts.filter { it.items > 0 }
         if (parts.size > 1 || (parts.size == 1 && kind == StorageKind.ClaudeResidue)) {
-            append("其中：")
-                .append(parts.joinToString("，") { "${partName(it.name)} ${size(it.bytes)}" })
-                .append("。")
+            append(
+                Strings.coreStorageConfirmParts(
+                    parts.joinToString(Strings.coreStorageListSeparator()) {
+                        "${partName(it.name)} ${size(it.bytes)}"
+                    },
+                ),
+            )
         }
-        append("\n不删：").append(kind.kept).append("。")
+        append("\n").append(Strings.coreStorageConfirmKept(kind.kept))
     }
 
     /** 清理后的一句话。 */
     fun outcomeText(kind: StorageKind, outcome: CleanOutcome): String =
         when {
             outcome.error != null -> outcome.error
-            outcome.busy != null -> "${outcome.busy} 正在运行，这次没有清理${kind.title}"
-            outcome.removed == 0 && outcome.freed == 0L -> "没有可清理的${kind.title}"
-            outcome.failed > 0 -> "已腾出 ${size(outcome.freed)}，${outcome.failed} 项没删成（核对时不合要求，留着没动）"
-            else -> "已腾出 ${size(outcome.freed)}"
+            outcome.busy != null -> Strings.coreStorageBusySkipped(outcome.busy, kind.title)
+            outcome.removed == 0 && outcome.freed == 0L -> Strings.coreStorageNothingOf(kind.title)
+            outcome.failed > 0 ->
+                Strings.coreStorageFreedPartly(size(outcome.freed), outcome.failed)
+            else -> Strings.coreStorageFreed(size(outcome.freed))
         }
 
     /** cleanupPeriodDays 的显示：没设时是 Claude Code 的默认值。 */
     fun cleanupText(days: Int?): String =
-        if (days == null) "$DEFAULT_CLEANUP_DAYS 天（默认）" else "$days 天"
+        if (days == null) Strings.coreStorageCleanupDaysDefault(DEFAULT_CLEANUP_DAYS)
+        else Strings.coreStorageCleanupDays(days)
 
     /** 手机 /data 分区的剩余和总量（Debian 环境也在这个分区上）。 */
     fun phoneSpace(): Pair<Long, Long> = runCatching {
@@ -380,8 +401,11 @@ object Storage {
             )
         }
         .fold(
-            { (it as? JsonObject)?.let(::parseCleaned) ?: CleanOutcome(0, 0, error = "没清理成") },
-            { CleanOutcome(0, 0, error = it.message ?: "没清理成") },
+            {
+                (it as? JsonObject)?.let(::parseCleaned)
+                    ?: CleanOutcome(0, 0, error = Strings.coreStorageCleanFailed())
+            },
+            { CleanOutcome(0, 0, error = it.message ?: Strings.coreStorageCleanFailed()) },
         )
 
     /**
@@ -389,9 +413,9 @@ object Storage {
      * 应用正在装软件或做维护时不执行。耗时，别在主线程调用。
      */
     fun cleanApt(hub: ConversationHub): CleanOutcome {
-        val config = hub.settings.env ?: return CleanOutcome(0, 0, error = "还没有可用的 Linux 环境")
+        val config = hub.settings.env ?: return CleanOutcome(0, 0, error = Strings.coreNoLinuxEnv())
         if (hub.environment.installer.running || hub.environment.maintenance?.running == true)
-            return CleanOutcome(0, 0, busy = "安装或维护")
+            return CleanOutcome(0, 0, busy = Strings.coreStorageBusyMaintenance())
         val script =
             "b=\$(du -sk /var/cache/apt | cut -f1); apt-get clean 2>&1 | tail -n 3; rc=\${PIPESTATUS[0]}; " +
                 "a=\$(du -sk /var/cache/apt | cut -f1); echo \"@zeta apt \$b \$a \$rc\""
@@ -403,7 +427,7 @@ object Storage {
                     timeoutMs = 120_000,
                 )
             }
-                .getOrNull() ?: return CleanOutcome(0, 0, error = "Linux 环境没有响应")
+                .getOrNull() ?: return CleanOutcome(0, 0, error = Strings.coreLinuxEnvNoResponse())
         val line =
             result.stdout
                 .lineSequence()
@@ -423,7 +447,8 @@ object Storage {
                 0,
                 0,
                 error =
-                    "apt-get clean 没有成功" + (reason?.let { "：${cleanLine(it).take(160)}" } ?: ""),
+                    reason?.let { Strings.coreStorageAptFailedReason(cleanLine(it).take(160)) }
+                        ?: Strings.coreStorageAptFailed(),
             )
         }
         return CleanOutcome(((before - after) * 1024).coerceAtLeast(0), 1)

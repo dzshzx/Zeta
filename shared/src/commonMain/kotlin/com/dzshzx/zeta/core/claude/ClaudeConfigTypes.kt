@@ -1,5 +1,7 @@
 package com.dzshzx.zeta.core.claude
 
+import com.dzshzx.zeta.i18n.Strings
+
 /*
  * 「Claude Code 配置」各页显示的东西：核心 config.* 方法的结果（docs/core.md「Claude Code 配置」，Go 里是 helper/claudecfg），
  * 由 [ClaudeConfigCore] 从应答里读出来。这里只有数据，怎么算的都在核心里。
@@ -144,10 +146,19 @@ data class McpTool(val name: String, val description: String)
 // ---------- 工具权限 ----------
 
 /** settings.json 里 permissions 的三张表。 */
-enum class PermissionBehavior(val key: String, val label: String) {
-    Allow("allow", "允许"),
-    Ask("ask", "询问"),
-    Deny("deny", "拒绝");
+enum class PermissionBehavior(val key: String) {
+    Allow("allow"),
+    Ask("ask"),
+    Deny("deny");
+
+    /** 界面上的名字。 */
+    val label: String
+        get() =
+            when (this) {
+                Allow -> Strings.coreBehaviorAllow()
+                Ask -> Strings.coreBehaviorAsk()
+                Deny -> Strings.coreBehaviorDeny()
+            }
 
     companion object {
         fun of(key: String?): PermissionBehavior? = entries.firstOrNull { it.key == key }

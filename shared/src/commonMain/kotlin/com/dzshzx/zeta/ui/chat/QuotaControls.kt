@@ -19,6 +19,7 @@ import com.dzshzx.zeta.core.Quota
 import com.dzshzx.zeta.core.QuotaSeverity
 import com.dzshzx.zeta.core.QuotaSnapshot
 import com.dzshzx.zeta.core.QuotaWindow
+import com.dzshzx.zeta.i18n.Strings
 import com.dzshzx.zeta.ui.components.StatusWarning
 import com.dzshzx.zeta.ui.components.rememberNow
 import io.github.suqi8.coui.kmp.basic.Text
@@ -40,9 +41,9 @@ fun QuotaWindows(snapshot: QuotaSnapshot, now: Long, modifier: Modifier = Modifi
     Column(modifier = modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(12.dp)) {
         if (current.blocked) {
             QuotaNote(
-                "已达上限，暂时发不出请求" +
-                    (Quota.resetText(current.blockedUntil, now)?.let { "，$it" } ?: "") +
-                    "。",
+                Quota.resetText(current.blockedUntil, now)?.let {
+                    Strings.composerQuotaBlockedUntil(it)
+                } ?: Strings.composerQuotaBlocked(),
                 color = COUITheme.colorScheme.error,
             )
         }
@@ -53,8 +54,10 @@ fun QuotaWindows(snapshot: QuotaSnapshot, now: Long, modifier: Modifier = Modifi
                 val used = Quota.money(extra.usedMinor, extra.currency)
                 val limit = Quota.money(extra.limitMinor, extra.currency)
                 QuotaLine(
-                    "额外用量（本月）",
-                    listOfNotNull(used, limit).joinToString(" / ").ifBlank { "已开启" },
+                    Strings.composerExtraUsage(),
+                    listOfNotNull(used, limit).joinToString(" / ").ifBlank {
+                        Strings.composerExtraOn()
+                    },
                     extra.used,
                     QuotaSeverity.Normal,
                     null,
@@ -137,16 +140,21 @@ fun quotaFootnote(
     now: Long,
 ): String = buildList {
     when {
-        snapshot == null && refreshing -> add("正在向 Claude Code 要额度…")
-        snapshot == null -> add("还没有额度数据：发一条消息，或者点刷新。")
-        !snapshot.available -> add("这种登录方式（API key、Bedrock、Vertex 等）没有订阅额度。")
-        snapshot.windows.isEmpty() -> add("Claude Code 还没拿到这个账号的额度。")
+        snapshot == null && refreshing -> add(Strings.composerQuotaFetching())
+        snapshot == null -> add(Strings.composerQuotaNoData())
+        !snapshot.available -> add(Strings.composerQuotaUnavailable())
+        snapshot.windows.isEmpty() -> add(Strings.composerQuotaNotYet())
         else ->
-            add("${Quota.ageText(snapshot.updatedAt, now)}更新" + if (refreshing) "，正在刷新…" else "。")
+            add(
+                Quota.ageText(snapshot.updatedAt, now).let {
+                    if (refreshing) Strings.composerQuotaUpdatedRefreshing(it)
+                    else Strings.composerQuotaUpdated(it)
+                },
+            )
     }
     error?.let { add(it) }
 }
-    .joinToString("")
+    .joinToString(Strings.composerSentenceGap())
 
 /** 用量弹窗顶上的“订阅额度”：打开时数不够新就去问一次。 */
 @Composable
@@ -163,7 +171,7 @@ fun QuotaDialogSection(
         verticalAlignment = Alignment.CenterVertically,
     ) {
         Text(
-            text = "订阅额度",
+            text = Strings.composerQuotaTitle(),
             style =
                 COUITheme.textStyles.bodyM.copy(fontSize = 14.sp, fontWeight = FontWeight.Medium),
             color = COUITheme.colorScheme.labelPrimary,

@@ -52,6 +52,7 @@ import com.dzshzx.zeta.core.ToolStatus
 import com.dzshzx.zeta.core.ToolStep
 import com.dzshzx.zeta.core.WorkStep
 import com.dzshzx.zeta.core.fileChangeOf
+import com.dzshzx.zeta.i18n.Strings
 import com.dzshzx.zeta.ui.components.FoldEnter
 import com.dzshzx.zeta.ui.components.FoldExit
 import com.dzshzx.zeta.ui.components.MonoFont
@@ -150,7 +151,7 @@ fun CollapsedFileChanges(steps: List<WorkStep>, onShowAll: () -> Unit) {
                 text =
                     buildAnnotatedString {
                         appendLink(
-                            "还有 ${changes.size - CollapsedCards} 处改动，展开查看",
+                            Strings.chatMoreChanges(changes.size - CollapsedCards),
                             onClick = onShowAll,
                         )
                     },
@@ -251,7 +252,7 @@ private fun ChangeBody(change: FileChange) {
 @Composable
 private fun TruncatedNote() {
     Text(
-        text = "内容太长，记录里只留了前一部分，对比到截断处为止",
+        text = Strings.chatDiffClipped(),
         style = COUITheme.textStyles.bodyXS.copy(fontSize = 11.sp),
         color = COUITheme.colorScheme.labelSecondary,
         modifier = Modifier.padding(start = 10.dp, end = 10.dp, bottom = 7.dp),
@@ -273,7 +274,9 @@ private fun CardDivider() {
 @Composable
 private fun NoLinesNote(change: FileChange) {
     Text(
-        text = if (change.kind == FileChange.Kind.Create) "空文件" else "没有改动",
+        text =
+            if (change.kind == FileChange.Kind.Create) Strings.chatEmptyFile()
+            else Strings.chatNoChanges(),
         style = COUITheme.textStyles.bodyS.copy(fontSize = 12.sp),
         color = COUITheme.colorScheme.labelSecondary,
         modifier = Modifier.padding(horizontal = 10.dp, vertical = 8.dp),
@@ -361,9 +364,9 @@ private fun ExpandToggle(lineCount: Int, hidden: Int, expanded: Boolean, onToggl
         Text(
             text =
                 when {
-                    !expanded -> "展开全部改动 · 共 $lineCount 行"
-                    hidden > 0 -> "收起 · 还有 $hidden 行太长未显示"
-                    else -> "收起"
+                    !expanded -> Strings.chatShowAllChanges(lineCount)
+                    hidden > 0 -> Strings.chatCollapseHidden(hidden)
+                    else -> Strings.chatCollapse()
                 },
             style =
                 COUITheme.textStyles.bodyS.copy(
@@ -379,9 +382,9 @@ private fun ExpandToggle(lineCount: Int, hidden: Int, expanded: Boolean, onToggl
 
 private fun kindLabel(change: FileChange): String? =
     when {
-        change.kind == FileChange.Kind.Create -> "新文件"
-        change.kind == FileChange.Kind.Overwrite -> "整份重写"
-        change.replaceAll -> "全部替换"
+        change.kind == FileChange.Kind.Create -> Strings.chatNewFile()
+        change.kind == FileChange.Kind.Overwrite -> Strings.chatRewritten()
+        change.replaceAll -> Strings.chatReplaceAll()
         else -> null
     }
 

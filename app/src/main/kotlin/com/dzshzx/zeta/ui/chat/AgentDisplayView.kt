@@ -37,6 +37,7 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
+import com.dzshzx.zeta.i18n.Strings
 import com.dzshzx.zeta.phone.PhoneTools
 import com.dzshzx.zeta.phone.VirtualScreen
 import com.dzshzx.zeta.ui.components.AsleepFrameAlpha
@@ -69,7 +70,7 @@ internal fun AgentDisplayStrip(
             modifier
                 .fillMaxWidth()
                 .chatPanel(shape)
-                .clickable(onClickLabel = "查看后台屏幕", onClick = onOpen)
+                .clickable(onClickLabel = Strings.chatViewAgentDisplay(), onClick = onOpen)
                 .padding(start = 10.dp, end = 4.dp, top = 6.dp, bottom = 6.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
@@ -89,22 +90,26 @@ internal fun AgentDisplayStrip(
                 Box(Modifier.size(6.dp).clip(CircleShape).background(accent))
                 Spacer(Modifier.width(6.dp))
                 Text(
-                    text = if (asleep) "后台屏幕 · 休眠中" else "后台屏幕",
+                    text =
+                        if (asleep) Strings.chatAgentDisplayAsleep()
+                        else Strings.chatAgentDisplay(),
                     style = COUITheme.textStyles.bodyS,
                     fontWeight = FontWeight.Medium,
                     color = accent,
                 )
             }
             Text(
-                text = phone.agentDisplayApp ?: "还没有打开应用",
+                text = phone.agentDisplayApp ?: Strings.chatNoAppOpen(),
                 style = COUITheme.textStyles.bodyM,
                 color = colors.labelPrimary,
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis,
             )
         }
-        ActionIcon(COUIIcons.ExpandMore, "移到主屏", colors.primary) { phone.moveToMainByUser() }
-        ActionIcon(COUIIcons.Close, "关闭后台屏幕", colors.labelSecondary) {
+        ActionIcon(COUIIcons.ExpandMore, Strings.chatMoveToMain(), colors.primary) {
+            phone.moveToMainByUser()
+        }
+        ActionIcon(COUIIcons.Close, Strings.chatCloseAgentDisplay(), colors.labelSecondary) {
             phone.closeAgentDisplayByUser()
         }
     }
@@ -135,19 +140,19 @@ internal fun AgentDisplayViewer(phone: PhoneTools, onDismiss: () -> Unit) {
             Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
                 Column(Modifier.weight(1f)) {
                     Text(
-                        "后台屏幕",
+                        Strings.chatAgentDisplay(),
                         style = COUITheme.textStyles.bodyS,
                         color = Color.White.copy(alpha = 0.7f),
                     )
                     Text(
-                        text = phone.agentDisplayApp ?: "还没有打开应用",
+                        text = phone.agentDisplayApp ?: Strings.chatNoAppOpen(),
                         style = COUITheme.textStyles.headlineXS,
                         color = Color.White,
                         maxLines = 1,
                         overflow = TextOverflow.Ellipsis,
                     )
                 }
-                ActionIcon(COUIIcons.Close, "关闭查看", Color.White, onDismiss)
+                ActionIcon(COUIIcons.Close, Strings.chatCloseView(), Color.White, onDismiss)
             }
             Box(
                 Modifier.weight(1f).fillMaxWidth().padding(vertical = 12.dp),
@@ -169,7 +174,7 @@ internal fun AgentDisplayViewer(phone: PhoneTools, onDismiss: () -> Unit) {
             }
             Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
                 TextButton(
-                    text = "关闭后台屏幕",
+                    text = Strings.chatCloseAgentDisplay(),
                     onClick = {
                         phone.closeAgentDisplayByUser()
                         onDismiss()
@@ -179,7 +184,7 @@ internal fun AgentDisplayViewer(phone: PhoneTools, onDismiss: () -> Unit) {
                         ButtonDefaults.textButtonColors(textColor = COUITheme.colorScheme.error),
                 )
                 TextButton(
-                    text = "移到主屏",
+                    text = Strings.chatMoveToMain(),
                     onClick = {
                         phone.moveToMainByUser()
                         onDismiss()

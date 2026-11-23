@@ -2,6 +2,7 @@ package com.dzshzx.zeta.core
 
 import androidx.compose.runtime.Immutable
 import com.dzshzx.zeta.i18n.CoreStrings
+import com.dzshzx.zeta.i18n.Strings
 import com.dzshzx.zeta.i18n.jsonArgs
 import kotlinx.serialization.json.JsonArray
 import kotlinx.serialization.json.JsonElement
@@ -225,14 +226,15 @@ fun modelOption(m: JsonObject): ModelOption? =
     )
 
 /** 还没连上进程、拿不到 Claude Code 的清单时先给的几个常用别名（Claude Code 自己解析）。 */
-val FallbackModels =
-    listOf(
-        ModelOption(Conversation.DEFAULT_MODEL, "默认", ""),
-        ModelOption("fable", "Fable", ""),
-        ModelOption("opus", "Opus", ""),
-        ModelOption("sonnet", "Sonnet", ""),
-        ModelOption("haiku", "Haiku", ""),
-    )
+val FallbackModels: List<ModelOption>
+    get() =
+        listOf(
+            ModelOption(Conversation.DEFAULT_MODEL, Strings.coreModelDefault(), ""),
+            ModelOption("fable", "Fable", ""),
+            ModelOption("opus", "Opus", ""),
+            ModelOption("sonnet", "Sonnet", ""),
+            ModelOption("haiku", "Haiku", ""),
+        )
 
 /**
  * 选择器里模型 [value] 这一项的名字，模型菜单、设置页用它：默认模型（null 或 "default"）写明它现在指向哪个，比如「默认（Opus 5.5）」， 清单 [models]
@@ -241,7 +243,8 @@ val FallbackModels =
 fun modelLabel(value: String?, models: List<ModelOption>): String =
     when {
         value == null || value == Conversation.DEFAULT_MODEL ->
-            modelName(Conversation.DEFAULT_MODEL, models)?.let { "默认（$it）" } ?: "默认"
+            modelName(Conversation.DEFAULT_MODEL, models)?.let(Strings::coreModelDefaultIs)
+                ?: Strings.coreModelDefault()
         else ->
             models.firstOrNull { it.value == value }?.displayName?.ifBlank { null }
                 ?: readableModelId(value)

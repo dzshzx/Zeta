@@ -1,5 +1,6 @@
 package com.dzshzx.zeta.core
 
+import com.dzshzx.zeta.i18n.Strings
 import kotlinx.serialization.json.JsonArray
 import kotlinx.serialization.json.JsonElement
 import kotlinx.serialization.json.JsonObject
@@ -10,7 +11,7 @@ import kotlinx.serialization.json.JsonPrimitive
  * 时远程主机连不上之类给一句人话（[ConversationHub.linkProblem]）。
  */
 fun ConversationHub.serveOpener(backend: String): () -> HelperServe.Opened = {
-    val shell = shell(backend) ?: error(unavailable(backend) ?: "还没有可用的 Linux 环境")
+    val shell = shell(backend) ?: error(unavailable(backend) ?: Strings.coreNoLinuxEnv())
     HelperServe.open(shell, helperProgram) { linkProblem(backend, it.exitCode, it.stderr) }
 }
 

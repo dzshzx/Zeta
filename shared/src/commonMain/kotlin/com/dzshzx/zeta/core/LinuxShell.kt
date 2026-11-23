@@ -2,6 +2,7 @@ package com.dzshzx.zeta.core
 
 import com.dzshzx.zeta.core.diag.DiagEvents
 import com.dzshzx.zeta.core.ssh.SshLinks
+import com.dzshzx.zeta.i18n.Strings
 import java.util.TimeZone
 
 /**
@@ -188,7 +189,7 @@ class DirectSshShell(
     linuxName: String = AppVariant.current.linuxName,
 ) : RemoteShell(host, timeZone, linuxName) {
     init {
-        checkNotNull(host.hostKey?.let(RemoteHosts::decodeKey)) { "直连的设备没有记下指纹" }
+        checkNotNull(host.hostKey?.let(RemoteHosts::decodeKey)) { Strings.coreDirectNoHostKey() }
     }
 
     override fun launch(command: String, login: Boolean): Process =

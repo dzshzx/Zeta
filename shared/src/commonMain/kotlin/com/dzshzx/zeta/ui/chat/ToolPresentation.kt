@@ -3,6 +3,7 @@ package com.dzshzx.zeta.ui.chat
 import androidx.compose.ui.graphics.vector.ImageVector
 import com.dzshzx.zeta.core.ToolStep
 import com.dzshzx.zeta.core.str
+import com.dzshzx.zeta.i18n.Strings
 import com.dzshzx.zeta.ui.components.coui2.ZetaIcons
 import io.github.suqi8.coui.kmp.icon.COUIIcons
 import io.github.suqi8.coui.kmp.icon.extended.Edit
@@ -43,19 +44,19 @@ fun presentTool(name: String, input: JsonObject?): ToolPresentation {
             ToolPresentation(
                 ZetaIcons.Terminal,
                 s("description")?.takeIf { it.isNotBlank() }
-                    ?: firstLine(s("command")).ifEmpty { "执行命令" },
+                    ?: firstLine(s("command")).ifEmpty { Strings.chatToolRunCommand() },
                 s("command").orEmpty(),
             )
         "Read" ->
             ToolPresentation(
                 COUIIcons.File,
-                "读取 " + baseName(s("file_path")),
+                Strings.chatToolRead(baseName(s("file_path"))),
                 s("file_path").orEmpty(),
             )
         "Write" ->
             ToolPresentation(
                 COUIIcons.Edit,
-                "写入 " + baseName(s("file_path")),
+                Strings.chatToolWrite(baseName(s("file_path"))),
                 s("file_path").orEmpty() + "\n\n" + s("content").orEmpty(),
             )
         "Edit",
@@ -63,30 +64,41 @@ fun presentTool(name: String, input: JsonObject?): ToolPresentation {
         "NotebookEdit" ->
             ToolPresentation(
                 COUIIcons.Edit,
-                "编辑 " + baseName(s("file_path") ?: s("notebook_path")),
+                Strings.chatToolEdit(baseName(s("file_path") ?: s("notebook_path"))),
                 (s("file_path") ?: s("notebook_path")).orEmpty() +
                     (s("old_string")?.let { "\n\n- $it\n+ ${s("new_string").orEmpty()}" } ?: ""),
             )
-        "Grep" -> ToolPresentation(ZetaIcons.SearchText, "搜索 " + firstLine(s("pattern"), 40), json)
+        "Grep" ->
+            ToolPresentation(
+                ZetaIcons.SearchText,
+                Strings.chatToolGrep(firstLine(s("pattern"), 40)),
+                json,
+            )
         "Glob" ->
-            ToolPresentation(ZetaIcons.SearchText, "查找文件 " + firstLine(s("pattern"), 40), json)
+            ToolPresentation(
+                ZetaIcons.SearchText,
+                Strings.chatToolGlob(firstLine(s("pattern"), 40)),
+                json,
+            )
         "WebSearch" ->
             ToolPresentation(
                 ZetaIcons.Globe,
-                "搜索网页：" + firstLine(s("query"), 50),
+                Strings.chatToolWebSearch(firstLine(s("query"), 50)),
                 s("query").orEmpty(),
             )
         "WebFetch" ->
             ToolPresentation(
                 ZetaIcons.Globe,
-                "读取网页 " + s("url").orEmpty().substringAfter("://").substringBefore('/'),
+                Strings.chatToolWebFetch(
+                    s("url").orEmpty().substringAfter("://").substringBefore('/'),
+                ),
                 s("url").orEmpty() + "\n\n" + s("prompt").orEmpty(),
             )
         "Task",
         "Agent" ->
             ToolPresentation(
                 COUIIcons.MindMap,
-                "子代理：" + firstLine(s("description") ?: s("prompt"), 50),
+                Strings.chatToolAgent(firstLine(s("description") ?: s("prompt"), 50)),
                 s("prompt").orEmpty(),
             )
         "TodoWrite",
@@ -94,12 +106,13 @@ fun presentTool(name: String, input: JsonObject?): ToolPresentation {
         "TaskUpdate",
         "TaskList",
         "TaskGet" -> ToolPresentation(COUIIcons.SelectAll, todoToolTitle(name, input), json)
-        "AskUserQuestion" -> ToolPresentation(COUIIcons.ReplyAll, "向你提问", json)
-        "ExitPlanMode" -> ToolPresentation(COUIIcons.SelectAll, "提交计划", s("plan") ?: json)
+        "AskUserQuestion" -> ToolPresentation(COUIIcons.ReplyAll, Strings.chatToolAsk(), json)
+        "ExitPlanMode" ->
+            ToolPresentation(COUIIcons.SelectAll, Strings.chatToolPlan(), s("plan") ?: json)
         "Skill" ->
             ToolPresentation(
                 ZetaIcons.Sparkle,
-                "技能 " + (s("skill") ?: s("command")).orEmpty(),
+                Strings.chatToolSkill((s("skill") ?: s("command")).orEmpty()),
                 json,
             )
         else ->
@@ -109,7 +122,7 @@ fun presentTool(name: String, input: JsonObject?): ToolPresentation {
                 val parts = name.removePrefix("mcp__").split("__", limit = 2)
                 ToolPresentation(ZetaIcons.Puzzle, parts.joinToString(" · "), json)
             } else {
-                ToolPresentation(ZetaIcons.Wrench, name.ifBlank { "工具" }, json)
+                ToolPresentation(ZetaIcons.Wrench, name.ifBlank { Strings.chatToolGeneric() }, json)
             }
     }
 }
@@ -117,7 +130,8 @@ fun presentTool(name: String, input: JsonObject?): ToolPresentation {
 /** 手机工具：标题用手机工具目录里那一句（[ChatPlatform.phoneToolTitle]，和顶部胶囊同一处），这里只挑图标。 */
 private fun presentPhoneTool(tool: String, input: JsonObject?, json: String): ToolPresentation {
     val title =
-        ChatPlatform.current.phoneToolTitle(tool, input ?: JsonObject(emptyMap())) ?: "手机 · $tool"
+        ChatPlatform.current.phoneToolTitle(tool, input ?: JsonObject(emptyMap()))
+            ?: Strings.chatToolPhone(tool)
     val icon =
         when (tool) {
             "shell" -> ZetaIcons.Terminal

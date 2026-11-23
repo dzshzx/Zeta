@@ -16,6 +16,7 @@ import com.dzshzx.zeta.core.diag.DiagLog
 import com.dzshzx.zeta.core.diag.DiagTopic
 import com.dzshzx.zeta.core.get
 import com.dzshzx.zeta.core.notify.NotifyRuleStore
+import com.dzshzx.zeta.i18n.Strings
 import com.dzshzx.zeta.phone.tools.ScheduleTools
 import java.time.Instant
 import java.time.ZoneId
@@ -117,7 +118,8 @@ object ScheduleRunner {
         val key = key(records, spec.id)
         // 上一次其实已经结束、只是还没轮到检查：先收尾，别误判成没跑完
         runs[key]?.let { if (idle(it.conversation)) finish(it) }
-        if (isRunning(records, spec.id)) return skip(app, records, spec.id, "上一次还没跑完，这次跳过了")
+        if (isRunning(records, spec.id))
+            return skip(app, records, spec.id, Strings.scheduleSkipStillRunning())
         val backend = spec.backend
         if (hub.shell(backend) == null)
             return fail(
@@ -126,7 +128,7 @@ object ScheduleRunner {
                 spec,
                 manual,
                 now,
-                hub.unavailable(backend) ?: "这台设备现在用不了",
+                hub.unavailable(backend) ?: Strings.scheduleDeviceUnavailable(),
             )
         val defaultCwd = hub.defaultCwd(backend)
         keepAwake(app)
@@ -152,7 +154,7 @@ object ScheduleRunner {
         }
         val open = hub.findConversation(session)
         if (open != null) {
-            if (!idle(open)) return skip(app, records, spec.id, "这个对话正在进行，这次跳过了")
+            if (!idle(open)) return skip(app, records, spec.id, Strings.scheduleSkipBusy())
             launch(hub, records, spec, manual, now, open, fresh = false)
             return null
         }
@@ -181,7 +183,7 @@ object ScheduleRunner {
         val named = spec.copy(name = records.name(app, spec.id) ?: return)
         // 没查成不等于被删了：这次不跑，下次再查，不另开对话
         if (found == null) {
-            fail(app, records, named, manual, now, "查不到原来的对话（那台设备没有响应）")
+            fail(app, records, named, manual, now, Strings.scheduleResumeLookupFailed())
             return
         }
         val summary = found.firstOrNull()
@@ -291,7 +293,13 @@ object ScheduleRunner {
         records.update(app, spec.id) {
             it.copy(lastRun = TaskRun(now, RunOutcome.Failed, null, reason, manual))
         }
-        notify(app, key(records, spec.id), spec.name + " · 没有运行", reason, key = null)
+        notify(
+            app,
+            key(records, spec.id),
+            Strings.scheduleNotRunTitle(spec.name),
+            reason,
+            key = null,
+        )
         return reason
     }
 
@@ -333,8 +341,8 @@ object ScheduleRunner {
                 notify(
                     app,
                     run.key,
-                    "$name · 需要你确认",
-                    "${pending.notice}，点这里打开对话处理",
+                    Strings.scheduleNeedsConfirmTitle(name),
+                    Strings.scheduleNeedsConfirmText(pending.notice),
                     conversation.openKey,
                 )
             }
@@ -382,8 +390,8 @@ object ScheduleRunner {
                 app,
                 run.key,
                 if (outcome == RunOutcome.Done || outcome == RunOutcome.NoChange) name
-                else "$name · 没有完成",
-                summary.ifBlank { "已完成" },
+                else Strings.scheduleNotFinishedTitle(name),
+                summary.ifBlank { Strings.scheduleDoneText() },
                 session ?: conversation.key,
                 silent = hub.alerts.showedResultCard(conversation),
             )

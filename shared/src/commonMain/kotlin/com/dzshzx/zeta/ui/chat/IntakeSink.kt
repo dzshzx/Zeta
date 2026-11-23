@@ -19,6 +19,7 @@ import com.dzshzx.zeta.core.Uploads
 import com.dzshzx.zeta.core.dropIntake
 import com.dzshzx.zeta.core.intakeTarget
 import com.dzshzx.zeta.core.placeIntake
+import com.dzshzx.zeta.i18n.Strings
 import com.dzshzx.zeta.ui.components.coui2.NoticeDialog
 import com.dzshzx.zeta.ui.components.rememberRetained
 import io.github.suqi8.coui.kmp.layout.DialogButtonBar
@@ -99,7 +100,7 @@ class IntakeSink(
                 IntakeParser.mergeDraft(draft.input.text.toString(), text),
             )
         } else {
-            addBytes("分享的文字.txt", text.toByteArray())
+            addBytes(Strings.composerSharedTextFile(), text.toByteArray())
         }
     }
 
@@ -108,7 +109,8 @@ class IntakeSink(
         scope.launch {
             for (file in files.take(maxImages - draft.attachments.size)) {
                 val loaded = withContext(Dispatchers.IO) { file.loadImage() }
-                if (loaded != null) draft.attachments.add(loaded) else report("有一张图片读不了，没有加进来")
+                if (loaded != null) draft.attachments.add(loaded)
+                else report(Strings.composerImageUnreadable())
             }
         }
     }
@@ -117,7 +119,10 @@ class IntakeSink(
     fun addFiles(files: List<PickedFile>) {
         if (files.size > FileLimits.MAX_FILES) {
             report(
-                "一次最多收 ${FileLimits.MAX_FILES} 个文件，另外 ${files.size - FileLimits.MAX_FILES} 个没有加进来",
+                Strings.composerTooManyFiles(
+                    FileLimits.MAX_FILES,
+                    files.size - FileLimits.MAX_FILES,
+                ),
             )
         }
         scope.launch { for (file in files.take(FileLimits.MAX_FILES)) addFile(file) }
@@ -145,7 +150,12 @@ class IntakeSink(
         val shell =
             hub.shell(backend)
                 ?: run {
-                    report("「$name」没有复制：" + (hub.unavailable(backend) ?: "用不了这台设备"))
+                    report(
+                        Strings.composerNotCopied(
+                            name,
+                            hub.unavailable(backend) ?: Strings.composerDeviceUnavailable(),
+                        ),
+                    )
                     return
                 }
         val upload = FileUpload(UUID.randomUUID().toString(), FileLimits.label(name, size))
@@ -179,7 +189,12 @@ class IntakeSink(
         val shell =
             hub.shell(backend)
                 ?: run {
-                    report("「$name」没有复制：" + (hub.unavailable(backend) ?: "用不了这台设备"))
+                    report(
+                        Strings.composerNotCopied(
+                            name,
+                            hub.unavailable(backend) ?: Strings.composerDeviceUnavailable(),
+                        ),
+                    )
                     return
                 }
         val upload =
@@ -192,7 +207,9 @@ class IntakeSink(
     }
 
     private fun screenshotName(): String =
-        "截屏-" + LocalDateTime.now().format(DateTimeFormatter.ofPattern("yyyyMMdd-HHmmss")) + ".jpg"
+        Strings.composerScreenshotFile(
+            LocalDateTime.now().format(DateTimeFormatter.ofPattern("yyyyMMdd-HHmmss")),
+        )
 }
 
 /** 告诉用户哪些没有加进来、为什么。放在聊天页（COUI 的 Scaffold）里。 */
@@ -205,21 +222,17 @@ fun IntakeProblemsDialog(sink: IntakeSink) {
             problems
                 .takeIf { it.isNotEmpty() }
                 ?.let { list ->
-                    list.joinToString("\n") { "$it。" } +
-                        if (sink.rejectedLarge) "\n\n$TooLargeAdvice" else ""
+                    list.joinToString("\n") { Strings.composerProblemLine(it) } +
+                        if (sink.rejectedLarge) "\n\n" + Strings.composerTooLargeAdvice() else ""
                 },
         )
     NoticeDialog(
         show = problems.isNotEmpty(),
-        title = "有些内容没有加进来",
+        title = Strings.composerIntakeProblemsTitle(),
         summary = message,
         onDismissRequest = sink::dismissProblems,
     )
 }
-
-private const val TooLargeAdvice =
-    "太大的文件复制进 Linux 要多占一份同样大的空间，Claude 也读不完。" +
-        "要让 Claude 处理它，可以在 设置 › Linux 环境 › 共享文件夹 里加上它所在的文件夹，再从附件菜单的「输入路径」引用。"
 
 /**
  * 「放进哪个对话」：外面送来的东西（分享、打开、截屏）放进新对话，还是接着最近那个对话。 只有当前对话有内容、或者后台还有对话在进行时才会问（见
@@ -235,24 +248,26 @@ fun IntakeChooser(hub: ConversationHub) {
             pending?.let {
                 val summary = it.summary
                 val title = hub.intakeTarget()?.title?.trim()?.ifBlank { null }
-                "收到" +
-                    (if (summary.first().isDigit()) " " else "") +
-                    summary +
-                    "。" +
-                    (if (title != null) "接着「$title」，还是开一个新对话？" else "接着刚才的对话，还是开一个新对话？")
+                val lead = if (summary.first().isDigit()) "digit" else "other"
+                if (title != null) Strings.composerIntakeAskTitled(lead, summary, title)
+                else Strings.composerIntakeAsk(lead, summary)
             },
         )
     WindowDialog(
         show = pending != null,
-        title = "放进哪个对话",
+        title = Strings.composerIntakeTitle(),
         summary = message,
         onDismissRequest = hub::dropIntake,
     ) {
         DialogButtonBar(
-            negative = DialogButtonBarAction("新对话", onClick = { hub.placeIntake(intoNew = true) }),
+            negative =
+                DialogButtonBarAction(
+                    Strings.composerNewConversation(),
+                    onClick = { hub.placeIntake(intoNew = true) },
+                ),
             positive =
                 DialogButtonBarAction(
-                    "接着这个对话",
+                    Strings.composerContinueThis(),
                     recommended = true,
                     onClick = { hub.placeIntake(intoNew = false) },
                 ),

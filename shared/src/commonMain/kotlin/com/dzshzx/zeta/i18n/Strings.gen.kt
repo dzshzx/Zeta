@@ -20,4 +20,6115 @@ object Strings {
      * 语言选项：用系统语言，系统语言不是简体中文和英文时用简体中文。
      */
     fun settingsLanguageSystem(): String = catalog.say("settingsLanguageSystem")
+
+    /**
+     * 「结束这个对话？」
+     *
+     * 聊天页结束对话前的确认框标题。
+     */
+    fun chatEndTitle(): String = catalog.say("chatEndTitle")
+
+    /**
+     * 「结束」
+     *
+     * 结束对话确认框的确认按钮。
+     */
+    fun chatEnd(): String = catalog.say("chatEnd")
+
+    /**
+     * 「它正在{place}运行，结束会停掉那边的进程，那边在做的也一并停掉。对话内容保留，可以从历史对话里接着聊。」
+     *
+     * 结束确认框的说明：会话正在别处运行。place 是 chatPlace* 那几句说的在哪，或 chatPlaceElsewhere。
+     */
+    fun chatEndSummaryAt(place: String): String = catalog.say("chatEndSummaryAt", mapOf("place" to place))
+
+    /**
+     * 「它还在进行（在回答、等你确认或有后台任务），结束会一并停掉。对话内容保留，可以从历史对话里接着聊。」
+     *
+     * 结束确认框的说明：对话还在这里进行。
+     */
+    fun chatEndSummaryActive(): String = catalog.say("chatEndSummaryActive")
+
+    /**
+     * 「别处」
+     *
+     * 占着会话的进程在哪说不出时，接在「它正在」「会话正在」后面。
+     */
+    fun chatPlaceElsewhere(): String = catalog.say("chatPlaceElsewhere")
+
+    /**
+     * 「本机终端里」
+     *
+     * 占着会话的进程在哪：本机的终端。接在「它正在」「会话正在」后面。
+     */
+    fun chatPlaceLocalTerminal(): String = catalog.say("chatPlaceLocalTerminal")
+
+    /**
+     * 「本机的{app}里」
+     *
+     * 占着会话的进程在哪：本机的某个应用（Zeta、VS Code 等）。中文和英文字母相接处会自动加空格。
+     */
+    fun chatPlaceLocalApp(app: String): String = catalog.say("chatPlaceLocalApp", mapOf("app" to app))
+
+    /**
+     * 「{device}的{app}里」
+     *
+     * 占着会话的进程在哪：某台设备上的某个应用。中文和英文字母相接处会自动加空格。
+     */
+    fun chatPlaceDeviceApp(device: String, app: String): String = catalog.say("chatPlaceDeviceApp", mapOf("device" to device, "app" to app))
+
+    /**
+     * 「{app}里」
+     *
+     * 占着会话的进程在哪：只知道是哪个应用。中文和英文字母相接处会自动加空格。
+     */
+    fun chatPlaceApp(app: String): String = catalog.say("chatPlaceApp", mapOf("app" to app))
+
+    /**
+     * 「终端」
+     *
+     * 占着会话的应用：终端里的 Claude Code。放进 chatPlace* 的 app。
+     */
+    fun chatAppTerminal(): String = catalog.say("chatAppTerminal")
+
+    /**
+     * 「Zeta 测试版」
+     *
+     * 占着会话的应用：Zeta 测试版。放进 chatPlace* 的 app。
+     */
+    fun chatAppZetaDev(): String = catalog.say("chatAppZetaDev")
+
+    /**
+     * 「Claude 桌面版」
+     *
+     * 占着会话的应用：Claude 桌面应用。放进 chatPlace* 的 app。
+     */
+    fun chatAppClaudeDesktop(): String = catalog.say("chatAppClaudeDesktop")
+
+    /**
+     * 「会话正在{place}运行」
+     *
+     * 「别处运行」卡片的标题。place 是 chatPlace* 那几句或 chatPlaceElsewhere。
+     */
+    fun chatSessionRunningAt(place: String): String = catalog.say("chatSessionRunningAt", mapOf("place" to place))
+
+    /**
+     * 「正在查询那边的状态。」
+     *
+     * 「别处运行」卡片的说明：还没查到那边的样子。
+     */
+    fun chatOccupantChecking(): String = catalog.say("chatOccupantChecking")
+
+    /**
+     * 「当前空闲。接管后那边的对话会结束，会话转到这里继续。」
+     *
+     * 「别处运行」卡片的说明：占着的是另一个 Zeta，闲着。
+     */
+    fun chatOccupantIdleZeta(): String = catalog.say("chatOccupantIdleZeta")
+
+    /**
+     * 「当前空闲。接管后那边会退出，会话转到 Zeta 继续。」
+     *
+     * 「别处运行」卡片的说明：占着的是终端等，闲着。
+     */
+    fun chatOccupantIdleOther(): String = catalog.say("chatOccupantIdleOther")
+
+    /**
+     * 「正在等待确认。接管后这个确认作废，要让 Claude 重做这一步。」
+     *
+     * 「别处运行」卡片的说明：那边在等确认，不知道等的是什么。
+     */
+    fun chatOccupantWaiting(): String = catalog.say("chatOccupantWaiting")
+
+    /**
+     * 「正在等待确认：{what}。接管后这个确认作废，要让 Claude 重做这一步。」
+     *
+     * 「别处运行」卡片的说明：那边在等确认。what 是核心给的在等什么（原样）。
+     */
+    fun chatOccupantWaitingFor(what: String): String = catalog.say("chatOccupantWaitingFor", mapOf("what" to what))
+
+    /**
+     * 「看不出是否空闲。接管会让它退出，进行中的操作会中断。」
+     *
+     * 「别处运行」卡片的说明：看不出那边闲不闲。
+     */
+    fun chatOccupantUnknown(): String = catalog.say("chatOccupantUnknown")
+
+    /**
+     * 「正在执行 ! 命令，执行完后可以接管。」
+     *
+     * 「别处运行」卡片的说明：那边在执行 ! 开头的 shell 命令。
+     */
+    fun chatOccupantShell(): String = catalog.say("chatOccupantShell")
+
+    /**
+     * 「正在回答，本轮结束后可以接管。」
+     *
+     * 「别处运行」卡片的说明：那边正在回答。
+     */
+    fun chatOccupantAnswering(): String = catalog.say("chatOccupantAnswering")
+
+    /**
+     * 「正在接管…」
+     *
+     * 「别处运行」卡片的按钮：正在接管。
+     */
+    fun chatTakingOver(): String = catalog.say("chatTakingOver")
+
+    /**
+     * 「接管会话」
+     *
+     * 「别处运行」卡片的按钮：把会话接到这里。
+     */
+    fun chatTakeOver(): String = catalog.say("chatTakeOver")
+
+    /**
+     * 「等待对方空闲」
+     *
+     * 「别处运行」卡片的按钮（不可点）：那边忙着，等它空闲。
+     */
+    fun chatWaitIdle(): String = catalog.say("chatWaitIdle")
+
+    /**
+     * 「历史对话」
+     *
+     * 聊天页顶栏左边打开侧栏的按钮（读屏说明）。
+     */
+    fun chatHistory(): String = catalog.say("chatHistory")
+
+    /**
+     * 「连接远程设备」
+     *
+     * 手机本机用不了、还没加过远程设备时的按钮：去加一台。
+     */
+    fun chatConnectRemote(): String = catalog.say("chatConnectRemote")
+
+    /**
+     * 「「{name}」已断开」
+     *
+     * 当前对话所在的远程设备「连接」关着时聊天页的标题。
+     */
+    fun chatDisconnectedTitle(name: String): String = catalog.say("chatDisconnectedTitle", mapOf("name" to name))
+
+    /**
+     * 「{note}。连上后接着看。」
+     *
+     * 远程设备断开时聊天页的说明。note 是设备页共用的那句「Zeta 不连这台设备……」。
+     */
+    fun chatDisconnectedBody(note: String): String = catalog.say("chatDisconnectedBody", mapOf("note" to note))
+
+    /**
+     * 「连接」
+     *
+     * 远程设备断开时聊天页的按钮：马上连回去。
+     */
+    fun chatConnect(): String = catalog.say("chatConnect")
+
+    /**
+     * 「回到底部」
+     *
+     * 聊天列表右下角回到最新消息的按钮（读屏说明）。
+     */
+    fun chatScrollToBottom(): String = catalog.say("chatScrollToBottom")
+
+    /**
+     * 「已等待 {seconds} 秒」
+     *
+     * 对话在进行、好一阵没有新输出时，等待行上的字：离上次输出多少秒。
+     */
+    fun chatWaitedSeconds(seconds: Int): String = catalog.say("chatWaitedSeconds", mapOf("seconds" to seconds))
+
+    /**
+     * 「切换模型」
+     *
+     * 顶栏标题旁的下拉箭头（读屏说明）：点开换模型。
+     */
+    fun chatSwitchModel(): String = catalog.say("chatSwitchModel")
+
+    /**
+     * 「新对话」
+     *
+     * 聊天页右上角菜单：开一个新对话。
+     */
+    fun chatNewChat(): String = catalog.say("chatNewChat")
+
+    /**
+     * 「结束对话」
+     *
+     * 聊天页右上角菜单：结束当前对话（同终端里的 /exit）。
+     */
+    fun chatEndChat(): String = catalog.say("chatEndChat")
+
+    /**
+     * 「在对话中查找」
+     *
+     * 聊天页右上角菜单项，也是查找栏输入框的占位。
+     */
+    fun chatFindInChat(): String = catalog.say("chatFindInChat")
+
+    /**
+     * 「设置」
+     *
+     * 聊天页右上角菜单：打开设置。
+     */
+    fun chatSettings(): String = catalog.say("chatSettings")
+
+    /**
+     * 「看看这个项目」
+     *
+     * 新对话空白页的建议卡片标题（卡片窄，尽量短）。
+     */
+    fun chatSuggestProjectTitle(): String = catalog.say("chatSuggestProjectTitle")
+
+    /**
+     * 「先浏览当前目录，概括这个项目是做什么的、结构如何。」
+     *
+     * 点「看看这个项目」卡片后替用户发给 Claude 的提问。
+     */
+    fun chatSuggestProjectPrompt(): String = catalog.say("chatSuggestProjectPrompt")
+
+    /**
+     * 「检查 Git 状态」
+     *
+     * 新对话空白页的建议卡片标题（卡片窄，尽量短）。
+     */
+    fun chatSuggestGitTitle(): String = catalog.say("chatSuggestGitTitle")
+
+    /**
+     * 「查看当前目录的 git 状态和最近的提交，告诉我有哪些未提交的改动。」
+     *
+     * 点「检查 Git 状态」卡片后替用户发给 Claude 的提问。
+     */
+    fun chatSuggestGitPrompt(): String = catalog.say("chatSuggestGitPrompt")
+
+    /**
+     * 「接着上次做」
+     *
+     * 新对话空白页的建议卡片标题（卡片窄，尽量短）。
+     */
+    fun chatSuggestResumeTitle(): String = catalog.say("chatSuggestResumeTitle")
+
+    /**
+     * 「回顾这个目录里最近的改动，告诉我上次做到哪了、接下来该做什么。」
+     *
+     * 点「接着上次做」卡片后替用户发给 Claude 的提问。
+     */
+    fun chatSuggestResumePrompt(): String = catalog.say("chatSuggestResumePrompt")
+
+    /**
+     * 「设备状况」
+     *
+     * 新对话空白页的建议卡片标题（卡片窄，尽量短）。
+     */
+    fun chatSuggestDeviceTitle(): String = catalog.say("chatSuggestDeviceTitle")
+
+    /**
+     * 「检查这台设备的内存、存储和负载情况，有异常就指出来。」
+     *
+     * 点「设备状况」卡片后替用户发给 Claude 的提问。
+     */
+    fun chatSuggestDevicePrompt(): String = catalog.say("chatSuggestDevicePrompt")
+
+    /**
+     * 「有什么可以帮你？」
+     *
+     * 新对话空白页的大标题。
+     */
+    fun chatEmptyGreeting(): String = catalog.say("chatEmptyGreeting")
+
+    /**
+     * 「这个环境里的 Claude Code 还没有登录账号」
+     *
+     * 新对话空白页：Claude Code 还没登录时的说明。
+     */
+    fun chatNotSignedIn(): String = catalog.say("chatNotSignedIn")
+
+    /**
+     * 「登录 Claude 账号」
+     *
+     * 新对话空白页：去登录的按钮。
+     */
+    fun chatSignIn(): String = catalog.say("chatSignIn")
+
+    /**
+     * 「工作目录」
+     *
+     * 新对话空白页改工作目录的对话框标题。
+     */
+    fun chatCwdTitle(): String = catalog.say("chatCwdTitle")
+
+    /**
+     * 「这个对话在 Debian 里的哪个目录下进行」
+     *
+     * 改工作目录对话框的说明：对话在手机的 Debian 里。
+     */
+    fun chatCwdLocal(): String = catalog.say("chatCwdLocal")
+
+    /**
+     * 「这个对话在「{device}」上的哪个目录下进行」
+     *
+     * 改工作目录对话框的说明：对话在远程设备上。
+     */
+    fun chatCwdRemote(device: String): String = catalog.say("chatCwdRemote", mapOf("device" to device))
+
+    /**
+     * 「确定」
+     *
+     * 对话框的确认按钮。
+     */
+    fun chatOk(): String = catalog.say("chatOk")
+
+    /**
+     * 「收起」
+     *
+     * 可折叠的条目收起（按钮或读屏说明）。
+     */
+    fun chatCollapse(): String = catalog.say("chatCollapse")
+
+    /**
+     * 「展开」
+     *
+     * 可折叠的条目展开（按钮或读屏说明）。
+     */
+    fun chatExpand(): String = catalog.say("chatExpand")
+
+    /**
+     * 「来自会话 {peer}」
+     *
+     * 别的会话发来的消息上方的标签。
+     */
+    fun chatFromSession(peer: String): String = catalog.say("chatFromSession", mapOf("peer" to peer))
+
+    /**
+     * 「复制」
+     *
+     * 提问气泡长按菜单：复制。
+     */
+    fun chatCopy(): String = catalog.say("chatCopy")
+
+    /**
+     * 「收藏为常用指令」
+     *
+     * 提问气泡长按菜单：存进常用指令。
+     */
+    fun chatSaveAsPrompt(): String = catalog.say("chatSaveAsPrompt")
+
+    /**
+     * 「编辑」
+     *
+     * 提问气泡长按菜单：改了重发。
+     */
+    fun chatEdit(): String = catalog.say("chatEdit")
+
+    /**
+     * 「删除」
+     *
+     * 提问气泡长按菜单：删除这一轮。
+     */
+    fun chatDelete(): String = catalog.say("chatDelete")
+
+    /**
+     * 「正在处理第 {step} 步 · {title}」
+     *
+     * 步骤卡片的标题：正在跑第几步，title 是那一步的标题。
+     */
+    fun chatWorkRunningStep(step: Int, title: String): String = catalog.say("chatWorkRunningStep", mapOf("step" to step, "title" to title))
+
+    /**
+     * 「正在思考」
+     *
+     * 步骤卡片、思考条目的标题：还在思考。
+     */
+    fun chatThinking(): String = catalog.say("chatThinking")
+
+    /**
+     * 「已完成 {count} 个步骤」
+     *
+     * 步骤卡片的标题：都做完了，做了几步。
+     */
+    fun chatStepsDone(count: Int): String = catalog.say("chatStepsDone", mapOf("count" to count))
+
+    /**
+     * 「思考已完成」
+     *
+     * 思考条目的标题：想完了。
+     */
+    fun chatThinkingDone(): String = catalog.say("chatThinkingDone")
+
+    /**
+     * 「思考已完成 · 用时 {seconds} 秒」
+     *
+     * 思考条目的标题：想完了，想了几秒。
+     */
+    fun chatThinkingDoneIn(seconds: Int): String = catalog.say("chatThinkingDoneIn", mapOf("seconds" to seconds))
+
+    /**
+     * 「查看子代理的步骤」
+     *
+     * 子代理那一步右边的按钮（读屏说明）：进子代理查看页。
+     */
+    fun chatViewSubagentSteps(): String = catalog.say("chatViewSubagentSteps")
+
+    /**
+     * 「已完成」
+     *
+     * 步骤、任务清单项已完成的标记（读屏说明）。
+     */
+    fun chatDone(): String = catalog.say("chatDone")
+
+    /**
+     * 「失败」
+     *
+     * 步骤失败的标记（读屏说明）。
+     */
+    fun chatFailed(): String = catalog.say("chatFailed")
+
+    /**
+     * 「执行命令」
+     *
+     * Bash 工具那一步没有说明和命令时的标题。
+     */
+    fun chatToolRunCommand(): String = catalog.say("chatToolRunCommand")
+
+    /**
+     * 「读取 {name}」
+     *
+     * Read 工具那一步的标题。
+     */
+    fun chatToolRead(name: String): String = catalog.say("chatToolRead", mapOf("name" to name))
+
+    /**
+     * 「写入 {name}」
+     *
+     * Write 工具那一步的标题。
+     */
+    fun chatToolWrite(name: String): String = catalog.say("chatToolWrite", mapOf("name" to name))
+
+    /**
+     * 「编辑 {name}」
+     *
+     * Edit 类工具那一步的标题。
+     */
+    fun chatToolEdit(name: String): String = catalog.say("chatToolEdit", mapOf("name" to name))
+
+    /**
+     * 「搜索 {pattern}」
+     *
+     * Grep 工具那一步的标题。
+     */
+    fun chatToolGrep(pattern: String): String = catalog.say("chatToolGrep", mapOf("pattern" to pattern))
+
+    /**
+     * 「查找文件 {pattern}」
+     *
+     * Glob 工具那一步的标题。
+     */
+    fun chatToolGlob(pattern: String): String = catalog.say("chatToolGlob", mapOf("pattern" to pattern))
+
+    /**
+     * 「搜索网页：{query}」
+     *
+     * WebSearch 工具那一步的标题。
+     */
+    fun chatToolWebSearch(query: String): String = catalog.say("chatToolWebSearch", mapOf("query" to query))
+
+    /**
+     * 「读取网页 {host}」
+     *
+     * WebFetch 工具那一步的标题。
+     */
+    fun chatToolWebFetch(host: String): String = catalog.say("chatToolWebFetch", mapOf("host" to host))
+
+    /**
+     * 「子代理：{task}」
+     *
+     * 派子代理那一步的标题，task 是给它的任务说明。
+     */
+    fun chatToolAgent(task: String): String = catalog.say("chatToolAgent", mapOf("task" to task))
+
+    /**
+     * 「向你提问」
+     *
+     * AskUserQuestion 工具那一步的标题。
+     */
+    fun chatToolAsk(): String = catalog.say("chatToolAsk")
+
+    /**
+     * 「提交计划」
+     *
+     * ExitPlanMode 工具那一步的标题。
+     */
+    fun chatToolPlan(): String = catalog.say("chatToolPlan")
+
+    /**
+     * 「技能 {name}」
+     *
+     * Skill 工具那一步的标题。
+     */
+    fun chatToolSkill(name: String): String = catalog.say("chatToolSkill", mapOf("name" to name))
+
+    /**
+     * 「工具」
+     *
+     * 没有名字的工具那一步的标题。
+     */
+    fun chatToolGeneric(): String = catalog.say("chatToolGeneric")
+
+    /**
+     * 「手机 · {tool}」
+     *
+     * 手机工具目录里没有的手机工具那一步的标题。
+     */
+    fun chatToolPhone(tool: String): String = catalog.say("chatToolPhone", mapOf("tool" to tool))
+
+    /**
+     * 「还有 {count} 处改动，展开查看」
+     *
+     * 改文件卡片收起时下面的链接：还有几处改动没显示。
+     */
+    fun chatMoreChanges(count: Int): String = catalog.say("chatMoreChanges", mapOf("count" to count))
+
+    /**
+     * 「内容太长，记录里只留了前一部分，对比到截断处为止」
+     *
+     * 改文件卡片：工具参数太长被截断，对比不全。
+     */
+    fun chatDiffClipped(): String = catalog.say("chatDiffClipped")
+
+    /**
+     * 「空文件」
+     *
+     * 改文件卡片：新建的是空文件。
+     */
+    fun chatEmptyFile(): String = catalog.say("chatEmptyFile")
+
+    /**
+     * 「没有改动」
+     *
+     * 改文件卡片：前后一样。
+     */
+    fun chatNoChanges(): String = catalog.say("chatNoChanges")
+
+    /**
+     * 「展开全部改动 · 共 {lines} 行」
+     *
+     * 改文件卡片底部：展开全部，共几行。
+     */
+    fun chatShowAllChanges(lines: Int): String = catalog.say("chatShowAllChanges", mapOf("lines" to lines))
+
+    /**
+     * 「收起 · 还有 {lines} 行太长未显示」
+     *
+     * 改文件卡片底部：收起；有几行太长没画。
+     */
+    fun chatCollapseHidden(lines: Int): String = catalog.say("chatCollapseHidden", mapOf("lines" to lines))
+
+    /**
+     * 「新文件」
+     *
+     * 改文件卡片的标签：新建的文件。
+     */
+    fun chatNewFile(): String = catalog.say("chatNewFile")
+
+    /**
+     * 「整份重写」
+     *
+     * 改文件卡片的标签：整个文件重写。
+     */
+    fun chatRewritten(): String = catalog.say("chatRewritten")
+
+    /**
+     * 「全部替换」
+     *
+     * 改文件卡片的标签：替换了全部匹配处。
+     */
+    fun chatReplaceAll(): String = catalog.say("chatReplaceAll")
+
+    /**
+     * 「加载图片 · {host}」
+     *
+     * 回答里的网络图片没自动加载时的按钮，host 是图片所在的网站。
+     */
+    fun chatLoadImage(host: String): String = catalog.say("chatLoadImage", mapOf("host" to host))
+
+    /**
+     * 「图片」
+     *
+     * 图片（读屏说明）。
+     */
+    fun chatImage(): String = catalog.say("chatImage")
+
+    /**
+     * 「图片无法显示」
+     *
+     * 图片读不出来时的占位。
+     */
+    fun chatImageUnavailable(): String = catalog.say("chatImageUnavailable")
+
+    /**
+     * 「图片无法显示：{name}」
+     *
+     * 本机文件的图片读不出来时的占位，name 是文件名。
+     */
+    fun chatImageUnavailableFile(name: String): String = catalog.say("chatImageUnavailableFile", mapOf("name" to name))
+
+    /**
+     * 「返回」
+     *
+     * 看图页左上角的返回按钮（读屏说明）。
+     */
+    fun chatBack(): String = catalog.say("chatBack")
+
+    /**
+     * 「保存到相册」
+     *
+     * 看图页的按钮。
+     */
+    fun chatSaveToGallery(): String = catalog.say("chatSaveToGallery")
+
+    /**
+     * 「分享」
+     *
+     * 看图页的按钮。
+     */
+    fun chatShare(): String = catalog.say("chatShare")
+
+    /**
+     * 「原大」
+     *
+     * 看图页读屏报的缩放：原始大小。
+     */
+    fun chatZoomActual(): String = catalog.say("chatZoomActual")
+
+    /**
+     * 「放大 {scale} 倍」
+     *
+     * 看图页读屏报的缩放：放大了几倍（一位小数）。
+     */
+    fun chatZoomIn(scale: String): String = catalog.say("chatZoomIn", mapOf("scale" to scale))
+
+    /**
+     * 「缩小到 {scale} 倍」
+     *
+     * 看图页读屏报的缩放：缩小到几倍（一位小数）。
+     */
+    fun chatZoomOut(scale: String): String = catalog.say("chatZoomOut", mapOf("scale" to scale))
+
+    /**
+     * 「{count} 张图片」
+     *
+     * 多张图片的浏览页标题。
+     */
+    fun chatImageCount(count: Int): String = catalog.say("chatImageCount", mapOf("count" to count))
+
+    /**
+     * 「载入更早的 {count} 条记录」
+     *
+     * 聊天列表最上面：点了载入更早的记录。
+     */
+    fun chatLoadEarlier(count: Int): String = catalog.say("chatLoadEarlier", mapOf("count" to count))
+
+    /**
+     * 「正在载入更早的记录」
+     *
+     * 聊天列表最上面：正在载入更早的记录。
+     */
+    fun chatLoadingEarlier(): String = catalog.say("chatLoadingEarlier")
+
+    /**
+     * 「{message}，点按重试」
+     *
+     * 载入更早的记录失败、可以重试时：message 是失败原因。
+     */
+    fun chatTapToRetry(message: String): String = catalog.say("chatTapToRetry", mapOf("message" to message))
+
+    /**
+     * 「上一个」
+     *
+     * 查找栏的按钮（读屏说明）：上一个命中。
+     */
+    fun chatPrevious(): String = catalog.say("chatPrevious")
+
+    /**
+     * 「下一个」
+     *
+     * 查找栏的按钮（读屏说明）：下一个命中。
+     */
+    fun chatNext(): String = catalog.say("chatNext")
+
+    /**
+     * 「关闭查找」
+     *
+     * 查找栏的按钮（读屏说明）：关掉查找栏。
+     */
+    fun chatCloseFind(): String = catalog.say("chatCloseFind")
+
+    /**
+     * 「查提问和回答，不含工具步骤和思考」
+     *
+     * 查找栏下面的说明：查什么。
+     */
+    fun chatFindHint(): String = catalog.say("chatFindHint")
+
+    /**
+     * 「查提问和回答，不含工具步骤和思考；{problem}，更早的 {count} 条没查」
+     *
+     * 查找栏下面的说明：更早的记录载入失败，有几条没查。problem 是失败原因。
+     */
+    fun chatFindHintEarlierFailed(problem: String, count: Int): String = catalog.say("chatFindHintEarlierFailed", mapOf("problem" to problem, "count" to count))
+
+    /**
+     * 「查提问和回答，不含工具步骤和思考；正在载入更早的 {count} 条…」
+     *
+     * 查找栏下面的说明：正在载入更早的记录来查。
+     */
+    fun chatFindHintEarlierLoading(count: Int): String = catalog.say("chatFindHintEarlierLoading", mapOf("count" to count))
+
+    /**
+     * 「查找中」
+     *
+     * 查找栏的命中计数处：还在载入更早的记录来查。
+     */
+    fun chatFinding(): String = catalog.say("chatFinding")
+
+    /**
+     * 「无结果」
+     *
+     * 查找栏的命中计数处：没有命中。
+     */
+    fun chatNoResults(): String = catalog.say("chatNoResults")
+
+    /**
+     * 「{server} 请你去网页上操作」
+     *
+     * MCP 服务器要用户去网页上操作时的对话框标题。
+     */
+    fun chatElicitUrl(server: String): String = catalog.say("chatElicitUrl", mapOf("server" to server))
+
+    /**
+     * 「{server} 需要你填写」
+     *
+     * MCP 服务器要用户填表时的对话框标题。
+     */
+    fun chatElicitForm(server: String): String = catalog.say("chatElicitForm", mapOf("server" to server))
+
+    /**
+     * 「拒绝」
+     *
+     * MCP 服务器请求对话框的按钮：不填。
+     */
+    fun chatDecline(): String = catalog.say("chatDecline")
+
+    /**
+     * 「打开网页」
+     *
+     * MCP 服务器请求对话框的按钮：去网页上操作。
+     */
+    fun chatOpenWebPage(): String = catalog.say("chatOpenWebPage")
+
+    /**
+     * 「提交」
+     *
+     * MCP 服务器请求对话框的按钮：交上填好的表。
+     */
+    fun chatSubmit(): String = catalog.say("chatSubmit")
+
+    /**
+     * 「设备负载」
+     *
+     * 输入栏上负载标识的读屏说明，也是点开的说明框标题。
+     */
+    fun chatDeviceLoad(): String = catalog.say("chatDeviceLoad")
+
+    /**
+     * 「设备负载：CPU {percent}%」
+     *
+     * 负载标识的读屏说明：带 CPU 使用率。
+     */
+    fun chatDeviceLoadCpu(percent: Int): String = catalog.say("chatDeviceLoadCpu", mapOf("percent" to percent))
+
+    /**
+     * 「还没有读到（对话没连上，或那台主机上的 Zeta 服务还没更新）。」
+     *
+     * 负载说明框：还没有读数。
+     */
+    fun chatCpuNotRead(): String = catalog.say("chatCpuNotRead")
+
+    /**
+     * 「那台主机不让读 CPU 计数（/proc/stat）。」
+     *
+     * 负载说明框：读不到 CPU 计数。
+     */
+    fun chatCpuNoAccess(): String = catalog.say("chatCpuNoAccess")
+
+    /**
+     * 「CPU 使用率 {percent}%，{cores} 个核的平均。」
+     *
+     * 负载说明框：使用率和核数。
+     */
+    fun chatCpuUsage(percent: Int, cores: Int): String = catalog.say("chatCpuUsage", mapOf("percent" to percent, "cores" to cores))
+
+    /**
+     * 「{host}：{reading} 整机所有进程的 CPU 忙碌占比，和 Claude Code 状态栏里的 cpu% 同一个算法（两次读 /proc/stat 相减，等磁盘也算空闲）。聊天页开着时每 {seconds} 秒更新一次。」
+     *
+     * 负载说明框的正文：host 是设备名，reading 是 chatCpuNotRead、chatCpuNoAccess 或 chatCpuUsage 之一。
+     */
+    fun chatCpuExplain(host: String, reading: String, seconds: Int): String = catalog.say("chatCpuExplain", mapOf("host" to host, "reading" to reading, "seconds" to seconds))
+
+    /**
+     * 「子代理」
+     *
+     * 子代理查看页的标题；子代理没有说明时的名字。
+     */
+    fun chatSubagent(): String = catalog.say("chatSubagent")
+
+    /**
+     * 「这个对话已经收起」
+     *
+     * 子代理查看页：所在的对话已经不在了。
+     */
+    fun chatChatClosed(): String = catalog.say("chatChatClosed")
+
+    /**
+     * 「步骤」
+     *
+     * 子代理查看页的分组标题。
+     */
+    fun chatSteps(): String = catalog.say("chatSteps")
+
+    /**
+     * 「更早的 {count} 条记录未载入」
+     *
+     * 子代理查看页：前面有几条记录没载入。
+     */
+    fun chatEarlierNotLoaded(count: Int): String = catalog.say("chatEarlierNotLoaded", mapOf("count" to count))
+
+    /**
+     * 「状态」
+     *
+     * 子代理查看页的一行：子代理的状态。
+     */
+    fun chatStatus(): String = catalog.say("chatStatus")
+
+    /**
+     * 「子代理类型」
+     *
+     * 子代理查看页的一行。
+     */
+    fun chatSubagentType(): String = catalog.say("chatSubagentType")
+
+    /**
+     * 「模型」
+     *
+     * 子代理查看页的一行。
+     */
+    fun chatModel(): String = catalog.say("chatModel")
+
+    /**
+     * 「工具调用」
+     *
+     * 子代理查看页的一行：调了几次工具。
+     */
+    fun chatToolCalls(): String = catalog.say("chatToolCalls")
+
+    /**
+     * 「{count} 次」
+     *
+     * 子代理查看页「工具调用」一行右边的次数。
+     */
+    fun chatTimes(count: Int): String = catalog.say("chatTimes", mapOf("count" to count))
+
+    /**
+     * 「正在读取」
+     *
+     * 子代理状态：正在读它的记录。
+     */
+    fun chatReading(): String = catalog.say("chatReading")
+
+    /**
+     * 「读取失败」
+     *
+     * 子代理状态：记录读不出来。
+     */
+    fun chatReadFailed(): String = catalog.say("chatReadFailed")
+
+    /**
+     * 「没有记录」
+     *
+     * 子代理状态：找不到它的记录。
+     */
+    fun chatNoRecord(): String = catalog.say("chatNoRecord")
+
+    /**
+     * 「未做完」
+     *
+     * 子代理状态：没跑完就停了。
+     */
+    fun chatUnfinished(): String = catalog.say("chatUnfinished")
+
+    /**
+     * 「没有找到它的记录：Claude Code 还没写出来，或者会话已经删了」
+     *
+     * 子代理查看页：没有步骤、也找不到记录时的说明。
+     */
+    fun chatSubagentMissing(): String = catalog.say("chatSubagentMissing")
+
+    /**
+     * 「正在读取…」
+     *
+     * 子代理查看页：正在读步骤。
+     */
+    fun chatReadingEllipsis(): String = catalog.say("chatReadingEllipsis")
+
+    /**
+     * 「还没有步骤」
+     *
+     * 子代理查看页：一步都还没有。
+     */
+    fun chatNoStepsYet(): String = catalog.say("chatNoStepsYet")
+
+    /**
+     * 「正在工作」
+     *
+     * 子代理查看页最后一行：还在跑。
+     */
+    fun chatWorking(): String = catalog.say("chatWorking")
+
+    /**
+     * 「交给它的指令」
+     *
+     * 子代理查看页的分组标题：派它时给的指令。
+     */
+    fun chatInstructions(): String = catalog.say("chatInstructions")
+
+    /**
+     * 「全部完成」
+     *
+     * 输入栏上方任务清单条：全部做完了。
+     */
+    fun chatTodoAllDone(): String = catalog.say("chatTodoAllDone")
+
+    /**
+     * 「下一项：{item}」
+     *
+     * 任务清单条：没在做的项时说下一项。
+     */
+    fun chatTodoNext(item: String): String = catalog.say("chatTodoNext", mapOf("item" to item))
+
+    /**
+     * 「收起任务清单」
+     *
+     * 任务清单条的点按说明（读屏）。
+     */
+    fun chatTodoCollapse(): String = catalog.say("chatTodoCollapse")
+
+    /**
+     * 「展开任务清单」
+     *
+     * 任务清单条的点按说明（读屏）。
+     */
+    fun chatTodoExpand(): String = catalog.say("chatTodoExpand")
+
+    /**
+     * 「任务清单，已完成 {done} 项，共 {total} 项。{summary}」
+     *
+     * 任务清单条的读屏说明：summary 是条上显示的那句。
+     */
+    fun chatTodoA11y(done: Int, total: Int, summary: String): String = catalog.say("chatTodoA11y", mapOf("done" to done, "total" to total, "summary" to summary))
+
+    /**
+     * 「收掉这份任务清单」
+     *
+     * 任务清单条右边的关闭按钮（读屏说明）。
+     */
+    fun chatTodoDismiss(): String = catalog.say("chatTodoDismiss")
+
+    /**
+     * 「新建任务：{subject}」
+     *
+     * TaskCreate 工具那一步的标题。
+     */
+    fun chatTodoCreate(subject: String): String = catalog.say("chatTodoCreate", mapOf("subject" to subject))
+
+    /**
+     * 「开始任务 #{id}」
+     *
+     * TaskUpdate 工具把任务改成进行中那一步的标题。
+     */
+    fun chatTodoStart(id: String): String = catalog.say("chatTodoStart", mapOf("id" to id))
+
+    /**
+     * 「完成任务 #{id}」
+     *
+     * TaskUpdate 工具把任务改成完成那一步的标题。
+     */
+    fun chatTodoComplete(id: String): String = catalog.say("chatTodoComplete", mapOf("id" to id))
+
+    /**
+     * 「删掉任务 #{id}」
+     *
+     * TaskUpdate 工具删任务那一步的标题。
+     */
+    fun chatTodoDelete(id: String): String = catalog.say("chatTodoDelete", mapOf("id" to id))
+
+    /**
+     * 「更新任务 #{id}」
+     *
+     * TaskUpdate 工具别的改动那一步的标题。
+     */
+    fun chatTodoUpdate(id: String): String = catalog.say("chatTodoUpdate", mapOf("id" to id))
+
+    /**
+     * 「查看任务清单」
+     *
+     * TaskList 工具那一步的标题。
+     */
+    fun chatTodoListTool(): String = catalog.say("chatTodoListTool")
+
+    /**
+     * 「查看任务 #{id}」
+     *
+     * TaskGet 工具那一步的标题。
+     */
+    fun chatTodoGet(id: String): String = catalog.say("chatTodoGet", mapOf("id" to id))
+
+    /**
+     * 「更新任务清单」
+     *
+     * TodoWrite 工具那一步的标题。
+     */
+    fun chatTodoWrite(): String = catalog.say("chatTodoWrite")
+
+    /**
+     * 「更新任务清单（{count} 项）」
+     *
+     * TodoWrite 工具那一步的标题：清单有几项。
+     */
+    fun chatTodoWriteCount(count: Int): String = catalog.say("chatTodoWriteCount", mapOf("count" to count))
+
+    /**
+     * 「立即插话」
+     *
+     * 排队消息右边的按钮（读屏说明）：不等这一轮结束，马上插进去。
+     */
+    fun chatSteerNow(): String = catalog.say("chatSteerNow")
+
+    /**
+     * 「插话中」
+     *
+     * 排队条的状态：正在插话。
+     */
+    fun chatSteering(): String = catalog.say("chatSteering")
+
+    /**
+     * 「排队中」
+     *
+     * 排队条的状态：有一条消息在排队。
+     */
+    fun chatQueued(): String = catalog.say("chatQueued")
+
+    /**
+     * 「排队中 · {count}」
+     *
+     * 排队条的状态：有几条消息在排队。
+     */
+    fun chatQueuedCount(count: Int): String = catalog.say("chatQueuedCount", mapOf("count" to count))
+
+    /**
+     * 「删除这条排队消息」
+     *
+     * 排队消息右边的按钮（读屏说明）。
+     */
+    fun chatRemoveQueued(): String = catalog.say("chatRemoveQueued")
+
+    /**
+     * 「[{count} 张图片]」
+     *
+     * 排队消息只有图片时的预览。
+     */
+    fun chatQueuedImages(count: Int): String = catalog.say("chatQueuedImages", mapOf("count" to count))
+
+    /**
+     * 「[{count} 个文件]」
+     *
+     * 排队消息只有文件时的预览。
+     */
+    fun chatQueuedFiles(count: Int): String = catalog.say("chatQueuedFiles", mapOf("count" to count))
+
+    /**
+     * 「撤回到输入框」
+     *
+     * 排队消息的点按说明（读屏）：放回输入框里改。
+     */
+    fun chatRecallToInput(): String = catalog.say("chatRecallToInput")
+
+    /**
+     * 「查看后台屏幕」
+     *
+     * 聊天页后台屏幕条的点按说明（读屏）。
+     */
+    fun chatViewAgentDisplay(): String = catalog.say("chatViewAgentDisplay")
+
+    /**
+     * 「后台屏幕」
+     *
+     * Claude 操作手机用的后台虚拟屏：聊天页上那一条和查看页的标签。
+     */
+    fun chatAgentDisplay(): String = catalog.say("chatAgentDisplay")
+
+    /**
+     * 「后台屏幕 · 休眠中」
+     *
+     * 后台屏幕条：屏幕休眠了。
+     */
+    fun chatAgentDisplayAsleep(): String = catalog.say("chatAgentDisplayAsleep")
+
+    /**
+     * 「还没有打开应用」
+     *
+     * 后台屏幕条：上面还没有应用。
+     */
+    fun chatNoAppOpen(): String = catalog.say("chatNoAppOpen")
+
+    /**
+     * 「移到主屏」
+     *
+     * 后台屏幕的按钮：把上面的应用挪到手机屏幕上。
+     */
+    fun chatMoveToMain(): String = catalog.say("chatMoveToMain")
+
+    /**
+     * 「关闭后台屏幕」
+     *
+     * 后台屏幕的按钮。
+     */
+    fun chatCloseAgentDisplay(): String = catalog.say("chatCloseAgentDisplay")
+
+    /**
+     * 「关闭查看」
+     *
+     * 后台屏幕查看页的关闭按钮（读屏说明）。
+     */
+    fun chatCloseView(): String = catalog.say("chatCloseView")
+
+    /**
+     * 「停止朗读」
+     *
+     * 回答下面朗读按钮正在读时（读屏说明）。
+     */
+    fun chatStopReadAloud(): String = catalog.say("chatStopReadAloud")
+
+    /**
+     * 「朗读」
+     *
+     * 回答下面的朗读按钮（读屏说明）。
+     */
+    fun chatReadAloud(): String = catalog.say("chatReadAloud")
+
+    /**
+     * 「正在检查环境…」
+     *
+     * 聊天页：启动时检查 Linux 环境。
+     */
+    fun chatCheckingEnv(): String = catalog.say("chatCheckingEnv")
+
+    /**
+     * 「需要 root 权限」
+     *
+     * 聊天页：没有 root 时的标题。
+     */
+    fun chatNeedRoot(): String = catalog.say("chatNeedRoot")
+
+    /**
+     * 「Zeta 通过 root 进入 Debian 环境来运行 Claude Code。请在 root 管理器（KernelSU / SukiSU / Magisk）里给 Zeta 授权，然后重试；也可以连远程设备上的 Claude Code。」
+     *
+     * 聊天页：没有 root 时的说明。
+     */
+    fun chatNeedRootBody(): String = catalog.say("chatNeedRootBody")
+
+    /**
+     * 「重试」
+     *
+     * 聊天页环境检查失败时的按钮。
+     */
+    fun chatRetry(): String = catalog.say("chatRetry")
+
+    /**
+     * 「还没有 Linux 环境」
+     *
+     * 聊天页：手机上还没装 Debian 时的标题。
+     */
+    fun chatNoLinuxEnv(): String = catalog.say("chatNoLinuxEnv")
+
+    /**
+     * 「Zeta 在一个 Debian 环境里运行 Claude Code。可以让 Zeta 现在装一个（约 1 GB），或者在设置里指向已有的环境；也可以不装，直接连远程设备上的 Claude Code。」
+     *
+     * 聊天页：手机上还没装 Debian 时的说明。
+     */
+    fun chatNoLinuxEnvBody(): String = catalog.say("chatNoLinuxEnvBody")
+
+    /**
+     * 「继续安装 Debian 环境」
+     *
+     * 聊天页的按钮：上次没装完，接着装。
+     */
+    fun chatContinueInstallDebian(): String = catalog.say("chatContinueInstallDebian")
+
+    /**
+     * 「安装 Debian 环境」
+     *
+     * 聊天页的按钮：装 Debian。
+     */
+    fun chatInstallDebian(): String = catalog.say("chatInstallDebian")
+
+    /**
+     * 「打开设置」
+     *
+     * 聊天页的按钮：去设置。
+     */
+    fun chatOpenSettings(): String = catalog.say("chatOpenSettings")
+
+    /**
+     * 「已保存到相册」
+     *
+     * 看图页保存图片后的提示。
+     */
+    fun chatSavedToGallery(): String = catalog.say("chatSavedToGallery")
+
+    /**
+     * 「保存失败」
+     *
+     * 看图页保存图片失败的提示。
+     */
+    fun chatSaveFailed(): String = catalog.say("chatSaveFailed")
+
+    /**
+     * 「分享失败」
+     *
+     * 看图页分享图片失败的提示。
+     */
+    fun chatShareFailed(): String = catalog.say("chatShareFailed")
+
+    /**
+     * 「可以按住说话了」
+     *
+     * 授了麦克风权限后的提示：现在能按住输入栏说话。
+     */
+    fun chatHoldToTalkReady(): String = catalog.say("chatHoldToTalkReady")
+
+    /**
+     * 「没有麦克风权限，到设置的权限页一键授予」
+     *
+     * 没授麦克风权限时的提示。
+     */
+    fun chatNoMicPermission(): String = catalog.say("chatNoMicPermission")
+
+    /**
+     * 「逐项确认」
+     *
+     * 权限模式：每次改动和命令都问用户（Claude Code 的 default）。输入栏权限菜单和设置里列。
+     */
+    fun composerModeDefault(): String = catalog.say("composerModeDefault")
+
+    /**
+     * 「自动接受编辑」
+     *
+     * 权限模式：改文件不问（acceptEdits）。
+     */
+    fun composerModeAcceptEdits(): String = catalog.say("composerModeAcceptEdits")
+
+    /**
+     * 「计划模式」
+     *
+     * 权限模式：只出计划不动手（plan）。
+     */
+    fun composerModePlan(): String = catalog.say("composerModePlan")
+
+    /**
+     * 「自动判断」
+     *
+     * 权限模式：由 Claude Code 自己判断要不要问（auto）。
+     */
+    fun composerModeAuto(): String = catalog.say("composerModeAuto")
+
+    /**
+     * 「完全放行」
+     *
+     * 权限模式：什么都不问（bypassPermissions）。
+     */
+    fun composerModeBypass(): String = catalog.say("composerModeBypass")
+
+    /**
+     * 「默认权限」
+     *
+     * 没设权限模式时它的名字。
+     */
+    fun composerModeUnset(): String = catalog.say("composerModeUnset")
+
+    /**
+     * 「权限模式：{mode}」
+     *
+     * 输入栏权限模式按钮的无障碍说明。
+     */
+    fun composerPermissionMode(mode: String): String = catalog.say("composerPermissionMode", mapOf("mode" to mode))
+
+    /**
+     * 「添加附件」
+     *
+     * 输入栏左边「+」按钮的无障碍说明。
+     */
+    fun composerAttach(): String = catalog.say("composerAttach")
+
+    /**
+     * 「移除」
+     *
+     * 待发附件右上角的叉的无障碍说明。
+     */
+    fun composerRemove(): String = catalog.say("composerRemove")
+
+    /**
+     * 「复制失败 · {name}」
+     *
+     * 待发文件没能复制进 Linux 环境时的名字。
+     */
+    fun composerUploadFailed(name: String): String = catalog.say("composerUploadFailed", mapOf("name" to name))
+
+    /**
+     * 「正在复制 · {name}」
+     *
+     * 待发文件正在复制进 Linux 环境时的名字。
+     */
+    fun composerUploading(name: String): String = catalog.say("composerUploading", mapOf("name" to name))
+
+    /**
+     * 「图片附件」
+     *
+     * 待发图片缩略图的无障碍说明。
+     */
+    fun composerImageAttachment(): String = catalog.say("composerImageAttachment")
+
+    /**
+     * 「Claude 正在工作，可以接着发」
+     *
+     * 输入框空着、这一轮还在进行时的占位提示。
+     */
+    fun composerHintBusy(): String = catalog.say("composerHintBusy")
+
+    /**
+     * 「交给 Claude 去完成」
+     *
+     * 输入框空着时的占位提示。
+     */
+    fun composerHintIdle(): String = catalog.say("composerHintIdle")
+
+    /**
+     * 「正在识别…」
+     *
+     * 语音输入：松开后正在转文字。
+     */
+    fun composerRecognizing(): String = catalog.say("composerRecognizing")
+
+    /**
+     * 「正在听…」
+     *
+     * 语音输入：正在录音。
+     */
+    fun composerListening(): String = catalog.say("composerListening")
+
+    /**
+     * 「图片」
+     *
+     * 附件菜单：选图片。
+     */
+    fun composerMenuImages(): String = catalog.say("composerMenuImages")
+
+    /**
+     * 「文件」
+     *
+     * 附件菜单：选文件。
+     */
+    fun composerMenuFiles(): String = catalog.say("composerMenuFiles")
+
+    /**
+     * 「文件夹」
+     *
+     * 附件菜单：引用文件夹。
+     */
+    fun composerMenuFolder(): String = catalog.say("composerMenuFolder")
+
+    /**
+     * 「输入路径」
+     *
+     * 附件菜单：手动输入要引用的路径。
+     */
+    fun composerMenuEnterPath(): String = catalog.say("composerMenuEnterPath")
+
+    /**
+     * 「常用指令」
+     *
+     * 附件菜单：打开常用指令；也是常用指令面板的标题。
+     */
+    fun composerMenuPrompts(): String = catalog.say("composerMenuPrompts")
+
+    /**
+     * 「松开了，正在识别」
+     *
+     * 按住说话：已松手，正在转文字。
+     */
+    fun composerTalkReleased(): String = catalog.say("composerTalkReleased")
+
+    /**
+     * 「松开取消」
+     *
+     * 按住说话：手指滑进取消区时。
+     */
+    fun composerTalkReleaseCancel(): String = catalog.say("composerTalkReleaseCancel")
+
+    /**
+     * 「松开发送，上滑取消」
+     *
+     * 按住说话时底栏的提示。
+     */
+    fun composerTalkReleaseSend(): String = catalog.say("composerTalkReleaseSend")
+
+    /**
+     * 「按住说话」
+     *
+     * 按住说话按钮的无障碍说明。
+     */
+    fun composerHoldToTalk(): String = catalog.say("composerHoldToTalk")
+
+    /**
+     * 「停止」
+     *
+     * 发送按钮在这一轮进行时变成停止，它的无障碍说明。
+     */
+    fun composerStop(): String = catalog.say("composerStop")
+
+    /**
+     * 「发送」
+     *
+     * 发送按钮的无障碍说明。
+     */
+    fun composerSend(): String = catalog.say("composerSend")
+
+    /**
+     * 「有图片取不回来，没有放进输入框」
+     *
+     * 编辑旧消息时，原来的图片有的取不回来（提示条）。
+     */
+    fun composerImagesNotRestored(): String = catalog.say("composerImagesNotRestored")
+
+    /**
+     * 「等这一轮结束再发」
+     *
+     * 改写旧消息后发送，但这一轮还没结束（提示条）。
+     */
+    fun composerWaitTurnEnd(): String = catalog.say("composerWaitTurnEnd")
+
+    /**
+     * 「重新生成」
+     *
+     * 消息下方的按钮和确认框的按钮：重新生成这一轮的回复。
+     */
+    fun composerRegenerate(): String = catalog.say("composerRegenerate")
+
+    /**
+     * 「删除这一轮」
+     *
+     * 消息下方的按钮：删除这条消息和它的回复。
+     */
+    fun composerDeleteTurn(): String = catalog.say("composerDeleteTurn")
+
+    /**
+     * 「从这里分支到新对话」
+     *
+     * 消息下方的按钮：从这条消息分出一个新对话。
+     */
+    fun composerBranch(): String = catalog.say("composerBranch")
+
+    /**
+     * 「编辑消息」
+     *
+     * 改写旧消息时输入框上方那条的标题。
+     */
+    fun composerEditing(): String = catalog.say("composerEditing")
+
+    /**
+     * 「发送后将替换这条消息及之后的内容」
+     *
+     * 改写旧消息时的说明：后面还有别的轮次。
+     */
+    fun composerEditReplacesLater(): String = catalog.say("composerEditReplacesLater")
+
+    /**
+     * 「发送后将替换这条消息和它的回复」
+     *
+     * 改写旧消息时的说明：这是最后一轮。
+     */
+    fun composerEditReplacesReply(): String = catalog.say("composerEditReplacesReply")
+
+    /**
+     * 「取消编辑」
+     *
+     * 改写旧消息那条右边叉的无障碍说明。
+     */
+    fun composerCancelEdit(): String = catalog.say("composerCancelEdit")
+
+    /**
+     * 「重新生成回复？」
+     *
+     * 重新生成前确认框的标题。
+     */
+    fun composerRegenerateTitle(): String = catalog.say("composerRegenerateTitle")
+
+    /**
+     * 「删除这一轮对话？」
+     *
+     * 删除一轮前确认框的标题。
+     */
+    fun composerDeleteTurnTitle(): String = catalog.say("composerDeleteTurnTitle")
+
+    /**
+     * 「还原代码」
+     *
+     * 删除确认框里选了「只还原代码」时的确认按钮。
+     */
+    fun composerRestoreCode(): String = catalog.say("composerRestoreCode")
+
+    /**
+     * 「删除」
+     *
+     * 确认框的删除按钮。
+     */
+    fun composerDelete(): String = catalog.say("composerDelete")
+
+    /**
+     * 「将删除之后 {count} 轮对话，并从这条消息重新生成。」
+     *
+     * 重新生成确认框的说明：后面还有几轮。
+     */
+    fun composerRegenerateLater(count: Int): String = catalog.say("composerRegenerateLater", mapOf("count" to count))
+
+    /**
+     * 「这一轮的回复将换成新生成的。」
+     *
+     * 重新生成确认框的说明：这是最后一轮。
+     */
+    fun composerRegenerateOnly(): String = catalog.say("composerRegenerateOnly")
+
+    /**
+     * 「这条消息及之后 {count} 轮对话将被删除。」
+     *
+     * 删除确认框的说明：后面还有几轮。
+     */
+    fun composerDeleteLater(count: Int): String = catalog.say("composerDeleteLater", mapOf("count" to count))
+
+    /**
+     * 「这条消息和它的回复将被删除。」
+     *
+     * 删除确认框的说明：这是最后一轮。
+     */
+    fun composerDeleteOnly(): String = catalog.say("composerDeleteOnly")
+
+    /**
+     * 「这条消息之后改过 {count} 个文件（+{insertions} −{deletions}）。」
+     *
+     * 确认框说明的第二行：这条消息之后改过几个文件、加减了几行。
+     */
+    fun composerFilesChangedSince(count: Int, insertions: String, deletions: String): String = catalog.say("composerFilesChangedSince", mapOf("count" to count, "insertions" to insertions, "deletions" to deletions))
+
+    /**
+     * 「同时还原代码」
+     *
+     * 重新生成确认框里的勾选项：把文件也还原到这条消息之前。
+     */
+    fun composerRestoreCodeToo(): String = catalog.say("composerRestoreCodeToo")
+
+    /**
+     * 「删除并还原代码」
+     *
+     * 删除确认框的选项：删对话，文件也还原。
+     */
+    fun composerDeleteAndRestore(): String = catalog.say("composerDeleteAndRestore")
+
+    /**
+     * 「只删除对话」
+     *
+     * 删除确认框的选项：只删对话，文件不动。
+     */
+    fun composerDeleteConversationOnly(): String = catalog.say("composerDeleteConversationOnly")
+
+    /**
+     * 「只还原代码，对话不动」
+     *
+     * 删除确认框的选项：只还原文件。
+     */
+    fun composerRestoreCodeOnly(): String = catalog.say("composerRestoreCodeOnly")
+
+    /**
+     * 「允许这次操作？」
+     *
+     * Claude 请求权限时对话框的标题。
+     */
+    fun composerAllowTitle(): String = catalog.say("composerAllowTitle")
+
+    /**
+     * 「来自子代理：{agent}」
+     *
+     * 权限对话框的说明：这次请求是哪个子代理发的。
+     */
+    fun composerFromSubagent(agent: String): String = catalog.say("composerFromSubagent", mapOf("agent" to agent))
+
+    /**
+     * 「以后不再询问」
+     *
+     * 权限对话框的勾选项：把下面列的规则加进允许清单。
+     */
+    fun composerDontAskAgain(): String = catalog.say("composerDontAskAgain")
+
+    /**
+     * 「拒绝时告诉 Claude 换个做法（可不填）」
+     *
+     * 权限对话框的输入框占位：拒绝时附给 Claude 的话。
+     */
+    fun composerDenyHint(): String = catalog.say("composerDenyHint")
+
+    /**
+     * 「拒绝」
+     *
+     * 权限对话框的拒绝按钮。
+     */
+    fun composerDeny(): String = catalog.say("composerDeny")
+
+    /**
+     * 「拒绝并告诉 Claude」
+     *
+     * 权限对话框填了话时的拒绝按钮。
+     */
+    fun composerDenyAndTell(): String = catalog.say("composerDenyAndTell")
+
+    /**
+     * 「允许」
+     *
+     * 权限对话框的允许按钮。
+     */
+    fun composerAllow(): String = catalog.say("composerAllow")
+
+    /**
+     * 「按这个计划执行？」
+     *
+     * 计划模式里 Claude 交出计划时对话框的标题。
+     */
+    fun composerPlanTitle(): String = catalog.say("composerPlanTitle")
+
+    /**
+     * 「批准，自动接受改动」
+     *
+     * 计划对话框的选项：批准后改文件不再问。
+     */
+    fun composerPlanAcceptEdits(): String = catalog.say("composerPlanAcceptEdits")
+
+    /**
+     * 「批准，改动逐项确认」
+     *
+     * 计划对话框的选项：批准后每处改动都问。
+     */
+    fun composerPlanAskEach(): String = catalog.say("composerPlanAskEach")
+
+    /**
+     * 「不批准：告诉 Claude 要改什么」
+     *
+     * 计划对话框的输入框占位。
+     */
+    fun composerPlanFeedbackHint(): String = catalog.say("composerPlanFeedbackHint")
+
+    /**
+     * 「继续完善」
+     *
+     * 计划对话框的按钮：不批准，把填的意见发给 Claude 接着改计划。
+     */
+    fun composerPlanKeepRefining(): String = catalog.say("composerPlanKeepRefining")
+
+    /**
+     * 「批准」
+     *
+     * 计划对话框的批准按钮。
+     */
+    fun composerApprove(): String = catalog.say("composerApprove")
+
+    /**
+     * 「需要你的选择」
+     *
+     * Claude 一次问多个问题时对话框的标题。
+     */
+    fun composerQuestionTitle(): String = catalog.say("composerQuestionTitle")
+
+    /**
+     * 「先不回答，和 Claude 聊聊这些问题」
+     *
+     * 提问对话框底部的链接：先不选，回到对话里聊。
+     */
+    fun composerQuestionClarify(): String = catalog.say("composerQuestionClarify")
+
+    /**
+     * 「跳过」
+     *
+     * 提问对话框的按钮：不回答。
+     */
+    fun composerSkip(): String = catalog.say("composerSkip")
+
+    /**
+     * 「确定」
+     *
+     * 提问对话框的确定按钮。
+     */
+    fun composerOk(): String = catalog.say("composerOk")
+
+    /**
+     * 「其他」
+     *
+     * 提问对话框里每个问题最后一个选项：自己写答案。
+     */
+    fun composerQuestionOther(): String = catalog.say("composerQuestionOther")
+
+    /**
+     * 「自己写」
+     *
+     * 选了「其他」时输入框的占位。
+     */
+    fun composerQuestionOtherHint(): String = catalog.say("composerQuestionOtherHint")
+
+    /**
+     * 「备注（可不填）」
+     *
+     * 提问对话框里选了选项后附备注的输入框占位。
+     */
+    fun composerQuestionNotesHint(): String = catalog.say("composerQuestionNotesHint")
+
+    /**
+     * 「已经在常用指令里了」
+     *
+     * 长按消息选「收藏」，但同样的内容已经存过（提示条）。
+     */
+    fun composerPromptAlreadySaved(): String = catalog.say("composerPromptAlreadySaved")
+
+    /**
+     * 「已收藏，在输入框左边的“+”里」
+     *
+     * 长按消息选「收藏」存好后的提示条。
+     */
+    fun composerPromptSaved(): String = catalog.say("composerPromptSaved")
+
+    /**
+     * 「删除这条常用指令？」
+     *
+     * 删除常用指令前确认框的标题。
+     */
+    fun composerPromptDeleteTitle(): String = catalog.say("composerPromptDeleteTitle")
+
+    /**
+     * 「“{name}”删除后找不回来。」
+     *
+     * 删除常用指令确认框的说明。
+     */
+    fun composerPromptDeleteSummary(name: String): String = catalog.say("composerPromptDeleteSummary", mapOf("name" to name))
+
+    /**
+     * 「还没有常用指令。点“新建”写一条，或者长按自己发过的消息，选“收藏”。点一条就把它填进输入框，可以改了再发。」
+     *
+     * 常用指令面板没有条目时的说明。「新建」「收藏」是按钮和长按菜单里的字，要和它们一致。
+     */
+    fun composerPromptsEmpty(): String = catalog.say("composerPromptsEmpty")
+
+    /**
+     * 「新建」
+     *
+     * 常用指令面板的按钮：新建一条。
+     */
+    fun composerPromptNew(): String = catalog.say("composerPromptNew")
+
+    /**
+     * 「关闭」
+     *
+     * 对话框的关闭按钮。
+     */
+    fun composerClose(): String = catalog.say("composerClose")
+
+    /**
+     * 「编辑」
+     *
+     * 常用指令每行「更多」菜单：编辑。
+     */
+    fun composerEdit(): String = catalog.say("composerEdit")
+
+    /**
+     * 「上移」
+     *
+     * 常用指令每行「更多」菜单：往上挪一位。
+     */
+    fun composerMoveUp(): String = catalog.say("composerMoveUp")
+
+    /**
+     * 「下移」
+     *
+     * 常用指令每行「更多」菜单：往下挪一位。
+     */
+    fun composerMoveDown(): String = catalog.say("composerMoveDown")
+
+    /**
+     * 「更多操作」
+     *
+     * 常用指令每行右边「更多」按钮的无障碍说明。
+     */
+    fun composerMoreActions(): String = catalog.say("composerMoreActions")
+
+    /**
+     * 「新建常用指令」
+     *
+     * 新建常用指令对话框的标题。
+     */
+    fun composerPromptNewTitle(): String = catalog.say("composerPromptNewTitle")
+
+    /**
+     * 「编辑常用指令」
+     *
+     * 编辑常用指令对话框的标题。
+     */
+    fun composerPromptEditTitle(): String = catalog.say("composerPromptEditTitle")
+
+    /**
+     * 「保存」
+     *
+     * 编辑对话框的保存按钮。
+     */
+    fun composerSave(): String = catalog.say("composerSave")
+
+    /**
+     * 「名字（可不填）」
+     *
+     * 编辑常用指令时名字输入框的标题。
+     */
+    fun composerPromptNameLabel(): String = catalog.say("composerPromptNameLabel")
+
+    /**
+     * 「内容」
+     *
+     * 编辑常用指令时内容输入框的标题。
+     */
+    fun composerPromptTextLabel(): String = catalog.say("composerPromptTextLabel")
+
+    /**
+     * 「分享的文字.txt」
+     *
+     * 分享进来的文字太长时存成附件文件的文件名（输入栏里显示，也是复制进主机的文件名）。
+     */
+    fun composerSharedTextFile(): String = catalog.say("composerSharedTextFile")
+
+    /**
+     * 「截屏-{time}.jpg」
+     *
+     * 放不进图片附件的截屏存成文件时的文件名。
+     */
+    fun composerScreenshotFile(time: String): String = catalog.say("composerScreenshotFile", mapOf("time" to time))
+
+    /**
+     * 「有一张图片读不了，没有加进来」
+     *
+     * 「有些内容没有加进来」里的一条：选的图片读不了。
+     */
+    fun composerImageUnreadable(): String = catalog.say("composerImageUnreadable")
+
+    /**
+     * 「一次最多收 {max} 个文件，另外 {count} 个没有加进来」
+     *
+     * 「有些内容没有加进来」里的一条：一次选的文件太多。
+     */
+    fun composerTooManyFiles(max: Int, count: Int): String = catalog.say("composerTooManyFiles", mapOf("max" to max, "count" to count))
+
+    /**
+     * 「「{name}」没有复制：{reason}」
+     *
+     * 「有些内容没有加进来」里的一条：文件没能复制进对话所在的设备。
+     */
+    fun composerNotCopied(name: String, reason: String): String = catalog.say("composerNotCopied", mapOf("name" to name, "reason" to reason))
+
+    /**
+     * 「用不了这台设备」
+     *
+     * 对话所在的设备现在用不了、又说不出具体原因时的兜底说明。
+     */
+    fun composerDeviceUnavailable(): String = catalog.say("composerDeviceUnavailable")
+
+    /**
+     * 「{problem}。」
+     *
+     * 「有些内容没有加进来」里每条原因后面加句号。
+     */
+    fun composerProblemLine(problem: String): String = catalog.say("composerProblemLine", mapOf("problem" to problem))
+
+    /**
+     * 「有些内容没有加进来」
+     *
+     * 分享、选附件时有东西没收下，说明原因的对话框标题。
+     */
+    fun composerIntakeProblemsTitle(): String = catalog.say("composerIntakeProblemsTitle")
+
+    /**
+     * 「太大的文件复制进 Linux 要多占一份同样大的空间，Claude 也读不完。要让 Claude 处理它，可以在 设置 › Linux 环境 › 共享文件夹 里加上它所在的文件夹，再从附件菜单的「输入路径」引用。」
+     *
+     * 有文件因为太大没收下时，对话框说明的最后一段。设置里的页面名和附件菜单的「输入路径」要和界面上一致。
+     */
+    fun composerTooLargeAdvice(): String = catalog.say("composerTooLargeAdvice")
+
+    /**
+     * 「收到{lead, select, digit { } other {}}{summary}。接着「{title}」，还是开一个新对话？」
+     *
+     * 「放进哪个对话」的说明：收到了什么，接着哪个对话。lead 是 digit 时（summary 以数字开头）中文在数字前空一格，英文不用它。
+     */
+    fun composerIntakeAskTitled(lead: String, summary: String, title: String): String = catalog.say("composerIntakeAskTitled", mapOf("lead" to lead, "summary" to summary, "title" to title))
+
+    /**
+     * 「收到{lead, select, digit { } other {}}{summary}。接着刚才的对话，还是开一个新对话？」
+     *
+     * 「放进哪个对话」的说明：收到了什么；刚才的对话还没有标题。lead 同上。
+     */
+    fun composerIntakeAsk(lead: String, summary: String): String = catalog.say("composerIntakeAsk", mapOf("lead" to lead, "summary" to summary))
+
+    /**
+     * 「放进哪个对话」
+     *
+     * 分享、截屏进来时问放进新对话还是接着刚才的对话，对话框的标题。
+     */
+    fun composerIntakeTitle(): String = catalog.say("composerIntakeTitle")
+
+    /**
+     * 「新对话」
+     *
+     * 「放进哪个对话」的按钮：开一个新对话。
+     */
+    fun composerNewConversation(): String = catalog.say("composerNewConversation")
+
+    /**
+     * 「接着这个对话」
+     *
+     * 「放进哪个对话」的按钮：放进刚才的对话。
+     */
+    fun composerContinueThis(): String = catalog.say("composerContinueThis")
+
+    /**
+     * 「默认」
+     *
+     * 思考强度菜单的第一项：不指定，用默认的。
+     */
+    fun composerEffortDefault(): String = catalog.say("composerEffortDefault")
+
+    /**
+     * 「默认（{level}）」
+     *
+     * 思考强度菜单的第一项，已知默认实际是哪档时。
+     */
+    fun composerEffortDefaultApplied(level: String): String = catalog.say("composerEffortDefaultApplied", mapOf("level" to level))
+
+    /**
+     * 「思考强度：{level}」
+     *
+     * 输入栏思考强度按钮的无障碍说明。
+     */
+    fun composerEffortDescription(level: String): String = catalog.say("composerEffortDescription", mapOf("level" to level))
+
+    /**
+     * 「上下文用量」
+     *
+     * 输入栏上下文用量按钮的无障碍说明，还没有数时。
+     */
+    fun composerContextUsage(): String = catalog.say("composerContextUsage")
+
+    /**
+     * 「上下文用量：{percent}%」
+     *
+     * 输入栏上下文用量按钮的无障碍说明：用了窗口的百分之几。
+     */
+    fun composerContextUsagePercent(percent: Int): String = catalog.say("composerContextUsagePercent", mapOf("percent" to percent))
+
+    /**
+     * 「上下文用量：{tokens} tokens」
+     *
+     * 输入栏上下文用量按钮的无障碍说明：不知道窗口多大时说用了多少 token。
+     */
+    fun composerContextUsageTokens(tokens: String): String = catalog.say("composerContextUsageTokens", mapOf("tokens" to tokens))
+
+    /**
+     * 「用量」
+     *
+     * 用量对话框的标题。
+     */
+    fun composerUsageTitle(): String = catalog.say("composerUsageTitle")
+
+    /**
+     * 「压缩上下文」
+     *
+     * 用量对话框的按钮：让 Claude Code 压缩上下文（/compact）。
+     */
+    fun composerCompact(): String = catalog.say("composerCompact")
+
+    /**
+     * 「本对话累计」
+     *
+     * 用量对话框的一节：本对话累计用了多少。
+     */
+    fun composerTotals(): String = catalog.say("composerTotals")
+
+    /**
+     * 「{count} 轮」
+     *
+     * 「本对话累计」一节右边：一共几轮。
+     */
+    fun composerTurnCount(count: Int): String = catalog.say("composerTurnCount", mapOf("count" to count))
+
+    /**
+     * 「输入（未走缓存）」
+     *
+     * 用量对话框的一行：没走提示缓存的输入 token。
+     */
+    fun composerInputUncached(): String = catalog.say("composerInputUncached")
+
+    /**
+     * 「缓存读取」
+     *
+     * 用量对话框的一行：从提示缓存读的 token。
+     */
+    fun composerCacheRead(): String = catalog.say("composerCacheRead")
+
+    /**
+     * 「缓存写入」
+     *
+     * 用量对话框的一行：写进提示缓存的 token。
+     */
+    fun composerCacheWrite(): String = catalog.say("composerCacheWrite")
+
+    /**
+     * 「输出」
+     *
+     * 用量对话框的一行：输出 token。
+     */
+    fun composerOutput(): String = catalog.say("composerOutput")
+
+    /**
+     * 「费用（按 API 标价）」
+     *
+     * 用量对话框的一行：按 API 标价算的费用。
+     */
+    fun composerCost(): String = catalog.say("composerCost")
+
+    /**
+     * 「带 ≈ 的是按 token 数和 API 标价估的：会话记录里没有费用，子代理的用量不在其中。」
+     *
+     * 用量对话框累计一节下的注：费用是估的。
+     */
+    fun composerCostEstimatedNote(): String = catalog.say("composerCostEstimatedNote")
+
+    /**
+     * 「有些轮次用的模型不在价目表里，费用没有计入。」
+     *
+     * 用量对话框累计一节下的注：有的模型不知道价钱。
+     */
+    fun composerCostPartialNote(): String = catalog.say("composerCostPartialNote")
+
+    /**
+     * 「更早的记录没有载入，也没有计入。」
+     *
+     * 用量对话框累计一节下的注：更早的记录没载入。
+     */
+    fun composerSkippedHistoryNote(): String = catalog.say("composerSkippedHistoryNote")
+
+    /**
+     * 「」
+     *
+     * 几句注连成一段时句子之间的分隔：中文不加，英文空一格。
+     */
+    fun composerSentenceGap(): String = catalog.say("composerSentenceGap")
+
+    /**
+     * 「各轮」
+     *
+     * 用量对话框的一节：每轮的明细。
+     */
+    fun composerPerTurn(): String = catalog.say("composerPerTurn")
+
+    /**
+     * 「上下文」
+     *
+     * 用量对话框的一节：上下文窗口用了多少。
+     */
+    fun composerContext(): String = catalog.say("composerContext")
+
+    /**
+     * 「发出第一条消息后显示。」
+     *
+     * 上下文一节的说明：还没有数。
+     */
+    fun composerContextEmpty(): String = catalog.say("composerContextEmpty")
+
+    /**
+     * 「快满了，自动压缩已关闭，请手动压缩，不然很快发不出去。」
+     *
+     * 上下文一节的说明：快满了且关了自动压缩。
+     */
+    fun composerContextFullNoAuto(): String = catalog.say("composerContextFullNoAuto")
+
+    /**
+     * 「自动压缩已关闭（Zeta 或 Claude Code 的设置），快满时手动压缩。」
+     *
+     * 上下文一节的说明：关了自动压缩。
+     */
+    fun composerContextNoAuto(): String = catalog.say("composerContextNoAuto")
+
+    /**
+     * 「快满了，Claude Code 马上会自动压缩；也可以现在手动压缩。」
+     *
+     * 上下文一节的说明：快满了。
+     */
+    fun composerContextFull(): String = catalog.say("composerContextFull")
+
+    /**
+     * 「Claude Code 的估算，下一轮后按实测；快到上限时它会自动压缩。」
+     *
+     * 上下文一节的说明：数是估的。
+     */
+    fun composerContextEstimated(): String = catalog.say("composerContextEstimated")
+
+    /**
+     * 「按上一轮实测；快到上限时 Claude Code 会自动压缩。」
+     *
+     * 上下文一节的说明：按上一轮实测。
+     */
+    fun composerContextMeasured(): String = catalog.say("composerContextMeasured")
+
+    /**
+     * 「自动压缩点：{tokens}。」
+     *
+     * 上下文一节：到多少 token 时自动压缩。
+     */
+    fun composerCompactAt(tokens: String): String = catalog.say("composerCompactAt", mapOf("tokens" to tokens))
+
+    /**
+     * 「自动压缩点：{tokens}（窗口的 {percent}%）。」
+     *
+     * 上下文一节：到多少 token 时自动压缩，占窗口百分之几。
+     */
+    fun composerCompactAtPercent(tokens: String, percent: Int): String = catalog.say("composerCompactAtPercent", mapOf("tokens" to tokens, "percent" to percent))
+
+    /**
+     * 「已压缩 {count} 次。」
+     *
+     * 上下文一节：这个对话压缩过几次。
+     */
+    fun composerCompactions(count: Int): String = catalog.say("composerCompactions", mapOf("count" to count))
+
+    /**
+     * 「思考 {level}」
+     *
+     * 上下文一节最后一行，模型名后面：用的思考强度。
+     */
+    fun composerEffortMeta(level: String): String = catalog.say("composerEffortMeta", mapOf("level" to level))
+
+    /**
+     * 「第 {number} 轮」
+     *
+     * 用量对话框各轮明细的一行标题。
+     */
+    fun composerTurnNumber(number: String): String = catalog.say("composerTurnNumber", mapOf("number" to number))
+
+    /**
+     * 「输入 {input} · 缓存读 {cacheRead} · 缓存写 {cacheWrite} · 输出 {output}」
+     *
+     * 用量对话框各轮明细：这一轮的各类 token。
+     */
+    fun composerTurnTokens(input: String, cacheRead: String, cacheWrite: String, output: String): String = catalog.say("composerTurnTokens", mapOf("input" to input, "cacheRead" to cacheRead, "cacheWrite" to cacheWrite, "output" to output))
+
+    /**
+     * 「已达上限，暂时发不出请求。」
+     *
+     * 订阅额度用完时额度一节最上面的红字。
+     */
+    fun composerQuotaBlocked(): String = catalog.say("composerQuotaBlocked")
+
+    /**
+     * 「已达上限，暂时发不出请求，{reset}。」
+     *
+     * 订阅额度用完、知道什么时候重置时额度一节最上面的红字。
+     */
+    fun composerQuotaBlockedUntil(reset: String): String = catalog.say("composerQuotaBlockedUntil", mapOf("reset" to reset))
+
+    /**
+     * 「额外用量（本月）」
+     *
+     * 额度一节的一行：本月订阅之外的额外用量。
+     */
+    fun composerExtraUsage(): String = catalog.say("composerExtraUsage")
+
+    /**
+     * 「已开启」
+     *
+     * 额外用量一行：开着但不知道用了多少、上限多少时。
+     */
+    fun composerExtraOn(): String = catalog.say("composerExtraOn")
+
+    /**
+     * 「正在向 Claude Code 要额度…」
+     *
+     * 额度一节的说明：第一次取额度。
+     */
+    fun composerQuotaFetching(): String = catalog.say("composerQuotaFetching")
+
+    /**
+     * 「还没有额度数据：发一条消息，或者点刷新。」
+     *
+     * 额度一节的说明：还没有数。
+     */
+    fun composerQuotaNoData(): String = catalog.say("composerQuotaNoData")
+
+    /**
+     * 「这种登录方式（API key、Bedrock、Vertex 等）没有订阅额度。」
+     *
+     * 额度一节的说明：不是订阅账号。
+     */
+    fun composerQuotaUnavailable(): String = catalog.say("composerQuotaUnavailable")
+
+    /**
+     * 「Claude Code 还没拿到这个账号的额度。」
+     *
+     * 额度一节的说明：Claude Code 还没报额度。
+     */
+    fun composerQuotaNotYet(): String = catalog.say("composerQuotaNotYet")
+
+    /**
+     * 「{age}更新。」
+     *
+     * 额度一节的说明：数是多久以前的。
+     */
+    fun composerQuotaUpdated(age: String): String = catalog.say("composerQuotaUpdated", mapOf("age" to age))
+
+    /**
+     * 「{age}更新，正在刷新…」
+     *
+     * 额度一节的说明：数是多久以前的，正在取新的。
+     */
+    fun composerQuotaUpdatedRefreshing(age: String): String = catalog.say("composerQuotaUpdatedRefreshing", mapOf("age" to age))
+
+    /**
+     * 「订阅额度」
+     *
+     * 用量对话框最上面一节的标题：订阅账号的用量额度。
+     */
+    fun composerQuotaTitle(): String = catalog.say("composerQuotaTitle")
+
+    /**
+     * 「这是一个文件夹」
+     *
+     * 引用路径：要的是文件，输入的却是文件夹。
+     */
+    fun composerIsFolder(): String = catalog.say("composerIsFolder")
+
+    /**
+     * 「这是一个文件，不是文件夹」
+     *
+     * 引用文件夹：选的却是文件。
+     */
+    fun composerIsFileNotFolder(): String = catalog.say("composerIsFileNotFolder")
+
+    /**
+     * 「没有这个路径：{path}」
+     *
+     * 引用路径：对话所在设备上没有这个路径。
+     */
+    fun composerPathMissing(path: String): String = catalog.say("composerPathMissing", mapOf("path" to path))
+
+    /**
+     * 「Linux 用户没有权限读取 {path}」
+     *
+     * 引用路径：Linux 用户读不了。
+     */
+    fun composerPathDenied(path: String): String = catalog.say("composerPathDenied", mapOf("path" to path))
+
+    /**
+     * 「查不了：进不去 Linux 环境」
+     *
+     * 引用路径：查不了路径在不在。
+     */
+    fun composerPathUnknown(): String = catalog.say("composerPathUnknown")
+
+    /**
+     * 「目录路径无效」
+     *
+     * 引用文件夹：输入的手机目录路径不对。
+     */
+    fun composerFolderPathInvalid(): String = catalog.say("composerFolderPathInvalid")
+
+    /**
+     * 「只支持内部存储里的文件夹，其他位置请输入路径」
+     *
+     * 引用文件夹：系统选择器选了内部存储以外的地方。
+     */
+    fun composerPickerInternalOnly(): String = catalog.say("composerPickerInternalOnly")
+
+    /**
+     * 「引用文件夹」
+     *
+     * 引用文件夹对话框的标题。
+     */
+    fun composerAttachFolderTitle(): String = catalog.say("composerAttachFolderTitle")
+
+    /**
+     * 「加为共享文件夹并引用」
+     *
+     * 引用文件夹的确认按钮：先把它加为共享文件夹。
+     */
+    fun composerShareAndAttach(): String = catalog.say("composerShareAndAttach")
+
+    /**
+     * 「重启 Claude 并引用」
+     *
+     * 引用路径的确认按钮：对话进程要重启才看得到它。
+     */
+    fun composerRestartAndAttach(): String = catalog.say("composerRestartAndAttach")
+
+    /**
+     * 「引用」
+     *
+     * 引用文件夹、路径对话框的确认按钮。
+     */
+    fun composerAttachRef(): String = catalog.say("composerAttachRef")
+
+    /**
+     * 「无法打开该目录」
+     *
+     * 引用文件夹：列不出这个目录的子文件夹。
+     */
+    fun composerBrowseFailed(): String = catalog.say("composerBrowseFailed")
+
+    /**
+     * 「手机上的文件夹」
+     *
+     * 引用文件夹对话框里路径输入框的标题。
+     */
+    fun composerPhoneFolderLabel(): String = catalog.say("composerPhoneFolderLabel")
+
+    /**
+     * 「用系统文件选择器选择」
+     *
+     * 引用文件夹对话框里的链接：打开系统的文件夹选择器。
+     */
+    fun composerUseSystemPicker(): String = catalog.say("composerUseSystemPicker")
+
+    /**
+     * 「此处没有子文件夹」
+     *
+     * 引用文件夹：这个目录下没有子文件夹。
+     */
+    fun composerNoSubfolders(): String = catalog.say("composerNoSubfolders")
+
+    /**
+     * 「正在查看 Linux 里能不能看到它…」
+     *
+     * 引用文件夹：正在查选中的目录在 Linux 里看不看得到。
+     */
+    fun composerLinuxChecking(): String = catalog.say("composerLinuxChecking")
+
+    /**
+     * 「在 Linux 里是 {path}」
+     *
+     * 引用文件夹：选中的目录在 Linux 里的路径。
+     */
+    fun composerLinuxPathIs(path: String): String = catalog.say("composerLinuxPathIs", mapOf("path" to path))
+
+    /**
+     * 「在 Linux 里是 {path}，但这个对话的 Claude Code 是在加这个共享文件夹之前启动的，{hint}」
+     *
+     * 引用文件夹：目录已共享，但对话进程看不到它。hint 是 composerRestartHintIdle 或 composerRestartHintBusy。
+     */
+    fun composerLinuxPathNeedsRestart(path: String, hint: String): String = catalog.say("composerLinuxPathNeedsRestart", mapOf("path" to path, "hint" to hint))
+
+    /**
+     * 「这个对话的 Claude Code 是在加这个共享文件夹之前启动的，{hint}」
+     *
+     * 引用路径：路径在共享文件夹里，但对话进程看不到它。hint 同上。
+     */
+    fun composerStartedBeforeShare(hint: String): String = catalog.say("composerStartedBeforeShare", mapOf("hint" to hint))
+
+    /**
+     * 「要重启一次才看得到（对话内容不变）」
+     *
+     * 接在「之前启动的，」后面：对话闲着，重启一次就行。
+     */
+    fun composerRestartHintIdle(): String = catalog.say("composerRestartHintIdle")
+
+    /**
+     * 「要等这一轮结束、重启一次才看得到」
+     *
+     * 接在「之前启动的，」后面：这一轮还在进行。
+     */
+    fun composerRestartHintBusy(): String = catalog.say("composerRestartHintBusy")
+
+    /**
+     * 「Linux 里看不到这个文件夹，也不能共享：{reason}」
+     *
+     * 引用文件夹：目录不在共享文件夹里，又不能加。
+     */
+    fun composerNotVisibleCantShare(reason: String): String = catalog.say("composerNotVisibleCantShare", mapOf("reason" to reason))
+
+    /**
+     * 「Linux 里看不到这个文件夹。加为共享文件夹后，Claude 在 {path} 读到它。」
+     *
+     * 引用文件夹：目录要先共享；对话进程还没起来。
+     */
+    fun composerNeedsShare(path: String): String = catalog.say("composerNeedsShare", mapOf("path" to path))
+
+    /**
+     * 「Linux 里看不到这个文件夹。加为共享文件夹后，Claude 在 {path} 读到它；这个对话的 Claude Code 会重启一次（对话内容不变）。」
+     *
+     * 引用文件夹：目录要先共享，对话闲着，会重启一次。
+     */
+    fun composerNeedsShareRestart(path: String): String = catalog.say("composerNeedsShareRestart", mapOf("path" to path))
+
+    /**
+     * 「Linux 里看不到这个文件夹。加为共享文件夹后，Claude 在 {path} 读到它；要等这一轮结束，这个对话的 Claude Code 重启一次才看得到。」
+     *
+     * 引用文件夹：目录要先共享，这一轮还在进行。
+     */
+    fun composerNeedsShareWait(path: String): String = catalog.say("composerNeedsShareWait", mapOf("path" to path))
+
+    /**
+     * 「没有跑成」
+     *
+     * 让核心换成看得到新挂载的那个时出了错、又没有具体原因时的兜底说明。
+     */
+    fun composerNotRun(): String = catalog.say("composerNotRun")
+
+    /**
+     * 「没能让 Claude 看到新的共享文件夹：{reason}」
+     *
+     * 引用文件夹、路径：重启对话进程换核心没成。
+     */
+    fun composerRenewFailed(reason: String): String = catalog.say("composerRenewFailed", mapOf("reason" to reason))
+
+    /**
+     * 「还没有配置 Linux 环境」
+     *
+     * 引用文件夹：手机上还没装 Linux 环境。
+     */
+    fun composerNoLinuxEnv(): String = catalog.say("composerNoLinuxEnv")
+
+    /**
+     * 「已加为共享文件夹，但 Linux 用户读不了它」
+     *
+     * 引用文件夹：加了共享文件夹，Linux 用户读不了。
+     */
+    fun composerSharedButDenied(): String = catalog.say("composerSharedButDenied")
+
+    /**
+     * 「已加为共享文件夹，但查不了它能不能读」
+     *
+     * 引用文件夹：加了共享文件夹，查不了。
+     */
+    fun composerSharedButUnknown(): String = catalog.say("composerSharedButUnknown")
+
+    /**
+     * 「已加为共享文件夹，但没有挂上」
+     *
+     * 引用文件夹：加了共享文件夹，没有挂上。
+     */
+    fun composerSharedButNotMounted(): String = catalog.say("composerSharedButNotMounted")
+
+    /**
+     * 「引用「{device}」上的路径」
+     *
+     * 引用路径对话框的标题：对话在远程设备上。
+     */
+    fun composerAttachPathOnTitle(device: String): String = catalog.say("composerAttachPathOnTitle", mapOf("device" to device))
+
+    /**
+     * 「引用 Linux 路径」
+     *
+     * 引用路径对话框的标题：对话在手机上。
+     */
+    fun composerAttachLinuxPathTitle(): String = catalog.say("composerAttachLinuxPathTitle")
+
+    /**
+     * 「这台设备上一个文件或文件夹的绝对路径，Claude 会直接读到它。」
+     *
+     * 引用路径对话框的说明：远程设备。
+     */
+    fun composerAttachPathRemoteSummary(): String = catalog.say("composerAttachPathRemoteSummary")
+
+    /**
+     * 「Linux 环境里一个文件或文件夹的绝对路径，Claude 会直接读到它。手机上的目录要先加为共享文件夹（{root}/<名字>）。」
+     *
+     * 引用路径对话框的说明：手机上的 Linux 环境。
+     */
+    fun composerAttachPathLocalSummary(root: String): String = catalog.say("composerAttachPathLocalSummary", mapOf("root" to root))
+
+    /**
+     * 「文件夹」
+     *
+     * 引用路径输入框末尾：查到的是文件夹。
+     */
+    fun composerKindFolder(): String = catalog.say("composerKindFolder")
+
+    /**
+     * 「文件」
+     *
+     * 引用路径输入框末尾：查到的是文件。
+     */
+    fun composerKindFile(): String = catalog.say("composerKindFile")
+
+    /**
+     * 「进程还看不到」
+     *
+     * 引用路径输入框末尾：对话进程要重启才看得到。
+     */
+    fun composerKindNotVisible(): String = catalog.say("composerKindNotVisible")
+
+    /**
+     * 「不可用」
+     *
+     * 引用路径输入框末尾：不能引用。
+     */
+    fun composerKindUnavailable(): String = catalog.say("composerKindUnavailable")
+
+    /**
+     * 「正在查…」
+     *
+     * 引用路径输入框末尾：正在查。
+     */
+    fun composerKindChecking(): String = catalog.say("composerKindChecking")
+
+    /**
+     * 「手机上的路径，引用 Linux 里的 {path}」
+     *
+     * 引用路径：输入的是手机上的路径，换成了 Linux 里对应的。
+     */
+    fun composerPhonePathMapped(path: String): String = catalog.say("composerPhonePathMapped", mapOf("path" to path))
+
+    /**
+     * 「路径里不能有双引号或控制字符」
+     *
+     * 引用路径：输入的路径有不许的字符。
+     */
+    fun composerPathBadChars(): String = catalog.say("composerPathBadChars")
+
+    /**
+     * 「要输入以 / 开头的绝对路径」
+     *
+     * 引用路径：输入的不是绝对路径。
+     */
+    fun composerPathNotAbsolute(): String = catalog.say("composerPathNotAbsolute")
+
+    /**
+     * 「Linux 里没有这个路径。它是手机内部存储里的目录，要先在设置里把它（或上层目录）加为共享文件夹」
+     *
+     * 引用路径：输入的是手机内部存储里还没共享的目录。
+     */
+    fun composerPathOnPhoneNotShared(): String = catalog.say("composerPathOnPhoneNotShared")
+
+    /**
+     * 「没有听到说话」
+     *
+     * 按住说话松开后没识别出字（提示条）。
+     */
+    fun composerNoSpeechHeard(): String = catalog.say("composerNoSpeechHeard")
+
+    /**
+     * 「按住说话，松开发送」
+     *
+     * 点了一下麦克风按钮而不是按住时的提示条。
+     */
+    fun composerHoldToTalkTip(): String = catalog.say("composerHoldToTalkTip")
+
+    /**
+     * 「后台命令」
+     *
+     * 后台任务的种类：Claude 放到后台跑的命令。
+     */
+    fun tasksKindCommand(): String = catalog.say("tasksKindCommand")
+
+    /**
+     * 「监视器」
+     *
+     * 后台任务的种类：Claude Code 的 Monitor。
+     */
+    fun tasksKindMonitor(): String = catalog.say("tasksKindMonitor")
+
+    /**
+     * 「子代理」
+     *
+     * 后台任务的种类：后台子代理；也是子代理详情页的标题。
+     */
+    fun tasksKindAgent(): String = catalog.say("tasksKindAgent")
+
+    /**
+     * 「子代理 · {type}」
+     *
+     * 后台任务的种类：带类型的子代理，type 是 Claude Code 给的子代理类型名。
+     */
+    fun tasksKindAgentType(type: String): String = catalog.say("tasksKindAgentType", mapOf("type" to type))
+
+    /**
+     * 「后台任务」
+     *
+     * 后台任务的种类：认不出种类、Claude Code 也没给类型名时。
+     */
+    fun tasksKindOther(): String = catalog.say("tasksKindOther")
+
+    /**
+     * 「正在停止」
+     *
+     * 后台任务的状态：已经叫停，还没停下。
+     */
+    fun tasksStopping(): String = catalog.say("tasksStopping")
+
+    /**
+     * 「运行中」
+     *
+     * 后台任务的状态。
+     */
+    fun tasksStateRunning(): String = catalog.say("tasksStateRunning")
+
+    /**
+     * 「已完成」
+     *
+     * 后台任务的状态。
+     */
+    fun tasksStateCompleted(): String = catalog.say("tasksStateCompleted")
+
+    /**
+     * 「失败」
+     *
+     * 后台任务的状态。
+     */
+    fun tasksStateFailed(): String = catalog.say("tasksStateFailed")
+
+    /**
+     * 「已停止」
+     *
+     * 后台任务的状态：被叫停了。
+     */
+    fun tasksStateStopped(): String = catalog.say("tasksStateStopped")
+
+    /**
+     * 「已结束」
+     *
+     * 后台任务的状态：结束了，不知道结局。
+     */
+    fun tasksStateEnded(): String = catalog.say("tasksStateEnded")
+
+    /**
+     * 「正在停止 · 已运行 {time}」
+     *
+     * 后台任务列表里一行的说明（接在种类后面）：正在停止，time 是已经跑了多久。
+     */
+    fun tasksSummaryStopping(time: String): String = catalog.say("tasksSummaryStopping", mapOf("time" to time))
+
+    /**
+     * 「已运行 {time}」
+     *
+     * 后台任务列表里一行的说明（接在种类后面）：在跑，time 是已经跑了多久。
+     */
+    fun tasksSummaryRunning(time: String): String = catalog.say("tasksSummaryRunning", mapOf("time" to time))
+
+    /**
+     * 「{state} · 用时 {time}」
+     *
+     * 后台任务列表里一行的说明（接在种类后面）：结束了，state 是状态，time 是一共跑了多久。
+     */
+    fun tasksSummaryEnded(state: String, time: String): String = catalog.say("tasksSummaryEnded", mapOf("state" to state, "time" to time))
+
+    /**
+     * 「等你确认」
+     *
+     * 后台对话一行、侧栏后台入口的状态：在等用户确认。
+     */
+    fun tasksConvWaiting(): String = catalog.say("tasksConvWaiting")
+
+    /**
+     * 「正在回答」
+     *
+     * 后台对话一行的状态：Claude 在回答。
+     */
+    fun tasksConvAnswering(): String = catalog.say("tasksConvAnswering")
+
+    /**
+     * 「{count} 个后台任务在跑」
+     *
+     * 后台对话一行的状态：对话闲着，但有后台任务在跑。
+     */
+    fun tasksConvTasks(count: Int): String = catalog.say("tasksConvTasks", mapOf("count" to count))
+
+    /**
+     * 「已结束，稍后收起」
+     *
+     * 后台对话一行的状态：都结束了，Zeta 过一会儿会放开这个对话。
+     */
+    fun tasksConvIdle(): String = catalog.say("tasksConvIdle")
+
+    /**
+     * 「定时任务「{name}」 · {state}」
+     *
+     * 定时任务在后台起的对话一行的状态：name 是任务名，state 是上面几种状态之一。
+     */
+    fun tasksConvSchedule(name: String, state: String): String = catalog.say("tasksConvSchedule", mapOf("name" to name, "state" to state))
+
+    /**
+     * 「输出」
+     *
+     * 后台任务详情里输出区的标题（没读到大小时）。
+     */
+    fun tasksOutput(): String = catalog.say("tasksOutput")
+
+    /**
+     * 「输出 · {size}」
+     *
+     * 后台任务详情里输出区的标题：size 是输出多大，比如“3.2 KB”。
+     */
+    fun tasksOutputSize(size: String): String = catalog.say("tasksOutputSize", mapOf("size" to size))
+
+    /**
+     * 「输出 · 共 {size}，只显示最后 8 KB」
+     *
+     * 后台任务详情里输出区的标题：输出太长，只显示了最后一段。
+     */
+    fun tasksOutputTruncated(size: String): String = catalog.say("tasksOutputTruncated", mapOf("size" to size))
+
+    /**
+     * 「Claude 在对话里放到后台跑的命令、监视器和子代理。它们跑在对话的 Claude Code 进程里：对话闲下来被 Zeta 收起、或进程结束时，没跑完的一起结束。结束了的留最近 20 个。」
+     *
+     * 后台任务页任务列表下面的说明。
+     */
+    fun tasksListFooter(): String = catalog.say("tasksListFooter")
+
+    /**
+     * 「切到别的对话时还在回答、等确认或有后台任务的对话，以及定时任务在后台起的对话。点一个切过去。」
+     *
+     * 后台任务页「后台对话」一组下面的说明。
+     */
+    fun tasksConversationsFooter(): String = catalog.say("tasksConversationsFooter")
+
+    /**
+     * 「新对话」
+     *
+     * 还没有标题的对话在后台任务页上的叫法。
+     */
+    fun tasksUntitled(): String = catalog.say("tasksUntitled")
+
+    /**
+     * 「后台任务」
+     *
+     * 后台任务页的标题。
+     */
+    fun tasksTitle(): String = catalog.say("tasksTitle")
+
+    /**
+     * 「清除已结束」
+     *
+     * 后台任务页顶栏的按钮：清掉已经结束的任务。
+     */
+    fun tasksClearFinished(): String = catalog.say("tasksClearFinished")
+
+    /**
+     * 「后台对话 · {count}」
+     *
+     * 后台任务页「后台对话」一组的标题，count 是有几个。
+     */
+    fun tasksParkedGroup(count: Int): String = catalog.say("tasksParkedGroup", mapOf("count" to count))
+
+    /**
+     * 「没有在后台运行的对话」
+     *
+     * 后台对话一组是空的时。
+     */
+    fun tasksNoParked(): String = catalog.say("tasksNoParked")
+
+    /**
+     * 「这个对话已经收起」
+     *
+     * 只看一个对话的后台任务、而那个对话已经被 Zeta 收起时。
+     */
+    fun tasksConversationGone(): String = catalog.say("tasksConversationGone")
+
+    /**
+     * 「没有后台任务」
+     *
+     * 没有后台任务时。
+     */
+    fun tasksNone(): String = catalog.say("tasksNone")
+
+    /**
+     * 「Claude 用 run_in_background 跑的命令、Monitor 和后台子代理会列在这里」
+     *
+     * 没有后台任务时的说明。
+     */
+    fun tasksNoneSummary(): String = catalog.say("tasksNoneSummary")
+
+    /**
+     * 「{name}（当前对话）」
+     *
+     * 后台任务页一组任务的标题：当前对话的名字后面注明。
+     */
+    fun tasksCurrentConversation(name: String): String = catalog.say("tasksCurrentConversation", mapOf("name" to name))
+
+    /**
+     * 「这个任务已经不在了」
+     *
+     * 打开的任务已经被清掉、或对话被收起时。
+     */
+    fun tasksGone(): String = catalog.say("tasksGone")
+
+    /**
+     * 「已运行」
+     *
+     * 任务详情里一行的标题，值是跑了多久。
+     */
+    fun tasksElapsedRunning(): String = catalog.say("tasksElapsedRunning")
+
+    /**
+     * 「用时」
+     *
+     * 任务详情里一行的标题（任务已结束），值是一共跑了多久。
+     */
+    fun tasksElapsedTook(): String = catalog.say("tasksElapsedTook")
+
+    /**
+     * 「停止这个任务？」
+     *
+     * 停止任务的确认框标题。
+     */
+    fun tasksStopConfirm(): String = catalog.say("tasksStopConfirm")
+
+    /**
+     * 「停止」
+     *
+     * 停止任务确认框的按钮。
+     */
+    fun tasksStop(): String = catalog.say("tasksStop")
+
+    /**
+     * 「子代理停下后，Claude 会收到通知并接着处理。」
+     *
+     * 停止子代理的确认框里，接在任务名下面一行的说明。
+     */
+    fun tasksStopAgentNote(): String = catalog.say("tasksStopAgentNote")
+
+    /**
+     * 「状态」
+     *
+     * 任务详情里一行的标题。
+     */
+    fun tasksState(): String = catalog.say("tasksState")
+
+    /**
+     * 「所属对话」
+     *
+     * 任务详情里一行的标题，值是任务所在的对话，点了切过去。
+     */
+    fun tasksConversation(): String = catalog.say("tasksConversation")
+
+    /**
+     * 「正在停止…」
+     *
+     * 任务详情里停止那一行：已经叫停，还没停下。
+     */
+    fun tasksStoppingEllipsis(): String = catalog.say("tasksStoppingEllipsis")
+
+    /**
+     * 「停止这个任务」
+     *
+     * 任务详情里停止那一行。
+     */
+    fun tasksStopThis(): String = catalog.say("tasksStopThis")
+
+    /**
+     * 「子代理类型」
+     *
+     * 子代理详情里一行的标题。
+     */
+    fun tasksAgentType(): String = catalog.say("tasksAgentType")
+
+    /**
+     * 「工具调用」
+     *
+     * 子代理详情里一行的标题，值是调用了几次工具。
+     */
+    fun tasksToolUses(): String = catalog.say("tasksToolUses")
+
+    /**
+     * 「{count} 次」
+     *
+     * 子代理详情里工具调用一行的值。
+     */
+    fun tasksToolUsesCount(count: Int): String = catalog.say("tasksToolUsesCount", mapOf("count" to count))
+
+    /**
+     * 「正在做」
+     *
+     * 子代理详情里一行的标题，下面是它正在做什么。
+     */
+    fun tasksProgress(): String = catalog.say("tasksProgress")
+
+    /**
+     * 「查看它的步骤」
+     *
+     * 子代理详情里的一行，点了看子代理的每一步。
+     */
+    fun tasksViewSteps(): String = catalog.say("tasksViewSteps")
+
+    /**
+     * 「出错」
+     *
+     * 任务详情里出错原因一段的标题。
+     */
+    fun tasksError(): String = catalog.say("tasksError")
+
+    /**
+     * 「交给它的指令」
+     *
+     * 子代理详情里交给子代理的指令一段的标题。
+     */
+    fun tasksAgentPrompt(): String = catalog.say("tasksAgentPrompt")
+
+    /**
+     * 「命令」
+     *
+     * 后台命令详情里命令一段的标题。
+     */
+    fun tasksCommand(): String = catalog.say("tasksCommand")
+
+    /**
+     * 「报告」
+     *
+     * 子代理详情里它交回的报告一段的标题。
+     */
+    fun tasksReport(): String = catalog.say("tasksReport")
+
+    /**
+     * 「结果」
+     *
+     * 后台命令详情里结果一段的标题。
+     */
+    fun tasksResult(): String = catalog.say("tasksResult")
+
+    /**
+     * 「正在读取…」
+     *
+     * 任务输出还没读到时。
+     */
+    fun tasksOutputLoading(): String = catalog.say("tasksOutputLoading")
+
+    /**
+     * 「进程已经结束，读不到输出了」
+     *
+     * Claude Code 进程已经结束、读不到任务输出时。
+     */
+    fun tasksOutputProcessGone(): String = catalog.say("tasksOutputProcessGone")
+
+    /**
+     * 「没读到：{error}」
+     *
+     * 读任务输出出错时，error 是原因原文。
+     */
+    fun tasksOutputFailed(error: String): String = catalog.say("tasksOutputFailed", mapOf("error" to error))
+
+    /**
+     * 「（还没有输出）」
+     *
+     * 任务还没有输出时。
+     */
+    fun tasksOutputEmpty(): String = catalog.say("tasksOutputEmpty")
+
+    /**
+     * 「查看后台任务」
+     *
+     * 聊天页后台任务条的无障碍点击说明。
+     */
+    fun tasksOpen(): String = catalog.say("tasksOpen")
+
+    /**
+     * 「后台任务 · {count} 个在运行」
+     *
+     * 聊天页输入框上方后台任务条的第一行。
+     */
+    fun tasksStripRunning(count: Int): String = catalog.say("tasksStripRunning", mapOf("count" to count))
+
+    /**
+     * 「{count} 个对话」
+     *
+     * 侧栏「后台运行」入口的说明：有几个后台对话。
+     */
+    fun tasksEntryConversations(count: Int): String = catalog.say("tasksEntryConversations", mapOf("count" to count))
+
+    /**
+     * 「{count} 个任务在运行」
+     *
+     * 侧栏「后台运行」入口的说明：有几个后台任务在跑。
+     */
+    fun tasksEntryRunning(count: Int): String = catalog.say("tasksEntryRunning", mapOf("count" to count))
+
+    /**
+     * 「{count} 个任务已结束」
+     *
+     * 侧栏「后台运行」入口的说明：有几个后台任务已经结束。
+     */
+    fun tasksEntryFinished(count: Int): String = catalog.say("tasksEntryFinished", mapOf("count" to count))
+
+    /**
+     * 「查看后台运行的对话和任务」
+     *
+     * 侧栏「后台运行」入口的无障碍点击说明。
+     */
+    fun tasksEntryOpen(): String = catalog.say("tasksEntryOpen")
+
+    /**
+     * 「后台运行」
+     *
+     * 侧栏里「后台运行」入口的名字。
+     */
+    fun tasksEntry(): String = catalog.say("tasksEntry")
+
+    /**
+     * 「等你确认」
+     *
+     * 侧栏会话一行行尾的状态（两三个字）：在等用户确认。
+     */
+    fun sidebarStatusWaiting(): String = catalog.say("sidebarStatusWaiting")
+
+    /**
+     * 「回答中」
+     *
+     * 侧栏会话一行行尾的状态：Claude 在回答。
+     */
+    fun sidebarStatusAnswering(): String = catalog.say("sidebarStatusAnswering")
+
+    /**
+     * 「后台 {count}」
+     *
+     * 侧栏会话一行行尾的状态：闲着但有后台任务在跑，count 是几个。
+     */
+    fun sidebarStatusBackground(count: Int): String = catalog.say("sidebarStatusBackground", mapOf("count" to count))
+
+    /**
+     * 「新回答」
+     *
+     * 侧栏会话一行行尾的状态：有没看过的回答。
+     */
+    fun sidebarStatusUnread(): String = catalog.say("sidebarStatusUnread")
+
+    /**
+     * 「闲置」
+     *
+     * 侧栏会话一行行尾的状态：开着但闲着。
+     */
+    fun sidebarStatusIdle(): String = catalog.say("sidebarStatusIdle")
+
+    /**
+     * 「换设备」
+     *
+     * 侧栏顶部设备胶囊上下拉箭头的无障碍说明。
+     */
+    fun sidebarSwitchDevice(): String = catalog.say("sidebarSwitchDevice")
+
+    /**
+     * 「{target} · 已断开」
+     *
+     * 换设备菜单里远程主机名字下面的小字：target 是地址，「连接」关着时注明已断开。
+     */
+    fun sidebarDeviceDisconnected(target: String): String = catalog.say("sidebarDeviceDisconnected", mapOf("target" to target))
+
+    /**
+     * 「全部设备」
+     *
+     * 侧栏设备胶囊和菜单里列全部设备的那一项。
+     */
+    fun sidebarAllDevices(): String = catalog.say("sidebarAllDevices")
+
+    /**
+     * 「各台设备的对话列在一起」
+     *
+     * 换设备菜单里「全部设备」下面的小字。
+     */
+    fun sidebarAllDevicesSummary(): String = catalog.say("sidebarAllDevicesSummary")
+
+    /**
+     * 「导出失败」
+     *
+     * 导出或分享对话失败时的提示。
+     */
+    fun sidebarExportFailed(): String = catalog.say("sidebarExportFailed")
+
+    /**
+     * 「已导出」
+     *
+     * 导出一个对话成功时的提示。
+     */
+    fun sidebarExported(): String = catalog.say("sidebarExported")
+
+    /**
+     * 「已导出 {saved} 个对话，{failed} 个没导出成」
+     *
+     * 多选导出时有的没导出成：saved 是成了几个，failed 是没成几个。
+     */
+    fun sidebarExportedSome(saved: Int, failed: Int): String = catalog.say("sidebarExportedSome", mapOf("saved" to saved, "failed" to failed))
+
+    /**
+     * 「已导出 {count} 个对话」
+     *
+     * 多选导出都成了时的提示。
+     */
+    fun sidebarExportedMany(count: Int): String = catalog.say("sidebarExportedMany", mapOf("count" to count))
+
+    /**
+     * 「未命名对话」
+     *
+     * 没有标题、也没有开头的话的对话：侧栏一行的标题、导出的文件名。
+     */
+    fun sidebarUntitled(): String = catalog.say("sidebarUntitled")
+
+    /**
+     * 「{count}个对话」
+     *
+     * 几个对话一起导出时文件名里的标题（Zeta-标题-日期.md）。
+     */
+    fun sidebarExportManyName(count: Int): String = catalog.say("sidebarExportManyName", mapOf("count" to count))
+
+    /**
+     * 「对话」
+     *
+     * 导出文件名里的标题去掉不能用的字符后是空的时用的标题。
+     */
+    fun sidebarExportNameFallback(): String = catalog.say("sidebarExportNameFallback")
+
+    /**
+     * 「退出多选」
+     *
+     * 侧栏多选顶栏左边按钮的无障碍说明。
+     */
+    fun sidebarExitSelection(): String = catalog.say("sidebarExitSelection")
+
+    /**
+     * 「已选 {count} 个」
+     *
+     * 侧栏多选顶栏的标题：选中了几个。
+     */
+    fun sidebarSelectedCount(count: Int): String = catalog.say("sidebarSelectedCount", mapOf("count" to count))
+
+    /**
+     * 「选择对话」
+     *
+     * 侧栏多选顶栏的标题：还没选。
+     */
+    fun sidebarSelectConversations(): String = catalog.say("sidebarSelectConversations")
+
+    /**
+     * 「全不选」
+     *
+     * 侧栏多选顶栏右边的按钮：都选着时。
+     */
+    fun sidebarSelectNone(): String = catalog.say("sidebarSelectNone")
+
+    /**
+     * 「全选」
+     *
+     * 侧栏多选顶栏右边的按钮。
+     */
+    fun sidebarSelectAll(): String = catalog.say("sidebarSelectAll")
+
+    /**
+     * 「归档」
+     *
+     * 会话的操作（长按菜单、多选底部的按钮）。
+     */
+    fun sidebarArchive(): String = catalog.say("sidebarArchive")
+
+    /**
+     * 「取消归档」
+     *
+     * 已归档会话的操作（长按菜单、多选底部的按钮）。
+     */
+    fun sidebarUnarchive(): String = catalog.say("sidebarUnarchive")
+
+    /**
+     * 「导出」
+     *
+     * 会话的操作：存成 Markdown 文件（长按菜单、多选底部的按钮）。
+     */
+    fun sidebarExport(): String = catalog.say("sidebarExport")
+
+    /**
+     * 「删除」
+     *
+     * 会话的操作（长按菜单、多选底部的按钮、删除确认框的按钮）。
+     */
+    fun sidebarDelete(): String = catalog.say("sidebarDelete")
+
+    /**
+     * 「重命名」
+     *
+     * 会话长按菜单的一项，也是改标题对话框的标题。
+     */
+    fun sidebarRename(): String = catalog.say("sidebarRename")
+
+    /**
+     * 「对话标题」
+     *
+     * 改标题对话框里输入框的提示。
+     */
+    fun sidebarRenameLabel(): String = catalog.say("sidebarRenameLabel")
+
+    /**
+     * 「确定」
+     *
+     * 改标题对话框的确认按钮。
+     */
+    fun sidebarRenameConfirm(): String = catalog.say("sidebarRenameConfirm")
+
+    /**
+     * 「Linux 环境」
+     *
+     * 「没查到这个对话（…没有响应）」里说的手机本机。
+     */
+    fun sidebarLookupLinux(): String = catalog.say("sidebarLookupLinux")
+
+    /**
+     * 「没查到这个对话（{who}没有响应）」
+     *
+     * 按会话 id 打开对话（比如从通知点进来）查不到时的提示：who 是「Linux 环境」或「「设备名」」。
+     */
+    fun sidebarLookupNoResponse(who: String): String = catalog.say("sidebarLookupNoResponse", mapOf("who" to who))
+
+    /**
+     * 「「{name}」」
+     *
+     * 「没查到这个对话（…没有响应）」里说的远程设备。
+     */
+    fun sidebarLookupDevice(name: String): String = catalog.say("sidebarLookupDevice", mapOf("name" to name))
+
+    /**
+     * 「侧栏里没有这个对话（它没有可显示的内容）」
+     *
+     * 按会话 id 打开对话、而它没有可显示的内容时的提示。
+     */
+    fun sidebarLookupEmpty(): String = catalog.say("sidebarLookupEmpty")
+
+    /**
+     * 「正在搜索…」
+     *
+     * 侧栏搜索还没有结果时。
+     */
+    fun sidebarSearching(): String = catalog.say("sidebarSearching")
+
+    /**
+     * 「没有匹配的对话」
+     *
+     * 侧栏搜索没有结果时。
+     */
+    fun sidebarNoMatches(): String = catalog.say("sidebarNoMatches")
+
+    /**
+     * 「搜索结果」
+     *
+     * 侧栏搜索结果一组的标题。
+     */
+    fun sidebarSearchResults(): String = catalog.say("sidebarSearchResults")
+
+    /**
+     * 「正在搜索对话内容…」
+     *
+     * 侧栏搜索结果末尾：对话内容还在搜。
+     */
+    fun sidebarSearchingContent(): String = catalog.say("sidebarSearchingContent")
+
+    /**
+     * 「结果较多，只列出了一部分，换个更具体的词试试」
+     *
+     * 侧栏搜索结果末尾：结果太多只列了一部分。
+     */
+    fun sidebarSearchPartial(): String = catalog.say("sidebarSearchPartial")
+
+    /**
+     * 「对话内容没搜成，只比对了标题」
+     *
+     * 侧栏搜索结果末尾：搜内容出错了。
+     */
+    fun sidebarSearchFailed(): String = catalog.say("sidebarSearchFailed")
+
+    /**
+     * 「还没有对话」
+     *
+     * 侧栏会话列表是空的时。
+     */
+    fun sidebarEmpty(): String = catalog.say("sidebarEmpty")
+
+    /**
+     * 「置顶」
+     *
+     * 侧栏会话列表一组的标题。
+     */
+    fun sidebarPinned(): String = catalog.say("sidebarPinned")
+
+    /**
+     * 「今天」
+     *
+     * 侧栏会话列表一组的标题。
+     */
+    fun sidebarToday(): String = catalog.say("sidebarToday")
+
+    /**
+     * 「更早」
+     *
+     * 侧栏会话列表一组的标题。
+     */
+    fun sidebarEarlier(): String = catalog.say("sidebarEarlier")
+
+    /**
+     * 「已归档 · {count}」
+     *
+     * 看归档时会话列表那组的标题，也是侧栏底部进归档的按钮的无障碍说明：count 是几个。
+     */
+    fun sidebarArchivedCount(count: Int): String = catalog.say("sidebarArchivedCount", mapOf("count" to count))
+
+    /**
+     * 「新对话」
+     *
+     * 侧栏顶部新建对话按钮的无障碍说明。
+     */
+    fun sidebarNewConversation(): String = catalog.say("sidebarNewConversation")
+
+    /**
+     * 「设置」
+     *
+     * 侧栏底部设置按钮的无障碍说明。
+     */
+    fun sidebarSettings(): String = catalog.say("sidebarSettings")
+
+    /**
+     * 「返回全部对话」
+     *
+     * 看归档时侧栏底部返回按钮的无障碍说明。
+     */
+    fun sidebarBackToAll(): String = catalog.say("sidebarBackToAll")
+
+    /**
+     * 「选中的对话都在进行中，不能删除」
+     *
+     * 多选删除时选中的都在进行中。
+     */
+    fun sidebarAllRunning(): String = catalog.say("sidebarAllRunning")
+
+    /**
+     * 「这个对话正在进行，没有删除」
+     *
+     * 删除确认框开着时对话开始进行了。
+     */
+    fun sidebarRunningNotDeleted(): String = catalog.say("sidebarRunningNotDeleted")
+
+    /**
+     * 「这个对话正在进行」
+     *
+     * 要删除的对话正在进行时提示框的标题。
+     */
+    fun sidebarDeleteBlocked(): String = catalog.say("sidebarDeleteBlocked")
+
+    /**
+     * 「{name} 先停止它，或等它结束，再删除。」
+     *
+     * 要删除的对话正在进行时提示框的说明，name 是对话标题。
+     */
+    fun sidebarDeleteBlockedSummary(name: String): String = catalog.say("sidebarDeleteBlockedSummary", mapOf("name" to name))
+
+    /**
+     * 「知道了」
+     *
+     * 提示框的关闭按钮。
+     */
+    fun sidebarGotIt(): String = catalog.say("sidebarGotIt")
+
+    /**
+     * 「删除这个对话？」
+     *
+     * 删除单个对话的确认框标题。
+     */
+    fun sidebarDeleteConfirm(): String = catalog.say("sidebarDeleteConfirm")
+
+    /**
+     * 「{name} 会话记录文件会被一并删除，无法恢复。」
+     *
+     * 删除单个对话的确认框说明，name 是对话标题。
+     */
+    fun sidebarDeleteSummary(name: String): String = catalog.say("sidebarDeleteSummary", mapOf("name" to name))
+
+    /**
+     * 「删除 {count} 个对话？」
+     *
+     * 多选删除的确认框标题。
+     */
+    fun sidebarDeleteMany(count: Int): String = catalog.say("sidebarDeleteMany", mapOf("count" to count))
+
+    /**
+     * 「会话记录会被删除，Claude Code 为它们存的工具结果、子代理记录等也一并删除，无法恢复。」
+     *
+     * 多选删除的确认框说明。
+     */
+    fun sidebarDeleteManySummary(): String = catalog.say("sidebarDeleteManySummary")
+
+    /**
+     * 「另有 {count} 个正在进行的对话不会删除。」
+     *
+     * 多选删除的确认框说明的第二行：有几个正在进行的不删。
+     */
+    fun sidebarDeleteManySkipped(count: Int): String = catalog.say("sidebarDeleteManySkipped", mapOf("count" to count))
+
+    /**
+     * 「搜索对话」
+     *
+     * 侧栏底部搜索框的提示。
+     */
+    fun sidebarSearch(): String = catalog.say("sidebarSearch")
+
+    /**
+     * 「选择」
+     *
+     * 会话长按菜单的一项：进入多选。
+     */
+    fun sidebarSelect(): String = catalog.say("sidebarSelect")
+
+    /**
+     * 「取消置顶」
+     *
+     * 会话长按菜单的一项。
+     */
+    fun sidebarUnpin(): String = catalog.say("sidebarUnpin")
+
+    /**
+     * 「置顶对话」
+     *
+     * 会话长按菜单的一项。
+     */
+    fun sidebarPin(): String = catalog.say("sidebarPin")
+
+    /**
+     * 「分享」
+     *
+     * 会话长按菜单的一项。
+     */
+    fun sidebarShare(): String = catalog.say("sidebarShare")
+
+    /**
+     * 「已结束」
+     *
+     * 侧栏一行的无障碍状态：会话没有活着的 Claude Code 进程（灰着显示）。
+     */
+    fun sidebarEnded(): String = catalog.say("sidebarEnded")
+
+    /**
+     * 「[草稿]」
+     *
+     * 侧栏一行标题下面、没发出的草稿前面的红字标记，后面接一个空格和草稿开头。
+     */
+    fun sidebarDraft(): String = catalog.say("sidebarDraft")
+
+    /**
+     * 「别处运行中」
+     *
+     * 侧栏一行标题下面的小字（接在工作目录后面）：会话正被别处的 Claude Code 开着。
+     */
+    fun sidebarRunningElsewhere(): String = catalog.say("sidebarRunningElsewhere")
+
+    /**
+     * 「已归档」
+     *
+     * 侧栏搜索结果一行标题下面的小字（接在工作目录后面）：已归档。
+     */
+    fun sidebarArchivedMark(): String = catalog.say("sidebarArchivedMark")
+
+    /**
+     * 「已置顶」
+     *
+     * 侧栏一行行尾图钉的无障碍说明。
+     */
+    fun sidebarPinnedMark(): String = catalog.say("sidebarPinnedMark")
+
+    /**
+     * 「对话太长，没法直接分享，请保存到文件」
+     *
+     * 分享对话时对话太长。
+     */
+    fun sidebarShareTooLong(): String = catalog.say("sidebarShareTooLong")
+
+    /**
+     * 「分享对话」
+     *
+     * 系统分享面板的标题。
+     */
+    fun sidebarShareChooser(): String = catalog.say("sidebarShareChooser")
+
+    /**
+     * 「单次」
+     *
+     * 定时任务编辑页「重复」的选项：只跑一次。
+     */
+    fun scheduleRuleOnce(): String = catalog.say("scheduleRuleOnce")
+
+    /**
+     * 「每天」
+     *
+     * 定时任务编辑页「重复」的选项。
+     */
+    fun scheduleRuleDaily(): String = catalog.say("scheduleRuleDaily")
+
+    /**
+     * 「每周」
+     *
+     * 定时任务编辑页「重复」的选项。
+     */
+    fun scheduleRuleWeekly(): String = catalog.say("scheduleRuleWeekly")
+
+    /**
+     * 「间隔」
+     *
+     * 定时任务编辑页「重复」的选项：每隔几小时。
+     */
+    fun scheduleRuleInterval(): String = catalog.say("scheduleRuleInterval")
+
+    /**
+     * 「正在运行」
+     *
+     * 定时任务一次运行的结果。
+     */
+    fun scheduleOutcomeRunning(): String = catalog.say("scheduleOutcomeRunning")
+
+    /**
+     * 「完成」
+     *
+     * 定时任务一次运行的结果。
+     */
+    fun scheduleOutcomeDone(): String = catalog.say("scheduleOutcomeDone")
+
+    /**
+     * 「没有变化」
+     *
+     * 定时任务一次运行的结果：只在有变化时提醒的任务，Claude 说这次没什么新的；也存成这次运行的摘要。
+     */
+    fun scheduleOutcomeNoChange(): String = catalog.say("scheduleOutcomeNoChange")
+
+    /**
+     * 「没有完成」
+     *
+     * 定时任务一次运行的结果：出错或没跑成。
+     */
+    fun scheduleOutcomeFailed(): String = catalog.say("scheduleOutcomeFailed")
+
+    /**
+     * 「被停止」
+     *
+     * 定时任务一次运行的结果：用户叫停了。
+     */
+    fun scheduleOutcomeStopped(): String = catalog.say("scheduleOutcomeStopped")
+
+    /**
+     * 「中途被关掉」
+     *
+     * 定时任务一次运行的结果：Zeta 在这一轮结束前被关掉了。
+     */
+    fun scheduleOutcomeInterrupted(): String = catalog.say("scheduleOutcomeInterrupted")
+
+    /**
+     * 「写一个名字」
+     *
+     * 定时任务不能保存的原因：没写名字。
+     */
+    fun scheduleNameMissing(): String = catalog.say("scheduleNameMissing")
+
+    /**
+     * 「名字最多 {max} 个字」
+     *
+     * 定时任务不能保存的原因：名字太长。
+     */
+    fun scheduleNameTooLong(max: Int): String = catalog.say("scheduleNameTooLong", mapOf("max" to max))
+
+    /**
+     * 「写上要让 Claude 做什么」
+     *
+     * 定时任务不能保存的原因：没写指令。
+     */
+    fun schedulePromptMissing(): String = catalog.say("schedulePromptMissing")
+
+    /**
+     * 「指令最多 {max} 个字」
+     *
+     * 定时任务不能保存的原因：指令太长。
+     */
+    fun schedulePromptTooLong(max: Int): String = catalog.say("schedulePromptTooLong", mapOf("max" to max))
+
+    /**
+     * 「工作目录要写 Linux 环境里的绝对路径」
+     *
+     * 定时任务不能保存的原因：工作目录不是绝对路径。
+     */
+    fun scheduleCwdNotAbsolute(): String = catalog.say("scheduleCwdNotAbsolute")
+
+    /**
+     * 「这个时间已经过了」
+     *
+     * 单次定时任务不能保存的原因：时间已过。
+     */
+    fun scheduleTimePassed(): String = catalog.say("scheduleTimePassed")
+
+    /**
+     * 「至少选一天」
+     *
+     * 每周的定时任务不能保存的原因：一天都没选。
+     */
+    fun schedulePickADay(): String = catalog.say("schedulePickADay")
+
+    /**
+     * 「间隔要在 1 到 {max} 小时之间」
+     *
+     * 间隔的定时任务不能保存的原因：小时数不对。
+     */
+    fun scheduleIntervalRange(max: Int): String = catalog.say("scheduleIntervalRange", mapOf("max" to max))
+
+    /**
+     * 「仅一次 · {date} {time}」
+     *
+     * 定时任务列表里怎么重复的一句：单次，date 是月日（见 scheduleMonthDay），time 是「08:00」。
+     */
+    fun scheduleDescribeOnce(date: String, time: String): String = catalog.say("scheduleDescribeOnce", mapOf("date" to date, "time" to time))
+
+    /**
+     * 「每天 {time}」
+     *
+     * 定时任务列表里怎么重复的一句：每天，time 是「08:00」。
+     */
+    fun scheduleDescribeDaily(time: String): String = catalog.say("scheduleDescribeDaily", mapOf("time" to time))
+
+    /**
+     * 「{days} {time}」
+     *
+     * 定时任务列表里怎么重复的一句：每周几天，days 是「工作日」「每周一、三」这样的，time 是「08:00」。
+     */
+    fun scheduleDescribeWeekly(days: String, time: String): String = catalog.say("scheduleDescribeWeekly", mapOf("days" to days, "time" to time))
+
+    /**
+     * 「每 {hours} 小时 · 从 {time} 起」
+     *
+     * 定时任务列表里怎么重复的一句：每隔几小时，从 time（「08:00」）起。
+     */
+    fun scheduleDescribeInterval(hours: Int, time: String): String = catalog.say("scheduleDescribeInterval", mapOf("hours" to hours, "time" to time))
+
+    /**
+     * 「每天」
+     *
+     * 每周的定时任务七天都选了时的说法。
+     */
+    fun scheduleEveryDay(): String = catalog.say("scheduleEveryDay")
+
+    /**
+     * 「工作日」
+     *
+     * 每周的定时任务选了周一到周五时的说法。
+     */
+    fun scheduleWorkdays(): String = catalog.say("scheduleWorkdays")
+
+    /**
+     * 「周末」
+     *
+     * 每周的定时任务选了周六周日时的说法。
+     */
+    fun scheduleWeekend(): String = catalog.say("scheduleWeekend")
+
+    /**
+     * 「每周{days}」
+     *
+     * 每周的定时任务选了别的几天时的说法：days 是几个星期几的简称，用 scheduleDaySeparator 连起来（「每周一、三、五」）。
+     */
+    fun scheduleWeeklyDays(days: String): String = catalog.say("scheduleWeeklyDays", mapOf("days" to days))
+
+    /**
+     * 「、」
+     *
+     * 列几个星期几时中间的分隔。
+     */
+    fun scheduleDaySeparator(): String = catalog.say("scheduleDaySeparator")
+
+    /**
+     * 「一」
+     *
+     * 星期一的简称：列在「每周一、三」里，也是星期几按钮上的字。
+     */
+    fun scheduleDayShortMon(): String = catalog.say("scheduleDayShortMon")
+
+    /**
+     * 「二」
+     *
+     * 星期二的简称（同 scheduleDayShortMon）。
+     */
+    fun scheduleDayShortTue(): String = catalog.say("scheduleDayShortTue")
+
+    /**
+     * 「三」
+     *
+     * 星期三的简称（同 scheduleDayShortMon）。
+     */
+    fun scheduleDayShortWed(): String = catalog.say("scheduleDayShortWed")
+
+    /**
+     * 「四」
+     *
+     * 星期四的简称（同 scheduleDayShortMon）。
+     */
+    fun scheduleDayShortThu(): String = catalog.say("scheduleDayShortThu")
+
+    /**
+     * 「五」
+     *
+     * 星期五的简称（同 scheduleDayShortMon）。
+     */
+    fun scheduleDayShortFri(): String = catalog.say("scheduleDayShortFri")
+
+    /**
+     * 「六」
+     *
+     * 星期六的简称（同 scheduleDayShortMon）。
+     */
+    fun scheduleDayShortSat(): String = catalog.say("scheduleDayShortSat")
+
+    /**
+     * 「日」
+     *
+     * 星期日的简称（同 scheduleDayShortMon）。
+     */
+    fun scheduleDayShortSun(): String = catalog.say("scheduleDayShortSun")
+
+    /**
+     * 「周{day}」
+     *
+     * 单独说一个星期几：day 是上面的简称（「周六」）。
+     */
+    fun scheduleWeekdayName(day: String): String = catalog.say("scheduleWeekdayName", mapOf("day" to day))
+
+    /**
+     * 「今天 {time}」
+     *
+     * 说一个时刻：今天的，time 是「08:00」。
+     */
+    fun scheduleToday(time: String): String = catalog.say("scheduleToday", mapOf("time" to time))
+
+    /**
+     * 「明天 {time}」
+     *
+     * 说一个时刻：明天的。
+     */
+    fun scheduleTomorrow(time: String): String = catalog.say("scheduleTomorrow", mapOf("time" to time))
+
+    /**
+     * 「昨天 {time}」
+     *
+     * 说一个时刻：昨天的。
+     */
+    fun scheduleYesterday(time: String): String = catalog.say("scheduleYesterday", mapOf("time" to time))
+
+    /**
+     * 「{month}月{day}日」
+     *
+     * 月日：month 是 1 到 12，day 是几号。
+     */
+    fun scheduleMonthDay(month: String, day: String): String = catalog.say("scheduleMonthDay", mapOf("month" to month, "day" to day))
+
+    /**
+     * 「{year}年{month}月{day}日」
+     *
+     * 不是今年的年月日：month 是 1 到 12，day 是几号。
+     */
+    fun scheduleYearMonthDay(year: String, month: String, day: String): String = catalog.say("scheduleYearMonthDay", mapOf("year" to year, "month" to month, "day" to day))
+
+    /**
+     * 「{date} {weekday} {time}」
+     *
+     * 说一个不在昨天到明天之间的时刻：date 是月日（或年月日），weekday 是「周六」，time 是「08:00」。
+     */
+    fun scheduleDateTime(date: String, weekday: String, time: String): String = catalog.say("scheduleDateTime", mapOf("date" to date, "weekday" to weekday, "time" to time))
+
+    /**
+     * 「已停止」
+     *
+     * 定时任务被叫停、又没有回答时这次运行的摘要（存下来，列表和通知里显示）。
+     */
+    fun scheduleStoppedSummary(): String = catalog.say("scheduleStoppedSummary")
+
+    /**
+     * 「指令没有发出去」
+     *
+     * 定时任务这次运行没跑成的原因（存下来）：指令没发出去。
+     */
+    fun scheduleNotSent(): String = catalog.say("scheduleNotSent")
+
+    /**
+     * 「Zeta 在这次运行结束前被关掉了，结果在对话里」
+     *
+     * 定时任务这次运行中断时的摘要（存下来）。
+     */
+    fun scheduleInterruptedSummary(): String = catalog.say("scheduleInterruptedSummary")
+
+    /**
+     * 「上一次还没跑完，这次跳过了」
+     *
+     * 定时任务到点没跑的原因：上一次还在跑。
+     */
+    fun scheduleSkipStillRunning(): String = catalog.say("scheduleSkipStillRunning")
+
+    /**
+     * 「这台设备现在用不了」
+     *
+     * 定时任务没跑成的原因：那台设备用不了（没有更具体的原因时）。
+     */
+    fun scheduleDeviceUnavailable(): String = catalog.say("scheduleDeviceUnavailable")
+
+    /**
+     * 「这个对话正在进行，这次跳过了」
+     *
+     * 定时任务到点没跑的原因：接着的那个对话正在进行。
+     */
+    fun scheduleSkipBusy(): String = catalog.say("scheduleSkipBusy")
+
+    /**
+     * 「查不到原来的对话（那台设备没有响应）」
+     *
+     * 定时任务没跑成的原因：查原来的对话时设备没响应。
+     */
+    fun scheduleResumeLookupFailed(): String = catalog.say("scheduleResumeLookupFailed")
+
+    /**
+     * 「{name} · 没有运行」
+     *
+     * 定时任务没跑成的通知标题，name 是任务名。
+     */
+    fun scheduleNotRunTitle(name: String): String = catalog.say("scheduleNotRunTitle", mapOf("name" to name))
+
+    /**
+     * 「{name} · 需要你确认」
+     *
+     * 定时任务停下来等确认的通知标题。
+     */
+    fun scheduleNeedsConfirmTitle(name: String): String = catalog.say("scheduleNeedsConfirmTitle", mapOf("name" to name))
+
+    /**
+     * 「{notice}，点这里打开对话处理」
+     *
+     * 定时任务停下来等确认的通知内容：notice 是要确认什么（核心给的说明）。
+     */
+    fun scheduleNeedsConfirmText(notice: String): String = catalog.say("scheduleNeedsConfirmText", mapOf("notice" to notice))
+
+    /**
+     * 「{name} · 没有完成」
+     *
+     * 定时任务跑完但出错、被打断的通知标题。
+     */
+    fun scheduleNotFinishedTitle(name: String): String = catalog.say("scheduleNotFinishedTitle", mapOf("name" to name))
+
+    /**
+     * 「已完成」
+     *
+     * 定时任务跑完的通知内容（没有摘要时）。
+     */
+    fun scheduleDoneText(): String = catalog.say("scheduleDoneText")
+
+    /**
+     * 「定时任务」
+     *
+     * 查不到任务名、对话也没标题时通知里对定时任务的叫法。
+     */
+    fun scheduleFallbackName(): String = catalog.say("scheduleFallbackName")
+
+    /**
+     * 「还没有可用的 Linux 环境」
+     *
+     * 要用手机里的 Linux 环境（Debian）做事、但还没装好或没配置时的错误提示。
+     */
+    fun coreNoLinuxEnv(): String = catalog.say("coreNoLinuxEnv")
+
+    /**
+     * 「Linux 环境没有响应」
+     *
+     * 在手机的 Linux 环境里执行命令没有结果（超时或进不去）时的错误提示。
+     */
+    fun coreLinuxEnvNoResponse(): String = catalog.say("coreLinuxEnvNoResponse")
+
+    /**
+     * 「应用缓存」
+     *
+     * 设置「存储」页能清理的一类：Zeta 自己在 Android 缓存目录里的文件。
+     */
+    fun coreStorageAppCacheTitle(): String = catalog.say("coreStorageAppCacheTitle")
+
+    /**
+     * 「Zeta 在 Android 缓存目录里的临时文件（截图、分享进来的文件副本等）和内置浏览器的网页缓存」
+     *
+     * 存储页清理确认框里「删除：」后面的内容：应用缓存删什么。不带句号，句号由外面那句加。
+     */
+    fun coreStorageAppCacheWhat(): String = catalog.say("coreStorageAppCacheWhat")
+
+    /**
+     * 「十分钟内写过的文件；有对话在进行时，浏览器缓存先不清」
+     *
+     * 存储页清理确认框里「不删：」后面的内容：应用缓存哪些不删。不带句号。
+     */
+    fun coreStorageAppCacheKept(): String = catalog.say("coreStorageAppCacheKept")
+
+    /**
+     * 「图片缓存」
+     *
+     * 存储页能清理的一类：内存里的图片缓存。
+     */
+    fun coreStorageImageMemoryTitle(): String = catalog.say("coreStorageImageMemoryTitle")
+
+    /**
+     * 「聊天里显示过的图片在内存里的缓存」
+     *
+     * 存储页确认框「删除：」后面：图片缓存删什么。不带句号。
+     */
+    fun coreStorageImageMemoryWhat(): String = catalog.say("coreStorageImageMemoryWhat")
+
+    /**
+     * 「无（正在显示的图片之后会重新载入）」
+     *
+     * 存储页确认框「不删：」后面：图片缓存全删，正在显示的会重新载入。不带句号。
+     */
+    fun coreStorageImageMemoryKept(): String = catalog.say("coreStorageImageMemoryKept")
+
+    /**
+     * 「附件」
+     *
+     * 存储页能清理的一类：发给 Claude 的文件在 Linux 环境里的副本。
+     */
+    fun coreStorageZetaFilesTitle(): String = catalog.say("coreStorageZetaFilesTitle")
+
+    /**
+     * 「发给 Claude 的文件在 Linux 环境里的副本」
+     *
+     * 存储页确认框「删除：」后面：附件删什么。不带句号。
+     */
+    fun coreStorageZetaFilesWhat(): String = catalog.say("coreStorageZetaFilesWhat")
+
+    /**
+     * 「一小时内送进来的（可能还在输入框里）、进行中的对话提到的。七天以上的平时也会自动清掉」
+     *
+     * 存储页确认框「不删：」后面：附件哪些不删。不带句号。
+     */
+    fun coreStorageZetaFilesKept(): String = catalog.say("coreStorageZetaFilesKept")
+
+    /**
+     * 「已结束对话的输出」
+     *
+     * 存储页能清理的一类：后台对话里进程已结束的输出记录。
+     */
+    fun coreStorageZetaHostsTitle(): String = catalog.say("coreStorageZetaHostsTitle")
+
+    /**
+     * 「后台对话的输出记录里 Claude Code 进程已经结束的那些（对话内容在会话记录里，不受影响）」
+     *
+     * 存储页确认框「删除：」后面。不带句号。
+     */
+    fun coreStorageZetaHostsWhat(): String = catalog.say("coreStorageZetaHostsWhat")
+
+    /**
+     * 「还在运行、或应用还连着的对话的」
+     *
+     * 存储页确认框「不删：」后面。不带句号。
+     */
+    fun coreStorageZetaHostsKept(): String = catalog.say("coreStorageZetaHostsKept")
+
+    /**
+     * 「已删会话的残留」
+     *
+     * 存储页能清理的一类：会话记录已删的会话留下的文件。
+     */
+    fun coreStorageClaudeResidueTitle(): String = catalog.say("coreStorageClaudeResidueTitle")
+
+    /**
+     * 「会话记录已经不在的会话留下的改动备份（file-history）、会话环境（session-env）、任务清单（tasks、todos）、上传（uploads），以及项目目录里的同名目录」
+     *
+     * 存储页确认框「删除：」后面。括号里是 ~/.claude 下的目录名，不翻译。不带句号。
+     */
+    fun coreStorageClaudeResidueWhat(): String = catalog.say("coreStorageClaudeResidueWhat")
+
+    /**
+     * 「进行中的会话的、十分钟内动过的；会话记录本身一个都不删」
+     *
+     * 存储页确认框「不删：」后面。不带句号。
+     */
+    fun coreStorageClaudeResidueKept(): String = catalog.say("coreStorageClaudeResidueKept")
+
+    /**
+     * 「调试日志」
+     *
+     * 存储页能清理的一类：Claude Code 的调试日志。
+     */
+    fun coreStorageClaudeDebugTitle(): String = catalog.say("coreStorageClaudeDebugTitle")
+
+    /**
+     * 「Claude Code 的调试日志（~/.claude/debug）」
+     *
+     * 存储页确认框「删除：」后面。不带句号。
+     */
+    fun coreStorageClaudeDebugWhat(): String = catalog.say("coreStorageClaudeDebugWhat")
+
+    /**
+     * 「进行中的会话的、十分钟内写过的」
+     *
+     * 存储页确认框「不删：」后面：调试日志哪些不删。不带句号。
+     */
+    fun coreStorageClaudeDebugKept(): String = catalog.say("coreStorageClaudeDebugKept")
+
+    /**
+     * 「Shell 快照」
+     *
+     * 存储页能清理的一类：Claude Code 的 shell 环境快照。
+     */
+    fun coreStorageClaudeSnapshotsTitle(): String = catalog.say("coreStorageClaudeSnapshotsTitle")
+
+    /**
+     * 「Claude Code 执行命令前载入的 shell 环境快照（~/.claude/shell-snapshots），每次启动会重新建」
+     *
+     * 存储页确认框「删除：」后面。不带句号。
+     */
+    fun coreStorageClaudeSnapshotsWhat(): String = catalog.say("coreStorageClaudeSnapshotsWhat")
+
+    /**
+     * 「还在运行的 Claude Code 可能在用的（建于最早那个进程启动之后的）」
+     *
+     * 存储页确认框「不删：」后面。不带句号。
+     */
+    fun coreStorageClaudeSnapshotsKept(): String = catalog.say("coreStorageClaudeSnapshotsKept")
+
+    /**
+     * 「粘贴缓存」
+     *
+     * 存储页能清理的一类：终端里粘贴的大段文字。
+     */
+    fun coreStorageClaudePasteTitle(): String = catalog.say("coreStorageClaudePasteTitle")
+
+    /**
+     * 「终端里粘贴的大段文字（~/.claude/paste-cache），只用来在输入历史（上箭头）里调回；删掉后历史里那几条只剩占位」
+     *
+     * 存储页确认框「删除：」后面。不带句号。
+     */
+    fun coreStorageClaudePasteWhat(): String = catalog.say("coreStorageClaudePasteWhat")
+
+    /**
+     * 「还在运行的 Claude Code 启动以后粘贴的」
+     *
+     * 存储页确认框「不删：」后面。不带句号。
+     */
+    fun coreStorageClaudePasteKept(): String = catalog.say("coreStorageClaudePasteKept")
+
+    /**
+     * 「图片副本」
+     *
+     * 存储页能清理的一类：Claude Code 为对话里的图片存的副本。
+     */
+    fun coreStorageClaudeImageCacheTitle(): String = catalog.say("coreStorageClaudeImageCacheTitle")
+
+    /**
+     * 「Claude Code 为对话里的图片存的副本（~/.claude/image-cache），它自己启动时也会清掉别的会话的」
+     *
+     * 存储页确认框「删除：」后面。不带句号。
+     */
+    fun coreStorageClaudeImageCacheWhat(): String = catalog.say("coreStorageClaudeImageCacheWhat")
+
+    /**
+     * 「进行中的会话的」
+     *
+     * 存储页确认框「不删：」后面：只留进行中的会话的（图片副本、未发出的使用统计共用）。不带句号。
+     */
+    fun coreStorageKeptRunningSessions(): String = catalog.say("coreStorageKeptRunningSessions")
+
+    /**
+     * 「未发出的使用统计」
+     *
+     * 存储页能清理的一类：Claude Code 没发出去的使用统计。
+     */
+    fun coreStorageClaudeTelemetryTitle(): String = catalog.say("coreStorageClaudeTelemetryTitle")
+
+    /**
+     * 「没发送成功、等着重发的使用统计（~/.claude/telemetry）」
+     *
+     * 存储页确认框「删除：」后面。不带句号。
+     */
+    fun coreStorageClaudeTelemetryWhat(): String = catalog.say("coreStorageClaudeTelemetryWhat")
+
+    /**
+     * 「apt 缓存」
+     *
+     * 存储页能清理的一类：Debian 里 apt 的缓存。apt 是程序名，保持小写。
+     */
+    fun coreStorageAptTitle(): String = catalog.say("coreStorageAptTitle")
+
+    /**
+     * 「apt 下载过的软件包和包索引缓存（以 root 执行 apt-get clean），再装软件时会重新下载」
+     *
+     * 存储页确认框「删除：」后面。不带句号。
+     */
+    fun coreStorageAptWhat(): String = catalog.say("coreStorageAptWhat")
+
+    /**
+     * 「正在装软件时整个不清」
+     *
+     * 存储页确认框「不删：」后面。不带句号。
+     */
+    fun coreStorageAptKept(): String = catalog.say("coreStorageAptKept")
+
+    /**
+     * 「npm 缓存」
+     *
+     * 存储页能清理的一类：npm 的缓存。
+     */
+    fun coreStorageNpmTitle(): String = catalog.say("coreStorageNpmTitle")
+
+    /**
+     * 「npm 的下载缓存和日志（~/.npm/_cacache、_logs），和 npm cache clean 删的一样」
+     *
+     * 存储页确认框「删除：」后面。不带句号。
+     */
+    fun coreStorageNpmWhat(): String = catalog.say("coreStorageNpmWhat")
+
+    /**
+     * 「npx 装的包（~/.npm/_npx），MCP 服务可能正从那里运行；npm 刚启动不到十分钟时整个不清」
+     *
+     * 存储页确认框「不删：」后面。不带句号。
+     */
+    fun coreStorageNpmKept(): String = catalog.say("coreStorageNpmKept")
+
+    /**
+     * 「pip 缓存」
+     *
+     * 存储页能清理的一类：pip 的缓存。
+     */
+    fun coreStoragePipTitle(): String = catalog.say("coreStoragePipTitle")
+
+    /**
+     * 「pip 的下载和构建缓存（~/.cache/pip）」
+     *
+     * 存储页确认框「删除：」后面。不带句号。
+     */
+    fun coreStoragePipWhat(): String = catalog.say("coreStoragePipWhat")
+
+    /**
+     * 「pip 正在运行时整个不清」
+     *
+     * 存储页确认框「不删：」后面。不带句号。
+     */
+    fun coreStoragePipKept(): String = catalog.say("coreStoragePipKept")
+
+    /**
+     * 「临时文件」
+     *
+     * 存储页能清理的一类：Debian /tmp 里的临时文件。
+     */
+    fun coreStorageTmpTitle(): String = catalog.say("coreStorageTmpTitle")
+
+    /**
+     * 「Debian 的 /tmp 里属于你的临时文件，包括 Claude Code 的命令输出和草稿目录（/tmp/claude-<uid>）」
+     *
+     * 存储页确认框「删除：」后面。不带句号。
+     */
+    fun coreStorageTmpWhat(): String = catalog.say("coreStorageTmpWhat")
+
+    /**
+     * 「一天内动过的、有进程正打开着或在里面工作的、带套接字的（tmux、ssh 等）、进行中的会话的」
+     *
+     * 存储页确认框「不删：」后面。不带句号。
+     */
+    fun coreStorageTmpKept(): String = catalog.say("coreStorageTmpKept")
+
+    /**
+     * 「项目里的同名目录」
+     *
+     * 存储页确认框「其中：」列的一个来源：项目目录里和已删会话同名的目录。
+     */
+    fun coreStoragePartProjects(): String = catalog.say("coreStoragePartProjects")
+
+    /**
+     * 「Claude Code 的临时目录」
+     *
+     * 存储页确认框「其中：」列的一个来源：/tmp 里 Claude Code 的目录。
+     */
+    fun coreStoragePartClaude(): String = catalog.say("coreStoragePartClaude")
+
+    /**
+     * 「其他」
+     *
+     * 存储页确认框「其中：」列的一个来源：别的。
+     */
+    fun coreStoragePartOther(): String = catalog.say("coreStoragePartOther")
+
+    /**
+     * 「统计中…」
+     *
+     * 存储页一类下面的说明：正在统计占用。
+     */
+    fun coreStorageCounting(): String = catalog.say("coreStorageCounting")
+
+    /**
+     * 「没统计成」
+     *
+     * 存储页一类下面的说明：统计失败。
+     */
+    fun coreStorageCountFailed(): String = catalog.say("coreStorageCountFailed")
+
+    /**
+     * 「{tool} 正在运行，稍后再清」
+     *
+     * 存储页一类下面的说明：相关的工具正在运行，现在不能清。
+     */
+    fun coreStorageBusyLater(tool: String): String = catalog.say("coreStorageBusyLater", mapOf("tool" to tool))
+
+    /**
+     * 「没有可清理的」
+     *
+     * 存储页一类下面的说明：没有能清掉的东西。
+     */
+    fun coreStorageNothing(): String = catalog.say("coreStorageNothing")
+
+    /**
+     * 「可清理 {size}」
+     *
+     * 存储页一类下面的说明：能清掉多少（不分项的一类）。
+     */
+    fun coreStorageFreeable(size: String): String = catalog.say("coreStorageFreeable", mapOf("size" to size))
+
+    /**
+     * 「可清理 {size}（{count} 项）」
+     *
+     * 存储页一类下面的说明：能清掉多少、几项。
+     */
+    fun coreStorageFreeableItems(size: String, count: Int): String = catalog.say("coreStorageFreeableItems", mapOf("size" to size, "count" to count))
+
+    /**
+     * 「删除：{what}。」
+     *
+     * 存储页清理确认框的第一行：删什么。
+     */
+    fun coreStorageConfirmDelete(what: String): String = catalog.say("coreStorageConfirmDelete", mapOf("what" to what))
+
+    /**
+     * 「能腾出约 {size}。」
+     *
+     * 存储页清理确认框的第二行：能腾出多少（不分项的一类）。
+     */
+    fun coreStorageConfirmFree(size: String): String = catalog.say("coreStorageConfirmFree", mapOf("size" to size))
+
+    /**
+     * 「能腾出约 {size}（{count} 项）。」
+     *
+     * 存储页清理确认框的第二行：能腾出多少、几项。
+     */
+    fun coreStorageConfirmFreeItems(size: String, count: Int): String = catalog.say("coreStorageConfirmFreeItems", mapOf("size" to size, "count" to count))
+
+    /**
+     * 「其中：{parts}。」
+     *
+     * 存储页清理确认框第二行接在后面的一句：按来源的小计。英文开头带一个空格，和前一句隔开。
+     */
+    fun coreStorageConfirmParts(parts: String): String = catalog.say("coreStorageConfirmParts", mapOf("parts" to parts))
+
+    /**
+     * 「，」
+     *
+     * 存储页确认框「其中：」里各来源之间的分隔。
+     */
+    fun coreStorageListSeparator(): String = catalog.say("coreStorageListSeparator")
+
+    /**
+     * 「不删：{kept}。」
+     *
+     * 存储页清理确认框的最后一行：什么不删。
+     */
+    fun coreStorageConfirmKept(kept: String): String = catalog.say("coreStorageConfirmKept", mapOf("kept" to kept))
+
+    /**
+     * 「{tool} 正在运行，这次没有清理{kind}」
+     *
+     * 存储页清理后的提示：相关工具正在运行，这一类没清。
+     */
+    fun coreStorageBusySkipped(tool: String, kind: String): String = catalog.say("coreStorageBusySkipped", mapOf("tool" to tool, "kind" to kind))
+
+    /**
+     * 「没有可清理的{kind}」
+     *
+     * 存储页清理后的提示：这一类没有能清的。
+     */
+    fun coreStorageNothingOf(kind: String): String = catalog.say("coreStorageNothingOf", mapOf("kind" to kind))
+
+    /**
+     * 「已腾出 {size}，{count} 项没删成（核对时不合要求，留着没动）」
+     *
+     * 存储页清理后的提示：清掉了一部分，有几项核对不过没删。
+     */
+    fun coreStorageFreedPartly(size: String, count: Int): String = catalog.say("coreStorageFreedPartly", mapOf("size" to size, "count" to count))
+
+    /**
+     * 「已腾出 {size}」
+     *
+     * 存储页清理后的提示：腾出了多少。
+     */
+    fun coreStorageFreed(size: String): String = catalog.say("coreStorageFreed", mapOf("size" to size))
+
+    /**
+     * 「{days} 天（默认）」
+     *
+     * 存储页「会话记录保留」的值：没设时 Claude Code 默认保留的天数。
+     */
+    fun coreStorageCleanupDaysDefault(days: Int): String = catalog.say("coreStorageCleanupDaysDefault", mapOf("days" to days))
+
+    /**
+     * 「{days} 天」
+     *
+     * 存储页「会话记录保留」的值：设了的天数。
+     */
+    fun coreStorageCleanupDays(days: Int): String = catalog.say("coreStorageCleanupDays", mapOf("days" to days))
+
+    /**
+     * 「没清理成」
+     *
+     * 存储页清理失败、核心没给原因时的提示。
+     */
+    fun coreStorageCleanFailed(): String = catalog.say("coreStorageCleanFailed")
+
+    /**
+     * 「安装或维护」
+     *
+     * 存储页清 apt 缓存时，应用正在装软件或做环境维护：填进「{tool} 正在运行，这次没有清理…」的 tool。
+     */
+    fun coreStorageBusyMaintenance(): String = catalog.say("coreStorageBusyMaintenance")
+
+    /**
+     * 「apt-get clean 没有成功」
+     *
+     * 存储页清 apt 缓存失败、没有输出原因时的提示。
+     */
+    fun coreStorageAptFailed(): String = catalog.say("coreStorageAptFailed")
+
+    /**
+     * 「apt-get clean 没有成功：{reason}」
+     *
+     * 存储页清 apt 缓存失败的提示，带 apt 输出的最后一行（原文）。
+     */
+    fun coreStorageAptFailedReason(reason: String): String = catalog.say("coreStorageAptFailedReason", mapOf("reason" to reason))
+
+    /**
+     * 「运行状态」
+     *
+     * 通知渠道名（系统设置的通知类别里显示）：对话在跑时的常驻通知。
+     */
+    fun coreChannelStatus(): String = catalog.say("coreChannelStatus")
+
+    /**
+     * 「完成与确认提醒」
+     *
+     * 通知渠道名：对话答完、等用户确认或回答时的提醒。
+     */
+    fun coreChannelAlert(): String = catalog.say("coreChannelAlert")
+
+    /**
+     * 「版本更新」
+     *
+     * 通知渠道名：有新版本时的提醒。
+     */
+    fun coreChannelUpdate(): String = catalog.say("coreChannelUpdate")
+
+    /**
+     * 「Claude 正在工作」
+     *
+     * 常驻通知的标题：有对话在跑。
+     */
+    fun coreStatusWorking(): String = catalog.say("coreStatusWorking")
+
+    /**
+     * 「Claude 会话保持中」
+     *
+     * 常驻通知的标题：没有对话在跑，但会话还开着。
+     */
+    fun coreStatusHolding(): String = catalog.say("coreStatusHolding")
+
+    /**
+     * 「{count} 个对话进行中」
+     *
+     * 常驻通知的正文：同时有几个对话在跑。
+     */
+    fun coreStatusRunningCount(count: Int): String = catalog.say("coreStatusRunningCount", mapOf("count" to count))
+
+    /**
+     * 「全部停止」
+     *
+     * 常驻通知上的按钮：停止所有在跑的对话。
+     */
+    fun coreStatusStopAll(): String = catalog.say("coreStatusStopAll")
+
+    /**
+     * 「停止」
+     *
+     * 常驻通知上的按钮：停止在跑的对话。
+     */
+    fun coreStatusStop(): String = catalog.say("coreStatusStop")
+
+    /**
+     * 「截屏」
+     *
+     * 常驻通知上的按钮：截下当前屏幕放进 Zeta 对话的输入框。
+     */
+    fun coreStatusCapture(): String = catalog.say("coreStatusCapture")
+
+    /**
+     * 「你在接管」
+     *
+     * 顶部胶囊、实时通知上的当前步骤：用户正在接管后台屏幕。
+     */
+    fun coreStepYouControl(): String = catalog.say("coreStepYouControl")
+
+    /**
+     * 「已暂停」
+     *
+     * 顶部胶囊、实时通知上的当前步骤：手机操作暂停了。
+     */
+    fun coreStepPaused(): String = catalog.say("coreStepPaused")
+
+    /**
+     * 「正在回答」
+     *
+     * 顶部胶囊、实时通知上的当前步骤：Claude 正在写回答。
+     */
+    fun coreStepAnswering(): String = catalog.say("coreStepAnswering")
+
+    /**
+     * 「正在思考」
+     *
+     * 顶部胶囊、实时通知上的当前步骤：Claude 在想。
+     */
+    fun coreStepThinking(): String = catalog.say("coreStepThinking")
+
+    /**
+     * 「需要你回答」
+     *
+     * 顶部胶囊、实时通知和提醒上的当前步骤：Claude 提了问题或 MCP 服务器要填表。
+     */
+    fun coreStepNeedsAnswer(): String = catalog.say("coreStepNeedsAnswer")
+
+    /**
+     * 「需要你确认」
+     *
+     * 顶部胶囊、实时通知和提醒上的当前步骤：Claude 要用工具，等用户批准。
+     */
+    fun coreStepNeedsApproval(): String = catalog.say("coreStepNeedsApproval")
+
+    /**
+     * 「{step}：{detail}」
+     *
+     * 提醒和实时通知收起时的一行：当前步骤加具体的问题或工具标题。
+     */
+    fun coreStepWithDetail(step: String, detail: String): String = catalog.say("coreStepWithDetail", mapOf("step" to step, "detail" to detail))
+
+    /**
+     * 「允许」
+     *
+     * 提醒通知上的按钮：批准 Claude 这次用工具。
+     */
+    fun coreAlertAllow(): String = catalog.say("coreAlertAllow")
+
+    /**
+     * 「拒绝」
+     *
+     * 提醒通知上的按钮：拒绝 Claude 这次用工具，这一轮停下。
+     */
+    fun coreAlertDeny(): String = catalog.say("coreAlertDeny")
+
+    /**
+     * 「操作手机」
+     *
+     * 电脑经桥接操作手机时，顶部胶囊上的当前步骤（没有更具体的说法时）。
+     */
+    fun coreBridgeOperatingPhone(): String = catalog.say("coreBridgeOperatingPhone")
+
+    /**
+     * 「等待下一步」
+     *
+     * 电脑经桥接操作手机时，两次调用之间胶囊上的当前步骤。
+     */
+    fun coreBridgeWaitingNext(): String = catalog.say("coreBridgeWaitingNext")
+
+    /**
+     * 「电脑在操作」
+     *
+     * 电脑经桥接操作手机时，顶部胶囊的标题（第二行，后面可能接「 · 应用名」）。
+     */
+    fun coreBridgeTitle(): String = catalog.say("coreBridgeTitle")
+
+    /**
+     * 「{title} · {app}」
+     *
+     * 电脑经桥接操作手机时胶囊第二行：标题加后台屏幕上的应用名。
+     */
+    fun coreBridgeTitleWithApp(title: String, app: String): String = catalog.say("coreBridgeTitleWithApp", mapOf("title" to title, "app" to app))
+
+    /**
+     * 「已完成」
+     *
+     * 状态栏小胶囊上的词（只放得下几个字）：这一轮结束了。
+     */
+    fun coreStepShortFinished(): String = catalog.say("coreStepShortFinished")
+
+    /**
+     * 「接管中」
+     *
+     * 状态栏小胶囊上的词：用户在接管后台屏幕。
+     */
+    fun coreStepShortControlling(): String = catalog.say("coreStepShortControlling")
+
+    /**
+     * 「已暂停」
+     *
+     * 状态栏小胶囊上的词：暂停了。
+     */
+    fun coreStepShortPaused(): String = catalog.say("coreStepShortPaused")
+
+    /**
+     * 「待回答」
+     *
+     * 状态栏小胶囊上的词：等用户回答。
+     */
+    fun coreStepShortAsking(): String = catalog.say("coreStepShortAsking")
+
+    /**
+     * 「待确认」
+     *
+     * 状态栏小胶囊上的词：等用户批准。
+     */
+    fun coreStepShortConfirming(): String = catalog.say("coreStepShortConfirming")
+
+    /**
+     * 「处理中」
+     *
+     * 状态栏小胶囊上的词：重试、压缩上下文这类临时状态。
+     */
+    fun coreStepShortStatus(): String = catalog.say("coreStepShortStatus")
+
+    /**
+     * 「回答中」
+     *
+     * 状态栏小胶囊上的词：正在写回答。
+     */
+    fun coreStepShortAnswering(): String = catalog.say("coreStepShortAnswering")
+
+    /**
+     * 「操作中」
+     *
+     * 状态栏小胶囊上的词：在用手机工具。
+     */
+    fun coreStepShortPhone(): String = catalog.say("coreStepShortPhone")
+
+    /**
+     * 「执行中」
+     *
+     * 状态栏小胶囊上的词：在跑工具。
+     */
+    fun coreStepShortTool(): String = catalog.say("coreStepShortTool")
+
+    /**
+     * 「思考中」
+     *
+     * 状态栏小胶囊上的词：在想。
+     */
+    fun coreStepShortThinking(): String = catalog.say("coreStepShortThinking")
+
+    /**
+     * 「另有 {count} 个对话在回答」
+     *
+     * 实时通知标题旁的一句：除了显示的这个，还有几个对话在回答。
+     */
+    fun coreLiveOthers(count: Int): String = catalog.say("coreLiveOthers", mapOf("count" to count))
+
+    /**
+     * 「新对话」
+     *
+     * 还没有标题的对话在通知上的叫法。
+     */
+    fun coreUntitledConversation(): String = catalog.say("coreUntitledConversation")
+
+    /**
+     * 「答完了，后台还有 {count} 个任务在跑」
+     *
+     * 一轮结束时胶囊和提醒上的那句：这一轮答完了，但后台任务（子代理、后台命令）还在跑。
+     */
+    fun coreTurnDoneWithTasks(count: Int): String = catalog.say("coreTurnDoneWithTasks", mapOf("count" to count))
+
+    /**
+     * 「{title} · 在后台操作{app}」
+     *
+     * 常驻通知正文里一个在跑的对话：对话标题，加它正在后台屏幕上操作的应用。
+     */
+    fun coreStatusRunningInBackground(title: String, app: String): String = catalog.say("coreStatusRunningInBackground", mapOf("title" to title, "app" to app))
+
+    /**
+     * 「检查设备」
+     *
+     * 安装 Linux 环境的一步：检查设备。
+     */
+    fun coreInstallCheck(): String = catalog.say("coreInstallCheck")
+
+    /**
+     * 「下载 Debian 13」
+     *
+     * 安装 Linux 环境的一步：下载 Debian 13。
+     */
+    fun coreInstallDownload(): String = catalog.say("coreInstallDownload")
+
+    /**
+     * 「解压并配置」
+     *
+     * 安装 Linux 环境的一步：解压并配置。
+     */
+    fun coreInstallExtract(): String = catalog.say("coreInstallExtract")
+
+    /**
+     * 「安装常用工具」
+     *
+     * 安装 Linux 环境的一步：装常用工具。
+     */
+    fun coreInstallTools(): String = catalog.say("coreInstallTools")
+
+    /**
+     * 「创建用户」
+     *
+     * 安装 Linux 环境的一步：建 Linux 用户。
+     */
+    fun coreInstallUser(): String = catalog.say("coreInstallUser")
+
+    /**
+     * 「安装 Claude Code」
+     *
+     * 安装 Linux 环境的一步：装 Claude Code。
+     */
+    fun coreInstallClaude(): String = catalog.say("coreInstallClaude")
+
+    /**
+     * 「安装中断」
+     *
+     * 安装 Linux 环境意外中断、没有更具体原因时的错误。
+     */
+    fun coreInstallInterrupted(): String = catalog.say("coreInstallInterrupted")
+
+    /**
+     * 「暂不支持这台设备的架构：{abi}」
+     *
+     * 安装 Linux 环境：设备的 CPU 架构没有对应的 Debian 包。
+     */
+    fun coreInstallUnsupportedAbi(abi: String): String = catalog.say("coreInstallUnsupportedAbi", mapOf("abi" to abi))
+
+    /**
+     * 「未知」
+     *
+     * 安装 Linux 环境：读不到设备 CPU 架构时填进「暂不支持这台设备的架构」。
+     */
+    fun coreInstallUnknownAbi(): String = catalog.say("coreInstallUnknownAbi")
+
+    /**
+     * 「没有 root 权限，请先在 root 管理器里给 Zeta 授权」
+     *
+     * 安装 Linux 环境：Zeta 没有 root 权限。
+     */
+    fun coreInstallNoRoot(): String = catalog.say("coreInstallNoRoot")
+
+    /**
+     * 「没有找到刚建的用户」
+     *
+     * 安装 Linux 环境：建好用户后读不到它。
+     */
+    fun coreInstallNoUser(): String = catalog.say("coreInstallNoUser")
+
+    /**
+     * 「已取消」
+     *
+     * 操作被用户取消了（安装、导入、导出等）。
+     */
+    fun coreCancelled(): String = catalog.say("coreCancelled")
+
+    /**
+     * 「启动不了安装脚本：{error}」
+     *
+     * 安装 Linux 环境：安装脚本起不来。error 是系统给的原文。
+     */
+    fun coreInstallScriptFailed(error: String): String = catalog.say("coreInstallScriptFailed", mapOf("error" to error))
+
+    /**
+     * 「“{step}”没有成功（退出码 {code}）」
+     *
+     * 安装 Linux 环境的一步失败了，脚本没给原因；后面可能接几行脚本输出。
+     */
+    fun coreInstallStepFailed(step: String, code: Int): String = catalog.say("coreInstallStepFailed", mapOf("step" to step, "code" to code))
+
+    /**
+     * 「启动失败」
+     *
+     * 环境维护、装可选工具等命令起不来、系统没给原因时的错误。
+     */
+    fun coreStartFailed(): String = catalog.say("coreStartFailed")
+
+    /**
+     * 「版本未知」
+     *
+     * Linux 环境页可选工具的版本：工具装了，但不是 Zeta 装的，读不出版本。
+     */
+    fun coreToolVersionUnknown(): String = catalog.say("coreToolVersionUnknown")
+
+    /**
+     * 「修复环境」
+     *
+     * Linux 环境页维护卡片的标题：正在修复软件包、补齐常用工具。
+     */
+    fun coreMaintainRepair(): String = catalog.say("coreMaintainRepair")
+
+    /**
+     * 「更新 Claude Code」
+     *
+     * Linux 环境页维护卡片的标题：正在更新 Claude Code。
+     */
+    fun coreMaintainUpdateClaude(): String = catalog.say("coreMaintainUpdateClaude")
+
+    /**
+     * 「没有成功」
+     *
+     * 操作失败、没有更具体的原因时的说法。
+     */
+    fun coreFailed(): String = catalog.say("coreFailed")
+
+    /**
+     * 「启动 SSH 服务」
+     *
+     * Linux 环境页维护卡片的标题：启动 Debian 里的 SSH 服务（失败时显示）。
+     */
+    fun coreSshStart(): String = catalog.say("coreSshStart")
+
+    /**
+     * 「停止 SSH 服务」
+     *
+     * Linux 环境页维护卡片的标题：停止 SSH 服务（失败时显示）。
+     */
+    fun coreSshStop(): String = catalog.say("coreSshStop")
+
+    /**
+     * 「开机自动启动」
+     *
+     * Linux 环境页维护卡片的标题：设置 SSH 服务开机自启（失败时显示）。
+     */
+    fun coreSshAutostart(): String = catalog.say("coreSshAutostart")
+
+    /**
+     * 「安装 SSH 服务」
+     *
+     * Linux 环境页维护卡片的标题：安装 SSH 服务。
+     */
+    fun coreSshSetup(): String = catalog.say("coreSshSetup")
+
+    /**
+     * 「添加公钥」
+     *
+     * Linux 环境页维护卡片的标题：往 authorized_keys 加一把公钥。
+     */
+    fun coreSshAddKey(): String = catalog.say("coreSshAddKey")
+
+    /**
+     * 「更新 {tool}」
+     *
+     * Linux 环境页维护卡片的标题：更新 Zeta 装的可选工具。
+     */
+    fun coreOptionalUpdate(tool: String): String = catalog.say("coreOptionalUpdate", mapOf("tool" to tool))
+
+    /**
+     * 「安装 {tool}」
+     *
+     * Linux 环境页维护卡片的标题：安装可选工具。
+     */
+    fun coreOptionalInstall(tool: String): String = catalog.say("coreOptionalInstall", mapOf("tool" to tool))
+
+    /**
+     * 「卸载 {tool}」
+     *
+     * Linux 环境页维护卡片的标题：卸载 Zeta 装的可选工具。
+     */
+    fun coreOptionalRemove(tool: String): String = catalog.say("coreOptionalRemove", mapOf("tool" to tool))
+
+    /**
+     * 「退出登录」
+     *
+     * Linux 环境页维护卡片的标题：Claude Code 退出登录。
+     */
+    fun coreMaintainLogout(): String = catalog.say("coreMaintainLogout")
+
+    /**
+     * 「APK 分析」
+     *
+     * 可选工具的名字：apktool、jadx、smali 这套 APK 分析工具。
+     */
+    fun coreOptionalApk(): String = catalog.say("coreOptionalApk")
+
+    /**
+     * 「这一轮没有文字回答。」
+     *
+     * 结果卡片上的正文：这一轮结束了，但 Claude 没写文字回答。
+     */
+    fun coreResultNoAnswer(): String = catalog.say("coreResultNoAnswer")
+
+    /**
+     * 「分享图片」
+     *
+     * 分享图片时系统选择器的标题。
+     */
+    fun coreShareImage(): String = catalog.say("coreShareImage")
+
+    /**
+     * 「无法读取该路径」
+     *
+     * Linux 文件浏览：列不出这个目录、没有更具体的原因。
+     */
+    fun coreFilesCantReadPath(): String = catalog.say("coreFilesCantReadPath")
+
+    /**
+     * 「无法读取该文件」
+     *
+     * Linux 文件浏览：预览不了这个文件、没有更具体的原因。
+     */
+    fun coreFilesCantReadFile(): String = catalog.say("coreFilesCantReadFile")
+
+    /**
+     * 「路径不存在」
+     *
+     * Linux 文件浏览：路径不存在。
+     */
+    fun coreFilesMissing(): String = catalog.say("coreFilesMissing")
+
+    /**
+     * 「不是目录」
+     *
+     * Linux 文件浏览：要列的不是目录。
+     */
+    fun coreFilesNotDir(): String = catalog.say("coreFilesNotDir")
+
+    /**
+     * 「不是普通文件」
+     *
+     * Linux 文件浏览：要预览的不是普通文件。
+     */
+    fun coreFilesNotFile(): String = catalog.say("coreFilesNotFile")
+
+    /**
+     * 「没有权限读取（Linux 用户看不了这里）」
+     *
+     * Linux 文件浏览：Linux 用户没有权限读这里。
+     */
+    fun coreFilesDeniedUser(): String = catalog.say("coreFilesDeniedUser")
+
+    /**
+     * 「导入中断」
+     *
+     * 往 Linux 环境导入文件时意外中断、没有更具体的原因。
+     */
+    fun coreFilesImportInterrupted(): String = catalog.say("coreFilesImportInterrupted")
+
+    /**
+     * 「“{name}”没有导入：{problem}」
+     *
+     * 往 Linux 环境导入文件：这个文件失败了，后面是原因。
+     */
+    fun coreFilesImportFailed(name: String, problem: String): String = catalog.say("coreFilesImportFailed", mapOf("name" to name, "problem" to problem))
+
+    /**
+     * 「已取消，已导入 {count} 个文件」
+     *
+     * 往 Linux 环境导入文件：用户取消了，取消前已经导进去几个。
+     */
+    fun coreFilesCancelledImported(count: Int): String = catalog.say("coreFilesCancelledImported", mapOf("count" to count))
+
+    /**
+     * 「已导入 {count} 个文件；{failure}」
+     *
+     * 往 Linux 环境导入文件：导了几个后有一个失败；failure 是「“文件名”没有导入：原因」那句。
+     */
+    fun coreFilesImportedThenFailed(count: Int, failure: String): String = catalog.say("coreFilesImportedThenFailed", mapOf("count" to count, "failure" to failure))
+
+    /**
+     * 「已导入 {name}」
+     *
+     * 往 Linux 环境导入文件：导入了一个。
+     */
+    fun coreFilesImportedOne(name: String): String = catalog.say("coreFilesImportedOne", mapOf("name" to name))
+
+    /**
+     * 「已导入 {count} 个文件」
+     *
+     * 往 Linux 环境导入文件：导入了几个。
+     */
+    fun coreFilesImportedCount(count: Int): String = catalog.say("coreFilesImportedCount", mapOf("count" to count))
+
+    /**
+     * 「读取不了这个文件」
+     *
+     * 往 Linux 环境导入文件：读不了用户选的文件。
+     */
+    fun coreFilesCantReadSource(): String = catalog.say("coreFilesCantReadSource")
+
+    /**
+     * 「进不去目录 {dir}」
+     *
+     * 往 Linux 环境导入文件：进不了目标目录。
+     */
+    fun coreFilesCantEnterDir(dir: String): String = catalog.say("coreFilesCantEnterDir", mapOf("dir" to dir))
+
+    /**
+     * 「没有权限写入 {dir}」
+     *
+     * 往 Linux 环境导入文件：目标目录没有写权限。
+     */
+    fun coreFilesNoWriteDir(dir: String): String = catalog.say("coreFilesNoWriteDir", mapOf("dir" to dir))
+
+    /**
+     * 「写入失败，可能是存储空间不足」
+     *
+     * 往 Linux 环境导入文件：写不进去，可能是空间不够。
+     */
+    fun coreFilesWriteFailedSpace(): String = catalog.say("coreFilesWriteFailedSpace")
+
+    /**
+     * 「退出码 {code}」
+     *
+     * 导入、导出文件失败、没有输出原因时只说退出码。
+     */
+    fun coreFilesExitCode(code: Int): String = catalog.say("coreFilesExitCode", mapOf("code" to code))
+
+    /**
+     * 「导出中断」
+     *
+     * 从 Linux 环境导出文件时意外中断、没有更具体的原因。
+     */
+    fun coreFilesExportInterrupted(): String = catalog.say("coreFilesExportInterrupted")
+
+    /**
+     * 「已导出 {name}」
+     *
+     * 从 Linux 环境导出文件：成功了。
+     */
+    fun coreFilesExported(name: String): String = catalog.say("coreFilesExported", mapOf("name" to name))
+
+    /**
+     * 「“{name}”没有导出：{problem}」
+     *
+     * 从 Linux 环境导出文件：失败了，后面是原因。
+     */
+    fun coreFilesExportFailed(name: String, problem: String): String = catalog.say("coreFilesExportFailed", mapOf("name" to name, "problem" to problem))
+
+    /**
+     * 「写不了选好的位置」
+     *
+     * 从 Linux 环境导出文件：系统文件选择器里选的位置写不进去。
+     */
+    fun coreFilesCantWriteDestination(): String = catalog.say("coreFilesCantWriteDestination")
+
+    /**
+     * 「没有权限读取」
+     *
+     * 从 Linux 环境导出文件：Linux 用户没有权限读这个文件。
+     */
+    fun coreFilesDenied(): String = catalog.say("coreFilesDenied")
+
+    /**
+     * 「写入失败：{error}」
+     *
+     * 从 Linux 环境导出文件：写到选好的位置时出错，error 是系统原文。
+     */
+    fun coreFilesWriteFailed(error: String): String = catalog.say("coreFilesWriteFailed", mapOf("error" to error))
+
+    /**
+     * 「未知原因」
+     *
+     * 出错但系统没给原因时填的说法。
+     */
+    fun coreUnknownReason(): String = catalog.say("coreUnknownReason")
+
+    /**
+     * 「读取中断」
+     *
+     * 从 Linux 环境导出文件：读到一半断了，没有退出码。
+     */
+    fun coreFilesReadInterrupted(): String = catalog.say("coreFilesReadInterrupted")
+
+    /**
+     * 「进不了 Linux 环境」
+     *
+     * 在设备上起命令时进程没起来（进不去环境）的原因。 ¦
+     */
+    fun coreCantEnterLinuxEnv(): String = catalog.say("coreCantEnterLinuxEnv")
+
+    /**
+     * 「没有连上」
+     *
+     * 连远程设备没连上、又没有更具体的原因时。 ¦
+     */
+    fun coreNotConnected(): String = catalog.say("coreNotConnected")
+
+    /**
+     * 「连接超时」
+     *
+     * 连远程设备超时。 ¦
+     */
+    fun coreConnectionTimeout(): String = catalog.say("coreConnectionTimeout")
+
+    /**
+     * 「没有做成」
+     *
+     * 一项操作失败、拿不到具体原因时的兜底说法。 ¦
+     */
+    fun coreFailedGeneric(): String = catalog.say("coreFailedGeneric")
+
+    /**
+     * 「退出码 {code}」
+     *
+     * 命令失败、标准错误里什么也没有时的原因，接在冒号后面。
+     */
+    fun coreExitCode(code: String): String = catalog.say("coreExitCode", mapOf("code" to code))
+
+    /**
+     * 「已完成」
+     *
+     * 一轮回答结束、核心没给结束语时的那一句（提醒、结果卡片上显示）。 ¦
+     */
+    fun coreTurnDone(): String = catalog.say("coreTurnDone")
+
+    /**
+     * 「等了太久没有结果」
+     *
+     * 刷新额度等太久放弃时，额度页上的错误。 ¦
+     */
+    fun coreQuotaTimedOut(): String = catalog.say("coreQuotaTimedOut")
+
+    /**
+     * 「没取到最新的额度。」
+     *
+     * 刷新额度失败，没有具体原因时。 ¦
+     */
+    fun coreQuotaFetchFailed(): String = catalog.say("coreQuotaFetchFailed")
+
+    /**
+     * 「没取到最新的额度：{reason}。」
+     *
+     * 刷新额度失败，后面是原因。
+     */
+    fun coreQuotaFetchFailedWhy(reason: String): String = catalog.say("coreQuotaFetchFailedWhy", mapOf("reason" to reason))
+
+    /**
+     * 「这次没取到最新的额度，显示的是 {age}的数」
+     *
+     * Claude Code 这次没取到服务器的数时，额度页上的说明；age 是 coreAge* 那几句（「5 分钟前」）。
+     */
+    fun coreQuotaStale(age: String): String = catalog.say("coreQuotaStale", mapOf("age" to age))
+
+    /**
+     * 「Claude Code 没有按时回答」
+     *
+     * 问 Claude Code 额度时它没按时答。 ¦
+     */
+    fun coreQuotaClaudeNoAnswer(): String = catalog.say("coreQuotaClaudeNoAnswer")
+
+    /**
+     * 「Claude Code 起不来（退出码 {code}）」
+     *
+     * 问额度时 Claude Code 进程退出了。
+     */
+    fun coreQuotaClaudeExited(code: String): String = catalog.say("coreQuotaClaudeExited", mapOf("code" to code))
+
+    /**
+     * 「Claude Code 没有给出额度」
+     *
+     * 问额度时 Claude Code 答了但没有额度。 ¦
+     */
+    fun coreQuotaClaudeNoUsage(): String = catalog.say("coreQuotaClaudeNoUsage")
+
+    /**
+     * 「已重置」
+     *
+     * 额度窗口的重置时间已经过了。 ¦
+     */
+    fun coreQuotaHasReset(): String = catalog.say("coreQuotaHasReset")
+
+    /**
+     * 「{minutes} 分钟后重置」
+     *
+     * 额度窗口一小时内重置。
+     */
+    fun coreQuotaResetInMinutes(minutes: Int): String = catalog.say("coreQuotaResetInMinutes", mapOf("minutes" to minutes))
+
+    /**
+     * 「{hours} 小时后重置」
+     *
+     * 额度窗口整几个小时后重置。
+     */
+    fun coreQuotaResetInHours(hours: Int): String = catalog.say("coreQuotaResetInHours", mapOf("hours" to hours))
+
+    /**
+     * 「{hours} 小时 {minutes} 分钟后重置」
+     *
+     * 额度窗口一天内重置。
+     */
+    fun coreQuotaResetInHoursMinutes(hours: Int, minutes: Int): String = catalog.say("coreQuotaResetInHoursMinutes", mapOf("hours" to hours, "minutes" to minutes))
+
+    /**
+     * 「{time} 重置」
+     *
+     * 额度窗口一天以后重置；time 照 coreQuotaResetTimePattern 写（「周六 01:00」）。
+     */
+    fun coreQuotaResetAt(time: String): String = catalog.say("coreQuotaResetAt", mapOf("time" to time))
+
+    /**
+     * 「{time} 重置（{days} 天后）」
+     *
+     * 额度窗口七天以后才重置。
+     */
+    fun coreQuotaResetAtFar(time: String, days: Int): String = catalog.say("coreQuotaResetAtFar", mapOf("time" to time, "days" to days))
+
+    /**
+     * 「EEE HH:mm」
+     *
+     * 额度重置时间的写法：java.time 的 DateTimeFormatter 模式（星期几和时刻），按界面语言的区域设置出字。不是给人看的句子，只照所在语言的习惯改。 ¦
+     */
+    fun coreQuotaResetTimePattern(): String = catalog.say("coreQuotaResetTimePattern")
+
+    /**
+     * 「刚刚」
+     *
+     * 额度是多久以前取的：不到一分钟。接在句中，英文小写开头。 ¦
+     */
+    fun coreAgeJustNow(): String = catalog.say("coreAgeJustNow")
+
+    /**
+     * 「{minutes} 分钟前」
+     *
+     * 额度是多久以前取的。
+     */
+    fun coreAgeMinutes(minutes: Int): String = catalog.say("coreAgeMinutes", mapOf("minutes" to minutes))
+
+    /**
+     * 「{hours} 小时前」
+     *
+     * 额度是多久以前取的。
+     */
+    fun coreAgeHours(hours: Int): String = catalog.say("coreAgeHours", mapOf("hours" to hours))
+
+    /**
+     * 「{days} 天前」
+     *
+     * 额度是多久以前取的。
+     */
+    fun coreAgeDays(days: Int): String = catalog.say("coreAgeDays", mapOf("days" to days))
+
+    /**
+     * 「核心的应答看不懂」
+     *
+     * 接管时核心答的内容认不出（接在「接管失败：」后面）。 ¦
+     */
+    fun coreHandoffBadReply(): String = catalog.say("coreHandoffBadReply")
+
+    /**
+     * 「对方的 Claude Code 正忙，本轮结束后可以接管。」
+     *
+     * 点「接管」时，占着会话的那个 Claude Code 正在回答。 ¦
+     */
+    fun coreHandoffBusy(): String = catalog.say("coreHandoffBusy")
+
+    /**
+     * 「对方的 Claude Code 没有退出。如需强制结束，请使用右上角菜单中的「结束对话」。」
+     *
+     * 点「接管」后占着会话的那个 Claude Code 没退出；「结束对话」是聊天页右上角菜单里的那一项。 ¦
+     */
+    fun coreHandoffStuck(): String = catalog.say("coreHandoffStuck")
+
+    /**
+     * 「接管失败：{reason}」
+     *
+     * 接管没做成，后面是原因。
+     */
+    fun coreHandoffFailed(reason: String): String = catalog.say("coreHandoffFailed", mapOf("reason" to reason))
+
+    /**
+     * 「Claude Code 没有启动：Linux 环境里进不去工作目录 {cwd}（没有这个目录，或没有权限）。新对话在开始页点工作目录那一行改；默认工作目录在设置里这台设备的页面上改。」
+     *
+     * 手机本机的工作目录进不去时聊天页上的提示。
+     */
+    fun coreCwdNoticeLocal(cwd: String): String = catalog.say("coreCwdNoticeLocal", mapOf("cwd" to cwd))
+
+    /**
+     * 「Claude Code 没有启动：「{host}」上进不去工作目录 {cwd}（没有这个目录，或没有权限）。新对话在开始页点工作目录那一行改；默认工作目录在设置里这台设备的页面上改。」
+     *
+     * 远程设备上的工作目录进不去时聊天页上的提示。
+     */
+    fun coreCwdNoticeRemote(host: String, cwd: String): String = catalog.say("coreCwdNoticeRemote", mapOf("host" to host, "cwd" to cwd))
+
+    /**
+     * 「Linux 环境里没有 {path} 这个目录」
+     *
+     * 设工作目录时，手机本机上没有这个目录。
+     */
+    fun coreCwdMissingLocal(path: String): String = catalog.say("coreCwdMissingLocal", mapOf("path" to path))
+
+    /**
+     * 「「{host}」上没有 {path} 这个目录」
+     *
+     * 设工作目录时，远程设备上没有这个目录。
+     */
+    fun coreCwdMissingRemote(host: String, path: String): String = catalog.say("coreCwdMissingRemote", mapOf("host" to host, "path" to path))
+
+    /**
+     * 「{path} 是文件，不是目录」
+     *
+     * 设工作目录时选的是个文件。
+     */
+    fun coreCwdIsFile(path: String): String = catalog.say("coreCwdIsFile", mapOf("path" to path))
+
+    /**
+     * 「Linux 环境里的 {path} 没有权限进去」
+     *
+     * 设工作目录时，手机本机上这个目录进不去。
+     */
+    fun coreCwdDeniedLocal(path: String): String = catalog.say("coreCwdDeniedLocal", mapOf("path" to path))
+
+    /**
+     * 「「{host}」上的 {path} 没有权限进去」
+     *
+     * 设工作目录时，远程设备上这个目录进不去。
+     */
+    fun coreCwdDeniedRemote(host: String, path: String): String = catalog.say("coreCwdDeniedRemote", mapOf("host" to host, "path" to path))
+
+    /**
+     * 「Zeta 测试版」
+     *
+     * 测试版这个包给人看的名字。 ¦
+     */
+    fun coreVariantDev(): String = catalog.say("coreVariantDev")
+
+    /**
+     * 「Zeta 正式版」
+     *
+     * 正式版这个包给人看的名字。 ¦
+     */
+    fun coreVariantRelease(): String = catalog.say("coreVariantRelease")
+
+    /**
+     * 「测试版 · {title}」
+     *
+     * 测试版的通知标题前面注明，免得和正式版的通知混在一起。
+     */
+    fun coreVariantNotificationTitle(title: String): String = catalog.say("coreVariantNotificationTitle", mapOf("title" to title))
+
+    /**
+     * 「这里还有对话在进行（在回答、等你确认或有后台任务），等它结束再换」
+     *
+     * 账号页：本机还有对话在进行，不能换账号或添加账号。 ¦
+     */
+    fun coreAccountsOwnBusy(): String = catalog.say("coreAccountsOwnBusy")
+
+    /**
+     * 「读不了账号：{error}」
+     *
+     * 账号页：读账号清单失败。
+     */
+    fun coreAccountsReadFailed(error: String): String = catalog.say("coreAccountsReadFailed", mapOf("error" to error))
+
+    /**
+     * 「上一件事还没做完」
+     *
+     * 账号页：上一次切换或检查还在进行。 ¦
+     */
+    fun coreAccountsBusy(): String = catalog.say("coreAccountsBusy")
+
+    /**
+     * 「正在登录，先完成或取消登录」
+     *
+     * 账号页：登录还没完时又点了切换。 ¦
+     */
+    fun coreAccountsLoggingIn(): String = catalog.say("coreAccountsLoggingIn")
+
+    /**
+     * 「正在切换到 {account}」
+     *
+     * 账号页：正在换账号。
+     */
+    fun coreAccountsSwitching(account: String): String = catalog.say("coreAccountsSwitching", mapOf("account" to account))
+
+    /**
+     * 「这个账号已经不在了」
+     *
+     * 账号页：要切换的账号已经被删了。 ¦
+     */
+    fun coreAccountsGone(): String = catalog.say("coreAccountsGone")
+
+    /**
+     * 「没有切换成」
+     *
+     * 账号页：换账号失败，没有具体原因。 ¦
+     */
+    fun coreAccountsSwitchFailed(): String = catalog.say("coreAccountsSwitchFailed")
+
+    /**
+     * 「没有移除：{error}」
+     *
+     * 账号页：移除账号失败。
+     */
+    fun coreAccountsRemoveFailed(error: String): String = catalog.say("coreAccountsRemoveFailed", mapOf("error" to error))
+
+    /**
+     * 「正在检查」
+     *
+     * 账号页：添加账号前正在检查能不能登录。 ¦
+     */
+    fun coreAccountsChecking(): String = catalog.say("coreAccountsChecking")
+
+    /**
+     * 「没能开始登录：{error}」
+     *
+     * 登录页：登录命令没起来。
+     */
+    fun coreAccountsLoginStartFailed(error: String): String = catalog.say("coreAccountsLoginStartFailed", mapOf("error" to error))
+
+    /**
+     * 「登录没有成功」
+     *
+     * 登录页：交了授权码后登录失败，没有具体原因。 ¦
+     */
+    fun coreAccountsLoginFailed(): String = catalog.say("coreAccountsLoginFailed")
+
+    /**
+     * 「授权码不完整：要连中间的 # 和它后面的部分一起复制」
+     *
+     * 登录页：贴进来的授权码缺了 # 后面那一段。 ¦
+     */
+    fun coreAccountsCodeIncomplete(): String = catalog.say("coreAccountsCodeIncomplete")
+
+    /**
+     * 「主机上的 Zeta 服务没有给出授权网址」
+     *
+     * 登录页：开始登录时核心没给授权网址。 ¦
+     */
+    fun coreAccountsNoAuthUrl(): String = catalog.say("coreAccountsNoAuthUrl")
+
+    /**
+     * 「装不上 claude-switch：{error}」
+     *
+     * 账号页：往设备上装 claude-switch 失败。
+     */
+    fun coreAccountsSwitchInstallFailed(error: String): String = catalog.say("coreAccountsSwitchInstallFailed", mapOf("error" to error))
+
+    /**
+     * 「读不懂主机上 Zeta 服务给的账号」
+     *
+     * 账号页：核心给的账号清单认不出。 ¦
+     */
+    fun coreAccountsBadReply(): String = catalog.say("coreAccountsBadReply")
+
+    /**
+     * 「低」
+     *
+     * 思考强度的一档。 ¦
+     */
+    fun coreEffortLow(): String = catalog.say("coreEffortLow")
+
+    /**
+     * 「中」
+     *
+     * 思考强度的一档。 ¦
+     */
+    fun coreEffortMedium(): String = catalog.say("coreEffortMedium")
+
+    /**
+     * 「高」
+     *
+     * 思考强度的一档。 ¦
+     */
+    fun coreEffortHigh(): String = catalog.say("coreEffortHigh")
+
+    /**
+     * 「超高」
+     *
+     * 思考强度的一档。 ¦
+     */
+    fun coreEffortXHigh(): String = catalog.say("coreEffortXHigh")
+
+    /**
+     * 「最高」
+     *
+     * 思考强度的一档。 ¦
+     */
+    fun coreEffortMax(): String = catalog.say("coreEffortMax")
+
+    /**
+     * 「经手机 Debian」
+     *
+     * 远程设备的连法：经手机 Debian 里的 OpenSSH。也接在「已改成」「正在……连接」这类句子里。 ¦
+     */
+    fun coreHostViaDebian(): String = catalog.say("coreHostViaDebian")
+
+    /**
+     * 「Zeta 直连」
+     *
+     * 远程设备的连法：Zeta 用自带的 SSH 直连。 ¦
+     */
+    fun coreHostViaDirect(): String = catalog.say("coreHostViaDirect")
+
+    /**
+     * 「名字太长了」
+     *
+     * 给设备起的名字超过 40 个字。 ¦
+     */
+    fun coreHostNameTooLong(): String = catalog.say("coreHostNameTooLong")
+
+    /**
+     * 「已经有叫「{name}」的设备了」
+     *
+     * 给设备起的名字和别的设备重了。
+     */
+    fun coreHostNameTaken(name: String): String = catalog.say("coreHostNameTaken", mapOf("name" to name))
+
+    /**
+     * 「手机里的 Debian」
+     *
+     * 手机本机在设备清单里的小字：它的 Claude Code 跑在哪。 ¦
+     */
+    fun coreHostLocalSummary(): String = catalog.say("coreHostLocalSummary")
+
+    /**
+     * 「Zeta 不连这台设备，它上面的对话在那边照样跑」
+     *
+     * 「连接」关着的远程设备怎样。 ¦
+     */
+    fun coreHostOffNote(): String = catalog.say("coreHostOffNote")
+
+    /**
+     * 「那台设备上找不到 claude（登录 shell 的 PATH 里和 ~/.local/bin 都没有）」
+     *
+     * 检查远程设备时没找到 claude。 ¦
+     */
+    fun coreHostNoClaude(): String = catalog.say("coreHostNoClaude")
+
+    /**
+     * 「Zeta 读会话记录的程序只能在 arm64、x86-64 的 Linux 上跑，这台是 {system}」
+     *
+     * 检查远程设备时，它的系统跑不了 zeta-helper。
+     */
+    fun coreHostUnsupported(system: String): String = catalog.say("coreHostUnsupported", mapOf("system" to system))
+
+    /**
+     * 「未知的系统」
+     *
+     * 上一句里设备没报系统时。 ¦
+     */
+    fun coreHostUnknownSystem(): String = catalog.say("coreHostUnknownSystem")
+
+    /**
+     * 「地址里不能有空白、引号，也不能以 - 开头」
+     *
+     * 添加远程设备时地址写法不对。 ¦
+     */
+    fun coreHostBadTarget(): String = catalog.say("coreHostBadTarget")
+
+    /**
+     * 「进不了手机里的 Linux 环境」
+     *
+     * 经手机 Debian 检查远程设备时，进不去手机的 Linux 环境。 ¦
+     */
+    fun coreHostPhoneLinuxUnreachable(): String = catalog.say("coreHostPhoneLinuxUnreachable")
+
+    /**
+     * 「地址写成 用户@主机，端口不是 22 的写成 用户@主机:端口」
+     *
+     * 直连的地址写法，接在添加设备的说明后面。 ¦
+     */
+    fun coreHostDirectHint(): String = catalog.say("coreHostDirectHint")
+
+    /**
+     * 「地址写成 用户@主机[:端口]，也可以是手机 Debian 的 ~/.ssh/config 里的别名」
+     *
+     * 经 Debian 连的地址写法，接在添加设备的说明后面。 ¦
+     */
+    fun coreHostDebianHint(): String = catalog.say("coreHostDebianHint")
+
+    /**
+     * 「手机 Debian 没有响应（超时）」
+     *
+     * 读 ~/.ssh/config 里的别名时手机 Debian 没响应。 ¦
+     */
+    fun coreHostDebianTimeout(): String = catalog.say("coreHostDebianTimeout")
+
+    /**
+     * 「进不去手机 Debian（退出码 {code}）」
+     *
+     * 读 ~/.ssh/config 里的别名时进不去手机 Debian。
+     */
+    fun coreHostDebianExit(code: String): String = catalog.say("coreHostDebianExit", mapOf("code" to code))
+
+    /**
+     * 「对方不认手机 Debian 里的 SSH 密钥（Permission denied）」
+     *
+     * 经 Debian 连远程设备时 ssh 报的原因，翻成一句话。 ¦
+     */
+    fun coreSshKeyRejected(): String = catalog.say("coreSshKeyRejected")
+
+    /**
+     * 「找不到这台设备（地址解析失败）」
+     *
+     * 同上：地址解析失败。 ¦
+     */
+    fun coreSshHostNotFound(): String = catalog.say("coreSshHostNotFound")
+
+    /**
+     * 「主机密钥和记下的不一样，先在 Debian 里核对 ~/.ssh/known_hosts」
+     *
+     * 同上：主机密钥变了。 ¦
+     */
+    fun coreSshHostKeyChanged(): String = catalog.say("coreSshHostKeyChanged")
+
+    /**
+     * 「对方拒绝连接（端口上没有 SSH 服务）」
+     *
+     * 同上：对方拒绝连接。 ¦
+     */
+    fun coreSshRefused(): String = catalog.say("coreSshRefused")
+
+    /**
+     * 「网络不通」
+     *
+     * 同上：网络不通。 ¦
+     */
+    fun coreSshUnreachable(): String = catalog.say("coreSshUnreachable")
+
+    /**
+     * 「目录路径无效」
+     *
+     * 添加共享文件夹时路径不对。 ¦
+     */
+    fun coreSharedPathInvalid(): String = catalog.say("coreSharedPathInvalid")
+
+    /**
+     * 「该目录不能共享」
+     *
+     * 添加共享文件夹时选了不许共享的目录。 ¦
+     */
+    fun coreSharedNotAllowed(): String = catalog.say("coreSharedNotAllowed")
+
+    /**
+     * 「该目录已共享」
+     *
+     * 添加共享文件夹时这个目录已经共享过。 ¦
+     */
+    fun coreSharedAlready(): String = catalog.say("coreSharedAlready")
+
+    /**
+     * 「最多配置 {max} 个共享文件夹」
+     *
+     * 共享文件夹已经到上限。
+     */
+    fun coreSharedMax(max: Int): String = catalog.say("coreSharedMax", mapOf("max" to max))
+
+    /**
+     * 「仅限 1–48 个字母、数字、点、下划线或连字符」
+     *
+     * 共享文件夹的挂载名写法不对。 ¦
+     */
+    fun coreSharedNameRule(): String = catalog.say("coreSharedNameRule")
+
+    /**
+     * 「挂载名已被使用」
+     *
+     * 共享文件夹的挂载名重了。 ¦
+     */
+    fun coreSharedNameTaken(): String = catalog.say("coreSharedNameTaken")
+
+    /**
+     * 「默认」
+     *
+     * 模型选择器里的默认模型（还说不出指向哪个时）。 ¦
+     */
+    fun coreModelDefault(): String = catalog.say("coreModelDefault")
+
+    /**
+     * 「默认（{model}）」
+     *
+     * 模型选择器里的默认模型，括号里是它现在指向的模型。
+     */
+    fun coreModelDefaultIs(model: String): String = catalog.say("coreModelDefaultIs", mapOf("model" to model))
+
+    /**
+     * 「Linux 环境没有响应（超时）」
+     *
+     * 在设备上跑 zeta-helper 超时。 ¦
+     */
+    fun coreHelperTimeout(): String = catalog.say("coreHelperTimeout")
+
+    /**
+     * 「zeta-helper 出错（退出码 {code}）」
+     *
+     * zeta-helper 失败、标准错误里什么也没有。
+     */
+    fun coreHelperExit(code: String): String = catalog.say("coreHelperExit", mapOf("code" to code))
+
+    /**
+     * 「{program} 没有这台机器（{machine}）能用的版本」
+     *
+     * 往设备上装随包程序时，没有它那种 CPU 的版本。
+     */
+    fun coreProgramNoBuild(program: String, machine: String): String = catalog.say("coreProgramNoBuild", mapOf("program" to program, "machine" to machine))
+
+    /**
+     * 「装 {program} 没成功：{error}」
+     *
+     * 往设备上装随包程序失败，后面是标准错误。
+     */
+    fun coreProgramInstallFailed(program: String, error: String): String = catalog.say("coreProgramInstallFailed", mapOf("program" to program, "error" to error))
+
+    /**
+     * 「和 zeta-helper serve 的连接已关闭」
+     *
+     * 和核心的连接已经关掉后又发请求。 ¦
+     */
+    fun coreServeClosed(): String = catalog.say("coreServeClosed")
+
+    /**
+     * 「等了 {seconds} 秒，zeta-helper serve 没有应答」
+     *
+     * 请求核心超时。
+     */
+    fun coreServeNoReply(seconds: Int): String = catalog.say("coreServeNoReply", mapOf("seconds" to seconds))
+
+    /**
+     * 「等了 {seconds} 秒，还没连上 zeta-helper serve」
+     *
+     * 等连上核心超时。
+     */
+    fun coreServeNotConnected(seconds: Int): String = catalog.say("coreServeNotConnected", mapOf("seconds" to seconds))
+
+    /**
+     * 「zeta-helper serve 起不来」
+     *
+     * 核心进程起不来，没有具体原因。 ¦
+     */
+    fun coreServeCantStart(): String = catalog.say("coreServeCantStart")
+
+    /**
+     * 「zeta-helper serve 的协议对不上：{line}」
+     *
+     * 核心的招呼认不出（两边版本对不上），后面是它说的那一行。
+     */
+    fun coreServeProtocol(line: String): String = catalog.say("coreServeProtocol", mapOf("line" to line))
+
+    /**
+     * 「和 zeta-helper serve 的连接断了（退出码 {code}）」
+     *
+     * 和核心的连接断了，没有别的原因。
+     */
+    fun coreServeDropped(code: String): String = catalog.say("coreServeDropped", mapOf("code" to code))
+
+    /**
+     * 「连接断了：{reason}」
+     *
+     * 和远程设备的 SSH 连接断了，后面是原因。
+     */
+    fun coreServeLinkLost(reason: String): String = catalog.say("coreServeLinkLost", mapOf("reason" to reason))
+
+    /**
+     * 「zeta-helper serve 拒绝了请求」
+     *
+     * 核心拒绝了请求、没说原因。 ¦
+     */
+    fun coreServeRefused(): String = catalog.say("coreServeRefused")
+
+    /**
+     * 「和 zeta-helper serve 的连接断了，没收到应答」
+     *
+     * 请求发出后和核心的连接断了。 ¦
+     */
+    fun coreServeDroppedNoReply(): String = catalog.say("coreServeDroppedNoReply")
+
+    /**
+     * 「zeta-helper 没装上」
+     *
+     * 往设备上装 zeta-helper 失败，没有具体原因。 ¦
+     */
+    fun coreServeNotInstalled(): String = catalog.say("coreServeNotInstalled")
+
+    /**
+     * 「{count, plural, =1 {一张截屏} other {# 张截屏}}」
+     *
+     * 收到的东西里有几张截屏，接在「收到」后面。
+     */
+    fun coreIntakeScreenshots(count: Int): String = catalog.say("coreIntakeScreenshots", mapOf("count" to count))
+
+    /**
+     * 「{count, plural, =1 {一张图片} other {# 张图片}}」
+     *
+     * 收到的东西里有几张图片。
+     */
+    fun coreIntakeImages(count: Int): String = catalog.say("coreIntakeImages", mapOf("count" to count))
+
+    /**
+     * 「{count, plural, =1 {一个文件} other {# 个文件}}」
+     *
+     * 收到的东西里有几个文件。
+     */
+    fun coreIntakeFiles(count: Int): String = catalog.say("coreIntakeFiles", mapOf("count" to count))
+
+    /**
+     * 「一段文字」
+     *
+     * 收到的东西里有一段文字。 ¦
+     */
+    fun coreIntakeText(): String = catalog.say("coreIntakeText")
+
+    /**
+     * 「{first}和{next}」
+     *
+     * 把收到的几样东西连成一句（「一张图片和一个文件」）。
+     */
+    fun coreIntakeJoin(first: String, next: String): String = catalog.say("coreIntakeJoin", mapOf("first" to first, "next" to next))
+
+    /**
+     * 「空的内容」
+     *
+     * 收到的东西是空的。 ¦
+     */
+    fun coreIntakeEmpty(): String = catalog.say("coreIntakeEmpty")
+
+    /**
+     * 「「{name}」有 {size}，超过 {limit} 的上限，没有复制」
+     *
+     * 分享进来的文件太大，没收。
+     */
+    fun coreIntakeTooLarge(name: String, size: String, limit: String): String = catalog.say("coreIntakeTooLarge", mapOf("name" to name, "size" to size, "limit" to limit))
+
+    /**
+     * 「「{name}」超过 {limit} 的上限，没有复制」
+     *
+     * 分享进来的文件读到一半发现太大，没收。
+     */
+    fun coreIntakeTooLargeUnsized(name: String, limit: String): String = catalog.say("coreIntakeTooLargeUnsized", mapOf("name" to name, "limit" to limit))
+
+    /**
+     * 「内容不能为空」
+     *
+     * 存常用提示词时内容是空的。 ¦
+     */
+    fun corePromptEmpty(): String = catalog.say("corePromptEmpty")
+
+    /**
+     * 「内容太长了（最多 {max} 个字）」
+     *
+     * 常用提示词的内容超长。
+     */
+    fun corePromptTooLong(max: Int): String = catalog.say("corePromptTooLong", mapOf("max" to max))
+
+    /**
+     * 「名字太长了（最多 {max} 个字）」
+     *
+     * 常用提示词的名字超长。
+     */
+    fun corePromptNameTooLong(max: Int): String = catalog.say("corePromptNameTooLong", mapOf("max" to max))
+
+    /**
+     * 「最多存 {max} 条，先删掉一些」
+     *
+     * 常用提示词到了上限。
+     */
+    fun corePromptTooMany(max: Int): String = catalog.say("corePromptTooMany", mapOf("max" to max))
+
+    /**
+     * 「还没有添加远程设备，请到设置里添加」
+     *
+     * 手机本机没有 Linux 环境、也没有远程设备时。 ¦
+     */
+    fun coreHubNoRemote(): String = catalog.say("coreHubNoRemote")
+
+    /**
+     * 「还没有配置 Linux 环境，请到设置里检查」
+     *
+     * 手机本机的 Linux 环境还没装好。 ¦
+     */
+    fun coreHubNoLinuxEnv(): String = catalog.say("coreHubNoLinuxEnv")
+
+    /**
+     * 「远程设备已经从设置里删掉了」
+     *
+     * 对话所在的远程设备已经删了。 ¦
+     */
+    fun coreHubHostRemoved(): String = catalog.say("coreHubHostRemoved")
+
+    /**
+     * 「「{host}」已断开，在设置里这台设备的页面打开「连接」」
+     *
+     * 远程设备的「连接」开关关着；「连接」是设置里这台设备页面上那个开关。
+     */
+    fun coreHubHostOff(host: String): String = catalog.say("coreHubHostOff", mapOf("host" to host))
+
+    /**
+     * 「「{host}」经手机的 Debian 连，Debian 环境还没就绪」
+     *
+     * 远程设备经手机 Debian 连，但手机的 Debian 还没就绪。
+     */
+    fun coreHubHostNoDebian(host: String): String = catalog.say("coreHubHostNoDebian", mapOf("host" to host))
+
+    /**
+     * 「连不上「{host}」：{reason}」
+     *
+     * 远程设备连不上，后面是原因。
+     */
+    fun coreHubCantReachWhy(host: String, reason: String): String = catalog.say("coreHubCantReachWhy", mapOf("host" to host, "reason" to reason))
+
+    /**
+     * 「连不上「{host}」」
+     *
+     * 远程设备连不上。
+     */
+    fun coreHubCantReach(host: String): String = catalog.say("coreHubCantReach", mapOf("host" to host))
+
+    /**
+     * 「手机里的 Linux 环境还没就绪」
+     *
+     * 经手机 Debian 检查远程设备时，手机的 Linux 环境还没装好。 ¦
+     */
+    fun coreHubPhoneLinuxNotReady(): String = catalog.say("coreHubPhoneLinuxNotReady")
+
+    /**
+     * 「已删除的设备」
+     *
+     * 已经删掉的远程设备的名字。 ¦
+     */
+    fun coreHubDeletedDevice(): String = catalog.say("coreHubDeletedDevice")
+
+    /**
+     * 「{host}：{problem}」
+     *
+     * 侧栏列着几台设备、某台没读成会话列表时，每条原因前面注明是哪台。
+     */
+    fun coreSessionsHostProblem(host: String, problem: String): String = catalog.say("coreSessionsHostProblem", mapOf("host" to host, "problem" to problem))
+
+    /**
+     * 「没读到会话列表：{error}」
+     *
+     * 侧栏：读会话列表失败。
+     */
+    fun coreSessionsReadFailed(error: String): String = catalog.say("coreSessionsReadFailed", mapOf("error" to error))
+
+    /**
+     * 「改名没成功：{error}」
+     *
+     * 侧栏：给会话改名失败（toast）。
+     */
+    fun coreSessionsRenameFailed(error: String): String = catalog.say("coreSessionsRenameFailed", mapOf("error" to error))
+
+    /**
+     * 「归档没成功：{error}」
+     *
+     * 侧栏：归档会话失败（toast）。
+     */
+    fun coreSessionsArchiveFailed(error: String): String = catalog.say("coreSessionsArchiveFailed", mapOf("error" to error))
+
+    /**
+     * 「取消归档没成功：{error}」
+     *
+     * 侧栏：取消归档失败（toast）。
+     */
+    fun coreSessionsUnarchiveFailed(error: String): String = catalog.say("coreSessionsUnarchiveFailed", mapOf("error" to error))
+
+    /**
+     * 「删除没成功：{error}」
+     *
+     * 侧栏：删除会话失败（toast）。
+     */
+    fun coreSessionsDeleteFailed(error: String): String = catalog.say("coreSessionsDeleteFailed", mapOf("error" to error))
+
+    /**
+     * 「结束别处的 Claude Code 没成功：{error}」
+     *
+     * 结束 Zeta 之外占着会话的 Claude Code 失败（toast）。
+     */
+    fun coreSessionsEndElsewhereFailed(error: String): String = catalog.say("coreSessionsEndElsewhereFailed", mapOf("error" to error))
+
+    /**
+     * 「{hours} 小时 {minutes} 分」
+     *
+     * 后台任务跑了多久（一小时以上）；minutes 补足两位。
+     */
+    fun coreElapsedHours(hours: String, minutes: String): String = catalog.say("coreElapsedHours", mapOf("hours" to hours, "minutes" to minutes))
+
+    /**
+     * 「{minutes} 分 {seconds} 秒」
+     *
+     * 后台任务跑了多久（一分钟以上）；seconds 补足两位。
+     */
+    fun coreElapsedMinutes(minutes: String, seconds: String): String = catalog.say("coreElapsedMinutes", mapOf("minutes" to minutes, "seconds" to seconds))
+
+    /**
+     * 「{seconds} 秒」
+     *
+     * 后台任务跑了多久（不到一分钟）。
+     */
+    fun coreElapsedSeconds(seconds: String): String = catalog.say("coreElapsedSeconds", mapOf("seconds" to seconds))
+
+    /**
+     * 「和「{host}」的连接断了，正在重连」
+     *
+     * 对话页等待指示旁的状态：和设备的连接断了。
+     */
+    fun coreConvOffline(host: String): String = catalog.say("coreConvOffline", mapOf("host" to host))
+
+    /**
+     * 「和「{host}」的连接断了，正在重连：{reason}」
+     *
+     * 同上，后面是断开的原因。
+     */
+    fun coreConvOfflineWhy(host: String, reason: String): String = catalog.say("coreConvOfflineWhy", mapOf("host" to host, "reason" to reason))
+
+    /**
+     * 「原对话没有开着」
+     *
+     * 建分支时原对话已经关了（接在「分支没有建成：」后面）。 ¦
+     */
+    fun coreConvForkSourceClosed(): String = catalog.say("coreConvForkSourceClosed")
+
+    /**
+     * 「分支没有建成：{reason}」
+     *
+     * 对话里的提示：建分支失败。
+     */
+    fun coreConvForkFailed(reason: String): String = catalog.say("coreConvForkFailed", mapOf("reason" to reason))
+
+    /**
+     * 「没有发出：{error}」
+     *
+     * 对话里的提示：消息没发出去。
+     */
+    fun coreConvNotSent(error: String): String = catalog.say("coreConvNotSent", mapOf("error" to error))
+
+    /**
+     * 「没有读到输出」
+     *
+     * 后台任务的输出读不到。 ¦
+     */
+    fun coreConvNoOutput(): String = catalog.say("coreConvNoOutput")
+
+    /**
+     * 「没有读到更早的记录」
+     *
+     * 往上翻载入更早的对话内容失败。 ¦
+     */
+    fun coreConvNoEarlier(): String = catalog.say("coreConvNoEarlier")
+
+    /**
+     * 「打不开这个对话」
+     *
+     * 打开对话失败，没有具体原因。 ¦
+     */
+    fun coreConvCantOpen(): String = catalog.say("coreConvCantOpen")
+
+    /**
+     * 「这个对话已经关了」
+     *
+     * 对话已经关了还在发请求。 ¦
+     */
+    fun coreConvClosed(): String = catalog.say("coreConvClosed")
+
+    /**
+     * 「和主机的连接断了，正在重连」
+     *
+     * 对话请求发出时和设备的连接断着。 ¦
+     */
+    fun coreConvHostLost(): String = catalog.say("coreConvHostLost")
+
+    /**
+     * 「主机上的 Zeta 服务没有答更新的结果」
+     *
+     * 更新 Claude Code 时核心没答结果。 ¦
+     */
+    fun coreConvNoUpdateReply(): String = catalog.say("coreConvNoUpdateReply")
+
+    /**
+     * 「主机上的 Zeta 服务没有答闲置时长」
+     *
+     * 读闲置超时时核心没答。 ¦
+     */
+    fun coreConvNoIdleReply(): String = catalog.say("coreConvNoIdleReply")
+
+    /**
+     * 「{count} 张图片」
+     *
+     * 侧栏里只有图片的草稿的预览。
+     */
+    fun coreDraftImages(count: Int): String = catalog.say("coreDraftImages", mapOf("count" to count))
+
+    /**
+     * 「{first} 等 {count} 个文件」
+     *
+     * 侧栏里只有几个文件的草稿的预览：第一个文件名和一共几个（总在两个以上）。
+     */
+    fun coreDraftFiles(first: String, count: Int): String = catalog.say("coreDraftFiles", mapOf("first" to first, "count" to count))
+
+    /**
+     * 「直连的设备没有记下指纹」
+     *
+     * 直连设备时没有记下的主机指纹。 ¦
+     */
+    fun coreDirectNoHostKey(): String = catalog.say("coreDirectNoHostKey")
+
+    /**
+     * 「读不懂主机上 Zeta 服务给的结果（{method}）」
+     *
+     * Claude Code 配置页：核心的应答认不出，括号里是请求的方法名。
+     */
+    fun coreConfigBadReply(method: String): String = catalog.say("coreConfigBadReply", mapOf("method" to method))
+
+    /**
+     * 「主机上的 Zeta 服务没说写成了没有」
+     *
+     * Claude Code 配置页：保存后核心没答结果。 ¦
+     */
+    fun coreConfigNoSha(): String = catalog.say("coreConfigNoSha")
+
+    /**
+     * 「文件超过 {mb} MB，不像是一个 Skill 包」
+     *
+     * 装 Skill 时选的 ZIP 太大。
+     */
+    fun coreConfigZipTooLarge(mb: Int): String = catalog.say("coreConfigZipTooLarge", mapOf("mb" to mb))
+
+    /**
+     * 「允许」
+     *
+     * 工具权限规则的一种：允许。 ¦
+     */
+    fun coreBehaviorAllow(): String = catalog.say("coreBehaviorAllow")
+
+    /**
+     * 「询问」
+     *
+     * 工具权限规则的一种：询问。 ¦
+     */
+    fun coreBehaviorAsk(): String = catalog.say("coreBehaviorAsk")
+
+    /**
+     * 「拒绝」
+     *
+     * 工具权限规则的一种：拒绝。 ¦
+     */
+    fun coreBehaviorDeny(): String = catalog.say("coreBehaviorDeny")
 }

@@ -9,6 +9,7 @@ import com.dzshzx.zeta.core.conv.ConvSubagent
 import com.dzshzx.zeta.core.conv.ConvTurn
 import com.dzshzx.zeta.core.conv.CoreConversation
 import com.dzshzx.zeta.core.conv.HostCpu
+import com.dzshzx.zeta.i18n.Strings
 import kotlinx.serialization.json.JsonObject
 
 /** 对话用的一条 serve 连接：发请求，不用了关掉。平时是 [HelperServe]，测试里换成假的。 */
@@ -145,7 +146,8 @@ class ConvLinks(private val hub: ConversationHub) {
                 name = "conv-$backend",
                 open = {
                     val shell =
-                        hub.shell(backend) ?: error(hub.unavailable(backend) ?: "还没有可用的 Linux 环境")
+                        hub.shell(backend)
+                            ?: error(hub.unavailable(backend) ?: Strings.coreNoLinuxEnv())
                     HelperServe.open(shell, hub.helperProgram) {
                         hub.linkProblem(backend, it.exitCode, it.stderr)
                     }

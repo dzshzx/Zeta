@@ -1,6 +1,7 @@
 package com.dzshzx.zeta.core
 
 import androidx.compose.runtime.Immutable
+import com.dzshzx.zeta.i18n.Strings
 
 /*
  * 运行状态进状态栏和锁屏：有对话在回答时，常驻通知申请提升为实时通知（Android 16 起的 Live Updates），
@@ -9,21 +10,25 @@ import androidx.compose.runtime.Immutable
  */
 
 /** 胶囊上那句当前步骤的类别。[short] 是状态栏小胶囊上的词，只放得下几个字。 */
-enum class StepKind(val short: String) {
-    FINISHED("已完成"),
-    CONTROLLING("接管中"),
-    PAUSED("已暂停"),
-    ASKING("待回答"),
-    CONFIRMING("待确认"),
+enum class StepKind(private val shortText: () -> String) {
+    FINISHED(Strings::coreStepShortFinished),
+    CONTROLLING(Strings::coreStepShortControlling),
+    PAUSED(Strings::coreStepShortPaused),
+    ASKING(Strings::coreStepShortAsking),
+    CONFIRMING(Strings::coreStepShortConfirming),
 
     /** 重试、压缩上下文这类临时状态。 */
-    STATUS("处理中"),
-    ANSWERING("回答中"),
+    STATUS(Strings::coreStepShortStatus),
+    ANSWERING(Strings::coreStepShortAnswering),
 
     /** 手机工具。 */
-    PHONE("操作中"),
-    TOOL("执行中"),
-    THINKING("思考中");
+    PHONE(Strings::coreStepShortPhone),
+    TOOL(Strings::coreStepShortTool),
+    THINKING(Strings::coreStepShortThinking);
+
+    /** 状态栏小胶囊上的词，只放得下几个字。 */
+    val short: String
+        get() = shortText()
 
     /** 停下来等用户（确认、回答、继续）：变成或不再是这种时马上更新通知，不节流。 */
     val needsUser: Boolean
@@ -82,7 +87,7 @@ data class LiveStatus(
 
     /** 几个对话同时在回答时，标题旁的一句；只有一个时为 null。 */
     val note: String?
-        get() = if (others > 0) "另有 $others 个对话在回答" else null
+        get() = if (others > 0) Strings.coreLiveOthers(others) else null
 }
 
 internal object LiveUpdate {
@@ -120,7 +125,7 @@ internal object LiveUpdate {
         val waiting = request?.let(AlertNotice::waiting)
         return LiveStatus(
             key = chosen.key,
-            title = chosen.title.ifBlank { "新对话" },
+            title = chosen.title.ifBlank { Strings.coreUntitledConversation() },
             text = waiting?.text ?: chosen.step.text,
             kind = chosen.step.kind,
             startedAt = chosen.startedAt,

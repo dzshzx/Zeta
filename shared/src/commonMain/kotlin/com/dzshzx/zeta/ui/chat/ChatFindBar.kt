@@ -23,6 +23,7 @@ import com.dzshzx.zeta.core.AnswerItem
 import com.dzshzx.zeta.core.ChatItem
 import com.dzshzx.zeta.core.ThoughtItem
 import com.dzshzx.zeta.core.UserItem
+import com.dzshzx.zeta.i18n.Strings
 import com.dzshzx.zeta.ui.components.BackHandler
 import com.dzshzx.zeta.ui.components.coui2.FlatIconButton
 import com.dzshzx.zeta.ui.components.coui2.ZetaIcons
@@ -204,7 +205,7 @@ fun ChatFindBar(
                 expanded = true,
                 onExpandedChange = {},
                 modifier = Modifier.weight(1f),
-                label = "在对话中查找",
+                label = Strings.chatFindInChat(),
                 material = false,
             )
             if (find.query.isNotEmpty()) {
@@ -216,18 +217,33 @@ fun ChatFindBar(
                     modifier = Modifier.padding(start = 8.dp, end = 2.dp),
                 )
             }
-            BarButton(ZetaIcons.ChevronUp, "上一个", enabled = count > 0, onClick = find::previous)
-            BarButton(ZetaIcons.ChevronDown, "下一个", enabled = count > 0, onClick = find::next)
-            BarButton(COUIIcons.Close, "关闭查找", enabled = true, onClick = find::close)
+            BarButton(
+                ZetaIcons.ChevronUp,
+                Strings.chatPrevious(),
+                enabled = count > 0,
+                onClick = find::previous,
+            )
+            BarButton(
+                ZetaIcons.ChevronDown,
+                Strings.chatNext(),
+                enabled = count > 0,
+                onClick = find::next,
+            )
+            BarButton(
+                COUIIcons.Close,
+                Strings.chatCloseFind(),
+                enabled = true,
+                onClick = find::close,
+            )
         }
         Text(
             text =
-                "查提问和回答，不含工具步骤和思考" +
-                    when {
-                        earlierProblem != null -> "；$earlierProblem，更早的 $earlierLeft 条没查"
-                        earlierLeft > 0 -> "；正在载入更早的 $earlierLeft 条…"
-                        else -> ""
-                    },
+                when {
+                    earlierProblem != null ->
+                        Strings.chatFindHintEarlierFailed(earlierProblem, earlierLeft)
+                    earlierLeft > 0 -> Strings.chatFindHintEarlierLoading(earlierLeft)
+                    else -> Strings.chatFindHint()
+                },
             style = COUITheme.textStyles.bodyXS,
             color = colors.labelSecondary,
             modifier = Modifier.padding(start = 14.dp, end = 14.dp, top = 6.dp),
@@ -244,8 +260,8 @@ private fun matchCountText(
 ): String =
     when {
         count > 0 -> "${index + 1}/$count"
-        earlierLeft > 0 && earlierProblem == null -> "查找中"
-        else -> "无结果"
+        earlierLeft > 0 && earlierProblem == null -> Strings.chatFinding()
+        else -> Strings.chatNoResults()
     }
 
 /** 查找栏的小按钮：36dp 的平按钮，20dp 图标。 */

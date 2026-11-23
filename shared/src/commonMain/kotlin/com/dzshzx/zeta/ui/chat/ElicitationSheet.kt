@@ -21,6 +21,7 @@ import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import com.dzshzx.zeta.core.ElicitField
 import com.dzshzx.zeta.core.ElicitationRequest
+import com.dzshzx.zeta.i18n.Strings
 import com.dzshzx.zeta.ui.components.coui2.DialogContentPadding
 import com.dzshzx.zeta.ui.components.coui2.DialogTextField
 import com.dzshzx.zeta.ui.components.coui2.PageDialog
@@ -62,7 +63,9 @@ fun ElicitationSheet(
     PageDialog(
         show = visible,
         onDismissRequest = {},
-        title = if (url != null) "${request.server} 请你去网页上操作" else "${request.server} 需要你填写",
+        title =
+            if (url != null) Strings.chatElicitUrl(request.server)
+            else Strings.chatElicitForm(request.server),
         summary = request.message.ifBlank { null },
         customContent = {
             Column(
@@ -83,12 +86,12 @@ fun ElicitationSheet(
         DialogButtonBar(
             negative =
                 DialogButtonBarAction(
-                    "拒绝",
+                    Strings.chatDecline(),
                     onClick = { onElicit(request, "decline", null) {} },
                 ),
             positive =
                 DialogButtonBarAction(
-                    if (url != null) "打开网页" else "提交",
+                    if (url != null) Strings.chatOpenWebPage() else Strings.chatSubmit(),
                     recommended = true,
                     onClick = {
                         if (url != null)

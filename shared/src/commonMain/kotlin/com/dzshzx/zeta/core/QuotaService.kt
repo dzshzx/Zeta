@@ -3,6 +3,7 @@ package com.dzshzx.zeta.core
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
+import com.dzshzx.zeta.i18n.Strings
 import java.io.InputStream
 import java.util.concurrent.LinkedBlockingQueue
 import java.util.concurrent.TimeUnit
@@ -64,7 +65,7 @@ class QuotaService(private val hub: ConversationHub, private val backend: String
     private val giveUp = Runnable {
         if (refreshing) {
             refreshing = false
-            error = "等了太久没有结果"
+            error = Strings.coreQuotaTimedOut()
         }
     }
 
@@ -87,7 +88,8 @@ class QuotaService(private val hub: ConversationHub, private val backend: String
                 name = "quota-$backend",
                 open = {
                     val shell =
-                        hub.shell(backend) ?: error(hub.unavailable(backend) ?: "还没有可用的 Linux 环境")
+                        hub.shell(backend)
+                            ?: error(hub.unavailable(backend) ?: Strings.coreNoLinuxEnv())
                     HelperServe.open(shell, hub.helperProgram) {
                         hub.linkProblem(backend, it.exitCode, it.stderr)
                     }
@@ -164,7 +166,7 @@ class QuotaService(private val hub: ConversationHub, private val backend: String
         val done = result.getOrElse {
             // 自己抛的（Claude Code 没答、答了错误）和 serve 给的带原因；别的（进不了环境、管道断了）只说没取到
             val why = (it as? IllegalStateException ?: it as? ServeError)?.message
-            error = "没取到最新的额度" + (why?.let { w -> "：$w" } ?: "") + "。"
+            error = why?.let(Strings::coreQuotaFetchFailedWhy) ?: Strings.coreQuotaFetchFailed()
             return
         }
         received(done?.obj("snapshot"))
@@ -172,7 +174,7 @@ class QuotaService(private val hub: ConversationHub, private val backend: String
         // Claude Code 这次没取到服务器的数：核心留着已有的窗口
         error =
             if (done?.bool("fresh") == false && shown != null)
-                "这次没取到最新的额度，显示的是 ${Quota.ageText(shown.updatedAt, System.currentTimeMillis())}的数"
+                Strings.coreQuotaStale(Quota.ageText(shown.updatedAt, System.currentTimeMillis()))
             else null
     }
 
@@ -285,11 +287,13 @@ object QuotaProbe {
         val deadline = System.currentTimeMillis() + timeoutMs
         while (true) {
             val left = deadline - System.currentTimeMillis()
-            if (left <= 0) throw IllegalStateException("Claude Code 没有按时回答")
+            if (left <= 0) throw IllegalStateException(Strings.coreQuotaClaudeNoAnswer())
             val line = lines.poll(left.coerceAtMost(1_000), TimeUnit.MILLISECONDS)
             if (line == null) {
                 if (!process.isAlive && lines.isEmpty())
-                    throw IllegalStateException("Claude Code 起不来（退出码 ${process.exitValue()}）")
+                    throw IllegalStateException(
+                        Strings.coreQuotaClaudeExited(process.exitValue().toString()),
+                    )
                 continue
             }
             usageAnswer(line)?.let {
@@ -306,10 +310,10 @@ object QuotaProbe {
         val response = o["response"] as? JsonObject ?: return null
         if (response.str("request_id") != "usage") return null
         if (response.str("subtype") != "success") {
-            throw IllegalStateException(response.str("error") ?: "Claude Code 没有给出额度")
+            throw IllegalStateException(response.str("error") ?: Strings.coreQuotaClaudeNoUsage())
         }
         return response["response"] as? JsonObject
-            ?: throw IllegalStateException("Claude Code 没有给出额度")
+            ?: throw IllegalStateException(Strings.coreQuotaClaudeNoUsage())
     }
 
     /** 返回 get_usage 的应答（`response.response`）；Claude Code 答的是错误时抛异常。 */

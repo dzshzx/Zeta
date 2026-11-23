@@ -14,6 +14,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.dzshzx.zeta.core.SessionSummary
+import com.dzshzx.zeta.i18n.Strings
 import io.github.suqi8.coui.kmp.basic.ButtonDefaults
 import io.github.suqi8.coui.kmp.basic.Text
 import io.github.suqi8.coui.kmp.basic.TextButton
@@ -90,10 +91,16 @@ fun SelectionHeader(
         modifier = Modifier.fillMaxWidth().height(56.dp).padding(start = 16.dp, end = 8.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
-        PaneCircleButton(icon = COUIIcons.Close, description = "退出多选", onClick = onExit)
+        PaneCircleButton(
+            icon = COUIIcons.Close,
+            description = Strings.sidebarExitSelection(),
+            onClick = onExit,
+        )
         Spacer(Modifier.width(10.dp))
         Text(
-            text = if (count > 0) "已选 $count 个" else "选择对话",
+            text =
+                if (count > 0) Strings.sidebarSelectedCount(count)
+                else Strings.sidebarSelectConversations(),
             style = COUITheme.textStyles.headlineS.copy(fontWeight = FontWeight.SemiBold),
             color = COUITheme.colorScheme.labelPrimary,
             maxLines = 1,
@@ -101,7 +108,7 @@ fun SelectionHeader(
         )
         // 顶栏上的文字按钮：主题色，无底色
         TextButton(
-            text = if (allSelected) "全不选" else "全选",
+            text = if (allSelected) Strings.sidebarSelectNone() else Strings.sidebarSelectAll(),
             onClick = onToggleAll,
             enabled = canSelectAll,
             minWidth = 0.dp,
@@ -132,7 +139,7 @@ fun SelectionActions(
         verticalAlignment = Alignment.CenterVertically,
     ) {
         TextButton(
-            text = if (archive) "归档" else "取消归档",
+            text = if (archive) Strings.sidebarArchive() else Strings.sidebarUnarchive(),
             onClick = onArchive,
             enabled = enabled,
             minWidth = 0.dp,
@@ -140,7 +147,7 @@ fun SelectionActions(
             modifier = Modifier.weight(1f),
         )
         TextButton(
-            text = "导出",
+            text = Strings.sidebarExport(),
             onClick = onExport,
             enabled = enabled,
             minWidth = 0.dp,
@@ -148,7 +155,7 @@ fun SelectionActions(
             modifier = Modifier.weight(1f),
         )
         TextButton(
-            text = "删除",
+            text = Strings.sidebarDelete(),
             onClick = onDelete,
             enabled = enabled,
             minWidth = 0.dp,

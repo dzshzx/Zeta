@@ -1,5 +1,7 @@
 package com.dzshzx.zeta.core
 
+import com.dzshzx.zeta.i18n.Strings
+
 /** SSH 服务的状态：Debian 里实际生效的配置，加上 Android 侧看到的进程和开机脚本。 */
 data class SshStatus(
     val installed: Boolean,
@@ -71,6 +73,6 @@ class SshService(private val installer: EnvInstaller, assets: (String) -> String
             .lineSequence()
             .firstOrNull { it.startsWith("@zeta error ") }
             ?.removePrefix("@zeta error ")
-            ?: result.stderr.ifBlank { result.stdout }.trim().ifBlank { "没有成功" }
+            ?: result.stderr.ifBlank { result.stdout }.trim().ifBlank { Strings.coreFailed() }
     }
 }

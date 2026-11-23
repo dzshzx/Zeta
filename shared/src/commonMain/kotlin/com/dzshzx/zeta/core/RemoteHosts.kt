@@ -3,6 +3,7 @@ package com.dzshzx.zeta.core
 import com.dzshzx.zeta.core.ssh.SshKey
 import com.dzshzx.zeta.core.ssh.SshLinks
 import com.dzshzx.zeta.core.ssh.SshTarget
+import com.dzshzx.zeta.i18n.Strings
 import java.util.Base64
 import java.util.TimeZone
 import java.util.UUID
@@ -37,9 +38,17 @@ data class RemoteHost(
     val name: String
         get() = customName ?: hostname ?: RemoteHosts.displayTarget(target)
 
-    enum class Via(val key: String, val label: String) {
-        Debian("debian", "经手机 Debian"),
-        Direct("direct", "Zeta 直连"),
+    enum class Via(val key: String) {
+        Debian("debian"),
+        Direct("direct");
+
+        /** 界面上的名字。 */
+        val label: String
+            get() =
+                when (this) {
+                    Debian -> Strings.coreHostViaDebian()
+                    Direct -> Strings.coreHostViaDirect()
+                }
     }
 
     /** 直连的主机指纹（SHA256），经 Debian 的是 null。 */
@@ -122,17 +131,19 @@ object RemoteHosts {
     fun nameProblem(name: String, others: List<String>): String? {
         val clean = name.trim()
         return when {
-            clean.length > 40 -> "名字太长了"
-            clean.isNotEmpty() && clean in others -> "已经有叫「$clean」的设备了"
+            clean.length > 40 -> Strings.coreHostNameTooLong()
+            clean.isNotEmpty() && clean in others -> Strings.coreHostNameTaken(clean)
             else -> null
         }
     }
 
     /** 手机本机在主机清单里的小字（换主机的菜单、设置首页）：它的 Claude Code 跑在哪。 */
-    const val LOCAL_SUMMARY = "手机里的 Debian"
+    val LOCAL_SUMMARY: String
+        get() = Strings.coreHostLocalSummary()
 
     /** 「连接」关着的远程主机怎样（主机页的开关下面、聊天页的已断开说明）。 */
-    const val OFF_NOTE = "Zeta 不连这台设备，它上面的对话在那边照样跑"
+    val OFF_NOTE: String
+        get() = Strings.coreHostOffNote()
 
     /**
      * 连上以后在那边查的几样：家目录、claude 在不在、什么版本，系统和 CPU（zeta-helper 只有 Linux 的 arm64、amd64 两份）。 每样一行
@@ -179,13 +190,13 @@ object RemoteHosts {
         val claude = values["claude"].orEmpty()
         val system = values["system"].orEmpty()
         return when {
-            result.timedOut -> Probe.Failed("连接超时")
+            result.timedOut -> Probe.Failed(Strings.coreConnectionTimeout())
             result.exitCode == RemoteShell.CONNECTION_FAILED || home.isEmpty() ->
                 Probe.Failed(sshProblem(result.stderr))
-            claude.isEmpty() -> Probe.Failed("那台设备上找不到 claude（登录 shell 的 PATH 里和 ~/.local/bin 都没有）")
+            claude.isEmpty() -> Probe.Failed(Strings.coreHostNoClaude())
             !helperRuns(system) ->
                 Probe.Failed(
-                    "Zeta 读会话记录的程序只能在 arm64、x86-64 的 Linux 上跑，这台是 ${system.ifEmpty { "未知的系统" }}",
+                    Strings.coreHostUnsupported(system.ifEmpty { Strings.coreHostUnknownSystem() }),
                 )
             else ->
                 Probe.Ok(
@@ -204,11 +215,11 @@ object RemoteHosts {
 
     /** 经手机的 Debian（[local]）连一次 [target]，查家目录、claude、系统和 CPU。阻塞，别在主线程上调用。 */
     fun probeDebian(local: LinuxShell, target: String): Probe {
-        if (!DebianSshShell.validTarget(target)) return Probe.Failed("地址里不能有空白、引号，也不能以 - 开头")
+        if (!DebianSshShell.validTarget(target)) return Probe.Failed(Strings.coreHostBadTarget())
         val shell = DebianSshShell(local, RemoteHost("probe", null, target, "/", "/"))
         val result =
             runCatching { shell.run(ProbeScript, timeoutMs = 45_000) }.getOrNull()
-                ?: return Probe.Failed("进不了手机里的 Linux 环境")
+                ?: return Probe.Failed(Strings.coreHostPhoneLinuxUnreachable())
         return parseProbe(result)
     }
 
@@ -231,11 +242,12 @@ object RemoteHosts {
             )
         }
             .getOrElse {
-                return Probe.Failed(it.message ?: "没有连上")
+                return Probe.Failed(it.message ?: Strings.coreNotConnected())
             }
         val seen = result.hostKey?.let(::encodeKey)
         if (result.hostKeyChanged && seen != null) return Probe.HostKeyChanged(seen)
-        val output = result.output ?: return Probe.Failed(result.problem ?: "没有连上")
+        val output =
+            result.output ?: return Probe.Failed(result.problem ?: Strings.coreNotConnected())
         return parseProbe(output, seen)
     }
 
@@ -245,10 +257,12 @@ object RemoteHosts {
         else DebianSshShell.validTarget(target)
 
     /** 直连地址的写法。 */
-    const val DIRECT_TARGET_HINT = "地址写成 用户@主机，端口不是 22 的写成 用户@主机:端口"
+    val DIRECT_TARGET_HINT: String
+        get() = Strings.coreHostDirectHint()
 
     /** 经 Debian 连的地址的写法。 */
-    const val DEBIAN_TARGET_HINT = "地址写成 用户@主机[:端口]，也可以是手机 Debian 的 ~/.ssh/config 里的别名"
+    val DEBIAN_TARGET_HINT: String
+        get() = Strings.coreHostDebianHint()
 
     /**
      * 地址 [text]（用户输入的，或这台主机另一种连法用的）换成连法 [via] 的写法；这种连法用不了它时是 null。 直连只认写明用户的
@@ -295,10 +309,10 @@ object RemoteHosts {
     fun readAliases(local: LinuxShell): List<String> {
         val result = local.run(AliasesScript)
         check(result.exitCode == 0) {
-            if (result.timedOut) "手机 Debian 没有响应（超时）"
+            if (result.timedOut) Strings.coreHostDebianTimeout()
             else
                 result.stderr.trim().takeLast(200).ifEmpty {
-                    "进不去手机 Debian（退出码 ${result.exitCode}）"
+                    Strings.coreHostDebianExit(result.exitCode.toString())
                 }
         }
         return parseAliases(result.stdout)
@@ -329,15 +343,16 @@ object RemoteHosts {
         return when {
             text.contains(SshLinks.PROBLEM_PREFIX) ->
                 text.substringAfterLast(SshLinks.PROBLEM_PREFIX).lineSequence().first().trim()
-            text.contains("Permission denied") -> "对方不认手机 Debian 里的 SSH 密钥（Permission denied）"
-            text.contains("Could not resolve hostname") -> "找不到这台设备（地址解析失败）"
+            text.contains("Permission denied") -> Strings.coreSshKeyRejected()
+            text.contains("Could not resolve hostname") -> Strings.coreSshHostNotFound()
             text.contains("Host key verification failed") ||
                 text.contains("REMOTE HOST IDENTIFICATION HAS CHANGED") ->
-                "主机密钥和记下的不一样，先在 Debian 里核对 ~/.ssh/known_hosts"
-            text.contains("timed out") -> "连接超时"
-            text.contains("Connection refused") -> "对方拒绝连接（端口上没有 SSH 服务）"
-            text.contains("No route to host") || text.contains("Network is unreachable") -> "网络不通"
-            text.isEmpty() -> "没有连上"
+                Strings.coreSshHostKeyChanged()
+            text.contains("timed out") -> Strings.coreConnectionTimeout()
+            text.contains("Connection refused") -> Strings.coreSshRefused()
+            text.contains("No route to host") || text.contains("Network is unreachable") ->
+                Strings.coreSshUnreachable()
+            text.isEmpty() -> Strings.coreNotConnected()
             else -> text.lines().last().take(200)
         }
     }

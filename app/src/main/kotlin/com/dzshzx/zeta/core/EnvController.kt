@@ -4,6 +4,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import com.dzshzx.zeta.core.diag.DiagEvents
+import com.dzshzx.zeta.i18n.Strings
 import kotlin.concurrent.thread
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonObject
@@ -224,10 +225,20 @@ class EnvController constructor(private val hub: ConversationHub, assets: (Strin
 
     /** 修复软件包并补齐常用工具。 */
     fun repairEnvironment() =
-        runMaintenance("修复环境", asRoot = true, command = installer.repairCommand) { checkHealth() }
+        runMaintenance(
+            Strings.coreMaintainRepair(),
+            asRoot = true,
+            command = installer.repairCommand,
+        ) {
+            checkHealth()
+        }
 
     fun updateClaude() =
-        runMaintenance("更新 Claude Code", asRoot = false, command = "exec claude update") {
+        runMaintenance(
+            Strings.coreMaintainUpdateClaude(),
+            asRoot = false,
+            command = "exec claude update",
+        ) {
             checkHealth()
         }
 
@@ -245,7 +256,10 @@ class EnvController constructor(private val hub: ConversationHub, assets: (Strin
         if (sshWorking) return
         sshWorking = true
         thread(name = "zeta-ssh", isDaemon = true) {
-            val problem = runCatching { action(config) }.getOrElse { it.message ?: "没有成功" }
+            val problem = runCatching {
+                action(config)
+            }
+                .getOrElse { it.message ?: Strings.coreFailed() }
             val status = sshService.status(config)
             main.post {
                 sshWorking = false
@@ -256,16 +270,17 @@ class EnvController constructor(private val hub: ConversationHub, assets: (Strin
         }
     }
 
-    fun startSsh() = sshAction("启动 SSH 服务") { sshService.start(it) }
+    fun startSsh() = sshAction(Strings.coreSshStart()) { sshService.start(it) }
 
-    fun stopSsh() = sshAction("停止 SSH 服务") { sshService.stop(it) }
+    fun stopSsh() = sshAction(Strings.coreSshStop()) { sshService.stop(it) }
 
-    fun setSshAutostart(on: Boolean) = sshAction("开机自动启动") { sshService.autostart(it, on) }
+    fun setSshAutostart(on: Boolean) =
+        sshAction(Strings.coreSshAutostart()) { sshService.autostart(it, on) }
 
     fun setupSsh() {
         val user = settings.env?.user ?: return
         runMaintenance(
-            "安装 SSH 服务",
+            Strings.coreSshSetup(),
             asRoot = true,
             command = installer.optionalCommand("ssh-setup") + " " + LinuxEnv.quote(user),
         ) {
@@ -277,7 +292,7 @@ class EnvController constructor(private val hub: ConversationHub, assets: (Strin
         val user = settings.env?.user ?: return
         val line = key.lineSequence().firstOrNull { it.isNotBlank() }?.trim() ?: return
         runMaintenance(
-            "添加公钥",
+            Strings.coreSshAddKey(),
             asRoot = true,
             command =
                 installer.optionalCommand("ssh-addkey") +
@@ -294,7 +309,9 @@ class EnvController constructor(private val hub: ConversationHub, assets: (Strin
     fun installOptional(name: String) =
         runMaintenance(
             title =
-                (if (name in health?.zetaOwned.orEmpty()) "更新 " else "安装 ") + optionalName(name),
+                if (name in health?.zetaOwned.orEmpty())
+                    Strings.coreOptionalUpdate(optionalName(name))
+                else Strings.coreOptionalInstall(optionalName(name)),
             asRoot = name != "python",
             command = installer.optionalCommand(name),
         ) {
@@ -304,7 +321,7 @@ class EnvController constructor(private val hub: ConversationHub, assets: (Strin
     /** 卸载一样 Zeta 装的可选工具。别处装的脚本会拒绝。 */
     fun removeOptional(name: String) =
         runMaintenance(
-            title = "卸载 " + optionalName(name),
+            title = Strings.coreOptionalRemove(optionalName(name)),
             asRoot = name != "python",
             command = installer.optionalCommand("remove") + " " + name,
         ) {
@@ -312,7 +329,11 @@ class EnvController constructor(private val hub: ConversationHub, assets: (Strin
         }
 
     fun logout() =
-        runMaintenance("退出登录", asRoot = false, command = "exec claude auth logout") {
+        runMaintenance(
+            Strings.coreMaintainLogout(),
+            asRoot = false,
+            command = "exec claude auth logout",
+        ) {
             refreshAccount()
         }
 
@@ -340,6 +361,6 @@ fun optionalName(name: String): String =
     when (name) {
         "go" -> "Go"
         "node" -> "Node.js"
-        "apk" -> "APK 分析"
+        "apk" -> Strings.coreOptionalApk()
         else -> "Python / uv"
     }

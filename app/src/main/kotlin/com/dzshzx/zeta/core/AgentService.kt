@@ -20,6 +20,7 @@ import android.os.PowerManager
 import android.os.SystemClock
 import androidx.annotation.RequiresApi
 import com.dzshzx.zeta.R
+import com.dzshzx.zeta.i18n.Strings
 import com.dzshzx.zeta.phone.ScreenCapture
 import com.dzshzx.zeta.ui.MainActivity
 
@@ -57,16 +58,24 @@ internal object Notifier {
     fun ensureChannels(context: Context) {
         val manager = context.getSystemService(NotificationManager::class.java)
         manager.createNotificationChannel(
-            NotificationChannel(CHANNEL_STATUS, "运行状态", NotificationManager.IMPORTANCE_LOW),
+            NotificationChannel(
+                CHANNEL_STATUS,
+                Strings.coreChannelStatus(),
+                NotificationManager.IMPORTANCE_LOW,
+            ),
         )
         // 测试版的提醒不出声：测试时对话跑完、等确认，不该打扰正在用手机的人
         val alert =
             if (AppVariant.current.isDev) NotificationManager.IMPORTANCE_LOW
             else NotificationManager.IMPORTANCE_DEFAULT
-        manager.createNotificationChannel(NotificationChannel(CHANNEL_ALERT, "完成与确认提醒", alert))
+        manager.createNotificationChannel(
+            NotificationChannel(CHANNEL_ALERT, Strings.coreChannelAlert(), alert),
+        )
         RETIRED_CHANNELS.filter { manager.getNotificationChannel(it) != null }
             .forEach(manager::deleteNotificationChannel)
-        manager.createNotificationChannel(NotificationChannel(CHANNEL_UPDATE, "版本更新", alert))
+        manager.createNotificationChannel(
+            NotificationChannel(CHANNEL_UPDATE, Strings.coreChannelUpdate(), alert),
+        )
     }
 
     fun openAppIntent(context: Context): PendingIntent =
@@ -243,14 +252,15 @@ class AgentService : Service() {
             builder
                 .setContentTitle(
                     AppVariant.current.notificationTitle(
-                        if (state.busy) "Claude 正在工作" else "Claude 会话保持中",
+                        if (state.busy) Strings.coreStatusWorking()
+                        else Strings.coreStatusHolding(),
                     ),
                 )
                 .setContentIntent(Notifier.openAppIntent(this))
             when (running.size) {
                 0 -> Unit
                 1 -> builder.setContentText(running.first())
-                else -> builder.setContentText("${running.size} 个对话进行中")
+                else -> builder.setContentText(Strings.coreStatusRunningCount(running.size))
             }
         }
         // 只有对话在跑时才给“停止”；安装、维护脚本不从这里打断
@@ -265,7 +275,8 @@ class AgentService : Service() {
             builder.addAction(
                 Notification.Action.Builder(
                         Icon.createWithResource(this, R.drawable.ic_stat_zeta),
-                        if (running.size > 1) "全部停止" else "停止",
+                        if (running.size > 1) Strings.coreStatusStopAll()
+                        else Strings.coreStatusStop(),
                         stop,
                     )
                     .build(),
@@ -282,7 +293,7 @@ class AgentService : Service() {
         builder.addAction(
             Notification.Action.Builder(
                     Icon.createWithResource(this, R.drawable.ic_tile_capture),
-                    "截屏",
+                    Strings.coreStatusCapture(),
                     capture,
                 )
                 .build(),

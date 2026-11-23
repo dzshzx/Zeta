@@ -19,6 +19,7 @@ import com.dzshzx.zeta.core.alerts
 import com.dzshzx.zeta.core.environment
 import com.dzshzx.zeta.core.overlay
 import com.dzshzx.zeta.core.phone
+import com.dzshzx.zeta.i18n.Strings
 import io.github.suqi8.coui.kmp.basic.ButtonDefaults
 import io.github.suqi8.coui.kmp.basic.TextButton
 
@@ -34,7 +35,7 @@ internal fun PhoneUnavailable(
     onOpenSettings: () -> Unit,
 ) {
     when (hub.environment.setup) {
-        SetupState.Checking -> SetupMessage(padding, "正在检查环境…", null)
+        SetupState.Checking -> SetupMessage(padding, Strings.chatCheckingEnv(), null)
         SetupState.NoRoot -> NoRootMessage(hub, padding, onOpenRemoteHosts)
         else -> NoEnvironmentMessage(hub, padding, onOpenInstall, onOpenRemoteHosts, onOpenSettings)
     }
@@ -63,16 +64,15 @@ private fun NoRootMessage(
 ) {
     SetupMessage(
         padding,
-        "需要 root 权限",
-        "Zeta 通过 root 进入 Debian 环境来运行 Claude Code。请在 root 管理器（KernelSU / SukiSU / Magisk）里给 Zeta 授权，然后重试；" +
-            "也可以连远程设备上的 Claude Code。",
+        Strings.chatNeedRoot(),
+        Strings.chatNeedRootBody(),
     ) {
         Column(
             horizontalAlignment = Alignment.CenterHorizontally,
             verticalArrangement = Arrangement.spacedBy(12.dp),
         ) {
             RemoteChoice(hub, onOpenRemoteHosts)
-            TextButton(text = "重试", onClick = hub.environment::checkSetup)
+            TextButton(text = Strings.chatRetry(), onClick = hub.environment::checkSetup)
         }
     }
 }
@@ -88,9 +88,8 @@ private fun NoEnvironmentMessage(
 ) {
     SetupMessage(
         padding,
-        "还没有 Linux 环境",
-        "Zeta 在一个 Debian 环境里运行 Claude Code。可以让 Zeta 现在装一个（约 1 GB），或者在设置里指向已有的环境；" +
-            "也可以不装，直接连远程设备上的 Claude Code。",
+        Strings.chatNoLinuxEnv(),
+        Strings.chatNoLinuxEnvBody(),
     ) {
         Column(
             horizontalAlignment = Alignment.CenterHorizontally,
@@ -98,15 +97,15 @@ private fun NoEnvironmentMessage(
         ) {
             TextButton(
                 text =
-                    if (hub.environment.ownStatus?.base == true) "继续安装 Debian 环境"
-                    else "安装 Debian 环境",
+                    if (hub.environment.ownStatus?.base == true) Strings.chatContinueInstallDebian()
+                    else Strings.chatInstallDebian(),
                 onClick = onOpenInstall,
                 colors = ButtonDefaults.textButtonColorsPrimary(),
             )
             RemoteChoice(hub, onOpenRemoteHosts)
             Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                TextButton(text = "打开设置", onClick = onOpenSettings)
-                TextButton(text = "重试", onClick = hub.environment::checkSetup)
+                TextButton(text = Strings.chatOpenSettings(), onClick = onOpenSettings)
+                TextButton(text = Strings.chatRetry(), onClick = hub.environment::checkSetup)
             }
         }
     }

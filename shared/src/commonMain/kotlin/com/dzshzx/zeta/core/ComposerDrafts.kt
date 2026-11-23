@@ -5,6 +5,7 @@ import androidx.compose.runtime.Stable
 import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.runtime.mutableStateMapOf
 import androidx.compose.ui.text.TextRange
+import com.dzshzx.zeta.i18n.Strings
 import java.io.File
 import java.util.Base64
 import java.util.UUID
@@ -366,8 +367,9 @@ object DraftRecords {
                 ?.replace(Spaces, " ")
         return when {
             line != null -> line.clipChars(PREVIEW_CHARS)
-            record.images.isNotEmpty() -> "${record.images.size} 张图片"
-            record.files.size > 1 -> "${record.files.first().label} 等 ${record.files.size} 个文件"
+            record.images.isNotEmpty() -> Strings.coreDraftImages(record.images.size)
+            record.files.size > 1 ->
+                Strings.coreDraftFiles(record.files.first().label, record.files.size)
             else -> record.files.firstOrNull()?.label.orEmpty()
         }
     }

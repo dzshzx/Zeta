@@ -7,6 +7,7 @@ import android.content.Context
 import android.content.Intent
 import android.provider.MediaStore
 import androidx.core.content.FileProvider
+import com.dzshzx.zeta.i18n.Strings
 import java.io.File
 
 // 手机上把 [ImageExport] 存进相册、交给系统分享面板。认类型、起文件名在 shared 的 ImageExport.kt。
@@ -70,7 +71,7 @@ fun ImageExport.share(context: Context, file: File): Boolean = runCatching {
             .putExtra(Intent.EXTRA_STREAM, uri)
             .addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
     send.clipData = ClipData.newRawUri(fileName, uri)
-    val chooser = Intent.createChooser(send, "分享图片")
+    val chooser = Intent.createChooser(send, Strings.coreShareImage())
     if (context !is Activity) chooser.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
     context.startActivity(chooser)
     true

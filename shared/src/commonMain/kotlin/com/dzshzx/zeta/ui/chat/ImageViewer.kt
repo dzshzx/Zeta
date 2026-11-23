@@ -69,6 +69,7 @@ import com.dzshzx.zeta.core.ImageExport
 import com.dzshzx.zeta.core.ImageRef
 import com.dzshzx.zeta.core.ImageStore
 import com.dzshzx.zeta.core.RemoteImage
+import com.dzshzx.zeta.i18n.Strings
 import com.dzshzx.zeta.ui.components.coui2.IconActionButton
 import com.dzshzx.zeta.ui.components.coui2.LocalPageBackdrop
 import com.dzshzx.zeta.ui.components.coui2.PageBlurHost
@@ -234,7 +235,7 @@ private fun ViewerTopBar(title: String, onBack: () -> Unit) {
             navigationIcon = {
                 IconActionButton(
                     COUIIcons.Back,
-                    "返回",
+                    Strings.chatBack(),
                     onClick = onBack,
                 )
             },
@@ -270,10 +271,10 @@ private fun ViewerBottomBar(pager: PagerState, ref: ImageRef, bytes: ByteArray?)
                 Modifier.navigationBarsPadding().padding(bottom = 8.dp),
                 horizontalArrangement = Arrangement.spacedBy(24.dp),
             ) {
-                BarAction(COUIIcons.Download, "保存到相册", export != null) {
+                BarAction(COUIIcons.Download, Strings.chatSaveToGallery(), export != null) {
                     export?.let(exporter::save)
                 }
-                BarAction(COUIIcons.Share, "分享", export != null) {
+                BarAction(COUIIcons.Share, Strings.chatShare(), export != null) {
                     export?.let(exporter::share)
                 }
             }
@@ -404,7 +405,7 @@ private fun ZoomableImage(bitmap: ImageBitmap, zoom: ZoomState, onTap: () -> Uni
     ) {
         Image(
             bitmap = bitmap,
-            contentDescription = "图片",
+            contentDescription = Strings.chatImage(),
             contentScale = ContentScale.Fit,
             modifier =
                 Modifier.fillMaxSize()
@@ -423,9 +424,9 @@ private fun ZoomableImage(bitmap: ImageBitmap, zoom: ZoomState, onTap: () -> Uni
 /** 读屏报的缩放：原大，或放大、缩小到几倍（一位小数）。 */
 fun zoomText(scale: Float): String =
     when {
-        scale == 1f -> "原大"
-        scale > 1f -> "放大 ${"%.1f".format(scale)} 倍"
-        else -> "缩小到 ${"%.1f".format(scale)} 倍"
+        scale == 1f -> Strings.chatZoomActual()
+        scale > 1f -> Strings.chatZoomIn("%.1f".format(scale))
+        else -> Strings.chatZoomOut("%.1f".format(scale))
     }
 
 /** 全屏看图的对话框：铺满窗口（手机上还铺进系统栏下面）。 */

@@ -22,6 +22,7 @@ import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import com.dzshzx.zeta.core.SessionStatus
 import com.dzshzx.zeta.core.SessionStatus.Activity
+import com.dzshzx.zeta.i18n.Strings
 import com.dzshzx.zeta.ui.components.StatusWarning
 import io.github.suqi8.coui.kmp.basic.Text
 import io.github.suqi8.coui.kmp.theme.COUITheme
@@ -36,11 +37,11 @@ private const val GLYPH_CENTER_EM = 0.36f
 
 fun statusText(status: SessionStatus): String =
     when (status.activity) {
-        Activity.Waiting -> "等你确认"
-        Activity.Answering -> "回答中"
-        Activity.Background -> "后台 ${status.tasks}"
-        Activity.Unread -> "新回答"
-        Activity.Idle -> "闲置"
+        Activity.Waiting -> Strings.sidebarStatusWaiting()
+        Activity.Answering -> Strings.sidebarStatusAnswering()
+        Activity.Background -> Strings.sidebarStatusBackground(status.tasks)
+        Activity.Unread -> Strings.sidebarStatusUnread()
+        Activity.Idle -> Strings.sidebarStatusIdle()
     }
 
 @Composable

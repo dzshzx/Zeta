@@ -38,6 +38,7 @@ import com.dzshzx.zeta.core.SessionImage
 import com.dzshzx.zeta.core.Turn
 import com.dzshzx.zeta.core.imageMediaType
 import com.dzshzx.zeta.core.str
+import com.dzshzx.zeta.i18n.Strings
 import com.dzshzx.zeta.ui.components.coui2.ConfirmDialog
 import com.dzshzx.zeta.ui.components.coui2.FlatIconButton
 import com.dzshzx.zeta.ui.components.coui2.ZetaIcons
@@ -138,7 +139,7 @@ class MessageActions(
                     }
                 if (editing !== turn) return@launch
                 draft.attachments.addAll(restored.filterNotNull())
-                if (restored.any { it == null }) toast("有图片取不回来，没有放进输入框")
+                if (restored.any { it == null }) toast(Strings.composerImagesNotRestored())
             }
     }
 
@@ -157,7 +158,7 @@ class MessageActions(
     fun submitEdit(text: String, attachments: List<Attachment>, files: List<String>): Boolean {
         val turn = editing ?: return false
         if (!conversation.canRewind) {
-            toast("等这一轮结束再发")
+            toast(Strings.composerWaitTurnEnd())
             return false
         }
         editing = null
@@ -217,11 +218,15 @@ fun TurnActionButtons(
     if (turn === turns.last && (conversation.busy || conversation.rewinding)) return
     val enabled = conversation.canRewind && actions.editing == null
     if (turn.user.rewindable) {
-        ActionButton(COUIIcons.Refresh, "重新生成", enabled) { actions.askRegenerate(turn) }
-        ActionButton(COUIIcons.Delete, "删除这一轮", enabled) { actions.askDelete(turn) }
+        ActionButton(COUIIcons.Refresh, Strings.composerRegenerate(), enabled) {
+            actions.askRegenerate(turn)
+        }
+        ActionButton(COUIIcons.Delete, Strings.composerDeleteTurn(), enabled) {
+            actions.askDelete(turn)
+        }
     }
     if (turn.user.forkable) {
-        ActionButton(ZetaIcons.Branch, "从这里分支到新对话", enabled) { actions.branch(turn) }
+        ActionButton(ZetaIcons.Branch, Strings.composerBranch(), enabled) { actions.branch(turn) }
     }
 }
 
@@ -284,21 +289,23 @@ fun EditStrip(turn: Turn, onCancel: () -> Unit, modifier: Modifier = Modifier) {
         )
         Spacer(Modifier.width(6.dp))
         Text(
-            text = "编辑消息",
+            text = Strings.composerEditing(),
             style = COUITheme.textStyles.bodyS,
             fontWeight = FontWeight.Medium,
             color = colors.primary,
         )
         Spacer(Modifier.width(8.dp))
         Text(
-            text = if (turn.laterTurns > 0) "发送后将替换这条消息及之后的内容" else "发送后将替换这条消息和它的回复",
+            text =
+                if (turn.laterTurns > 0) Strings.composerEditReplacesLater()
+                else Strings.composerEditReplacesReply(),
             style = COUITheme.textStyles.bodyS,
             color = colors.labelSecondary,
             maxLines = 1,
             overflow = TextOverflow.Ellipsis,
             modifier = Modifier.weight(1f),
         )
-        ActionIcon(COUIIcons.Close, "取消编辑", colors.labelSecondary, onCancel)
+        ActionIcon(COUIIcons.Close, Strings.composerCancelEdit(), colors.labelSecondary, onCancel)
     }
 }
 
@@ -314,13 +321,15 @@ fun MessageActionDialogs(actions: MessageActions) {
     val changes = last?.changes
     ConfirmDialog(
         show = pending != null,
-        title = if (last?.regenerate != false) "重新生成回复？" else "删除这一轮对话？",
+        title =
+            if (last?.regenerate != false) Strings.composerRegenerateTitle()
+            else Strings.composerDeleteTurnTitle(),
         summary = last?.let(::confirmSummary),
         confirmText =
             when {
-                last?.regenerate != false -> "重新生成"
-                changes != null && last.codeOnly -> "还原代码"
-                else -> "删除"
+                last?.regenerate != false -> Strings.composerRegenerate()
+                changes != null && last.codeOnly -> Strings.composerRestoreCode()
+                else -> Strings.composerDelete()
             },
         destructive = last?.regenerate == false,
         onConfirm = actions::confirmed,
@@ -334,14 +343,19 @@ private fun confirmSummary(confirm: PendingConfirm): String {
     val later = confirm.turn.laterTurns
     val turns =
         when {
-            confirm.regenerate && later > 0 -> "将删除之后 $later 轮对话，并从这条消息重新生成。"
-            confirm.regenerate -> "这一轮的回复将换成新生成的。"
-            later > 0 -> "这条消息及之后 $later 轮对话将被删除。"
-            else -> "这条消息和它的回复将被删除。"
+            confirm.regenerate && later > 0 -> Strings.composerRegenerateLater(later)
+            confirm.regenerate -> Strings.composerRegenerateOnly()
+            later > 0 -> Strings.composerDeleteLater(later)
+            else -> Strings.composerDeleteOnly()
         }
     val files =
         confirm.changes?.let {
-            "\n这条消息之后改过 ${it.files.size} 个文件（+${it.insertions} −${it.deletions}）。"
+            "\n" +
+                Strings.composerFilesChangedSince(
+                    it.files.size,
+                    it.insertions.toString(),
+                    it.deletions.toString(),
+                )
         }
     return turns + files.orEmpty()
 }
@@ -353,7 +367,7 @@ private fun CodeRestoreChoice(confirm: PendingConfirm) {
     Column {
         if (confirm.regenerate) {
             CheckboxPreference(
-                title = "同时还原代码",
+                title = Strings.composerRestoreCodeToo(),
                 checked = confirm.code,
                 onCheckedChange = { confirm.code = it },
                 insideMargin = margin,
@@ -362,9 +376,9 @@ private fun CodeRestoreChoice(confirm: PendingConfirm) {
         }
         // 每项是（标题，code，codeOnly）
         listOf(
-                Triple("删除并还原代码", true, false),
-                Triple("只删除对话", false, false),
-                Triple("只还原代码，对话不动", true, true),
+                Triple(Strings.composerDeleteAndRestore(), true, false),
+                Triple(Strings.composerDeleteConversationOnly(), false, false),
+                Triple(Strings.composerRestoreCodeOnly(), true, true),
             )
             .forEach { (title, code, codeOnly) ->
                 RadioButtonPreference(

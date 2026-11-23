@@ -2,6 +2,7 @@ package com.dzshzx.zeta.core
 
 import androidx.compose.runtime.Stable
 import androidx.compose.runtime.derivedStateOf
+import com.dzshzx.zeta.i18n.Strings
 
 /**
  * 一轮结束后浮在屏幕底部的结果卡片（照 Eta 的结果卡片）：这一轮用过手机工具、结束时 Zeta 不在前台， 就把这一轮的回答（出错时是错误）浮在用户正在用的应用上，不用切回 Zeta
@@ -80,7 +81,9 @@ internal object ResultCardPolicy {
         return Outcome(NO_ANSWER, failed = false)
     }
 
-    const val NO_ANSWER = "这一轮没有文字回答。"
+    val NO_ANSWER: String
+        get() = Strings.coreResultNoAnswer()
+
     private const val IDLE_BASE_MS = 8_000L
     private const val IDLE_MAX_MS = 20_000L
     private const val CHARS_PER_SECOND = 40

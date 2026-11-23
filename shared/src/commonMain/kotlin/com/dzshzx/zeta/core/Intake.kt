@@ -1,5 +1,7 @@
 package com.dzshzx.zeta.core
 
+import com.dzshzx.zeta.i18n.Strings
+
 /** 从外面送进对话的东西从哪来。 */
 enum class IntakeSource {
     Share,
@@ -59,17 +61,14 @@ fun intakeSummary(
     val parts = buildList {
         if (images > 0)
             add(
-                if (source == IntakeSource.Screenshot) countOf(images, "张截屏")
-                else countOf(images, "张图片"),
+                if (source == IntakeSource.Screenshot) Strings.coreIntakeScreenshots(images)
+                else Strings.coreIntakeImages(images),
             )
-        if (files > 0) add(countOf(files, "个文件"))
-        if (hasText) add("一段文字")
+        if (files > 0) add(Strings.coreIntakeFiles(files))
+        if (hasText) add(Strings.coreIntakeText())
     }
-    return parts.joinToString("和").ifEmpty { "空的内容" }
+    return parts.reduceOrNull(Strings::coreIntakeJoin) ?: Strings.coreIntakeEmpty()
 }
-
-private fun countOf(n: Int, unit: String) =
-    (if (n == 1) "一" else n.toString()) + (if (n == 1) unit else " $unit")
 
 /** 把分享和打开的 Intent 拆成 [Intake]。只处理取出来的值，不碰 Android 对象，方便单元测试。 */
 object IntakeParser {
@@ -144,9 +143,9 @@ object FileLimits {
 
     /** 没收某个文件的原因（[size] 不知道时是读到一半才发现超过上限）。 */
     fun tooLargeReason(name: String, size: Long?): String =
-        "「$name」" +
-            (if (size != null) "有 ${formatBytes(size)}，" else "") +
-            "超过 ${formatBytes(MAX_BYTES)} 的上限，没有复制"
+        if (size != null)
+            Strings.coreIntakeTooLarge(name, formatBytes(size), formatBytes(MAX_BYTES))
+        else Strings.coreIntakeTooLargeUnsized(name, formatBytes(MAX_BYTES))
 }
 
 /** 「放进哪个对话」的一个候选：[blank] 是还什么都没有的新对话，[active] 是还在进行（在跑、等确认、后台任务没完）。 */

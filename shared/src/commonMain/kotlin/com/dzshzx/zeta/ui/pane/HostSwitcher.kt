@@ -23,6 +23,7 @@ import androidx.compose.ui.unit.dp
 import com.dzshzx.zeta.core.Backends
 import com.dzshzx.zeta.core.ConversationHub
 import com.dzshzx.zeta.core.RemoteHosts
+import com.dzshzx.zeta.i18n.Strings
 import com.dzshzx.zeta.ui.components.coui2.AnchoredMenu
 import com.dzshzx.zeta.ui.components.coui2.ZetaIcons
 import com.dzshzx.zeta.ui.components.coui2.menuItem
@@ -67,7 +68,7 @@ fun HostSwitcher(
             )
             Spacer(Modifier.width(6.dp))
             Text(
-                text = if (all) AllHostsLabel else hub.backendName(current),
+                text = if (all) allHostsLabel() else hub.backendName(current),
                 style = COUITheme.textStyles.buttonM,
                 color = colors.labelPrimary,
                 maxLines = 1,
@@ -77,7 +78,7 @@ fun HostSwitcher(
             Spacer(Modifier.width(4.dp))
             Icon(
                 imageVector = ZetaIcons.ChevronDown,
-                contentDescription = "换设备",
+                contentDescription = Strings.sidebarSwitchDevice(),
                 modifier = Modifier.size(14.dp),
                 tint = colors.labelSecondary,
             )
@@ -102,7 +103,11 @@ private fun hostMenu(
     val items =
         listOf(Triple(Backends.LOCAL, hub.backendName(Backends.LOCAL), RemoteHosts.LOCAL_SUMMARY)) +
             hub.settings.remoteHosts.map {
-                Triple(it.id, it.name, it.target + if (it.connected) "" else " · 已断开")
+                Triple(
+                    it.id,
+                    it.name,
+                    if (it.connected) it.target else Strings.sidebarDeviceDisconnected(it.target),
+                )
             }
     val hosts =
         DropdownEntry(
@@ -128,15 +133,15 @@ private fun hostMenu(
 }
 
 /** 设备胶囊里列全部设备那一项的名字。 */
-const val AllHostsLabel = "全部设备"
+fun allHostsLabel(): String = Strings.sidebarAllDevices()
 
 /** 菜单里「全部设备」那一组；[selected] 是正列着全部设备。 */
 private fun allHostsEntry(selected: Boolean, onClick: () -> Unit) =
     DropdownEntry(
         items =
             listOf(
-                menuItem(AllHostsLabel, ZetaIcons.Globe, onClick = onClick)
-                    .copy(selected = selected, summary = "各台设备的对话列在一起"),
+                menuItem(allHostsLabel(), ZetaIcons.Globe, onClick = onClick)
+                    .copy(selected = selected, summary = Strings.sidebarAllDevicesSummary()),
             ),
     )
 

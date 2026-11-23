@@ -63,6 +63,7 @@ import com.dzshzx.zeta.core.ToolStep
 import com.dzshzx.zeta.core.UserItem
 import com.dzshzx.zeta.core.WorkItem
 import com.dzshzx.zeta.core.WorkStep
+import com.dzshzx.zeta.i18n.Strings
 import com.dzshzx.zeta.ui.components.FoldEnter
 import com.dzshzx.zeta.ui.components.FoldExit
 import com.dzshzx.zeta.ui.components.FoldResize
@@ -182,7 +183,7 @@ private fun PeerHeader(
                 .heightIn(min = 38.dp)
                 .clickable(
                     enabled = foldable,
-                    onClickLabel = if (open) "收起" else "展开",
+                    onClickLabel = if (open) Strings.chatCollapse() else Strings.chatExpand(),
                     onClick = onToggle,
                 )
                 .padding(horizontal = 14.dp),
@@ -196,7 +197,7 @@ private fun PeerHeader(
         )
         Spacer(Modifier.width(8.dp))
         Text(
-            text = "来自会话 $peer",
+            text = Strings.chatFromSession(peer),
             style = COUITheme.textStyles.bodyM.copy(fontSize = 13.5.sp),
             color = ink.muted,
             maxLines = 1,
@@ -340,13 +341,13 @@ private fun userMenuEntries(
     onDelete: (() -> Unit)?,
 ): List<DropdownEntry> {
     val main = buildList {
-        add(menuItem("复制", COUIIcons.Copy, onCopy))
-        if (onSave != null) add(menuItem("收藏为常用指令", COUIIcons.Favorites, onSave))
-        if (onEdit != null) add(menuItem("编辑", COUIIcons.Edit, onEdit))
+        add(menuItem(Strings.chatCopy(), COUIIcons.Copy, onCopy))
+        if (onSave != null) add(menuItem(Strings.chatSaveAsPrompt(), COUIIcons.Favorites, onSave))
+        if (onEdit != null) add(menuItem(Strings.chatEdit(), COUIIcons.Edit, onEdit))
     }
     val danger =
         if (onDelete != null) {
-            listOf(menuItem("删除", COUIIcons.Delete, onDelete, alert = true))
+            listOf(menuItem(Strings.chatDelete(), COUIIcons.Delete, onDelete, alert = true))
         } else {
             emptyList()
         }
@@ -603,9 +604,10 @@ fun WorkGroup(
     val runningTool = (running as? ToolStep)?.presentation()
     val headerText =
         when {
-            runningTool != null -> "正在处理第 $toolCount 步 · " + runningTool.title
-            running is ThinkingStep -> "正在思考"
-            else -> if (toolCount > 0) "已完成 $toolCount 个步骤" else "思考已完成"
+            runningTool != null -> Strings.chatWorkRunningStep(toolCount, runningTool.title)
+            running is ThinkingStep -> Strings.chatThinking()
+            else ->
+                if (toolCount > 0) Strings.chatStepsDone(toolCount) else Strings.chatThinkingDone()
         }
     WorkCard(
         icon = workIcon(running),
@@ -699,9 +701,9 @@ private fun stepSummary(step: WorkStep): StepSummary =
 
 private fun thinkingTitle(step: ThinkingStep): String =
     when {
-        step.running -> "正在思考"
-        step.seconds != null -> "思考已完成 · 用时 ${step.seconds} 秒"
-        else -> "思考已完成"
+        step.running -> Strings.chatThinking()
+        step.seconds != null -> Strings.chatThinkingDoneIn(step.seconds)
+        else -> Strings.chatThinkingDone()
     }
 
 /** 工具调用展开后的详情：调用的说明，空一行接结果（太长的截到 3000 字）。 */
@@ -736,7 +738,7 @@ private fun WorkStepHeader(
         modifier =
             Modifier.fillMaxWidth().heightIn(min = 34.dp).clip(RoundedCornerShape(8.dp)).clickable(
                 enabled = subagent != null || expandable,
-                onClickLabel = if (subagent != null) "查看子代理的步骤" else null,
+                onClickLabel = if (subagent != null) Strings.chatViewSubagentSteps() else null,
             ) {
                 if (subagent != null) subagent(step.id) else onToggle()
             },
@@ -756,8 +758,8 @@ private fun WorkStepHeader(
             modifier = Modifier.weight(1f),
         )
         when (summary.status) {
-            ToolStatus.Success -> StatusDot(COUITheme.colorScheme.success, "已完成")
-            ToolStatus.Failed -> StatusDot(colors.error, "失败")
+            ToolStatus.Success -> StatusDot(COUITheme.colorScheme.success, Strings.chatDone())
+            ToolStatus.Failed -> StatusDot(colors.error, Strings.chatFailed())
             else -> Unit
         }
         if (step is ToolStep) ChatPlatform.current.ToolStepAction(step)
@@ -777,7 +779,7 @@ private fun WorkStepOpener(
         subagent != null ->
             FlatIconButton(
                 icon = COUIIcons.Forward,
-                contentDescription = "查看子代理的步骤",
+                contentDescription = Strings.chatViewSubagentSteps(),
                 size = 26.dp,
                 iconSize = 16.dp,
                 modifier = Modifier.padding(start = 6.dp),
@@ -849,7 +851,7 @@ fun Chevron(
     val rotation by animateFloatAsState(if (expanded) 0f else -90f, label = "chevron")
     Icon(
         imageVector = ZetaIcons.ChevronDown,
-        contentDescription = if (expanded) "收起" else "展开",
+        contentDescription = if (expanded) Strings.chatCollapse() else Strings.chatExpand(),
         modifier = modifier.size(size).rotate(rotation),
         tint = tint,
     )

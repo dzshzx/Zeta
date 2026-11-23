@@ -31,6 +31,7 @@ import androidx.compose.ui.unit.sp
 import com.dzshzx.zeta.core.PromptList
 import com.dzshzx.zeta.core.SavedPrompt
 import com.dzshzx.zeta.core.SavedPrompts
+import com.dzshzx.zeta.i18n.Strings
 import com.dzshzx.zeta.ui.components.LocalHub
 import com.dzshzx.zeta.ui.components.coui2.ConfirmDialog
 import com.dzshzx.zeta.ui.components.coui2.RowMoreMenu
@@ -145,14 +146,14 @@ class PromptsUi(
         val list = store.load()
         val message =
             when {
-                SavedPrompts.findSame(list, text) != null -> "已经在常用指令里了"
+                SavedPrompts.findSame(list, text) != null -> Strings.composerPromptAlreadySaved()
                 else ->
                     SavedPrompts.problem(list, "", text)
                         ?: run {
                             store.update {
                                 SavedPrompts.add(it, UUID.randomUUID().toString(), "", text)
                             }
-                            "已收藏，在输入框左边的“+”里"
+                            Strings.composerPromptSaved()
                         }
             }
         toast(message)
@@ -188,9 +189,9 @@ fun SavedPromptsDialogs(ui: PromptsUi) {
     val shown = rememberRetained(deleting)
     ConfirmDialog(
         show = deleting != null,
-        title = "删除这条常用指令？",
-        summary = shown?.let { "“${SavedPrompts.displayName(it)}”删除后找不回来。" },
-        confirmText = "删除",
+        title = Strings.composerPromptDeleteTitle(),
+        summary = shown?.let { Strings.composerPromptDeleteSummary(SavedPrompts.displayName(it)) },
+        confirmText = Strings.composerDelete(),
         destructive = true,
         onConfirm = ui::confirmDelete,
         onDismissRequest = ui::dismissDelete,
@@ -203,13 +204,11 @@ private fun PromptListDialog(ui: PromptsUi) {
     // 没有的时候说明放在标题下面，有的时候列表放在说明的位置
     ConfirmDialog(
         show = ui.listOpen,
-        title = "常用指令",
-        summary =
-            if (prompts.isEmpty()) "还没有常用指令。点“新建”写一条，或者长按自己发过的消息，选“收藏”。点一条就把它填进输入框，可以改了再发。"
-            else null,
-        confirmText = "新建",
+        title = Strings.composerMenuPrompts(),
+        summary = if (prompts.isEmpty()) Strings.composerPromptsEmpty() else null,
+        confirmText = Strings.composerPromptNew(),
         confirmEnabled = prompts.size < SavedPrompts.MAX,
-        cancelText = "关闭",
+        cancelText = Strings.composerClose(),
         onConfirm = ui::startNew,
         onDismissRequest = ui::close,
         content =
@@ -248,15 +247,19 @@ private fun PromptRow(prompt: SavedPrompt, first: Boolean, last: Boolean, ui: Pr
                 DropdownEntry(
                     items =
                         listOf(
-                            menuItem("编辑", COUIIcons.Edit, { ui.startEdit(current) }),
                             menuItem(
-                                "上移",
+                                Strings.composerEdit(),
+                                COUIIcons.Edit,
+                                { ui.startEdit(current) },
+                            ),
+                            menuItem(
+                                Strings.composerMoveUp(),
                                 ZetaIcons.ArrowUp,
                                 { ui.move(current, -1) },
                                 enabled = !first,
                             ),
                             menuItem(
-                                "下移",
+                                Strings.composerMoveDown(),
                                 ZetaIcons.ArrowDown,
                                 { ui.move(current, 1) },
                                 enabled = !last,
@@ -267,7 +270,7 @@ private fun PromptRow(prompt: SavedPrompt, first: Boolean, last: Boolean, ui: Pr
                     items =
                         listOf(
                             menuItem(
-                                "删除",
+                                Strings.composerDelete(),
                                 COUIIcons.Delete,
                                 { ui.askDelete(current) },
                                 alert = true,
@@ -309,7 +312,7 @@ private fun PromptRow(prompt: SavedPrompt, first: Boolean, last: Boolean, ui: Pr
                 )
             }
         }
-        RowMoreMenu("更多操作", entries, iconSize = 20.dp)
+        RowMoreMenu(Strings.composerMoreActions(), entries, iconSize = 20.dp)
     }
 }
 
@@ -323,9 +326,11 @@ private fun PromptEditorDialog(ui: PromptsUi) {
     val problem = ui.problem(name, text)
     ConfirmDialog(
         show = draft != null,
-        title = if (current?.id == null) "新建常用指令" else "编辑常用指令",
+        title =
+            if (current?.id == null) Strings.composerPromptNewTitle()
+            else Strings.composerPromptEditTitle(),
         summary = null,
-        confirmText = "保存",
+        confirmText = Strings.composerSave(),
         confirmEnabled = problem == null,
         onConfirm = { ui.save(name, text) },
         onDismissRequest = ui::cancelEdit,
@@ -335,7 +340,7 @@ private fun PromptEditorDialog(ui: PromptsUi) {
             TextField(
                 value = name,
                 onValueChange = { name = it.take(SavedPrompts.MAX_NAME) },
-                label = "名字（可不填）",
+                label = Strings.composerPromptNameLabel(),
                 useLabelAsPlaceholder = false,
                 singleLine = true,
                 showClearButton = true,
@@ -343,7 +348,7 @@ private fun PromptEditorDialog(ui: PromptsUi) {
             TextField(
                 value = text,
                 onValueChange = { text = it },
-                label = "内容",
+                label = Strings.composerPromptTextLabel(),
                 useLabelAsPlaceholder = false,
                 minLines = 3,
                 maxLines = 8,

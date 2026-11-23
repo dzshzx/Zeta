@@ -11,6 +11,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.ui.platform.LocalContext
 import com.dzshzx.zeta.core.voice.SpeechInput
 import com.dzshzx.zeta.core.voice.SpeechState
+import com.dzshzx.zeta.i18n.Strings
 import kotlinx.coroutines.flow.StateFlow
 
 /** 手机上按住说话的识别：系统自带的识别服务（[SpeechInput]），开始前先看麦克风权限，没有就用 [askPermission] 去要。 */
@@ -47,7 +48,7 @@ internal fun rememberSpeechTalk(): TalkInput? {
     if (!available) return null
     val permission =
         rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) { granted ->
-            val text = if (granted) "可以按住说话了" else "没有麦克风权限，到设置的权限页一键授予"
+            val text = if (granted) Strings.chatHoldToTalkReady() else Strings.chatNoMicPermission()
             Toast.makeText(context, text, Toast.LENGTH_SHORT).show()
         }
     return remember {

@@ -1,6 +1,7 @@
 package com.dzshzx.zeta.core
 
 import com.dzshzx.zeta.core.ssh.SshLinks
+import com.dzshzx.zeta.i18n.Strings
 import java.io.File
 import kotlinx.serialization.json.JsonObject
 
@@ -114,7 +115,11 @@ interface TurnEvents {
     fun turnEnding(conversation: Conversation, text: String)
 
     /** [conversation] 这一轮结束了：[stopped] 是用户叫停的，[text] 是结束的那一句。 */
-    fun turnFinished(conversation: Conversation, stopped: Boolean, text: String = "已完成")
+    fun turnFinished(
+        conversation: Conversation,
+        stopped: Boolean,
+        text: String = Strings.coreTurnDone(),
+    )
 
     /** [conversation] 等用户回答的请求变了。 */
     fun pendingChanged(conversation: Conversation)

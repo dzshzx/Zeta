@@ -2,6 +2,7 @@ package com.dzshzx.zeta.core
 
 import androidx.compose.runtime.Stable
 import androidx.compose.runtime.derivedStateOf
+import com.dzshzx.zeta.i18n.Strings
 import com.dzshzx.zeta.phone.OverlayFocus
 import com.dzshzx.zeta.phone.OverlayPhase
 import com.dzshzx.zeta.phone.PhoneTools
@@ -87,8 +88,8 @@ internal class ConversationFocus(private val hub: ConversationHub, val conversat
         finishing?.let {
             return Step(it, StepKind.FINISHED)
         }
-        if (phone.userControlling) return Step("你在接管", StepKind.CONTROLLING)
-        if (phone.paused) return Step("已暂停", StepKind.PAUSED)
+        if (phone.userControlling) return Step(Strings.coreStepYouControl(), StepKind.CONTROLLING)
+        if (phone.paused) return Step(Strings.coreStepPaused(), StepKind.PAUSED)
         conversation.pending?.let {
             return AlertNotice.waitingStep(it)
         }
@@ -96,7 +97,9 @@ internal class ConversationFocus(private val hub: ConversationHub, val conversat
             return Step(it, StepKind.STATUS)
         }
         return when (val last = conversation.items.lastOrNull()) {
-            is AnswerItem -> if (last.streaming) Step("正在回答", StepKind.ANSWERING) else THINKING
+            is AnswerItem ->
+                if (last.streaming) Step(Strings.coreStepAnswering(), StepKind.ANSWERING)
+                else thinking()
             is WorkItem -> {
                 // 一起发出的几个手机操作排着队一个个做：说正在做的那一个，而不是排在最后的
                 val running = last.steps.filter { it.running }
@@ -104,10 +107,10 @@ internal class ConversationFocus(private val hub: ConversationHub, val conversat
                 val active =
                     call?.let { c -> running.lastOrNull { it is ToolStep && isCurrent(it, c) } }
                         ?: running.lastOrNull()
-                if (active is ToolStep) toolStep(active) else THINKING
+                if (active is ToolStep) toolStep(active) else thinking()
             }
             // 刚发出消息、工具刚返回还没开始下一块：模型在想
-            else -> THINKING
+            else -> thinking()
         }
     }
 
@@ -148,7 +151,8 @@ internal class ConversationFocus(private val hub: ConversationHub, val conversat
     }
 
     private companion object {
-        val THINKING = Step("正在思考", StepKind.THINKING)
+        fun thinking() = Step(Strings.coreStepThinking(), StepKind.THINKING)
+
         const val OPEN_FALLBACK_MS = 400L
         const val THOUGHT_CHARS = 40
         val PHONE_PREFIX = "mcp__${PhoneTools.SERVER}__"

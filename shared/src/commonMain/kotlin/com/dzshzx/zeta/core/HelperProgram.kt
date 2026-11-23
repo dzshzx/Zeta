@@ -1,5 +1,6 @@
 package com.dzshzx.zeta.core
 
+import com.dzshzx.zeta.i18n.Strings
 import java.security.MessageDigest
 
 /** 跑 zeta-helper 的一个子命令（子命令、参数）：调用方已经定好在哪个 Linux 环境里跑。 */
@@ -24,13 +25,13 @@ sealed interface HelperResult {
         /** 由一次执行的结果判断：[result] 为 null 是进程没起来。 */
         fun of(result: CommandResult?): HelperResult =
             when {
-                result == null -> Failed("进不了 Linux 环境")
+                result == null -> Failed(Strings.coreCantEnterLinuxEnv())
                 result.exitCode == 0 -> Ok(result.stdout)
-                result.timedOut -> Failed("Linux 环境没有响应（超时）")
+                result.timedOut -> Failed(Strings.coreHelperTimeout())
                 else ->
                     Failed(
                         result.stderr.trim().takeLast(300).ifEmpty {
-                            "zeta-helper 出错（退出码 ${result.exitCode}）"
+                            Strings.coreHelperExit(result.exitCode.toString())
                         },
                     )
             }
@@ -122,13 +123,13 @@ class HelperProgram(
     ): CommandResult? {
         val binary =
             archOf(machine)?.let(binaries::getValue)
-                ?: return CommandResult(MISSING, "", "$name 没有这台机器（$machine）能用的版本")
+                ?: return CommandResult(MISSING, "", Strings.coreProgramNoBuild(name, machine))
         val installed = exec(installCommand(binary), binary) ?: return null
         if (installed.exitCode != 0)
             return CommandResult(
                 installed.exitCode,
                 installed.stdout,
-                "装 $name 没成功：" + installed.stderr.trim(),
+                Strings.coreProgramInstallFailed(name, installed.stderr.trim()),
             )
         return installed
     }

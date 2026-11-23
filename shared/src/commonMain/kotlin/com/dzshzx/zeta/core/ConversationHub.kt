@@ -9,6 +9,7 @@ import com.dzshzx.zeta.core.claude.ClaudeConfigCore
 import com.dzshzx.zeta.core.claude.ClaudeDefaults
 import com.dzshzx.zeta.core.conv.SessionActivity
 import com.dzshzx.zeta.core.ssh.SshLinks
+import com.dzshzx.zeta.i18n.Strings
 import kotlin.concurrent.thread
 import kotlinx.serialization.json.JsonObject
 
@@ -100,11 +101,11 @@ class ConversationHub(val platform: HubPlatform) {
         if (usable(backend)) return null
         val host = remoteHost(backend)
         return when {
-            backend == Backends.LOCAL && platform.local == null -> "还没有添加远程设备，请到设置里添加"
-            backend == Backends.LOCAL -> "还没有配置 Linux 环境，请到设置里检查"
-            host == null -> "远程设备已经从设置里删掉了"
-            !host.connected -> "「${host.name}」已断开，在设置里这台设备的页面打开「连接」"
-            else -> "「${host.name}」经手机的 Debian 连，Debian 环境还没就绪"
+            backend == Backends.LOCAL && platform.local == null -> Strings.coreHubNoRemote()
+            backend == Backends.LOCAL -> Strings.coreHubNoLinuxEnv()
+            host == null -> Strings.coreHubHostRemoved()
+            !host.connected -> Strings.coreHubHostOff(host.name)
+            else -> Strings.coreHubHostNoDebian(host.name)
         }
     }
 
@@ -142,7 +143,7 @@ class ConversationHub(val platform: HubPlatform) {
     /** 主机 [backend] 上的命令以 [exitCode] 结束、标准错误是 [stderr]：是远程主机连不上的话给界面一句话，别的情况是 null。 */
     fun linkProblem(backend: String, exitCode: Int, stderr: String): String? =
         if (backend != Backends.LOCAL && exitCode == RemoteShell.CONNECTION_FAILED)
-            "连不上「${backendName(backend)}」：" + RemoteHosts.sshProblem(stderr)
+            Strings.coreHubCantReachWhy(backendName(backend), RemoteHosts.sshProblem(stderr))
         else null
 
     /**
@@ -158,7 +159,7 @@ class ConversationHub(val platform: HubPlatform) {
             RemoteHost.Via.Direct -> RemoteHosts.probeDirect(ssh, target, expectedHostKey)
             RemoteHost.Via.Debian ->
                 shell(Backends.LOCAL)?.let { RemoteHosts.probeDebian(it, target) }
-                    ?: RemoteHosts.Probe.Failed("手机里的 Linux 环境还没就绪")
+                    ?: RemoteHosts.Probe.Failed(Strings.coreHubPhoneLinuxNotReady())
         }
 
     /** 主机 [backend] 上那个用户的家目录；还不知道时为 null。 */
@@ -168,7 +169,7 @@ class ConversationHub(val platform: HubPlatform) {
     /** 界面上设备 [backend] 的名字：用户起的，没起时是它自己的名字（[originalName]）。 */
     fun backendName(backend: String): String =
         if (backend == Backends.LOCAL) settings.localName ?: platform.deviceName
-        else remoteHost(backend)?.name ?: "已删除的设备"
+        else remoteHost(backend)?.name ?: Strings.coreHubDeletedDevice()
 
     /** 设备 [backend] 自己的名字（用户没起名字时显示它）：手机是系统里的设备名，远程设备是它报的主机名，还没记下时是地址。 */
     fun originalName(backend: String): String {
@@ -208,7 +209,8 @@ class ConversationHub(val platform: HubPlatform) {
         backend: String,
     ): HelperResult {
         val shell =
-            shell(backend) ?: return HelperResult.Failed(unavailable(backend) ?: "还没有可用的 Linux 环境")
+            shell(backend)
+                ?: return HelperResult.Failed(unavailable(backend) ?: Strings.coreNoLinuxEnv())
         val result = runCatching {
             helperProgram.run(
                 { command, stdin -> shell.run(command, stdin, timeoutMs, plain = true) },
@@ -218,7 +220,7 @@ class ConversationHub(val platform: HubPlatform) {
         }
             .getOrNull()
         if (result == null && backend != Backends.LOCAL)
-            return HelperResult.Failed("连不上「${backendName(backend)}」")
+            return HelperResult.Failed(Strings.coreHubCantReach(backendName(backend)))
         return result
             ?.let { linkProblem(backend, it.exitCode, it.stderr) }
             ?.let(HelperResult::Failed) ?: HelperResult.of(result)
@@ -786,7 +788,7 @@ class ConversationHub(val platform: HubPlatform) {
     fun onTurnFinished(
         conversation: Conversation,
         stopped: Boolean = false,
-        text: String = "已完成",
+        text: String = Strings.coreTurnDone(),
     ) {
         retireWhenIdle(conversation)
         if (conversation !== current && !stopped) markUnread(conversation)

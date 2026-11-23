@@ -17,6 +17,7 @@ import androidx.compose.ui.platform.LocalContext
 import com.dzshzx.zeta.core.Backends
 import com.dzshzx.zeta.core.ConversationHub
 import com.dzshzx.zeta.core.SessionSummary
+import com.dzshzx.zeta.i18n.Strings
 import com.dzshzx.zeta.ui.app.discardDocument
 import com.dzshzx.zeta.ui.app.writeText
 import kotlinx.coroutines.Dispatchers
@@ -98,19 +99,22 @@ private fun saveExport(
 private suspend fun shareExport(context: Context, hub: ConversationHub, session: SessionSummary) {
     val exported = withContext(Dispatchers.IO) { exportMarkdown(hub, session.backend, session.id) }
     when {
-        exported == null -> Toast.makeText(context, "导出失败", Toast.LENGTH_LONG).show()
+        exported == null ->
+            Toast.makeText(context, Strings.sidebarExportFailed(), Toast.LENGTH_LONG).show()
         exported.markdown.length > MaxShareChars ->
-            Toast.makeText(context, "对话太长，没法直接分享，请保存到文件", Toast.LENGTH_LONG).show()
+            Toast.makeText(context, Strings.sidebarShareTooLong(), Toast.LENGTH_LONG).show()
         else -> {
             val send =
                 Intent(Intent.ACTION_SEND)
                     .setType("text/plain")
                     .putExtra(Intent.EXTRA_SUBJECT, exported.title)
                     .putExtra(Intent.EXTRA_TEXT, exported.markdown)
-            val chooser = Intent.createChooser(send, "分享对话")
+            val chooser = Intent.createChooser(send, Strings.sidebarShareChooser())
             if (context !is Activity) chooser.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
             runCatching { context.startActivity(chooser) }
-                .onFailure { Toast.makeText(context, "导出失败", Toast.LENGTH_LONG).show() }
+                .onFailure {
+                    Toast.makeText(context, Strings.sidebarExportFailed(), Toast.LENGTH_LONG).show()
+                }
         }
     }
 }

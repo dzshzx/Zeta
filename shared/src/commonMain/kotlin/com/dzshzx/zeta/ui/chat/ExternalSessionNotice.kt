@@ -11,6 +11,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import com.dzshzx.zeta.core.Conversation
 import com.dzshzx.zeta.core.Occupant
+import com.dzshzx.zeta.i18n.Strings
 import io.github.suqi8.coui.kmp.basic.Text
 import io.github.suqi8.coui.kmp.basic.TextButton
 import io.github.suqi8.coui.kmp.squircle.SquircleShape
@@ -35,69 +36,74 @@ fun externalNoticeText(
     problem: String?,
 ): ExternalNoticeText {
     val title =
-        occupant
-            ?.let { occupantPlace(it.app, it.device, it.local) }
-            ?.let { spaced("会话正在", it, "运行") } ?: "会话正在别处运行"
+        spaceMixed(
+            Strings.chatSessionRunningAt(
+                occupant?.let { occupantPlace(it.app, it.device, it.local) }
+                    ?: Strings.chatPlaceElsewhere(),
+            ),
+        )
     val summary =
         when {
             problem != null -> problem
-            occupant == null -> "正在查询那边的状态。"
-            occupant.status == Occupant.IDLE -> "当前空闲。" + takeoverEffect(occupant.app)
+            occupant == null -> Strings.chatOccupantChecking()
+            occupant.status == Occupant.IDLE ->
+                if (occupant.app == Occupant.ZETA || occupant.app == Occupant.ZETA_DEV)
+                    Strings.chatOccupantIdleZeta()
+                else Strings.chatOccupantIdleOther()
             occupant.status == Occupant.WAITING ->
-                "正在等待确认" +
-                    (occupant.waitingFor?.let { "：$it" } ?: "") +
-                    "。接管后这个确认作废，要让 Claude 重做这一步。"
-            occupant.status == Occupant.UNKNOWN -> "看不出是否空闲。接管会让它退出，进行中的操作会中断。"
-            occupant.status == Occupant.SHELL -> "正在执行 ! 命令，执行完后可以接管。"
-            else -> "正在回答，本轮结束后可以接管。"
+                occupant.waitingFor?.let { Strings.chatOccupantWaitingFor(it) }
+                    ?: Strings.chatOccupantWaiting()
+            occupant.status == Occupant.UNKNOWN -> Strings.chatOccupantUnknown()
+            occupant.status == Occupant.SHELL -> Strings.chatOccupantShell()
+            else -> Strings.chatOccupantAnswering()
         }
     return when {
-        handing -> ExternalNoticeText(title, summary, "正在接管…", enabled = false)
+        handing -> ExternalNoticeText(title, summary, Strings.chatTakingOver(), enabled = false)
         occupant == null || occupant.handsOver ->
-            ExternalNoticeText(title, summary, "接管会话", enabled = occupant != null)
-        else -> ExternalNoticeText(title, summary, "等待对方空闲", enabled = false)
+            ExternalNoticeText(title, summary, Strings.chatTakeOver(), enabled = occupant != null)
+        else -> ExternalNoticeText(title, summary, Strings.chatWaitIdle(), enabled = false)
     }
 }
 
 /**
  * 占着会话的进程在哪，接在「会话正在」「它正在」后面（同桌面版的 occupantPlace，用例相同）：[app]、[device]、[local] 是核心推来的 occupant 的
  * app、device、 local。本机的是「本机终端里」「本机的 Zeta 测试版里」，有名字的是「work-pc 的终端里」，在哪不知道时只说应用（「终端里」）；VS Code、Claude
- * 桌面版同样。 说不出是什么应用时为 null，调用方说「别处」。
+ * 桌面版同样。 说不出是什么应用时为 null，调用方说「别处」（[Strings.chatPlaceElsewhere]）。按界面语言出字。
  */
 fun occupantPlace(app: String?, device: String?, local: Boolean): String? {
     val what =
         when (app) {
-            Occupant.TERMINAL -> "终端"
+            Occupant.TERMINAL -> Strings.chatAppTerminal()
             Occupant.ZETA -> "Zeta"
-            Occupant.ZETA_DEV -> "Zeta 测试版"
+            Occupant.ZETA_DEV -> Strings.chatAppZetaDev()
             "claude-vscode" -> "VS Code"
-            "claude-desktop" -> "Claude 桌面版"
+            "claude-desktop" -> Strings.chatAppClaudeDesktop()
             else -> return null
         }
-    return when {
-        local && app == Occupant.TERMINAL -> "本机终端里"
-        local -> spaced("本机的", what, "里")
-        !device.isNullOrEmpty() -> spaced(device, "的", what, "里")
-        else -> spaced(what, "里")
-    }
+    return spaceMixed(
+        when {
+            local && app == Occupant.TERMINAL -> Strings.chatPlaceLocalTerminal()
+            local -> Strings.chatPlaceLocalApp(what)
+            !device.isNullOrEmpty() -> Strings.chatPlaceDeviceApp(device, what)
+            else -> Strings.chatPlaceApp(what)
+        },
+    )
 }
 
-/** 闲着时接管的后果：Zeta 托管的那边结束它的托管进程；别的（终端里的等）收到中断像 /exit 那样退出。 */
-private fun takeoverEffect(app: String?): String =
-    if (app == Occupant.ZETA || app == Occupant.ZETA_DEV) "接管后那边的对话会结束，会话转到这里继续。"
-    else "接管后那边会退出，会话转到 Zeta 继续。"
-
-/** 把几段字连起来，汉字和英文字母、数字相接处加一个空格（「work-pc 的 Zeta 里」）；空的段跳过。 */
-fun spaced(vararg parts: String): String {
+/**
+ * 汉字和英文字母、数字相接处加一个空格（「work-pc的Zeta里」→「work-pc 的 Zeta 里」）：中文的句子把设备名、应用名直接嵌在字中间， 拼好后用它补空格。已有空格的不重复加。
+ */
+fun spaceMixed(text: String): String {
     val out = StringBuilder()
-    for (p in parts) {
-        if (p.isEmpty()) continue
+    var i = 0
+    while (i < text.length) {
+        val c = text.codePointAt(i)
         if (out.isNotEmpty()) {
             val last = out.codePointBefore(out.length)
-            val first = p.codePointAt(0)
-            if (asciiWord(last) && wide(first) || wide(last) && asciiWord(first)) out.append(' ')
+            if (asciiWord(last) && wide(c) || wide(last) && asciiWord(c)) out.append(' ')
         }
-        out.append(p)
+        out.appendCodePoint(c)
+        i += Character.charCount(c)
     }
     return out.toString()
 }

@@ -44,6 +44,7 @@ import com.dzshzx.zeta.core.TodoEntry
 import com.dzshzx.zeta.core.TodoList
 import com.dzshzx.zeta.core.TodoStatus
 import com.dzshzx.zeta.core.str
+import com.dzshzx.zeta.i18n.Strings
 import com.dzshzx.zeta.ui.components.FoldEnter
 import com.dzshzx.zeta.ui.components.FoldExit
 import com.dzshzx.zeta.ui.components.coui2.ZetaIcons
@@ -83,21 +84,24 @@ fun TodoStrip(list: TodoList?, busy: Boolean, modifier: Modifier = Modifier) {
     val position = minOf(list.done + if (current != null) 1 else 0, list.total)
     val summary =
         when {
-            list.allDone -> "全部完成"
+            list.allDone -> Strings.chatTodoAllDone()
             current != null -> current.activeForm
-            else -> list.next?.let { "下一项：" + it.content } ?: "全部完成"
+            else -> list.next?.let { Strings.chatTodoNext(it.content) } ?: Strings.chatTodoAllDone()
         }
 
     Column(modifier = modifier.fillMaxWidth().chatPanel(shape)) {
         Row(
             modifier =
                 Modifier.fillMaxWidth()
-                    .clickable(onClickLabel = if (expanded) "收起任务清单" else "展开任务清单") {
+                    .clickable(
+                        onClickLabel =
+                            if (expanded) Strings.chatTodoCollapse() else Strings.chatTodoExpand(),
+                    ) {
                         expanded = !expanded
                     }
                     .padding(start = 12.dp, end = 4.dp, top = 3.dp, bottom = 3.dp)
                     .semantics {
-                        contentDescription = "任务清单，已完成 ${list.done} 项，共 ${list.total} 项。$summary"
+                        contentDescription = Strings.chatTodoA11y(list.done, list.total, summary)
                     },
             verticalAlignment = Alignment.CenterVertically,
         ) {
@@ -127,7 +131,9 @@ fun TodoStrip(list: TodoList?, busy: Boolean, modifier: Modifier = Modifier) {
                 modifier = Modifier.padding(start = 4.dp).size(16.dp).rotate(chevron),
                 tint = colors.labelSecondary,
             )
-            ActionIcon(COUIIcons.Close, "收掉这份任务清单", colors.labelSecondary) { dismissed = signature }
+            ActionIcon(COUIIcons.Close, Strings.chatTodoDismiss(), colors.labelSecondary) {
+                dismissed = signature
+            }
         }
         AnimatedVisibility(
             visible = expanded,
@@ -196,7 +202,7 @@ private fun StatusMark(status: TodoStatus) {
             ) {
                 Icon(
                     COUIIcons.Ok,
-                    contentDescription = "已完成",
+                    contentDescription = Strings.chatDone(),
                     modifier = Modifier.size(11.dp),
                     tint = colors.labelOnColor,
                 )
@@ -270,19 +276,19 @@ fun todoToolTitle(name: String, input: JsonObject?): String {
     fun s(key: String) = input?.str(key)?.takeIf { it.isNotBlank() }
     val id = s("taskId") ?: s("task_id")
     return when (name) {
-        "TaskCreate" -> "新建任务：" + (s("subject") ?: s("title") ?: "")
+        "TaskCreate" -> Strings.chatTodoCreate(s("subject") ?: s("title") ?: "")
         "TaskUpdate" ->
             when (s("status")) {
-                "in_progress" -> "开始任务 #$id"
-                "completed" -> "完成任务 #$id"
-                "deleted" -> "删掉任务 #$id"
-                else -> "更新任务 #$id"
+                "in_progress" -> Strings.chatTodoStart(id.orEmpty())
+                "completed" -> Strings.chatTodoComplete(id.orEmpty())
+                "deleted" -> Strings.chatTodoDelete(id.orEmpty())
+                else -> Strings.chatTodoUpdate(id.orEmpty())
             }
-        "TaskList" -> "查看任务清单"
-        "TaskGet" -> "查看任务 #$id"
+        "TaskList" -> Strings.chatTodoListTool()
+        "TaskGet" -> Strings.chatTodoGet(id.orEmpty())
         else -> {
             val todos = input?.get("todos") as? JsonArray
-            if (todos == null) "更新任务清单" else "更新任务清单（${todos.size} 项）"
+            if (todos == null) Strings.chatTodoWrite() else Strings.chatTodoWriteCount(todos.size)
         }
     }
 }

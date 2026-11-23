@@ -1,6 +1,7 @@
 package com.dzshzx.zeta.core
 
 import androidx.compose.runtime.Immutable
+import com.dzshzx.zeta.i18n.Strings
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonArray
 import kotlinx.serialization.json.JsonObject
@@ -80,10 +81,10 @@ object SavedPrompts {
         editingId: String? = null,
     ): String? =
         when {
-            text.isBlank() -> "内容不能为空"
-            text.length > MAX_TEXT -> "内容太长了（最多 $MAX_TEXT 个字）"
-            name.trim().length > MAX_NAME -> "名字太长了（最多 $MAX_NAME 个字）"
-            editingId == null && list.size >= MAX -> "最多存 $MAX 条，先删掉一些"
+            text.isBlank() -> Strings.corePromptEmpty()
+            text.length > MAX_TEXT -> Strings.corePromptTooLong(MAX_TEXT)
+            name.trim().length > MAX_NAME -> Strings.corePromptNameTooLong(MAX_NAME)
+            editingId == null && list.size >= MAX -> Strings.corePromptTooMany(MAX)
             else -> null
         }
 

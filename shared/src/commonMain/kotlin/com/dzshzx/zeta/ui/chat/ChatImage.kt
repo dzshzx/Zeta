@@ -38,6 +38,7 @@ import com.dzshzx.zeta.core.ImageRef
 import com.dzshzx.zeta.core.ImageStore
 import com.dzshzx.zeta.core.InlineImage
 import com.dzshzx.zeta.core.RemoteImage
+import com.dzshzx.zeta.i18n.Strings
 import com.dzshzx.zeta.ui.components.LocalHub
 import com.dzshzx.zeta.ui.components.coui2.ZetaIcons
 import io.github.suqi8.coui.kmp.basic.Icon
@@ -101,7 +102,7 @@ fun RemoteImagePrompt(ref: RemoteImage, modifier: Modifier = Modifier) {
         )
         Spacer(Modifier.width(6.dp))
         Text(
-            text = "加载图片 · " + ref.url.substringAfter("://").substringBefore('/'),
+            text = Strings.chatLoadImage(ref.url.substringAfter("://").substringBefore('/')),
             style = COUITheme.textStyles.bodyS.copy(fontSize = 12.5.sp),
             color = COUITheme.colorScheme.labelSecondary,
             maxLines = 1,
@@ -129,14 +130,14 @@ fun ChatThumbnail(ref: ImageRef, size: Dp, modifier: Modifier = Modifier) {
             bitmap != null ->
                 Image(
                     bitmap = bitmap,
-                    contentDescription = "图片",
+                    contentDescription = Strings.chatImage(),
                     contentScale = ContentScale.Crop,
                     modifier = Modifier.fillMaxSize().clickable { viewing = true },
                 )
             loaded != null ->
                 Icon(
                     ZetaIcons.ImageOff,
-                    contentDescription = "图片无法显示",
+                    contentDescription = Strings.chatImageUnavailable(),
                     modifier = Modifier.size(22.dp),
                     tint = COUITheme.colorScheme.labelSecondary,
                 )
@@ -160,7 +161,7 @@ fun ChatImage(ref: ImageRef, modifier: Modifier = Modifier) {
             val ratio = bitmap.width.toFloat() / bitmap.height.coerceAtLeast(1)
             Image(
                 bitmap = bitmap,
-                contentDescription = "图片",
+                contentDescription = Strings.chatImage(),
                 contentScale = ContentScale.Fit,
                 modifier =
                     modifier
@@ -208,8 +209,9 @@ fun ImageUnavailable(ref: ImageRef, modifier: Modifier = Modifier) {
         Spacer(Modifier.width(5.dp))
         Text(
             text =
-                "图片无法显示" +
-                    ((ref as? FileImage)?.let { "：${it.path.substringAfterLast('/')}" } ?: ""),
+                (ref as? FileImage)?.let {
+                    Strings.chatImageUnavailableFile(it.path.substringAfterLast('/'))
+                } ?: Strings.chatImageUnavailable(),
             style = COUITheme.textStyles.bodyS.copy(fontSize = 12.5.sp),
             color = COUITheme.colorScheme.labelSecondary,
             maxLines = 1,

@@ -25,6 +25,7 @@ import com.dzshzx.zeta.core.PermissionReply
 import com.dzshzx.zeta.core.PermissionRequest
 import com.dzshzx.zeta.core.Question
 import com.dzshzx.zeta.core.UserPrompt
+import com.dzshzx.zeta.i18n.Strings
 import com.dzshzx.zeta.ui.components.MonoFont
 import com.dzshzx.zeta.ui.components.coui2.DialogContentPadding
 import com.dzshzx.zeta.ui.components.coui2.DialogTextField
@@ -81,9 +82,13 @@ private fun ToolSheet(
     PageDialog(
         show = visible,
         onDismissRequest = {},
-        title = "允许这次操作？",
+        title = Strings.composerAllowTitle(),
         summary =
-            listOfNotNull(presentation.title, agent?.let { "来自子代理：$it" }, request.reason)
+            listOfNotNull(
+                    presentation.title,
+                    agent?.let { Strings.composerFromSubagent(it) },
+                    request.reason,
+                )
                 .joinToString("\n"),
         customContent = {
             Column(
@@ -98,7 +103,7 @@ private fun ToolSheet(
                 }
                 if (always.isNotEmpty()) {
                     CheckboxPreference(
-                        title = "以后不再询问",
+                        title = Strings.composerDontAskAgain(),
                         summary = always.joinToString("\n"),
                         checked = remember,
                         onCheckedChange = { remember = it },
@@ -110,7 +115,7 @@ private fun ToolSheet(
                     value = feedback,
                     onValueChange = { feedback = it },
                     modifier = Modifier.padding(horizontal = DialogContentPadding, vertical = 4.dp),
-                    hint = "拒绝时告诉 Claude 换个做法（可不填）",
+                    hint = Strings.composerDenyHint(),
                     singleLine = false,
                     maxLines = 4,
                 )
@@ -120,12 +125,13 @@ private fun ToolSheet(
         DialogButtonBar(
             negative =
                 DialogButtonBarAction(
-                    if (feedback.isBlank()) "拒绝" else "拒绝并告诉 Claude",
+                    if (feedback.isBlank()) Strings.composerDeny()
+                    else Strings.composerDenyAndTell(),
                     onClick = { onReply(request, PermissionReply.Deny(feedback)) },
                 ),
             positive =
                 DialogButtonBarAction(
-                    "允许",
+                    Strings.composerAllow(),
                     recommended = true,
                     onClick = {
                         onReply(
@@ -151,7 +157,7 @@ private fun PlanSheet(
     PageDialog(
         show = visible,
         onDismissRequest = {},
-        title = "按这个计划执行？",
+        title = Strings.composerPlanTitle(),
         customContent = {
             Column(
                 Modifier.fillMaxWidth()
@@ -169,14 +175,14 @@ private fun PlanSheet(
                 }
                 val margin = PaddingValues(horizontal = DialogContentPadding, vertical = 10.dp)
                 RadioButtonPreference(
-                    title = "批准，自动接受改动",
+                    title = Strings.composerPlanAcceptEdits(),
                     selected = mode == "acceptEdits",
                     onClick = { mode = "acceptEdits" },
                     radioButtonLocation = RadioButtonLocation.End,
                     insideMargin = margin,
                 )
                 RadioButtonPreference(
-                    title = "批准，改动逐项确认",
+                    title = Strings.composerPlanAskEach(),
                     selected = mode == "default",
                     onClick = { mode = "default" },
                     radioButtonLocation = RadioButtonLocation.End,
@@ -186,7 +192,7 @@ private fun PlanSheet(
                     value = feedback,
                     onValueChange = { feedback = it },
                     modifier = Modifier.padding(horizontal = DialogContentPadding, vertical = 4.dp),
-                    hint = "不批准：告诉 Claude 要改什么",
+                    hint = Strings.composerPlanFeedbackHint(),
                     singleLine = false,
                     maxLines = 4,
                 )
@@ -196,13 +202,13 @@ private fun PlanSheet(
         DialogButtonBar(
             negative =
                 DialogButtonBarAction(
-                    "继续完善",
+                    Strings.composerPlanKeepRefining(),
                     enabled = feedback.isNotBlank(),
                     onClick = { onReply(request, PermissionReply.Deny(feedback)) },
                 ),
             positive =
                 DialogButtonBarAction(
-                    "批准",
+                    Strings.composerApprove(),
                     recommended = true,
                     onClick = { onReply(request, PermissionReply.ApprovePlan(mode)) },
                 ),
@@ -271,7 +277,7 @@ private fun QuestionSheet(
     PageDialog(
         show = visible,
         onDismissRequest = {},
-        title = single?.question ?: "需要你的选择",
+        title = single?.question ?: Strings.composerQuestionTitle(),
         customContent = {
             Column(
                 Modifier.fillMaxWidth()
@@ -296,7 +302,7 @@ private fun QuestionSheet(
                     QuestionOptions(question, answer(index))
                 }
                 Text(
-                    text = "先不回答，和 Claude 聊聊这些问题",
+                    text = Strings.composerQuestionClarify(),
                     style = COUITheme.textStyles.bodyS,
                     color = COUITheme.colorScheme.primary,
                     modifier =
@@ -311,12 +317,12 @@ private fun QuestionSheet(
         DialogButtonBar(
             negative =
                 DialogButtonBarAction(
-                    "跳过",
+                    Strings.composerSkip(),
                     onClick = { onReply(request, PermissionReply.Deny(null)) },
                 ),
             positive =
                 DialogButtonBarAction(
-                    "确定",
+                    Strings.composerOk(),
                     enabled = complete,
                     recommended = true,
                     onClick = { onReply(request, PermissionReply.Answer(answers(), notes())) },
@@ -343,7 +349,12 @@ private fun QuestionOptions(question: Question, answer: QuestionAnswer) {
             else answer.chosen += option.label
         }
     }
-    ChoiceRow(title = "其他", summary = null, multi = multi, checked = answer.otherOn) {
+    ChoiceRow(
+        title = Strings.composerQuestionOther(),
+        summary = null,
+        multi = multi,
+        checked = answer.otherOn,
+    ) {
         answer.otherOn = !multi || !answer.otherOn
         if (!multi) answer.chosen = emptySet()
     }
@@ -352,7 +363,7 @@ private fun QuestionOptions(question: Question, answer: QuestionAnswer) {
             value = answer.other,
             onValueChange = { answer.other = it },
             modifier = Modifier.padding(horizontal = DialogContentPadding, vertical = 4.dp),
-            hint = "自己写",
+            hint = Strings.composerQuestionOtherHint(),
             singleLine = false,
             maxLines = 4,
         )
@@ -402,7 +413,7 @@ private fun ChosenExtras(question: Question, answer: QuestionAnswer) {
             value = answer.notes,
             onValueChange = { answer.notes = it },
             modifier = Modifier.padding(horizontal = DialogContentPadding, vertical = 4.dp),
-            hint = "备注（可不填）",
+            hint = Strings.composerQuestionNotesHint(),
             singleLine = false,
             maxLines = 3,
         )

@@ -5,6 +5,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import com.dzshzx.zeta.core.voice.ReadAloud
+import com.dzshzx.zeta.i18n.Strings
 import com.dzshzx.zeta.phone.AccessibilityGuard
 import com.dzshzx.zeta.phone.OverlayBridge
 import com.dzshzx.zeta.phone.OverlayFocus
@@ -199,7 +200,9 @@ class TurnAlerts internal constructor(private val hub: ConversationHub) : TurnEv
      */
     private fun endText(conversation: Conversation, text: String): String {
         val tasks = conversation.backgroundTasks
-        return if (tasks > 0 && text == DONE) "答完了，后台还有 $tasks 个任务在跑" else text
+        return if (tasks > 0 && (text == DONE || text == Strings.coreTurnDone()))
+            Strings.coreTurnDoneWithTasks(tasks)
+        else text
     }
 
     /** 提醒的标题：对话标题。 */
@@ -311,7 +314,10 @@ class TurnAlerts internal constructor(private val hub: ConversationHub) : TurnEv
     internal class FocusCandidate(val focus: OverlayFocus, val usedAt: Long)
 
     internal companion object {
-        /** 一轮正常结束时的那句（Conversation 结束一轮时给的）。 */
+        /**
+         * 一轮正常结束时核心给的那句（核心按源语言写）：只用来认，不显示；Conversation 自己补的是按界面语言的
+         * [Strings.coreTurnDone]。核心改发种类码后改按码认。
+         */
         private const val DONE = "已完成"
 
         /** 几个候选里胶囊显示哪个：接管着的优先，其余取最近用手机的；没有候选时为 null。 */

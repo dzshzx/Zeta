@@ -12,6 +12,7 @@ import com.dzshzx.zeta.core.int
 import com.dzshzx.zeta.core.long
 import com.dzshzx.zeta.core.obj
 import com.dzshzx.zeta.core.str
+import com.dzshzx.zeta.i18n.Strings
 import java.time.DayOfWeek
 import java.time.Instant
 import java.time.LocalDate
@@ -32,11 +33,20 @@ import kotlinx.serialization.json.put
 import kotlinx.serialization.json.putJsonArray
 
 /** 定时任务怎么重复：[key] 是存储和手机工具参数里的写法，[label] 是编辑页上的叫法。 */
-enum class RuleKind(val key: String, val label: String) {
-    Once("once", "单次"),
-    Daily("daily", "每天"),
-    Weekly("weekly", "每周"),
-    Interval("interval", "间隔");
+enum class RuleKind(val key: String) {
+    Once("once"),
+    Daily("daily"),
+    Weekly("weekly"),
+    Interval("interval");
+
+    val label: String
+        get() =
+            when (this) {
+                Once -> Strings.scheduleRuleOnce()
+                Daily -> Strings.scheduleRuleDaily()
+                Weekly -> Strings.scheduleRuleWeekly()
+                Interval -> Strings.scheduleRuleInterval()
+            }
 
     companion object {
         fun of(key: String?): RuleKind? = entries.firstOrNull { it.key == key }
@@ -84,17 +94,28 @@ sealed interface ScheduleRule {
     }
 }
 
-enum class RunOutcome(val key: String, val label: String) {
-    Running("running", "正在运行"),
-    Done("done", "完成"),
+enum class RunOutcome(val key: String) {
+    Running("running"),
+    Done("done"),
 
     /** 只在有变化时提醒的任务：Claude 上报这次没有值得说的，没发通知。 */
-    NoChange("no_change", "没有变化"),
-    Failed("failed", "没有完成"),
-    Stopped("stopped", "被停止"),
+    NoChange("no_change"),
+    Failed("failed"),
+    Stopped("stopped"),
 
     /** Zeta 在这一轮结束前被关掉了，没等到结果（Claude Code 可能已经在后台跑完）。 */
-    Interrupted("interrupted", "中途被关掉");
+    Interrupted("interrupted");
+
+    val label: String
+        get() =
+            when (this) {
+                Running -> Strings.scheduleOutcomeRunning()
+                Done -> Strings.scheduleOutcomeDone()
+                NoChange -> Strings.scheduleOutcomeNoChange()
+                Failed -> Strings.scheduleOutcomeFailed()
+                Stopped -> Strings.scheduleOutcomeStopped()
+                Interrupted -> Strings.scheduleOutcomeInterrupted()
+            }
 
     companion object {
         fun of(key: String?): RunOutcome? = entries.firstOrNull { it.key == key }
@@ -186,7 +207,18 @@ object Schedules {
     const val DEFAULT_MODE = "auto"
 
     private val HM: DateTimeFormatter = DateTimeFormatter.ofPattern("HH:mm")
-    private val WEEKDAY = listOf("一", "二", "三", "四", "五", "六", "日")
+
+    /** 星期几的简称（「一」「Mon」），按 [DayOfWeek.value] 从 1 起。 */
+    fun dayShort(day: DayOfWeek): String =
+        when (day) {
+            DayOfWeek.MONDAY -> Strings.scheduleDayShortMon()
+            DayOfWeek.TUESDAY -> Strings.scheduleDayShortTue()
+            DayOfWeek.WEDNESDAY -> Strings.scheduleDayShortWed()
+            DayOfWeek.THURSDAY -> Strings.scheduleDayShortThu()
+            DayOfWeek.FRIDAY -> Strings.scheduleDayShortFri()
+            DayOfWeek.SATURDAY -> Strings.scheduleDayShortSat()
+            DayOfWeek.SUNDAY -> Strings.scheduleDayShortSun()
+        }
 
     fun newId(): String = UUID.randomUUID().toString().replace("-", "").take(8)
 
@@ -260,11 +292,12 @@ object Schedules {
         val name = draft.name.trim()
         val cwd = draft.cwd?.trim().orEmpty()
         return when {
-            name.isEmpty() -> "写一个名字"
-            name.length > MAX_NAME -> "名字最多 $MAX_NAME 个字"
-            draft.prompt.isBlank() -> "写上要让 Claude 做什么"
-            draft.prompt.length > MAX_PROMPT -> "指令最多 $MAX_PROMPT 个字"
-            cwd.isNotEmpty() && (!cwd.startsWith("/") || '\n' in cwd) -> "工作目录要写 Linux 环境里的绝对路径"
+            name.isEmpty() -> Strings.scheduleNameMissing()
+            name.length > MAX_NAME -> Strings.scheduleNameTooLong(MAX_NAME)
+            draft.prompt.isBlank() -> Strings.schedulePromptMissing()
+            draft.prompt.length > MAX_PROMPT -> Strings.schedulePromptTooLong(MAX_PROMPT)
+            cwd.isNotEmpty() && (!cwd.startsWith("/") || '\n' in cwd) ->
+                Strings.scheduleCwdNotAbsolute()
             checkRule -> ruleProblem(draft.rule, now, zone)
             else -> null
         }
@@ -272,11 +305,12 @@ object Schedules {
 
     fun ruleProblem(rule: ScheduleRule, now: Instant, zone: ZoneId): String? =
         when (rule) {
-            is ScheduleRule.Once -> if (nextTrigger(rule, now, zone) == null) "这个时间已经过了" else null
-            is ScheduleRule.Weekly -> if (rule.days.isEmpty()) "至少选一天" else null
+            is ScheduleRule.Once ->
+                if (nextTrigger(rule, now, zone) == null) Strings.scheduleTimePassed() else null
+            is ScheduleRule.Weekly -> if (rule.days.isEmpty()) Strings.schedulePickADay() else null
             is ScheduleRule.Interval ->
                 if (rule.hours !in 1..ScheduleRule.MAX_INTERVAL_HOURS)
-                    "间隔要在 1 到 ${ScheduleRule.MAX_INTERVAL_HOURS} 小时之间"
+                    Strings.scheduleIntervalRange(ScheduleRule.MAX_INTERVAL_HOURS)
                 else null
             is ScheduleRule.Daily -> null
         }
@@ -315,16 +349,18 @@ object Schedules {
     fun describe(rule: ScheduleRule): String =
         when (rule) {
             is ScheduleRule.Once ->
-                "仅一次 · " +
-                    rule.at.monthValue +
-                    "月" +
-                    rule.at.dayOfMonth +
-                    "日 " +
-                    rule.at.toLocalTime().format(HM)
-            is ScheduleRule.Daily -> "每天 " + rule.time.format(HM)
-            is ScheduleRule.Weekly -> weekdays(rule.days) + " " + rule.time.format(HM)
+                Strings.scheduleDescribeOnce(
+                    Strings.scheduleMonthDay(
+                        rule.at.monthValue.toString(),
+                        rule.at.dayOfMonth.toString(),
+                    ),
+                    rule.at.toLocalTime().format(HM),
+                )
+            is ScheduleRule.Daily -> Strings.scheduleDescribeDaily(rule.time.format(HM))
+            is ScheduleRule.Weekly ->
+                Strings.scheduleDescribeWeekly(weekdays(rule.days), rule.time.format(HM))
             is ScheduleRule.Interval ->
-                "每 ${rule.hours} 小时 · 从 " + rule.start.toLocalTime().format(HM) + " 起"
+                Strings.scheduleDescribeInterval(rule.hours, rule.start.toLocalTime().format(HM))
         }
 
     fun weekdays(days: Set<DayOfWeek>): String {
@@ -337,14 +373,17 @@ object Schedules {
                 DayOfWeek.FRIDAY,
             )
         return when (days) {
-            DayOfWeek.entries.toSet() -> "每天"
-            workdays -> "工作日"
-            setOf(DayOfWeek.SATURDAY, DayOfWeek.SUNDAY) -> "周末"
-            else -> "每周" + days.sorted().joinToString("、") { WEEKDAY[it.value - 1] }
+            DayOfWeek.entries.toSet() -> Strings.scheduleEveryDay()
+            workdays -> Strings.scheduleWorkdays()
+            setOf(DayOfWeek.SATURDAY, DayOfWeek.SUNDAY) -> Strings.scheduleWeekend()
+            else ->
+                Strings.scheduleWeeklyDays(
+                    days.sorted().joinToString(Strings.scheduleDaySeparator()) { dayShort(it) },
+                )
         }
     }
 
-    fun weekdayName(day: DayOfWeek): String = "周" + WEEKDAY[day.value - 1]
+    fun weekdayName(day: DayOfWeek): String = Strings.scheduleWeekdayName(dayShort(day))
 
     /** 界面上说一个时刻：“今天 08:00”“明天 08:00”“11月22日 周六 08:00”。 */
     fun formatWhen(at: Instant, now: Instant, zone: ZoneId): String {
@@ -352,16 +391,17 @@ object Schedules {
         val days = ChronoUnit.DAYS.between(now.atZone(zone).toLocalDate(), time.toLocalDate())
         val hm = time.toLocalTime().format(HM)
         return when (days) {
-            0L -> "今天 $hm"
-            1L -> "明天 $hm"
-            -1L -> "昨天 $hm"
+            0L -> Strings.scheduleToday(hm)
+            1L -> Strings.scheduleTomorrow(hm)
+            -1L -> Strings.scheduleYesterday(hm)
             else -> {
                 val sameYear = time.year == now.atZone(zone).year
-                (if (sameYear) "" else "${time.year}年") +
-                    "${time.monthValue}月${time.dayOfMonth}日 " +
-                    weekdayName(time.dayOfWeek) +
-                    " " +
-                    hm
+                val month = time.monthValue.toString()
+                val day = time.dayOfMonth.toString()
+                val date =
+                    if (sameYear) Strings.scheduleMonthDay(month, day)
+                    else Strings.scheduleYearMonthDay(time.year.toString(), month, day)
+                Strings.scheduleDateTime(date, weekdayName(time.dayOfWeek), hm)
             }
         }
     }
@@ -400,9 +440,10 @@ object Schedules {
         val error = notices.lastOrNull { it.error }?.said()
         return when {
             notices.any { it.code == STOPPED_NOTICE } ->
-                RunOutcome.Stopped to (Schedules.preview(answer).ifBlank { "已停止" })
+                RunOutcome.Stopped to
+                    (Schedules.preview(answer).ifBlank { Strings.scheduleStoppedSummary() })
             error != null -> RunOutcome.Failed to Schedules.preview(error)
-            mine < 0 -> RunOutcome.Failed to "指令没有发出去"
+            mine < 0 -> RunOutcome.Failed to Strings.scheduleNotSent()
             else -> RunOutcome.Done to Schedules.preview(answer)
         }
     }
@@ -519,7 +560,10 @@ object Schedules {
     /** Zeta 进程刚起来时：上一个进程里没等到结果的那次运行记成中断。 */
     fun interrupted(run: TaskRun?): TaskRun? =
         if (run?.outcome == RunOutcome.Running)
-            run.copy(outcome = RunOutcome.Interrupted, summary = "Zeta 在这次运行结束前被关掉了，结果在对话里")
+            run.copy(
+                outcome = RunOutcome.Interrupted,
+                summary = Strings.scheduleInterruptedSummary(),
+            )
         else run
 
     private fun encodeRule(rule: ScheduleRule): JsonObject = buildJsonObject {

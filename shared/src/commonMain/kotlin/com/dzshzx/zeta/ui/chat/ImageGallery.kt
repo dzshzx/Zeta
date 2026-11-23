@@ -36,6 +36,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.dzshzx.zeta.core.ImageRef
 import com.dzshzx.zeta.core.RemoteImage
+import com.dzshzx.zeta.i18n.Strings
 import com.dzshzx.zeta.ui.components.FoldEnter
 import com.dzshzx.zeta.ui.components.FoldExit
 import io.github.suqi8.coui.kmp.basic.Text
@@ -62,7 +63,7 @@ fun ImageGallery(refs: List<ImageRef>, modifier: Modifier = Modifier) {
     WorkCard(
         icon = COUIIcons.Image,
         iconTint = rememberWorkInk().icon,
-        title = "${refs.size} 张图片",
+        title = Strings.chatImageCount(refs.size),
         active = false,
         expanded = expanded,
         onToggle = { expanded = !expanded },
@@ -154,7 +155,7 @@ private fun LoadedPage(ref: ImageRef, onRatio: (Float) -> Unit, onOpen: () -> Un
             LaunchedEffect(ratio) { onRatio(ratio) }
             Image(
                 bitmap = bitmap,
-                contentDescription = "图片",
+                contentDescription = Strings.chatImage(),
                 contentScale = ContentScale.Fit,
                 modifier =
                     Modifier.aspectRatio(ratio, matchHeightConstraintsFirst = true)

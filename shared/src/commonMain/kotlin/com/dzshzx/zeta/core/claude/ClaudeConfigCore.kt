@@ -10,6 +10,7 @@ import com.dzshzx.zeta.core.jsonStrings
 import com.dzshzx.zeta.core.long
 import com.dzshzx.zeta.core.obj
 import com.dzshzx.zeta.core.str
+import com.dzshzx.zeta.i18n.Strings
 import java.util.Base64
 import kotlinx.serialization.json.JsonArray
 import kotlinx.serialization.json.JsonElement
@@ -63,7 +64,7 @@ class ClaudeConfigCore(
         params: JsonObjectBuilder.() -> Unit = {},
     ): JsonObject =
         request(method, timeoutMs, params) as? JsonObject
-            ?: throw ServeError("读不懂主机上 Zeta 服务给的结果（$method）")
+            ?: throw ServeError(Strings.coreConfigBadReply(method))
 
     private fun list(method: String, params: JsonObjectBuilder.() -> Unit = {}): List<JsonObject> =
         (request(method, TIMEOUT_MS, params) as? JsonArray).objects()
@@ -127,7 +128,7 @@ class ClaudeConfigCore(
                 put("force", expectedSha == null)
             }
         if (o.bool("conflict") == true) return null
-        return o.str("sha") ?: throw ServeError("主机上的 Zeta 服务没说写成了没有")
+        return o.str("sha") ?: throw ServeError(Strings.coreConfigNoSha())
     }
 
     /** 删一条记忆，连同 MEMORY.md 里指向它的那一行。 */
@@ -168,7 +169,7 @@ class ClaudeConfigCore(
     /** 从 ZIP 装一个 Skill；同名的已有又没 [replace] 时什么都不装，返回 [SkillImport.Exists] 让用户确认。 */
     fun importSkill(fileName: String, zip: ByteArray, replace: Boolean): SkillImport {
         if (zip.size > MAX_SKILL_ZIP)
-            throw ServeError("文件超过 ${MAX_SKILL_ZIP shr 20} MB，不像是一个 Skill 包")
+            throw ServeError(Strings.coreConfigZipTooLarge(MAX_SKILL_ZIP shr 20))
         val o =
             result("config.skills.import", SLOW_TIMEOUT_MS) {
                 put("fileName", fileName)

@@ -70,6 +70,7 @@ import com.dzshzx.zeta.core.FileUpload
 import com.dzshzx.zeta.core.SlashCommand
 import com.dzshzx.zeta.core.voice.SpeechPhase
 import com.dzshzx.zeta.core.voice.SpeechState
+import com.dzshzx.zeta.i18n.Strings
 import com.dzshzx.zeta.ui.components.coui2.ZetaIcons
 import com.dzshzx.zeta.ui.components.coui2.menuItem
 import com.dzshzx.zeta.ui.markdown.EditorialLineHeightStyle
@@ -91,17 +92,19 @@ import io.github.suqi8.coui.kmp.theme.COUITheme
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 
-val PermissionModes =
-    listOf(
-        "default" to "逐项确认",
-        "acceptEdits" to "自动接受编辑",
-        "plan" to "计划模式",
-        "auto" to "自动判断",
-        "bypassPermissions" to "完全放行",
-    )
+/** 权限模式的值和按界面语言的名字；每次取时出字，界面语言变了也对。 */
+val PermissionModes: List<Pair<String, String>>
+    get() =
+        listOf(
+            "default" to Strings.composerModeDefault(),
+            "acceptEdits" to Strings.composerModeAcceptEdits(),
+            "plan" to Strings.composerModePlan(),
+            "auto" to Strings.composerModeAuto(),
+            "bypassPermissions" to Strings.composerModeBypass(),
+        )
 
 fun permissionModeLabel(mode: String?): String =
-    PermissionModes.firstOrNull { it.first == mode }?.second ?: mode ?: "默认权限"
+    PermissionModes.firstOrNull { it.first == mode }?.second ?: mode ?: Strings.composerModeUnset()
 
 /** 输入栏一带的面板（输入卡片、它上方的几种条、说明卡）的圆角。 */
 val ChatPanelCorner = COUIRoundCorner.XXL
@@ -210,7 +213,11 @@ fun Composer(
             } else {
                 val attachEntries =
                     attachMenu(onPickImages, onPickFiles, onPickFolder, onEnterPath, onOpenPrompts)
-                BarMenuButton(description = "添加附件", entries = attachEntries, enabled = enabled) {
+                BarMenuButton(
+                    description = Strings.composerAttach(),
+                    entries = attachEntries,
+                    enabled = enabled,
+                ) {
                     Icon(ZetaIcons.Plus, contentDescription = null)
                 }
                 tools()
@@ -370,7 +377,7 @@ private fun ComposerAttachments(
             ) {
                 Icon(
                     COUIIcons.Close,
-                    contentDescription = "移除",
+                    contentDescription = Strings.composerRemove(),
                     modifier =
                         Modifier.size(22.dp)
                             .clip(CircleShape)
@@ -389,8 +396,8 @@ private fun ComposerAttachments(
 /** 待发文件的名字，复制中、复制失败时在前面注明。 */
 private fun uploadLabel(file: FileUpload): String =
     when {
-        file.failed -> "复制失败 · ${file.name}"
-        file.uploading -> "正在复制 · ${file.name}"
+        file.failed -> Strings.composerUploadFailed(file.name)
+        file.uploading -> Strings.composerUploading(file.name)
         else -> file.name
     }
 
@@ -401,7 +408,7 @@ private fun AttachmentThumbnail(attachment: Attachment, onRemove: () -> Unit) {
     Box {
         Image(
             bitmap = attachment.preview,
-            contentDescription = "图片附件",
+            contentDescription = Strings.composerImageAttachment(),
             contentScale = ContentScale.Crop,
             modifier = Modifier.size(64.dp).clip(RoundedCornerShape(COUIRoundCorner.M)),
         )
@@ -417,7 +424,7 @@ private fun AttachmentThumbnail(attachment: Attachment, onRemove: () -> Unit) {
         ) {
             Icon(
                 COUIIcons.Close,
-                contentDescription = "移除",
+                contentDescription = Strings.composerRemove(),
                 modifier = Modifier.size(13.dp),
                 tint = colors.labelOnColor,
             )
@@ -455,7 +462,7 @@ private fun ComposerField(
                 )
             state.text.isEmpty() ->
                 Text(
-                    text = if (busy) "Claude 正在工作，可以接着发" else "交给 Claude 去完成",
+                    text = if (busy) Strings.composerHintBusy() else Strings.composerHintIdle(),
                     style = textStyle,
                     color = colors.hintNeutral,
                 )
@@ -473,7 +480,8 @@ private fun ComposerField(
 }
 
 private fun listeningText(phase: SpeechPhase): String =
-    if (phase == SpeechPhase.Finishing) "正在识别…" else "正在听…"
+    if (phase == SpeechPhase.Finishing) Strings.composerRecognizing()
+    else Strings.composerListening()
 
 /** 附件菜单：图片、文件、文件夹（有的话）、输入路径一组，常用指令单独一组。 */
 private fun attachMenu(
@@ -487,13 +495,18 @@ private fun attachMenu(
         DropdownEntry(
             items =
                 listOfNotNull(
-                    menuItem("图片", COUIIcons.Image, onPickImages),
-                    menuItem("文件", ZetaIcons.Paperclip, onPickFiles),
-                    onPickFolder?.let { menuItem("文件夹", COUIIcons.Folder, it) },
-                    menuItem("输入路径", COUIIcons.Edit, onEnterPath),
+                    menuItem(Strings.composerMenuImages(), COUIIcons.Image, onPickImages),
+                    menuItem(Strings.composerMenuFiles(), ZetaIcons.Paperclip, onPickFiles),
+                    onPickFolder?.let {
+                        menuItem(Strings.composerMenuFolder(), COUIIcons.Folder, it)
+                    },
+                    menuItem(Strings.composerMenuEnterPath(), COUIIcons.Edit, onEnterPath),
                 ),
         ),
-        DropdownEntry(items = listOf(menuItem("常用指令", COUIIcons.Favorites, onOpenPrompts))),
+        DropdownEntry(
+            items =
+                listOf(menuItem(Strings.composerMenuPrompts(), COUIIcons.Favorites, onOpenPrompts)),
+        ),
     )
 
 /** 说话时底栏的提示：松开发送、上滑取消，滑进取消区时标红。 */
@@ -503,9 +516,9 @@ private fun TalkHint(talk: SpeechState, cancelling: Boolean, modifier: Modifier)
     Text(
         text =
             when {
-                talk.phase == SpeechPhase.Finishing -> "松开了，正在识别"
-                cancelling -> "松开取消"
-                else -> "松开发送，上滑取消"
+                talk.phase == SpeechPhase.Finishing -> Strings.composerTalkReleased()
+                cancelling -> Strings.composerTalkReleaseCancel()
+                else -> Strings.composerTalkReleaseSend()
             },
         style = COUITheme.textStyles.bodyS,
         color = if (cancelling) colors.error else colors.labelSecondary,
@@ -551,7 +564,7 @@ private fun SendButton(
             Modifier.size(36.dp)
                 .then(
                     if (mic && voice != null) {
-                        Modifier.semantics { contentDescription = "按住说话" }
+                        Modifier.semantics { contentDescription = Strings.composerHoldToTalk() }
                             .holdToTalk(voice, haptics) { text -> onSend(text) }
                     } else {
                         Modifier.clip(CircleShape).clickable(enabled = showStop || canSend) {
@@ -654,8 +667,8 @@ private fun SendFaceIcon(shown: SendFace, talking: Boolean, canSend: Boolean) {
         contentDescription =
             when (shown) {
                 SendFace.Mic -> null
-                SendFace.Stop -> "停止"
-                SendFace.Send -> "发送"
+                SendFace.Stop -> Strings.composerStop()
+                SendFace.Send -> Strings.composerSend()
             },
         modifier =
             Modifier.size(
@@ -715,7 +728,7 @@ fun PermissionModeChip(mode: String?, onChange: (String) -> Unit) {
             ),
         )
     BarMenuButton(
-        description = "权限模式：${permissionModeLabel(mode)}",
+        description = Strings.composerPermissionMode(permissionModeLabel(mode)),
         entries = entries,
         colors = barChipColors(tone),
     ) {
