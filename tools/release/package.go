@@ -314,34 +314,43 @@ func runCheckDownload(args []string) error {
 	if err := parse(fs, args, "dir"); err != nil {
 		return err
 	}
-	data, err := os.ReadFile(filepath.Join(*dir, updateFile))
+	u, apk, err := checkDownload(*dir)
 	if err != nil {
 		return err
-	}
-	var head update
-	if err := json.Unmarshal(data, &head); err != nil {
-		return fmt.Errorf("%s 读不了：%w", updateFile, err)
-	}
-	u, err := checkAssets(*dir, head.VersionName, false)
-	if err != nil {
-		return err
-	}
-	_, bt, certs, err := signingSetup()
-	if err != nil {
-		return err
-	}
-	apk := filepath.Join(*dir, u.APK)
-	facts, err := inspect(bt, apk)
-	if err != nil {
-		return err
-	}
-	if err := checkRelease(facts, certs, u.VersionName, u.VersionCode); err != nil {
-		return err
-	}
-	if u.Certificate != facts.Signers[0] {
-		return fmt.Errorf("%s 写的证书 %s 与包的签名证书 %s 不符", updateFile, u.Certificate, facts.Signers[0])
 	}
 	fmt.Fprintf(os.Stderr, "%s 核对过：%s（versionCode %d），sha256 %s，证书 %s\n", u.APK, u.VersionName, u.VersionCode, u.SHA256, u.Certificate)
 	fmt.Println(apk)
 	return nil
+}
+
+// checkDownload 核对 dir 里下载下来的手机那几个资产，返回 update.json 和 APK 的路径（check-download 和 ship 共用）。
+func checkDownload(dir string) (update, string, error) {
+	data, err := os.ReadFile(filepath.Join(dir, updateFile))
+	if err != nil {
+		return update{}, "", err
+	}
+	var head update
+	if err := json.Unmarshal(data, &head); err != nil {
+		return update{}, "", fmt.Errorf("%s 读不了：%w", updateFile, err)
+	}
+	u, err := checkAssets(dir, head.VersionName, false)
+	if err != nil {
+		return update{}, "", err
+	}
+	_, bt, certs, err := signingSetup()
+	if err != nil {
+		return update{}, "", err
+	}
+	apk := filepath.Join(dir, u.APK)
+	facts, err := inspect(bt, apk)
+	if err != nil {
+		return update{}, "", err
+	}
+	if err := checkRelease(facts, certs, u.VersionName, u.VersionCode); err != nil {
+		return update{}, "", err
+	}
+	if u.Certificate != facts.Signers[0] {
+		return update{}, "", fmt.Errorf("%s 写的证书 %s 与包的签名证书 %s 不符", updateFile, u.Certificate, facts.Signers[0])
+	}
+	return u, apk, nil
 }

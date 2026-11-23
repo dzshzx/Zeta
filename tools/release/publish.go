@@ -29,6 +29,9 @@ func runPublish(args []string) error {
 	if u.SourceCommit != sha {
 		return fmt.Errorf("资产出自 %s，不是这次的 %s", u.SourceCommit, sha)
 	}
+	if err := waitSmoke(repo, sha); err != nil {
+		return err
+	}
 	var files []string
 	for _, name := range assetNames(*version, true) {
 		files = append(files, filepath.Join(*assets, name))

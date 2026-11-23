@@ -115,6 +115,47 @@ func gatePassed(lines []string, repo string) bool {
 	return false
 }
 
+// plan 是这次发版的打算：版本、版本怎么来的、versionCode、这个提交是否已过全量门禁。
+type plan struct {
+	version, note, versionCode string
+	gatePassed                 bool
+}
+
+// planRelease 算 sha 这个提交这次发什么版（next-version 和 ship 共用）。
+func planRelease(repo, sha, bump string, dryRun bool) (plan, error) {
+	tags, err := git("tag", "--list", "v*")
+	if err != nil {
+		return plan{}, err
+	}
+	headTags, err := git("tag", "--points-at", sha)
+	if err != nil {
+		return plan{}, err
+	}
+	published := func() ([]string, error) {
+		out, err := gh("api", "repos/"+repo+"/releases?per_page=100", "--paginate",
+			"--jq", ".[] | select(.draft | not) | .tag_name")
+		return strings.Fields(out), err
+	}
+	var p plan
+	if p.version, p.note, err = releaseVersion(strings.Fields(tags), strings.Fields(headTags), published, bump, dryRun); err != nil {
+		return plan{}, err
+	}
+	if p.versionCode, err = git("rev-list", "--count", sha); err != nil {
+		return plan{}, err
+	}
+	runs, err := gh("api", "repos/"+repo+"/actions/runs?head_sha="+sha+"&status=success&per_page=100",
+		"--jq", ".workflow_runs[] | [.path, .event, .head_repository.full_name] | @tsv")
+	if err != nil {
+		return plan{}, err
+	}
+	p.gatePassed = gatePassed(strings.Split(runs, "\n"), repo)
+	return p, nil
+}
+
+func (p plan) gateWords() string {
+	return map[bool]string{true: "已", false: "还没"}[p.gatePassed]
+}
+
 // runNextVersion 在 GitHub Actions 里打印这次发版的 version、tag、version_code 和 gate_passed，供 $GITHUB_OUTPUT。
 func runNextVersion(args []string) error {
 	fs := flag.NewFlagSet("next-version", flag.ContinueOnError)
@@ -131,36 +172,12 @@ func runNextVersion(args []string) error {
 	if ref := env["GITHUB_REF"]; !*dryRun && ref != "refs/heads/"+*branch {
 		return fmt.Errorf("正式发版（dry_run=false）只在 %s 上跑，这次是 %s；别的分支用 dry_run", *branch, ref)
 	}
-	sha, repo := env["GITHUB_SHA"], env["GITHUB_REPOSITORY"]
-	tags, err := git("tag", "--list", "v*")
+	p, err := planRelease(env["GITHUB_REPOSITORY"], env["GITHUB_SHA"], *bump, *dryRun)
 	if err != nil {
 		return err
 	}
-	headTags, err := git("tag", "--points-at", sha)
-	if err != nil {
-		return err
-	}
-	published := func() ([]string, error) {
-		out, err := gh("api", "repos/"+repo+"/releases?per_page=100", "--paginate",
-			"--jq", ".[] | select(.draft | not) | .tag_name")
-		return strings.Fields(out), err
-	}
-	version, note, err := releaseVersion(strings.Fields(tags), strings.Fields(headTags), published, *bump, *dryRun)
-	if err != nil {
-		return err
-	}
-	count, err := git("rev-list", "--count", sha)
-	if err != nil {
-		return err
-	}
-	runs, err := gh("api", "repos/"+repo+"/actions/runs?head_sha="+sha+"&status=success&per_page=100",
-		"--jq", ".workflow_runs[] | [.path, .event, .head_repository.full_name] | @tsv")
-	if err != nil {
-		return err
-	}
-	passed := gatePassed(strings.Split(runs, "\n"), repo)
 	fmt.Fprintf(os.Stderr, "发版 v%s（dry_run=%t）：%s；versionCode %s；这个提交%s过全量门禁\n",
-		version, *dryRun, note, count, map[bool]string{true: "已", false: "还没"}[passed])
-	fmt.Printf("version=%s\ntag=v%s\nversion_code=%s\ngate_passed=%t\n", version, version, count, passed)
+		p.version, *dryRun, p.note, p.versionCode, p.gateWords())
+	fmt.Printf("version=%s\ntag=v%s\nversion_code=%s\ngate_passed=%t\n", p.version, p.version, p.versionCode, p.gatePassed)
 	return nil
 }

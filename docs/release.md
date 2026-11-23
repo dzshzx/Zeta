@@ -8,21 +8,28 @@ Zeta 的正式版（包名 `com.dzshzx.zeta`）只经 GitHub Release 发布。�
 
 ## 发版
 
-发版前先在主 checkout 上让测试版照正式版那样经 R8 构建，在模拟器上冷启动一次。合入的门禁（`AppStartTest`）只查不经 R8 的启动，
-R8 误删了运行时才按类名找的类（见 CLAUDE.md「坑」）只有这里查得到：
+发版只有一条命令，在主 checkout 上跑（它要正好在 origin/master 上、没有改动）：
 
 ```sh
-ZETA_R8=1 ZETA_PHONE_OWNER=release tools/phone-run tools/phone-tests/smoke.sh
+go -C tools/release run . ship             # 升 patch；用户说了才加 -bump minor
+go -C tools/release run . ship -preview    # 只列这次的版本、versionCode、是否已过全量门禁和发版说明，几秒
 ```
 
-发版本身只有一条命令：手动触发 `.github/workflows/release.yml`。先 dry run，看过运行摘要再正式发：
+`ship` 触发 `.github/workflows/release.yml`，同时在本机让测试版照正式版那样经 R8 构建、在模拟器上冷启动一次
+（`ZETA_R8=1 ZETA_PHONE_OWNER=release tools/phone-run tools/phone-tests/smoke.sh`）：合入的门禁（`AppStartTest`）只查
+不经 R8 的启动，R8 误删了运行时才按类名找的类（见 CLAUDE.md「坑」）只有这里查得到。测试结果记成这个提交上的 commit status
+`zeta/r8-smoke`，工作流的 publish 等它通过才发布（最多等 20 分钟）；没过时 `ship` 取消这次运行。跑完它确认最新的 Release
+是这个版本，下载手机的资产照 `check-download` 核对，打印版本、APK 的 sha256 和证书。失败了修好后重跑 `ship` 能续上：
+冒烟测试已通过的提交不再跑，有 tag 没发布的照下面 version 那一步续发。
+
+用户说上线时直接 `ship`，不先 dry run：正式发版自己跑全量门禁（这个提交还没过时），发布是最后一步，前面任何一步失败都不会发出去。
+只在要提前确认能走通时（上线前的准备）手动 dry run，它不发布，也不看冒烟测试：
 
 ```sh
 gh workflow run release.yml --ref master -f dry_run=true
-gh workflow run release.yml --ref master -f bump=patch
 ```
 
-输入：
+工作流的输入（`ship` 的 `-bump`、`-runner` 原样交给它）：
 
 - `bump`：`patch`（默认）、`minor` 或 `major`。版本长期停在 0.x.x，平常只升 patch；minor 要维护者先同意，不发 1.0。
 - `dry_run`：默认 `false`。设为 `true` 时完整构建、签名、核对、打包（任何分支都能跑，但 environment `release`
@@ -44,7 +51,7 @@ gh workflow run release.yml --ref master -f bump=patch
 4. **sign**：在 environment `release` 里取正式发版密钥，`tools/release sign` 签名，删掉密钥库；`tools/release verify`
    核对；`tools/release package` 写出资产并写运行摘要。构建（会跑 Gradle 插件和第三方依赖的代码）和碰密钥分在两个
    job，构建那一边拿不到 Secrets。
-5. **publish**（非 dry run）：`tools/release publish` 删掉同名的旧草稿，建含全部资产的草稿，经 GitHub API 在本提交上
+5. **publish**（非 dry run）：`tools/release publish` 先等这个提交的 `zeta/r8-smoke` 通过（失败、或 20 分钟里一直没有就不发布），再删掉同名的旧草稿，建含全部资产的草稿，经 GitHub API 在本提交上
    打附注 tag `vX.Y.Z`（已指向本提交就跳过，指向别的提交就失败），最后发布草稿并设为最新。只有这个 job 能写仓库。
 
 ## 版本号
