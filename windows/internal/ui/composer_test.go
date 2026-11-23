@@ -57,3 +57,26 @@ func (f *chatFixture) draftHeight(t *testing.T) float32 {
 	}
 	return a.Bounds.H
 }
+
+// 输入法正在组字时一轮回答结束（输入栏上面的「正在回答」等状态条随之消失），输入框还是原来那个：焦点和组到一半的字都在，
+// 接着上屏的字进输入框。输入框要是跟着上面状态条的个数换了身份，Windows 会取消正在组的字。
+func TestComposingSurvivesTurnEnd(t *testing.T) {
+	f := newChatFixture(t)
+	f.newChat(t)
+	f.push(`"busy":true,"status":"正在回答"`)
+	f.click(t, "消息")
+	f.tt.Type("先打的")
+	f.tt.Compose("ni hao", 6)
+	f.tt.Frame()
+	f.push(`"busy":false,"status":""`)
+	if !f.tt.Focused("消息") {
+		t.Fatal("回答结束后输入框丢了焦点")
+	}
+	if caret, ok := f.tt.TextCaret(); !ok || caret.H == 0 {
+		t.Fatal("回答结束后输入法没在输入框上组字")
+	}
+	f.tt.Type("你好")
+	if got := f.app.pane.draft; got != "先打的你好" {
+		t.Fatalf("输入框里是 %q", got)
+	}
+}

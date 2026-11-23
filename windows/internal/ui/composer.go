@@ -25,7 +25,8 @@ func (a *App) composer(c *ui.Context, p *chatPane) {
 	if p.state.Busy {
 		hint = "Claude 正在工作，可以接着发"
 	}
-	widget.Surface{Shape: widget.ShapeComposer, Fill: k.Field, Edge: k.Edge}.Paint(ui.Column(c)).FillWidth().Padding(8, 10).Gap(2).
+	// 固定的 Key：上面的状态条、排队条随对话忙闲来去，输入栏不跟着它们的个数换身份，不然正在组字的输入法会被打断
+	widget.Surface{Shape: widget.ShapeComposer, Fill: k.Field, Edge: k.Edge}.Paint(ui.Column(c.Key("composer"))).FillWidth().Padding(8, 10).Gap(2).
 		Shadow(0, 2, 16, 0, composerShadow(k)).Children(func() {
 		a.slashList(c, p)
 		a.composerAttachments(c, p)
