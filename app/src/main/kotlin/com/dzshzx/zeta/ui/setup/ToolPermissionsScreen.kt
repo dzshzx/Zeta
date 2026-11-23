@@ -15,24 +15,19 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import com.dzshzx.zeta.core.ConversationHub
-import com.dzshzx.zeta.core.claude.BuiltinTools
 import com.dzshzx.zeta.core.claude.BulkChange
-import com.dzshzx.zeta.core.claude.ClaudeConfigClient
-import com.dzshzx.zeta.core.claude.ClaudePermissions
+import com.dzshzx.zeta.core.claude.BulkPair
+import com.dzshzx.zeta.core.claude.ClaudeConfigCore
 import com.dzshzx.zeta.core.claude.McpNames
-import com.dzshzx.zeta.core.claude.McpServer
 import com.dzshzx.zeta.core.claude.McpTool
 import com.dzshzx.zeta.core.claude.PermissionBehavior
 import com.dzshzx.zeta.core.claude.PermissionGroup
-import com.dzshzx.zeta.core.claude.PermissionRules
-import com.dzshzx.zeta.core.claude.ToolInfo
-import com.dzshzx.zeta.core.claude.ToolPermission
-import com.dzshzx.zeta.core.claude.addPermissionRule
-import com.dzshzx.zeta.core.claude.permissions
-import com.dzshzx.zeta.core.claude.removePermissionRule
-import com.dzshzx.zeta.core.claude.replacePermissionRule
-import com.dzshzx.zeta.core.claude.setGroupPermission
-import com.dzshzx.zeta.core.claude.setToolPermission
+import com.dzshzx.zeta.core.claude.PermissionRule
+import com.dzshzx.zeta.core.claude.PermissionsQuery
+import com.dzshzx.zeta.core.claude.PermissionsView
+import com.dzshzx.zeta.core.claude.ServerView
+import com.dzshzx.zeta.core.claude.ToolState
+import com.dzshzx.zeta.core.claude.ToolView
 import com.dzshzx.zeta.core.clipLine
 import com.dzshzx.zeta.phone.PhoneToolCatalog
 import com.dzshzx.zeta.phone.PhoneTools
@@ -60,20 +55,23 @@ import io.github.suqi8.coui.kmp.preference.OverlayDropdownPreference
 import io.github.suqi8.coui.kmp.preference.PagerFooterPreference
 import io.github.suqi8.coui.kmp.theme.COUITheme
 
+/**
+ * 用临时 HOME 和假的 API 实测出来的语义（ClaudeCodeContractTest 钉住），页面上照这句话告诉用户：拒绝压过询问、询问压过允许，和规则写得细不细无关（比如允许
+ * Bash(git push:*) 又对 Bash 设了询问，git push
+ * 照样要问）；完全放行（bypassPermissions）下允许规则没有用处，询问和拒绝照样生效：设了询问的会弹出确认，整个工具被拒绝时 Claude 根本拿不到这个工具。
+ */
+internal const val PermissionSemantics = "规则按“拒绝 > 询问 > 允许”取最严的，写得再细也一样。完全放行模式下，询问和拒绝照样生效。"
+
 /** 下拉里的四个选项：没写规则（按权限模式走）、允许、询问、拒绝。 */
 private val Choices: List<PermissionBehavior?> =
     listOf(null, PermissionBehavior.Allow, PermissionBehavior.Ask, PermissionBehavior.Deny)
 private val ChoiceLabels = listOf("未设置", "允许", "询问", "拒绝")
 
-/** 页面上改规则时的回调：交给后台线程跑，跑完拿到新规则。 */
-private typealias ApplyRules = (() -> PermissionRules) -> Unit
+/** 页面上改规则时的回调：交给后台线程跑（拿到这一页的查询），跑完拿到核心算好的新页面。 */
+private typealias ApplyRules = (ClaudeConfigCore.(PermissionsQuery) -> PermissionsView) -> Unit
 
 /** 一行的摘要，只放一行：有从服务器继承来的设置、带参数的规则时写这些状态，没有时写工具的中文说明。 带参数的规则本身列在页面下面的“规则”里。 */
-private fun toolSummary(
-    label: String?,
-    state: ToolPermission,
-    serverLabel: String = "整个服务器",
-): String? =
+private fun toolSummary(label: String?, state: ToolState, serverLabel: String = "整个服务器"): String? =
     listOfNotNull(
             state.behavior?.takeIf { state.inherited }?.let { "跟随$serverLabel：${it.label}" },
             state.specific.takeIf { it.isNotEmpty() }?.let { "另有 ${it.size} 条带参数的规则" },
@@ -106,52 +104,54 @@ private fun ToolRow(
  * “工具权限”：Claude Code 自己的 permissions 规则（~/.claude/settings.json 的 allow / ask / deny）。 列出内置工具、Zeta
  * 的手机工具、配置里的 MCP 服务器，每个都能整体设成允许、询问、拒绝；带参数的规则和认不出的写法列在“规则”里， 可以改、删、加。每改一处就写回文件，只动那一条规则，别的设置原样保留。
  * 项目里的 .claude/settings.json 也能写规则，这里不显示。手机工具是 Zeta 自己接给 Claude 的 MCP 服务器 phone， 规则里写
- * mcp__phone（整个服务器）或 mcp__phone__工具名；别的 MCP 服务器同样写 mcp__服务器名。
+ * mcp__phone（整个服务器）或 mcp__phone__工具名；别的 MCP 服务器同样写
+ * mcp__服务器名。读、改和每一行的状态都由那台的核心算好（config.permissions.*）。
  */
 @Composable
 internal fun ToolPermissionsScreen(hub: ConversationHub, backend: String, onBack: () -> Unit) {
     val client = rememberConfigClient(hub, backend)
     val scope = rememberCoroutineScope()
     val cwd = hub.defaultCwd(backend)
-    var rules by remember { mutableStateOf<PermissionRules?>(null) }
+    val phoneTools = remember { PhoneToolCatalog.labels }
+    // 这一页另要核心算手机工具 phone 整体和它每个工具的状态
+    val query =
+        remember(cwd, phoneTools) {
+            PermissionsQuery(cwd, PhoneTools.SERVER, phoneTools.map { it.first })
+        }
+    var view by remember { mutableStateOf<PermissionsView?>(null) }
     var loadError by remember { mutableStateOf<String?>(null) }
-    var servers by remember { mutableStateOf<List<McpServer>?>(null) }
     var working by remember { mutableStateOf(false) }
     var notice by remember { mutableStateOf<ConfigNotice?>(null) }
     var reloads by remember { mutableStateOf(0) }
     var showMore by remember { mutableStateOf(false) }
     var editor by remember { mutableStateOf<RuleDraft?>(null) }
-    var deleting by remember { mutableStateOf<Pair<PermissionBehavior, String>?>(null) }
-    var detail by remember { mutableStateOf<McpServer?>(null) }
+    var deleting by remember { mutableStateOf<PermissionRule?>(null) }
+    var detail by remember { mutableStateOf<ServerView?>(null) }
     var bulk by remember { mutableStateOf<BulkRequest?>(null) }
-    val phoneTools = remember { PhoneToolCatalog.labels }
 
     LaunchedEffect(reloads) {
-        scope.runConfig({ client.permissions() }) { result ->
+        scope.runConfig({ client.permissions(query) }) { result ->
             result
                 .onSuccess {
-                    rules = it
+                    view = it
                     loadError = null
                 }
                 .onFailure { loadError = it.problem() }
         }
-        scope.runConfig({ client.mcpServers(cwd) }) { result ->
-            servers = result.getOrDefault(emptyList())
-        }
     }
     val apply: ApplyRules = { block ->
         working = true
-        scope.runConfig(block) { result ->
+        scope.runConfig({ client.block(query) }) { result ->
             working = false
             result
-                .onSuccess { rules = it }
+                .onSuccess { view = it }
                 .onFailure {
                     notice = ConfigNotice("没有改成", it.problem())
                     reloads++
                 }
         }
     }
-    val current = rules
+    val current = view
     val editable = current != null && loadError == null && !working
 
     val shownDelete = rememberRetained(deleting)
@@ -170,19 +170,18 @@ internal fun ToolPermissionsScreen(hub: ConversationHub, backend: String, onBack
         dialogs = {
             ConfigNoticeDialog(notice) { notice = null }
             BulkConfirmDialog(bulk, onDismiss = { bulk = null }) { request ->
-                apply { client.setGroupPermission(request.group, request.enable) }
+                apply { setGroupPermission(it, request.group, request.enable) }
             }
             RuleEditorDialog(
                 draft = editor,
                 onDismiss = { editor = null },
                 onSave = { draft, done ->
-                    val original = draft.original
                     working = true
-                    scope.runConfig({ client.saveRule(original, draft) }) { result ->
+                    scope.runConfig({ client.saveRule(query, draft) }) { result ->
                         working = false
                         result
                             .onSuccess {
-                                rules = it
+                                view = it
                                 editor = null
                                 done(null)
                             }
@@ -196,13 +195,13 @@ internal fun ToolPermissionsScreen(hub: ConversationHub, backend: String, onBack
             ConfirmDialog(
                 show = deleting != null,
                 title = "删除规则",
-                summary = shownDelete?.let { "删除${it.first.label}规则 ${it.second}？" },
+                summary = shownDelete?.let { "删除${it.behavior.label}规则 ${it.rule}？" },
                 confirmText = "删除",
                 destructive = true,
                 onConfirm = {
                     val target = deleting
                     deleting = null
-                    target?.let { apply { client.removePermissionRule(it.first, it.second) } }
+                    target?.let { rule -> apply { removePermissionRule(it, rule) } }
                 },
                 onDismissRequest = { deleting = null },
             )
@@ -212,34 +211,26 @@ internal fun ToolPermissionsScreen(hub: ConversationHub, backend: String, onBack
         item(key = "semantics") {
             PagerFooterPreference(
                 summary =
-                    ClaudePermissions.SEMANTICS +
+                    PermissionSemantics +
                         "改动对所有项目、之后新开始的对话生效。" +
                         (loadError?.let { "\n\n读取失败：$it" } ?: ""),
             )
         }
         item(key = "builtin") {
-            PreferenceGroup(title = "内置工具") {
-                item {
-                    BulkButtons(current, BuiltinTools.group, editable) { enable, change ->
-                        bulk = BulkRequest("内置工具", BuiltinTools.group, enable, change)
-                    }
-                }
-                builtinToolRows(BuiltinTools.common, current, editable, client, apply)
-                if (!showMore) {
-                    item(key = "more") {
-                        BasicComponent(
-                            title = "更多内置工具",
-                            endActions = { PreferenceValue("${BuiltinTools.other.size} 个") },
-                            onClick = { showMore = true },
-                        )
-                    }
-                }
-            }
+            BuiltinToolsGroup(
+                view = current,
+                loadError = loadError,
+                editable = editable,
+                showMore = showMore,
+                onShowMore = { showMore = true },
+                apply = apply,
+                onBulk = { bulk = it },
+            )
         }
-        if (showMore) {
+        if (showMore && current != null) {
             item(key = "builtin-more") {
                 PreferenceGroup(title = "更多内置工具") {
-                    builtinToolRows(BuiltinTools.other, current, editable, client, apply)
+                    toolRows(current.builtin.filter { it.more }, editable, apply)
                 }
             }
         }
@@ -247,75 +238,110 @@ internal fun ToolPermissionsScreen(hub: ConversationHub, backend: String, onBack
             PhoneToolsGroup(
                 phoneToolsOn = hub.settings.phoneTools,
                 tools = phoneTools,
-                rules = current,
+                view = current,
                 editable = editable,
-                client = client,
                 apply = apply,
                 onBulk = { bulk = it },
             )
         }
-        item(key = "mcp") { McpServersGroup(servers, current, onOpen = { detail = it }) }
+        item(key = "mcp") {
+            McpServersGroup(current?.servers, loadError, onOpen = { detail = it })
+        }
         item(key = "rules") {
             RulesGroup(
-                rules = current,
+                view = current,
                 loadError = loadError,
                 editable = editable,
-                onMove = { behavior, rule, b ->
-                    apply { client.replacePermissionRule(behavior, rule, b, rule) }
+                onMove = { rule, b ->
+                    apply { replacePermissionRule(it, rule, PermissionRule(b, rule.rule)) }
                 },
-                onEdit = { behavior, rule -> editor = RuleDraft(behavior to rule, behavior, rule) },
-                onDelete = { behavior, rule -> deleting = behavior to rule },
+                onEdit = { rule -> editor = RuleDraft(rule, rule.behavior, rule.rule) },
+                onDelete = { rule -> deleting = rule },
             )
         }
     }
 
-    SlideInPage(detail, onBack = { detail = null }) { server ->
+    // 在服务器页上改过的，回来重读一遍这一页
+    val closeDetail: () -> Unit = {
+        detail = null
+        reloads++
+    }
+    SlideInPage(detail, onBack = closeDetail) { server ->
         McpPermissionDetail(
-            hub = hub,
-            backend = backend,
+            client = client,
+            cwd = cwd,
             server = server,
-            rules = current,
-            editable = editable,
-            apply = apply,
-            onBack = { detail = null },
+            onBack = closeDetail,
         )
     }
 }
 
-/** 新加一条规则，或把 [original] 换成草稿里的那条。 */
-private fun ClaudeConfigClient.saveRule(
-    original: Pair<PermissionBehavior, String>?,
-    draft: RuleDraft,
-): PermissionRules =
-    if (original == null) addPermissionRule(draft.behavior, draft.rule)
-    else replacePermissionRule(original.first, original.second, draft.behavior, draft.rule)
+/** 新加一条规则，或把 [RuleDraft.original] 换成草稿里的那条。 */
+private fun ClaudeConfigCore.saveRule(query: PermissionsQuery, draft: RuleDraft): PermissionsView {
+    val rule = PermissionRule(draft.behavior, draft.rule)
+    val original = draft.original
+    return if (original == null) addPermissionRule(query, rule)
+    else replacePermissionRule(query, original, rule)
+}
 
-/** 内置工具每个一行：它自己的设置，改了就写回规则。 */
-private fun CardListGroupScope.builtinToolRows(
-    tools: List<ToolInfo>,
-    rules: PermissionRules?,
+/** 「内置工具」一组：一键开关、常用的每个一行，收起来的那些没展开（[showMore]）时是最后一行「更多内置工具」。 */
+@Composable
+private fun BuiltinToolsGroup(
+    view: PermissionsView?,
+    loadError: String?,
     editable: Boolean,
-    client: ClaudeConfigClient,
+    showMore: Boolean,
+    onShowMore: () -> Unit,
     apply: ApplyRules,
+    onBulk: (BulkRequest) -> Unit,
 ) {
-    tools.forEach { tool ->
-        item(key = tool.name) {
-            val state = rules?.let { ClaudePermissions.tool(it, tool.name) } ?: ToolPermission(null)
-            ToolRow(tool.name, toolSummary(tool.label, state), state.behavior, editable) { b ->
-                apply { client.setToolPermission(tool.name, b) }
+    PreferenceGroup(title = "内置工具") {
+        if (view == null) {
+            item { if (loadError == null) ConfigLoadingRow() else ConfigEmptyRow("读不出规则") }
+            return@PreferenceGroup
+        }
+        item {
+            BulkButtons(view.builtinBulk, editable) { enable, change ->
+                onBulk(
+                    BulkRequest("内置工具", view.builtinGroup, enable, change, warnNoTools = !enable),
+                )
+            }
+        }
+        toolRows(view.builtin.filter { !it.more }, editable, apply)
+        if (!showMore) {
+            item(key = "more") {
+                BasicComponent(
+                    title = "更多内置工具",
+                    endActions = { PreferenceValue("${view.builtin.count { it.more }} 个") },
+                    onClick = onShowMore,
+                )
             }
         }
     }
 }
 
-/** 「手机工具」一组：一键开关、整个 phone 服务器的设置、每个手机工具的设置。 */
+/** 工具每个一行：它自己的设置，改了就写回规则。 */
+private fun CardListGroupScope.toolRows(
+    tools: List<ToolView>,
+    editable: Boolean,
+    apply: ApplyRules,
+) {
+    tools.forEach { tool ->
+        item(key = tool.name) {
+            ToolRow(tool.name, toolSummary(tool.label, tool.state), tool.own, editable) { b ->
+                apply { setToolPermission(it, tool.rule, b) }
+            }
+        }
+    }
+}
+
+/** 「手机工具」一组：一键开关、整个 phone 服务器的设置、每个手机工具的设置（状态都是核心按查询里的 phone 算的）。 */
 @Composable
 private fun PhoneToolsGroup(
     phoneToolsOn: Boolean,
     tools: List<Pair<String, String>>,
-    rules: PermissionRules?,
+    view: PermissionsView?,
     editable: Boolean,
-    client: ClaudeConfigClient,
     apply: ApplyRules,
     onBulk: (BulkRequest) -> Unit,
 ) {
@@ -323,81 +349,78 @@ private fun PhoneToolsGroup(
         title = "手机工具",
         footer = if (phoneToolsOn) null else "手机操作现在关着，Claude 拿不到这些工具。",
     ) {
-        val server = PhoneTools.SERVER
-        val group = PermissionGroup.Server(server)
+        val focus = view?.focus
         item {
-            BulkButtons(rules, group, editable) { enable, change ->
-                onBulk(BulkRequest("手机工具", group, enable, change))
+            BulkButtons(focus?.bulk, editable) { enable, change ->
+                onBulk(
+                    BulkRequest(
+                        "手机工具",
+                        PermissionGroup(server = PhoneTools.SERVER),
+                        enable,
+                        change,
+                    ),
+                )
             }
         }
         item(key = "whole") {
-            val whole = rules?.let { ClaudePermissions.server(it, server) } ?: ToolPermission(null)
-            ToolRow("全部手机工具", McpNames.server(server), whole.behavior, editable) { b ->
-                apply { client.setToolPermission(McpNames.server(server), b) }
+            val rule = focus?.rule ?: McpNames.server(PhoneTools.SERVER)
+            ToolRow("全部手机工具", rule, focus?.state?.behavior, editable) { b ->
+                apply { setToolPermission(it, rule, b) }
             }
         }
+        val states = view?.serverTools.orEmpty().associateBy { it.name }
         tools.forEach { (name, label) ->
             item(key = name) {
-                McpToolRow(
-                    server = server,
-                    tool = name,
-                    label = label,
-                    serverLabel = "全部手机工具",
-                    rules = rules,
-                    editable = editable,
-                    client = client,
-                    apply = apply,
-                )
+                McpToolRow(name, label, states[name], "全部手机工具", editable, apply)
             }
         }
     }
 }
 
-/** MCP 服务器里一个工具一行：显示它自己的设置，从整个服务器继承来的写在说明里。 */
+/** MCP 服务器里一个工具一行：显示它自己的设置，从整个服务器继承来的写在说明里。[tool] 是核心算的，还没算出来时为 null（灰着）。 */
 @Composable
 private fun McpToolRow(
-    server: String,
-    tool: String,
+    name: String,
     label: String?,
+    tool: ToolView?,
     serverLabel: String,
-    rules: PermissionRules?,
     editable: Boolean,
-    client: ClaudeConfigClient,
     apply: ApplyRules,
 ) {
-    val state = rules?.let { ClaudePermissions.mcpTool(it, server, tool) } ?: ToolPermission(null)
-    val own = rules?.let { ClaudePermissions.tool(it, McpNames.tool(server, tool)).behavior }
-    ToolRow(tool, toolSummary(label, state, serverLabel), own, editable) { b ->
-        apply { client.setToolPermission(McpNames.tool(server, tool), b) }
+    ToolRow(
+        name,
+        toolSummary(label, tool?.state ?: ToolState(null), serverLabel),
+        tool?.own,
+        editable && tool != null,
+    ) { b ->
+        tool?.let { t -> apply { setToolPermission(it, t.rule, b) } }
     }
 }
 
 /** 「MCP 服务器」一组：配置里的每个服务器（同名的只列一次）和它整体的设置，点进去按工具设。 */
 @Composable
 private fun McpServersGroup(
-    servers: List<McpServer>?,
-    rules: PermissionRules?,
-    onOpen: (McpServer) -> Unit,
+    servers: List<ServerView>?,
+    loadError: String?,
+    onOpen: (ServerView) -> Unit,
 ) {
     PreferenceGroup(title = "MCP 服务器") {
         when {
-            servers == null -> item { ConfigLoadingRow() }
+            servers == null && loadError == null -> item { ConfigLoadingRow() }
+            servers == null -> item { ConfigEmptyRow("读不出规则") }
             servers.isEmpty() -> item { ConfigEmptyRow("没有配置 MCP 服务器") }
             else ->
-                servers
-                    .distinctBy { it.name }
-                    .forEach { server ->
-                        item(key = server.name) {
-                            val state =
-                                rules?.let { ClaudePermissions.server(it, server.name) }
-                                    ?: ToolPermission(null)
-                            ArrowPreference(
-                                title = server.name,
-                                endActions = { PreferenceValue(state.behavior?.label ?: "未设置") },
-                                onClick = { onOpen(server) },
-                            )
-                        }
+                servers.forEach { server ->
+                    item(key = server.name) {
+                        ArrowPreference(
+                            title = server.name,
+                            endActions = {
+                                PreferenceValue(server.state.behavior?.label ?: "未设置")
+                            },
+                            onClick = { onOpen(server) },
+                        )
                     }
+                }
         }
     }
 }
@@ -405,31 +428,31 @@ private fun McpServersGroup(
 /** 「规则」一组：全部规则，按拒绝、询问、允许排；认不出的写法也原样列出、原样保留。 */
 @Composable
 private fun RulesGroup(
-    rules: PermissionRules?,
+    view: PermissionsView?,
     loadError: String?,
     editable: Boolean,
-    onMove: (PermissionBehavior, String, PermissionBehavior) -> Unit,
-    onEdit: (PermissionBehavior, String) -> Unit,
-    onDelete: (PermissionBehavior, String) -> Unit,
+    onMove: (PermissionRule, PermissionBehavior) -> Unit,
+    onEdit: (PermissionRule) -> Unit,
+    onDelete: (PermissionRule) -> Unit,
 ) {
     PreferenceGroup(
-        title = "规则 · ${rules?.all?.size ?: 0}",
+        title = "规则 · ${view?.rules?.size ?: 0}",
         footer = "带参数的规则只在这里改，上面的下拉不动它们。",
     ) {
         when {
-            rules == null && loadError == null -> item { ConfigLoadingRow() }
-            rules == null -> item { ConfigEmptyRow("读不出规则") }
-            rules.isEmpty -> item { ConfigEmptyRow("还没有规则", "点右上角的 + 添加") }
+            view == null && loadError == null -> item { ConfigLoadingRow() }
+            view == null -> item { ConfigEmptyRow("读不出规则") }
+            view.rules.isEmpty() -> item { ConfigEmptyRow("还没有规则", "点右上角的 + 添加") }
             else ->
-                rules.all.forEach { (behavior, rule) ->
-                    item(key = behavior.name + ":" + rule) {
+                view.rules.forEach { rule ->
+                    item(key = rule.behavior.name + ":" + rule.rule) {
                         RuleRow(
-                            behavior,
                             rule,
-                            editable,
-                            onMove = { b -> onMove(behavior, rule, b) },
-                            onEdit = { onEdit(behavior, rule) },
-                            onDelete = { onDelete(behavior, rule) },
+                            malformed = rule in view.malformed,
+                            enabled = editable,
+                            onMove = { b -> onMove(rule, b) },
+                            onEdit = { onEdit(rule) },
+                            onDelete = { onDelete(rule) },
                         )
                     }
                 }
@@ -440,14 +463,13 @@ private fun RulesGroup(
 /** 一条规则一行：右边是它在哪张表，点开菜单可以换表、编辑、删除。 */
 @Composable
 private fun RuleRow(
-    behavior: PermissionBehavior,
-    rule: String,
+    rule: PermissionRule,
+    malformed: Boolean,
     enabled: Boolean,
     onMove: (PermissionBehavior) -> Unit,
     onEdit: () -> Unit,
     onDelete: () -> Unit,
 ) {
-    val parsed = remember(rule) { ClaudePermissions.parse(rule) }
     // 右边显示它在哪张表；菜单里换表、编辑、删除
     OverlayDropdownPreference(
         entries =
@@ -457,8 +479,8 @@ private fun RuleRow(
                         PermissionBehavior.entries.map {
                             DropdownItem(
                                 text = it.label,
-                                selected = it == behavior,
-                                onClick = { if (it != behavior) onMove(it) },
+                                selected = it == rule.behavior,
+                                onClick = { if (it != rule.behavior) onMove(it) },
                             )
                         },
                 ),
@@ -470,8 +492,8 @@ private fun RuleRow(
                         ),
                 ),
             ),
-        title = rule,
-        summary = if (parsed.malformed) "括号不配对，Claude Code 认不出这条" else null,
+        title = rule.rule,
+        summary = if (malformed) "括号不配对，Claude Code 认不出这条" else null,
         enabled = enabled,
         collapseOnSelection = true,
     )
@@ -479,11 +501,12 @@ private fun RuleRow(
 
 /** 添加或编辑一条规则；[original] 为 null 是新加。 */
 private data class RuleDraft(
-    val original: Pair<PermissionBehavior, String>?,
+    val original: PermissionRule?,
     val behavior: PermissionBehavior,
     val rule: String,
 )
 
+/** 添加、编辑规则的对话框；规则写得对不对由核心查，没写成时它给的原因显示在框里。 */
 @Composable
 private fun RuleEditorDialog(
     draft: RuleDraft?,
@@ -510,12 +533,11 @@ private fun RuleEditorDialog(
         confirmText = if (saving) "正在保存…" else "保存",
         confirmEnabled = !saving,
         onConfirm = {
-            val rule = text.trim()
-            error = ClaudePermissions.ruleProblem(rule)
             val current = shown
-            if (error == null && current != null) {
+            if (current != null) {
                 saving = true
-                onSave(current.copy(behavior = behavior, rule = rule)) { problem ->
+                error = null
+                onSave(current.copy(behavior = behavior, rule = text.trim())) { problem ->
                     saving = false
                     error = problem
                 }
@@ -563,34 +585,53 @@ private fun RuleEditorDialog(
     }
 }
 
-/** 一个 MCP 服务器：整体的设置，加上逐个工具的设置（工具清单要连上服务器去取）。 */
+/** 一个 MCP 服务器：整体的设置，加上逐个工具的设置（工具清单要连上服务器去取）。这一页自己向核心要它的状态（查询里带上这个服务器和取到的工具），回到上一页时上一页重读。 */
 @Composable
 private fun McpPermissionDetail(
-    hub: ConversationHub,
-    backend: String,
-    server: McpServer,
-    rules: PermissionRules?,
-    editable: Boolean,
-    apply: ApplyRules,
+    client: ClaudeConfigCore,
+    cwd: String,
+    server: ServerView,
     onBack: () -> Unit,
 ) {
-    val client = rememberConfigClient(hub, backend)
     val scope = rememberCoroutineScope()
-    val cwd = hub.defaultCwd(backend)
     var tools by remember(server) { mutableStateOf<List<McpTool>?>(null) }
     var toolsError by remember(server) { mutableStateOf<String?>(null) }
     var loading by remember(server) { mutableStateOf(false) }
+    var view by remember(server) { mutableStateOf<PermissionsView?>(null) }
+    var working by remember { mutableStateOf(false) }
+    var notice by remember { mutableStateOf<ConfigNotice?>(null) }
+    var reloads by remember { mutableStateOf(0) }
+    val query = PermissionsQuery(cwd, server.name, tools.orEmpty().map { it.name })
 
     fun load() {
         loading = true
         toolsError = null
-        scope.runConfig({ client.mcpTools(server, cwd) }) { result ->
+        scope.runConfig({ client.mcpTools(server.scope, server.name, cwd) }) { result ->
             loading = false
             result.onSuccess { tools = it }.onFailure { toolsError = it.problem() }
         }
     }
     // 和 MCP 页一样：项目里的 .mcp.json 可能来自别人的仓库，不自动替它启动命令
     LaunchedEffect(server) { if (server.scope != "project" && !server.oauth) load() }
+    // 取到工具清单以后再算一遍，各工具的状态才在里面
+    LaunchedEffect(query, reloads) {
+        scope.runConfig({ client.permissions(query) }) { result ->
+            result.onSuccess { view = it }.onFailure { notice = ConfigNotice("读取失败", it.problem()) }
+        }
+    }
+    val apply: ApplyRules = { block ->
+        working = true
+        scope.runConfig({ client.block(query) }) { result ->
+            working = false
+            result
+                .onSuccess { view = it }
+                .onFailure {
+                    notice = ConfigNotice("没有改成", it.problem())
+                    reloads++
+                }
+        }
+    }
+    val editable = view != null && !working
     var bulk by remember { mutableStateOf<BulkRequest?>(null) }
 
     CouiPage(
@@ -600,30 +641,35 @@ private fun McpPermissionDetail(
             IconActionButton(COUIIcons.Refresh, "刷新工具", enabled = !loading, onClick = ::load)
         },
         dialogs = {
+            ConfigNoticeDialog(notice) { notice = null }
             BulkConfirmDialog(bulk, onDismiss = { bulk = null }) { request ->
-                apply { client.setGroupPermission(request.group, request.enable) }
+                apply { setGroupPermission(it, request.group, request.enable) }
             }
         },
     ) {
         item(key = "whole") {
+            val focus = view?.focus ?: server
             PreferenceGroup(footer = "整个服务器的设置管它的每个工具；工具自己也设了的，取更严的那个。") {
-                val group = PermissionGroup.Server(server.name)
                 item {
-                    BulkButtons(rules, group, editable) { enable, change ->
-                        bulk = BulkRequest("${server.name} 的工具", group, enable, change)
+                    BulkButtons(view?.focus?.bulk, editable) { enable, change ->
+                        bulk =
+                            BulkRequest(
+                                "${server.name} 的工具",
+                                PermissionGroup(server = server.name),
+                                enable,
+                                change,
+                            )
                     }
                 }
                 item {
-                    val whole =
-                        rules?.let { ClaudePermissions.server(it, server.name) }
-                            ?: ToolPermission(null)
-                    ToolRow("整个服务器", McpNames.server(server.name), whole.behavior, editable) { b ->
-                        apply { client.setToolPermission(McpNames.server(server.name), b) }
+                    ToolRow("整个服务器", focus.rule, focus.state.behavior, editable) { b ->
+                        apply { setToolPermission(it, focus.rule, b) }
                     }
                 }
             }
         }
         item(key = "tools") {
+            val states = view?.serverTools.orEmpty().associateBy { it.name }
             McpToolsGroup(
                 server = server,
                 tools = tools,
@@ -632,14 +678,12 @@ private fun McpPermissionDetail(
                 onLoad = ::load,
             ) { tool ->
                 McpToolRow(
-                    server = server.name,
-                    tool = tool.name,
-                    label = tool.description.clipLine(60),
-                    serverLabel = "整个服务器",
-                    rules = rules,
-                    editable = editable,
-                    client = client,
-                    apply = apply,
+                    tool.name,
+                    tool.description.clipLine(60),
+                    states[tool.name],
+                    "整个服务器",
+                    editable,
+                    apply,
                 )
             }
         }
@@ -649,7 +693,7 @@ private fun McpPermissionDetail(
 /** 详情里的「工具」一组：连接中、出错、还没取（可以手动取）、空的，或者每个工具一行（[row]）。 */
 @Composable
 private fun McpToolsGroup(
-    server: McpServer,
+    server: ServerView,
     tools: List<McpTool>?,
     loading: Boolean,
     error: String?,
@@ -658,8 +702,7 @@ private fun McpToolsGroup(
 ) {
     PreferenceGroup(
         title = tools?.let { "工具 · ${it.size}" } ?: "工具",
-        footer =
-            if (server.oauth) "要按工具设置，在上一页的“规则”里手写 ${McpNames.server(server.name)}__工具名。" else null,
+        footer = if (server.oauth) "要按工具设置，在上一页的“规则”里手写 ${server.rule}__工具名。" else null,
     ) {
         when {
             loading -> item { ConfigLoadingRow("正在连接…") }
@@ -680,40 +723,37 @@ private fun McpToolsGroup(
     }
 }
 
-/** 点了“全部开启 / 全部关闭”、等确认的那一组。[change] 是按页面上的规则算的，确认后按文件里最新的内容重算再写。 */
+/** 点了“全部开启 / 全部关闭”、等确认的那一组。[change] 是按页面上的规则算的，确认后核心按文件里最新的内容重算再写。 */
 internal data class BulkRequest(
     val label: String,
     val group: PermissionGroup,
     val enable: Boolean,
     val change: BulkChange,
+    /** 关的是全部内置工具：确认框里另外说清后果。 */
+    val warnNoTools: Boolean = false,
 )
 
-/** 一组上面的一对按钮；已经全是那个状态（没什么可加可删）时置灰。 */
+/** 一组上面的一对按钮；已经全是那个状态（没什么可加可删）时置灰。[pair] 是核心算的，还没算出来时为 null。 */
 @Composable
 private fun BulkButtons(
-    rules: PermissionRules?,
-    group: PermissionGroup,
+    pair: BulkPair?,
     editable: Boolean,
     onRequest: (Boolean, BulkChange) -> Unit,
 ) {
-    val on =
-        remember(rules, group) { rules?.let { ClaudePermissions.bulk(it, group, enable = true) } }
-    val off =
-        remember(rules, group) { rules?.let { ClaudePermissions.bulk(it, group, enable = false) } }
     Row(
         modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 12.dp),
         horizontalArrangement = Arrangement.spacedBy(12.dp),
     ) {
         CompactButton(
             text = "全部开启",
-            onClick = { on?.let { onRequest(true, it) } },
-            enabled = editable && on?.isEmpty == false,
+            onClick = { pair?.let { onRequest(true, it.enable) } },
+            enabled = editable && pair?.enable?.isEmpty == false,
             modifier = Modifier.weight(1f),
         )
         CompactButton(
             text = "全部关闭",
-            onClick = { off?.let { onRequest(false, it) } },
-            enabled = editable && off?.isEmpty == false,
+            onClick = { pair?.let { onRequest(false, it.disable) } },
+            enabled = editable && pair?.disable?.isEmpty == false,
             modifier = Modifier.weight(1f),
         )
     }
@@ -729,10 +769,7 @@ private fun BulkConfirmDialog(
     ConfirmDialog(
         show = request != null,
         title = shown?.let { (if (it.enable) "全部开启" else "全部关闭") + it.label + "？" },
-        summary =
-            shown?.let {
-                bulkMessage(it.change, warnNoTools = !it.enable && it.group == BuiltinTools.group)
-            },
+        summary = shown?.let { bulkMessage(it.change, warnNoTools = it.warnNoTools) },
         confirmText = if (shown?.enable == false) "全部关闭" else "全部开启",
         destructive = shown?.enable == false,
         onConfirm = {
@@ -747,12 +784,12 @@ private fun BulkConfirmDialog(
 /** 确认框里的说明：按表列出会加、会删的规则。关闭内置工具时另外说清后果。什么时候生效页面说明里说过，这里不重复。 */
 internal fun bulkMessage(change: BulkChange, warnNoTools: Boolean): String = buildString {
     PermissionBehavior.entries.forEach { b ->
-        val rules = change.add.filter { it.first == b }.map { it.second }
+        val rules = change.add.filter { it.behavior == b }.map { it.rule }
         if (rules.isNotEmpty())
             append("加到${b.label}（${rules.size} 条）：").append(rules.joinToString("、")).append("\n")
     }
     PermissionBehavior.entries.forEach { b ->
-        val rules = change.remove.filter { it.first == b }.map { it.second }
+        val rules = change.remove.filter { it.behavior == b }.map { it.rule }
         if (rules.isNotEmpty())
             append("从${b.label}里删（${rules.size} 条）：").append(rules.joinToString("、")).append("\n")
     }

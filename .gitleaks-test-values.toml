@@ -2,10 +2,6 @@
 # 写法与放行范围见 ~/.config/git/scan-pushed-secrets.sh 头注释；只登记假数据。
 
 [[values]]
-kind = "MCP 配置脱敏测试的假 token（McpConfigTest）"
-value = "--api-key=SECRET5"
-
-[[values]]
 kind = "诊断包打码测试的假值（RedactTest）"
 value = "fake-key-1"
 

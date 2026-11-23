@@ -13,12 +13,8 @@ import com.dzshzx.zeta.core.Conversation
 import com.dzshzx.zeta.core.ConversationHub
 import com.dzshzx.zeta.core.EffortLevels
 import com.dzshzx.zeta.core.ModelOption
-import com.dzshzx.zeta.core.claude.ClaudeConfigClient
+import com.dzshzx.zeta.core.claude.ClaudeConfigCore
 import com.dzshzx.zeta.core.claude.ClaudeDefaults
-import com.dzshzx.zeta.core.claude.setCompactWindow
-import com.dzshzx.zeta.core.claude.setDefaultEffort
-import com.dzshzx.zeta.core.claude.setDefaultModel
-import com.dzshzx.zeta.core.claude.setDefaultPermissionMode
 import com.dzshzx.zeta.core.effortLabel
 import com.dzshzx.zeta.core.formatTokens
 import com.dzshzx.zeta.core.modelMenu
@@ -52,7 +48,7 @@ private const val NotRead = "还没读到 Claude Code 的设置"
 private fun rememberDefaultsWriter(
     hub: ConversationHub,
     backend: String,
-): (ClaudeConfigClient.() -> ClaudeDefaults) -> Unit {
+): (ClaudeConfigCore.() -> ClaudeDefaults) -> Unit {
     val client = rememberConfigClient(hub, backend)
     val scope = rememberCoroutineScope()
     val context = LocalContext.current
@@ -183,7 +179,7 @@ private fun CardListGroupScope.effortItems(
     rows: List<EffortRow>,
     showOlder: Boolean,
     onShowOlder: () -> Unit,
-    write: (ClaudeConfigClient.() -> ClaudeDefaults) -> Unit,
+    write: (ClaudeConfigCore.() -> ClaudeDefaults) -> Unit,
 ) {
     val (shown, folded) = rows.partition { showOlder || !it.older }
     shown.forEach { row ->

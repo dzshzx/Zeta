@@ -21,6 +21,16 @@ object TestHelper {
     val path: String
         get() = binary.path
 
+    /** 假的 claude（helper/claudecfg/testdata/fakeclaude，Gradle 的 fakeClaudeHost 任务编的这台机器的一份）。 */
+    val fakeClaude: File by lazy {
+        File(
+                checkNotNull(System.getProperty("zeta.programs.fakeclaude")) {
+                    "测试任务没有传 zeta.programs.fakeclaude（见 app/build.gradle.kts）"
+                },
+            )
+            .also { check(it.canExecute()) { "没有可执行的 $it" } }
+    }
+
     /**
      * 随包程序 [name] 的 [HelperProgram]，两份都读构建出的文件：和应用里一样，第一次用时装进临时 HOME 的 ~/.cache/[linuxName]/bin。
      */

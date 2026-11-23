@@ -11,6 +11,8 @@ type PermissionsView struct {
 	BuiltinBulk BulkPair     `json:"builtinBulk"` // 内置工具一键开启、关闭会加、删的规则
 	Servers     []ServerView `json:"servers"`     // 配置里的 MCP 服务器（同名的只列一次）
 	ServerTools []ToolView   `json:"serverTools"` // 请求里给了 server 和 tools 时，那个服务器的每个工具
+	// Focus 是请求里给的 server 整体的设置（同 Servers 的一项）；不在配置里的服务器（比如手机版自己接的 phone）也有，Scope 为空。没给 server 时为 null
+	Focus *ServerView `json:"focus"`
 }
 
 // RuleView 是一条规则；Malformed 是括号不配对，Claude Code 认不出它。
@@ -49,7 +51,7 @@ func bulkPair(rs Rules, g PermissionGroup) BulkPair {
 	return BulkPair{rs.Bulk(g, true), rs.Bulk(g, false)}
 }
 
-// PermissionsView 把规则 rs 摊成页面：cwd 是默认工作目录（列 MCP 服务器用，空是家目录）；server 不空时另算它的 tools。
+// PermissionsView 把规则 rs 摊成页面：cwd 是默认工作目录（列 MCP 服务器用，空是家目录）；server 不空时另算它整体的设置和它的 tools。
 func (s *Store) PermissionsView(rs Rules, cwd, server string, tools []string) PermissionsView {
 	v := PermissionsView{Rules: []RuleView{}, Builtin: []ToolView{}, Servers: []ServerView{}, ServerTools: []ToolView{}}
 	for _, r := range rs {
@@ -72,6 +74,11 @@ func (s *Store) PermissionsView(rs Rules, cwd, server string, tools []string) Pe
 		})
 	}
 	if server != "" {
+		focus := ServerView{Name: server, Rule: McpServerName(server), State: rs.Server(server), Bulk: bulkPair(rs, PermissionGroup{Server: server})}
+		if i := slices.IndexFunc(v.Servers, func(sv ServerView) bool { return sv.Name == server }); i >= 0 {
+			focus = v.Servers[i]
+		}
+		v.Focus = &focus
 		for _, t := range tools {
 			rule := McpToolName(server, t)
 			v.ServerTools = append(v.ServerTools, ToolView{ToolInfo: ToolInfo{Name: t}, Rule: rule, Own: rs.Tool(rule).Behavior, State: rs.McpTool(server, t)})

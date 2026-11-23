@@ -5,9 +5,8 @@ import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.runtime.mutableStateMapOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
-import com.dzshzx.zeta.core.claude.ClaudeConfigClient
+import com.dzshzx.zeta.core.claude.ClaudeConfigCore
 import com.dzshzx.zeta.core.claude.ClaudeDefaults
-import com.dzshzx.zeta.core.claude.defaults
 import com.dzshzx.zeta.core.conv.SessionActivity
 import com.dzshzx.zeta.core.ssh.SshLinks
 import kotlin.concurrent.thread
@@ -267,7 +266,7 @@ class ConversationHub(val platform: HubPlatform) {
         readingDefaults.add(backend)
         thread(name = "zeta-defaults", isDaemon = true) {
             val defaults = runCatching {
-                ClaudeConfigClient.of(this, backend).defaults()
+                ClaudeConfigCore.of(this, backend).defaults()
             }
                 .getOrNull()
             main.post { onDefaultsRead(backend, defaults) }

@@ -44,7 +44,7 @@ import org.junit.Test
  * - 整个进程只取一次工具清单（tools/list）：规则怎么变都不重取。
  * - set_permission_mode 不等应答、紧接着发消息，这一轮就按新模式跑（每轮开头的 init 报的就是它），切回来也一样；
  *   模式怎么切，发给模型的工具名单和系统提示词都不变。进程起的时候不带 --allow-dangerously-skip-permissions 就切不进完全放行。
- * - 设置首页读写的默认值就在 Claude Code 自己用的位置（ClaudeSettings.defaults）：不带 --model 起的进程用 settings.json 的
+ * - 设置首页读写的默认值就在 Claude Code 自己用的位置（核心的 config.defaults.read）：不带 --model 起的进程用 settings.json 的
  *   model； 存成默认的思考强度（update_settings，和 /effort 存为默认一样）写进 modelSettings.<模型的完整
  *   ID>.effortLevel，别的键不动。
  * - 起进程不带 --permission-mode（Zeta 的新对话）：initialize 的应答和每轮的 init 报的是 settings.json 的
@@ -730,19 +730,19 @@ class UnattendedRulesContractTest {
                 )
             assertEquals("success", saved.str("subtype"))
         }
-        val defaults =
-            ClaudeSettings.defaults(json.parseToJsonElement(settings.readText()) as JsonObject)
-        assertEquals(
-            ClaudeDefaults("claude-opus-5-5", null, mapOf("claude-opus-5-5" to "high"), null),
-            defaults,
-        )
-        assertEquals(
-            PermissionRules(
-                listOf("mcp__phone__run_scheduled_task"),
-                emptyList(),
-                listOf("WebSearch"),
-            ),
-            ClaudePermissions.rules(json.parseToJsonElement(settings.readText()) as JsonObject),
-        )
+        // 主机页经核心读的就是这一份（ConversationHub.refreshClaudeDefaults → config.defaults.read）
+        LocalConfigCore(home, fakeClaude = false).use { core ->
+            assertEquals(
+                ClaudeDefaults("claude-opus-5-5", null, mapOf("claude-opus-5-5" to "high"), null),
+                core.client.defaults(),
+            )
+            assertEquals(
+                listOf(
+                    PermissionRule(PermissionBehavior.Deny, "WebSearch"),
+                    PermissionRule(PermissionBehavior.Allow, "mcp__phone__run_scheduled_task"),
+                ),
+                core.client.permissions(PermissionsQuery(home.path)).rules,
+            )
+        }
     }
 }

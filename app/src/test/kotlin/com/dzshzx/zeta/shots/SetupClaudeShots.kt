@@ -2,12 +2,14 @@ package com.dzshzx.zeta.shots
 
 import androidx.compose.ui.test.hasSetTextAction
 import androidx.compose.ui.test.junit4.AndroidComposeTestRule
+import androidx.compose.ui.test.onAllNodesWithText
 import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performTextInput
 import com.dzshzx.zeta.core.Backends
-import com.dzshzx.zeta.core.claude.ClaudeConfigClient
+import com.dzshzx.zeta.core.awaitMain
+import com.dzshzx.zeta.core.claude.ClaudeConfigCore
 import com.dzshzx.zeta.ui.setup.ClaudeAgentsScreen
 import com.dzshzx.zeta.ui.setup.ClaudeMcpScreen
 import com.dzshzx.zeta.ui.setup.ClaudeMemoryScreen
@@ -17,12 +19,22 @@ import com.dzshzx.zeta.ui.setup.ToolPermissionsScreen
 import org.junit.Test
 
 /**
- * 设置里主机页「Claude Code 配置」的几页。它们经 root 进 Linux 读 Claude Code 的配置，这里读不到： 先弹“读取失败”的告知框（[memoryNotice]
- * 留着它），其余几张点“知道了”关掉，看页面本身。
+ * 设置里主机页「Claude Code 配置」的几页。它们经那台的核心（zeta-helper serve）读 Claude Code 的配置，这里没有 root、起不了核心：
+ * 先弹“读取失败”的告知框（[memoryNotice] 留着它），其余几张点“知道了”关掉，看页面本身。连核心失败的结果在后台线程上投回来，先等它到。
  */
 class SetupClaudeShots : ShotTest() {
+    /** 等读取失败的结果投回来、页面上出现 [text]：每轮时钟走一帧，10 秒内等不到就失败。 */
+    private fun AndroidComposeTestRule<*, *>.awaitText(text: String) =
+        awaitMain(10_000) {
+            mainClock.advanceTimeByFrame()
+            onAllNodesWithText(text, substring = true).fetchSemanticsNodes().isNotEmpty()
+        }
+
+    private val awaitNotice: AndroidComposeTestRule<*, *>.() -> Unit = { awaitText("知道了") }
+
     /** 点“知道了”关掉告知框；时钟拨过它的退场，后面再点页面才不会点到它的遮罩上。 */
     private val dismissNotice: AndroidComposeTestRule<*, *>.() -> Unit = {
+        awaitNotice()
         onNodeWithText("知道了").performClick()
         mainClock.advanceTimeBy(500)
     }
@@ -30,7 +42,7 @@ class SetupClaudeShots : ShotTest() {
     @Test
     fun memoryNotice() {
         val hub = Fixtures.readyHub(app)
-        shoot("claude-memory-notice") {
+        shoot("claude-memory-notice", prepare = awaitNotice) {
             ClaudeMemoryScreen(hub = hub, backend = Backends.LOCAL, onBack = {})
         }
     }
@@ -112,7 +124,7 @@ class SetupClaudeShots : ShotTest() {
             },
         ) {
             ConfigDocumentEditor(
-                client = ClaudeConfigClient.of(hub, hub.backend),
+                client = ClaudeConfigCore.of(hub, hub.backend),
                 path = "/home/dzshzx/.claude/CLAUDE.md",
                 title = "用户指令",
                 fileLabel = "CLAUDE.md",
@@ -129,7 +141,7 @@ class SetupClaudeShots : ShotTest() {
     @Test
     fun permissions() {
         val hub = Fixtures.readyHub(app)
-        shoot("claude-permissions") {
+        shoot("claude-permissions", prepare = { awaitText("读取失败") }) {
             ToolPermissionsScreen(hub = hub, backend = Backends.LOCAL, onBack = {})
         }
     }

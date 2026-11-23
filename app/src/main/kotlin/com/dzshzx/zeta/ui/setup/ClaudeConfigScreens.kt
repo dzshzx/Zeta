@@ -45,7 +45,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.dzshzx.zeta.core.ConversationHub
-import com.dzshzx.zeta.core.claude.ClaudeConfigClient
+import com.dzshzx.zeta.core.claude.ClaudeConfigCore
 import com.dzshzx.zeta.core.claude.TextDocument
 import com.dzshzx.zeta.ui.components.coui2.CompactButton
 import com.dzshzx.zeta.ui.components.coui2.ConfirmDialog
@@ -74,10 +74,10 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 
-/** 主机 [backend] 上 Claude Code 自己的配置（~/.claude）的读写口子，设置里各主机页面下的几页都用它。 */
+/** 主机 [backend] 上 Claude Code 自己的配置（~/.claude）的读写口子（经那台的核心），设置里各主机页面下的几页都用它。 */
 @Composable
-internal fun rememberConfigClient(hub: ConversationHub, backend: String): ClaudeConfigClient =
-    remember(hub, backend) { ClaudeConfigClient.of(hub, backend) }
+internal fun rememberConfigClient(hub: ConversationHub, backend: String): ClaudeConfigCore =
+    remember(hub, backend) { ClaudeConfigCore.of(hub, backend) }
 
 /** 在后台线程跑一个阻塞的配置操作，回到主线程交结果。 */
 internal fun <T> CoroutineScope.runConfig(block: () -> T, done: (Result<T>) -> Unit) {
@@ -145,7 +145,7 @@ private const val MAX_DOCUMENT_BYTES = 1024 * 1024
  */
 @Composable
 internal fun ConfigDocumentEditor(
-    client: ClaudeConfigClient,
+    client: ClaudeConfigCore,
     path: String,
     title: String,
     fileLabel: String,

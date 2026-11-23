@@ -302,6 +302,22 @@ val zetaSshHost =
         configureZetaSsh("linux/$arch", "zeta-ssh", "zeta-ssh-host")
     }
 
+/**
+ * 单元测试里冒充主机上 claude 的假程序（helper/claudecfg/testdata/fakeclaude，核心的 Go 测试用的同一个）：照 Claude Code 的样子答
+ * mcp list、add-json、remove，mcp-server 是一个 stdio 的 MCP 服务器。编这台机器的一份，经 zeta.programs.fakeclaude 传给测试。
+ */
+val fakeClaudeHost =
+    tasks.register<GoProgramTask>("fakeClaudeHost") {
+        val arch =
+            if (System.getProperty("os.arch") in listOf("aarch64", "arm64")) "arm64" else "amd64"
+        pkg.set("./claudecfg/testdata/fakeclaude")
+        module.set(helperModule)
+        sources.from(helperModule.dir("claudecfg/testdata/fakeclaude"))
+        targets.put("linux/$arch", "fakeclaude")
+        outputDir.set(layout.buildDirectory.dir("generated/fakeclaude"))
+        linkVars.set(emptyMap())
+    }
+
 // Robolectric 的 Android 系统镜像（android-all，约 250 MB）交给 Gradle 下载，测试进程直接从 Gradle 缓存里离线取用：
 // 测试进程不走 Gradle 的代理和镜像设置，自己去 Maven Central 下载在本机和手机上都不可靠。
 val robolectricRuntime: Configuration by configurations.creating { isTransitive = false }
@@ -341,6 +357,20 @@ tasks.withType<Test>().configureEach {
     jvmArgumentProviders.add(
         CommandLineArgumentProvider {
             listOf("-Dzeta.programs.zeta-ssh=" + zetaSshDir.get().asFile.resolve("zeta-ssh").path)
+        },
+    )
+    // 假的 claude：「Claude Code 配置」经核心走的测试（ClaudeConfigCoreTest）把它放进临时 HOME 的 PATH
+    val fakeClaudeDir = fakeClaudeHost.flatMap { it.outputDir }
+    inputs
+        .dir(fakeClaudeDir)
+        .withPropertyName("fakeClaudeHost")
+        .withPathSensitivity(PathSensitivity.RELATIVE)
+    jvmArgumentProviders.add(
+        CommandLineArgumentProvider {
+            listOf(
+                "-Dzeta.programs.fakeclaude=" +
+                    fakeClaudeDir.get().asFile.resolve("fakeclaude").path,
+            )
         },
     )
     // 真机测试用的假 Claude 也一样（FakeClaudeHostTest、FakeClaudeContractTest 直接跑它）
@@ -385,8 +415,7 @@ tasks.withType<Test>().configureEach {
     environment("PATH", noRootPath)
     // 测试结果不进构建缓存（编译结果照常进）。版本号随提交变、写进 BuildConfig 和清单，换个提交测试的输入就跟着变，
     // 能命中的只有同一个提交在别的树里重跑；只改文档和设备脚本的提交，门禁已经不跑测试（scripts/check.sh）。
-    // 要缓存还得先声明一串本机输入：截图目录 app/build/shots，契约测试用的 claude 命令行，bash、jq、ssh 等系统命令，
-    // ZETA_TEST_SSH 指的手机 Debian
+    // 要缓存还得先声明一串本机输入：截图目录 app/build/shots，契约测试用的 claude 命令行，bash、jq、ssh 等系统命令
     outputs.cacheIf("版本号随提交变，换个提交就不命中；截图目录和本机的 claude、jq 等命令行都没声明") { false }
     // 卡死的测试（比如截图测试里在长页面上 performScrollTo）到点就失败，不把门禁和构建名额一直挂着。
     // 不用 JUnit 的单用例超时：它把测试挪到别的线程跑，Robolectric 要求在主线程上

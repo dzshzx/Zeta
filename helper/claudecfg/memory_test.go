@@ -28,7 +28,7 @@ func TestJSONKeepsOrderAndFormat(t *testing.T) {
 }
 
 func TestProjectKey(t *testing.T) {
-	// 期望值是 Kotlin 版 ClaudePathsTest 的（从 Claude Code 的程序里核对过的算法）
+	// 期望值照 Claude Code 程序里的算法核对过（从手机版原来的 Kotlin 测试搬来）
 	if got := projectKey("/workspace/claude"); got != "-workspace-claude" {
 		t.Errorf("plain %q", got)
 	}

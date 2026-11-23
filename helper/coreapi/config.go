@@ -327,6 +327,7 @@ type Permissions struct {
 	BuiltinBulk BulkPair     `json:"builtinBulk"`
 	Servers     []ServerView `json:"servers"`
 	ServerTools []ToolView   `json:"serverTools"`
+	Focus       *ServerView  `json:"focus"` // 给了 Server 时它整体的设置；不在配置里的服务器也有
 }
 
 // PermissionGroup 是一键开关的一组：内置工具（Tools）或一个 MCP 服务器（Server）。

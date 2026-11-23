@@ -15,7 +15,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import com.dzshzx.zeta.core.ConversationHub
-import com.dzshzx.zeta.core.claude.ClaudeConfigException
+import com.dzshzx.zeta.core.claude.ClaudeConfigCore
 import com.dzshzx.zeta.core.claude.SkillImport
 import com.dzshzx.zeta.core.claude.SkillInfo
 import com.dzshzx.zeta.core.claude.SkillList
@@ -33,10 +33,9 @@ import io.github.suqi8.coui.kmp.basic.DropdownEntry
 import io.github.suqi8.coui.kmp.basic.DropdownItem
 import io.github.suqi8.coui.kmp.basic.InfiniteProgressIndicator
 import io.github.suqi8.coui.kmp.preference.SwitchLoadingPreference
+import java.io.IOException
 
-/** ZIP 读进内存再交给 Debian 那边；Skill 包一般很小，太大的多半选错了文件。 */
-private const val MAX_ZIP_BYTES = 50 * 1024 * 1024
-
+/** ZIP 读进内存再交给那台的核心；Skill 包一般很小，太大的多半选错了文件。 */
 private class PickedZip(val name: String, val bytes: ByteArray)
 
 /**
@@ -191,7 +190,7 @@ internal fun ClaudeSkillsScreen(hub: ConversationHub, backend: String, onBack: (
     }
 }
 
-/** 读出选中的 ZIP：文件名取不到时叫 skill.zip，超过 [MAX_ZIP_BYTES] 或读不了时抛 [ClaudeConfigException]。 */
+/** 读出选中的 ZIP：文件名取不到时叫 skill.zip，超过 [ClaudeConfigCore.MAX_SKILL_ZIP] 或读不了时抛 [IOException]。 */
 private fun readPickedZip(context: Context, uri: Uri): PickedZip {
     val resolver = context.contentResolver
     val name =
@@ -200,10 +199,11 @@ private fun readPickedZip(context: Context, uri: Uri): PickedZip {
         } ?: "skill.zip"
     val bytes =
         resolver.openInputStream(uri)?.use { input ->
-            val data = input.readNBytes(MAX_ZIP_BYTES + 1)
-            if (data.size > MAX_ZIP_BYTES) throw ClaudeConfigException("文件超过 50 MB，不像是一个 Skill 包")
+            val data = input.readNBytes(ClaudeConfigCore.MAX_SKILL_ZIP + 1)
+            if (data.size > ClaudeConfigCore.MAX_SKILL_ZIP)
+                throw IOException("文件超过 ${ClaudeConfigCore.MAX_SKILL_ZIP shr 20} MB，不像是一个 Skill 包")
             data
-        } ?: throw ClaudeConfigException("读不了这个文件")
+        } ?: throw IOException("读不了这个文件")
     return PickedZip(name, bytes)
 }
 

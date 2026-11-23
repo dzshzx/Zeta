@@ -108,6 +108,17 @@ func TestPermissionsView(t *testing.T) {
 	if len(v.ServerTools) != 1 || !v.ServerTools[0].State.Inherited || v.ServerTools[0].Own != "" || v.ServerTools[0].Rule != "mcp__gh__list" {
 		t.Errorf("server tools %+v", v.ServerTools)
 	}
+	if v.Focus == nil || v.Focus.Scope != "user" || v.Focus.State.Behavior != Allow {
+		t.Errorf("focus %+v", v.Focus)
+	}
+	// 不在配置里的服务器（手机版的 phone）也算得出整体的设置和一键开关
+	phone := c.PermissionsView(Rules{{Deny, "mcp__phone__screen"}}, "", "phone", []string{"screen"})
+	if f := phone.Focus; f == nil || f.Rule != "mcp__phone" || f.Scope != "" || f.State.Behavior != "" || len(f.Bulk.Enable.Remove) != 1 {
+		t.Errorf("phone focus %+v", phone.Focus)
+	}
+	if c.PermissionsView(nil, "", "", nil).Focus != nil {
+		t.Error("没给 server 时 focus 应为 null")
+	}
 }
 
 func TestDefaults(t *testing.T) {

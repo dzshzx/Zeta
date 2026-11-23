@@ -17,8 +17,7 @@ import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.unit.dp
 import com.dzshzx.zeta.core.ConversationHub
-import com.dzshzx.zeta.core.claude.ClaudeConfigClient
-import com.dzshzx.zeta.core.claude.McpConfig
+import com.dzshzx.zeta.core.claude.ClaudeConfigCore
 import com.dzshzx.zeta.core.claude.McpConnector
 import com.dzshzx.zeta.core.claude.McpServer
 import com.dzshzx.zeta.core.claude.McpState
@@ -99,7 +98,7 @@ private fun McpStatus?.of(server: McpServer, failed: Boolean): McpState? {
     return when {
         shadowedBy != null -> McpState("shadowed", "被“${scopeLabel(shadowedBy)}”里的同名服务器盖住")
         else ->
-            this?.statuses?.get(McpConfig.statusKey(server.scope, server.name))
+            this?.of(server.scope, server.name)
                 ?: if (failed || this != null) McpState("unknown", "") else null
     }
 }
@@ -278,7 +277,7 @@ private fun ConnectorsGroup(connectors: List<McpConnector>) {
 }
 
 /** 按草稿的类型加一个命令行（stdio）或 HTTP / SSE 服务器。 */
-private fun ClaudeConfigClient.addFromDraft(draft: ServerDraft) {
+private fun ClaudeConfigCore.addFromDraft(draft: ServerDraft) {
     when (draft.type) {
         "stdio" -> addStdioServer(draft.name, draft.command, draft.args, draft.env)
         else -> addHttpServer(draft.name, draft.type, draft.url, draft.token)
@@ -469,7 +468,7 @@ private fun McpServerDetail(
     fun loadTools() {
         loadingTools = true
         toolsError = null
-        scope.runConfig({ client.mcpTools(server, cwd) }) { result ->
+        scope.runConfig({ client.mcpTools(server.scope, server.name, cwd) }) { result ->
             loadingTools = false
             result.onSuccess { tools = it }.onFailure { toolsError = it.problem() }
         }

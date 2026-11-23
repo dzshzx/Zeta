@@ -27,8 +27,8 @@ import org.junit.Test
 
 /**
  * 工具权限页、自动标题、排队条和结束会话依赖的 Claude Code 行为（2.1.327 实测，排队条和结束会话那几条 2.1.329），在这里钉住： 升级 Claude Code
- * 后跑一遍，变了就会失败，页面上那句说明（[ClaudePermissions.SEMANTICS]）、核心（helper/conv）的自动标题、 排队和 zeta_host.sh 的 stop
- * 跟着改。
+ * 后跑一遍，变了就会失败，页面上那句说明（[com.dzshzx.zeta.ui.setup.PermissionSemantics]）、核心（helper/conv）的自动标题、 排队和
+ * zeta_host.sh 的 stop 跟着改。
  *
  * 真的 claude 命令行，跑在临时 HOME 上，连本机一个假的 Messages API（假 key，不出网、不花钱）： 假模型按剧本调用工具，从下一次请求里的 tool_result
  * 看结局；标题请求按系统提示认出来。
