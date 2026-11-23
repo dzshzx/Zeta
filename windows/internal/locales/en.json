@@ -368,5 +368,6 @@
   "aboutCreditRatex": "Typesets math in replies, as in the phone app (MIT)",
   "aboutCreditKatexFonts": "KaTeX fonts",
   "aboutCreditKatex": "Fonts for math (OFL-1.1)",
-  "aboutCreditWazero": "Runs RaTeX's WebAssembly (Apache-2.0)"
+  "aboutCreditWazero": "Runs RaTeX's WebAssembly (Apache-2.0)",
+  "trayOpen": "Open Zeta"
 }

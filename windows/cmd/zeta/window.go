@@ -7,8 +7,11 @@ import (
 	"github.com/egoist/mygo"
 )
 
-// desktopWindow 是界面碰的真窗口（ui.Window）。
-type desktopWindow struct{ win *mygo.Window }
+// desktopWindow 是界面碰的真窗口（ui.Window）；show 把它叫回来（藏在托盘里的也显示出来，见 tray.go）。
+type desktopWindow struct {
+	win  *mygo.Window
+	show func()
+}
 
 func (w desktopWindow) Foreground() bool { return w.win.IsFocused() }
 
@@ -21,8 +24,7 @@ func (w desktopWindow) Notify(n zui.Note) {
 	}
 	m := mygo.NewNotification(mygo.NotificationOptions{ID: n.ID, Title: n.Title, Body: n.Body})
 	m.OnClick(func() {
-		w.win.Restore()
-		w.win.Focus()
+		w.show()
 		if n.Open != nil {
 			w.win.Update(n.Open)
 		}

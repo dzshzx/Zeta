@@ -2007,5 +2007,9 @@
   "aboutCreditWazero": "运行 RaTeX 的 WebAssembly（Apache-2.0）",
   "@aboutCreditWazero": {
     "description": "关于页鸣谢里 wazero 的介绍。"
+  },
+  "trayOpen": "打开 Zeta",
+  "@trayOpen": {
+    "description": "托盘图标右键菜单里把窗口叫回来的那一项。"
   }
 }

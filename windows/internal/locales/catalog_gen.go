@@ -5361,3 +5361,17 @@ func AboutCreditWazero() string { return In(i18n.Locale()).AboutCreditWazero() }
 func (msgs Messages) AboutCreditWazero() string {
 	return Catalog.Format(msgs.locale, "aboutCreditWazero", nil)
 }
+
+// TrayOpen says "打开 Zeta"
+// in the language the app shows.
+//
+// 托盘图标右键菜单里把窗口叫回来的那一项。
+func TrayOpen() string { return In(i18n.Locale()).TrayOpen() }
+
+// TrayOpen says "打开 Zeta"
+// in the language of msgs.
+//
+// 托盘图标右键菜单里把窗口叫回来的那一项。
+func (msgs Messages) TrayOpen() string {
+	return Catalog.Format(msgs.locale, "trayOpen", nil)
+}

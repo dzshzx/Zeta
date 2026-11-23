@@ -25,6 +25,10 @@ import (
 )
 
 func main() {
+	// 只跑一个：关了窗口的 Zeta 还在托盘里跑，再打开一次是把它的窗口叫回来（OnSecondInstance），不另起一个
+	if !mygo.App.RequestSingleInstanceLock() {
+		return
+	}
 	// 换了界面语言（设置里改，或跟随的系统语言变了）：开着的连接都把新语言报给核心，核心之后的应答用它。
 	// 写连接可能卡在网络上，不占主线程
 	mygo.App.OnLocaleChanged(func(string) { go hostlink.IntroduceAll() })
@@ -86,13 +90,21 @@ func main() {
 		win = mygo.NewWindow(mygo.WindowOptions{Title: "Zeta", Width: 1280, Height: 860, MinWidth: 720, MinHeight: 480,
 			StateKey: "main", BackgroundColor: windowBackground(prefs), TitleBarStyle: mygo.TitleBarHidden,
 			TitleBarHeight: widget.TitleBarHeight, Content: ui.View(app.View)})
-		// 关窗口时没存的草稿马上存盘（平时输入停下约一秒才存），拖过的侧栏宽度也存上
-		win.OnClose(func(*mygo.CloseEvent) {
+		// 关窗口只是藏到托盘，后台照旧连着、发通知；托盘右键「退出」才退出（tray.go）。藏起来或真关时，
+		// 没存的草稿马上存盘（平时输入停下约一秒才存），拖过的侧栏宽度也存上
+		bg := &background{win: win}
+		bg.start()
+		win.OnClose(func(e *mygo.CloseEvent) {
 			app.SaveDrafts()
 			app.SaveLayout()
+			if bg.hideOnClose() {
+				e.PreventDefault()
+				win.Hide()
+			}
 		})
-		// 回答完了而窗口不在前台时发通知，看大图时系统按钮换深浅（window.go）
-		app.Window = desktopWindow{win}
+		mygo.App.OnSecondInstance(func([]string, string) { bg.show() })
+		// 回答完了而窗口不在前台时发通知（点通知把窗口叫回来），看大图时系统按钮换深浅（window.go）
+		app.Window = desktopWindow{win: win, show: bg.show}
 		app.Language = mygoLanguage{}
 		// 更新的状态在后台变：重画；查到新版本时窗口底部提示；安装程序起好后退出
 		updater.Changed = func() { win.Update(func() {}) }
