@@ -28,8 +28,10 @@ func (a *App) composer(c *ui.Context, p *chatPane) {
 		Shadow(0, 2, 16, 0, composerShadow(k)).Children(func() {
 		a.slashList(c, p)
 		a.composerAttachments(c, p)
+		_, winH := c.Size()
+		_, natural := c.MeasureText(0, ui.Span{Text: "一", Size: composerFontSize})
 		in := ui.TextAreaBase(c.Key("draft"), &p.draft).Placeholder(hint).PlaceholderColor(k.Tertiary).Label("消息").FillWidth().
-			Lines(1, 6).Padding(5, 6).FontSize(coui.SizeBodyXL).LineHeight(1.2).Disabled(!ready).
+			Lines(composerMinLines, composerMaxLines(winH, natural)).Padding(5, 6).FontSize(composerFontSize).LineHeight(composerLeading).Disabled(!ready).
 			OnPaste(func(string) bool { return a.paste(c, p) }).
 			OnTextKey(func(tk ui.TextKey) bool {
 				if a.slashKey(p, tk) {
@@ -509,4 +511,19 @@ func formatCost(usd float64) string {
 		return fmt.Sprintf("$%.4f", usd)
 	}
 	return fmt.Sprintf("$%.2f", usd)
+}
+
+// 输入框的行数：空着时就有 composerMinLines 行高（桌面上地方够，一行高的框看着像单行输入、长消息也不好写），
+// 随内容长高，到 composerMaxLines 后在框里滚动。
+const (
+	composerMinLines = 3
+	composerFontSize = coui.SizeBodyXL
+	composerLeading  = 1.2
+)
+
+// composerMaxLines 是窗口高 winH（DIP）时输入框最多长到几行：窗口高度的三分之一放得下的行数，留三分之二给对话；
+// 不少于手机版的 6 行（小窗口里也照手机的上限）。natural 是这个字号一行字本身的高度：行高按字号乘 composerLeading，
+// 但排版时不低于字本身的高度（中文字体常比字号乘 1.2 还高），所以两者取大的。
+func composerMaxLines(winH, natural float32) int {
+	return max(6, int(winH/3/max(natural, composerFontSize*composerLeading)))
 }
