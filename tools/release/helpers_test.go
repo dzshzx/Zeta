@@ -68,21 +68,6 @@ func fakeCommands(t *testing.T, answers map[string]string) *[]string {
 	return fakeWith(t, func(call string) string { return answers[longestPrefix(call, answers)] })
 }
 
-// fakeSequence 同 fakeCommands，同一前缀的调用依次给 answers 里的回答，用完了一直给最后一个。
-func fakeSequence(t *testing.T, answers map[string][]string) *[]string {
-	t.Helper()
-	asked := map[string]int{}
-	return fakeWith(t, func(call string) string {
-		key := longestPrefix(call, answers)
-		list := answers[key]
-		if len(list) == 0 {
-			return ""
-		}
-		defer func() { asked[key]++ }()
-		return list[min(asked[key], len(list)-1)]
-	})
-}
-
 func fakeWith(t *testing.T, answer func(call string) string) *[]string {
 	t.Helper()
 	saved := command

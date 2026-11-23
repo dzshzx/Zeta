@@ -8,39 +8,31 @@ Zeta 的正式版（包名 `com.dzshzx.zeta`）只经 GitHub Release 发布。�
 
 ## 发版
 
-发版只有一条命令，在主 checkout 上跑（它要正好在 origin/master 上、没有改动）：
+发版只有一条命令：维护者运维仓（fleet-state）里的 `rollout release`，它派发 `.github/workflows/release.yml`、等运行结束，
+报出最新的 Release。发的总是远端 `master` 的最新提交，不用在 Zeta 的哪个 checkout 里跑。
 
 ```sh
-go -C tools/release run . ship             # 升 patch；用户说了才加 -bump minor
-go -C tools/release run . ship -gate      # 发版前先跑全量门禁，没过就不发布
-go -C tools/release run . ship -preview    # 只列这次的版本、versionCode 和发版说明，几秒
+tools/rollout/rollout release Zeta                  # 升 patch；用户说了才加 --bump minor
+tools/rollout/rollout release Zeta --gate           # 发版前先跑全量门禁，没过就不发布
+tools/rollout/rollout release Zeta --dry-run        # 完整构建、签名、核对，写运行摘要；不打 tag、不发布
 ```
-
-`ship` 触发 `.github/workflows/release.yml`，同时在本机让测试版照正式版那样经 R8 构建、在模拟器上冷启动一次
-（`ZETA_R8=1 ZETA_PHONE_OWNER=release tools/phone-run tools/phone-tests/smoke.sh`）：合入的门禁（`AppStartTest`）只查
-不经 R8 的启动，R8 误删了运行时才按类名找的类（见 CLAUDE.md「坑」）只有这里查得到。测试结果记成这个提交上的 commit status
-`zeta/r8-smoke`，工作流的 publish 等它通过才发布（有上限，见 `tools/release/smoke.go` 的 `smokeWait`）；没过时 `ship` 取消这次运行。跑完它确认最新的 Release
-是这个版本，下载手机的资产照 `check-download` 核对，打印版本、APK 的 sha256 和证书。失败了修好后重跑 `ship` 能续上：
-冒烟测试已通过的提交不再跑，有 tag 没发布的照下面 version 那一步续发。
 
 发版默认不跑全量门禁，直接构建、发布：每个提交合入时已过 `wt land` 的门禁，每晚（或手动触发）的 `ci.yml` 跑全量门禁。
-用户要时加 `-gate`，工作流先跑全量门禁，没过就不构建、不发布。
-用户说上线时直接 `ship`，不先 dry run：发布是最后一步，前面任何一步失败都不会发出去。
-只在要提前确认能走通时（上线前的准备）手动 dry run，它不发布，也不看冒烟测试：
+用户要时加 `--gate`，工作流先跑全量门禁，没过就不构建、不发布。
+用户说上线时直接发，不先 dry run：发布是最后一步，前面任何一步失败都不会发出去。dry run 只在要提前确认能走通时用。
 
-```sh
-gh workflow run release.yml --ref master -f dry_run=true
-```
+发版不装机、不跑设备测试。正式版经 R8，R8 误删运行时才按类名找的类只有正式版出错，这一风险在开发时兜住：改了
+`app/proguard-rules.pro`、加了这类入口或升级依赖的分支，合入前用 `ZETA_R8=1 tools/phone-run` 跑相关的设备脚本（见 CLAUDE.md「坑」）。
 
-工作流的输入（`ship` 的 `-bump`、`-runner` 原样交给它，`-gate` 传 `gate=true`）：
+工作流的输入（`rollout release` 按它的参数和本机 runner 在不在线来传）：
 
 - `bump`：`patch`（默认）、`minor` 或 `major`。版本长期停在 0.x.x，平常只升 patch；minor 要维护者先同意，不发 1.0。
 - `dry_run`：默认 `false`。设为 `true` 时完整构建、签名、核对、打包（任何分支都能跑，但 environment `release`
   只放 `master`，别的分支到签名就停），运行摘要列出将要发布的版本、
   源提交、各资产的 sha256 和 Release 说明，但不打 tag、不发布。资产留在这次运行的 `release` 构件里（保留 7 天）。
 - `gate`：默认 `false`，不跑全量门禁。设为 `true` 时先跑，没过就不往下走。
-- `runner`：门禁（打开 `gate` 时）和构建跑在哪，`self-hosted`（默认，维护者的 runner）或 `github-hosted`（`ubuntu-latest`，
-  本机 runner 不在线时用）。签名、发布不受它影响，总在 GitHub 托管机上。
+- `hosted_gate`：默认 `false`，门禁（打开 `gate` 时）和构建跑在维护者的本机 runner 上；`true` 时改到 GitHub 托管机
+  （`ubuntu-latest`）。`rollout release` 派发前查本机 runner，不在线才传 `true`。签名、发布不受它影响，总在 GitHub 托管机上。
 
 工作流依次：
 
@@ -49,12 +41,12 @@ gh workflow run release.yml --ref master -f dry_run=true
    续发，不再升档。否则取仓里最高的纯 `vX.Y.Z` tag 按 `bump` 升一档。同时算出 versionCode。
 2. **gate**（`gate=true` 时）：调 `ci.yml` 跑全量门禁 `ZETA_GATE_FULL=1 bash scripts/check.sh`（合入时的门禁不含截图测试，
    这里一个不落）。没过就不构建、不发布；没打开时跳过，后面照常走。
-3. **build**：在维护者的 runner 上（`runner=github-hosted` 时在托管的 ubuntu 机上）构建 `:app:assembleRelease`，出未签名的 `Zeta-vX.Y.Z.apk`。构建前在
+3. **build**：在维护者的 runner 上（`hosted_gate` 时在托管的 ubuntu 机上）构建 `:app:assembleRelease`，出未签名的 `Zeta-vX.Y.Z.apk`。构建前在
    这份检出里给本提交打上本地 tag，版本名因此就是干净的 `X.Y.Z`（见下节）。
 4. **sign**：在 environment `release` 里取正式发版密钥，`tools/release sign` 签名，删掉密钥库；`tools/release verify`
    核对；`tools/release package` 写出资产并写运行摘要。构建（会跑 Gradle 插件和第三方依赖的代码）和碰密钥分在两个
    job，构建那一边拿不到 Secrets。
-5. **publish**（非 dry run）：`tools/release publish` 先等这个提交的 `zeta/r8-smoke` 通过（失败、或到 `smokeWait` 还没有就不发布），再删掉同名的旧草稿，建含全部资产的草稿，经 GitHub API 在本提交上
+5. **publish**（非 dry run）：`tools/release publish` 删掉同名的旧草稿，建含全部资产的草稿，经 GitHub API 在本提交上
    打附注 tag `vX.Y.Z`（已指向本提交就跳过，指向别的提交就失败），最后发布草稿并设为最新。只有这个 job 能写仓库。
 
 ## 版本号
@@ -175,7 +167,7 @@ keytool -genkeypair -keystore "$work/zeta-release.p12" -storetype PKCS12 -storep
   | `ZETA_RELEASE_STORE_PASSWORD` | 密钥库的口令 |
   | `ZETA_RELEASE_KEY_PASSWORD` | 密钥的口令（PKCS12 时与密钥库口令相同） |
 
-- 工作流的权限都写在 YAML 里：默认只读，version 多一个读 commit status，只有 publish 能写仓库内容。
+- 工作流的权限都写在 YAML 里：默认只读，只有 publish 能写仓库内容。
 - `ci.yml` 默认跑在带 `self-hosted`、`nerv` 标签的 runner 上，每个 job 用新的 HOME；runner 的 `.env` 给
   `ANDROID_HOME`（已接受 SDK 许可）和持久的 `GRADLE_USER_HOME`。JDK 25 和 Go 由 `actions/setup-java`、
   `actions/setup-go` 装。工作流不设 `pull_request` 触发，公开仓的 PR 不会在这台 runner 上跑代码。

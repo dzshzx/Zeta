@@ -147,7 +147,7 @@ func TestSigningNeedsTheRegisteredReleaseCertificate(t *testing.T) {
 	}
 }
 
-// 没设 JAVA_HOME 时照仓里的 tools/java-home 找（工作站没有全局 java，ship 发完核对下载要用 apksigner）
+// 没设 JAVA_HOME 时照仓里的 tools/java-home 找（工作站没有全局 java，tools/install.sh --release 核对下载要用 apksigner）
 func TestFindBuildToolsJavaHome(t *testing.T) {
 	root := fakeRepo(t, oldCert+"\n"+newCert+"\n")
 	script := filepath.Join(root, "tools", "java-home")

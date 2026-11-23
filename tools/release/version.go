@@ -101,7 +101,7 @@ type plan struct {
 	version, note, versionCode string
 }
 
-// planRelease 算 sha 这个提交这次发什么版（next-version 和 ship 共用）。
+// planRelease 算 sha 这个提交这次发什么版。
 func planRelease(repo, sha, bump string, dryRun bool) (plan, error) {
 	tags, err := git("tag", "--list", "v*")
 	if err != nil {

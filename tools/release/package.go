@@ -65,7 +65,7 @@ func formatNotes(titles []string) string {
 	return strings.Join(lines, "\n")
 }
 
-// releaseNotes 是 version 这一版的发版说明：上一个正式版的 tag 和它之后到 commit 为止的提交标题（package 和 ship -preview 共用）。
+// releaseNotes 是 version 这一版的发版说明：上一个正式版的 tag 和它之后到 commit 为止的提交标题。
 func releaseNotes(version, commit string) (previous string, titles []string, err error) {
 	tags, err := git("tag", "--list", "v*")
 	if err != nil {
@@ -328,7 +328,7 @@ func runCheckDownload(args []string) error {
 	return nil
 }
 
-// checkDownload 核对 dir 里下载下来的手机那几个资产，返回 update.json 和 APK 的路径（check-download 和 ship 共用）。
+// checkDownload 核对 dir 里下载下来的手机那几个资产，返回 update.json 和 APK 的路径。
 func checkDownload(dir string) (update, string, error) {
 	data, err := os.ReadFile(filepath.Join(dir, updateFile))
 	if err != nil {

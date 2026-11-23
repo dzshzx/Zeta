@@ -1,4 +1,4 @@
-// release：Zeta 的发版工具，由 .github/workflows/release.yml 调用，做法与出错后怎么办见 docs/release.md。
+// release：Zeta 的发版工具，由 .github/workflows/release.yml 调用（发版经 fleet-state 的 rollout release Zeta 派发它），做法与出错后怎么办见 docs/release.md。
 // 在仓里任何目录下运行都行：它往上找仓根（有 tools/release/go.mod 的那一层），读 release/ 下登记的签名证书与 lineage。
 //
 //	next-version -bump patch|minor|major -branch <默认分支> [-dry-run]
@@ -14,10 +14,6 @@
 //	    删同名旧草稿、建含全部资产的草稿、经 API 在本提交上打附注 tag、发布并设为最新；失败后重跑能续上
 //	check-download -dir <目录>
 //	    核对 gh release download 下来的手机那几个资产（tools/install.sh --release 用），打印 APK 的路径
-//	ship [-bump patch|minor|major] [-preview] [-runner self-hosted|github-hosted] [-gate]
-//	    发版的入口，在维护者的主 checkout 上跑：触发 release.yml，同时在本机跑 R8 冒烟测试并把结果记成提交上的
-//	    commit status（publish 等它通过才发布），发完下载资产核对。-preview 只列这次的版本、versionCode 和发版说明。
-//	    默认不跑全量门禁；-gate 让 release.yml 先跑，没过就不发布
 //
 // apksigner、aapt2、zipalign 取 $ANDROID_HOME/build-tools/<app/build.gradle.kts 的 buildToolsVersion>；
 // JAVA_HOME 的 bin 放到子进程 PATH 的最前（apksigner 用 PATH 上的 java）；没设时照 tools/java-home 找。
@@ -42,7 +38,6 @@ func main() {
 		"package":        runPackage,
 		"publish":        runPublish,
 		"check-download": runCheckDownload,
-		"ship":           runShip,
 	}
 	command, ok := commands[os.Args[1]]
 	if !ok {
@@ -55,7 +50,7 @@ func main() {
 }
 
 func usage() {
-	fmt.Fprintln(os.Stderr, "usage: release next-version|sign|verify|package|publish|check-download|ship [flags]")
+	fmt.Fprintln(os.Stderr, "usage: release next-version|sign|verify|package|publish|check-download [flags]")
 	os.Exit(2)
 }
 

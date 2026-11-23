@@ -83,3 +83,20 @@ func TestRunPublishChecksTheSourceCommit(t *testing.T) {
 		t.Errorf("nothing reaches GitHub: %q", *calls)
 	}
 }
+
+// 发版不等任何 commit status（R8 冒烟测试不在发版流程里）：资产对得上就建草稿、打 tag、发布。
+func TestRunPublishDoesNotWaitForStatuses(t *testing.T) {
+	dir, _ := writeSample(t)
+	t.Setenv("GITHUB_SHA", "c0ffee")
+	t.Setenv("GITHUB_REPOSITORY", "o/r")
+	calls := fakeCommands(t, map[string]string{"gh api repos/o/r/git/tags -f": "7a9"})
+	if err := runPublish([]string{"-version", "0.7.1", "-assets", dir}); err != nil {
+		t.Fatal(err)
+	}
+	if slices.ContainsFunc(*calls, func(c string) bool { return strings.Contains(c, "/status") }) {
+		t.Errorf("publish read a commit status: %q", *calls)
+	}
+	if !slices.ContainsFunc(*calls, func(c string) bool { return strings.HasPrefix(c, "gh release edit v0.7.1") }) {
+		t.Errorf("publish did not publish: %q", *calls)
+	}
+}
