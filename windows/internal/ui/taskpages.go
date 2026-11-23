@@ -9,7 +9,7 @@ import (
 
 	"github.com/dzshzx/Zeta/helper/tasks"
 	"github.com/dzshzx/Zeta/windows/internal/chat"
-	"github.com/dzshzx/Zeta/windows/internal/ui/coui"
+	"github.com/dzshzx/Zeta/windows/internal/ui/widget"
 	"github.com/egoist/mygo/ui"
 )
 
@@ -99,7 +99,7 @@ func (a *App) chatSubpage(c *ui.Context, p *chatPane) bool {
 		return false
 	}
 	top := s[len(s)-1]
-	k := coui.Of(c)
+	k := widget.Of(c)
 	ui.Column(c.Key(len(s))).Fill().Background(k.Page).Children(func() {
 		switch {
 		case top.agent != nil:
@@ -121,7 +121,7 @@ func (a *App) taskStrip(c *ui.Context, p *chatPane) {
 	if running == 0 {
 		return
 	}
-	k := coui.Of(c)
+	k := widget.Of(c)
 	var latest tasks.Task // 核心给的顺序：在跑的在前，新的在前
 	for _, t := range p.state.Tasks {
 		if t.Running() {
@@ -136,12 +136,12 @@ func (a *App) taskStrip(c *ui.Context, p *chatPane) {
 			ui.Column(c).Grow(1).MinWidth(0).Gap(2).Children(func() {
 				ui.Row(c).Gap(6).AlignItems(ui.Center).Children(func() {
 					ui.Box(c).Size(6, 6).Radius(3).Background(k.Primary)
-					ui.Text(c, "后台任务 · "+strconv.Itoa(running)+" 个在运行").FontSize(coui.SizeBodyS).FontWeight(coui.Medium).
+					ui.Text(c, "后台任务 · "+strconv.Itoa(running)+" 个在运行").FontSize(widget.SizeBodyS).FontWeight(widget.Medium).
 						TextColor(k.PrimaryText)
 				})
-				ui.Text(c, taskTitle(latest)).FontSize(coui.SizeBodyM).TextColor(k.Text).SingleLine().Ellipsis("…")
+				ui.Text(c, taskTitle(latest)).FontSize(widget.SizeBodyM).TextColor(k.Text).SingleLine().Ellipsis("…")
 			})
-			ui.Icon(c, coui.IconForward).Size(18, 18).TextColor(k.Tertiary).Shrink(0)
+			ui.Icon(c, widget.IconForward).Size(18, 18).TextColor(k.Tertiary).Shrink(0)
 		})
 		b.OnClick(p.openTasks)
 	})
@@ -153,22 +153,22 @@ const taskListFooter = "Claude 在对话里放到后台跑的命令、监视器�
 
 // taskListPage 是这个对话的后台任务，点一个看详情。
 func (a *App) taskListPage(c *ui.Context, p *chatPane) {
-	coui.Header(c, "后台任务", func() { a.back(p) })
+	widget.Header(c, "后台任务", func() { a.back(p) })
 	list := p.state.Tasks // 核心给的顺序：在跑的在前，各自按开始时间新的在前
 	now := a.now().UnixMilli()
 	running := false
-	coui.Body(c, "tasks", func() {
+	widget.Body(c, "tasks", func() {
 		if len(list) == 0 {
-			coui.Group(c, "", taskListFooter, func(l *coui.List) {
-				l.Row(coui.Row{Title: "没有后台任务", Summary: "Claude 用 run_in_background 跑的命令、Monitor 和后台子代理会列在这里"})
+			widget.Group(c, "", taskListFooter, func(l *widget.List) {
+				l.Row(widget.Row{Title: "没有后台任务", Summary: "Claude 用 run_in_background 跑的命令、Monitor 和后台子代理会列在这里"})
 			})
 			return
 		}
-		coui.Group(c, a.chatTitle(p), taskListFooter, func(l *coui.List) {
-			k := coui.Of(c)
+		widget.Group(c, a.chatTitle(p), taskListFooter, func(l *widget.List) {
+			k := widget.Of(c)
 			for _, t := range list {
 				running = running || t.Running()
-				row := coui.Row{Key: t.ID, Title: taskTitle(t), Summary: taskSummary(t, now), Arrow: true,
+				row := widget.Row{Key: t.ID, Title: taskTitle(t), Summary: taskSummary(t, now), Arrow: true,
 					OnClick: func() { a.openTask(p, t) }}
 				switch {
 				case t.State == tasks.StateFailed:
@@ -200,14 +200,14 @@ func findTask(s chat.State, id string) (tasks.Task, bool) {
 func (a *App) taskPage(c *ui.Context, p *chatPane, v *taskView) {
 	t, ok := findTask(p.state, v.id)
 	if !ok {
-		coui.Header(c, "后台任务", func() { a.back(p) })
-		coui.Body(c, "task-gone", func() {
-			coui.Group(c, "", "", func(l *coui.List) { l.Row(coui.Row{Title: "这个任务已经不在了"}) })
+		widget.Header(c, "后台任务", func() { a.back(p) })
+		widget.Body(c, "task-gone", func() {
+			widget.Group(c, "", "", func(l *widget.List) { l.Row(widget.Row{Title: "这个任务已经不在了"}) })
 		})
 		return
 	}
-	coui.Header(c, taskPageTitle(t), func() { a.back(p) })
-	coui.Body(c, "task/"+t.ID, func() {
+	widget.Header(c, taskPageTitle(t), func() { a.back(p) })
+	widget.Body(c, "task/"+t.ID, func() {
 		a.taskInfo(c, p, t)
 		agent := t.Kind == tasks.KindAgent
 		if t.Error != "" {
@@ -238,31 +238,31 @@ func (a *App) taskPage(c *ui.Context, p *chatPane, v *taskView) {
 
 // taskInfo 是任务的概要。运行中最后是停止：输出在下面一直变长，按钮放在最后会被挤着走，所以放在这组里。
 func (a *App) taskInfo(c *ui.Context, p *chatPane, t tasks.Task) {
-	k := coui.Of(c)
-	coui.Group(c, "", "", func(l *coui.List) {
+	k := widget.Of(c)
+	widget.Group(c, "", "", func(l *widget.List) {
 		title := taskTitle(t)
-		row := coui.Row{Title: title}
+		row := widget.Row{Title: title}
 		if t.Description != "" && t.Description != title {
 			row.Summary = t.Description
 		}
 		l.Row(row)
 		state, tone := taskState(t.State, t.Stopping)
-		l.Row(coui.Row{Title: "状态", End: func() { ui.Text(c, state).FontSize(coui.SizeBodyM).TextColor(tone.color(k)) }})
+		l.Row(widget.Row{Title: "状态", End: func() { ui.Text(c, state).FontSize(widget.SizeBodyM).TextColor(tone.color(k)) }})
 		elapsed := "用时"
 		if t.Running() {
 			elapsed = "已运行"
 		}
-		l.Row(coui.Row{Title: elapsed, Value: tasks.FormatElapsed(t.ElapsedMs(a.now().UnixMilli()))})
+		l.Row(widget.Row{Title: elapsed, Value: tasks.FormatElapsed(t.ElapsedMs(a.now().UnixMilli()))})
 		if t.Kind == tasks.KindAgent {
 			a.agentRows(l, p, t)
 		}
-		l.Row(coui.Row{Title: "所属对话", Value: a.chatTitle(p), Arrow: true, OnClick: func() { a.closePages(p) }})
+		l.Row(widget.Row{Title: "所属对话", Value: a.chatTitle(p), Arrow: true, OnClick: func() { a.closePages(p) }})
 		if t.Running() {
 			label := "停止这个任务"
 			if t.Stopping {
 				label = "正在停止…"
 			}
-			stop := coui.Row{Title: label, Danger: true}
+			stop := widget.Row{Title: label, Danger: true}
 			if !t.Stopping && p.state.Process {
 				stop.OnClick = func() { p.pages.stop.open, p.pages.stop.task = true, t }
 			}
@@ -272,18 +272,18 @@ func (a *App) taskInfo(c *ui.Context, p *chatPane, t tasks.Task) {
 }
 
 // agentRows 是子代理才有的几行：类型、工具调用次数、（运行中）在做什么，和进它的记录。
-func (a *App) agentRows(l *coui.List, p *chatPane, t tasks.Task) {
+func (a *App) agentRows(l *widget.List, p *chatPane, t tasks.Task) {
 	if t.AgentType != "" {
-		l.Row(coui.Row{Title: "子代理类型", Value: t.AgentType})
+		l.Row(widget.Row{Title: "子代理类型", Value: t.AgentType})
 	}
 	if t.ToolUses != nil {
-		l.Row(coui.Row{Title: "工具调用", Value: strconv.Itoa(*t.ToolUses) + " 次"})
+		l.Row(widget.Row{Title: "工具调用", Value: strconv.Itoa(*t.ToolUses) + " 次"})
 	}
 	if t.Running() && t.Progress != "" {
-		l.Row(coui.Row{Title: "正在做", Summary: t.Progress})
+		l.Row(widget.Row{Title: "正在做", Summary: t.Progress})
 	}
 	if t.ToolUseID != "" {
-		l.Row(coui.Row{Title: "查看它的步骤", Arrow: true, OnClick: func() { a.openSubagent(p, t.ToolUseID) }})
+		l.Row(widget.Row{Title: "查看它的步骤", Arrow: true, OnClick: func() { a.openSubagent(p, t.ToolUseID) }})
 	}
 }
 
@@ -294,8 +294,8 @@ func (a *App) stopDialog(c *ui.Context, p *chatPane) {
 		return
 	}
 	t := s.task
-	if coui.Alert(c, &s.open, "停止这个任务？", stopSummary(t),
-		coui.Action{Label: "取消"}, coui.Action{Label: "停止", Style: coui.Destructive}) == 1 {
+	if widget.Alert(c, &s.open, "停止这个任务？", stopSummary(t),
+		widget.Action{Label: "取消"}, widget.Action{Label: "停止", Style: widget.Destructive}) == 1 {
 		a.act(func(ctx context.Context, conv *chat.Conversation) error { return conv.StopTask(ctx, t.ID) })
 	}
 }
@@ -326,13 +326,13 @@ func (a *App) outputBlock(c *ui.Context, p *chatPane, v *taskView) {
 
 // textBlock 是一段可以选中的文字：命令、输出、报告。mono 时用等宽字。
 func textBlock(c *ui.Context, title, text string, mono bool) {
-	coui.Group(c, title, "", func(l *coui.List) {
-		k := coui.Of(c)
+	widget.Group(c, title, "", func(l *widget.List) {
+		k := widget.Of(c)
 		t := ui.Text(c, text).TextColor(k.Text).FillWidth().Padding(12, 16).Selectable()
 		if mono {
-			t.Font(coui.Mono).FontSize(11.5).LineHeight(16.0 / 11.5)
+			t.Font(widget.Mono).FontSize(11.5).LineHeight(16.0 / 11.5)
 		} else {
-			t.FontSize(coui.SizeBodyM).LineHeight(1.5)
+			t.FontSize(widget.SizeBodyM).LineHeight(1.5)
 		}
 	})
 }

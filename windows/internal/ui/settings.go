@@ -12,7 +12,7 @@ import (
 	"github.com/dzshzx/Zeta/windows/internal/ui/about"
 	uiacct "github.com/dzshzx/Zeta/windows/internal/ui/accounts"
 	"github.com/dzshzx/Zeta/windows/internal/ui/claudecfg"
-	"github.com/dzshzx/Zeta/windows/internal/ui/coui"
+	"github.com/dzshzx/Zeta/windows/internal/ui/widget"
 	"github.com/dzshzx/Zeta/windows/internal/update"
 	"github.com/egoist/mygo/ui"
 )
@@ -50,11 +50,11 @@ func (a *App) leaveSettings() { a.page = pageHome }
 
 // settingsNav 是在设置里时的侧栏：顶上一行「返回应用」同时是标题栏，下面一类一行，选中的那类是白底。
 func (a *App) settingsNav(c *ui.Context) {
-	k := coui.Of(c)
+	k := widget.Of(c)
 	c.OnWindowShortcut(0, ui.KeyEscape, a.leaveSettings)
 	ui.Column(c).Fill().Background(k.Sidebar).Children(func() {
-		ui.Row(c).Height(coui.TitleBarHeight).Padding(0, 10, 0, 10).AlignItems(ui.Center).Shrink(0).DragWindow().Children(func() {
-			coui.NavItem(c, coui.IconBack, "返回应用", "Esc", false).OnClick(a.leaveSettings).Width(0).Grow(1)
+		ui.Row(c).Height(widget.TitleBarHeight).Padding(0, 10, 0, 10).AlignItems(ui.Center).Shrink(0).DragWindow().Children(func() {
+			widget.NavItem(c, widget.IconBack, "返回应用", "Esc", false).OnClick(a.leaveSettings).Width(0).Grow(1)
 		})
 		ui.Scroll(c.Key("settings-nav")).Grow(1).MinHeight(0).Children(func() {
 			ui.Column(c).Padding(4, 10, 12, 10).Gap(2).Children(func() { a.settingsCategories(c) })
@@ -64,16 +64,16 @@ func (a *App) settingsNav(c *ui.Context) {
 
 // settingsCategories 是设置的各类。
 func (a *App) settingsCategories(c *ui.Context) {
-	coui.NavItem(c, coui.IconSettings, "常规", "", a.page == pageSettings).OnClick(func() { a.open(pageSettings) })
+	widget.NavItem(c, widget.IconSettings, "常规", "", a.page == pageSettings).OnClick(func() { a.open(pageSettings) })
 	navTitle(c, "设备")
 	for _, x := range a.hub.Hosts() {
-		coui.NavItem(c.Key("device/"+x.ID), coui.IconServer, x.Name(), offLabel(x), a.page == pageDevice && a.device == x.ID).
+		widget.NavItem(c.Key("device/"+x.ID), widget.IconServer, x.Name(), offLabel(x), a.page == pageDevice && a.device == x.ID).
 			OnClick(func() {
 				a.device = x.ID
 				a.open(pageDevice)
 			})
 	}
-	coui.NavItem(c, coui.IconAdd, "添加设备", "", a.page == pageDevices).OnClick(func() { a.open(pageDevices) })
+	widget.NavItem(c, widget.IconAdd, "添加设备", "", a.page == pageDevices).OnClick(func() { a.open(pageDevices) })
 	if hosts := a.hub.Hosts(); len(hosts) > 0 {
 		navTitle(c, "账号与额度")
 		for _, x := range hosts {
@@ -85,7 +85,7 @@ func (a *App) settingsCategories(c *ui.Context) {
 	if st := a.About.Updates.Status(); st.Phase == update.Available {
 		hint = "有新版本 " + st.Manifest.VersionName
 	}
-	coui.NavItem(c, coui.IconInfo, "关于", hint, a.page == pageAbout).OnClick(func() { a.open(pageAbout) })
+	widget.NavItem(c, widget.IconInfo, "关于", hint, a.page == pageAbout).OnClick(func() { a.open(pageAbout) })
 }
 
 // accountsItem 是一台设备的账号与额度：名字是设备名，右边是最要紧的额度窗口用了多少；「连接」关着的那台写已断开，点不进去。
@@ -97,7 +97,7 @@ func (a *App) accountsItem(c *ui.Context, x sshlink.Host) {
 			hint = "已用 " + percentText(h.Percent())
 		}
 	}
-	item := coui.NavItem(c.Key("accounts/"+x.ID), coui.IconContacts, x.Name(), hint, a.page == pageAccounts && a.device == x.ID)
+	item := widget.NavItem(c.Key("accounts/"+x.ID), widget.IconContacts, x.Name(), hint, a.page == pageAccounts && a.device == x.ID)
 	if r == nil {
 		item.Disabled(true)
 		return
@@ -114,7 +114,7 @@ func navTitle(c *ui.Context, title string) {
 		ui.Box(c).Height(10)
 		return
 	}
-	ui.Text(c, title).FontSize(coui.SizeBodyXS).FontWeight(coui.Medium).TextColor(coui.Of(c).Secondary).Padding(14, 10, 4, 10)
+	ui.Text(c, title).FontSize(widget.SizeBodyXS).FontWeight(widget.Medium).TextColor(widget.Of(c).Secondary).Padding(14, 10, 4, 10)
 }
 
 // settingsPage 是设置的「常规」：外观、快捷键。
@@ -154,12 +154,12 @@ func percentText(n int) string { return strconv.Itoa(n) + "%" }
 // appearanceSection 是外观：跟随系统、浅色、深色，存在设置里（键同手机版）。
 func (a *App) appearanceSection(c *ui.Context) {
 	s := a.hub.Settings()
-	coui.Group(c, "外观", "", func(l *coui.List) {
-		l.Row(coui.Row{Icon: coui.IconTheme, Title: "主题模式", End: func() {
-			coui.MenuButton(c.Key("theme"), func(t ui.Element) {
-				coui.Dropdown(c, t, themeLabels[themeOf(s.Dark())])
+	widget.Group(c, "外观", "", func(l *widget.List) {
+		l.Row(widget.Row{Icon: widget.IconTheme, Title: "主题模式", End: func() {
+			widget.MenuButton(c.Key("theme"), func(t ui.Element) {
+				widget.Dropdown(c, t, themeLabels[themeOf(s.Dark())])
 				t.Label("主题模式")
-			}, func(m *coui.Menu) {
+			}, func(m *widget.Menu) {
 				current := themeOf(s.Dark())
 				for i, label := range themeLabels {
 					if m.Choice(label, i == current) && i != current {
@@ -203,8 +203,8 @@ func (a *App) dark(system bool) bool {
 
 // subPage 是设置的一页：顶上标题（同时是标题栏），下面是 fn 画的、能滚动的卡片。
 func (a *App) subPage(c *ui.Context, title, key string, fn func()) {
-	coui.Header(c, title, nil)
-	coui.Body(c, key, fn)
+	widget.Header(c, title, nil)
+	widget.Body(c, key, fn)
 }
 
 // startAccounts 打开 a.device 那台的账号与额度页。
@@ -235,7 +235,7 @@ func (a *App) accountsPage(c *ui.Context) {
 func (a *App) aboutPage(c *ui.Context) {
 	a.subPage(c, "关于", "about", func() {
 		a.About.View(c)
-		ui.Text(c, unofficial).FontSize(coui.SizeBodyXS).LineHeight(1.4).TextColor(coui.Of(c).Secondary).Padding(0, 32)
+		ui.Text(c, unofficial).FontSize(widget.SizeBodyXS).LineHeight(1.4).TextColor(widget.Of(c).Secondary).Padding(0, 32)
 	})
 }
 
@@ -284,17 +284,17 @@ func (a *App) updateBar(c *ui.Context) {
 	if a.updateNote == "" {
 		return
 	}
-	k := coui.Of(c)
+	k := widget.Of(c)
 	bar := ui.Row(c.Key("update-bar")).Margin(0, 16, 12, 16).Padding(8, 8, 8, 20).Gap(10).AlignItems(ui.Center).Shrink(0).
-		AlignSelf(ui.Center).MaxWidth(coui.PageWidth - 32)
-	coui.Shadow(coui.Surface{Shape: coui.ShapeCard, Fill: k.Card}.Paint(bar), k)
+		AlignSelf(ui.Center).MaxWidth(widget.PageWidth - 32)
+	widget.Shadow(widget.Surface{Shape: widget.ShapeCard, Fill: k.Card}.Paint(bar), k)
 	bar.Children(func() {
 		ui.Box(c).Size(6, 6).Radius(3).Background(k.Error).Shrink(0)
-		ui.Text(c, a.updateNote).FontSize(coui.SizeBodyM).TextColor(k.Text).Grow(1).MinWidth(0)
-		coui.SmallPrimaryButton(c, "查看").OnClick(func() {
+		ui.Text(c, a.updateNote).FontSize(widget.SizeBodyM).TextColor(k.Text).Grow(1).MinWidth(0)
+		widget.SmallPrimaryButton(c, "查看").OnClick(func() {
 			a.updateNote = ""
 			a.open(pageAbout)
 		})
-		coui.FlatButton(c, coui.IconClose, "关闭提示", 32, 18).OnClick(func() { a.updateNote = "" })
+		widget.FlatButton(c, widget.IconClose, "关闭提示", 32, 18).OnClick(func() { a.updateNote = "" })
 	})
 }

@@ -7,7 +7,7 @@ import (
 	"strings"
 
 	"github.com/dzshzx/Zeta/helper/coreapi"
-	"github.com/dzshzx/Zeta/windows/internal/ui/coui"
+	"github.com/dzshzx/Zeta/windows/internal/ui/widget"
 	"github.com/egoist/mygo/ui"
 )
 
@@ -128,11 +128,11 @@ func (p *Page) reloadAgents() {
 func (p *Page) agentsPage(c *ui.Context) {
 	a := &p.agents
 	pageTitle(c, "Subagent", p.back, func() {
-		coui.SmallPrimaryButton(c, "新建").Label("新建 Subagent").OnClick(func() { p.openAgent(nil) })
+		widget.SmallPrimaryButton(c, "新建").Label("新建 Subagent").OnClick(func() { p.openAgent(nil) })
 	})
 	body(c, "agents", func() {
 		footer := "存在 ~/.claude/agents，所有项目都能用。Claude 按“什么时候用”自己决定交给哪个，你也可以在对话里点名。"
-		coui.Group(c, "自定义 Subagent · "+itoa(len(a.list)), footer, func(l *coui.List) {
+		widget.Group(c, "自定义 Subagent · "+itoa(len(a.list)), footer, func(l *widget.List) {
 			switch {
 			case !a.loaded:
 				loadingRow(l, "正在读取…")
@@ -196,19 +196,19 @@ func (p *Page) agentPage(c *ui.Context) {
 	}
 	pageTitle(c, title, leave, func() {
 		if a.editing != nil {
-			coui.SmallDangerButton(c, "删除").Disabled(a.saving).OnClick(func() { a.delete = true })
+			widget.SmallDangerButton(c, "删除").Disabled(a.saving).OnClick(func() { a.delete = true })
 		}
 		label := "保存"
 		if a.saving {
 			label = "保存中"
 		}
-		coui.SmallPrimaryButton(c, label).Disabled(a.saving || missing != "").OnClick(p.saveAgent)
+		widget.SmallPrimaryButton(c, label).Disabled(a.saving || missing != "").OnClick(p.saveAgent)
 	})
 	body(c, "agent", func() {
-		coui.Group(c, "名称", "小写字母、数字和连字符，比如 code-reviewer。", func(l *coui.List) {
+		widget.Group(c, "名称", "小写字母、数字和连字符，比如 code-reviewer。", func(l *widget.List) {
 			field(l, "name", &d.name, "名称", "code-reviewer", a.saving)
 		})
-		coui.Group(c, "什么时候用", "Claude 靠这段话决定要不要交给它，写清楚它擅长什么。", func(l *coui.List) {
+		widget.Group(c, "什么时候用", "Claude 靠这段话决定要不要交给它，写清楚它擅长什么。", func(l *widget.List) {
 			l.Custom(func() {
 				area(c.Key("description"), &d.description, 2, 6).Placeholder("比如：改完代码后用它审查改动，找出 bug 和不清楚的地方").Label("什么时候用").
 					Disabled(a.saving).Grow(1)
@@ -216,7 +216,7 @@ func (p *Page) agentPage(c *ui.Context) {
 		})
 		p.agentModelSection(c)
 		p.agentToolsSection(c)
-		coui.Group(c, "系统提示词", "写它的角色和做事方式。它看不到主对话，只看到这段话和交给它的任务。", func(l *coui.List) {
+		widget.Group(c, "系统提示词", "写它的角色和做事方式。它看不到主对话，只看到这段话和交给它的任务。", func(l *widget.List) {
 			l.Custom(func() {
 				area(c.Key("prompt"), &d.prompt, 8, 24).Placeholder("你是一名代码审查员……").Label("系统提示词").Disabled(a.saving).Grow(1)
 			})
@@ -251,7 +251,7 @@ func (p *Page) agentModelSection(c *ui.Context) {
 		values, labels = append(values, d.model), append(labels, d.model)
 		selected = len(values) - 1
 	}
-	coui.Group(c, "模型", "默认时跟随主对话的模型。", func(l *coui.List) {
+	widget.Group(c, "模型", "默认时跟随主对话的模型。", func(l *widget.List) {
 		item(l, "模型", "", func() {
 			choice(c, "模型", labels, selected, p.agents.saving, func(i int) { d.model = values[i] })
 		})
@@ -262,37 +262,37 @@ func (p *Page) agentToolsSection(c *ui.Context) {
 	d := &p.agents.draft
 	saving := p.agents.saving
 	footer := "关掉“全部工具”后只能用勾选的。MCP 工具写成 mcp__服务器__工具，多个用逗号分开。"
-	coui.Group(c, "工具", footer, func(l *coui.List) {
+	widget.Group(c, "工具", footer, func(l *widget.List) {
 		item(l, "全部工具", "包括 MCP 工具", func() {
-			coui.Switch(c.Key("all-tools"), &d.allTools).Label("全部工具").Disabled(saving)
+			widget.Switch(c.Key("all-tools"), &d.allTools).Label("全部工具").Disabled(saving)
 		})
 		if d.allTools {
 			return
 		}
 		for _, tool := range commonTools {
 			on := d.checked[tool.name]
-			row := coui.Row{Key: "tool-" + tool.name, Title: tool.label, Summary: tool.name, End: func() { coui.MarkLook(c, coui.MarkCheck, on) }}
+			row := widget.Row{Key: "tool-" + tool.name, Title: tool.label, Summary: tool.name, End: func() { widget.MarkLook(c, widget.MarkCheck, on) }}
 			if !saving {
 				row.OnClick = func() { d.checked[tool.name] = !on }
 			}
 			l.Row(row).Role(ui.RoleCheckBox).Checked(on)
 		}
 		item(l, "其他工具", "", func() {
-			coui.Input(c.Key("others"), &d.others).Placeholder("mcp__github__create_issue, …").Label("其他工具").Disabled(saving).Width(320)
+			widget.Input(c.Key("others"), &d.others).Placeholder("mcp__github__create_issue, …").Label("其他工具").Disabled(saving).Width(320)
 		})
 	})
 }
 
 func (p *Page) agentDialogs(c *ui.Context) {
 	a := &p.agents
-	if alert(c, &a.leaving, "放弃未保存的更改？", "", coui.Destructive, "取消", "放弃") == 1 {
+	if alert(c, &a.leaving, "放弃未保存的更改？", "", widget.Destructive, "取消", "放弃") == 1 {
 		p.back()
 	}
 	if a.editing == nil {
 		return
 	}
 	file, name := a.editing.File, a.editing.Name
-	if alert(c, &a.delete, "删除 Subagent", "删除“"+name+"”？删了就找不回来。", coui.Destructive, "取消", "删除") == 1 {
+	if alert(c, &a.delete, "删除 Subagent", "删除“"+name+"”？删了就找不回来。", widget.Destructive, "取消", "删除") == 1 {
 		p.async(func(ctx context.Context) func() {
 			err := p.opts.Core.DeleteAgent(ctx, file)
 			return func() {

@@ -5,7 +5,7 @@ import (
 	"time"
 
 	"github.com/dzshzx/Zeta/client/hostlink"
-	"github.com/dzshzx/Zeta/windows/internal/ui/coui"
+	"github.com/dzshzx/Zeta/windows/internal/ui/widget"
 	"github.com/egoist/mygo/ui"
 )
 
@@ -44,36 +44,36 @@ func (a *App) pathDialog(c *ui.Context, p *chatPane) {
 	if d.input != d.checked {
 		a.checkPath(p, d)
 	}
-	k := coui.Of(c)
+	k := widget.Of(c)
 	name := a.hub.Name(p.src.Backend)
 	r := d.result
-	coui.Dialog(c, &d.open, func() {
-		ui.Column(c).FillWidth().Padding(coui.DialogPadding, coui.DialogPadding, 4, coui.DialogPadding).Gap(6).
+	widget.Dialog(c, &d.open, func() {
+		ui.Column(c).FillWidth().Padding(widget.DialogPadding, widget.DialogPadding, 4, widget.DialogPadding).Gap(6).
 			Children(func() {
-				ui.Text(c, "引用「"+name+"」上的路径").FontSize(coui.SizeHeadlineXS).FontWeight(600).TextColor(k.Text)
-				ui.Text(c, "这台设备上一个文件或文件夹的绝对路径，Claude 会直接读到它。").FontSize(coui.SizeBodyS).LineHeight(1.45).
+				ui.Text(c, "引用「"+name+"」上的路径").FontSize(widget.SizeHeadlineXS).FontWeight(600).TextColor(k.Text)
+				ui.Text(c, "这台设备上一个文件或文件夹的绝对路径，Claude 会直接读到它。").FontSize(widget.SizeBodyS).LineHeight(1.45).
 					TextColor(k.Secondary)
 				// 查到的结果跟在输入框末尾，边框连着它画
 				field := ui.Row(c).FillWidth().AlignItems(ui.Center).Gap(8).Padding(0, 10, 0, 0).Radius(8).Border(1, k.Divider)
 				field.Children(func() {
-					in := coui.LineInput(c.Key("path"), &d.input, 1).Placeholder(strings.TrimRight(a.chatCwd(p), "/")+"/…").Label("路径").
+					in := widget.LineInput(c.Key("path"), &d.input, 1).Placeholder(strings.TrimRight(a.chatCwd(p), "/")+"/…").Label("路径").
 						AutoFocus().BorderWidth(0, 0, 0, 0).Grow(1).OnSubmit(func() { a.attachPath(p) })
 					if in.Focused() {
 						field.BorderColor(k.Primary)
 					}
 					if label, color := pathKindLabel(k, r, d.input); label != "" {
-						ui.Text(c, label).FontSize(coui.SizeBodyS).TextColor(color).Shrink(0)
+						ui.Text(c, label).FontSize(widget.SizeBodyS).TextColor(color).Shrink(0)
 					}
 				})
 				if r.problem != "" {
-					ui.Text(c, r.problem).FontSize(coui.SizeBodyS).TextColor(k.Error).FillWidth().Padding(4, 0, 0, 0)
+					ui.Text(c, r.problem).FontSize(widget.SizeBodyS).TextColor(k.Error).FillWidth().Padding(4, 0, 0, 0)
 				}
 			})
-		coui.ButtonBar(c, func() {
-			if coui.DialogButton(c, "取消", coui.Plain).Clicked() {
+		widget.ButtonBar(c, func() {
+			if widget.DialogButton(c, "取消", widget.Plain).Clicked() {
 				d.open = false
 			}
-			if coui.DialogButton(c, "引用", coui.Recommend).Disabled(r.path == "").Clicked() {
+			if widget.DialogButton(c, "引用", widget.Recommend).Disabled(r.path == "").Clicked() {
 				a.attachPath(p)
 			}
 		})
@@ -81,7 +81,7 @@ func (a *App) pathDialog(c *ui.Context, p *chatPane) {
 }
 
 // pathKindLabel 是跟在输入框后面的查询结果：文件、文件夹、正在查…、不可用；还没输入时没有。
-func pathKindLabel(k *coui.Colors, r pathResult, input string) (string, ui.Color) {
+func pathKindLabel(k *widget.Colors, r pathResult, input string) (string, ui.Color) {
 	switch {
 	case strings.TrimSpace(input) == "":
 		return "", k.Text

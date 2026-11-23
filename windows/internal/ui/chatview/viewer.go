@@ -9,7 +9,7 @@ import (
 	"time"
 
 	"github.com/dzshzx/Zeta/windows/internal/chat/items"
-	"github.com/dzshzx/Zeta/windows/internal/ui/coui"
+	"github.com/dzshzx/Zeta/windows/internal/ui/widget"
 	"github.com/egoist/mygo/ui"
 )
 
@@ -79,14 +79,14 @@ func (v *Viewer) View(c *ui.Context) bool {
 	}
 	v.index = min(max(v.index, 0), len(v.images)-1)
 	ui.Overlay(c, func() {
-		page := ui.Themed(c, coui.Theme(true)).Absolute().Left(0).Top(0).Right(0).Bottom(0).Background(coui.For(true).Window).
+		page := ui.Themed(c, widget.Theme(true)).Absolute().Left(0).Top(0).Right(0).Bottom(0).Background(widget.For(true).Window).
 			Modal().Role(ui.RoleDialog).Label("看大图")
 		page.Children(func() {
 			v.image(c, v.images[v.index])
 			v.top(c)
 			if len(v.images) > 1 {
-				pageButton(c, coui.IconChevronBack, "上一张", v.index > 0, true).OnClick(func() { v.step(-1) })
-				pageButton(c, coui.IconForward, "下一张", v.index < len(v.images)-1, false).OnClick(func() { v.step(1) })
+				pageButton(c, widget.IconChevronBack, "上一张", v.index > 0, true).OnClick(func() { v.step(-1) })
+				pageButton(c, widget.IconForward, "下一张", v.index < len(v.images)-1, false).OnClick(func() { v.step(1) })
 			}
 			v.bottom(c)
 		})
@@ -105,10 +105,10 @@ func (v *Viewer) View(c *ui.Context) bool {
 // image 是中间的图：按原比例放进栏和翻页键之间的地方，小图最多放大到两倍，可以缩放、拖动（zoom.go）；
 // 还在取时转圈，取不到时说一声；没点过的网络图先是「加载图片」。
 func (v *Viewer) image(c *ui.Context, im items.Image) {
-	k := coui.Of(c)
+	k := widget.Of(c)
 	w, h := c.Size()
-	room := ui.Rect{W: w - 2*viewerSide, H: h - coui.TitleBarHeight - viewerBottom}
-	box := ui.Column(c.Key("image/" + im.CacheKey())).Absolute().Left(viewerSide).Right(viewerSide).Top(coui.TitleBarHeight).
+	room := ui.Rect{W: w - 2*viewerSide, H: h - widget.TitleBarHeight - viewerBottom}
+	box := ui.Column(c.Key("image/" + im.CacheKey())).Absolute().Left(viewerSide).Right(viewerSide).Top(widget.TitleBarHeight).
 		Bottom(viewerBottom).Center()
 	if v.from.waitsForTap(im) {
 		box.Children(func() { v.from.remotePrompt(c, im) })
@@ -133,7 +133,7 @@ func (v *Viewer) image(c *ui.Context, im items.Image) {
 		case done:
 			ui.Column(c).Gap(10).AlignItems(ui.Center).Tooltip(imageError(err)).Children(func() {
 				ui.Icon(c, iconImage).Size(40, 40).TextColor(k.Secondary)
-				ui.Text(c, "图片无法显示").FontSize(coui.SizeBodyM).TextColor(k.Secondary)
+				ui.Text(c, "图片无法显示").FontSize(widget.SizeBodyM).TextColor(k.Secondary)
 			})
 		default:
 			ui.Spinner(c).Size(24, 24).Label("正在载入图片")
@@ -143,22 +143,22 @@ func (v *Viewer) image(c *ui.Context, im items.Image) {
 
 // top 是顶栏（同时是标题栏，空白处拖动窗口）：左边返回，多张时按整个窗口居中写「第几张 / 共几张」。
 func (v *Viewer) top(c *ui.Context) {
-	k := coui.Of(c)
-	ui.Row(c).Absolute().Left(0).Right(0).Top(0).Height(coui.TitleBarHeight).Justify(ui.Center).AlignItems(ui.Center).
+	k := widget.Of(c)
+	ui.Row(c).Absolute().Left(0).Right(0).Top(0).Height(widget.TitleBarHeight).Justify(ui.Center).AlignItems(ui.Center).
 		DragWindow().Children(func() {
 		if len(v.images) > 1 {
-			ui.Text(c, strconv.Itoa(v.index+1)+" / "+strconv.Itoa(len(v.images))).FontSize(coui.SizeHeadlineS).FontWeight(600).
+			ui.Text(c, strconv.Itoa(v.index+1)+" / "+strconv.Itoa(len(v.images))).FontSize(widget.SizeHeadlineS).FontWeight(600).
 				TextColor(k.Text)
 		}
 	})
-	coui.IconButton(c, coui.IconBack, "返回").Absolute().Left(16).Top((coui.TitleBarHeight - 40) / 2).
+	widget.IconButton(c, widget.IconBack, "返回").Absolute().Left(16).Top((widget.TitleBarHeight - 40) / 2).
 		OnClick(v.close)
 }
 
 // pageButton 是两边竖直居中的翻页键（浮起的圆钮）；到头的那边变灰。
 func pageButton(c *ui.Context, icon *ui.SVG, label string, enabled, left bool) ui.Element {
 	_, h := c.Size()
-	b := coui.IconButton(c, icon, label).Absolute().Top((coui.TitleBarHeight + h - viewerBottom - 40) / 2)
+	b := widget.IconButton(c, icon, label).Absolute().Top((widget.TitleBarHeight + h - viewerBottom - 40) / 2)
 	if left {
 		b.Left(18)
 	} else {
@@ -170,7 +170,7 @@ func pageButton(c *ui.Context, icon *ui.SVG, label string, enabled, left bool) u
 // bottom 是底栏：多张时上面一排页码圆点，下面是保存（图标在上、字在下，同手机版的 BarAction），
 // 保存过后旁边一句结果。
 func (v *Viewer) bottom(c *ui.Context) {
-	k := coui.Of(c)
+	k := widget.Of(c)
 	ui.Column(c).Absolute().Left(0).Right(0).Bottom(0).Height(viewerBottom).AlignItems(ui.Center).Justify(ui.End).
 		Padding(0, 0, 12, 0).Gap(6).Children(func() {
 		if len(v.images) > 1 {
@@ -197,12 +197,12 @@ func (v *Viewer) bottom(c *ui.Context) {
 		}
 		save.Children(func() {
 			ui.Column(c).Gap(4).AlignItems(ui.Center).Children(func() {
-				ui.Icon(c, coui.IconDownload).Size(24, 24).TextColor(k.Text)
-				ui.Text(c, "保存").FontSize(coui.SizeBodyXS).TextColor(k.Text)
+				ui.Icon(c, widget.IconDownload).Size(24, 24).TextColor(k.Text)
+				ui.Text(c, "保存").FontSize(widget.SizeBodyXS).TextColor(k.Text)
 			})
 		})
 		save.OnClick(func() { v.save(c, v.images[v.index]) })
-		ui.Text(c, note).FontSize(coui.SizeBodyXS).TextColor(k.Secondary).Height(16).SingleLine().Ellipsis("…").MaxWidth(560)
+		ui.Text(c, note).FontSize(widget.SizeBodyXS).TextColor(k.Secondary).Height(16).SingleLine().Ellipsis("…").MaxWidth(560)
 	})
 }
 

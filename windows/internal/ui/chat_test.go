@@ -285,9 +285,23 @@ func TestNewChatInAMissingDirectory(t *testing.T) {
 	f := newChatFixture(t)
 	f.devices.DirProblems = map[string]string{"/home/box": "「box」上没有 /home/box 这个目录"}
 	f.click(t, "新对话")
-	f.see(t, "Claude Code 起不来：「box」上没有 /home/box 这个目录。在「设备」页改默认工作目录后再开新对话。")
+	f.see(t, "Claude Code 起不来：「box」上没有 /home/box 这个目录。点上面的工作目录换一个，或在「设备」页改默认工作目录。")
 	if a, _ := f.tt.AccessByRole(ui.RoleButton, "发送"); !a.Disabled {
 		t.Error("进不去还能发")
+	}
+	// 新对话还没发消息：点顶栏的工作目录换一个，在那里重开
+	f.click(t, "换工作目录")
+	f.clickField(t, "/home/…")
+	f.tt.Key(ui.Cmd, ui.KeyA)
+	f.tt.Type("/srv/work")
+	f.click(t, "确定")
+	f.tt.Frame()
+	f.notSee(t, "Claude Code 起不来：「box」上没有 /home/box 这个目录。点上面的工作目录换一个，或在「设备」页改默认工作目录。")
+	if c := f.hub.Chat(); c == nil || c.Session.Cwd != "/srv/work" || c.CwdProblem != "" {
+		t.Fatalf("换目录后：%+v", c)
+	}
+	if open := f.sent("conv.open"); len(open) == 0 || !strings.Contains(open[len(open)-1], `"cwd":"/srv/work"`) {
+		t.Fatalf("新目录里打开：%v", open)
 	}
 }
 
@@ -532,3 +546,22 @@ type testWindow struct {
 func (w *testWindow) Foreground() bool          { return w.front }
 func (w *testWindow) Notify(title, body string) { w.notes = append(w.notes, title+"："+body) }
 func (w *testWindow) ButtonsOverDark(on bool)   { w.buttons = append(w.buttons, on) }
+
+// 输入栏上的负载标识：对话有了消息后问那台主机的 system.cpu，忙时变色，隔几秒再问。新对话还没发消息时不问。
+func TestHostLoad(t *testing.T) {
+	f := newChatFixture(t)
+	f.answers["system.cpu"] = `{"percent":93,"cores":8}`
+	f.newChat(t)
+	if f.tt.HasText("CPU") {
+		t.Fatal("新对话还没发消息就问了负载")
+	}
+	f.replay("turn")
+	f.tt.Frame()
+	f.tt.Frame()
+	f.see(t, "box 的 CPU 使用率 93%，8 个核的平均（整机所有进程，同 Claude Code 状态栏的 cpu%）")
+	f.answers["system.cpu"] = `{"percent":12,"cores":8}`
+	f.tt.Advance(hostLoadEvery)
+	f.tt.Frame()
+	f.tt.Frame()
+	f.see(t, "box 的 CPU 使用率 12%，8 个核的平均（整机所有进程，同 Claude Code 状态栏的 cpu%）")
+}

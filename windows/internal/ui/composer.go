@@ -11,7 +11,7 @@ import (
 	"github.com/dzshzx/Zeta/helper/usage"
 	"github.com/dzshzx/Zeta/windows/internal/chat"
 	uiacct "github.com/dzshzx/Zeta/windows/internal/ui/accounts"
-	"github.com/dzshzx/Zeta/windows/internal/ui/coui"
+	"github.com/dzshzx/Zeta/windows/internal/ui/widget"
 	"github.com/egoist/mygo/ui"
 )
 
@@ -19,13 +19,13 @@ import (
 // Shift+Enter 换行；回答中发的进排队条；粘贴图片、文件收成附件），下面一排：左边添加附件和权限模式，右边模型、
 // 思考强度、上下文用量的圆环、停止和发送。权限、模型、思考强度是写着当前值的文字胶囊。
 func (a *App) composer(c *ui.Context, p *chatPane) {
-	k := coui.Of(c)
+	k := widget.Of(c)
 	ready := p.src.Conv != nil && p.src.CwdProblem == ""
 	hint := "交给 Claude 去完成"
 	if p.state.Busy {
 		hint = "Claude 正在工作，可以接着发"
 	}
-	coui.Surface{Shape: coui.ShapeComposer, Fill: k.Field, Edge: k.Edge}.Paint(ui.Column(c)).FillWidth().Padding(8, 10).Gap(2).
+	widget.Surface{Shape: widget.ShapeComposer, Fill: k.Field, Edge: k.Edge}.Paint(ui.Column(c)).FillWidth().Padding(8, 10).Gap(2).
 		Shadow(0, 2, 16, 0, composerShadow(k)).Children(func() {
 		a.slashList(c, p)
 		a.composerAttachments(c, p)
@@ -59,14 +59,15 @@ func (a *App) composer(c *ui.Context, p *chatPane) {
 			if p.src.Conv != nil {
 				a.modelMenu(c, p)
 				a.effortMenu(c, p)
+				a.hostLoadChip(c, p)
 				a.usageButton(c, p)
 			}
 			if p.state.Busy {
-				coui.StopButton(c, "停止").OnClick(func() {
+				widget.StopButton(c, "停止").OnClick(func() {
 					a.act(func(ctx context.Context, conv *chat.Conversation) error { return conv.Interrupt(ctx) })
 				})
 			}
-			coui.SendButton(c, "发送", ready && sendable(p, p.draft)).OnClick(func() {
+			widget.SendButton(c, "发送", ready && sendable(p, p.draft)).OnClick(func() {
 				if a.send(p.draft) {
 					p.draft = ""
 				}
@@ -97,21 +98,21 @@ func sendable(p *chatPane, text string) bool {
 
 // attachMenu 是左下角的「+」（同 Composer.kt 的 attachMenu）：图片、文件、文件夹、输入路径一组，常用指令单独一组。
 func (a *App) attachMenu(c *ui.Context) {
-	coui.MenuButton(c.Key("attach"), func(t ui.Element) { coui.Chip(c, t, coui.IconAdd, "添加附件", ui.Color{}) }, func(m *coui.Menu) {
-		if m.Add(coui.Entry{Icon: coui.IconImage, Label: "图片"}) {
+	widget.MenuButton(c.Key("attach"), func(t ui.Element) { widget.Chip(c, t, widget.IconAdd, "添加附件", ui.Color{}) }, func(m *widget.Menu) {
+		if m.Add(widget.Entry{Icon: widget.IconImage, Label: "图片"}) {
 			a.pickAttachments(true, false)
 		}
-		if m.Add(coui.Entry{Icon: coui.IconPaperclip, Label: "文件"}) {
+		if m.Add(widget.Entry{Icon: widget.IconPaperclip, Label: "文件"}) {
 			a.pickAttachments(false, false)
 		}
-		if m.Add(coui.Entry{Icon: coui.IconFolder, Label: "文件夹"}) {
+		if m.Add(widget.Entry{Icon: widget.IconFolder, Label: "文件夹"}) {
 			a.pickAttachments(false, true)
 		}
-		if m.Add(coui.Entry{Icon: coui.IconEdit, Label: "输入路径"}) {
+		if m.Add(widget.Entry{Icon: widget.IconEdit, Label: "输入路径"}) {
 			a.openPathDialog()
 		}
 		m.Separator()
-		if m.Add(coui.Entry{Icon: coui.IconFavorites, Label: "常用指令"}) {
+		if m.Add(widget.Entry{Icon: widget.IconFavorites, Label: "常用指令"}) {
 			a.prompts.open()
 		}
 	})
@@ -133,7 +134,7 @@ func (a *App) composerAttachments(c *ui.Context, p *chatPane) {
 				attachedImage(c.Key("image/"+strconv.Itoa(im.id)), im, func() { at.removeImage(im.id) })
 			}
 			for i := range at.loading {
-				ui.Box(c.Key("loading/"+strconv.Itoa(i))).Size(64, 64).Radius(12).Background(coui.Of(c).Chip).Center().
+				ui.Box(c.Key("loading/"+strconv.Itoa(i))).Size(64, 64).Radius(12).Background(widget.Of(c).Chip).Center().
 					Children(func() { ui.Spinner(c).Size(18, 18) })
 			}
 		})
@@ -142,13 +143,13 @@ func (a *App) composerAttachments(c *ui.Context, p *chatPane) {
 
 // attachedFile 是一个待发文件的小标签：图标、名字（最宽 240），右边移除。没传成的把原因放在悬停提示里。
 func attachedFile(c *ui.Context, f *draftFile, remove func()) {
-	k := coui.Of(c)
-	icon := coui.IconFile
+	k := widget.Of(c)
+	icon := widget.IconFile
 	if f.folder {
-		icon = coui.IconFolder
+		icon = widget.IconFolder
 	}
 	// 同 Compose 的 FileChip：输入栏底色上一层淡淡的灰，主题色的文件图标
-	chip := coui.Surface{Shape: coui.Rounded(12, 2.5), Fill: k.Text.Alpha(0.055)}.Paint(ui.Row(c)).Height(36).MaxWidth(240).Padding(0, 4, 0, 10).
+	chip := widget.Surface{Shape: widget.Rounded(12, 2.5), Fill: k.Text.Alpha(0.055)}.Paint(ui.Row(c)).Height(36).MaxWidth(240).Padding(0, 4, 0, 10).
 		Gap(6).AlignItems(ui.Center)
 	if f.failed != "" {
 		chip.Tooltip(f.failed)
@@ -159,14 +160,14 @@ func attachedFile(c *ui.Context, f *draftFile, remove func()) {
 			color = k.Error
 		}
 		ui.Icon(c, icon).Size(16, 16).TextColor(color).Shrink(0)
-		ui.Text(c, f.label()).FontSize(coui.SizeBodyM).TextColor(k.Text).SingleLine().Ellipsis("…").Shrink(1).MinWidth(0)
-		coui.FlatButton(c, coui.IconClose, "移除", 28, 14).OnClick(remove)
+		ui.Text(c, f.label()).FontSize(widget.SizeBodyM).TextColor(k.Text).SingleLine().Ellipsis("…").Shrink(1).MinWidth(0)
+		widget.FlatButton(c, widget.IconClose, "移除", 28, 14).OnClick(remove)
 	})
 }
 
 // attachedImage 是一张待发图片的缩略图（64，12 的圆角），右上角是移除键。
 func attachedImage(c *ui.Context, im *draftImage, remove func()) {
-	k := coui.Of(c)
+	k := widget.Of(c)
 	ui.Box(c).Size(64, 64).Shrink(0).Children(func() {
 		box := ui.Box(c).Size(64, 64).Radius(12).Clip().Background(k.Chip).Label("图片附件")
 		if im.thumb != nil {
@@ -174,7 +175,7 @@ func attachedImage(c *ui.Context, im *draftImage, remove func()) {
 		}
 		x := ui.ButtonBase(c).Label("移除").Absolute().Top(3).Right(3).Size(20, 20).Radius(10).Center().Background(k.Mask).
 			Cursor(ui.CursorPointer)
-		x.Children(func() { ui.Icon(c, coui.IconClose).Size(13, 13).TextColor(ui.Hex("#FFFFFF")) })
+		x.Children(func() { ui.Icon(c, widget.IconClose).Size(13, 13).TextColor(ui.Hex("#FFFFFF")) })
 		x.OnClick(remove)
 	})
 }
@@ -229,8 +230,8 @@ func (a *App) modeMenu(c *ui.Context, p *chatPane) {
 	if current == "" {
 		current = p.state.Mode.Process
 	}
-	icon, tint := modeIcon(coui.Of(c), current)
-	coui.MenuButton(c.Key("mode"), func(t ui.Element) { coui.ToolPill(c, t, icon, modeLabel(current), tint) }, func(m *coui.Menu) {
+	icon, tint := modeIcon(widget.Of(c), current)
+	widget.MenuButton(c.Key("mode"), func(t ui.Element) { widget.ToolPill(c, t, icon, modeLabel(current), tint) }, func(m *widget.Menu) {
 		for _, mode := range permissionModes {
 			if m.Choice(mode.label, mode.value == current) {
 				value := mode.value
@@ -242,18 +243,18 @@ func (a *App) modeMenu(c *ui.Context, p *chatPane) {
 
 // modeIcon 是权限模式按钮上的盾牌和颜色（同手机版 PermissionModeChip）：逐项确认和没指定时是灰色的 M，
 // 计划模式青色的 P，自动接受编辑紫色的 E，自动判断蓝色的 A，完全放行红色的感叹号。
-func modeIcon(k *coui.Colors, mode string) (*ui.SVG, ui.Color) {
+func modeIcon(k *widget.Colors, mode string) (*ui.SVG, ui.Color) {
 	switch mode {
 	case "auto":
-		return coui.IconShieldAuto, k.Blue
+		return widget.IconShieldAuto, k.Blue
 	case "plan":
-		return coui.IconShieldPlan, k.Cyan
+		return widget.IconShieldPlan, k.Cyan
 	case "acceptEdits":
-		return coui.IconShieldEdits, k.Purple
+		return widget.IconShieldEdits, k.Purple
 	case "bypassPermissions":
-		return coui.IconShieldBypass, k.Error
+		return widget.IconShieldBypass, k.Error
 	}
-	return coui.IconShieldDefault, ui.Color{}
+	return widget.IconShieldDefault, ui.Color{}
 }
 
 // fallbackModels 是进程还没起、Claude Code 还没报模型清单时给的几个常用别名（它自己认）。
@@ -270,7 +271,7 @@ func (a *App) modelMenu(c *ui.Context, p *chatPane) {
 		chosen = *p.state.Model
 	}
 	label := modelLabel(p.state, models)
-	coui.MenuButton(c.Key("model"), func(t ui.Element) { coui.ToolPill(c, t, nil, label, ui.Color{}) }, func(m *coui.Menu) {
+	widget.MenuButton(c.Key("model"), func(t ui.Element) { widget.ToolPill(c, t, nil, label, ui.Color{}) }, func(m *widget.Menu) {
 		if m.Choice("默认", chosen == "" || chosen == chat.DefaultModel) {
 			a.act(func(ctx context.Context, conv *chat.Conversation) error { return conv.SetModel(ctx, nil) })
 		}
@@ -355,8 +356,8 @@ func (a *App) effortMenu(c *ui.Context, p *chatPane) {
 	if chosen == "" {
 		level = effortLevel(p.state.Usage.AppliedEffort)
 	}
-	icon := coui.Gauge(level, len(effortLevels))
-	coui.MenuButton(c.Key("effort"), func(t ui.Element) { coui.ToolPill(c, t, icon, label, ui.Color{}) }, func(m *coui.Menu) {
+	icon := widget.Gauge(level, len(effortLevels))
+	widget.MenuButton(c.Key("effort"), func(t ui.Element) { widget.ToolPill(c, t, icon, label, ui.Color{}) }, func(m *widget.Menu) {
 		if m.Choice("默认", chosen == "") {
 			a.act(func(ctx context.Context, conv *chat.Conversation) error { return conv.SetEffort(ctx, nil) })
 		}
@@ -383,7 +384,7 @@ func effortLevel(v string) int {
 // 上下文、本对话累计和压缩上下文。
 func (a *App) usageButton(c *ui.Context, p *chatPane) {
 	u := p.state.Usage
-	k := coui.Of(c)
+	k := widget.Of(c)
 	label := "上下文"
 	var fraction float32
 	if u.Fraction != nil {
@@ -397,7 +398,7 @@ func (a *App) usageButton(c *ui.Context, p *chatPane) {
 	case usage.LevelWarning:
 		color = k.Warning
 	}
-	button := coui.Ring(c, ui.ButtonBase(c.Key("usage")), label, fraction, color).OnClick(func() {
+	button := widget.Ring(c, ui.ButtonBase(c.Key("usage")), label, fraction, color).OnClick(func() {
 		p.usage = !p.usage
 		if r := a.hub.Remote(p.src.Backend); p.usage && r != nil {
 			r.Quota.Refresh(false)
@@ -457,7 +458,7 @@ func (a *App) usageDetails(c *ui.Context, p *chatPane) {
 		}
 	}
 	statRow(c, "费用（按 API 标价）", cost)
-	coui.SmallButton(c, "压缩上下文").Disabled(!p.connected || p.state.Busy).OnClick(func() {
+	widget.SmallButton(c, "压缩上下文").Disabled(!p.connected || p.state.Busy).OnClick(func() {
 		p.usage = false
 		a.act(func(ctx context.Context, conv *chat.Conversation) error { return conv.Compact(ctx) })
 	})
@@ -506,7 +507,7 @@ func formatCost(usd float64) string {
 // 随内容长高，到 composerMaxLines 后在框里滚动。
 const (
 	composerMinLines = 3
-	composerFontSize = coui.SizeBodyXL
+	composerFontSize = widget.SizeBodyXL
 	composerLeading  = 1.2
 )
 

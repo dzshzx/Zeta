@@ -8,7 +8,7 @@ import (
 
 	"github.com/dzshzx/Zeta/client/hostlink"
 	"github.com/dzshzx/Zeta/windows/internal/hub"
-	"github.com/dzshzx/Zeta/windows/internal/ui/coui"
+	"github.com/dzshzx/Zeta/windows/internal/ui/widget"
 	"github.com/egoist/mygo"
 	"github.com/egoist/mygo/ui"
 )
@@ -241,11 +241,11 @@ func (a *App) selectionKeys(c *ui.Context) {
 // archiveToggle 是侧栏底部归档的入口（同手机版 ArchiveToggle）：看归档时是返回全部对话，有归档的会话时是进归档，都没有时不显示。
 func (a *App) archiveToggle(c *ui.Context) {
 	if a.ops.archived {
-		coui.IconButton(c, coui.IconBack, "返回全部对话").OnClick(func() { a.ops.archived = false })
+		widget.IconButton(c, widget.IconBack, "返回全部对话").OnClick(func() { a.ops.archived = false })
 		return
 	}
 	if n := len(a.hub.Archived(a.now(), a.currentSession())); n > 0 {
-		coui.IconButton(c, coui.IconArchive, "已归档 · "+strconv.Itoa(n)).OnClick(func() { a.ops.archived = true })
+		widget.IconButton(c, widget.IconArchive, "已归档 · "+strconv.Itoa(n)).OnClick(func() { a.ops.archived = true })
 	}
 }
 
@@ -268,20 +268,20 @@ func (a *App) sessionDialogs(c *ui.Context) {
 	o := &a.ops
 	h := a.hub
 	if r := &o.renaming; r.open {
-		if coui.InputDialog(c, &r.open, "重命名", "", &r.draft, "对话标题", "确定", strings.TrimSpace(r.draft) != "") {
+		if widget.InputDialog(c, &r.open, "重命名", "", &r.draft, "对话标题", "确定", strings.TrimSpace(r.draft) != "") {
 			h.Rename(r.target, r.draft, a.failed("改名没成功"))
 		}
 	}
 	if d := &o.deleting; d.open {
-		if coui.Alert(c, &d.open, "删除这个对话？", deleteName(d.target)+"\n会话记录文件会被一并删除，无法恢复。",
-			coui.Action{Label: "取消"}, coui.Action{Label: "删除", Style: coui.Destructive}) == 1 {
+		if widget.Alert(c, &d.open, "删除这个对话？", deleteName(d.target)+"\n会话记录文件会被一并删除，无法恢复。",
+			widget.Action{Label: "取消"}, widget.Action{Label: "删除", Style: widget.Destructive}) == 1 {
 			h.Delete([]hostlink.Session{d.target}, a.deleteFailed)
 		}
 	}
 	if b := &o.batch; b.open {
-		if coui.Alert(c, &b.open, "删除 "+strconv.Itoa(len(b.list))+" 个对话？",
+		if widget.Alert(c, &b.open, "删除 "+strconv.Itoa(len(b.list))+" 个对话？",
 			"会话记录会被删除，Claude Code 为它们存的工具结果、子代理记录等也一并删除，无法恢复。",
-			coui.Action{Label: "取消"}, coui.Action{Label: "删除", Style: coui.Destructive}) == 1 {
+			widget.Action{Label: "取消"}, widget.Action{Label: "删除", Style: widget.Destructive}) == 1 {
 			h.Delete(b.list, a.deleteFailed)
 			a.clearSelection()
 		}
@@ -291,8 +291,8 @@ func (a *App) sessionDialogs(c *ui.Context) {
 		if len(e.list) == 1 {
 			title = "结束这个对话？"
 		}
-		if coui.Alert(c, &e.open, title, endConfirmSummary(e.list),
-			coui.Action{Label: "取消"}, coui.Action{Label: "结束", Style: coui.Destructive}) == 1 {
+		if widget.Alert(c, &e.open, title, endConfirmSummary(e.list),
+			widget.Action{Label: "取消"}, widget.Action{Label: "结束", Style: widget.Destructive}) == 1 {
 			h.End(e.list, a.failed("结束没成功"))
 		}
 	}

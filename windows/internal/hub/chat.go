@@ -1,6 +1,7 @@
 package hub
 
 import (
+	"cmp"
 	"context"
 	"encoding/json"
 	"log"
@@ -77,15 +78,15 @@ func (h *Hub) OpenSession(s hostlink.Session) {
 }
 
 // NewChat 在侧栏正看着的设备上开一个新对话，工作目录是它的默认工作目录；先在设备上看进不进得去。
-func (h *Hub) NewChat() {
+func (h *Hub) NewChat() { h.NewChatIn("") }
+
+// NewChatIn 同 NewChat，工作目录是 cwd（空是设备的默认工作目录）：新对话还没发消息时在顶栏换目录用。
+func (h *Hub) NewChatIn(cwd string) {
 	x, ok := h.Host(h.Backend())
 	if !ok {
 		return
 	}
-	cwd := x.DefaultCwd
-	if cwd == "" {
-		cwd = x.Home
-	}
+	cwd = cmp.Or(cwd, x.DefaultCwd, x.Home)
 	h.open(&Chat{Backend: x.ID, Session: hostlink.Session{Cwd: cwd, Backend: x.ID}},
 		chat.Spec{Cwd: cwd, Options: h.options(x.ID)}, true)
 }

@@ -13,7 +13,7 @@ import (
 	"github.com/dzshzx/Zeta/windows/internal/settings"
 	zui "github.com/dzshzx/Zeta/windows/internal/ui"
 	"github.com/dzshzx/Zeta/windows/internal/ui/about"
-	"github.com/dzshzx/Zeta/windows/internal/ui/coui"
+	"github.com/dzshzx/Zeta/windows/internal/ui/widget"
 	"github.com/dzshzx/Zeta/windows/internal/update"
 	"github.com/egoist/mygo"
 	"github.com/egoist/mygo/ui"
@@ -57,11 +57,11 @@ func main() {
 	app.About = &about.Page{Version: version, Updates: updater, Prefs: prefs}
 	mygo.App.WhenReady(func() {
 		// 界面画出来之前先铺 COUI 的页面底色，打开时不闪一下白。没有系统标题栏：侧栏和各页的顶栏就是标题栏，
-		// 系统自己的最小化、最大化、关闭按钮浮在右上角，和顶栏一样高（见 coui/titlebar.go）。窗口的位置、大小、
+		// 系统自己的最小化、最大化、关闭按钮浮在右上角，和顶栏一样高（见 widget/titlebar.go）。窗口的位置、大小、
 		// 最大化记在 StateKey 下，下次打开时照旧；1280×860 只是第一次打开的大小
 		win = mygo.NewWindow(mygo.WindowOptions{Title: "Zeta", Width: 1280, Height: 860, MinWidth: 720, MinHeight: 480,
 			StateKey: "main", BackgroundColor: windowBackground(prefs), TitleBarStyle: mygo.TitleBarHidden,
-			TitleBarHeight: coui.TitleBarHeight, Content: ui.View(app.View)})
+			TitleBarHeight: widget.TitleBarHeight, Content: ui.View(app.View)})
 		// 关窗口时没存的草稿马上存盘（平时输入停下约一秒才存），拖过的侧栏宽度也存上
 		win.OnClose(func(*mygo.CloseEvent) {
 			app.SaveDrafts()

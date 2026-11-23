@@ -1,5 +1,6 @@
 // Command fakeclaude 在测试里冒充主机上的 claude：mcp list、mcp add-json、mcp remove 照 Claude Code 的样子读写
-// ~/.claude.json；mcp-server 是一个 stdio 的 MCP 服务器（工具清单分两页，名字前缀取环境变量 TOOL_PREFIX）。
+// ~/.claude.json；mcp-server 是一个 stdio 的 MCP 服务器（工具清单分两页，名字前缀取环境变量 TOOL_PREFIX）；
+// --version 报 ~/fake-claude-version 里的版本（没有时 2.1.330），update 换成 ~/fake-claude-next 里的（没有时说已是最新）。
 package main
 
 import (
@@ -16,6 +17,10 @@ import (
 func main() {
 	args := os.Args[1:]
 	switch {
+	case len(args) == 1 && args[0] == "--version":
+		fmt.Println(version() + " (Claude Code)")
+	case len(args) == 1 && args[0] == "update":
+		update()
 	case len(args) >= 1 && args[0] == "mcp-server":
 		serve()
 	case len(args) == 2 && args[0] == "mcp" && args[1] == "list":
@@ -28,6 +33,29 @@ func main() {
 		fmt.Println("error: unknown command", strings.Join(args, " "))
 		os.Exit(1)
 	}
+}
+
+func version() string {
+	if b, err := os.ReadFile(filepath.Join(os.Getenv("HOME"), "fake-claude-version")); err == nil {
+		return strings.TrimSpace(string(b))
+	}
+	return "2.1.330"
+}
+
+func update() {
+	v := version()
+	fmt.Println("Current version: " + v)
+	next, err := os.ReadFile(filepath.Join(os.Getenv("HOME"), "fake-claude-next"))
+	if err != nil {
+		fmt.Printf("Claude Code is up to date (%s)\n", v)
+		return
+	}
+	n := strings.TrimSpace(string(next))
+	if err := os.WriteFile(filepath.Join(os.Getenv("HOME"), "fake-claude-version"), []byte(n), 0o644); err != nil {
+		fmt.Println("error:", err)
+		os.Exit(1)
+	}
+	fmt.Printf("Successfully updated from %s to version %s\n", v, n)
 }
 
 func configPath() string { return filepath.Join(os.Getenv("HOME"), ".claude.json") }

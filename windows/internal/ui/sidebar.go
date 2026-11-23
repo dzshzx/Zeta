@@ -5,7 +5,7 @@ import (
 
 	"github.com/dzshzx/Zeta/client/hostlink"
 	"github.com/dzshzx/Zeta/windows/internal/hub"
-	"github.com/dzshzx/Zeta/windows/internal/ui/coui"
+	"github.com/dzshzx/Zeta/windows/internal/ui/widget"
 	"github.com/egoist/mygo/ui"
 )
 
@@ -20,13 +20,13 @@ func (a *App) sidebar(c *ui.Context) {
 		a.settingsNav(c)
 		return
 	}
-	k := coui.Of(c)
+	k := widget.Of(c)
 	hosts := len(a.hub.Hosts()) > 0
 	ui.Column(c).Fill().Background(k.Sidebar).Children(func() {
 		a.sidebarTop(c)
 		if hosts {
 			ui.Column(c).Padding(0, 10, 8, 10).Gap(6).Shrink(0).Children(func() {
-				coui.NavItem(c, coui.IconNewChat, "新对话", "Ctrl+N", false).OnClick(a.newChat)
+				widget.NavItem(c, widget.IconNewChat, "新对话", "Ctrl+N", false).OnClick(a.newChat)
 				ui.Row(c).FillWidth().Children(func() { a.searchField(c) })
 				ui.Row(c).FillWidth().Padding(2, 0, 0, 0).Children(func() { a.hostSwitcher(c) })
 			})
@@ -45,7 +45,7 @@ func (a *App) sidebar(c *ui.Context) {
 		})
 		ui.Row(c).Padding(8, 10).Gap(4).Shrink(0).AlignItems(ui.Center).BorderWidth(1, 0, 0, 0).BorderColor(k.Divider).
 			Children(func() {
-				coui.NavItem(c, coui.IconSettings, "设置", "Ctrl+,", false).OnClick(func() { a.open(pageSettings) }).Grow(1).
+				widget.NavItem(c, widget.IconSettings, "设置", "Ctrl+,", false).OnClick(func() { a.open(pageSettings) }).Grow(1).
 					Width(0)
 				if hosts && !a.hub.Searching() {
 					a.archiveToggle(c)
@@ -56,12 +56,12 @@ func (a *App) sidebar(c *ui.Context) {
 
 // sidebarTop 是侧栏顶上一行：品牌和收起侧栏的按钮，同时是标题栏。
 func (a *App) sidebarTop(c *ui.Context) {
-	k := coui.Of(c)
-	ui.Row(c).Height(coui.TitleBarHeight).Padding(0, 10, 0, 16).Gap(8).AlignItems(ui.Center).Shrink(0).DragWindow().Children(func() {
+	k := widget.Of(c)
+	ui.Row(c).Height(widget.TitleBarHeight).Padding(0, 10, 0, 16).Gap(8).AlignItems(ui.Center).Shrink(0).DragWindow().Children(func() {
 		brand(c, 22)
-		ui.Text(c, "Zeta").FontSize(coui.SizeHeadlineXS).FontWeight(600).TextColor(k.Text)
+		ui.Text(c, "Zeta").FontSize(widget.SizeHeadlineXS).FontWeight(600).TextColor(k.Text)
 		ui.Spacer(c)
-		coui.IconButton(c, coui.IconSidebar, "收起侧栏 (Ctrl+B)").OnClick(a.toggleSidebar)
+		widget.IconButton(c, widget.IconSidebar, "收起侧栏 (Ctrl+B)").OnClick(a.toggleSidebar)
 	})
 }
 
@@ -82,7 +82,7 @@ func (a *App) hostSwitcher(c *ui.Context) {
 	if !all {
 		label = h.Name(h.Backend())
 	}
-	coui.MenuButton(c, func(t ui.Element) { coui.Pill(c, t, coui.IconServer, label) }, func(m *coui.Menu) {
+	widget.MenuButton(c, func(t ui.Element) { widget.Pill(c, t, widget.IconServer, label) }, func(m *widget.Menu) {
 		if m.Choice(allHostsLabel, all) {
 			h.ListAll()
 		}
@@ -138,7 +138,7 @@ func (a *App) sessionGroups(c *ui.Context) {
 
 // paneMessage 是侧栏里居中的一句灰字。
 func paneMessage(c *ui.Context, text string) {
-	ui.Text(c, text).FontSize(coui.SizeBodyM).TextColor(coui.Of(c).Secondary).TextAlign(ui.Center).FillWidth().Padding(24, 24, 8, 24)
+	ui.Text(c, text).FontSize(widget.SizeBodyM).TextColor(widget.Of(c).Secondary).TextAlign(ui.Center).FillWidth().Padding(24, 24, 8, 24)
 }
 
 // sectionTitle 是一组会话的小标题（第一组离上面 6，别的 16）。
@@ -147,7 +147,7 @@ func sectionTitle(c *ui.Context, title string, first bool) {
 	if first {
 		top = 6
 	}
-	ui.Text(c, title).FontSize(coui.SizeBodyXS).FontWeight(coui.Medium).TextColor(coui.Of(c).Tertiary).Padding(top, 20, 4, 20)
+	ui.Text(c, title).FontSize(widget.SizeBodyXS).FontWeight(widget.Medium).TextColor(widget.Of(c).Tertiary).Padding(top, 20, 4, 20)
 }
 
 // currentSession 是聊天窗格里开着的会话；新对话有了会话号以后也算，标题用核心报的。还没有会话号时是零值。
@@ -177,7 +177,7 @@ func (a *App) currentSession() hostlink.Session {
 // 没有状态时置顶的标个图钉；鼠标移上去或正开着时多一个「…」，点开和右键一样是会话操作（sessionMenu）。
 // 正开着的那个和多选选中的是选中的底色；点击带 Ctrl、Shift 是多选（clickRow）。
 func (a *App) sessionRow(c *ui.Context, s hostlink.Session, snippet string) {
-	k := coui.Of(c)
+	k := widget.Of(c)
 	pinned := a.hub.Pinned(s)
 	current := a.showing(s)
 	needle := strings.TrimSpace(a.hub.Query())
@@ -197,11 +197,11 @@ func (a *App) sessionRow(c *ui.Context, s hostlink.Session, snippet string) {
 	chosen := a.ops.selected[hub.Key(s)]
 	switch {
 	case current, chosen:
-		coui.Surface{Shape: coui.ShapeRow, Fill: k.Selected}.Paint(row)
+		widget.Surface{Shape: widget.ShapeRow, Fill: k.Selected}.Paint(row)
 	case hovered:
-		coui.Surface{Shape: coui.ShapeRow, Fill: k.Hover}.Paint(row)
+		widget.Surface{Shape: widget.ShapeRow, Fill: k.Hover}.Paint(row)
 	default:
-		row.Radius(coui.ShapeRow.Radii[0]) // 焦点框跟着圆角
+		row.Radius(widget.ShapeRow.Radii[0]) // 焦点框跟着圆角
 	}
 	if row.Clicked() {
 		a.clickRow(s, row.ClickModifiers())
@@ -209,22 +209,22 @@ func (a *App) sessionRow(c *ui.Context, s hostlink.Session, snippet string) {
 	row.PopoverMenu(func(m *ui.Menu) { a.sessionMenu(m, s) })
 	row.Children(func() {
 		ui.Column(c).Grow(1).MinWidth(0).Gap(2).Children(func() {
-			highlighted(c, rowTitle(s), needle, coui.SizeBodyM, 0, titleInk).SingleLine().Ellipsis("…")
+			highlighted(c, rowTitle(s), needle, widget.SizeBodyM, 0, titleInk).SingleLine().Ellipsis("…")
 			if snippet != "" {
-				highlighted(c, snippet, needle, coui.SizeBodyXS, 0, k.Secondary).MaxLines(2).Ellipsis("…")
+				highlighted(c, snippet, needle, widget.SizeBodyXS, 0, k.Secondary).MaxLines(2).Ellipsis("…")
 			}
 		})
 		if tag := a.rowTag(s); tag != "" {
-			ui.Text(c, tag).FontSize(coui.SizeBodyXS).TextColor(k.Tertiary).SingleLine().Shrink(0)
+			ui.Text(c, tag).FontSize(widget.SizeBodyXS).TextColor(k.Tertiary).SingleLine().Shrink(0)
 		}
 		if st := a.rowStatus(s, current); st.Activity != hub.Quiet {
 			statusLabel(c, st)
 		} else if pinned && !hovered {
-			ui.Icon(c, coui.IconPin).Size(14, 14).TextColor(k.Tertiary).Shrink(0).Label("已置顶")
+			ui.Icon(c, widget.IconPin).Size(14, 14).TextColor(k.Tertiary).Shrink(0).Label("已置顶")
 		}
 		if hovered || current || chosen {
 			more := ui.ButtonBase(c.Key("more")).PopoverMenuButton(func(m *ui.Menu) { a.sessionMenu(m, s) })
-			coui.FlatButtonOf(c, more, coui.IconMore, "会话操作", 24, 16)
+			widget.FlatButtonOf(c, more, widget.IconMore, "会话操作", 24, 16)
 		}
 	})
 }

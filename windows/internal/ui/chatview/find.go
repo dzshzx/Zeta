@@ -7,7 +7,7 @@ import (
 	"unicode/utf8"
 
 	"github.com/dzshzx/Zeta/windows/internal/chat/items"
-	"github.com/dzshzx/Zeta/windows/internal/ui/coui"
+	"github.com/dzshzx/Zeta/windows/internal/ui/widget"
 	"github.com/egoist/mygo/ui"
 	"github.com/egoist/mygo/ui/markdown/parser"
 )
@@ -281,7 +281,7 @@ func (f *finder) current() (Match, bool) {
 }
 
 // findColors 是命中处的底色：其余几处淡黄，当前那一处深一些（同浏览器的查找）。
-func findColors(k *coui.Colors) (soft, strong ui.Color) {
+func findColors(k *widget.Colors) (soft, strong ui.Color) {
 	if k.Dark {
 		return k.Yellow.Alpha(0.2), k.Yellow.Alpha(0.45)
 	}
@@ -307,7 +307,7 @@ func (ch *Chat) bubbleText(c *ui.Context, it items.Item) ui.Element {
 	if len(ms) == 0 {
 		return ui.Text(c, it.Text)
 	}
-	soft, strong := findColors(coui.Of(c))
+	soft, strong := findColors(widget.Of(c))
 	var spans []ui.Span
 	at := 0
 	for i, m := range ms {
@@ -336,7 +336,7 @@ func (ch *Chat) answerSource(c *ui.Context, it items.Item) string {
 	if len(ms) == 0 || t == nil || t.src != it.Text {
 		return it.Text
 	}
-	soft, _ := findColors(coui.Of(c))
+	soft, _ := findColors(widget.Of(c))
 	ch.answerTheme.Mark = soft
 	if m := t.mark; m.text == "" || m.query != f.query || m.cur != cur {
 		text, at := markSource(t, ms, cur)

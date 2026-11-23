@@ -5,7 +5,7 @@ import (
 	"testing"
 
 	"github.com/dzshzx/Zeta/windows/internal/chat/items"
-	"github.com/dzshzx/Zeta/windows/internal/ui/coui"
+	"github.com/dzshzx/Zeta/windows/internal/ui/widget"
 	"github.com/egoist/mygo/ui"
 )
 
@@ -115,7 +115,7 @@ func TestFramedDrawsTheCard(t *testing.T) {
 	tt := newTester(ch, 900, 1200, true)
 	tt.Frame()
 	img := tt.Image()
-	colors := coui.For(true)
+	colors := widget.For(true)
 	same := func(x, y float32, want ui.Color) bool {
 		p := img.RGBAAt(int(x), int(y))
 		return p.R == want.R && p.G == want.G && p.B == want.B

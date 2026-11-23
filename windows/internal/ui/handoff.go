@@ -2,7 +2,7 @@ package ui
 
 import (
 	"github.com/dzshzx/Zeta/helper/sessionproto"
-	"github.com/dzshzx/Zeta/windows/internal/ui/coui"
+	"github.com/dzshzx/Zeta/windows/internal/ui/widget"
 	"github.com/egoist/mygo/ui"
 )
 
@@ -58,13 +58,13 @@ func deref(p *string) string {
 func (a *App) handoffCard(c *ui.Context, p *chatPane) {
 	ho := p.src.Handoff
 	summary, button, enabled := handoffText(p.state.Occupant, ho.Handing, ho.Problem)
-	k := coui.Of(c)
+	k := widget.Of(c)
 	panel(c, func() {
 		ui.Column(c).Padding(8, 16, 8, 16).Gap(4).Children(func() {
-			ui.Text(c, "会话正在别处运行").FontSize(coui.SizeHeadlineXS).FontWeight(coui.Medium).TextColor(k.Text)
-			ui.Text(c, summary).FontSize(coui.SizeBodyS).LineHeight(1.45).TextColor(k.Secondary).Selectable()
+			ui.Text(c, "会话正在别处运行").FontSize(widget.SizeHeadlineXS).FontWeight(widget.Medium).TextColor(k.Text)
+			ui.Text(c, summary).FontSize(widget.SizeBodyS).LineHeight(1.45).TextColor(k.Secondary).Selectable()
 			ui.Row(c).Margin(8, 0, 0, 0).Children(func() {
-				coui.SmallPrimaryButton(c, button).Disabled(!enabled).OnClick(a.hub.HandOver)
+				widget.SmallPrimaryButton(c, button).Disabled(!enabled).OnClick(a.hub.HandOver)
 			})
 		})
 	})

@@ -1,0 +1,93 @@
+package claudecfg
+
+import (
+	"context"
+	"strings"
+
+	"github.com/dzshzx/Zeta/helper/coreapi"
+	"github.com/dzshzx/Zeta/windows/internal/ui/widget"
+)
+
+// 设备页「Claude」组里的「Claude Code」：那台主机上的版本，点「更新」在那台上跑 claude update（docs/core.md「主机」的
+// system.claude、system.claude_update，同手机版的 ClaudeCodeUpdateRow）。已经在跑的对话不受影响，之后起的用新版本。
+
+// claudeState 是这台主机上 Claude Code 的版本和更新的进展。
+type claudeState struct {
+	loaded   bool
+	version  string // 空是没装
+	updating bool
+	note     string // 读版本或上次更新的结果，没有时为空
+}
+
+// loadClaude 读这台主机上 Claude Code 的版本（打开设备页时）。
+func (p *Page) loadClaude() {
+	p.async(func(ctx context.Context) func() {
+		v, err := p.opts.Core.ClaudeVersion(ctx)
+		return func() {
+			p.claude.loaded = err == nil
+			p.claude.version = v
+			p.claude.note = ""
+			if err != nil {
+				p.claude.note = "读不到版本：" + err.Error()
+			}
+		}
+	})
+}
+
+// claudeRow 是「Claude Code」一行：右边版本和「更新」，说明是上次的结果。
+func (p *Page) claudeRow(l *widget.List) {
+	c := l.Context()
+	st := &p.claude
+	summary := st.note
+	if st.updating {
+		summary = "正在更新…"
+	}
+	value := "…"
+	if st.loaded {
+		value = st.version
+		if value == "" {
+			value = "未安装"
+		}
+	}
+	l.Row(widget.Row{Title: "Claude Code", Summary: summary, Value: value, End: func() {
+		widget.SmallButton(c, "更新").Disabled(!st.loaded || st.updating).OnClick(p.updateClaude)
+	}})
+}
+
+// updateClaude 在这台主机上跑 claude update，最多几分钟。
+func (p *Page) updateClaude() {
+	p.claude.updating, p.claude.note = true, ""
+	p.async(func(ctx context.Context) func() {
+		u, err := p.opts.Core.UpdateClaude(ctx)
+		return func() {
+			p.claude.updating = false
+			if err != nil {
+				p.claude.note = "没更新成：" + err.Error()
+				return
+			}
+			p.claude.version = u.Version
+			p.claude.note = updateNote(u)
+		}
+	})
+}
+
+// updateNote 是更新完的一句话：成了说新旧版本，没成说 claude update 输出的最后一行（同手机版的 updateNote）。
+func updateNote(u coreapi.ClaudeUpdate) string {
+	switch {
+	case !u.OK:
+		last := "claude update 出错了"
+		for _, line := range strings.Split(u.Output, "\n") {
+			if strings.TrimSpace(line) != "" {
+				last = line
+			}
+		}
+		return "没更新成：" + last
+	case u.Version != "" && u.Version != u.Before:
+		before := u.Before
+		if before == "" {
+			before = "未安装"
+		}
+		return "已从 " + before + " 更新到 " + u.Version
+	}
+	return "已是最新"
+}

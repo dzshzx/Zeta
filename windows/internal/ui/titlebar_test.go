@@ -8,7 +8,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/dzshzx/Zeta/windows/internal/ui/coui"
+	"github.com/dzshzx/Zeta/windows/internal/ui/widget"
 	"github.com/egoist/mygo/ui"
 )
 
@@ -16,7 +16,7 @@ import (
 const captionButtonWidth = 46
 
 // windowTitleBar 是真窗口里 Context.TitleBar 的数值：最小化、最大化、关闭三个按钮，和标题栏一样高。
-var windowTitleBar = ui.TitleBar{Height: coui.TitleBarHeight, Right: 3 * captionButtonWidth, Bottom: coui.TitleBarHeight}
+var windowTitleBar = ui.TitleBar{Height: widget.TitleBarHeight, Right: 3 * captionButtonWidth, Bottom: widget.TitleBarHeight}
 
 // withCaptionButtons 在预览图的右上角按 Windows 11 的样子画出最小化、最大化、关闭三个按钮的示意（正式程序里是系统画的）：
 // 46 宽、标题栏那么高，10 见方的字形，浅色是 89% 的黑，深色是白，底是透明的。
@@ -40,7 +40,7 @@ func withCaptionButtons(src *image.RGBA, dark bool) *image.RGBA {
 	}
 	const glyph = 10
 	right := float32(previewWidth)
-	cy := float32(coui.TitleBarHeight) / 2
+	cy := float32(widget.TitleBarHeight) / 2
 	for i := range 3 {
 		cx := right - float32(3-i)*captionButtonWidth + captionButtonWidth/2
 		x0, y0 := cx-glyph/2, cy-glyph/2
@@ -98,7 +98,7 @@ func TestHeadersClearWindowButtons(t *testing.T) {
 	if title, ok = f.tt.Find(long); !ok {
 		t.Fatal("聊天页没有长标题")
 	}
-	if title.X+title.W > buttons-coui.ButtonsGap {
+	if title.X+title.W > buttons-widget.ButtonsGap {
 		t.Fatalf("长标题 %v 没截断，压到了系统按钮（从 %v 起）", title, buttons)
 	}
 }

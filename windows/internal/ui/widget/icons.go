@@ -1,4 +1,4 @@
-package coui
+package widget
 
 import (
 	"embed"

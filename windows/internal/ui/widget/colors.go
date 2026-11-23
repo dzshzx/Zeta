@@ -1,9 +1,9 @@
-// Package coui 是桌面版的外观：浅色、深色两套配色，字号，和界面常用的几样组件（页面与卡片分组、列表行、开关、按钮、
+// Package widget 是桌面版的外观：浅色、深色两套配色，字号，和界面常用的几样组件（页面与卡片分组、列表行、开关、按钮、
 // 输入框、菜单、对话框、提示条）。配色和交互照 ChatGPT 的 Windows 客户端（黑白灰，主按钮黑底白字，蓝色只给链接），
-// 尺寸是鼠标用的桌面尺寸；包名、槽位名和图标沿用手机版 COUI 2 的（槽位后面括号里是 COUI 的名字），手机版的规矩不管这里。
+// 尺寸是鼠标用的桌面尺寸；槽位名和图标沿用手机版 COUI 2 的（槽位后面括号里是 COUI 的名字），手机版的规矩不管这里。
 //
 // 组件只管样子，行为用 mygo 的 base（ButtonBase、SwitchBase、MenuBase、DialogBase……），文字、读屏名字照调用方给的。
-package coui
+package widget
 
 import "github.com/egoist/mygo/ui"
 
@@ -49,14 +49,16 @@ type Colors struct {
 	PopupGlass, FieldGlass ui.Color
 }
 
-// light、dark 是照 ChatGPT 客户端的黑白灰配色：主按钮、开关、勾选是黑（深色里是白），蓝色只给链接和主题色的字。
+// light、dark 照 ChatGPT 客户端的默认外观（codex 预设）：值是 chatgpt.com 页面上按 data-appearance-preset="codex" 生成的
+// 内联主题里读出的 --app-color-*（网页和 Windows 客户端是同一套前端），浅色主区和侧栏同为 #FCFCFC，深色是纯黑，
+// 两边只靠分隔线分开。主按钮、开关、勾选是黑（深色里是 #EDEDED），蓝色只给链接和主题色的字。
 var (
 	light = &Colors{
-		Window:   ui.Hex("#FFFFFF"),
-		Page:     ui.Hex("#FFFFFF"),
-		Sidebar:  ui.Hex("#F9F9F9"),
+		Window:   ui.Hex("#FCFCFC"),
+		Page:     ui.Hex("#FCFCFC"),
+		Sidebar:  ui.Hex("#FCFCFC"),
 		Card:     ui.Hex("#FFFFFF"),
-		Selected: ui.Hex("#EBEBEB"),
+		Selected: ui.Hex("#F3F3F3"),
 		Popup:    ui.Hex("#FFFFFF"),
 		Dialog:   ui.Hex("#FFFFFF"),
 
@@ -65,14 +67,14 @@ var (
 		Hover:       argb(0x0D000000),
 		Press:       argb(0x1A000000),
 		Button:      ui.Hex("#FFFFFF"),
-		DialogBlock: ui.Hex("#F4F4F4"),
+		DialogBlock: ui.Hex("#F3F3F3"),
 
 		Field:      ui.Hex("#FFFFFF"),
 		Edge:       argb(0x1A000000),
 		CodeHeader: ui.Hex("#F9F9F9"),
 		CodeBody:   ui.Hex("#F9F9F9"),
 		CodeEdge:   argb(0x0F000000),
-		Bubble:     ui.Hex("#F4F4F4"),
+		Bubble:     argb(0x80E9E9E9),
 		Divider:    argb(0x1A000000),
 
 		Text:       ui.Hex("#0D0D0D"),
@@ -86,10 +88,10 @@ var (
 		Halftone:    argb(0x140D0D0D),
 		Track:       ui.Hex("#D4D4D4"),
 
-		Error:   ui.Hex("#E02E2A"),
+		Error:   ui.Hex("#FA423E"),
 		Warning: ui.Hex("#B25E00"),
 		Success: ui.Hex("#00A240"),
-		Red:     ui.Hex("#E02E2A"),
+		Red:     ui.Hex("#FA423E"),
 		Orange:  ui.Hex("#E25507"),
 		Yellow:  ui.Hex("#FFC300"),
 		Green:   ui.Hex("#00A240"),
@@ -97,7 +99,7 @@ var (
 		Cyan:    ui.Hex("#0091A8"),
 		Purple:  ui.Hex("#924FF7"),
 
-		Mask:   argb(0x4D000000),
+		Mask:   argb(0x80000000),
 		Shadow: ui.RGBA(0, 0, 0, 0.08),
 
 		PopupGlass: ui.Hex("#FFFFFF"),
@@ -105,56 +107,56 @@ var (
 	}
 	dark = &Colors{
 		Dark:     true,
-		Window:   ui.Hex("#212121"),
-		Page:     ui.Hex("#212121"),
-		Sidebar:  ui.Hex("#181818"),
+		Window:   ui.Hex("#000000"),
+		Page:     ui.Hex("#000000"),
+		Sidebar:  ui.Hex("#000000"),
 		Card:     ui.Hex("#212121"),
-		Selected: ui.Hex("#2A2A2A"),
-		Popup:    ui.Hex("#353535"),
-		Dialog:   ui.Hex("#2F2F2F"),
+		Selected: ui.Hex("#303030"),
+		Popup:    ui.Hex("#1B1B1B"),
+		Dialog:   ui.Hex("#1B1B1B"),
 
 		Tint:        argb(0x0DFFFFFF),
 		Chip:        argb(0x14FFFFFF),
-		Hover:       argb(0x12FFFFFF),
+		Hover:       argb(0x1AFFFFFF),
 		Press:       argb(0x1FFFFFFF),
-		Button:      ui.Hex("#2F2F2F"),
-		DialogBlock: ui.Hex("#171717"),
+		Button:      ui.Hex("#303030"),
+		DialogBlock: ui.Hex("#303030"),
 
-		Field:      ui.Hex("#303030"),
-		Edge:       argb(0x1AFFFFFF),
-		CodeHeader: ui.Hex("#171717"),
-		CodeBody:   ui.Hex("#171717"),
+		Field:      ui.Hex("#1B1B1B"),
+		Edge:       argb(0x26FFFFFF),
+		CodeHeader: ui.Hex("#212121"),
+		CodeBody:   ui.Hex("#212121"),
 		CodeEdge:   argb(0x14FFFFFF),
-		Bubble:     ui.Hex("#303030"),
-		Divider:    argb(0x1AFFFFFF),
+		Bubble:     argb(0xD9323232),
+		Divider:    argb(0x26FFFFFF),
 
-		Text:       ui.Hex("#ECECEC"),
-		Secondary:  ui.Hex("#B4B4B4"),
-		Tertiary:   ui.Hex("#8F8F8F"),
+		Text:       ui.Hex("#EDEDED"),
+		Secondary:  ui.Hex("#CDCDCD"),
+		Tertiary:   ui.Hex("#AFAFAF"),
 		Quaternary: ui.Hex("#5D5D5D"),
 
-		Primary:     ui.Hex("#FFFFFF"),
-		PrimaryText: ui.Hex("#48AAFF"),
+		Primary:     ui.Hex("#EDEDED"),
+		PrimaryText: ui.Hex("#339CFF"),
 		OnPrimary:   ui.Hex("#0D0D0D"),
 		Halftone:    argb(0x1AFFFFFF),
 		Track:       ui.Hex("#4A4A4A"),
 
-		Error:   ui.Hex("#FF6B66"),
+		Error:   ui.Hex("#FF6764"),
 		Warning: ui.Hex("#E5A100"),
 		Success: ui.Hex("#40C977"),
-		Red:     ui.Hex("#FF6B66"),
+		Red:     ui.Hex("#FF6764"),
 		Orange:  ui.Hex("#FF9E6C"),
 		Yellow:  ui.Hex("#FFD240"),
 		Green:   ui.Hex("#40C977"),
-		Blue:    ui.Hex("#48AAFF"),
+		Blue:    ui.Hex("#339CFF"),
 		Cyan:    ui.Hex("#3CC4D6"),
 		Purple:  ui.Hex("#B588FF"),
 
-		Mask:   argb(0x99000000),
+		Mask:   argb(0x80000000),
 		Shadow: ui.RGBA(0, 0, 0, 0.4),
 
-		PopupGlass: ui.Hex("#353535"),
-		FieldGlass: ui.Hex("#303030"),
+		PopupGlass: ui.Hex("#1B1B1B"),
+		FieldGlass: ui.Hex("#1B1B1B"),
 	}
 )
 

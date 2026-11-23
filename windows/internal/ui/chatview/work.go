@@ -5,7 +5,7 @@ import (
 	"time"
 
 	"github.com/dzshzx/Zeta/windows/internal/chat/items"
-	"github.com/dzshzx/Zeta/windows/internal/ui/coui"
+	"github.com/dzshzx/Zeta/windows/internal/ui/widget"
 	"github.com/egoist/mygo/ui"
 	"github.com/egoist/mygo/ui/markdown"
 )
@@ -32,7 +32,7 @@ func (ch *Chat) workGroup(c *ui.Context, it items.Item) {
 	k := inkOf(t)
 	open := ch.flag("work:"+it.ID, ch.ExpandWork)
 	running := lastRunning(it.Steps)
-	coui.Surface{Shape: coui.ShapeRow, Edge: k.border}.Paint(ui.Column(c)).FillWidth().MarginY(4).Clip().Children(func() {
+	widget.Surface{Shape: widget.ShapeRow, Edge: k.border}.Paint(ui.Column(c)).FillWidth().MarginY(4).Clip().Children(func() {
 		p := ui.CollapsibleBase(c, open)
 		if p.Trigger.Changed() {
 			// 点开最后一张卡时，点的那一行留在原处，不跟着底部往上跑
@@ -182,7 +182,7 @@ func (ch *Chat) stepDetailView(c *ui.Context, s items.Step, detail string) {
 		if t.Dark {
 			bg = t.Text.Alpha(0.06)
 		}
-		ui.Text(c, detail).Selectable().Font(coui.Mono).FontSize(11.5).LineHeight(1.2).TextColor(t.Text.Alpha(0.78)).
+		ui.Text(c, detail).Selectable().Font(widget.Mono).FontSize(11.5).LineHeight(1.2).TextColor(t.Text.Alpha(0.78)).
 			FillWidth().Padding(8, 10).Radius(10).Background(bg)
 	}
 	for k, im := range s.Images {

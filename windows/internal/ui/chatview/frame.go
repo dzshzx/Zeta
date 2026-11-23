@@ -2,7 +2,7 @@ package chatview
 
 import (
 	"github.com/dzshzx/Zeta/windows/internal/chat/items"
-	"github.com/dzshzx/Zeta/windows/internal/ui/coui"
+	"github.com/dzshzx/Zeta/windows/internal/ui/widget"
 	"github.com/egoist/mygo/ui"
 )
 
@@ -52,7 +52,7 @@ func (ch *Chat) header(c *ui.Context) {
 // cardSegment 是卡片里一行的那一段：白底，只有第一段画上面的圆角、最后一段画下面的圆角，几段连成一张卡片。
 // 卡片两边让出 16，里边上 12、下 16、两边 24。
 func cardSegment(c *ui.Context, first, last bool) ui.Element {
-	shape := coui.ShapeCard
+	shape := widget.ShapeCard
 	var top, bottom float32
 	if first {
 		top = 12
@@ -64,7 +64,7 @@ func cardSegment(c *ui.Context, first, last bool) ui.Element {
 	} else {
 		shape.Radii[2], shape.Radii[3] = 0, 0
 	}
-	card := coui.Surface{Shape: shape, Fill: coui.Of(c).Card}.Paint(ui.Column(c)).Margin(0, 16).Clip()
+	card := widget.Surface{Shape: shape, Fill: widget.Of(c).Card}.Paint(ui.Column(c)).Margin(0, 16).Clip()
 	return card.Padding(top, 24, bottom, 24)
 }
 

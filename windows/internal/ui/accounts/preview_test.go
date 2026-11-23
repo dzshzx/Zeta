@@ -7,7 +7,7 @@ import (
 	"testing"
 
 	"github.com/dzshzx/Zeta/helper/coreapi"
-	"github.com/dzshzx/Zeta/windows/internal/ui/coui"
+	"github.com/dzshzx/Zeta/windows/internal/ui/widget"
 	"github.com/egoist/mygo/ui"
 )
 
@@ -37,8 +37,8 @@ func TestPreviews(t *testing.T) {
 		page := func(f *fixture) *ui.Tester {
 			return ui.NewTesterWith(func(c *ui.Context) {
 				// 和设置页里一样：COUI 的主题，卡片后面是浅灰的页面底
-				c.SetTheme(coui.Theme(c.Theme().Dark))
-				ui.Scroll(c).Fill().Padding(16, 0).Background(coui.Of(c).Page).Children(func() { f.page.View(c) })
+				c.SetTheme(widget.Theme(c.Theme().Dark))
+				ui.Scroll(c).Fill().Padding(16, 0).Background(widget.Of(c).Page).Children(func() { f.page.View(c) })
 			}, 640, 720, ui.TesterOptions{Dark: dark})
 		}
 

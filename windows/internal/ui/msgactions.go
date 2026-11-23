@@ -11,7 +11,7 @@ import (
 	"github.com/dzshzx/Zeta/windows/internal/chat"
 	"github.com/dzshzx/Zeta/windows/internal/chat/items"
 	"github.com/dzshzx/Zeta/windows/internal/ui/chatview"
-	"github.com/dzshzx/Zeta/windows/internal/ui/coui"
+	"github.com/dzshzx/Zeta/windows/internal/ui/widget"
 	"github.com/egoist/mygo/ui"
 )
 
@@ -105,11 +105,11 @@ func (a *App) roundActions(c *ui.Context, p *chatPane, user items.Item, later in
 	}
 	on := p.canRewind()
 	if user.Rewindable {
-		chatview.ActionButton(c, coui.IconRefresh, "重新生成", on).OnClick(func() { a.ask(p, confirmRegenerate, user, later) })
-		chatview.ActionButton(c, coui.IconDelete, "删除这一轮", on).OnClick(func() { a.ask(p, confirmDrop, user, later) })
+		chatview.ActionButton(c, widget.IconRefresh, "重新生成", on).OnClick(func() { a.ask(p, confirmRegenerate, user, later) })
+		chatview.ActionButton(c, widget.IconDelete, "删除这一轮", on).OnClick(func() { a.ask(p, confirmDrop, user, later) })
 	}
 	if user.Forkable {
-		chatview.ActionButton(c, coui.IconBranch, "分支", on).OnClick(func() {
+		chatview.ActionButton(c, widget.IconBranch, "分支", on).OnClick(func() {
 			p.failed = ""
 			a.hub.Fork(user.RoundLast, p.fail)
 		})
@@ -249,18 +249,18 @@ func (a *App) editStrip(c *ui.Context, p *chatPane) {
 	if r == nil {
 		return
 	}
-	k := coui.Of(c)
+	k := widget.Of(c)
 	panel(c, func() {
 		ui.Row(c).Padding(0, 4, 0, 14).Gap(6).AlignItems(ui.Center).Children(func() {
-			ui.Icon(c, coui.IconEdit).Size(14, 14).TextColor(k.PrimaryText)
-			ui.Text(c, "编辑消息").FontSize(coui.SizeBodyS).FontWeight(coui.Medium).TextColor(k.PrimaryText)
+			ui.Icon(c, widget.IconEdit).Size(14, 14).TextColor(k.PrimaryText)
+			ui.Text(c, "编辑消息").FontSize(widget.SizeBodyS).FontWeight(widget.Medium).TextColor(k.PrimaryText)
 			hint := "发送后将替换这条消息和它的回复"
 			if r.later > 0 {
 				hint = "发送后将替换这条消息及之后的内容"
 			}
-			ui.Text(c, hint).FontSize(coui.SizeBodyS).TextColor(k.Secondary).SingleLine().Ellipsis("…").Grow(1).MinWidth(0).
+			ui.Text(c, hint).FontSize(widget.SizeBodyS).TextColor(k.Secondary).SingleLine().Ellipsis("…").Grow(1).MinWidth(0).
 				Margin(0, 0, 0, 2)
-			coui.FlatButton(c, coui.IconClose, "取消编辑", 32, 16).OnClick(p.cancelEdit)
+			widget.FlatButton(c, widget.IconClose, "取消编辑", 32, 16).OnClick(p.cancelEdit)
 		})
 	})
 }
@@ -271,14 +271,14 @@ func (a *App) messageDialogs(c *ui.Context, p *chatPane) {
 	if cf == nil {
 		return
 	}
-	k := coui.Of(c)
+	k := widget.Of(c)
 	title, summary, button := confirmTexts(cf)
 	ok := false
-	coui.Dialog(c, &cf.open, func() {
-		ui.Column(c).FillWidth().Padding(coui.DialogPadding, coui.DialogPadding, 8, coui.DialogPadding).Gap(6).
+	widget.Dialog(c, &cf.open, func() {
+		ui.Column(c).FillWidth().Padding(widget.DialogPadding, widget.DialogPadding, 8, widget.DialogPadding).Gap(6).
 			Children(func() {
-				ui.Text(c, title).FontSize(coui.SizeHeadlineXS).FontWeight(600).TextColor(k.Text)
-				ui.Text(c, summary).FontSize(coui.SizeBodyS).LineHeight(1.45).TextColor(k.Secondary).Selectable()
+				ui.Text(c, title).FontSize(widget.SizeHeadlineXS).FontWeight(600).TextColor(k.Text)
+				ui.Text(c, summary).FontSize(widget.SizeBodyS).LineHeight(1.45).TextColor(k.Secondary).Selectable()
 				if cf.kind == confirmRestore && cf.changes != nil {
 					changedFiles(c, cf.changes, p.state.Cwd)
 				}
@@ -290,25 +290,25 @@ func (a *App) messageDialogs(c *ui.Context, p *chatPane) {
 			if cf.later > 0 {
 				label = "同时删除这一轮及之后的"
 			}
-			coui.Choice(c, label, "", coui.MarkCheck, cf.drop).OnClick(func() { cf.drop = !cf.drop })
+			widget.Choice(c, label, "", widget.MarkCheck, cf.drop).OnClick(func() { cf.drop = !cf.drop })
 		default:
-			coui.Choice(c, "同时还原代码", "", coui.MarkCheck, cf.code).OnClick(func() { cf.code = !cf.code })
+			widget.Choice(c, "同时还原代码", "", widget.MarkCheck, cf.code).OnClick(func() { cf.code = !cf.code })
 		}
-		coui.ButtonBar(c, func() {
+		widget.ButtonBar(c, func() {
 			if cf.kind == confirmRestore && cf.asked && cf.changes == nil {
-				if coui.DialogButton(c, "好", coui.Recommend).Clicked() {
+				if widget.DialogButton(c, "好", widget.Recommend).Clicked() {
 					cf.open = false
 				}
 				return
 			}
-			if coui.DialogButton(c, "取消", coui.Plain).Clicked() {
+			if widget.DialogButton(c, "取消", widget.Plain).Clicked() {
 				cf.open = false
 			}
-			style := coui.Destructive
+			style := widget.Destructive
 			if cf.kind == confirmRegenerate {
-				style = coui.Recommend
+				style = widget.Recommend
 			}
-			if coui.DialogButton(c, button, style).Disabled(cf.kind == confirmRestore && cf.changes == nil).Clicked() {
+			if widget.DialogButton(c, button, style).Disabled(cf.kind == confirmRestore && cf.changes == nil).Clicked() {
 				ok, cf.open = true, false
 			}
 		})
@@ -362,18 +362,18 @@ func confirmTexts(cf *confirm) (title, summary, button string) {
 
 // changedFiles 列出还原代码会动到的文件（在工作目录里的写相对路径），多了只列前几个。
 func changedFiles(c *ui.Context, ch *coreapi.CodeChanges, cwd string) {
-	k := coui.Of(c)
+	k := widget.Of(c)
 	const most = 6
 	ui.Column(c).FillWidth().Margin(6, 0, 0, 0).Padding(8, 12).Radius(12).Background(k.DialogBlock).Gap(2).Children(func() {
 		for i, f := range ch.Files {
 			if i == most {
-				ui.Text(c, "还有 "+strconv.Itoa(len(ch.Files)-most)+" 个").FontSize(coui.SizeBodyXS).TextColor(k.Secondary)
+				ui.Text(c, "还有 "+strconv.Itoa(len(ch.Files)-most)+" 个").FontSize(widget.SizeBodyXS).TextColor(k.Secondary)
 				break
 			}
 			if cwd != "" && strings.HasPrefix(f, strings.TrimSuffix(cwd, "/")+"/") {
 				f = f[len(strings.TrimSuffix(cwd, "/"))+1:]
 			}
-			ui.Text(c.Key(i), f).Font(coui.Mono).FontSize(coui.SizeBodyXS).TextColor(k.Text).SingleLine().Ellipsis("…").
+			ui.Text(c.Key(i), f).Font(widget.Mono).FontSize(widget.SizeBodyXS).TextColor(k.Text).SingleLine().Ellipsis("…").
 				FillWidth()
 		}
 	})
