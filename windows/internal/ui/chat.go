@@ -200,6 +200,7 @@ func (a *App) chatPage(c *ui.Context) {
 			a.chatNotices(c, p)
 			if p.src.Conv != nil {
 				a.promptCard(c, p)
+				a.taskStrip(c, p)
 				a.todoStrip(c, p)
 				a.queueStrip(c, p)
 				a.editStrip(c, p)
@@ -264,27 +265,20 @@ func (a *App) chatNotices(c *ui.Context, p *chatPane) {
 	}
 }
 
-// chatStatus 是等待指示一行：在回答时转圈和核心给的一句，有后台任务时说几个。
+// chatStatus 是等待指示一行：在回答时转圈和核心给的一句（后台任务在输入栏上方的 taskStrip 里）。
 func (a *App) chatStatus(c *ui.Context, p *chatPane) {
 	s := p.state
-	tasks := s.RunningTasks()
-	if !s.Busy && tasks == 0 {
+	if !s.Busy {
 		return
 	}
 	k := coui.Of(c)
+	status := s.Status
+	if status == "" {
+		status = "正在回答"
+	}
 	ui.Row(c).Gap(8).AlignItems(ui.Center).Padding(0, 8).Children(func() {
-		if s.Busy {
-			ui.Spinner(c).Size(14, 14)
-			status := s.Status
-			if status == "" {
-				status = "正在回答"
-			}
-			ui.Text(c, status).FontSize(coui.SizeBodyS).TextColor(k.Secondary).SingleLine()
-		}
-		ui.Spacer(c)
-		if tasks > 0 {
-			a.tasksLink(c, p, tasks)
-		}
+		ui.Spinner(c).Size(14, 14)
+		ui.Text(c, status).FontSize(coui.SizeBodyS).TextColor(k.Secondary).SingleLine()
 	})
 }
 

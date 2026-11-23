@@ -28,8 +28,12 @@ func (f *chatFixture) pushOutput(task, fields string) {
 func TestBackgroundTasksPage(t *testing.T) {
 	f := newChatFixture(t)
 	f.newChat(t)
+	f.notSee(t, "后台任务 · 1 个在运行")
 	f.push(twoTasks)
-	f.click(t, "后台任务 1 个")
+	// 输入栏上方的任务条：几个在运行，第二行是在跑的那个在做什么（结束了的子代理不算）
+	f.see(t, "后台任务 · 1 个在运行", "监听构建日志")
+	f.notSee(t, "查找读配置的地方")
+	f.click(t, "查看后台任务")
 	f.see(t, "后台任务", "监听构建日志", "后台命令 · 已运行 2 分 05 秒", "查找读配置的地方", "子代理 · Explore · 已完成 · 用时 6 秒")
 	if got := f.sent("conv.task_output"); got != nil {
 		t.Fatalf("列表页就读了输出：%v", got)
@@ -98,7 +102,7 @@ func TestTaskPageWhenGone(t *testing.T) {
 	f := newChatFixture(t)
 	f.newChat(t)
 	f.push(twoTasks)
-	f.click(t, "后台任务 1 个")
+	f.click(t, "查看后台任务")
 	f.click(t, "监听构建日志")
 	f.pushOutput("b1", `"text":"","total_bytes":0,"truncated":false,"error":"get_task_output: no shell or Monitor task with that task_id in this session"`)
 	f.see(t, "没读到：get_task_output: no shell or Monitor task with that task_id in this session")
@@ -146,12 +150,12 @@ func init() {
 	chatScenes["tasks-list"] = func(t *testing.T, f *chatFixture) {
 		f.newChat(t)
 		f.push(`"busy":true,` + twoTasks)
-		f.click(t, "后台任务 1 个")
+		f.click(t, "查看后台任务")
 	}
 	chatScenes["task-output"] = func(t *testing.T, f *chatFixture) {
 		f.newChat(t)
 		f.push(`"busy":true,` + twoTasks)
-		f.click(t, "后台任务 1 个")
+		f.click(t, "查看后台任务")
 		f.click(t, "监听构建日志")
 		f.pushOutput("b1", `"text":"[build] 编译 23 个包\n[build] ok  github.com/dzshzx/Zeta/windows/internal/chat  0.41s\n[build] ok  github.com/dzshzx/Zeta/windows/internal/ui  3.02s\n[watch] 等待改动…\n","total_bytes":20480,"truncated":true`)
 	}

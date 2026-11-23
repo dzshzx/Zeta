@@ -83,7 +83,7 @@ func TestSubagentPageFromATask(t *testing.T) {
 	f := newChatFixture(t)
 	f.newChat(t)
 	f.push(`"busy":true,` + twoTasks)
-	f.click(t, "后台任务 1 个")
+	f.click(t, "查看后台任务")
 	f.click(t, "查找读配置的地方")
 	f.click(t, "查看它的步骤")
 	if got := f.sent("conv.subagent"); len(got) != 1 || !strings.Contains(got[0], `"tool_use_id":"toolu_a1","watch":true`) {

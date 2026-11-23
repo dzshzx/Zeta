@@ -114,20 +114,37 @@ func (a *App) chatSubpage(c *ui.Context, p *chatPane) bool {
 	return true
 }
 
-// tasksLink 是状态行里的「后台任务 N 个」：点进去看这个对话的后台任务。
-func (a *App) tasksLink(c *ui.Context, p *chatPane, running int) {
-	k := coui.Of(c)
-	text := "后台任务 " + strconv.Itoa(running) + " 个"
-	b := ui.ButtonBase(c).Label(text).Tooltip("查看后台任务").Padding(2, 8).Radius(999).Gap(2).AlignItems(ui.Center).
-		Cursor(ui.CursorPointer)
-	if b.Hovered() {
-		b.Background(k.Hover)
+// taskStrip 是输入栏上方的后台任务条（同手机版 BackgroundTaskStrip）：这个对话有后台任务在跑时出现，
+// 第一行说几个在运行，第二行是最新的那个在做什么；点进去看这个对话的后台任务。
+func (a *App) taskStrip(c *ui.Context, p *chatPane) {
+	running := p.state.RunningTasks()
+	if running == 0 {
+		return
 	}
-	b.Children(func() {
-		ui.Text(c, text).FontSize(coui.SizeBodyS).TextColor(k.PrimaryText)
-		ui.Icon(c, coui.IconForward).Size(12, 12).TextColor(k.PrimaryText)
+	k := coui.Of(c)
+	var latest tasks.Task // 核心给的顺序：在跑的在前，新的在前
+	for _, t := range p.state.Tasks {
+		if t.Running() {
+			latest = t
+			break
+		}
+	}
+	panel(c, func() {
+		b := ui.ButtonBase(c).Label("查看后台任务").FillWidth().MinHeight(44).Padding(4, 8, 4, 14).Gap(8).AlignItems(ui.Center).
+			Cursor(ui.CursorPointer)
+		b.Children(func() {
+			ui.Column(c).Grow(1).MinWidth(0).Gap(2).Children(func() {
+				ui.Row(c).Gap(6).AlignItems(ui.Center).Children(func() {
+					ui.Box(c).Size(6, 6).Radius(3).Background(k.Primary)
+					ui.Text(c, "后台任务 · "+strconv.Itoa(running)+" 个在运行").FontSize(coui.SizeBodyS).FontWeight(coui.Medium).
+						TextColor(k.PrimaryText)
+				})
+				ui.Text(c, taskTitle(latest)).FontSize(coui.SizeBodyM).TextColor(k.Text).SingleLine().Ellipsis("…")
+			})
+			ui.Icon(c, coui.IconForward).Size(18, 18).TextColor(k.Tertiary).Shrink(0)
+		})
+		b.OnClick(p.openTasks)
 	})
-	b.OnClick(p.openTasks)
 }
 
 // taskListFooter 是任务列表下面的说明。桌面版的列表不留清除已结束的按钮：结束了的由核心留最近 20 个。

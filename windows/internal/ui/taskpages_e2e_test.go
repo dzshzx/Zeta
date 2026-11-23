@@ -20,7 +20,7 @@ const bgScenario = `{"steps":[{"tool":"Bash","input":{"command":"while :; do ech
 `
 
 // 整条链路：经 SSH（sshtest，命令在临时家目录里真跑 bash）起 zeta-helper serve 和核心，核心起假 Claude（tools/fake-claude）。
-// 发一条消息让它起一个后台命令：状态行出现「后台任务 1 个」，点进去看到它和它的输出（核心推来的），输出变了跟着变，
+// 发一条消息让它起一个后台命令：输入栏上方出现后台任务条，点进去看到它和它的输出（核心推来的），输出变了跟着变，
 // 停止以后变成已停止。
 func TestBackgroundTaskThroughServe(t *testing.T) {
 	f := newCoreFixture(t, 900)
@@ -33,9 +33,9 @@ func TestBackgroundTaskThroughServe(t *testing.T) {
 	f.click(t, "消息")
 	f.tt.Type("在后台报时")
 	f.click(t, "发送")
-	f.until(t, "后台任务出现", func() bool { return f.shows("后台任务 1 个") && f.shows("放到后台了") })
+	f.until(t, "后台任务出现", func() bool { return f.shows("后台任务 · 1 个在运行") && f.shows("放到后台了") })
 
-	f.click(t, "后台任务 1 个")
+	f.click(t, "查看后台任务")
 	f.see(t, "每秒报时")
 	if !strings.Contains(strings.Join(f.tt.Texts(), "\n"), "后台命令 · 已运行") {
 		t.Fatalf("列表：%q", f.tt.Texts())
