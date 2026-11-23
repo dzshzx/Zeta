@@ -495,7 +495,7 @@ type registered struct {
 }
 
 // hostMark 是 zeta_host.sh 给它起的 Claude Code 设的环境变量，值是 <包的目录名>/<托管目录名>（比如 zeta-dev/abc），
-// 为什么按它认、不按 pid 文件认见 zeta_host.sh 开头 pid 一项。zeta_host.sh、zeta_accounts.sh 照同一个样子认：
+// 为什么按它认、不按 pid 文件认见 zeta_host.sh 开头 pid 一项。zeta_host.sh、helper/accounts 照同一个样子认：
 // 包名以 zeta 开头，托管目录名不空、不含 /、不以 . 开头。
 const hostMark = "ZETA_HOST"
 

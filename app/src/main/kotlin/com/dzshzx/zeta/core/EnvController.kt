@@ -27,12 +27,6 @@ class EnvController constructor(private val hub: ConversationHub, assets: (Strin
     override val loggedOut: Boolean
         get() = account?.loggedIn == false
 
-    override val loggingIn: Boolean
-        get() =
-            login.state.let {
-                it != LoginState.Idle && it != LoginState.Done && it !is LoginState.Failed
-            }
-
     override fun showAccount(email: String, plan: String) {
         account = AccountStatus(loggedIn = true, email = email, plan = plan)
     }
@@ -64,8 +58,6 @@ class EnvController constructor(private val hub: ConversationHub, assets: (Strin
 
     var sshWorking by mutableStateOf(false)
         private set
-
-    val login = LoginFlow(hub)
 
     /** Zeta 自带环境那个位置的安装情况；null 表示还没查过。 */
     var ownStatus by mutableStateOf<EnvStatus?>(null)
