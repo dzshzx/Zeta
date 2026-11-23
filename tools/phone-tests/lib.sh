@@ -160,6 +160,23 @@ result_error() { sed -n "${2}p" "results-$1.jsonl" | jq -r .error; }
 # 设备上 Debian 的根目录
 ROOTFS=/data/local/zeta/debian/rootfs
 
+# 收掉会话记录里带 $1（grep -E 的模式）的测试对话：先按会话 ID 找到接着它的托管进程并结束，再删托管目录和会话记录
+# （托管进程的输出里没有用户发的话，只有会话 ID）。
+# 只删会话记录不够：进程还在跑或在等确认时，测试版下次冷启动会把它接回来放在后台，挡住别人的测试，
+# 账号页也会因为「还有对话在进行」不让换号。进程先收 TERM（Claude Code 借此放掉手里的锁），5 秒内没退出再 KILL。
+reap_marked() {
+  android "for f in \$(grep -lE '$1' $ROOTFS/home/$ZETA_LINUX_USER/.claude/projects/*/*.jsonl 2>/dev/null); do
+    id=\${f##*/}; id=\${id%.jsonl}
+    for o in \$(grep -l \"\$id\" $HOSTS/*/out.jsonl 2>/dev/null); do
+      d=\${o%/out.jsonl}; p=\$(cat \$d/pid 2>/dev/null)
+      if [ -n \"\$p\" ] && kill \$p 2>/dev/null; then
+        n=0; while kill -0 \$p 2>/dev/null && [ \$n -lt 50 ]; do sleep 0.1; n=\$((n + 1)); done
+        kill -9 \$p 2>/dev/null
+      fi
+      rm -rf \$d; echo \"结束托管进程 \${d##*/}\"; done
+    rm -rf \"\$f\" \"\${f%.jsonl}\"; echo \"删掉测试会话 \$id\"; done; true"
+}
+
 # 设备 Debian 里进程名（/proc/<pid>/comm）是 $1 的进程号，空格分开（OpenSSH 改了进程标题，pidof 认不出）
 debian_pids() {
   android "for d in /proc/[0-9]*; do [ \"\$(cat \$d/comm 2>/dev/null)\" = $1 ] && [ \"\$(readlink \$d/root)\" = $ROOTFS ] && echo \${d#/proc/}; done; true" | tr -d '\r' | xargs

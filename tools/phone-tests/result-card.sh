@@ -10,13 +10,11 @@ set -euo pipefail
 
 MARK="zeta-result-card-test-$(date +%s)"
 CLOSE=${CLOSE:-open}
-CLAUDE_HOME=/data/local/zeta/debian/rootfs/home/$ZETA_LINUX_USER/.claude
 
 cleanup() {
   set +e
   android "am force-stop $PKG"
-  # 测试建的会话：记录文件和同名的附属目录
-  android "for f in \$(grep -l '$MARK' $CLAUDE_HOME/projects/*/*.jsonl 2>/dev/null); do echo \"删掉测试会话 \$(basename \$f)\"; rm -rf \"\$f\" \"\${f%.jsonl}\"; done"
+  reap_marked "$MARK"
 }
 trap cleanup EXIT
 
