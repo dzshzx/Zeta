@@ -383,8 +383,10 @@ class ClaudeTaskContractTest {
         fun systemSince(from: Int): List<String> =
             events.drop(from).filter { it.str("type") == "system" }.mapNotNull { it.str("subtype") }
 
+        /** 收尾直接结束它：后台还有命令在跑时，关了标准输入它也不退出，等它自己退只会等满。 */
         override fun close() {
             runCatching { process.outputStream.close() }
+            process.destroy()
             if (!process.waitFor(10, TimeUnit.SECONDS)) process.destroyForcibly()
         }
     }
@@ -743,7 +745,10 @@ class ClaudeTaskContractTest {
         }
     }
 
-    /** 一轮进行中（前台命令在跑），后台有一个命令和一个子代理，这时停止这一轮（interrupt）。返回 interrupt 之后 8 秒里的事件。 */
+    /**
+     * 一轮进行中（前台命令在跑），后台有一个命令和一个子代理，这时停止这一轮（interrupt）。返回 interrupt 之后、这一轮的 result 到了再过 2
+     * 秒的事件：停止引起的事件和 result 是一起到的，多看 2 秒是给「后台的没被动」这类断言留的观察时间。
+     */
     private fun interruptWithBackgroundWork(claude: Claude): List<JsonObject> {
         claude.send(userMessage("go"))
         claude.until { it.str("type") == "assistant" && "toolu_2" in it.toString() }
@@ -752,7 +757,9 @@ class ClaudeTaskContractTest {
         val before = claude.events.size
         val answer = claude.control(buildJsonObject { put("subtype", "interrupt") })
         assertEquals("success", answer.str("subtype"))
-        claude.poll(8) { false }
+        if (claude.events.drop(before).none { it.str("type") == "result" })
+            claude.until { it.str("type") == "result" }
+        claude.poll(2) { false }
         return claude.events.drop(before)
     }
 
