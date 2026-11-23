@@ -21,7 +21,7 @@ type slashMenu struct {
 	pick   string
 	pickAt int
 	// caret 是上一帧建输入框时的光标（按字符），选中了一段时为 -1；caretText 是那时输入框里的字。
-	caret   int
+	caret     int
 	caretText string
 	// reveal：选中的换了，把它滚进视野。
 	reveal bool
