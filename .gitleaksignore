@@ -1,0 +1,2 @@
+# 误报：快捷键表里的按键常量 ui.KeyTab 和显示用的键名字符串 "Ctrl+Shift+Tab"，不是凭据
+367962e76ebda4559ab343a431d88af3dd984f4f:windows/internal/ui/layout.go:generic-api-key:97
