@@ -57,6 +57,7 @@ type Service struct {
 	loop  Loop
 
 	state   *coreapi.AccountList
+	login   *Login // 正在进行的登录，见 login.go
 	working string
 	problem string
 }

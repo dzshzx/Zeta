@@ -15,10 +15,12 @@ import (
 
 // Page 是一台主机的「账号与额度」页：那台上当前账号的订阅额度，claude-switch 管着的几个账号，切换、记下、移除。
 // 切换改的是那台上 Linux 用户的 Claude Code 登录状态，两个 Zeta 和终端里的 claude 用的都是这一份；各台设备各管各的。
-// 添加账号（登录）在那台的终端里做：登录后这里「记下」，之后就能切换。
+// 添加账号：主机上跑登录命令，这里打开授权网页、收授权码（login.go）；在终端里登录的号也能在这里「记下」。
 type Page struct {
 	Accounts *acct.Service
 	Quota    *acct.Quota
+
+	code string // 登录时输入框里的授权码
 
 	switching, removing  coreapi.Account
 	askSwitch, askRemove bool
@@ -73,7 +75,7 @@ func (p *Page) accounts(c *ui.Context) {
 	svc := p.Accounts
 	st, loaded := svc.State()
 	coui.Group(c, "账号", "这台设备上两个 Zeta 和终端里的 claude 共用一份登录，有对话在进行或别处开着 Claude Code 时不能切换。"+
-		"要加账号，在这台设备的终端里登录，再在这里记下。", func(l *coui.List) {
+		"添加账号时在用的号先存起来，之后能切换回去。", func(l *coui.List) {
 		switch {
 		case !loaded:
 			l.Message("正在读取")
@@ -83,6 +85,15 @@ func (p *Page) accounts(c *ui.Context) {
 		for _, a := range st.Accounts {
 			p.row(l, a, st.IsCurrent(a), c.Now())
 		}
+		if _, logging := svc.Login(); loaded && !logging {
+			l.Custom(func() {
+				ui.Text(c, "添加账号").FontSize(coui.SizeHeadlineXS).TextColor(coui.Of(c).Text).Grow(1)
+				coui.SmallButton(c, "添加").Disabled(svc.Working() != "").OnClick(func() {
+					p.code = ""
+					svc.StartLogin()
+				})
+			})
+		}
 		if w := svc.Working(); w != "" {
 			l.Custom(func() {
 				ui.Spinner(c).Size(16, 16).Label(w)
@@ -90,6 +101,9 @@ func (p *Page) accounts(c *ui.Context) {
 			})
 		}
 	})
+	if l, ok := svc.Login(); ok {
+		p.login(c, l)
+	}
 	if problem := svc.Problem(); problem != "" {
 		ui.Column(c).Padding(0, 16, 16, 16).Children(func() { coui.Notice(c, problem, coui.Failure) })
 	}
