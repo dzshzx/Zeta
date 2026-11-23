@@ -99,6 +99,35 @@ func TestAccountsMethods(t *testing.T) {
 			wantResult: "claude-d",
 		},
 		{
+			name:  "开始登录",
+			reply: `{"url":"https://claude.ai/oauth/authorize?x=1","name":"claude-d"}`,
+			run: func(cl *Client) (any, error) {
+				return cl.LoginStart(context.Background(), "bin/cs")
+			},
+			method:     "accounts.login_start",
+			params:     map[string]any{"program": "bin/cs"},
+			wantResult: LoginStart{URL: "https://claude.ai/oauth/authorize?x=1", Name: "claude-d"},
+		},
+		{
+			name:  "交授权码",
+			reply: `{"name":"claude-d"}`,
+			run: func(cl *Client) (any, error) {
+				return cl.LoginCode(context.Background(), "bin/cs", "a#b")
+			},
+			method:     "accounts.login_code",
+			params:     map[string]any{"program": "bin/cs", "code": "a#b"},
+			wantResult: "claude-d",
+		},
+		{
+			name:  "取消登录",
+			reply: `{}`,
+			run: func(cl *Client) (any, error) {
+				return nil, cl.LoginCancel(context.Background())
+			},
+			method: "accounts.login_cancel",
+			params: map[string]any{},
+		},
+		{
 			name:  "删号",
 			reply: `{}`,
 			run: func(cl *Client) (any, error) {

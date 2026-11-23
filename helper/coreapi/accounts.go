@@ -122,7 +122,37 @@ type accountName struct {
 
 // ---- 登录 ----
 //
-// 登录另一个号的几步放在这一段：现在只有 accounts.prepare_login，之后的 claude auth login 由客户端自己做。
+// 登录另一个号：客户端用 LoginStart 拿到授权网址、让用户打开，再用 LoginCode 交回授权码；登录命令由核心跑。
+// 自己跑登录命令的客户端先调 PrepareLogin。
+
+// 交授权码出错时的 code（docs/core.md「账号与额度」）。
+const (
+	CodeLoginIncomplete = "login_incomplete" // 授权码不完整，登录还在等：改了再交
+	CodeNoLogin         = "no_login"         // 没有在等的登录：重新开始
+)
+
+// LoginStart 是开始登录的结果：授权网址，和登录后新号会记成的名字（没登录过时为空）。
+type LoginStart struct {
+	URL  string `json:"url"`
+	Name string `json:"name"`
+}
+
+// LoginStart 把在用的号存档并退出登录，在主机上起 claude auth login，返回授权网址（accounts.login_start）。
+func (cl *Client) LoginStart(ctx context.Context, program string) (LoginStart, error) {
+	return get[LoginStart](ctx, cl.c, "accounts.login_start", accountsParams(program, nil))
+}
+
+// LoginCode 把授权码交给在等的登录命令，成功时返回记下的新号的名字（accounts.login_code）。
+// 出错的 code 是 CodeLoginIncomplete 时登录还在等；其余情况登录已结束，要重新开始。
+func (cl *Client) LoginCode(ctx context.Context, program, code string) (string, error) {
+	r, err := get[accountName](ctx, cl.c, "accounts.login_code", accountsParams(program, params{"code": code}))
+	return r.Name, err
+}
+
+// LoginCancel 结束正在进行的登录（accounts.login_cancel）。
+func (cl *Client) LoginCancel(ctx context.Context) error {
+	return call(ctx, cl.c, "accounts.login_cancel", nil)
+}
 
 // PrepareLogin 为登录另一个号做准备：起好新号的名字、把在用的号存档并退出登录，返回新号的名字（accounts.prepare_login）。
 func (cl *Client) PrepareLogin(ctx context.Context, program string) (string, error) {

@@ -161,7 +161,7 @@ Zeta 的逻辑往 Go 写的核心里搬：核心是每台主机（手机的 Debi
 | `config.mcp.setToken` | `cwd`、`scope`（user、local）、`name`、`token`（空串是去掉） | 慢。删掉重加，重加失败时放回原样 |
 ## 账号与额度
 
-核心答 `accounts.` 和 `quota.` 开头的方法（逻辑在 `helper/accounts`，入口是 `helper/accounts.go` 的 `handleAccounts`），每个请求在自己的 goroutine 里做、做完再答，不挡同一连接上别的请求。参数和 `id`、`method` 平级，结果在 `zeta_reply` 的 `result`；出错时 `ok` 为假，认得出的另带 `code`：`claude_switch_missing`（客户端把带着的 claude-switch 装上再试）、`busy`（有 Claude Code 开着，claude-switch 没换）、`no_account`（要换、要删的号不在了）。
+核心答 `accounts.` 和 `quota.` 开头的方法（逻辑在 `helper/accounts`，入口是 `helper/accounts.go` 的 `handleAccounts`；订阅 `quota.watch` 在 `helper/corehandlers.go` 的 `accountsHandler`），每个请求在自己的 goroutine 里做、做完再答，不挡同一连接上别的请求。参数和 `id`、`method` 平级，结果在 `zeta_reply` 的 `result`；出错时 `ok` 为假，认得出的另带 `code`：`claude_switch_missing`（客户端把带着的 claude-switch 装上再试）、`busy`（有 Claude Code 开着，claude-switch 没换）、`no_account`（要换、要删的号不在了）。
 
 账号由 claude-switch 管（存档、换号、加号、删号），这一组只是替客户端跑它：令牌只在主机上由它搬，结果里只有账号名、邮箱、组织和套餐。改登录状态的请求一个一个来，开着的 Claude Code 都是调用方自己的对话时先等它们退出（最多约 8 秒，刚收掉的要几秒），有别人的就不等（那些不会自己退），不管等没等到都交给 claude-switch，它自己会拒绝。客户端要先收掉自己闲着的对话。每个 `accounts.` 请求都可带 `program`：claude-switch 相对家目录的路径（客户端带的那个版本）；不带时在 `~/.cache/<ZETA_NAME>/bin` 下找 `claude-switch-<版本>`。这组请求要跑 claude-switch，慢。
 
