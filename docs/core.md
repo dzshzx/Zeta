@@ -171,7 +171,7 @@ Zeta 的逻辑往 Go 写的核心里搬：核心是每台主机（手机的 Debi
 | `accounts.list` | | `result` 是 `{current, accounts, procs, blocker}`：在用的登录（未登录为 `null`，认不出是哪个号时 `name` 为空）、要列的账号（在用的在前，每项 `{name, email, organization, displayName, subscription, refreshExpiresAt, current, parked}`）、`~/.claude/sessions` 登记的还开着的 Claude Code（`{pid, owner, status, kind}`，`owner` 是托管它的 Zeta 包，按进程身上的 `ZETA_HOST` 认）、别的包或终端里的进程挡着换号时的一句说明 |
 | `accounts.switch` | `name` | 换成存着的这个号 |
 | `accounts.save` | | 在用的登录还没记过（在终端里登录了新号）时给它起个空闲的名字记下，`result` 是 `{name}` |
-| `accounts.prepare_login` | | 登录另一个号之前：起好新号的名字，把在用的号存档并退出登录，`result` 是 `{name}`；之后的登录（`claude auth login`）由客户端做，登录后的新号由 claude-switch 记成这个名字。客户端自己不跑登录命令时用 `accounts.login_start` |
+| `accounts.prepare_login` | | 登录另一个号之前：起好新号的名字，把在用的号存档并退出登录，`result` 是 `{name}`；之后的登录（`claude auth login`）由调用方自己跑，登录后的新号由 claude-switch 记成这个名字。手机版和桌面版都用 `accounts.login_start`，这个方法留给自己跑登录命令的调用方（Kotlin 的 `ClaudeCodeQuotaContractTest` 就这样用：真的 `claude auth login` 会打开浏览器） |
 | `accounts.remove` | `name` | 删掉一个不在用的号在这台主机上的存档与记录（服务端仍是登录状态） |
 | `accounts.login_start` | | 在这台主机上登录一个新号：先同 `accounts.prepare_login` 把在用的号存档并退出登录，再起 `claude auth login`（登录 shell 的环境），`result` 是 `{url, name}`：授权网址和登录后新号的名字（没登录过时 `name` 为空）。客户端打开网址、让用户把授权码贴回来。核心里同时只有一个登录，再开始时结束上一个；15 分钟没交成授权码就结束它 |
 | `accounts.login_code` | `code` | 把授权码交给在等的登录命令，最多等 1 分钟。成功时记下新号（同 `accounts.save`），`result` 是 `{name}`。出错时 `code` 为 `login_incomplete`：授权码不完整（少了 `#` 和后半段），登录还在等，改了再交；`no_login`：没有在等的登录（没开始、取消了、超时），要重新开始；不带 `code` 的（码没被接受、登录命令出错）登录已经结束，也要重新开始 |

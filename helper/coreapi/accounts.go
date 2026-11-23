@@ -123,7 +123,7 @@ type accountName struct {
 // ---- 登录 ----
 //
 // 登录另一个号：客户端用 LoginStart 拿到授权网址、让用户打开，再用 LoginCode 交回授权码；登录命令由核心跑。
-// 自己跑登录命令的客户端先调 PrepareLogin。
+// 自己跑登录命令的调用方（契约测试）先调 PrepareLogin。
 
 // 交授权码出错时的 code（docs/core.md「账号与额度」）。
 const (
