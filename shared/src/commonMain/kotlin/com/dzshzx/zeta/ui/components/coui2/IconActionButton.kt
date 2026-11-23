@@ -17,6 +17,7 @@ import androidx.compose.ui.semantics.role
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.unit.Dp
+import com.dzshzx.zeta.i18n.Strings
 import io.github.suqi8.coui.kmp.basic.Icon
 import io.github.suqi8.coui.kmp.basic.IconButton
 import io.github.suqi8.coui.kmp.basic.IconButtonDefaults
@@ -120,7 +121,7 @@ fun CopyIconButton(
     iconSize: Dp,
     tint: Color,
     modifier: Modifier = Modifier,
-    contentDescription: String = "复制",
+    contentDescription: String = Strings.commonCopy(),
 ) {
     @Suppress("DEPRECATION") val clipboard = LocalClipboardManager.current
     var copied by remember { mutableStateOf(false) }
@@ -132,7 +133,7 @@ fun CopyIconButton(
     }
     FlatIconButton(
         icon = if (copied) COUIIcons.Ok else COUIIcons.Copy,
-        contentDescription = if (copied) "已复制" else contentDescription,
+        contentDescription = if (copied) Strings.commonCopied() else contentDescription,
         size = size,
         iconSize = iconSize,
         modifier = modifier,

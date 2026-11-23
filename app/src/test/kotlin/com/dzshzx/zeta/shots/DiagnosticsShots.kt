@@ -11,6 +11,7 @@ import com.dzshzx.zeta.core.diag.DiagTopic
 import com.dzshzx.zeta.core.diag.LinuxProbe
 import com.dzshzx.zeta.core.diag.LogFile
 import com.dzshzx.zeta.core.diag.LogKind
+import com.dzshzx.zeta.i18n.UiLanguage
 import com.dzshzx.zeta.ui.settings.DiagnosticsScreen
 import com.dzshzx.zeta.ui.settings.PhoneScreen
 import org.junit.Test
@@ -73,9 +74,20 @@ class DiagnosticsShots : ShotTest() {
 
     @Test
     fun diagnostics() {
+        diagnostics("diagnostics")
+    }
+
+    /** 英文界面的诊断页（每个用例新建 Application，语言随之回到简体中文）。 */
+    @Test
+    fun diagnosticsEnglish() {
+        UiLanguage.current = UiLanguage.ENGLISH
+        diagnostics("diagnostics-en")
+    }
+
+    private fun diagnostics(name: String) {
         val hub = Fixtures.readyHub(app)
         seedLog()
-        shoot("diagnostics") {
+        shoot(name) {
             DiagnosticsScreen(
                 hub = hub,
                 onBack = {},

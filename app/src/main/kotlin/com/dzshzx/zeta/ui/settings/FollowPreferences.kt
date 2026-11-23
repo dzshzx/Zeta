@@ -7,6 +7,7 @@ import androidx.compose.runtime.rememberUpdatedState
 import com.dzshzx.zeta.core.ConversationHub
 import com.dzshzx.zeta.core.EffortLevels
 import com.dzshzx.zeta.core.readableModelId
+import com.dzshzx.zeta.i18n.Strings
 import com.dzshzx.zeta.ui.chat.PermissionModes
 import com.dzshzx.zeta.ui.chat.permissionModeLabel
 import com.dzshzx.zeta.ui.components.coui2.DropdownValuePreference
@@ -24,7 +25,7 @@ internal fun FollowDropdownPreference(
     choices: List<Pair<String, String>>,
     value: String?,
     unknown: (String) -> String = { it },
-    followLabel: String? = "跟随 Claude Code",
+    followLabel: String? = Strings.commonFollowClaudeCode(),
     summary: String? = null,
     enabled: Boolean = true,
     more: List<Pair<String, String>> = emptyList(),
@@ -80,7 +81,7 @@ internal fun ModelPreference(
 ) {
     val choices = modelChoices(hub.modelOptions(backend))
     FollowDropdownPreference(
-        "模型",
+        Strings.settingsFollowModel(),
         choices.latest,
         model,
         unknown = ::readableModelId,
@@ -92,13 +93,18 @@ internal fun ModelPreference(
 /** 「思考强度」：跟随 Claude Code 的默认（按模型存的），或 Claude Code 的几档之一。 */
 @Composable
 internal fun EffortPreference(effort: String?, onChange: (String?) -> Unit) =
-    FollowDropdownPreference("思考强度", EffortLevels, effort, onChange = onChange)
+    FollowDropdownPreference(
+        Strings.settingsFollowEffort(),
+        EffortLevels,
+        effort,
+        onChange = onChange,
+    )
 
 /** 后台运行（定时任务、通知触发）的「权限模式」：没有“跟随”，在任务上明确选一个，没人看着的运行能做什么不随别处的默认值变。 [mode] 不在清单里时补一项。 */
 @Composable
 internal fun PermissionModePreference(mode: String, onChange: (String) -> Unit) =
     FollowDropdownPreference(
-        "权限模式",
+        Strings.settingsFollowMode(),
         PermissionModes,
         mode,
         unknown = ::permissionModeLabel,

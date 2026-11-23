@@ -16,6 +16,7 @@ import com.dzshzx.zeta.core.diag.LinuxProbe
 import com.dzshzx.zeta.core.diag.LogFile
 import com.dzshzx.zeta.core.environment
 import com.dzshzx.zeta.core.exitsWithin
+import com.dzshzx.zeta.i18n.Strings
 import com.dzshzx.zeta.phone.AccessibilityGuard
 import java.time.ZoneId
 import java.time.ZonedDateTime
@@ -93,34 +94,61 @@ internal object Diagnostics {
         probing: Boolean,
     ): List<InfoLine> {
         val env = hub.settings.env
-        val pending = if (probing) "查询中" else "查不到"
+        val pending = if (probing) Strings.commonQuerying() else Strings.commonUnknown()
         return listOf(
-            InfoLine("Zeta 版本", "${BuildConfig.VERSION_NAME}（${BuildConfig.VERSION_CODE}）"),
-            InfoLine("包名", context.packageName + if (AppVariant.current.isDev) "（测试版）" else ""),
+            InfoLine(
+                Strings.diagEnvZetaVersion(),
+                Strings.diagEnvVersionValue(
+                    BuildConfig.VERSION_NAME,
+                    BuildConfig.VERSION_CODE.toString(),
+                ),
+            ),
+            InfoLine(
+                Strings.diagEnvPackage(),
+                if (AppVariant.current.isDev) Strings.diagEnvDevBuild(context.packageName)
+                else context.packageName,
+            ),
             InfoLine(
                 "Android",
-                "${Build.VERSION.RELEASE}（API ${Build.VERSION.SDK_INT}）· ${Build.MANUFACTURER} ${Build.MODEL}",
+                Strings.diagEnvAndroidValue(
+                    Build.VERSION.RELEASE,
+                    Build.VERSION.SDK_INT.toString(),
+                    Build.MANUFACTURER,
+                    Build.MODEL,
+                ),
             ),
-            InfoLine("系统版本", Build.DISPLAY),
+            InfoLine(Strings.diagEnvSystemVersion(), Build.DISPLAY),
             InfoLine(
                 "Root",
                 when (hub.environment.setup) {
-                    SetupState.Checking -> "检查中"
-                    SetupState.NoRoot -> "没有授权"
-                    else -> "已授权"
+                    SetupState.Checking -> Strings.commonChecking()
+                    SetupState.NoRoot -> Strings.diagEnvRootDenied()
+                    else -> Strings.settingsPermGranted()
                 },
             ),
-            InfoLine("Debian 路径", env?.rootfs ?: "未配置"),
-            InfoLine("Linux 用户", env?.let { "${it.user}（uid ${it.uid}，${it.home}）" } ?: "未配置"),
-            InfoLine("Debian 版本", probe?.debian?.ifEmpty { "查不到" } ?: pending),
-            InfoLine("Claude Code", probe?.claude?.ifEmpty { "没有安装" } ?: pending),
-            InfoLine("Node", probe?.node?.ifEmpty { "没有安装" } ?: pending),
+            InfoLine(Strings.diagEnvDebianPath(), env?.rootfs ?: Strings.diagEnvNotConfigured()),
+            InfoLine(
+                Strings.diagEnvLinuxUser(),
+                env?.let { Strings.diagEnvLinuxUserValue(it.user, it.uid.toString(), it.home) }
+                    ?: Strings.diagEnvNotConfigured(),
+            ),
+            InfoLine(
+                Strings.diagEnvDebianVersion(),
+                probe?.debian?.ifEmpty { Strings.commonUnknown() } ?: pending,
+            ),
+            InfoLine(
+                "Claude Code",
+                probe?.claude?.ifEmpty { Strings.diagEnvNotInstalled() } ?: pending,
+            ),
+            InfoLine("Node", probe?.node?.ifEmpty { Strings.diagEnvNotInstalled() } ?: pending),
             // 不自动打开：服务被系统拿掉时只记一笔。在守：服务开过；没在守：服务没开过，或在 Zeta 里关了
             InfoLine(
-                "无障碍守护",
-                (if (AccessibilityGuard.autoRestore(context)) "自动打开" else "不自动打开") +
+                Strings.diagEnvA11yGuard(),
+                (if (AccessibilityGuard.autoRestore(context)) Strings.diagEnvA11yAutoOn()
+                else Strings.diagEnvA11yAutoOff()) +
                     " · " +
-                    if (AccessibilityGuard.armed(context)) "在守" else "没在守",
+                    if (AccessibilityGuard.armed(context)) Strings.diagEnvA11yArmed()
+                    else Strings.diagEnvA11yUnarmed(),
             ),
         )
     }
@@ -168,7 +196,9 @@ internal object Diagnostics {
         val log = DiagLog.entries().joinToString("\n") { DiagEntries.format(it, zone) }
         val tails = probe?.let { tails(hub, it.files) }.orEmpty()
         val files = DiagBundle.files(info, log, logcat.await(), tails)
-        val stream = context.contentResolver.openOutputStream(uri, "wt") ?: error("打不开要保存的文件")
+        val stream =
+            context.contentResolver.openOutputStream(uri, "wt")
+                ?: error(Strings.diagExportOpenFailed())
         ZipOutputStream(stream.buffered()).use { zip ->
             for ((name, text) in files) {
                 zip.putNextEntry(ZipEntry(name))

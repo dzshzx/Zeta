@@ -71,6 +71,7 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.util.lerp
+import com.dzshzx.zeta.i18n.Strings
 import com.dzshzx.zeta.phone.OverlayFocus
 import com.dzshzx.zeta.phone.OverlayPhase
 import com.dzshzx.zeta.phone.TouchMark
@@ -203,7 +204,7 @@ internal fun AgentDisplayStage(
     val placement = remember { arrayOfNulls<LayoutCoordinates>(1) }
     val currentFocus by rememberUpdatedState(focus)
     val takeOver by rememberUpdatedState(onTakeOver)
-    val idleLabel = focus.appName?.takeIf { it.isNotBlank() } ?: "后台画布"
+    val idleLabel = focus.appName?.takeIf { it.isNotBlank() } ?: Strings.overlayStageCanvas()
 
     Column(
         modifier = Modifier.fillMaxWidth().padding(horizontal = 10.dp, vertical = 4.dp),
@@ -274,7 +275,11 @@ private fun StageControls(
             modifier = Modifier.weight(1f),
         )
         Spacer(Modifier.width(8.dp))
-        StagePill(label = if (held) "继续" else "接管", highlighted = held, accent = accent) {
+        StagePill(
+            label = if (held) Strings.overlayResume() else Strings.overlayTakeOver(),
+            highlighted = held,
+            accent = accent,
+        ) {
             when (phase) {
                 OverlayPhase.CONTROLLING -> focus.resumeAuto()
                 OverlayPhase.PAUSED -> focus.resume()
@@ -282,7 +287,12 @@ private fun StageControls(
             }
         }
         Spacer(Modifier.width(6.dp))
-        StagePill(label = "全屏", highlighted = false, accent = accent, onClick = onFullscreen)
+        StagePill(
+            label = Strings.overlayFullscreen(),
+            highlighted = false,
+            accent = accent,
+            onClick = onFullscreen,
+        )
     }
 }
 

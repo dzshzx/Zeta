@@ -23,6 +23,7 @@ import com.dzshzx.zeta.core.ConversationHub
 import com.dzshzx.zeta.core.QuotaService
 import com.dzshzx.zeta.core.SetupState
 import com.dzshzx.zeta.core.environment
+import com.dzshzx.zeta.i18n.Strings
 import com.dzshzx.zeta.ui.chat.QuotaWindows
 import com.dzshzx.zeta.ui.chat.quotaFootnote
 import com.dzshzx.zeta.ui.chat.severityColor
@@ -72,19 +73,21 @@ internal fun AccountsEntry(hub: ConversationHub, backend: String, onOpen: () -> 
     val headline = quota.snapshot?.current(now)?.headline
     // 摘要只放账号，最要紧的额度窗口用了多少放右侧（按紧张程度上色）；是哪个窗口点进去看，摘要才不折行
     ArrowPreference(
-        title = "账号与额度",
+        title = Strings.settingsAccountsTitle(),
         summary =
             when {
-                !ready -> if (backend == Backends.LOCAL) "Linux 环境未就绪" else "这台设备现在用不了"
-                account == null -> "查询中"
-                !account.loggedIn -> "未登录"
-                else -> account.email ?: "已登录"
+                !ready ->
+                    if (backend == Backends.LOCAL) Strings.settingsAccountsLinuxNotReady()
+                    else Strings.settingsAccountsDeviceUnavailable()
+                account == null -> Strings.commonQuerying()
+                !account.loggedIn -> Strings.settingsAccountsSignedOut()
+                else -> account.email ?: Strings.settingsAccountsSignedIn()
             },
         startAction = { SettingsIcon(COUIIcons.ContactsBook, SettingsHue.Claude, enabled = ready) },
         endActions = {
             if (ready && account?.loggedIn == true && headline != null) {
                 PreferenceValue(
-                    "已用 ${headline.percent}%",
+                    Strings.settingsAccountsUsedPercent(headline.percent),
                     color = severityColor(headline.severity, Color.Unspecified),
                 )
             }
@@ -119,7 +122,8 @@ internal fun AccountsScreen(hub: ConversationHub, backend: String, onBack: () ->
     Box(Modifier.fillMaxSize()) {
         CouiPage(
             title =
-                if (backend == Backends.LOCAL) "账号与额度" else "账号与额度 · " + hub.backendName(backend),
+                if (backend == Backends.LOCAL) Strings.settingsAccountsTitle()
+                else Strings.settingsAccountsTitleOnDevice(hub.backendName(backend)),
             onBack = onBack,
             dialogs = {
                 AccountDialogs(
@@ -181,17 +185,17 @@ private fun AccountDialogs(
 ) {
     ConfirmDialog(
         show = confirming != null,
-        title = "切换到 ${confirming?.title.orEmpty()}？",
-        summary = "Zeta 会先关掉这台设备上闲着的对话进程（对话内容不丢）。之后这台上的新对话、额度都用这个账号；那边终端里的 claude 也一样。",
-        confirmText = "切换",
+        title = Strings.settingsAccountsSwitchTitle(confirming?.title.orEmpty()),
+        summary = Strings.settingsAccountsSwitchSummary(),
+        confirmText = Strings.settingsAccountsSwitch(),
         onConfirm = { if (confirming != null) onSwitch(confirming) else onDismissSwitch() },
         onDismissRequest = onDismissSwitch,
     )
     ConfirmDialog(
         show = removing != null,
-        title = "移除 ${removing?.title.orEmpty()}？",
-        summary = "只删这台设备上存着的这份登录和记录，服务器上的登录还在。以后要用得重新登录。",
-        confirmText = "移除",
+        title = Strings.settingsAccountsRemoveTitle(removing?.title.orEmpty()),
+        summary = Strings.settingsAccountsRemoveSummary(),
+        confirmText = Strings.settingsAccountsRemove(),
         destructive = true,
         onConfirm = { if (removing != null) onRemove(removing) else onDismissRemove() },
         onDismissRequest = onDismissRemove,
@@ -203,7 +207,7 @@ private fun AccountDialogs(
 private fun QuotaGroup(quota: QuotaService, now: Long) {
     val snapshot = quota.snapshot
     PreferenceGroup(
-        title = "订阅额度",
+        title = Strings.settingsAccountsQuota(),
         footer = quotaFootnote(snapshot, quota.refreshing, quota.error, now),
     ) {
         if (snapshot != null && snapshot.available && snapshot.windows.isNotEmpty()) {
@@ -218,7 +222,9 @@ private fun QuotaGroup(quota: QuotaService, now: Long) {
         }
         item(key = "refresh") {
             BasicComponent(
-                title = if (quota.refreshing) "正在刷新…" else "刷新",
+                title =
+                    if (quota.refreshing) Strings.settingsAccountsRefreshing()
+                    else Strings.settingsAccountsRefresh(),
                 enabled = !quota.refreshing,
                 onClick = { quota.refresh(force = true) },
             )
@@ -238,14 +244,13 @@ private fun AccountsGroup(
     val state = service.state
     val working = service.working
     PreferenceGroup(
-        title = "账号",
-        footer =
-            "这台设备上两个 Zeta 和终端里的 claude 共用一份登录，有对话在进行或别处开着 Claude Code 时不能切换。" +
-                "添加账号会先退出当前账号，中途取消的话，在这里切回去。",
+        title = Strings.settingsAccountsGroup(),
+        footer = Strings.settingsAccountsFooter(),
     ) {
         when {
-            state == null -> item { BasicComponent(title = "正在读取…") }
-            !state.loggedIn && state.all.isEmpty() -> item { BasicComponent(title = "还没有登录") }
+            state == null -> item { BasicComponent(title = Strings.settingsAccountsLoading()) }
+            !state.loggedIn && state.all.isEmpty() ->
+                item { BasicComponent(title = Strings.settingsAccountsNone()) }
         }
         state?.all?.forEach { account ->
             val isCurrent = account.id == state.current?.id
@@ -263,7 +268,11 @@ private fun AccountsGroup(
         }
         working?.let { item(key = "working") { BasicComponent(title = "$it…") } }
         item(key = "add") {
-            ArrowPreference(title = "添加账号", enabled = working == null, onClick = onAdd)
+            ArrowPreference(
+                title = Strings.settingsAccountsAdd(),
+                enabled = working == null,
+                onClick = onAdd,
+            )
         }
     }
 }
@@ -274,8 +283,8 @@ private fun accountSummary(account: ClaudeAccount, now: Long): String? =
             account.id.ifBlank { null },
             account.organization.ifBlank { null },
             account.plan.ifBlank { null },
-            if (account.expired(now)) "登录已过期" else null,
-            if (account.id.isBlank()) "还没记下名字" else null,
+            if (account.expired(now)) Strings.settingsAccountsExpired() else null,
+            if (account.id.isBlank()) Strings.settingsAccountsUnnamed() else null,
         )
         .joinToString(" · ")
         .ifBlank { null }
@@ -294,7 +303,7 @@ private fun AccountRow(
         BasicComponent(
             title = account.title,
             summary = summary,
-            endActions = { PreferenceValue("当前") },
+            endActions = { PreferenceValue(Strings.commonCurrent()) },
         )
         return
     }
@@ -302,8 +311,15 @@ private fun AccountRow(
         entry =
             DropdownEntry(
                 listOf(
-                    DropdownItem(text = "切换到这个账号", onClick = { onSwitch(account) }),
-                    DropdownItem(text = "移除", alert = true, onClick = { onRemove(account) }),
+                    DropdownItem(
+                        text = Strings.settingsAccountsSwitchTo(),
+                        onClick = { onSwitch(account) },
+                    ),
+                    DropdownItem(
+                        text = Strings.settingsAccountsRemove(),
+                        alert = true,
+                        onClick = { onRemove(account) },
+                    ),
                 ),
             ),
         title = account.title,

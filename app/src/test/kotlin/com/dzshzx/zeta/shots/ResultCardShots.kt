@@ -22,6 +22,7 @@ import com.dzshzx.zeta.core.UserItem
 import com.dzshzx.zeta.core.alerts
 import com.dzshzx.zeta.core.core
 import com.dzshzx.zeta.core.phone
+import com.dzshzx.zeta.i18n.UiLanguage
 import com.dzshzx.zeta.phone.ZetaAccessibilityService
 import com.dzshzx.zeta.shots.Fixtures.force
 import com.dzshzx.zeta.shots.Fixtures.showChat
@@ -44,6 +45,14 @@ class ResultCardShots : ShotTest() {
     fun answer() {
         Fixtures.readyHub(app)
         shoot("result-card") { OnScreen("整理相册截图", LongAnswer, failed = false) }
+    }
+
+    /** 英文界面的结果卡片：标题和两个按钮的译文（每个用例新建 Application，语言随之回到简体中文）。 */
+    @Test
+    fun answerEnglish() {
+        UiLanguage.current = UiLanguage.ENGLISH
+        Fixtures.readyHub(app)
+        shoot("result-card-en") { OnScreen("Tidy up screenshots", LongAnswer, failed = false) }
     }
 
     @Test

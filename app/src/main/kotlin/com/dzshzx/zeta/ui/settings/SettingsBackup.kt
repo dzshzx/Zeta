@@ -11,6 +11,7 @@ import com.dzshzx.zeta.core.notify.NotifyRules
 import com.dzshzx.zeta.core.schedule.ScheduleAlarms
 import com.dzshzx.zeta.core.schedule.ScheduledTask
 import com.dzshzx.zeta.core.schedule.Schedules
+import com.dzshzx.zeta.i18n.Strings
 import com.dzshzx.zeta.ui.app.MAX_INTERFACE_SCALE
 import com.dzshzx.zeta.ui.app.MIN_INTERFACE_SCALE
 import com.dzshzx.zeta.ui.app.normalizeInterfaceScale
@@ -47,13 +48,17 @@ internal sealed interface Checked {
  */
 internal class BackupItem(
     val key: String,
-    val label: String,
+    private val labelOf: () -> String,
     val read: (Map<String, *>) -> JsonElement,
     val check: (JsonElement) -> Checked,
     val write: (JsonElement) -> Any?,
     val show: (JsonElement) -> String,
     val nullable: Boolean = false,
-)
+) {
+    /** 给人看的名字：按界面语言现取。 */
+    val label: String
+        get() = labelOf()
+}
 
 /** 导入时没用上的一项，及原因。 */
 internal data class SkippedItem(val key: String, val label: String, val reason: String)
@@ -103,52 +108,51 @@ internal object SettingsBackup {
     private fun modelName(v: JsonElement): Checked {
         val text = v.text()
         return if (text != null && ModelPattern.matches(text)) Checked.Ok(JsonPrimitive(text))
-        else Checked.Bad("不是有效的模型名")
+        else Checked.Bad(Strings.settingsBackupBadModel())
     }
 
     /** 存储里有、但不导出的键：都和这台手机绑在一起，搬到别处没有意义或者会出错。 */
-    val machineKeys: Map<String, String> =
+    val machineKeys: Map<String, () -> String> =
         mapOf(
-            "rootfs" to "Linux 环境装在这台手机的哪个位置，换手机或重装后由 Zeta 重新检测",
-            "user" to "Linux 环境里的用户，由 Zeta 检测",
-            "uid" to "Linux 环境里的用户，由 Zeta 检测",
-            "gid" to "Linux 环境里的用户，由 Zeta 检测",
-            "home" to "Linux 环境里的用户，由 Zeta 检测",
-            "phoneDisplay" to "调试用的屏幕编号，只对当时那块虚拟屏有效",
-            "updateDevManifest" to "测试版调试应用内更新用的清单地址，只对当时的测试有效",
-            "updateDevCert" to "测试版调试应用内更新用的信任证书，只对当时的测试有效",
-            "updateCheckedAt" to "这台手机上次检查更新的时间",
-            "updateNotified" to "这台手机已经提醒过的新版本",
-            "mutedApps" to "为后台运行临时静音、还没恢复的应用，是这台手机当下的状态",
-            "remoteClaude" to "各台远程设备上的自动压缩、压缩时机和自动标题，跟着远程设备的清单走",
-            "remoteHosts" to
-                "远程设备靠这台手机的密钥连过去（Debian 里 ~/.ssh 的，或 Zeta 直连用的、存在这台手机里的），换手机后先让那些设备认新手机的公钥再加",
-            "backend" to "侧栏正看着哪台设备，跟着远程设备的清单走",
-            "paneAll" to "侧栏列不列全部设备的对话，跟着远程设备的清单走",
-            "localName" to "给这台手机起的名字，换手机后按新手机的名字显示",
-            ScheduleAlarms.ARMED to "定时任务在这台手机上排过的闹钟，重排时据此取消已删掉的任务的闹钟；导入定时任务后会重新排",
+            "rootfs" to Strings::settingsBackupMachineRootfs,
+            "user" to Strings::settingsBackupMachineUser,
+            "uid" to Strings::settingsBackupMachineUser,
+            "gid" to Strings::settingsBackupMachineUser,
+            "home" to Strings::settingsBackupMachineUser,
+            "phoneDisplay" to Strings::settingsBackupMachinePhoneDisplay,
+            "updateDevManifest" to Strings::settingsBackupMachineUpdateDevManifest,
+            "updateDevCert" to Strings::settingsBackupMachineUpdateDevCert,
+            "updateCheckedAt" to Strings::settingsBackupMachineUpdateCheckedAt,
+            "updateNotified" to Strings::settingsBackupMachineUpdateNotified,
+            "mutedApps" to Strings::settingsBackupMachineMutedApps,
+            "remoteClaude" to Strings::settingsBackupMachineRemoteClaude,
+            "remoteHosts" to Strings::settingsBackupMachineRemoteHosts,
+            "backend" to Strings::settingsBackupMachineBackend,
+            "paneAll" to Strings::settingsBackupMachinePaneAll,
+            "localName" to Strings::settingsBackupMachineLocalName,
+            ScheduleAlarms.ARMED to Strings::settingsBackupMachineAlarms,
         )
 
     val items: List<BackupItem> =
         listOf(
             BackupItem(
                 key = "dark",
-                label = "外观与主题",
+                labelOf = Strings::settingsTitleAppearance,
                 nullable = true,
                 read = { prefs -> (prefs["dark"] as? Boolean)?.let(::JsonPrimitive) ?: JsonNull },
                 check = { v -> if (v is JsonNull) Checked.Ok(JsonNull) else bool(v) },
                 write = { v -> (v as? JsonPrimitive)?.booleanOrNull },
                 show = { v ->
                     when ((v as? JsonPrimitive)?.booleanOrNull) {
-                        null -> "跟随系统"
-                        true -> "深色"
-                        false -> "浅色"
+                        null -> Strings.commonFollowSystem()
+                        true -> Strings.commonThemeDark()
+                        false -> Strings.commonThemeLight()
                     }
                 },
             ),
             BackupItem(
                 key = "interfaceScale",
-                label = "界面缩放",
+                labelOf = Strings::settingsAppearanceScale,
                 read = { prefs ->
                     JsonPrimitive(
                         normalizeInterfaceScale((prefs["interfaceScale"] as? Float) ?: 1f),
@@ -160,30 +164,34 @@ internal object SettingsBackup {
                     "${(((v as? JsonPrimitive)?.floatOrNull ?: 1f) * 100).roundToInt()}%"
                 },
             ),
-            boolItem("keepScreenOn", "对话进行中保持屏幕常亮", default = true),
-            boolItem("autoLoadRemoteImages", "自动加载网络图片", default = false),
-            boolItem("autoReadAnswers", "回答自动朗读", default = false),
-            boolItem("autoTitle", "自动生成对话标题", default = true),
-            boolItem("phoneTools", "手机操作", default = true),
-            boolItem("backgroundScreen", "在后台屏幕上操作", default = true),
-            boolItem("accessibilityGuard", "无障碍服务被系统关掉后自动打开", default = true),
+            boolItem("keepScreenOn", Strings::settingsBackupKeepScreenOn, default = true),
+            boolItem("autoLoadRemoteImages", Strings::settingsHomeAutoLoadImages, default = false),
+            boolItem("autoReadAnswers", Strings::settingsHomeAutoRead, default = false),
+            boolItem("autoTitle", Strings::settingsCompactAutoTitle, default = true),
+            boolItem("phoneTools", Strings::settingsTitlePhone, default = true),
+            boolItem("backgroundScreen", Strings::settingsPhoneAgentDisplay, default = true),
+            boolItem(
+                "accessibilityGuard",
+                Strings::settingsBackupAccessibilityGuard,
+                default = true,
+            ),
             optionalItem(
                 "assistantModel",
-                "数字助理的模型",
-                unset = "跟随 Claude Code",
+                Strings::settingsBackupAssistantModel,
+                unset = Strings::commonFollowClaudeCode,
                 check = ::modelName,
             ),
             optionalItem(
                 "assistantEffort",
-                "数字助理的思考强度",
-                unset = "跟随 Claude Code",
-                labels = EffortLevels.toMap(),
+                Strings::settingsBackupAssistantEffort,
+                unset = Strings::commonFollowClaudeCode,
+                labels = { EffortLevels.toMap() },
             ),
-            boolItem("autoCompact", "自动压缩上下文", default = true),
-            boolItem("autoUpdateCheck", "自动检查更新", default = true),
+            boolItem("autoCompact", Strings::settingsCompactAuto, default = true),
+            boolItem("autoUpdateCheck", Strings::settingsAutoCheckUpdates, default = true),
             BackupItem(
                 key = "autoCompactPercent",
-                label = "压缩时机",
+                labelOf = Strings::settingsCompactTiming,
                 nullable = true,
                 read = { prefs ->
                     (prefs["autoCompactPercent"] as? Int)
@@ -195,7 +203,7 @@ internal object SettingsBackup {
                     when {
                         v is JsonNull -> Checked.Ok(JsonNull)
                         n != null && n in 1..100 -> Checked.Ok(JsonPrimitive(n))
-                        else -> Checked.Bad("应为 1 到 100 的整数")
+                        else -> Checked.Bad(Strings.settingsBackupBadPercent())
                     }
                 },
                 write = { v -> (v as? JsonPrimitive)?.intOrNull },
@@ -203,18 +211,19 @@ internal object SettingsBackup {
             ),
             BackupItem(
                 key = "cwd",
-                label = "默认工作目录",
+                labelOf = Strings::settingsBackupDefaultCwd,
                 read = { prefs -> (prefs["cwd"] as? String)?.let(::JsonPrimitive) ?: JsonNull },
                 check = { v ->
                     val path = v.text()?.takeIf { it.length <= 4096 }?.let(SharedFolders::normalize)
-                    if (path != null) Checked.Ok(JsonPrimitive(path)) else Checked.Bad("不是有效的绝对路径")
+                    if (path != null) Checked.Ok(JsonPrimitive(path))
+                    else Checked.Bad(Strings.settingsBackupBadPath())
                 },
                 write = { v -> v.text() },
                 show = { v -> v.text().orEmpty() },
             ),
             BackupItem(
                 key = "pinnedSessions",
-                label = "置顶的对话",
+                labelOf = Strings::settingsBackupPinned,
                 read = { prefs ->
                     val ids =
                         (prefs["pinnedSessions"] as? Set<*>)
@@ -225,22 +234,31 @@ internal object SettingsBackup {
                 },
                 check = ::pinned,
                 write = { v -> (v as JsonArray).mapNotNull { it.text() }.toSet() },
-                show = { v -> (v as? JsonArray)?.size?.takeIf { it > 0 }?.let { "$it 个" } ?: "无" },
+                show = { v ->
+                    (v as? JsonArray)
+                        ?.size
+                        ?.takeIf { it > 0 }
+                        ?.let(Strings::settingsBackupPinnedCount) ?: Strings.commonNone()
+                },
             ),
             BackupItem(
                 key = "sharedFolders",
-                label = "共享文件夹",
+                labelOf = Strings::settingsBackupSharedFolders,
                 read = { prefs ->
                     foldersJson(SharedFolders.decode(prefs["sharedFolders"] as? String))
                 },
                 check = ::folders,
                 write = { v -> SharedFolders.encode(foldersOf(v)) },
-                show = { v -> foldersOf(v).joinToString("、") { it.name }.ifEmpty { "无" } },
+                show = { v ->
+                    foldersOf(v)
+                        .joinToString(Strings.commonListSeparator()) { it.name }
+                        .ifEmpty { Strings.commonNone() }
+                },
             ),
             // 只带名字和内容；id 是这台手机上的，导入时重新生成
             BackupItem(
                 key = SavedPrompts.KEY,
-                label = "常用指令",
+                labelOf = Strings::settingsBackupSavedPrompts,
                 read = { prefs ->
                     promptsJson(SavedPrompts.decode(prefs[SavedPrompts.KEY] as? String))
                 },
@@ -250,13 +268,18 @@ internal object SettingsBackup {
                         promptsOf(v).map { it.copy(id = UUID.randomUUID().toString()) },
                     )
                 },
-                show = { v -> (v as? JsonArray)?.size?.takeIf { it > 0 }?.let { "$it 条" } ?: "无" },
+                show = { v ->
+                    (v as? JsonArray)
+                        ?.size
+                        ?.takeIf { it > 0 }
+                        ?.let(Strings::settingsBackupPromptCount) ?: Strings.commonNone()
+                },
             ),
             // 定时任务和通知触发只带用户定的那些（[TaskFields]、[RuleFields]）；id、创建时间、运行记录、跳过次数、接着的会话、
             // 冷却和今天的次数都是这台手机上跑出来的，导入时重新生成、从头算。写回时整份换掉，经各自的 store 写，定时任务的闹钟跟着重排
             BackupItem(
                 key = Schedules.KEY,
-                label = "定时任务",
+                labelOf = Strings::settingsTitleSchedules,
                 read = { prefs -> tasksJson(Schedules.decode(prefs[Schedules.KEY] as? String)) },
                 check = ::tasks,
                 write = { v ->
@@ -269,7 +292,7 @@ internal object SettingsBackup {
             ),
             BackupItem(
                 key = NotifyRules.KEY,
-                label = "通知触发",
+                labelOf = Strings::settingsTitleNotifyTriggers,
                 read = { prefs ->
                     rulesJson(NotifyRules.decode(prefs[NotifyRules.KEY] as? String))
                 },
@@ -341,23 +364,27 @@ internal object SettingsBackup {
     fun parse(text: String): BackupFile {
         val root =
             runCatching { Json.parseToJsonElement(text) }.getOrNull() as? JsonObject
-                ?: return BackupFile.Invalid("文件不是 JSON")
+                ?: return BackupFile.Invalid(Strings.settingsBackupInvalidJson())
         if ((root["format"] as? JsonPrimitive)?.contentOrNull != FORMAT)
-            return BackupFile.Invalid("不是 Zeta 的设置备份")
+            return BackupFile.Invalid(Strings.settingsBackupInvalidFormat())
         val version =
             (root["version"] as? JsonPrimitive)?.takeUnless { it.isString }?.intOrNull
-                ?: return BackupFile.Invalid("备份文件缺少格式版本号")
-        if (version < 1) return BackupFile.Invalid("格式版本号无效")
+                ?: return BackupFile.Invalid(Strings.settingsBackupNoVersion())
+        if (version < 1) return BackupFile.Invalid(Strings.settingsBackupBadVersion())
         if (version > VERSION)
-            return BackupFile.Invalid("备份来自更新版本的 Zeta（格式版本 $version），请先升级 Zeta 再导入")
-        val settings = root["settings"] as? JsonObject ?: return BackupFile.Invalid("备份文件里没有设置")
+            return BackupFile.Invalid(Strings.settingsBackupNewerVersion(version))
+        val settings =
+            root["settings"] as? JsonObject
+                ?: return BackupFile.Invalid(Strings.settingsBackupNoSettings())
         val values = LinkedHashMap<String, JsonElement>()
         val skipped = ArrayList<SkippedItem>()
         for (item in items) {
             val raw = settings[item.key] ?: continue
             when (
                 val checked =
-                    if (raw is JsonNull && !item.nullable) Checked.Bad("没有值") else item.check(raw)
+                    if (raw is JsonNull && !item.nullable)
+                        Checked.Bad(Strings.settingsBackupNoValue())
+                    else item.check(raw)
             ) {
                 is Checked.Ok -> values[item.key] = checked.value
                 is Checked.Bad -> skipped += SkippedItem(item.key, item.label, checked.reason)
@@ -366,8 +393,9 @@ internal object SettingsBackup {
         for (key in settings.keys) {
             if (key in byKey) continue
             skipped +=
-                machineKeys[key]?.let { SkippedItem(key, key, "这台手机特有的设置，不导入：$it") }
-                    ?: SkippedItem(key, key, "这个版本的 Zeta 没有这一项（更新版本加的，或已经去掉了）")
+                machineKeys[key]?.let {
+                    SkippedItem(key, key, Strings.settingsBackupMachineSkip(it()))
+                } ?: SkippedItem(key, key, Strings.settingsBackupUnknownKey())
         }
         return BackupFile.Valid(
             version = version,
@@ -411,66 +439,73 @@ internal object SettingsBackup {
     private fun JsonElement.text(): String? =
         (this as? JsonPrimitive)?.takeIf { it.isString }?.contentOrNull
 
-    private fun boolItem(key: String, label: String, default: Boolean) =
+    private fun boolItem(key: String, label: () -> String, default: Boolean) =
         BackupItem(
             key = key,
-            label = label,
+            labelOf = label,
             read = { prefs -> JsonPrimitive((prefs[key] as? Boolean) ?: default) },
             check = ::bool,
             write = { v -> (v as JsonPrimitive).booleanOrNull },
-            show = { v -> if ((v as? JsonPrimitive)?.booleanOrNull == true) "开" else "关" },
+            show = { v ->
+                if ((v as? JsonPrimitive)?.booleanOrNull == true) Strings.settingsBackupOn()
+                else Strings.settingsBackupOff()
+            },
         )
 
     /** 可以不设（null，跟随 Claude Code）的文字项；给了 [labels] 时只认其中的值。 */
     private fun optionalItem(
         key: String,
-        label: String,
-        unset: String,
-        labels: Map<String, String> = emptyMap(),
-        check: (JsonElement) -> Checked = { v -> choice(v, labels.keys) },
+        label: () -> String,
+        unset: () -> String,
+        labels: () -> Map<String, String> = { emptyMap() },
+        check: (JsonElement) -> Checked = { v -> choice(v, labels().keys) },
     ) =
         BackupItem(
             key = key,
-            label = label,
+            labelOf = label,
             nullable = true,
             read = { prefs -> (prefs[key] as? String)?.let(::JsonPrimitive) ?: JsonNull },
             check = { v -> if (v is JsonNull) Checked.Ok(JsonNull) else check(v) },
             write = { v -> v.text() },
-            show = { v -> v.text()?.let { labels[it] ?: it } ?: unset },
+            show = { v -> v.text()?.let { labels()[it] ?: it } ?: unset() },
         )
 
     private fun bool(v: JsonElement): Checked {
         val p = v as? JsonPrimitive
         val b =
             p?.takeUnless { it.isString }?.booleanOrNull
-                ?: return Checked.Bad("应为开关值（true 或 false）")
+                ?: return Checked.Bad(Strings.settingsBackupBadBool())
         return Checked.Ok(JsonPrimitive(b))
     }
 
     private fun choice(v: JsonElement, allowed: Collection<String>): Checked {
-        val text = v.text() ?: return Checked.Bad("应为文字")
+        val text = v.text() ?: return Checked.Bad(Strings.settingsBackupBadText())
         return if (text in allowed) Checked.Ok(JsonPrimitive(text))
-        else Checked.Bad("不认识的取值“${text.take(40)}”")
+        else Checked.Bad(Strings.settingsBackupUnknownValue(text.take(40)))
     }
 
     private fun scale(v: JsonElement): Checked {
         val f =
             (v as? JsonPrimitive)?.takeUnless { it.isString }?.floatOrNull
-                ?: return Checked.Bad("应为数字")
+                ?: return Checked.Bad(Strings.settingsBackupBadNumber())
         // 存的是 Float，0.8 之类的边界值读回来会差一点点
         if (!f.isFinite() || f < MIN_INTERFACE_SCALE - 0.001f || f > MAX_INTERFACE_SCALE + 0.001f) {
             return Checked.Bad(
-                "应在 ${(MIN_INTERFACE_SCALE * 100).roundToInt()}% 到 ${(MAX_INTERFACE_SCALE * 100).roundToInt()}% 之间",
+                Strings.settingsBackupBadScale(
+                    (MIN_INTERFACE_SCALE * 100).roundToInt(),
+                    (MAX_INTERFACE_SCALE * 100).roundToInt(),
+                ),
             )
         }
         return Checked.Ok(JsonPrimitive(normalizeInterfaceScale(f)))
     }
 
     private fun pinned(v: JsonElement): Checked {
-        val array = v as? JsonArray ?: return Checked.Bad("应为会话 id 的列表")
-        if (array.size > MAX_PINNED) return Checked.Bad("条目太多")
+        val array = v as? JsonArray ?: return Checked.Bad(Strings.settingsBackupBadPinnedList())
+        if (array.size > MAX_PINNED) return Checked.Bad(Strings.settingsBackupTooMany())
         val ids = array.map {
-            it.text()?.takeIf(SessionIdPattern::matches) ?: return Checked.Bad("含有无效的会话 id")
+            it.text()?.takeIf(SessionIdPattern::matches)
+                ?: return Checked.Bad(Strings.settingsBackupBadSessionId())
         }
         return Checked.Ok(
             buildJsonArray { ids.distinct().sorted().forEach { add(JsonPrimitive(it)) } },
@@ -478,36 +513,42 @@ internal object SettingsBackup {
     }
 
     private fun folders(v: JsonElement): Checked {
-        val array = v as? JsonArray ?: return Checked.Bad("应为列表")
-        if (array.size > SharedFolders.MAX) return Checked.Bad("最多 ${SharedFolders.MAX} 个")
+        val array = v as? JsonArray ?: return Checked.Bad(Strings.settingsBackupBadList())
+        if (array.size > SharedFolders.MAX)
+            return Checked.Bad(Strings.settingsBackupMaxItems(SharedFolders.MAX))
         val list = ArrayList<SharedFolder>()
         for ((index, element) in array.withIndex()) {
             val item = element as? JsonObject
             val name = item?.get("name")?.text()?.trim()
             val source = item?.get("source")?.text()
-            if (name == null || source == null) return Checked.Bad("第 ${index + 1} 个缺少名字或目录")
+            if (name == null || source == null)
+                return Checked.Bad(Strings.settingsBackupFolderMissing(index + 1))
             val normalized =
-                SharedFolders.normalize(source) ?: return Checked.Bad("第 ${index + 1} 个：目录路径无效")
+                SharedFolders.normalize(source)
+                    ?: return Checked.Bad(Strings.settingsBackupFolderBadPath(index + 1))
             val problem =
                 SharedFolders.nameProblem(name, list)
                     ?: SharedFolders.sourceProblem(normalized, list, rootfs = null)
-            if (problem != null) return Checked.Bad("第 ${index + 1} 个（$name）：$problem")
+            if (problem != null)
+                return Checked.Bad(Strings.settingsBackupItemProblem(index + 1, name, problem))
             list += SharedFolder(name, normalized)
         }
         return Checked.Ok(foldersJson(list))
     }
 
     private fun prompts(v: JsonElement): Checked {
-        val array = v as? JsonArray ?: return Checked.Bad("应为列表")
-        if (array.size > SavedPrompts.MAX) return Checked.Bad("最多 ${SavedPrompts.MAX} 条")
+        val array = v as? JsonArray ?: return Checked.Bad(Strings.settingsBackupBadList())
+        if (array.size > SavedPrompts.MAX)
+            return Checked.Bad(Strings.settingsBackupMaxEntries(SavedPrompts.MAX))
         val list = ArrayList<SavedPrompt>()
         for ((index, element) in array.withIndex()) {
             val item = element as? JsonObject
             val name = item?.get("name")?.let { if (it is JsonNull) "" else it.text() }
             val text = item?.get("text")?.text()
-            if (name == null || text == null) return Checked.Bad("第 ${index + 1} 条缺少名字或内容")
+            if (name == null || text == null)
+                return Checked.Bad(Strings.settingsBackupPromptMissing(index + 1))
             SavedPrompts.problem(emptyList(), name, text)?.let {
-                return Checked.Bad("第 ${index + 1} 条：$it")
+                return Checked.Bad(Strings.settingsBackupEntryProblem(index + 1, it))
             }
             list += SavedPrompt("", name.trim(), text)
         }
@@ -516,11 +557,13 @@ internal object SettingsBackup {
 
     /** 定时任务、通知触发规则的列表：逐个按存储的写法解码（补一个临时的 id），再用编辑页的规矩校验。 */
     private fun tasks(v: JsonElement): Checked {
-        val array = v as? JsonArray ?: return Checked.Bad("应为列表")
-        if (array.size > Schedules.MAX_TASKS) return Checked.Bad("最多 ${Schedules.MAX_TASKS} 个")
+        val array = v as? JsonArray ?: return Checked.Bad(Strings.settingsBackupBadList())
+        if (array.size > Schedules.MAX_TASKS)
+            return Checked.Bad(Strings.settingsBackupMaxItems(Schedules.MAX_TASKS))
         val list = ArrayList<ScheduledTask>()
         for ((index, element) in array.withIndex()) {
-            val task = taskOf(element) ?: return Checked.Bad("第 ${index + 1} 个缺少指令或时间")
+            val task =
+                taskOf(element) ?: return Checked.Bad(Strings.settingsBackupTaskMissing(index + 1))
             // 不看时间：时间已过的单次任务照样导入，和跑过的一样在列表上显示出来
             val problem =
                 Schedules.problem(
@@ -529,22 +572,28 @@ internal object SettingsBackup {
                     ZoneId.systemDefault(),
                     checkRule = false,
                 ) ?: runProblem(task.model, task.permissionMode)
-            if (problem != null) return Checked.Bad("第 ${index + 1} 个（${task.name}）：$problem")
+            if (problem != null)
+                return Checked.Bad(Strings.settingsBackupItemProblem(index + 1, task.name, problem))
             list += task
         }
         return Checked.Ok(tasksJson(list))
     }
 
     private fun rules(v: JsonElement): Checked {
-        val array = v as? JsonArray ?: return Checked.Bad("应为列表")
-        if (array.size > NotifyRules.MAX_RULES) return Checked.Bad("最多 ${NotifyRules.MAX_RULES} 条")
+        val array = v as? JsonArray ?: return Checked.Bad(Strings.settingsBackupBadList())
+        if (array.size > NotifyRules.MAX_RULES)
+            return Checked.Bad(Strings.settingsBackupMaxEntries(NotifyRules.MAX_RULES))
         val list = ArrayList<NotifyRule>()
         for ((index, element) in array.withIndex()) {
-            val rule = ruleOf(element) ?: return Checked.Bad("第 ${index + 1} 条缺少应用或指令")
+            val rule =
+                ruleOf(element) ?: return Checked.Bad(Strings.settingsBackupRuleMissing(index + 1))
             val problem =
                 NotifyRules.problem(NotifyRules.draftOf(rule))
                     ?: runProblem(rule.model, rule.permissionMode)
-            if (problem != null) return Checked.Bad("第 ${index + 1} 条（${rule.name}）：$problem")
+            if (problem != null)
+                return Checked.Bad(
+                    Strings.settingsBackupEntryNamedProblem(index + 1, rule.name, problem),
+                )
             list += rule
         }
         return Checked.Ok(rulesJson(list))
@@ -553,8 +602,9 @@ internal object SettingsBackup {
     /** 运行用的模型和权限模式：模型是 Claude Code 认的名字（没有表示默认），模式是界面上能选的那几种。 */
     private fun runProblem(model: String?, mode: String): String? =
         when {
-            model != null && !ModelPattern.matches(model) -> "不是有效的模型名"
-            PermissionModes.none { it.first == mode } -> "不认识的权限模式“${mode.take(40)}”"
+            model != null && !ModelPattern.matches(model) -> Strings.settingsBackupBadModel()
+            PermissionModes.none { it.first == mode } ->
+                Strings.settingsBackupUnknownMode(mode.take(40))
             else -> null
         }
 
@@ -592,8 +642,8 @@ internal object SettingsBackup {
         (v as? JsonArray)
             .orEmpty()
             .mapNotNull { (it as? JsonObject)?.get("name")?.text() }
-            .joinToString("、")
-            .ifEmpty { "无" }
+            .joinToString(Strings.commonListSeparator())
+            .ifEmpty { Strings.commonNone() }
 
     private fun promptsJson(list: List<SavedPrompt>): JsonArray = buildJsonArray {
         list.forEach {

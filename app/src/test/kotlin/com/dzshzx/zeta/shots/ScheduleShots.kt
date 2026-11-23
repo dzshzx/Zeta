@@ -11,6 +11,7 @@ import com.dzshzx.zeta.core.schedule.ScheduleRule
 import com.dzshzx.zeta.core.schedule.ScheduleStore
 import com.dzshzx.zeta.core.schedule.ScheduledTask
 import com.dzshzx.zeta.core.schedule.TaskRun
+import com.dzshzx.zeta.i18n.UiLanguage
 import com.dzshzx.zeta.ui.settings.ScheduleScreen
 import java.time.DayOfWeek
 import java.time.LocalDateTime
@@ -95,10 +96,21 @@ class ScheduleShots : ShotTest() {
     /** 编辑页下半：运行方式、运行记录、删除。 */
     @Test
     fun editorBottom() {
+        editorBottom("schedule-editor-bottom")
+    }
+
+    /** 英文界面的编辑页下半：看译文有没有挤爆（每个用例新建 Application，语言随之回到简体中文）。 */
+    @Test
+    fun editorBottomEnglish() {
+        UiLanguage.current = UiLanguage.ENGLISH
+        editorBottom("schedule-editor-bottom-en")
+    }
+
+    private fun editorBottom(name: String) {
         val hub = Fixtures.readyHub(app)
         seed()
         shoot(
-            "schedule-editor-bottom",
+            name,
             prepare = {
                 onNodeWithText("每日简报").performClick()
                 repeat(2) { onRoot().performTouchInput { swipeUp() } }

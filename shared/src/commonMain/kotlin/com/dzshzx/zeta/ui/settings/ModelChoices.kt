@@ -5,6 +5,7 @@ import com.dzshzx.zeta.core.ModelMenu
 import com.dzshzx.zeta.core.ModelOption
 import com.dzshzx.zeta.core.modelLabel
 import com.dzshzx.zeta.core.modelMenu
+import com.dzshzx.zeta.i18n.Strings
 import io.github.suqi8.coui.kmp.basic.DropdownEntry
 import io.github.suqi8.coui.kmp.basic.DropdownItem
 
@@ -30,7 +31,7 @@ fun <V> choiceEntries(
             .takeIf { it.isNotEmpty() }
             ?.let { choices ->
                 DropdownItem(
-                    text = "更多模型",
+                    text = Strings.settingsModelMore(),
                     summary = choices.firstOrNull { it.first == selected }?.second,
                     children = choices.map(::item),
                 )

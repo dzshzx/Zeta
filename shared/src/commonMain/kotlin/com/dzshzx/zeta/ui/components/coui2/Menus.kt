@@ -10,6 +10,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
+import com.dzshzx.zeta.i18n.Strings
 import io.github.suqi8.coui.kmp.basic.DropdownDefaults
 import io.github.suqi8.coui.kmp.basic.DropdownEntry
 import io.github.suqi8.coui.kmp.basic.DropdownItem
@@ -94,7 +95,10 @@ fun AnchoredMenu(
 
 /** 顶栏右边的“更多”：COUI 的图标下拉菜单，按钮和菜单是一体的，[entries] 每组之间有分隔线，点一项就收起。 */
 @Composable
-fun TopBarMoreMenu(entries: List<DropdownEntry>, contentDescription: String = "更多") {
+fun TopBarMoreMenu(
+    entries: List<DropdownEntry>,
+    contentDescription: String = Strings.componentsMore(),
+) {
     OverlayIconDropdownMenu(entries = entries, collapseOnSelection = true) {
         Icon(
             imageVector = COUIIcons.More,

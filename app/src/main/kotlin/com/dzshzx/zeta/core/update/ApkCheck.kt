@@ -3,6 +3,7 @@ package com.dzshzx.zeta.core.update
 import android.content.pm.PackageManager
 import android.content.pm.Signature
 import android.content.pm.SigningInfo
+import com.dzshzx.zeta.i18n.Strings
 import java.io.File
 import java.security.MessageDigest
 
@@ -26,13 +27,16 @@ internal object ApkCheck {
      */
     fun verdict(archive: ApkFacts?, manifest: UpdateManifest, installed: ApkFacts): String? =
         when {
-            archive == null -> "读不出下载的安装包（文件坏了，或不是 APK）"
+            archive == null -> Strings.updateApkUnreadable()
             archive.packageName != installed.packageName ->
-                "安装包的包名是 ${archive.packageName}，不是本应用（${installed.packageName}）"
+                Strings.updateApkWrongPackage(archive.packageName, installed.packageName)
             archive.versionCode != manifest.versionCode.toLong() ->
-                "安装包的 versionCode 是 ${archive.versionCode}，清单写的是 ${manifest.versionCode}"
+                Strings.updateApkWrongCode(
+                    archive.versionCode.toString(),
+                    manifest.versionCode.toString(),
+                )
             installed.signers.isEmpty() || !archive.history.containsAll(installed.signers) ->
-                "安装包的签名和已装的 Zeta 不一致"
+                Strings.updateApkWrongSigner()
             else -> null
         }
 

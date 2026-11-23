@@ -31,6 +31,7 @@ import com.dzshzx.zeta.core.notify.ZetaNotificationListener
 import com.dzshzx.zeta.core.schedule.RunOutcome
 import com.dzshzx.zeta.core.schedule.ScheduleRunner
 import com.dzshzx.zeta.core.schedule.Schedules
+import com.dzshzx.zeta.i18n.Strings
 import com.dzshzx.zeta.phone.InstalledApps
 import com.dzshzx.zeta.ui.chat.permissionModeLabel
 import com.dzshzx.zeta.ui.components.SlideInPage
@@ -77,13 +78,13 @@ import kotlinx.coroutines.withContext
  * 列表页的说明。没写进去的：跑完的通知是规则名加回答的开头，点它打开那次的对话； 冷却、每天上限、不触发的通知在编辑页“防止失控”下面；上一次还没跑完时跳过这一次（编辑页的“跳过了 N
  * 次”会列出来）。
  */
-private const val ListFooter = "选定的应用来了通知，就在后台开一个对话运行指令，跑完发通知。"
+private fun listFooter() = Strings.notifyListFooter()
 
 /**
  * 指令下面的说明。占位符填进去的内容会标成「通知内容（外部数据）」并用分隔符包住，提醒 Claude 只把它当数据
  * （[NotifyRules.render]，分隔符里的随机串每次运行都不一样，通知里的文字仿造不出来）。
  */
-private const val PromptFooter = "可以用 {title}、{text}、{app} 引用通知的标题、正文和应用名；不用时，通知内容不会交给 Claude。"
+private fun promptFooter() = Strings.notifyPromptFooter("{title}", "{text}", "{app}")
 
 /** 权限健康页上的“通知使用权”：有开着的规则时缺了算问题，没有规则时只是提示。 */
 internal fun notificationListenerItem(
@@ -91,21 +92,44 @@ internal fun notificationListenerItem(
     root: Boolean?,
 ): PermissionItem {
     val id = PermissionId.NotificationListener
-    val title = "通知使用权"
+    val title = Strings.notifyListenerTitle()
     return when {
-        snapshot == null -> PermissionItem(id, title, null, "检查中", PermissionStatus.Checking, false)
+        snapshot == null ->
+            PermissionItem(
+                id,
+                title,
+                null,
+                Strings.commonChecking(),
+                PermissionStatus.Checking,
+                false,
+            )
         snapshot.notificationListener ->
-            PermissionItem(id, title, "通知触发的任务靠它收通知", "已允许", PermissionStatus.Ready, false)
+            PermissionItem(
+                id,
+                title,
+                Strings.notifyListenerReady(),
+                Strings.commonAllowed(),
+                PermissionStatus.Ready,
+                false,
+            )
         NotifyRuleStore.observed.any { it.enabled } ->
             PermissionItem(
                 id,
                 title,
-                "有开着的规则，没它不会触发",
-                "未允许",
+                Strings.notifyListenerNeeded(),
+                Strings.commonNotAllowed(),
                 PermissionStatus.Missing,
                 root == true,
             )
-        else -> PermissionItem(id, title, "通知触发要用，现在用不到", "未允许", PermissionStatus.Idle, false)
+        else ->
+            PermissionItem(
+                id,
+                title,
+                Strings.notifyListenerIdle(),
+                Strings.commonNotAllowed(),
+                PermissionStatus.Idle,
+                false,
+            )
     }
 }
 
@@ -117,10 +141,14 @@ internal fun NotifyTriggerEntry(backend: String, onOpen: () -> Unit) {
     val rules = NotifyRuleStore.observed.filter { it.backend == backend }
     val enabled = rules.count { it.enabled }
     ArrowPreference(
-        title = "通知触发",
+        title = Strings.settingsTitleNotifyTriggers(),
         startAction = { SettingsIcon(ZetaIcons.Bell, SettingsHue.Automation) },
         endActions = {
-            if (rules.isNotEmpty()) PreferenceValue(if (enabled == 0) "都关着" else "$enabled 条开着")
+            if (rules.isNotEmpty())
+                PreferenceValue(
+                    if (enabled == 0) Strings.settingsScheduleAllOff()
+                    else Strings.notifyOnCount(enabled),
+                )
         },
         onClick = onOpen,
     )
@@ -148,10 +176,14 @@ internal fun NotifyTriggerScreen(
     val zone = ZoneId.systemDefault()
 
     CouiPage(
-        title = "通知触发",
+        title = Strings.settingsTitleNotifyTriggers(),
         onBack = onBack,
         actions = {
-            IconActionButton(COUIIcons.Add, "新建规则", enabled = total < NotifyRules.MAX_RULES) {
+            IconActionButton(
+                COUIIcons.Add,
+                Strings.notifyNewRule(),
+                enabled = total < NotifyRules.MAX_RULES,
+            ) {
                 editing = RuleTarget(null)
             }
         },
@@ -185,8 +217,8 @@ private fun ListenerMissing(hub: ConversationHub, rules: List<NotifyRule>) {
             PermissionFixRow(
                 hub,
                 PermissionId.NotificationListener,
-                "还没有通知使用权",
-                "规则不会触发。",
+                Strings.notifyListenerMissing(),
+                Strings.notifyListenerMissingSummary(),
                 if (rules.any { it.enabled }) COUITheme.colorScheme.error else StatusWarning,
             )
         }
@@ -202,9 +234,15 @@ private fun RulesGroup(
     app: Application,
     onEdit: (NotifyRule) -> Unit,
 ) {
-    PreferenceGroup(title = "规则 · ${rules.size}", footer = ListFooter) {
+    PreferenceGroup(title = Strings.notifyRulesHeader(rules.size), footer = listFooter()) {
         if (rules.isEmpty()) {
-            item { BasicComponent(title = "还没有规则", summary = "点右上角 + 新建", enabled = false) }
+            item {
+                BasicComponent(
+                    title = Strings.notifyNoRules(),
+                    summary = Strings.settingsScheduleEmptyHint(),
+                    enabled = false,
+                )
+            }
         }
         rules.forEach { rule ->
             val summary = ruleSummary(rule, now, zone)
@@ -229,11 +267,11 @@ private fun ruleSummary(rule: NotifyRule, now: Long, zone: ZoneId): String {
     val fired = NotifyRules.firedToday(rule, now, zone)
     val state =
         if (last?.outcome == RunOutcome.Running) {
-            listOf("正在运行")
+            listOf(Strings.settingsScheduleRunning())
         } else {
             listOfNotNull(
-                if (fired > 0) "今天触发 $fired 次" else null,
-                last?.let { "上次" + outcomeWord(it.outcome) },
+                if (fired > 0) Strings.notifyFiredToday(fired) else null,
+                last?.let { Strings.settingsScheduleLastOutcome(outcomeWord(it.outcome)) },
             )
         }
     return (listOf(rule.appLabel.ifBlank { rule.packageName }) + state).joinToString(" · ")
@@ -286,9 +324,15 @@ private fun RuleEditor(
     }
 
     CouiPage(
-        title = if (original == null) "新建通知规则" else "编辑通知规则",
+        title = if (original == null) Strings.notifyNewTitle() else Strings.notifyEditTitle(),
         onBack = onBack,
-        actions = { ToolbarTextButton(text = "保存", enabled = problem == null, onClick = ::save) },
+        actions = {
+            ToolbarTextButton(
+                text = Strings.commonSave(),
+                enabled = problem == null,
+                onClick = ::save,
+            )
+        },
         dialogs = {
             RuleDialogs(
                 dialog = dialog,
@@ -315,8 +359,8 @@ private fun RuleEditor(
                     onValueChange = { text ->
                         update { copy(name = text.take(NotifyRules.MAX_NAME)) }
                     },
-                    title = "名称",
-                    label = "快递取件提醒",
+                    title = Strings.settingsScheduleName(),
+                    label = Strings.notifyNameExample(),
                 )
             }
         }
@@ -347,7 +391,9 @@ private fun RuleEditor(
         if (original != null) {
             item(key = "record") { RuleRecordGroup(hub, original, now, zone, onOpenConversation) }
             item(key = "delete") {
-                PreferenceGroup { item { DangerRow("删除规则") { dialog = RuleDialog.Delete } } }
+                PreferenceGroup {
+                    item { DangerRow(Strings.notifyDeleteRule()) { dialog = RuleDialog.Delete } }
+                }
             }
         }
     }
@@ -423,12 +469,12 @@ private fun RuleDialogs(
     )
     TextInputDialog(
         show = dialog == RuleDialog.Keywords,
-        title = "关键词",
-        summary = "标题或正文里含其中任一个才触发，不分大小写。几个关键词用逗号隔开，留空表示不限。",
+        title = Strings.notifyKeywords(),
+        summary = Strings.notifyKeywordsHelp(),
         value = keywordsInput,
         onValueChange = { keywordsInput = it },
-        label = "取件码，快递",
-        confirmText = "确定",
+        label = Strings.notifyKeywordsExample(),
+        confirmText = Strings.commonOk(),
         onConfirm = {
             update { copy(keywords = keywordsInput.trim()) }
             onClose()
@@ -447,9 +493,9 @@ private fun RuleDialogs(
     )
     ConfirmDialog(
         show = dialog == RuleDialog.Delete,
-        title = "删除规则",
-        summary = original?.let { "删除“${it.name}”？以后这个应用的通知不再触发它。之前运行留下的对话还在。" },
-        confirmText = "删除",
+        title = Strings.notifyDeleteRule(),
+        summary = original?.let { Strings.notifyDeleteConfirm(it.name) },
+        confirmText = Strings.commonDelete(),
         destructive = true,
         onConfirm = onDelete,
         onDismissRequest = onClose,
@@ -467,44 +513,53 @@ private fun TriggerGroup(
     onDialog: (RuleDialog) -> Unit,
 ) {
     val window = draft.window
-    PreferenceGroup(title = "触发条件", footer = footer) {
+    PreferenceGroup(title = Strings.notifyTrigger(), footer = footer) {
         item(key = "app") {
             ArrowPreference(
-                title = "应用",
+                title = Strings.notifyApp(),
                 summary = draft.packageName.takeIf { it.isNotBlank() && it != draft.appLabel },
                 endActions = {
-                    PreferenceValue(draft.appLabel.ifBlank { draft.packageName }.ifBlank { "选择" })
+                    PreferenceValue(
+                        draft.appLabel
+                            .ifBlank { draft.packageName }
+                            .ifBlank { Strings.notifyChoose() },
+                    )
                 },
                 onClick = onPickApp,
             )
         }
         item(key = "keywords") {
             BasicComponent(
-                title = "关键词",
+                title = Strings.notifyKeywords(),
                 summary = keywordsSummary(draft.keywords),
                 onClick = { onDialog(RuleDialog.Keywords) },
             )
         }
         item(key = "window") {
             SwitchPreference(
-                title = "只在某个时段触发",
-                summary = window?.let(NotifyRules::windowText) ?: "全天",
+                title = Strings.notifyOnlyWindow(),
+                summary = window?.let(NotifyRules::windowText) ?: Strings.notifyAllDay(),
                 checked = window != null,
                 onCheckedChange = { on -> update { copy(window = lastWindow.takeIf { on }) } },
             )
         }
         if (window != null) {
             item(key = "start") {
-                ValueRow("从", clockText(window.start)) { onDialog(RuleDialog.Start) }
+                ValueRow(Strings.notifyFrom(), clockText(window.start)) {
+                    onDialog(RuleDialog.Start)
+                }
             }
-            item(key = "end") { ValueRow("到", clockText(window.end)) { onDialog(RuleDialog.End) } }
+            item(key = "end") {
+                ValueRow(Strings.notifyTo(), clockText(window.end)) { onDialog(RuleDialog.End) }
+            }
         }
     }
 }
 
 private fun keywordsSummary(keywords: String): String =
-    NotifyRules.parseKeywords(keywords).takeIf { it.isNotEmpty() }?.joinToString("，")
-        ?: "不限，每条通知都触发"
+    NotifyRules.parseKeywords(keywords)
+        .takeIf { it.isNotEmpty() }
+        ?.joinToString(Strings.notifyKeywordSeparator()) ?: Strings.notifyKeywordsAny()
 
 private fun clockText(time: LocalTime): String = "%02d:%02d".format(time.hour, time.minute)
 
@@ -513,23 +568,23 @@ private fun clockText(time: LocalTime): String = "%02d:%02d".format(time.hour, t
 private fun RulePromptField(prompt: String, onChange: (String) -> Unit) {
     val risky = NotifyRules.usesPlaceholders(prompt)
     Column {
-        FieldCard(footer = if (risky) null else PromptFooter) {
+        FieldCard(footer = if (risky) null else promptFooter()) {
             InputView(
                 value = prompt,
                 onValueChange = onChange,
-                title = "指令",
-                label = "比如：看看这条快递通知 {text}，把取件码和地址记进今天的待办",
+                title = Strings.settingsSchedulePrompt(),
+                label = Strings.notifyPromptExample("{text}"),
                 singleLine = false,
                 maxLines = 10,
             )
         }
         if (risky) {
-            PreferenceGroup(footer = PromptFooter) {
+            PreferenceGroup(footer = promptFooter()) {
                 item {
                     // 用了 {title}、{text} 时，验证码、银行和支付通知也原样发出去；不想交出去的应用，不要给它设规则
                     BasicComponent(
-                        title = "验证码等内容也会交给 Claude",
-                        summary = "原样发出，并留在对话记录里",
+                        title = Strings.notifyRiskyTitle(),
+                        summary = Strings.notifyRiskySummary(),
                         titleColor = BasicComponentDefaults.titleColor(color = StatusWarning),
                     )
                 }
@@ -546,10 +601,10 @@ private fun RulePromptPreview(draft: RuleDraft, now: Long, nonce: String) {
             key = "",
             postTime = now,
             packageName = draft.packageName,
-            title = "示例标题",
-            text = "示例正文",
+            title = Strings.notifySampleTitle(),
+            text = Strings.notifySampleText(),
         )
-    PreferenceGroup(title = "发给 Claude 的样子") {
+    PreferenceGroup(title = Strings.notifyPreviewHeader()) {
         item {
             FieldBox {
                 Text(
@@ -557,7 +612,7 @@ private fun RulePromptPreview(draft: RuleDraft, now: Long, nonce: String) {
                         NotifyRules.render(
                             draft.prompt,
                             sample,
-                            draft.appLabel.ifBlank { "示例应用" },
+                            draft.appLabel.ifBlank { Strings.notifySampleApp() },
                             nonce,
                         ),
                     style = COUITheme.textStyles.bodyM,
@@ -572,14 +627,14 @@ private fun RulePromptPreview(draft: RuleDraft, now: Long, nonce: String) {
 @Composable
 private fun RuleLimitsGroup(draft: RuleDraft, update: (RuleDraft.() -> RuleDraft) -> Unit) {
     PreferenceGroup(
-        title = "防止失控",
-        footer = "冷却时间内、或今天已到上限时不再触发。常驻通知（音乐、导航、下载进度）和 Zeta 自己的通知不触发。",
+        title = Strings.notifyLimits(),
+        footer = Strings.notifyLimitsFooter(),
     ) {
         val cooldown = draft.cooldownMinutes
         val cooldowns = (NotifyRules.COOLDOWN_CHOICES + cooldown).distinct().sorted()
         item(key = "cooldown") {
             OverlayDropdownPreference(
-                title = "冷却时间",
+                title = Strings.notifyCooldown(),
                 items = cooldowns.map(NotifyRules::cooldownText),
                 selectedIndex = cooldowns.indexOf(cooldown),
                 onSelectedIndexChange = { index ->
@@ -593,8 +648,8 @@ private fun RuleLimitsGroup(draft: RuleDraft, update: (RuleDraft.() -> RuleDraft
         val limits = (NotifyRules.DAILY_LIMIT_CHOICES + dailyLimit).distinct().sorted()
         item(key = "limit") {
             OverlayDropdownPreference(
-                title = "每天最多",
-                items = limits.map { "$it 次" },
+                title = Strings.notifyDailyMax(),
+                items = limits.map(Strings::notifyTimes),
                 selectedIndex = limits.indexOf(dailyLimit),
                 onSelectedIndexChange = { index ->
                     limits.getOrNull(index)?.let { limit -> update { copy(dailyLimit = limit) } }
@@ -615,13 +670,14 @@ private fun RuleRunGroup(
     onPickCwd: () -> Unit,
 ) {
     PreferenceGroup(
-        title = "运行方式",
-        footer = "通知可能被人用来诱导 Claude，所以默认逐项确认：要改文件、执行命令时停下来，发通知等你。每次触发都开一个新对话。",
+        title = Strings.settingsScheduleRunGroup(),
+        footer = Strings.notifyRunFooter(),
     ) {
         item(key = "cwd") {
             BasicComponent(
-                title = "工作目录",
-                summary = draft.cwd.orEmpty().ifBlank { "$defaultCwd（默认）" },
+                title = Strings.commonWorkingDir(),
+                summary =
+                    draft.cwd.orEmpty().ifBlank { Strings.settingsScheduleDefaultCwd(defaultCwd) },
                 onClick = onPickCwd,
             )
         }
@@ -636,8 +692,10 @@ private fun RuleRunGroup(
             // 自动接受编辑只放行改文件；完全放行放行所有操作；自动判断由 Claude Code 决定放行哪些。只给信得过的应用这样设
             item(key = "risk") {
                 BasicComponent(
-                    title = "“${permissionModeLabel(mode)}”有风险",
-                    summary = if (mode == "acceptEdits") "可能不经确认就改文件" else "可能不经确认就改文件、执行命令",
+                    title = Strings.notifyModeRisk(permissionModeLabel(mode)),
+                    summary =
+                        if (mode == "acceptEdits") Strings.notifyRiskEdits()
+                        else Strings.notifyRiskAll(),
                     titleColor = BasicComponentDefaults.titleColor(color = StatusWarning),
                 )
             }
@@ -654,7 +712,7 @@ private fun RuleRecordGroup(
     zone: ZoneId,
     onOpenConversation: () -> Unit,
 ) {
-    PreferenceGroup(title = "运行记录") {
+    PreferenceGroup(title = Strings.commonRunHistory()) {
         original.lastRun?.let { run ->
             item(key = "last") {
                 LastRunRow(hub, run, Instant.ofEpochMilli(now), zone, onOpenConversation)
@@ -664,8 +722,13 @@ private fun RuleRecordGroup(
             val fired = NotifyRules.firedToday(original, now, zone)
             val until = NotifyRules.cooldownUntil(original, now)
             BasicComponent(
-                title = "今天触发 $fired 次",
-                summary = "上限 ${original.dailyLimit} 次" + cooldownText(until, now, zone),
+                title = Strings.notifyFiredToday(fired),
+                summary =
+                    listOfNotNull(
+                            Strings.notifyDailyLimitValue(original.dailyLimit),
+                            cooldownText(until, now, zone),
+                        )
+                        .joinToString(" · "),
             )
         }
         if (original.skips > 0) {
@@ -673,7 +736,7 @@ private fun RuleRecordGroup(
                 SkipsRow(
                     original.skips,
                     original.lastSkip,
-                    "上一次还没跑完",
+                    Strings.settingsScheduleSkippedBusy(),
                     Instant.ofEpochMilli(now),
                     zone,
                 )
@@ -682,11 +745,12 @@ private fun RuleRecordGroup(
     }
 }
 
-/** “ · 冷却到 …”；不在冷却时是空的。 */
-private fun cooldownText(until: Long?, now: Long, zone: ZoneId): String =
-    until?.let {
-        " · 冷却到 " + Schedules.formatWhen(Instant.ofEpochMilli(it), Instant.ofEpochMilli(now), zone)
-    } ?: ""
+/** “冷却到 …”；不在冷却时为 null。 */
+private fun cooldownText(until: Long?, now: Long, zone: ZoneId): String? = until?.let {
+    Strings.notifyCooldownUntil(
+        Schedules.formatWhen(Instant.ofEpochMilli(it), Instant.ofEpochMilli(now), zone),
+    )
+}
 
 /** 选应用时列出的一个。 */
 private class AppEntry(val packageName: String, val label: String)
@@ -724,7 +788,7 @@ private fun AppPicker(
     val listState = rememberLazyListState()
     val cards = AppCards(current, onPick, manualRow = { manual = true })
     CouiPageScaffold(
-        title = "选择应用",
+        title = Strings.notifyPickApp(),
         onBack = onBack,
         topBarBottomContent = {
             TopAppBarSearchBar(
@@ -735,8 +799,8 @@ private fun AppPicker(
                     searching = it
                     if (!it) query = ""
                 },
-                cancelText = "取消",
-                label = "搜索应用名或包名",
+                cancelText = Strings.commonCancel(),
+                label = Strings.notifySearchApps(),
             )
         },
         topBarSearchState = searchState,
@@ -799,14 +863,16 @@ private fun AppRow(entry: AppEntry, cards: AppCards) {
     BasicComponent(
         title = entry.label,
         summary = entry.packageName.takeIf { it != entry.label },
-        endActions = if (entry.packageName == cards.current) ({ PreferenceValue("当前") }) else null,
+        endActions =
+            if (entry.packageName == cards.current) ({ PreferenceValue(Strings.commonCurrent()) })
+            else null,
         onClick = { cards.onPick(entry.packageName, entry.label) },
     )
 }
 
 @Composable
 private fun ManualRow(cards: AppCards) {
-    BasicComponent(title = "手动输入包名", onClick = cards.manualRow)
+    BasicComponent(title = Strings.notifyManualPackage(), onClick = cards.manualRow)
 }
 
 /** 一张卡片里的一串应用，逐行放进列表（全部应用可能有几百个）。[manual] 时卡片里排在应用前面的是“手动输入包名”。 */
@@ -841,17 +907,19 @@ private fun LazyListScope.appListItems(
 ) {
     if (apps == null) {
         item(key = "loading") {
-            PreferenceGroup { item { BasicComponent(title = "正在读取应用列表…", enabled = false) } }
+            PreferenceGroup {
+                item { BasicComponent(title = Strings.notifyLoadingApps(), enabled = false) }
+            }
         }
         return
     }
-    if (active.isNotEmpty()) appCard("recent", "通知栏里现在有通知的", active, cards)
+    if (active.isNotEmpty()) appCard("recent", Strings.notifyActiveApps(), active, cards)
     appCard(
         key = "all",
-        title = "全部应用",
+        title = Strings.notifyAllApps(),
         entries = apps.take(400),
         cards = cards,
-        footer = "只列有桌面图标的应用，别的用“手动输入包名”。",
+        footer = Strings.notifyAllAppsFooter(),
         manual = true,
     )
 }
@@ -870,8 +938,8 @@ private fun LazyListScope.appSearchItems(
                 appMatches(entry, query) && recent.none { it.packageName == entry.packageName }
             }
             .take(400)
-    if (recent.isNotEmpty()) appCard("found-recent", "通知栏里现在有通知的", recent, cards)
-    appCard("found-all", "全部应用", rest, cards, manual = true)
+    if (recent.isNotEmpty()) appCard("found-recent", Strings.notifyActiveApps(), recent, cards)
+    appCard("found-all", Strings.notifyAllApps(), rest, cards, manual = true)
 }
 
 /** 手动输入包名；名字从读到的列表里找，找不到另查。 */
@@ -886,12 +954,12 @@ private fun ManualPackageDialog(
     var input by remember(show) { mutableStateOf("") }
     TextInputDialog(
         show = show,
-        title = "应用的包名",
-        summary = "比如 com.tencent.mm。",
+        title = Strings.notifyPackageDialog(),
+        summary = Strings.notifyPackageExample(),
         value = input,
         onValueChange = { input = it.trim() },
         label = "com.example.app",
-        confirmText = "确定",
+        confirmText = Strings.commonOk(),
         confirmEnabled = input.isNotBlank(),
         onConfirm = {
             val pkg = input.trim()

@@ -16,6 +16,7 @@ import com.dzshzx.zeta.core.Backends
 import com.dzshzx.zeta.core.ConversationHub
 import com.dzshzx.zeta.core.SetupState
 import com.dzshzx.zeta.core.environment
+import com.dzshzx.zeta.i18n.Strings
 import com.dzshzx.zeta.ui.components.SlideInPage
 import com.dzshzx.zeta.ui.components.coui2.CouiPage
 import com.dzshzx.zeta.ui.components.coui2.PreferenceGroup
@@ -41,11 +42,6 @@ private enum class HostPage {
     Agents,
     ToolPermissions,
 }
-
-private const val ConfigFooter = "改的是这台设备上 Claude Code 自己的配置（~/.claude），那边终端里的 claude 同样生效。"
-
-private const val LinuxFooter =
-    "手机上的 Claude Code 跑在手机里的 Debian 上：安装、体检、可选工具、文件、SSH 服务，" + "以及 Claude Code 的版本和登录都在这里。"
 
 /**
  * 设置 › 一台主机（手机或一台远程主机）。上面三组是这台上的 Claude Code：新对话的默认值（模型、思考强度、权限模式， 存在那台的
@@ -97,7 +93,7 @@ private fun LazyListScope.claudeItems(
     onOpen: (HostPage) -> Unit,
 ) {
     item(key = "defaults") {
-        PreferenceGroup(title = "新对话默认", footer = ClaudeDefaultsFooter) {
+        PreferenceGroup(title = Strings.settingsHostDefaults(), footer = ClaudeDefaultsFooter) {
             item { DefaultModelPreference(hub, backend) }
             item { DefaultEffortEntry(hub, backend, onOpen = { onOpen(HostPage.DefaultEffort) }) }
             item { DefaultPermissionModePreference(hub, backend) }
@@ -118,15 +114,18 @@ private fun LazyListScope.claudeItems(
         }
     }
     item(key = "config") {
-        PreferenceGroup(title = "Claude Code 配置", footer = ConfigFooter) {
+        PreferenceGroup(
+            title = Strings.settingsHostClaudeConfig(),
+            footer = Strings.settingsHostConfigFooter(),
+        ) {
             fun entry(title: String, page: HostPage) = item {
                 ArrowPreference(title = title, enabled = ready, onClick = { onOpen(page) })
             }
-            entry("记忆", HostPage.Memory)
+            entry(Strings.settingsHostMemory(), HostPage.Memory)
             entry("Skills", HostPage.Skills)
-            entry("MCP 服务器", HostPage.Mcp)
-            entry("Subagent", HostPage.Agents)
-            entry("工具权限", HostPage.ToolPermissions)
+            entry(Strings.settingsHostMcpServers(), HostPage.Mcp)
+            entry(Strings.settingsHostSubagents(), HostPage.Agents)
+            entry(Strings.settingsHostToolPermissions(), HostPage.ToolPermissions)
         }
     }
 }
@@ -149,12 +148,15 @@ private fun LocalHostScreen(
     ) {
         claude()
         item(key = "device") {
-            PreferenceGroup(title = "设备", footer = LinuxFooter) {
+            PreferenceGroup(
+                title = Strings.settingsHostDevice(),
+                footer = Strings.settingsHostLinuxFooter(),
+            ) {
                 item { DeviceNameRow(hub, Backends.LOCAL) { renaming = true } }
                 item {
                     val (value, bad) = linuxState(hub)
                     ArrowPreference(
-                        title = "Linux 环境",
+                        title = Strings.settingsTitleLinux(),
                         endActions = {
                             PreferenceValue(
                                 value,
@@ -172,8 +174,9 @@ private fun LocalHostScreen(
 /** 手机的 Debian 现在怎样、要不要红字：就绪了是 Linux 用户名。 */
 internal fun linuxState(hub: ConversationHub): Pair<String, Boolean> =
     when (hub.environment.setup) {
-        SetupState.Checking -> "检查中" to false
-        SetupState.NoRoot -> "没有 root" to true
-        SetupState.NoEnvironment -> "未安装" to true
-        SetupState.Ready -> hub.settings.env?.let { it.user to false } ?: ("未安装" to true)
+        SetupState.Checking -> Strings.commonChecking() to false
+        SetupState.NoRoot -> Strings.settingsHostNoRoot() to true
+        SetupState.NoEnvironment -> Strings.commonNotInstalled() to true
+        SetupState.Ready ->
+            hub.settings.env?.let { it.user to false } ?: (Strings.commonNotInstalled() to true)
     }

@@ -2,6 +2,7 @@ package com.dzshzx.zeta.core.ssh
 
 import com.dzshzx.zeta.core.CommandResult
 import com.dzshzx.zeta.core.RemoteHost
+import com.dzshzx.zeta.i18n.Strings
 import java.io.BufferedReader
 import java.io.File
 import java.io.IOException
@@ -138,7 +139,7 @@ class SshLinks(
         }
             .getOrElse {
                 child.probes.remove(id)
-                return ProbeResult(null, null, it.cause?.message ?: "zeta-ssh 没有回应")
+                return ProbeResult(null, null, it.cause?.message ?: Strings.sshNoResponse())
             }
         val seen = answer.string("host_key")?.let(Base64.getDecoder()::decode)
         val problem = answer.string("problem")
@@ -190,7 +191,7 @@ class SshLinks(
                 }
             runCatching { Child(program()) }
                 .onSuccess { child = it }
-                .recoverCatching { throw IOException("Zeta 的 SSH 程序起不来：${it.message}") }
+                .recoverCatching { throw IOException(Strings.sshStartFailed(it.message.orEmpty())) }
         }
 
     /** 一个 zeta-ssh 进程。 */
@@ -227,7 +228,7 @@ class SshLinks(
             if (hello?.string("type") != "hello") {
                 process.destroy()
                 process.waitFor(5, TimeUnit.SECONDS)
-                throw IOException(lastError.ifEmpty { "没有打招呼" })
+                throw IOException(lastError.ifEmpty { Strings.sshNoHello() })
             }
             window = hello["window"]?.jsonPrimitive?.int ?: DEFAULT_WINDOW
             thread(name = "zeta-ssh-read", isDaemon = true) { read(output) }
@@ -309,7 +310,7 @@ class SshLinks(
         /** 它退出了（或写不进去了）：上面的命令和检查都失败，下次要用时另起一个。 */
         fun lost() {
             val why =
-                "Zeta 的 SSH 程序退出了" + lastError.takeIf { it.isNotEmpty() }?.let { "：$it" }.orEmpty()
+                if (lastError.isEmpty()) Strings.sshExited() else Strings.sshExitedWith(lastError)
             reason = why
             if (!dead.compareAndSet(false, true)) return
             synchronized(lock) { if (child === this) child = null }
@@ -375,7 +376,7 @@ class SshLinks(
             exit = code
             stdout.end()
             stderr.end()
-            pending?.complete("已经结束")
+            pending?.complete(Strings.sshEnded())
             done.countDown()
         }
 
@@ -460,7 +461,7 @@ class SshLinks(
 
                 private fun send(data: ByteArray) =
                     synchronized(writing) {
-                        if (!isAlive) throw IOException("通道已经断了")
+                        if (!isAlive) throw IOException(Strings.sshChannelClosed())
                         val reply = CompletableFuture<String?>()
                         pending = reply
                         val sent =
@@ -471,9 +472,9 @@ class SshLinks(
                                     put("data", Base64.getEncoder().encodeToString(data))
                                 },
                             ) == true
-                        if (!sent) throw IOException("通道已经断了")
+                        if (!sent) throw IOException(Strings.sshChannelClosed())
                         // 进程这时已经结束的，exited 已经答过或马上答
-                        if (!isAlive) reply.complete("已经结束")
+                        if (!isAlive) reply.complete(Strings.sshEnded())
                         reply.get()?.let { throw IOException(it) }
                     }
 

@@ -3,6 +3,7 @@ package com.dzshzx.zeta.ui.settings
 import androidx.compose.runtime.Composable
 import com.dzshzx.zeta.core.AutoCompact
 import com.dzshzx.zeta.core.ConversationHub
+import com.dzshzx.zeta.i18n.Strings
 import com.dzshzx.zeta.ui.components.coui2.SettingsHue
 import com.dzshzx.zeta.ui.components.coui2.SettingsIcon
 import com.dzshzx.zeta.ui.components.coui2.ZetaIcons
@@ -13,7 +14,8 @@ import io.github.suqi8.coui.kmp.preference.OverlayDropdownPreference
 import io.github.suqi8.coui.kmp.preference.SwitchPreference
 
 internal fun compactPercentLabel(percent: Int?): String =
-    if (percent == null) "默认（快满时）" else "用到 $percent% 时"
+    if (percent == null) Strings.settingsCompactDefault()
+    else Strings.settingsCompactAtPercent(percent)
 
 /**
  * 设备页「自动压缩上下文」：主机 [backend] 上的。只影响 Zeta 在那台上起的 Claude Code 进程（起进程时带环境变量），不改 Claude Code 自己的配置；
@@ -23,7 +25,7 @@ internal fun compactPercentLabel(percent: Int?): String =
 internal fun AutoCompactSwitch(hub: ConversationHub, backend: String) {
     val claude = hub.settings.claude(backend)
     SwitchPreference(
-        title = "自动压缩上下文",
+        title = Strings.settingsCompactAuto(),
         startAction = { SettingsIcon(COUIIcons.Backup, SettingsHue.Claude) },
         checked = claude.autoCompact,
         onCheckedChange = { claude.autoCompact = it },
@@ -35,7 +37,7 @@ internal fun AutoCompactSwitch(hub: ConversationHub, backend: String) {
 internal fun AutoTitleSwitch(hub: ConversationHub, backend: String) {
     val claude = hub.settings.claude(backend)
     SwitchPreference(
-        title = "自动生成对话标题",
+        title = Strings.settingsCompactAutoTitle(),
         startAction = { SettingsIcon(ZetaIcons.Sparkle, SettingsHue.Claude) },
         checked = claude.autoTitle,
         onCheckedChange = { claude.autoTitle = it },
@@ -53,7 +55,7 @@ internal fun CompactTimingPreference(hub: ConversationHub, backend: String) {
             AutoCompact.Percents +
             listOfNotNull(percent?.takeIf { it !in AutoCompact.Percents })
     OverlayDropdownPreference(
-        title = "压缩时机",
+        title = Strings.settingsCompactTiming(),
         startAction = {
             SettingsIcon(COUIIcons.Tune, SettingsHue.Claude, enabled = claude.autoCompact)
         },

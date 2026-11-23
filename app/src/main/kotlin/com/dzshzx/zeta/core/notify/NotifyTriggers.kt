@@ -15,12 +15,14 @@ import com.dzshzx.zeta.core.schedule.RunRecord
 import com.dzshzx.zeta.core.schedule.RunRecords
 import com.dzshzx.zeta.core.schedule.RunSpec
 import com.dzshzx.zeta.core.schedule.ScheduleRunner
+import com.dzshzx.zeta.i18n.Strings
 import java.time.ZoneId
 
 /** 通知触发的规则的运行记录写在规则清单里。每次都开新对话，没有接着用的会话。 */
 internal object NotifyRecords : RunRecords {
     override val kind = "notify"
-    override val fallbackName = "通知触发"
+    override val fallbackName: String
+        get() = Strings.settingsTitleNotifyTriggers()
 
     override fun name(context: Context, id: String): String? =
         NotifyRuleStore.find(context, id)?.name

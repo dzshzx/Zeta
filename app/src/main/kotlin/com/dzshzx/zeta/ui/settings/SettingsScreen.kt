@@ -15,6 +15,7 @@ import com.dzshzx.zeta.core.ConversationHub
 import com.dzshzx.zeta.core.RemoteHosts
 import com.dzshzx.zeta.core.SetupState
 import com.dzshzx.zeta.core.environment
+import com.dzshzx.zeta.i18n.Strings
 import com.dzshzx.zeta.ui.browser.BrowserActivity
 import com.dzshzx.zeta.ui.components.SlideInPage
 import com.dzshzx.zeta.ui.components.coui2.CouiPage
@@ -120,15 +121,19 @@ private fun SettingsHome(
     onOpenSubPage: (SettingsSubPage) -> Unit,
 ) {
     val context = LocalContext.current
-    CouiPage(title = "设置", onBack = onBack, topBarStyle = CouiTopBarStyle.SettingsHome) {
+    CouiPage(
+        title = Strings.settingsHomeTitle(),
+        onBack = onBack,
+        topBarStyle = CouiTopBarStyle.SettingsHome,
+    ) {
         item(key = "hosts") {
-            PreferenceGroup(title = "设备") {
+            PreferenceGroup(title = Strings.settingsHomeDevices()) {
                 hub.backends.forEach { backend ->
                     item { HostEntry(hub, backend) { onOpenHost(backend) } }
                 }
                 item {
                     ArrowPreference(
-                        title = "添加远程设备",
+                        title = Strings.settingsHomeAddRemote(),
                         startAction = { SettingsIcon(COUIIcons.Add, SettingsHue.Files) },
                         onClick = { onOpenSubPage(SettingsSubPage.RemoteHosts) },
                     )
@@ -136,13 +141,16 @@ private fun SettingsHome(
             }
         }
         item(key = "phone") {
-            PreferenceGroup(title = "手机与工具") {
+            PreferenceGroup(title = Strings.settingsHomePhoneAndTools()) {
                 item {
                     ArrowPreference(
-                        title = "手机操作",
+                        title = Strings.settingsTitlePhone(),
                         startAction = { SettingsIcon(ZetaIcons.Phone, SettingsHue.System) },
                         endActions = {
-                            PreferenceValue(if (hub.settings.phoneTools) "已开启" else "已关闭")
+                            PreferenceValue(
+                                if (hub.settings.phoneTools) Strings.commonOn()
+                                else Strings.settingsHomeOff(),
+                            )
                         },
                         onClick = { onOpenSubPage(SettingsSubPage.Phone) },
                     )
@@ -150,7 +158,7 @@ private fun SettingsHome(
                 item { AssistantEntry { onOpenSubPage(SettingsSubPage.Assistant) } }
                 item {
                     ArrowPreference(
-                        title = "浏览器",
+                        title = Strings.settingsHomeBrowser(),
                         startAction = { SettingsIcon(ZetaIcons.Globe, SettingsHue.System) },
                         onClick = { BrowserActivity.open(context) },
                     )
@@ -161,18 +169,18 @@ private fun SettingsHome(
             }
         }
         item(key = "general") {
-            PreferenceGroup(title = "通用") {
+            PreferenceGroup(title = Strings.settingsHomeGeneral()) {
                 item { LanguageRow() }
                 item {
                     ArrowPreference(
-                        title = "外观与主题",
+                        title = Strings.settingsTitleAppearance(),
                         startAction = { SettingsIcon(COUIIcons.Theme, SettingsHue.System) },
                         endActions = {
                             PreferenceValue(
                                 when (hub.settings.darkTheme) {
-                                    null -> "跟随系统"
-                                    false -> "浅色"
-                                    true -> "深色"
+                                    null -> Strings.commonFollowSystem()
+                                    false -> Strings.commonThemeLight()
+                                    true -> Strings.commonThemeDark()
                                 },
                             )
                         },
@@ -182,7 +190,7 @@ private fun SettingsHome(
                 item {
                     // 只在 Zeta 显示在前台时起作用；切到别的应用或回到桌面，屏幕照常按系统设置熄灭
                     SwitchPreference(
-                        title = "对话中保持屏幕常亮",
+                        title = Strings.settingsHomeKeepScreenOn(),
                         startAction = { SettingsIcon(ZetaIcons.Sun, SettingsHue.System) },
                         checked = hub.settings.keepScreenOn,
                         onCheckedChange = { hub.settings.keepScreenOn = it },
@@ -191,7 +199,7 @@ private fun SettingsHome(
                 item {
                     // 关着的时候，回答里的网络图片先显示成一个“加载图片”的小条，点一下才去取
                     SwitchPreference(
-                        title = "自动加载网络图片",
+                        title = Strings.settingsHomeAutoLoadImages(),
                         startAction = { SettingsIcon(COUIIcons.Image, SettingsHue.Claude) },
                         checked = hub.settings.autoLoadRemoteImages,
                         onCheckedChange = { hub.settings.autoLoadRemoteImages = it },
@@ -200,7 +208,7 @@ private fun SettingsHome(
                 item {
                     // 一轮回答完了用系统的朗读引擎念出来，锁屏也接着读
                     SwitchPreference(
-                        title = "回答自动朗读",
+                        title = Strings.settingsHomeAutoRead(),
                         startAction = { SettingsIcon(COUIIcons.VolumeUp, SettingsHue.Claude) },
                         checked = hub.settings.autoReadAnswers,
                         onCheckedChange = { hub.settings.autoReadAnswers = it },
@@ -209,7 +217,7 @@ private fun SettingsHome(
                 item { StorageEntry { onOpenSubPage(SettingsSubPage.Storage) } }
                 item {
                     ArrowPreference(
-                        title = "备份与恢复",
+                        title = Strings.settingsBackupTitle(),
                         startAction = { SettingsIcon(ZetaIcons.Archive, SettingsHue.Files) },
                         onClick = { onOpenSubPage(SettingsSubPage.Backup) },
                     )
@@ -237,9 +245,9 @@ private fun HostEntry(hub: ConversationHub, backend: String, onOpen: () -> Unit)
         when {
             usable -> null
             host == null -> linuxState(hub)
-            !host.connected -> "已断开" to false
-            hub.environment.setup == SetupState.Checking -> "检查中" to false
-            else -> "Debian 未就绪" to true
+            !host.connected -> Strings.settingsHomeDisconnected() to false
+            hub.environment.setup == SetupState.Checking -> Strings.commonChecking() to false
+            else -> Strings.settingsHomeDebianNotReady() to true
         }
     ArrowPreference(
         title = hub.backendName(backend),
@@ -270,15 +278,15 @@ private fun PermissionHealthEntry(hub: ConversationHub, onOpen: () -> Unit) {
     val issues = items.count { it.needsAttention }
     val checking = items.any { it.status == PermissionStatus.Checking }
     ArrowPreference(
-        title = "权限健康",
+        title = Strings.settingsPermTitle(),
         startAction = { SettingsIcon(ZetaIcons.ShieldCheck, SettingsHue.System) },
         endActions = {
             PreferenceValue(
                 text =
                     when {
-                        issues > 0 -> "$issues 项需关注"
-                        checking -> "检查中"
-                        else -> "正常"
+                        issues > 0 -> Strings.settingsHomeIssues(issues)
+                        checking -> Strings.commonChecking()
+                        else -> Strings.settingsHomeHealthy()
                     },
                 color = if (issues == 0) Color.Unspecified else COUITheme.colorScheme.error,
             )

@@ -15,6 +15,7 @@ import androidx.compose.ui.platform.LocalContext
 import com.dzshzx.zeta.core.ConversationHub
 import com.dzshzx.zeta.core.SetupState
 import com.dzshzx.zeta.core.environment
+import com.dzshzx.zeta.i18n.Strings
 import com.dzshzx.zeta.ui.components.StatusWarning
 import com.dzshzx.zeta.ui.components.coui2.CouiPage
 import com.dzshzx.zeta.ui.components.coui2.PreferenceGroup
@@ -60,10 +61,13 @@ internal fun PermissionHealthScreen(
     }
 
     val fixable = items.filter { it.rootFixable }
-    CouiPage(title = "权限健康", onBack = onBack) {
+    CouiPage(title = Strings.settingsPermTitle(), onBack = onBack) {
         item(key = "items") {
             // 对话进行时 Zeta 靠前台服务（通知栏里那一条）保持运行；对话本身跑在 Linux 环境里，Zeta 被关掉也照样跑完
-            PreferenceGroup(title = "权限与状态", footer = "清理最近任务会关掉 Zeta，进行中的对话不受影响，重新打开会接上。") {
+            PreferenceGroup(
+                title = Strings.settingsPermGroup(),
+                footer = Strings.settingsPermGroupFooter(),
+            ) {
                 items.forEach { entry ->
                     item(key = entry.id) {
                         val busy = entry.id in working
@@ -81,10 +85,10 @@ internal fun PermissionHealthScreen(
             // 一键授予经 root 逐项改系统设置（做法见 PermissionHealth.fixWithRoot）：电池白名单并解除后台限制、MIUI 后台弹出界面、
             // 通知、无障碍（只在系统列表末尾加上 Zeta，别的服务原样保留）、通知历史、精确闹钟、自启动、通知使用权（有开着的通知触发规则时）、
             // 麦克风、健康连接的读权限。摘要只写几项，是哪几项看上面各行的状态
-            PreferenceGroup(footer = "经 root 直接改系统设置。没改成的那一项，点它会打开对应的系统设置。") {
+            PreferenceGroup(footer = Strings.settingsPermGrantFooter()) {
                 item {
                     BasicComponent(
-                        title = "一键授予",
+                        title = Strings.settingsPermGrantAll(),
                         summary =
                             grantSummary(granting, result, hub.environment.setup, fixable.size),
                         enabled = fixable.isNotEmpty() && !granting && working.isEmpty(),
@@ -133,7 +137,7 @@ private fun PermissionRow(
 ) {
     val value: @Composable () -> Unit = {
         PreferenceValue(
-            if (busy) "正在处理…" else entry.value,
+            if (busy) Strings.settingsPermWorking() else entry.value,
             color = if (busy) Color.Unspecified else statusColor(entry.status),
         )
     }
@@ -162,15 +166,16 @@ private fun grantSummary(
     fixable: Int,
 ): String =
     when {
-        granting -> "正在授予…"
+        granting -> Strings.commonGranting()
         result != null -> result
-        setup == SetupState.NoRoot -> "需要 root 权限"
-        setup == SetupState.Checking -> "正在检查 root 权限"
-        fixable == 0 -> "没有需要补上的权限"
-        else -> "有 $fixable 项可以补上"
+        setup == SetupState.NoRoot -> Strings.settingsPermNeedsRoot()
+        setup == SetupState.Checking -> Strings.settingsPermCheckingRoot()
+        fixable == 0 -> Strings.settingsPermNothingToGrant()
+        else -> Strings.settingsPermFixableCount(fixable)
     }
 
-private fun grantResult(failed: Int): String = if (failed == 0) "已全部授予" else "有 $failed 项没改成"
+private fun grantResult(failed: Int): String =
+    if (failed == 0) Strings.settingsPermAllGranted() else Strings.settingsPermFailedCount(failed)
 
 /** 经 root 逐项改，返回没改成的项数。 */
 private suspend fun grantWithRoot(context: Context, fixable: List<PermissionItem>): Int =

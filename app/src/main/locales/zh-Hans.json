@@ -8735,5 +8735,2975 @@
   "phoneScreenshotFailed": "截屏没有成功",
   "@phoneScreenshotFailed": {
     "description": "轻提示：截屏失败。"
+  },
+  "commonCancel": "取消",
+  "@commonCancel": {
+    "description": "通用按钮：取消，关掉对话框不做改动。"
+  },
+  "commonOk": "确定",
+  "@commonOk": {
+    "description": "通用按钮：确定，确认对话框里的操作或输入。"
+  },
+  "commonSave": "保存",
+  "@commonSave": {
+    "description": "通用按钮：保存。"
+  },
+  "commonDelete": "删除",
+  "@commonDelete": {
+    "description": "通用按钮或菜单项：删除。"
+  },
+  "commonCopy": "复制",
+  "@commonCopy": {
+    "description": "通用按钮或菜单项：复制到剪贴板。"
+  },
+  "commonCopied": "已复制",
+  "@commonCopied": {
+    "description": "复制到剪贴板后的提示。"
+  },
+  "commonClose": "关闭",
+  "@commonClose": {
+    "description": "通用按钮：关掉对话框、页面或卡片。"
+  },
+  "commonRetry": "重试",
+  "@commonRetry": {
+    "description": "通用按钮：失败后再试一次。"
+  },
+  "commonDone": "完成",
+  "@commonDone": {
+    "description": "通用按钮：做完、关掉编辑。"
+  },
+  "commonBack": "返回",
+  "@commonBack": {
+    "description": "返回上一页的按钮（无障碍朗读）。"
+  },
+  "commonChecking": "检查中",
+  "@commonChecking": {
+    "description": "一行设置右边的状态：还在检查。"
+  },
+  "commonQuerying": "查询中",
+  "@commonQuerying": {
+    "description": "一行设置右边的状态：还在查询。"
+  },
+  "commonNone": "无",
+  "@commonNone": {
+    "description": "值为空时显示：没有。"
+  },
+  "commonFollowSystem": "跟随系统",
+  "@commonFollowSystem": {
+    "description": "选项：跟随系统的设置（深浅色等）。选界面语言另用 settingsLanguageSystem。"
+  },
+  "commonFollowClaudeCode": "跟随 Claude Code",
+  "@commonFollowClaudeCode": {
+    "description": "选项：不另设，用 Claude Code 自己的默认值。"
+  },
+  "settingsTitleAppearance": "外观与主题",
+  "@settingsTitleAppearance": {
+    "description": "设置里「外观与主题」页的名字：首页那一行、页标题、备份时列出的分类都用它。"
+  },
+  "settingsTitlePhone": "手机操作",
+  "@settingsTitlePhone": {
+    "description": "设置里「手机操作」页的名字（让 Claude 操作手机界面的一组设置）。"
+  },
+  "settingsTitleSchedules": "定时任务",
+  "@settingsTitleSchedules": {
+    "description": "设置里「定时任务」页的名字。"
+  },
+  "settingsTitleNotifyTriggers": "通知触发",
+  "@settingsTitleNotifyTriggers": {
+    "description": "设置里「通知触发」页的名字（收到某类通知时让 Claude 做事）。"
+  },
+  "settingsTitleLinux": "Linux 环境",
+  "@settingsTitleLinux": {
+    "description": "手机上 Debian 环境的名字：设置里那一页、权限页那一项都用它。"
+  },
+  "commonThemeLight": "浅色",
+  "@commonThemeLight": {
+    "description": "外观选项：浅色。"
+  },
+  "commonThemeDark": "深色",
+  "@commonThemeDark": {
+    "description": "外观选项：深色。"
+  },
+  "commonAllowed": "已允许",
+  "@commonAllowed": {
+    "description": "一项权限的状态：已允许。"
+  },
+  "commonNotAllowed": "未允许",
+  "@commonNotAllowed": {
+    "description": "一项权限的状态：未允许。"
+  },
+  "commonNotEnabled": "未开启",
+  "@commonNotEnabled": {
+    "description": "一项功能或服务的状态：没开。"
+  },
+  "commonNotInstalled": "未安装",
+  "@commonNotInstalled": {
+    "description": "一个程序或环境的状态：没装。"
+  },
+  "commonWorkingDir": "工作目录",
+  "@commonWorkingDir": {
+    "description": "任务在哪个目录里跑：定时任务、通知触发编辑页里的一行。"
+  },
+  "commonRunHistory": "运行记录",
+  "@commonRunHistory": {
+    "description": "定时任务、通知触发里过去各次运行的列表。"
+  },
+  "commonVersion": "版本",
+  "@commonVersion": {
+    "description": "版本号那一行的名字。"
+  },
+  "settingsAutoCheckUpdates": "自动检查更新",
+  "@settingsAutoCheckUpdates": {
+    "description": "更新页的开关：定期自己检查有没有新版本；备份时列出的设置项也用它。"
+  },
+  "commonUnknown": "查不到",
+  "@commonUnknown": {
+    "description": "一行设置或环境信息的值：读不到。"
+  },
+  "commonCurrent": "当前",
+  "@commonCurrent": {
+    "description": "列表里标出现在用着的那一项。"
+  },
+  "commonGranting": "正在授予…",
+  "@commonGranting": {
+    "description": "点了经 root 授予权限后、结果出来前的状态。"
+  },
+  "commonOn": "已开启",
+  "@commonOn": {
+    "description": "一项开关或服务的状态：开着。"
+  },
+  "commonListSeparator": "、",
+  "@commonListSeparator": {
+    "description": "句子里并列几个名字时它们之间的分隔。"
+  },
+  "settingsPermTitle": "权限健康",
+  "@settingsPermTitle": {
+    "description": "权限健康页的标题。"
+  },
+  "settingsPermGroup": "权限与状态",
+  "@settingsPermGroup": {
+    "description": "权限健康页上列各项权限的一组标题。"
+  },
+  "settingsPermGroupFooter": "清理最近任务会关掉 Zeta，进行中的对话不受影响，重新打开会接上。",
+  "@settingsPermGroupFooter": {
+    "description": "权限健康页「权限与状态」一组下面的说明。"
+  },
+  "settingsPermGrantFooter": "经 root 直接改系统设置。没改成的那一项，点它会打开对应的系统设置。",
+  "@settingsPermGrantFooter": {
+    "description": "权限健康页「一键授予」一组下面的说明。"
+  },
+  "settingsPermGrantAll": "一键授予",
+  "@settingsPermGrantAll": {
+    "description": "权限健康页的按钮：经 root 把能补的权限一次补上。"
+  },
+  "settingsPermWorking": "正在处理…",
+  "@settingsPermWorking": {
+    "description": "权限健康页一项右边的状态：正在经 root 修这一项。"
+  },
+  "settingsPermNeedsRoot": "需要 root 权限",
+  "@settingsPermNeedsRoot": {
+    "description": "「一键授予」下面的说明：没有 root，用不了。"
+  },
+  "settingsPermCheckingRoot": "正在检查 root 权限",
+  "@settingsPermCheckingRoot": {
+    "description": "「一键授予」下面的说明：还在检查有没有 root。"
+  },
+  "settingsPermNothingToGrant": "没有需要补上的权限",
+  "@settingsPermNothingToGrant": {
+    "description": "「一键授予」下面的说明：各项都好，没有要补的。"
+  },
+  "settingsPermFixableCount": "{count, plural, other {有 {count} 项可以补上}}",
+  "@settingsPermFixableCount": {
+    "description": "「一键授予」下面的说明：能经 root 补上的项数。",
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "settingsPermAllGranted": "已全部授予",
+  "@settingsPermAllGranted": {
+    "description": "「一键授予」做完、全部成功时的说明。"
+  },
+  "settingsPermFailedCount": "{count, plural, other {有 {count} 项没改成}}",
+  "@settingsPermFailedCount": {
+    "description": "「一键授予」做完、有几项没改成时的说明。",
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "settingsPermRoot": "Root 权限",
+  "@settingsPermRoot": {
+    "description": "权限健康页一项：Zeta 有没有 root。"
+  },
+  "settingsPermAccessibility": "无障碍服务",
+  "@settingsPermAccessibility": {
+    "description": "权限健康页一项、手机操作页一组的标题：Zeta 的无障碍服务。"
+  },
+  "settingsPermBattery": "后台运行",
+  "@settingsPermBattery": {
+    "description": "权限健康页一项：电池优化白名单与后台限制。"
+  },
+  "settingsPermBackgroundStart": "后台弹出界面",
+  "@settingsPermBackgroundStart": {
+    "description": "权限健康页一项：MIUI/HyperOS 的「后台弹出界面」权限。"
+  },
+  "settingsPermNotifications": "通知",
+  "@settingsPermNotifications": {
+    "description": "权限健康页一项：Zeta 发通知的权限。"
+  },
+  "settingsPermNotificationHistory": "通知历史",
+  "@settingsPermNotificationHistory": {
+    "description": "权限健康页一项：系统设置里的通知历史开关。"
+  },
+  "settingsPermExactAlarm": "精确闹钟",
+  "@settingsPermExactAlarm": {
+    "description": "权限健康页一项：排精确闹钟的权限（定时任务用）。"
+  },
+  "settingsPermAutoStart": "自启动",
+  "@settingsPermAutoStart": {
+    "description": "权限健康页一项：小米系统的自启动权限。"
+  },
+  "settingsPermMicrophone": "麦克风",
+  "@settingsPermMicrophone": {
+    "description": "权限健康页一项：麦克风权限。"
+  },
+  "settingsPermHealth": "健康数据",
+  "@settingsPermHealth": {
+    "description": "权限健康页一项：健康连接的读权限。"
+  },
+  "settingsPermGranted": "已授权",
+  "@settingsPermGranted": {
+    "description": "权限健康页一项右边的状态：已授权。"
+  },
+  "settingsPermNotGranted": "未授权",
+  "@settingsPermNotGranted": {
+    "description": "权限健康页一项右边的状态：未授权。"
+  },
+  "settingsPermUnavailable": "不可用",
+  "@settingsPermUnavailable": {
+    "description": "权限健康页 Linux 环境一项的状态：没有 root，用不了。"
+  },
+  "settingsPermReady": "已就绪",
+  "@settingsPermReady": {
+    "description": "权限健康页 Linux 环境一项的状态：装好、登录了。"
+  },
+  "settingsPermConnected": "已连接",
+  "@settingsPermConnected": {
+    "description": "无障碍服务的状态：系统已经连上 Zeta 的服务。"
+  },
+  "settingsPermNotConnected": "未连上",
+  "@settingsPermNotConnected": {
+    "description": "无障碍服务的状态：系统里开着，但没连上。"
+  },
+  "settingsPermRestricted": "受限制",
+  "@settingsPermRestricted": {
+    "description": "后台运行一项的状态：电池设置里限制了后台。"
+  },
+  "settingsPermPartlyOff": "部分关闭",
+  "@settingsPermPartlyOff": {
+    "description": "通知一项的状态：有一类通知被关掉了。"
+  },
+  "settingsPermRootReadySummary": "Linux 环境和一键授予都靠它",
+  "@settingsPermRootReadySummary": {
+    "description": "Root 权限一项的说明（已授权时）。"
+  },
+  "settingsPermRootMissingSummary": "在 root 管理器里授权后点这里",
+  "@settingsPermRootMissingSummary": {
+    "description": "Root 权限一项的说明（没授权时）。"
+  },
+  "settingsPermLinuxNeedsRoot": "需要先有 root 权限",
+  "@settingsPermLinuxNeedsRoot": {
+    "description": "Linux 环境一项的说明（没有 root 时）。"
+  },
+  "settingsPermLinuxInstall": "点这里去安装",
+  "@settingsPermLinuxInstall": {
+    "description": "Linux 环境一项的说明（还没装时）。"
+  },
+  "settingsPermLinuxSignIn": "点这里登录 Claude 账号",
+  "@settingsPermLinuxSignIn": {
+    "description": "Linux 环境一项的说明（没登录时）。"
+  },
+  "settingsPermA11yReady": "Claude 读屏、点按都靠它",
+  "@settingsPermA11yReady": {
+    "description": "无障碍服务一项的说明（连着时）。"
+  },
+  "settingsPermA11yPhoneOff": "手机操作已关闭，现在用不到",
+  "@settingsPermA11yPhoneOff": {
+    "description": "无障碍服务一项的说明（手机操作关着时）。"
+  },
+  "settingsPermA11yReconnect": "已开启但没连上，点这里重开",
+  "@settingsPermA11yReconnect": {
+    "description": "无障碍服务一项的说明（开着却没连上时）。"
+  },
+  "settingsPermA11yAuto": "Claude 要用时会自动打开",
+  "@settingsPermA11yAuto": {
+    "description": "无障碍服务一项的说明（有 root、没开时）。"
+  },
+  "settingsPermA11yNoRoot": "没有 root，要到系统设置里开",
+  "@settingsPermA11yNoRoot": {
+    "description": "无障碍服务一项的说明（没有 root、没开时）。"
+  },
+  "settingsPermBatterySummary": "长时间息屏时不被系统限制",
+  "@settingsPermBatterySummary": {
+    "description": "后台运行一项的说明。"
+  },
+  "settingsPermBatteryRestricted": "电池设置里限制了后台",
+  "@settingsPermBatteryRestricted": {
+    "description": "后台运行一项的说明（电池设置里限制了后台时）。"
+  },
+  "settingsPermNotificationsSummary": "运行状态、完成与确认提醒",
+  "@settingsPermNotificationsSummary": {
+    "description": "通知一项的说明：Zeta 发哪两类通知。"
+  },
+  "settingsPermNotificationsBlocked": "已关掉：{channels}",
+  "@settingsPermNotificationsBlocked": {
+    "description": "通知一项的说明：被关掉的通知类别，{channels} 是用 settingsPermListSeparator 连起来的类别名。"
+  },
+  "settingsPermHistoryOn": "Claude 能查已划掉的通知",
+  "@settingsPermHistoryOn": {
+    "description": "通知历史一项的说明（开着时）。"
+  },
+  "settingsPermHistoryOff": "开启后 Claude 能查已划掉的通知",
+  "@settingsPermHistoryOff": {
+    "description": "通知历史一项的说明（关着时）。"
+  },
+  "settingsPermExactOn": "定时任务到点准时开始",
+  "@settingsPermExactOn": {
+    "description": "精确闹钟一项的说明（已允许时）。"
+  },
+  "settingsPermExactOff": "没有它定时任务可能推迟",
+  "@settingsPermExactOff": {
+    "description": "精确闹钟一项的说明（未允许时）。"
+  },
+  "settingsPermAutoStartOn": "Zeta 没开着时定时任务也能跑",
+  "@settingsPermAutoStartOn": {
+    "description": "自启动一项的说明（已允许时）。"
+  },
+  "settingsPermAutoStartOff": "Zeta 没开着时定时任务跑不了",
+  "@settingsPermAutoStartOff": {
+    "description": "自启动一项的说明（未允许时）。"
+  },
+  "settingsPermMicSummary": "按住发送键说话时用",
+  "@settingsPermMicSummary": {
+    "description": "麦克风一项的说明。"
+  },
+  "settingsPermHealthOn": "Claude 能读步数、睡眠等（只读）",
+  "@settingsPermHealthOn": {
+    "description": "健康数据一项的说明（已授权时）。"
+  },
+  "settingsPermHealthOff": "授权后 Claude 能读步数、睡眠等",
+  "@settingsPermHealthOff": {
+    "description": "健康数据一项的说明（未授权时）。"
+  },
+  "settingsPermBgStartOn": "从胶囊点对话标题回到 Zeta",
+  "@settingsPermBgStartOn": {
+    "description": "后台弹出界面一项的说明（已允许时）。胶囊是悬浮在别的应用上的状态胶囊。"
+  },
+  "settingsPermBgStartSlow": "从胶囊回到 Zeta 会慢一些",
+  "@settingsPermBgStartSlow": {
+    "description": "后台弹出界面一项的说明（未允许、有 root 时）。"
+  },
+  "settingsPermBgStartBlocked": "从胶囊点对话标题回不到 Zeta",
+  "@settingsPermBgStartBlocked": {
+    "description": "后台弹出界面一项的说明（未允许、没有 root 时）。"
+  },
+  "settingsPhoneFooter": "「让 Claude 操作手机」对之后新开的对话生效，每次操作仍按权限模式征求你同意。要你亲自操作（付款、验证码、登录）时，Claude 会把应用移到主屏。",
+  "@settingsPhoneFooter": {
+    "description": "手机操作页第一组下面的说明。"
+  },
+  "settingsPhoneTools": "让 Claude 操作手机",
+  "@settingsPhoneTools": {
+    "description": "手机操作页的开关：把手机工具交给 Claude。"
+  },
+  "settingsPhoneToolsSummary": "读屏、点按、输入，执行 root 命令",
+  "@settingsPhoneToolsSummary": {
+    "description": "「让 Claude 操作手机」开关的说明。"
+  },
+  "settingsPhoneAgentDisplay": "在后台屏幕上操作",
+  "@settingsPhoneAgentDisplay": {
+    "description": "手机操作页的开关：Claude 打开的应用放在看不见的后台屏幕上。"
+  },
+  "settingsPhoneAgentDisplaySummary": "Claude 打开的应用不占你的屏幕",
+  "@settingsPhoneAgentDisplaySummary": {
+    "description": "「在后台屏幕上操作」开关的说明。"
+  },
+  "settingsPhoneA11yFooter": "Claude 读控件、输入中文、做手势都靠它，没有它只能靠截图和坐标操作主屏幕。Claude 要用时会自动打开。",
+  "@settingsPhoneA11yFooter": {
+    "description": "手机操作页「无障碍服务」一组下面的说明。"
+  },
+  "settingsPhoneStatus": "状态",
+  "@settingsPhoneStatus": {
+    "description": "手机操作页无障碍服务一组里显示状态的一行。"
+  },
+  "settingsPhoneA11yTurnOff": "关闭无障碍服务",
+  "@settingsPhoneA11yTurnOff": {
+    "description": "手机操作页的按钮：关掉 Zeta 的无障碍服务。"
+  },
+  "settingsPhoneA11yTurnOn": "开启无障碍服务",
+  "@settingsPhoneA11yTurnOn": {
+    "description": "手机操作页的按钮：经 root 打开 Zeta 的无障碍服务。"
+  },
+  "settingsPhoneA11yTurnOnSummary": "经 root 直接开启",
+  "@settingsPhoneA11yTurnOnSummary": {
+    "description": "「开启无障碍服务」按钮的说明。"
+  },
+  "settingsPhoneAutoRestore": "被系统关掉后自动打开",
+  "@settingsPhoneAutoRestore": {
+    "description": "手机操作页的开关：无障碍服务被系统停用后自动加回。"
+  },
+  "settingsPhoneOpenSystem": "打开系统的无障碍设置",
+  "@settingsPhoneOpenSystem": {
+    "description": "手机操作页的一行：打开系统设置里的无障碍页。"
+  },
+  "settingsPhoneTurningOn": "正在开启…",
+  "@settingsPhoneTurningOn": {
+    "description": "无障碍服务的状态：正在开启。"
+  },
+  "settingsPhoneTurnOnFailed": "没有开启成功",
+  "@settingsPhoneTurnOnFailed": {
+    "description": "无障碍服务的状态：开启失败。"
+  },
+  "settingsAssistantTitle": "数字助理",
+  "@settingsAssistantTitle": {
+    "description": "设置首页的一行、数字助理页的标题、诊断页一组的标题。"
+  },
+  "settingsAssistantIsDefault": "已是默认",
+  "@settingsAssistantIsDefault": {
+    "description": "设置首页「数字助理」右边：Zeta 已是默认数字助理。"
+  },
+  "settingsAssistantNotSet": "未设置",
+  "@settingsAssistantNotSet": {
+    "description": "设置首页「数字助理」右边：Zeta 不是默认数字助理。"
+  },
+  "settingsAssistantFooter": "设为默认后，系统的助理入口会唤起 Zeta 浮窗，带上当前屏幕问 Claude。HyperOS 上长按电源键还要启用 LSPosed 模块，见诊断页。",
+  "@settingsAssistantFooter": {
+    "description": "数字助理页第一组下面的说明。"
+  },
+  "settingsAssistantConversations": "数字助理的对话",
+  "@settingsAssistantConversations": {
+    "description": "数字助理页一组的标题：数字助理新开对话用的模型和思考强度。"
+  },
+  "settingsAssistantConversationsFooter": "选「跟随 Claude Code」时和新对话一样，用 Claude Code 设置里的默认（设置首页能看到）。单独选的不影响新对话。",
+  "@settingsAssistantConversationsFooter": {
+    "description": "数字助理页「数字助理的对话」一组下面的说明；「跟随 Claude Code」是选项 commonFollowClaudeCode 的字。"
+  },
+  "settingsAssistantDefault": "默认数字助理",
+  "@settingsAssistantDefault": {
+    "description": "数字助理页、诊断页的一行：系统的默认数字助理是谁。"
+  },
+  "settingsAssistantDefaultSummary": "在系统设置里选",
+  "@settingsAssistantDefaultSummary": {
+    "description": "「默认数字助理」一行的说明。"
+  },
+  "settingsAssistantCantOpenSettings": "打不开系统的默认助理设置",
+  "@settingsAssistantCantOpenSettings": {
+    "description": "点「默认数字助理」打不开系统设置时的提示。"
+  },
+  "settingsAssistantNoLog": "读不到模块日志（没有 root）。",
+  "@settingsAssistantNoLog": {
+    "description": "诊断页数字助理一组下面的说明：读不到 LSPosed 模块的日志。"
+  },
+  "settingsAssistantEnableModule": "要让长按电源键唤起 Zeta，在 LSPosed 里启用本包（{packageName}）的模块，作用域选「系统框架」，再重启手机。现在还没有记录：没启用，或还没重启。",
+  "@settingsAssistantEnableModule": {
+    "description": "诊断页数字助理一组下面的说明：模块还没有记录时说怎么启用。{packageName} 是本包的包名。"
+  },
+  "settingsAssistantRecentLog": "模块最近的记录：\n{lines}",
+  "@settingsAssistantRecentLog": {
+    "description": "诊断页数字助理一组下面的说明：{lines} 是模块日志最近几行，原样显示。"
+  },
+  "settingsAssistantRecognizer": "系统语音识别",
+  "@settingsAssistantRecognizer": {
+    "description": "诊断页数字助理一组的一行：系统默认的语音识别服务。"
+  },
+  "settingsAssistantRecognizerBroken": "开机后默认助理会被换掉",
+  "@settingsAssistantRecognizerBroken": {
+    "description": "「系统语音识别」一行的说明：识别服务不是 Zeta 的时。"
+  },
+  "settingsAssistantNotZeta": "不是 Zeta",
+  "@settingsAssistantNotZeta": {
+    "description": "「系统语音识别」一行右边：默认识别服务不是 Zeta 的。"
+  },
+  "settingsAssistantPowerKey": "长按电源键接管",
+  "@settingsAssistantPowerKey": {
+    "description": "诊断页数字助理一组的一行：长按电源键交给 Zeta 的 LSPosed 模块装没装上。"
+  },
+  "settingsStorageTitle": "存储",
+  "@settingsStorageTitle": {
+    "description": "设置首页的一行、存储页的标题。"
+  },
+  "settingsStorageFree": "剩余 {size}",
+  "@settingsStorageFree": {
+    "description": "设置首页「存储」右边：手机剩余空间，{size} 是带单位的大小。"
+  },
+  "settingsStorageCleanFailed": "没有清理成",
+  "@settingsStorageCleanFailed": {
+    "description": "存储页清理失败时对话框的标题。"
+  },
+  "settingsStorageNothingToClean": "没有可清理的{kind}",
+  "@settingsStorageNothingToClean": {
+    "description": "存储页点一类、没有能清的时的提示；{kind} 是这一类的名字（应用缓存、附件等）。"
+  },
+  "settingsStorageRescan": "重新统计",
+  "@settingsStorageRescan": {
+    "description": "存储页顶栏按钮（无障碍朗读）：重新统计各类占用。"
+  },
+  "settingsStorageClaudeFooter": "Claude Code 启动时会删掉超过自动清理期限没动过的会话记录和上面这些文件。",
+  "@settingsStorageClaudeFooter": {
+    "description": "存储页 Claude Code 一组下面的说明。"
+  },
+  "settingsStorageCleanupPeriod": "自动清理期限",
+  "@settingsStorageCleanupPeriod": {
+    "description": "存储页 Claude Code 一组的一行：Claude Code 的 cleanupPeriodDays。"
+  },
+  "settingsStorageNeedsLinux": "Linux 环境准备好以后才能看",
+  "@settingsStorageNeedsLinux": {
+    "description": "存储页 Linux 一侧的行在环境没就绪时的说明。"
+  },
+  "settingsStorageCleanConfirm": "清理{kind}？",
+  "@settingsStorageCleanConfirm": {
+    "description": "存储页清理前确认框的标题；{kind} 是这一类的名字。"
+  },
+  "settingsStorageClean": "清理",
+  "@settingsStorageClean": {
+    "description": "存储页确认框的按钮：清理。"
+  },
+  "settingsStoragePhoneFree": "手机剩余空间",
+  "@settingsStoragePhoneFree": {
+    "description": "存储页第一组的一行。"
+  },
+  "settingsStorageDebian": "Debian 环境",
+  "@settingsStorageDebian": {
+    "description": "存储页第一组的一行：整个 Debian rootfs 占的空间。"
+  },
+  "settingsStorageCounting": "统计中",
+  "@settingsStorageCounting": {
+    "description": "存储页 Debian 环境一行右边：还在统计。"
+  },
+  "settingsStorageSessions": "会话记录",
+  "@settingsStorageSessions": {
+    "description": "存储页一组的标题：Claude Code 的会话记录（~/.claude/projects）。"
+  },
+  "settingsStorageSessionsFooter": "删会话到侧栏里长按或多选。",
+  "@settingsStorageSessionsFooter": {
+    "description": "存储页会话记录一组下面的说明。"
+  },
+  "settingsStorageNoSessions": "还没有会话记录",
+  "@settingsStorageNoSessions": {
+    "description": "存储页会话记录一组：一个项目都没有时。"
+  },
+  "settingsStorageSessionCount": "{count, plural, other {{count} 个会话}}",
+  "@settingsStorageSessionCount": {
+    "description": "存储页一个项目有几个会话。",
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "settingsStorageCountFailed": "没统计成",
+  "@settingsStorageCountFailed": {
+    "description": "存储页统计失败时的一行。"
+  },
+  "settingsStorageCountingNow": "正在统计…",
+  "@settingsStorageCountingNow": {
+    "description": "存储页正在统计时的一行。"
+  },
+  "settingsStorageNotInSidebar": "侧栏里没有这个会话（它没有可显示的内容）",
+  "@settingsStorageNotInSidebar": {
+    "description": "存储页项目里点一个侧栏没有的会话时的提示。"
+  },
+  "settingsStorageProjectFooter": "大小含会话记录和它的同名目录。要删会话，到侧栏里长按或多选；进行中的删不了。",
+  "@settingsStorageProjectFooter": {
+    "description": "存储页一个项目的会话列表下面的说明。"
+  },
+  "settingsStorageProjectEmpty": "这个项目里没有会话记录",
+  "@settingsStorageProjectEmpty": {
+    "description": "存储页一个项目里一个会话都没有时。"
+  },
+  "settingsStorageRestFooter": "项目目录里不属于某个会话的东西，比如自动记忆、已删会话留下的同名目录。",
+  "@settingsStorageRestFooter": {
+    "description": "存储页项目里「其他」一行上面的说明。"
+  },
+  "settingsStorageOther": "其他",
+  "@settingsStorageOther": {
+    "description": "存储页项目里不属于某个会话的占用。"
+  },
+  "settingsStorageNoContent": "（没有对话内容）",
+  "@settingsStorageNoContent": {
+    "description": "存储页里没有标题也没有预览的会话的名字。"
+  },
+  "settingsStorageLive": "进行中",
+  "@settingsStorageLive": {
+    "description": "存储页一个会话的说明：对话正在进行。"
+  },
+  "settingsStorageArchived": "已归档",
+  "@settingsStorageArchived": {
+    "description": "存储页一个会话的说明：已归档。"
+  },
+  "settingsHostConfigFooter": "改的是这台设备上 Claude Code 自己的配置（~/.claude），那边终端里的 claude 同样生效。",
+  "@settingsHostConfigFooter": {
+    "description": "设备页「Claude Code 配置」一组下面的说明。"
+  },
+  "settingsHostLinuxFooter": "手机上的 Claude Code 跑在手机里的 Debian 上：安装、体检、可选工具、文件、SSH 服务，以及 Claude Code 的版本和登录都在这里。",
+  "@settingsHostLinuxFooter": {
+    "description": "手机的设备页「设备」一组下面的说明。"
+  },
+  "settingsHostDefaults": "新对话默认",
+  "@settingsHostDefaults": {
+    "description": "设备页一组的标题：新对话的默认模型、思考强度、权限模式。"
+  },
+  "settingsHostClaudeConfig": "Claude Code 配置",
+  "@settingsHostClaudeConfig": {
+    "description": "设备页一组的标题：Claude Code 自己的配置（记忆、Skills 等）。"
+  },
+  "settingsHostMemory": "记忆",
+  "@settingsHostMemory": {
+    "description": "设备页的一行：Claude Code 的记忆（CLAUDE.md）。"
+  },
+  "settingsHostMcpServers": "MCP 服务器",
+  "@settingsHostMcpServers": {
+    "description": "设备页的一行。"
+  },
+  "settingsHostSubagents": "Subagent",
+  "@settingsHostSubagents": {
+    "description": "设备页的一行：Claude Code 的子代理。"
+  },
+  "settingsHostToolPermissions": "工具权限",
+  "@settingsHostToolPermissions": {
+    "description": "设备页的一行：Claude Code 的工具权限规则。"
+  },
+  "settingsHostDevice": "设备",
+  "@settingsHostDevice": {
+    "description": "手机的设备页一组的标题：设备名和 Linux 环境。"
+  },
+  "settingsHostNoRoot": "没有 root",
+  "@settingsHostNoRoot": {
+    "description": "设备页 Linux 环境一行右边：手机没有 root。"
+  },
+  "settingsBackupBadModel": "不是有效的模型名",
+  "@settingsBackupBadModel": {
+    "description": "导入设置时一项被跳过的原因：模型名不对。"
+  },
+  "settingsBackupMachineRootfs": "Linux 环境装在这台手机的哪个位置，换手机或重装后由 Zeta 重新检测",
+  "@settingsBackupMachineRootfs": {
+    "description": "导入设置时跳过的这台手机特有的一项（rootfs）的原因。"
+  },
+  "settingsBackupMachineUser": "Linux 环境里的用户，由 Zeta 检测",
+  "@settingsBackupMachineUser": {
+    "description": "导入设置时跳过的这台手机特有的一项（Linux 用户、uid、gid、家目录）的原因。"
+  },
+  "settingsBackupMachinePhoneDisplay": "调试用的屏幕编号，只对当时那块虚拟屏有效",
+  "@settingsBackupMachinePhoneDisplay": {
+    "description": "导入设置时跳过的这台手机特有的一项的原因。"
+  },
+  "settingsBackupMachineUpdateDevManifest": "测试版调试应用内更新用的清单地址，只对当时的测试有效",
+  "@settingsBackupMachineUpdateDevManifest": {
+    "description": "导入设置时跳过的这台手机特有的一项的原因。"
+  },
+  "settingsBackupMachineUpdateDevCert": "测试版调试应用内更新用的信任证书，只对当时的测试有效",
+  "@settingsBackupMachineUpdateDevCert": {
+    "description": "导入设置时跳过的这台手机特有的一项的原因。"
+  },
+  "settingsBackupMachineUpdateCheckedAt": "这台手机上次检查更新的时间",
+  "@settingsBackupMachineUpdateCheckedAt": {
+    "description": "导入设置时跳过的这台手机特有的一项的原因。"
+  },
+  "settingsBackupMachineUpdateNotified": "这台手机已经提醒过的新版本",
+  "@settingsBackupMachineUpdateNotified": {
+    "description": "导入设置时跳过的这台手机特有的一项的原因。"
+  },
+  "settingsBackupMachineMutedApps": "为后台运行临时静音、还没恢复的应用，是这台手机当下的状态",
+  "@settingsBackupMachineMutedApps": {
+    "description": "导入设置时跳过的这台手机特有的一项的原因。"
+  },
+  "settingsBackupMachineRemoteClaude": "各台远程设备上的自动压缩、压缩时机和自动标题，跟着远程设备的清单走",
+  "@settingsBackupMachineRemoteClaude": {
+    "description": "导入设置时跳过的这台手机特有的一项的原因。"
+  },
+  "settingsBackupMachineRemoteHosts": "远程设备靠这台手机的密钥连过去（Debian 里 ~/.ssh 的，或 Zeta 直连用的、存在这台手机里的），换手机后先让那些设备认新手机的公钥再加",
+  "@settingsBackupMachineRemoteHosts": {
+    "description": "导入设置时跳过的这台手机特有的一项（远程设备清单）的原因。"
+  },
+  "settingsBackupMachineBackend": "侧栏正看着哪台设备，跟着远程设备的清单走",
+  "@settingsBackupMachineBackend": {
+    "description": "导入设置时跳过的这台手机特有的一项的原因。"
+  },
+  "settingsBackupMachinePaneAll": "侧栏列不列全部设备的对话，跟着远程设备的清单走",
+  "@settingsBackupMachinePaneAll": {
+    "description": "导入设置时跳过的这台手机特有的一项的原因。"
+  },
+  "settingsBackupMachineLocalName": "给这台手机起的名字，换手机后按新手机的名字显示",
+  "@settingsBackupMachineLocalName": {
+    "description": "导入设置时跳过的这台手机特有的一项的原因。"
+  },
+  "settingsBackupMachineAlarms": "定时任务在这台手机上排过的闹钟，重排时据此取消已删掉的任务的闹钟；导入定时任务后会重新排",
+  "@settingsBackupMachineAlarms": {
+    "description": "导入设置时跳过的这台手机特有的一项的原因。"
+  },
+  "settingsBackupKeepScreenOn": "对话进行中保持屏幕常亮",
+  "@settingsBackupKeepScreenOn": {
+    "description": "备份确认清单里的设置项名。"
+  },
+  "settingsBackupAccessibilityGuard": "无障碍服务被系统关掉后自动打开",
+  "@settingsBackupAccessibilityGuard": {
+    "description": "备份确认清单里的设置项名。"
+  },
+  "settingsBackupAssistantModel": "数字助理的模型",
+  "@settingsBackupAssistantModel": {
+    "description": "备份确认清单里的设置项名：数字助理（长按电源键唤起的）用的模型。"
+  },
+  "settingsBackupAssistantEffort": "数字助理的思考强度",
+  "@settingsBackupAssistantEffort": {
+    "description": "备份确认清单里的设置项名。"
+  },
+  "settingsBackupBadPercent": "应为 1 到 100 的整数",
+  "@settingsBackupBadPercent": {
+    "description": "导入设置时一项被跳过的原因。"
+  },
+  "settingsBackupDefaultCwd": "默认工作目录",
+  "@settingsBackupDefaultCwd": {
+    "description": "备份确认清单里的设置项名。"
+  },
+  "settingsBackupBadPath": "不是有效的绝对路径",
+  "@settingsBackupBadPath": {
+    "description": "导入设置时一项被跳过的原因。"
+  },
+  "settingsBackupPinned": "置顶的对话",
+  "@settingsBackupPinned": {
+    "description": "备份确认清单里的设置项名。"
+  },
+  "settingsBackupPinnedCount": "{count, plural, other {{count} 个}}",
+  "@settingsBackupPinnedCount": {
+    "description": "备份确认清单里置顶的对话有几个。",
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "settingsBackupSharedFolders": "共享文件夹",
+  "@settingsBackupSharedFolders": {
+    "description": "备份确认清单里的设置项名。"
+  },
+  "settingsBackupSavedPrompts": "常用指令",
+  "@settingsBackupSavedPrompts": {
+    "description": "备份确认清单里的设置项名。"
+  },
+  "settingsBackupPromptCount": "{count, plural, other {{count} 条}}",
+  "@settingsBackupPromptCount": {
+    "description": "备份确认清单里常用指令有几条。",
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "settingsBackupInvalidJson": "文件不是 JSON",
+  "@settingsBackupInvalidJson": {
+    "description": "导入设置失败的原因。"
+  },
+  "settingsBackupInvalidFormat": "不是 Zeta 的设置备份",
+  "@settingsBackupInvalidFormat": {
+    "description": "导入设置失败的原因。"
+  },
+  "settingsBackupNoVersion": "备份文件缺少格式版本号",
+  "@settingsBackupNoVersion": {
+    "description": "导入设置失败的原因。"
+  },
+  "settingsBackupBadVersion": "格式版本号无效",
+  "@settingsBackupBadVersion": {
+    "description": "导入设置失败的原因。"
+  },
+  "settingsBackupNewerVersion": "备份来自更新版本的 Zeta（格式版本 {version}），请先升级 Zeta 再导入",
+  "@settingsBackupNewerVersion": {
+    "description": "导入设置失败的原因：备份的格式版本比这个 Zeta 认的新。",
+    "placeholders": {
+      "version": {
+        "type": "int"
+      }
+    }
+  },
+  "settingsBackupNoSettings": "备份文件里没有设置",
+  "@settingsBackupNoSettings": {
+    "description": "导入设置失败的原因。"
+  },
+  "settingsBackupNoValue": "没有值",
+  "@settingsBackupNoValue": {
+    "description": "导入设置时一项被跳过的原因。"
+  },
+  "settingsBackupMachineSkip": "这台手机特有的设置，不导入：{reason}",
+  "@settingsBackupMachineSkip": {
+    "description": "导入设置时跳过这台手机特有的一项；reason 是它为什么只属于这台手机。"
+  },
+  "settingsBackupUnknownKey": "这个版本的 Zeta 没有这一项（更新版本加的，或已经去掉了）",
+  "@settingsBackupUnknownKey": {
+    "description": "导入设置时跳过不认识的一项的原因。"
+  },
+  "settingsBackupOn": "开",
+  "@settingsBackupOn": {
+    "description": "备份确认清单里开关项的值：开着。"
+  },
+  "settingsBackupOff": "关",
+  "@settingsBackupOff": {
+    "description": "备份确认清单里开关项的值：关着。"
+  },
+  "settingsBackupBadBool": "应为开关值（true 或 false）",
+  "@settingsBackupBadBool": {
+    "description": "导入设置时一项被跳过的原因。"
+  },
+  "settingsBackupBadText": "应为文字",
+  "@settingsBackupBadText": {
+    "description": "导入设置时一项被跳过的原因。"
+  },
+  "settingsBackupUnknownValue": "不认识的取值“{value}”",
+  "@settingsBackupUnknownValue": {
+    "description": "导入设置时一项被跳过的原因；value 是文件里的值（最多 40 个字）。"
+  },
+  "settingsBackupBadNumber": "应为数字",
+  "@settingsBackupBadNumber": {
+    "description": "导入设置时一项被跳过的原因。"
+  },
+  "settingsBackupBadScale": "应在 {min}% 到 {max}% 之间",
+  "@settingsBackupBadScale": {
+    "description": "导入设置时界面缩放被跳过的原因。",
+    "placeholders": {
+      "min": {
+        "type": "int"
+      },
+      "max": {
+        "type": "int"
+      }
+    }
+  },
+  "settingsBackupBadPinnedList": "应为会话 id 的列表",
+  "@settingsBackupBadPinnedList": {
+    "description": "导入设置时置顶的对话被跳过的原因。"
+  },
+  "settingsBackupTooMany": "条目太多",
+  "@settingsBackupTooMany": {
+    "description": "导入设置时一项被跳过的原因。"
+  },
+  "settingsBackupBadSessionId": "含有无效的会话 id",
+  "@settingsBackupBadSessionId": {
+    "description": "导入设置时置顶的对话被跳过的原因。"
+  },
+  "settingsBackupBadList": "应为列表",
+  "@settingsBackupBadList": {
+    "description": "导入设置时一项被跳过的原因。"
+  },
+  "settingsBackupMaxItems": "最多 {max} 个",
+  "@settingsBackupMaxItems": {
+    "description": "导入设置时共享文件夹、定时任务被跳过的原因：个数超过上限。",
+    "placeholders": {
+      "max": {
+        "type": "int"
+      }
+    }
+  },
+  "settingsBackupMaxEntries": "最多 {max} 条",
+  "@settingsBackupMaxEntries": {
+    "description": "导入设置时常用指令、通知触发规则被跳过的原因：条数超过上限。",
+    "placeholders": {
+      "max": {
+        "type": "int"
+      }
+    }
+  },
+  "settingsBackupFolderMissing": "第 {index} 个缺少名字或目录",
+  "@settingsBackupFolderMissing": {
+    "description": "导入设置时共享文件夹被跳过的原因。",
+    "placeholders": {
+      "index": {
+        "type": "int"
+      }
+    }
+  },
+  "settingsBackupFolderBadPath": "第 {index} 个：目录路径无效",
+  "@settingsBackupFolderBadPath": {
+    "description": "导入设置时共享文件夹被跳过的原因。",
+    "placeholders": {
+      "index": {
+        "type": "int"
+      }
+    }
+  },
+  "settingsBackupItemProblem": "第 {index} 个（{name}）：{problem}",
+  "@settingsBackupItemProblem": {
+    "description": "导入设置时共享文件夹、定时任务被跳过的原因：第几个、它的名字、哪里不对。",
+    "placeholders": {
+      "index": {
+        "type": "int"
+      }
+    }
+  },
+  "settingsBackupPromptMissing": "第 {index} 条缺少名字或内容",
+  "@settingsBackupPromptMissing": {
+    "description": "导入设置时常用指令被跳过的原因。",
+    "placeholders": {
+      "index": {
+        "type": "int"
+      }
+    }
+  },
+  "settingsBackupEntryProblem": "第 {index} 条：{problem}",
+  "@settingsBackupEntryProblem": {
+    "description": "导入设置时常用指令被跳过的原因：第几条、哪里不对。",
+    "placeholders": {
+      "index": {
+        "type": "int"
+      }
+    }
+  },
+  "settingsBackupTaskMissing": "第 {index} 个缺少指令或时间",
+  "@settingsBackupTaskMissing": {
+    "description": "导入设置时定时任务被跳过的原因。",
+    "placeholders": {
+      "index": {
+        "type": "int"
+      }
+    }
+  },
+  "settingsBackupRuleMissing": "第 {index} 条缺少应用或指令",
+  "@settingsBackupRuleMissing": {
+    "description": "导入设置时通知触发规则被跳过的原因。",
+    "placeholders": {
+      "index": {
+        "type": "int"
+      }
+    }
+  },
+  "settingsBackupEntryNamedProblem": "第 {index} 条（{name}）：{problem}",
+  "@settingsBackupEntryNamedProblem": {
+    "description": "导入设置时通知触发规则被跳过的原因：第几条、它的名字、哪里不对。",
+    "placeholders": {
+      "index": {
+        "type": "int"
+      }
+    }
+  },
+  "settingsBackupUnknownMode": "不认识的权限模式“{mode}”",
+  "@settingsBackupUnknownMode": {
+    "description": "导入设置时定时任务、通知触发规则被跳过的原因；mode 是文件里的值（最多 40 个字）。"
+  },
+  "settingsBackupExported": "设置已导出",
+  "@settingsBackupExported": {
+    "description": "导出设置成功后的提示。"
+  },
+  "settingsBackupExportFailed": "导出失败",
+  "@settingsBackupExportFailed": {
+    "description": "导出设置失败的提示。"
+  },
+  "settingsBackupFileName": "设置",
+  "@settingsBackupFileName": {
+    "description": "导出的设置备份默认文件名里的标题部分（后面接日期）。"
+  },
+  "settingsBackupTitle": "备份与恢复",
+  "@settingsBackupTitle": {
+    "description": "设置里「备份与恢复」页的标题。"
+  },
+  "settingsBackupFooter": "不含 Claude Code 的配置、对话和登录状态，也不含定时任务和通知触发的运行记录。",
+  "@settingsBackupFooter": {
+    "description": "「备份与恢复」页那一组下面的说明。"
+  },
+  "settingsBackupExport": "导出设置",
+  "@settingsBackupExport": {
+    "description": "「备份与恢复」页的一行。"
+  },
+  "settingsBackupExportSummary": "保存成 JSON 文件",
+  "@settingsBackupExportSummary": {
+    "description": "「导出设置」下面的说明。"
+  },
+  "settingsBackupImport": "导入设置",
+  "@settingsBackupImport": {
+    "description": "「备份与恢复」页的一行。"
+  },
+  "settingsBackupWorking": "处理中…",
+  "@settingsBackupWorking": {
+    "description": "「导入设置」下面的说明：正在读写文件。"
+  },
+  "settingsBackupImportSummary": "导入前会列出要改的项",
+  "@settingsBackupImportSummary": {
+    "description": "「导入设置」下面的说明。"
+  },
+  "settingsBackupCantImport": "没法导入",
+  "@settingsBackupCantImport": {
+    "description": "导入设置失败时对话框的标题。"
+  },
+  "settingsBackupNothingToChange": "没有要改的设置",
+  "@settingsBackupNothingToChange": {
+    "description": "导入的备份和当前设置一样时对话框的标题。"
+  },
+  "settingsBackupImportConfirm": "导入设置？",
+  "@settingsBackupImportConfirm": {
+    "description": "导入前确认框的标题。"
+  },
+  "settingsBackupImportButton": "导入",
+  "@settingsBackupImportButton": {
+    "description": "导入前确认框的确认按钮。"
+  },
+  "settingsBackupImported": "{count, plural, other {已导入 {count} 项设置}}",
+  "@settingsBackupImported": {
+    "description": "导入设置成功后的提示。",
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "settingsBackupImportFailed": "导入失败，设置没有改动",
+  "@settingsBackupImportFailed": {
+    "description": "导入设置写入失败的提示。"
+  },
+  "settingsBackupWillOverwrite": "{count, plural, other {将覆盖 {count} 项：}}",
+  "@settingsBackupWillOverwrite": {
+    "description": "导入确认框清单里「会改的」那一段的开头。",
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "settingsBackupChange": "{label}：{from} → {to}",
+  "@settingsBackupChange": {
+    "description": "导入确认框里会改的一项：设置项名、现在的值、备份里的值。"
+  },
+  "settingsBackupSkipping": "{count, plural, other {跳过 {count} 项：}}",
+  "@settingsBackupSkipping": {
+    "description": "导入确认框清单里「跳过的」那一段的开头。",
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "settingsBackupSkipReason": "{label}：{reason}",
+  "@settingsBackupSkipReason": {
+    "description": "导入确认框里跳过的一项：设置项名和原因。"
+  },
+  "settingsBackupUnchanged": "{count, plural, other {和当前一样、不用改的 {count} 项：{names}}}",
+  "@settingsBackupUnchanged": {
+    "description": "导入确认框清单里「和当前一样」那一段：几项和它们的名字。",
+    "placeholders": {
+      "count": {
+        "type": "int"
+      },
+      "names": {
+        "type": "String"
+      }
+    }
+  },
+  "settingsBackupCantRead": "读不了这个文件",
+  "@settingsBackupCantRead": {
+    "description": "导入设置失败的原因。"
+  },
+  "settingsBackupTooLarge": "文件太大，不像 Zeta 的设置备份",
+  "@settingsBackupTooLarge": {
+    "description": "导入设置失败的原因。"
+  },
+  "settingsBackupCwdNoEnv": "还没有 Linux 环境，装好以后再导入这一项",
+  "@settingsBackupCwdNoEnv": {
+    "description": "导入设置时默认工作目录被跳过的原因。"
+  },
+  "settingsBackupCwdMissing": "这台手机的 Linux 环境里没有这个目录",
+  "@settingsBackupCwdMissing": {
+    "description": "导入设置时默认工作目录被跳过的原因。"
+  },
+  "settingsBackupCwdIsFile": "这台手机的 Linux 环境里这是个文件，不是目录",
+  "@settingsBackupCwdIsFile": {
+    "description": "导入设置时默认工作目录被跳过的原因。"
+  },
+  "settingsBackupCwdDenied": "Linux 用户没有权限进这个目录",
+  "@settingsBackupCwdDenied": {
+    "description": "导入设置时默认工作目录被跳过的原因。"
+  },
+  "settingsBackupCwdUnknown": "查不了这个目录在不在",
+  "@settingsBackupCwdUnknown": {
+    "description": "导入设置时默认工作目录被跳过的原因。"
+  },
+  "notifyProblemName": "写一个名字",
+  "@notifyProblemName": {
+    "description": "通知触发规则不能保存的原因，显示在编辑页「触发条件」下面。"
+  },
+  "notifyProblemNameLong": "名字最多 {max} 个字",
+  "@notifyProblemNameLong": {
+    "description": "通知触发规则不能保存的原因。",
+    "placeholders": {
+      "max": {
+        "type": "int"
+      }
+    }
+  },
+  "notifyProblemApp": "选一个应用",
+  "@notifyProblemApp": {
+    "description": "通知触发规则不能保存的原因。"
+  },
+  "notifyProblemPackage": "应用的包名格式不对",
+  "@notifyProblemPackage": {
+    "description": "通知触发规则不能保存的原因。"
+  },
+  "notifyProblemZeta": "Zeta 自己的通知不会触发任务",
+  "@notifyProblemZeta": {
+    "description": "通知触发规则不能保存的原因。"
+  },
+  "notifyProblemKeywords": "关键词最多 {max} 个",
+  "@notifyProblemKeywords": {
+    "description": "通知触发规则不能保存的原因。",
+    "placeholders": {
+      "max": {
+        "type": "int"
+      }
+    }
+  },
+  "notifyProblemKeywordLong": "每个关键词最多 {max} 个字",
+  "@notifyProblemKeywordLong": {
+    "description": "通知触发规则不能保存的原因。",
+    "placeholders": {
+      "max": {
+        "type": "int"
+      }
+    }
+  },
+  "notifyProblemWindow": "时段的开始和结束不能是同一时刻",
+  "@notifyProblemWindow": {
+    "description": "通知触发规则不能保存的原因。"
+  },
+  "notifyProblemPrompt": "写上要让 Claude 做什么",
+  "@notifyProblemPrompt": {
+    "description": "通知触发规则不能保存的原因：指令是空的。"
+  },
+  "notifyProblemPromptLong": "指令最多 {max} 个字",
+  "@notifyProblemPromptLong": {
+    "description": "通知触发规则不能保存的原因。",
+    "placeholders": {
+      "max": {
+        "type": "int"
+      }
+    }
+  },
+  "notifyProblemCwd": "工作目录要写 Linux 环境里的绝对路径",
+  "@notifyProblemCwd": {
+    "description": "通知触发规则不能保存的原因。"
+  },
+  "notifyProblemCooldown": "冷却时间要在 1 分钟到 24 小时之间",
+  "@notifyProblemCooldown": {
+    "description": "通知触发规则不能保存的原因。"
+  },
+  "notifyProblemDailyLimit": "每天上限要在 1 到 {max} 次之间",
+  "@notifyProblemDailyLimit": {
+    "description": "通知触发规则不能保存的原因。",
+    "placeholders": {
+      "max": {
+        "type": "int"
+      }
+    }
+  },
+  "notifyWindowOvernight": "{range}（跨午夜）",
+  "@notifyWindowOvernight": {
+    "description": "通知触发规则的时段跨过午夜时的写法；range 是「22:00–07:00」这样的起止时间。"
+  },
+  "notifyCooldownDays": "{count, plural, other {{count} 天}}",
+  "@notifyCooldownDays": {
+    "description": "冷却时间的选项：几天。",
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "notifyCooldownHours": "{count, plural, other {{count} 小时}}",
+  "@notifyCooldownHours": {
+    "description": "冷却时间的选项：几小时。",
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "notifyCooldownMinutes": "{count, plural, other {{count} 分钟}}",
+  "@notifyCooldownMinutes": {
+    "description": "冷却时间的选项：几分钟。",
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "notifyListFooter": "选定的应用来了通知，就在后台开一个对话运行指令，跑完发通知。",
+  "@notifyListFooter": {
+    "description": "「通知触发」页规则列表下面的说明。"
+  },
+  "notifyPromptFooter": "可以用 {title}、{text}、{app} 引用通知的标题、正文和应用名；不用时，通知内容不会交给 Claude。",
+  "@notifyPromptFooter": {
+    "description": "通知触发规则「指令」下面的说明。三个参数是原样显示的占位符「{title}」「{text}」「{app}」。",
+    "placeholders": {
+      "title": {
+        "type": "String"
+      },
+      "text": {
+        "type": "String"
+      },
+      "app": {
+        "type": "String"
+      }
+    }
+  },
+  "notifyListenerTitle": "通知使用权",
+  "@notifyListenerTitle": {
+    "description": "权限页、通知触发页上的一项：系统给 Zeta 的通知使用权。"
+  },
+  "notifyListenerReady": "通知触发的任务靠它收通知",
+  "@notifyListenerReady": {
+    "description": "权限页「通知使用权」已允许时的说明。"
+  },
+  "notifyListenerNeeded": "有开着的规则，没它不会触发",
+  "@notifyListenerNeeded": {
+    "description": "权限页「通知使用权」未允许、又有开着的规则时的说明。"
+  },
+  "notifyListenerIdle": "通知触发要用，现在用不到",
+  "@notifyListenerIdle": {
+    "description": "权限页「通知使用权」未允许、也没有开着的规则时的说明。"
+  },
+  "notifyOnCount": "{count, plural, other {{count} 条开着}}",
+  "@notifyOnCount": {
+    "description": "设备页「通知触发」一行右边：几条规则开着。",
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "notifyNewRule": "新建规则",
+  "@notifyNewRule": {
+    "description": "「通知触发」页顶栏加号按钮的说明（无障碍朗读）。"
+  },
+  "notifyListenerMissing": "还没有通知使用权",
+  "@notifyListenerMissing": {
+    "description": "「通知触发」页顶上的提示行标题。"
+  },
+  "notifyListenerMissingSummary": "规则不会触发。",
+  "@notifyListenerMissingSummary": {
+    "description": "「通知触发」页顶上提示行的说明。"
+  },
+  "notifyRulesHeader": "规则 · {count}",
+  "@notifyRulesHeader": {
+    "description": "「通知触发」页规则列表的组标题，带条数。",
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "notifyNoRules": "还没有规则",
+  "@notifyNoRules": {
+    "description": "「通知触发」页没有规则时的一行。"
+  },
+  "notifyFiredToday": "{count, plural, other {今天触发 {count} 次}}",
+  "@notifyFiredToday": {
+    "description": "规则摘要和运行记录里：今天触发了几次。",
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "notifyNewTitle": "新建通知规则",
+  "@notifyNewTitle": {
+    "description": "新建通知触发规则页的标题。"
+  },
+  "notifyEditTitle": "编辑通知规则",
+  "@notifyEditTitle": {
+    "description": "编辑通知触发规则页的标题。"
+  },
+  "notifyNameExample": "快递取件提醒",
+  "@notifyNameExample": {
+    "description": "规则名称输入框里的示例。"
+  },
+  "notifyDeleteRule": "删除规则",
+  "@notifyDeleteRule": {
+    "description": "规则编辑页底部的删除行，也是删除确认框的标题。"
+  },
+  "notifyKeywords": "关键词",
+  "@notifyKeywords": {
+    "description": "规则编辑页的一行和关键词对话框的标题。"
+  },
+  "notifyKeywordsHelp": "标题或正文里含其中任一个才触发，不分大小写。几个关键词用逗号隔开，留空表示不限。",
+  "@notifyKeywordsHelp": {
+    "description": "关键词对话框里的说明。"
+  },
+  "notifyKeywordsExample": "取件码，快递",
+  "@notifyKeywordsExample": {
+    "description": "关键词输入框里的示例。"
+  },
+  "notifyKeywordSeparator": "，",
+  "@notifyKeywordSeparator": {
+    "description": "规则编辑页「关键词」一行里把几个关键词连成一串时的分隔符。"
+  },
+  "notifyDeleteConfirm": "删除“{name}”？以后这个应用的通知不再触发它。之前运行留下的对话还在。",
+  "@notifyDeleteConfirm": {
+    "description": "删除规则确认框的说明；name 是规则名。"
+  },
+  "notifyTrigger": "触发条件",
+  "@notifyTrigger": {
+    "description": "规则编辑页的组标题。"
+  },
+  "notifyApp": "应用",
+  "@notifyApp": {
+    "description": "规则编辑页的一行：哪个应用的通知。"
+  },
+  "notifyChoose": "选择",
+  "@notifyChoose": {
+    "description": "规则编辑页「应用」一行还没选时右边的字。"
+  },
+  "notifyOnlyWindow": "只在某个时段触发",
+  "@notifyOnlyWindow": {
+    "description": "规则编辑页的开关。"
+  },
+  "notifyAllDay": "全天",
+  "@notifyAllDay": {
+    "description": "「只在某个时段触发」关着时的说明。"
+  },
+  "notifyFrom": "从",
+  "@notifyFrom": {
+    "description": "规则时段的开始时间那一行。"
+  },
+  "notifyTo": "到",
+  "@notifyTo": {
+    "description": "规则时段的结束时间那一行。"
+  },
+  "notifyKeywordsAny": "不限，每条通知都触发",
+  "@notifyKeywordsAny": {
+    "description": "规则编辑页「关键词」没填时的说明。"
+  },
+  "notifyPromptExample": "比如：看看这条快递通知 {text}，把取件码和地址记进今天的待办",
+  "@notifyPromptExample": {
+    "description": "指令输入框里的示例；text 是原样显示的占位符「{text}」。",
+    "placeholders": {
+      "text": {
+        "type": "String"
+      }
+    }
+  },
+  "notifyRiskyTitle": "验证码等内容也会交给 Claude",
+  "@notifyRiskyTitle": {
+    "description": "指令用了占位符时的警告行标题。"
+  },
+  "notifyRiskySummary": "原样发出，并留在对话记录里",
+  "@notifyRiskySummary": {
+    "description": "指令用了占位符时的警告行说明。"
+  },
+  "notifySampleTitle": "示例标题",
+  "@notifySampleTitle": {
+    "description": "「发给 Claude 的样子」预览里示例通知的标题。"
+  },
+  "notifySampleText": "示例正文",
+  "@notifySampleText": {
+    "description": "「发给 Claude 的样子」预览里示例通知的正文。"
+  },
+  "notifySampleApp": "示例应用",
+  "@notifySampleApp": {
+    "description": "「发给 Claude 的样子」预览里没选应用时的应用名。"
+  },
+  "notifyPreviewHeader": "发给 Claude 的样子",
+  "@notifyPreviewHeader": {
+    "description": "规则编辑页预览那一组的标题。"
+  },
+  "notifyLimits": "防止失控",
+  "@notifyLimits": {
+    "description": "规则编辑页的组标题：冷却时间和每天上限。"
+  },
+  "notifyLimitsFooter": "冷却时间内、或今天已到上限时不再触发。常驻通知（音乐、导航、下载进度）和 Zeta 自己的通知不触发。",
+  "@notifyLimitsFooter": {
+    "description": "「防止失控」一组下面的说明。"
+  },
+  "notifyCooldown": "冷却时间",
+  "@notifyCooldown": {
+    "description": "规则编辑页的下拉项：两次触发之间至少隔多久。"
+  },
+  "notifyDailyMax": "每天最多",
+  "@notifyDailyMax": {
+    "description": "规则编辑页的下拉项：每天最多触发几次。"
+  },
+  "notifyTimes": "{count, plural, other {{count} 次}}",
+  "@notifyTimes": {
+    "description": "「每天最多」的选项：几次。",
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "notifyRunFooter": "通知可能被人用来诱导 Claude，所以默认逐项确认：要改文件、执行命令时停下来，发通知等你。每次触发都开一个新对话。",
+  "@notifyRunFooter": {
+    "description": "「运行方式」一组下面的说明。"
+  },
+  "notifyModeRisk": "“{mode}”有风险",
+  "@notifyModeRisk": {
+    "description": "权限模式不安全时的警告行标题；mode 是权限模式名（如 Accept edits）。"
+  },
+  "notifyRiskEdits": "可能不经确认就改文件",
+  "@notifyRiskEdits": {
+    "description": "权限模式是 Accept edits 时警告行的说明。"
+  },
+  "notifyRiskAll": "可能不经确认就改文件、执行命令",
+  "@notifyRiskAll": {
+    "description": "权限模式会自动放行命令时警告行的说明。"
+  },
+  "notifyDailyLimitValue": "上限 {count} 次",
+  "@notifyDailyLimitValue": {
+    "description": "运行记录里「今天触发几次」下面的说明：每天上限。",
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "notifyCooldownUntil": "冷却到 {time}",
+  "@notifyCooldownUntil": {
+    "description": "运行记录里：冷却到什么时候；time 是「今天 14:30」这样的时间。"
+  },
+  "notifyPickApp": "选择应用",
+  "@notifyPickApp": {
+    "description": "选应用页的标题。"
+  },
+  "notifySearchApps": "搜索应用名或包名",
+  "@notifySearchApps": {
+    "description": "选应用页搜索框的占位文字。"
+  },
+  "notifyManualPackage": "手动输入包名",
+  "@notifyManualPackage": {
+    "description": "选应用页的一行，点开输入包名对话框。"
+  },
+  "notifyLoadingApps": "正在读取应用列表…",
+  "@notifyLoadingApps": {
+    "description": "选应用页还没读到应用时的一行。"
+  },
+  "notifyActiveApps": "通知栏里现在有通知的",
+  "@notifyActiveApps": {
+    "description": "选应用页的组标题：通知栏里现在有通知的应用。"
+  },
+  "notifyAllApps": "全部应用",
+  "@notifyAllApps": {
+    "description": "选应用页的组标题。"
+  },
+  "notifyAllAppsFooter": "只列有桌面图标的应用，别的用“手动输入包名”。",
+  "@notifyAllAppsFooter": {
+    "description": "选应用页「全部应用」下面的说明。"
+  },
+  "notifyPackageDialog": "应用的包名",
+  "@notifyPackageDialog": {
+    "description": "手动输入包名对话框的标题。"
+  },
+  "notifyPackageExample": "比如 com.tencent.mm。",
+  "@notifyPackageExample": {
+    "description": "手动输入包名对话框的说明。"
+  },
+  "settingsScheduleListFooter": "到点时在这台设备上开一个对话在后台运行，跑完发通知；Zeta 没开着也照常运行。也可以在对话里直接说，比如“每天早上 8 点汇总通知和日程”。",
+  "@settingsScheduleListFooter": {
+    "description": "定时任务列表页一组下面的说明。"
+  },
+  "settingsScheduleNext": "下次 {when}",
+  "@settingsScheduleNext": {
+    "description": "设备页「定时任务」入口的摘要：最近一次什么时候跑；when 是「明天 08:00」这类时间。",
+    "placeholders": {
+      "when": {
+        "type": "String"
+      }
+    }
+  },
+  "settingsScheduleAllOff": "都关着",
+  "@settingsScheduleAllOff": {
+    "description": "设备页「定时任务」入口右边：有任务但全都关着。"
+  },
+  "settingsScheduleOnCount": "{count} 个开着",
+  "@settingsScheduleOnCount": {
+    "description": "设备页「定时任务」入口右边：开着几个任务。",
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "settingsScheduleNew": "新建定时任务",
+  "@settingsScheduleNew": {
+    "description": "定时任务列表右上角 + 按钮的无障碍朗读，也是新建任务那页的标题。"
+  },
+  "settingsScheduleEdit": "编辑定时任务",
+  "@settingsScheduleEdit": {
+    "description": "编辑已有定时任务那页的标题。"
+  },
+  "settingsScheduleExactAlarmMissing": "精确闹钟未允许",
+  "@settingsScheduleExactAlarmMissing": {
+    "description": "定时任务列表顶上的警告行标题：没有精确闹钟权限。"
+  },
+  "settingsScheduleExactAlarmReason": "到点可能被系统推迟。",
+  "@settingsScheduleExactAlarmReason": {
+    "description": "没有精确闹钟权限的后果，后面接「点这里…允许」。"
+  },
+  "settingsScheduleListTitle": "定时任务 · {count}",
+  "@settingsScheduleListTitle": {
+    "description": "定时任务列表那一组的标题，带任务数。",
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "settingsScheduleEmpty": "还没有定时任务",
+  "@settingsScheduleEmpty": {
+    "description": "定时任务列表为空时那一行的标题。"
+  },
+  "settingsScheduleEmptyHint": "点右上角 + 新建",
+  "@settingsScheduleEmptyHint": {
+    "description": "定时任务列表为空时那一行的摘要。"
+  },
+  "settingsScheduleRunning": "正在运行",
+  "@settingsScheduleRunning": {
+    "description": "定时任务列表里一个任务的状态：正在跑。"
+  },
+  "settingsScheduleTimePassed": "时间已过",
+  "@settingsScheduleTimePassed": {
+    "description": "定时任务列表里一个任务的状态：开着但定的时间已经过了，不会再跑。"
+  },
+  "settingsScheduleLastOutcome": "上次{outcome}",
+  "@settingsScheduleLastOutcome": {
+    "description": "任务列表摘要里上次运行的结果；outcome 是「完成」「没有变化」这类结果。",
+    "placeholders": {
+      "outcome": {
+        "type": "String"
+      }
+    }
+  },
+  "settingsScheduleName": "名称",
+  "@settingsScheduleName": {
+    "description": "编辑定时任务页名称输入框的标题。"
+  },
+  "settingsScheduleNameHint": "每日简报",
+  "@settingsScheduleNameHint": {
+    "description": "编辑定时任务页名称输入框的占位示例。"
+  },
+  "settingsSchedulePrompt": "指令",
+  "@settingsSchedulePrompt": {
+    "description": "编辑定时任务页指令输入框的标题：到点发给 Claude 的话。"
+  },
+  "settingsSchedulePromptHint": "比如：汇总今天的日程和昨晚以来的通知，三五行说完",
+  "@settingsSchedulePromptHint": {
+    "description": "编辑定时任务页指令输入框的占位示例。"
+  },
+  "settingsScheduleDeleteTask": "删除任务",
+  "@settingsScheduleDeleteTask": {
+    "description": "编辑定时任务页最下面的红色按钮。"
+  },
+  "settingsScheduleNextRun": "下次运行：{when}",
+  "@settingsScheduleNextRun": {
+    "description": "编辑定时任务页「时间」一组下面的说明；when 是「明天 08:00」这类时间。",
+    "placeholders": {
+      "when": {
+        "type": "String"
+      }
+    }
+  },
+  "settingsScheduleDeleteTitle": "删除定时任务",
+  "@settingsScheduleDeleteTitle": {
+    "description": "删除定时任务确认框的标题。"
+  },
+  "settingsScheduleDeleteSummary": "删除“{name}”？以后不再运行。之前运行留下的对话还在。",
+  "@settingsScheduleDeleteSummary": {
+    "description": "删除定时任务确认框的说明；name 是任务名。",
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "settingsScheduleTime": "时间",
+  "@settingsScheduleTime": {
+    "description": "编辑定时任务页「时间」一组的标题，也是选几点的那一行。"
+  },
+  "settingsScheduleDate": "日期",
+  "@settingsScheduleDate": {
+    "description": "单次任务选哪天的那一行。"
+  },
+  "settingsScheduleEvery": "每隔",
+  "@settingsScheduleEvery": {
+    "description": "间隔任务选间隔几小时的那一行。"
+  },
+  "settingsScheduleHours": "{hours, plural, other {{hours} 小时}}",
+  "@settingsScheduleHours": {
+    "description": "间隔任务「每隔」一行右边的值。",
+    "placeholders": {
+      "hours": {
+        "type": "int"
+      }
+    }
+  },
+  "settingsScheduleStartDate": "从哪天开始",
+  "@settingsScheduleStartDate": {
+    "description": "间隔任务选开始日期的那一行。"
+  },
+  "settingsScheduleStartTime": "从几点开始",
+  "@settingsScheduleStartTime": {
+    "description": "间隔任务选开始时刻的那一行。"
+  },
+  "settingsScheduleRunGroup": "运行方式",
+  "@settingsScheduleRunGroup": {
+    "description": "编辑定时任务页一组的标题：工作目录、模型、权限模式、开不开新对话。"
+  },
+  "settingsScheduleRunFooter": "后台运行时没人确认。默认“自动判断”：由 Claude Code 判断每一步放不放行，一般不用停下来等你。选“逐项确认”的话，要改文件、执行命令时这一轮会停下来，发通知等你。",
+  "@settingsScheduleRunFooter": {
+    "description": "「运行方式」一组下面的说明；引号里是权限模式的名字（自动判断 = Auto mode，逐项确认 = Ask each time）。"
+  },
+  "settingsScheduleDefaultCwd": "{path}（默认）",
+  "@settingsScheduleDefaultCwd": {
+    "description": "工作目录一行的摘要：没另设时显示默认目录。",
+    "placeholders": {
+      "path": {
+        "type": "String"
+      }
+    }
+  },
+  "settingsScheduleNewSession": "每次开新对话",
+  "@settingsScheduleNewSession": {
+    "description": "编辑定时任务页的开关。"
+  },
+  "settingsScheduleNewSessionOn": "几次运行互不相干",
+  "@settingsScheduleNewSessionOn": {
+    "description": "「每次开新对话」开着时的摘要。"
+  },
+  "settingsScheduleNewSessionOff": "接着同一个对话，记得之前的内容",
+  "@settingsScheduleNewSessionOff": {
+    "description": "「每次开新对话」关着时的摘要。"
+  },
+  "settingsScheduleSkippedBusy": "上一次还没跑完",
+  "@settingsScheduleSkippedBusy": {
+    "description": "运行记录里「跳过了 N 次」的原因。"
+  },
+  "settingsScheduleRunNow": "立即运行一次",
+  "@settingsScheduleRunNow": {
+    "description": "编辑定时任务页运行记录里的按钮行。"
+  },
+  "settingsScheduleRunningOnChange": "正在运行，有变化才发通知",
+  "@settingsScheduleRunningOnChange": {
+    "description": "「立即运行一次」的摘要：正在跑，且只在有变化时提醒。"
+  },
+  "settingsScheduleRunningNotify": "正在运行，跑完会发通知",
+  "@settingsScheduleRunningNotify": {
+    "description": "「立即运行一次」的摘要：正在跑。"
+  },
+  "settingsScheduleRunNowHint": "照已保存的设置跑一次，不影响定时",
+  "@settingsScheduleRunNowHint": {
+    "description": "「立即运行一次」的摘要：没在跑时。"
+  },
+  "settingsScheduleFixViaRoot": "{reason}点这里经 root 允许",
+  "@settingsScheduleFixViaRoot": {
+    "description": "缺权限那一行的摘要（定时任务、通知触发共用）；reason 是缺了它的后果，以句号结尾。",
+    "placeholders": {
+      "reason": {
+        "type": "String"
+      }
+    }
+  },
+  "settingsScheduleFixInSettings": "{reason}点这里到系统设置里允许",
+  "@settingsScheduleFixInSettings": {
+    "description": "缺权限那一行的摘要（没有 root 时）；reason 是缺了它的后果，以句号结尾。",
+    "placeholders": {
+      "reason": {
+        "type": "String"
+      }
+    }
+  },
+  "settingsScheduleCwdSummary": "这台设备上的绝对路径。留空用默认工作目录（现在是 {path}）。",
+  "@settingsScheduleCwdSummary": {
+    "description": "改工作目录对话框的说明（定时任务、通知触发共用）。",
+    "placeholders": {
+      "path": {
+        "type": "String"
+      }
+    }
+  },
+  "settingsScheduleSkips": "{count, plural, other {跳过了 {count} 次}}",
+  "@settingsScheduleSkips": {
+    "description": "运行记录里跳过了几次的那一行标题（定时任务、通知触发共用）。",
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "settingsScheduleAlertGroup": "提醒",
+  "@settingsScheduleAlertGroup": {
+    "description": "编辑页「提醒」一组的标题（定时任务、通知触发共用）。"
+  },
+  "settingsScheduleOnlyOnChange": "只在有变化时提醒",
+  "@settingsScheduleOnlyOnChange": {
+    "description": "「提醒」一组的开关。"
+  },
+  "settingsScheduleOnlyOnChangeNoTools": "手机工具关着，Claude 没法上报，照常提醒",
+  "@settingsScheduleOnlyOnChangeNoTools": {
+    "description": "「只在有变化时提醒」开着但手机工具关着时的摘要。"
+  },
+  "settingsScheduleOnlyOnChangeOn": "没有变化只记进运行记录，不发通知",
+  "@settingsScheduleOnlyOnChangeOn": {
+    "description": "「只在有变化时提醒」开着时的摘要。"
+  },
+  "settingsScheduleOnlyOnChangeOff": "每次跑完都发通知",
+  "@settingsScheduleOnlyOnChangeOff": {
+    "description": "「只在有变化时提醒」关着时的摘要。"
+  },
+  "settingsScheduleOnlyOnChangeFooter": "打开后，Claude 每次跑完判断有没有值得告诉你的，没有就不发通知。出了错、停下来等你确认、Claude 没给结论时照常提醒。",
+  "@settingsScheduleOnlyOnChangeFooter": {
+    "description": "「提醒」一组下面的说明。"
+  },
+  "settingsScheduleLastRun": "上次运行 · {outcome}",
+  "@settingsScheduleLastRun": {
+    "description": "运行记录里上次运行那一行的标题；outcome 是「完成」「没有变化」这类结果。",
+    "placeholders": {
+      "outcome": {
+        "type": "String"
+      }
+    }
+  },
+  "settingsScheduleManual": "（手动）",
+  "@settingsScheduleManual": {
+    "description": "接在上次运行的时间后面：那次是手动点「立即运行」的。"
+  },
+  "settingsScheduleDatePattern": "M月d日",
+  "@settingsScheduleDatePattern": {
+    "description": "java.time 的 DateTimeFormatter 格式：今年的日期怎么写（编辑定时任务页的日期）。"
+  },
+  "settingsScheduleDatePatternYear": "y年M月d日",
+  "@settingsScheduleDatePatternYear": {
+    "description": "java.time 的 DateTimeFormatter 格式：不是今年的日期怎么写。"
+  },
+  "settingsScheduleDateWeekday": "{date} {weekday}",
+  "@settingsScheduleDateWeekday": {
+    "description": "日期加星期几，比如「11月24日 周二」。",
+    "placeholders": {
+      "date": {
+        "type": "String"
+      },
+      "weekday": {
+        "type": "String"
+      }
+    }
+  },
+  "settingsScheduleToday": "今天 · {date}",
+  "@settingsScheduleToday": {
+    "description": "选的日期是今天时的写法。",
+    "placeholders": {
+      "date": {
+        "type": "String"
+      }
+    }
+  },
+  "settingsScheduleTomorrow": "明天 · {date}",
+  "@settingsScheduleTomorrow": {
+    "description": "选的日期是明天时的写法。",
+    "placeholders": {
+      "date": {
+        "type": "String"
+      }
+    }
+  },
+  "settingsSchedulePickTime": "选择时间",
+  "@settingsSchedulePickTime": {
+    "description": "选时刻对话框的标题。"
+  },
+  "settingsScheduleHourUnit": "时",
+  "@settingsScheduleHourUnit": {
+    "description": "选时刻对话框里小时那一列的单位。"
+  },
+  "settingsScheduleMinuteUnit": "分",
+  "@settingsScheduleMinuteUnit": {
+    "description": "选时刻对话框里分钟那一列的单位。"
+  },
+  "settingsSchedulePickDate": "选择日期",
+  "@settingsSchedulePickDate": {
+    "description": "选日期对话框的标题。"
+  },
+  "settingsSchedulePickHours": "每隔几小时",
+  "@settingsSchedulePickHours": {
+    "description": "选间隔对话框的标题。"
+  },
+  "settingsScheduleHoursUnit": "小时",
+  "@settingsScheduleHoursUnit": {
+    "description": "选间隔对话框里数字旁边的单位。"
+  },
+  "diagTitle": "诊断",
+  "@diagTitle": {
+    "description": "设置里「诊断」页的标题。"
+  },
+  "diagReload": "重新查询",
+  "@diagReload": {
+    "description": "诊断页右上角刷新按钮的无障碍朗读。"
+  },
+  "diagStderrTitle": "对话进程的错误输出",
+  "@diagStderrTitle": {
+    "description": "诊断页一组的标题：Claude Code 进程写到标准错误的日志文件。"
+  },
+  "diagStderrFooter": "{count, plural, other {正在进行的对话和最近结束的 {count} 个。}}",
+  "@diagStderrFooter": {
+    "description": "「对话进程的错误输出」一组下面的说明。",
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "diagStderrUnavailable": "进不了环境时看不到 Claude Code 那边的日志",
+  "@diagStderrUnavailable": {
+    "description": "Linux 环境不可用时「对话进程的错误输出」一组里的说明。"
+  },
+  "diagStderrEmpty": "没有",
+  "@diagStderrEmpty": {
+    "description": "「对话进程的错误输出」一组没有文件时那一行的标题。"
+  },
+  "diagStderrEmptyHint": "对话进程没有往标准错误写过东西",
+  "@diagStderrEmptyHint": {
+    "description": "「对话进程的错误输出」一组没有文件时那一行的说明。"
+  },
+  "diagDebugTitle": "Claude Code 调试日志",
+  "@diagDebugTitle": {
+    "description": "诊断页一组的标题：~/.claude/debug 下的文件。"
+  },
+  "diagDebugFooter": "{count, plural, other {Claude Code 开着调试时才写，只列最近 {count} 个。}}",
+  "@diagDebugFooter": {
+    "description": "「Claude Code 调试日志」一组下面的说明。",
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "diagDebugEmpty": "没有调试日志",
+  "@diagDebugEmpty": {
+    "description": "「Claude Code 调试日志」一组没有文件时那一行。"
+  },
+  "diagExportFooter": "把上面这些和本应用的 logcat 打成一个 zip。token、密码这类值会先打码。",
+  "@diagExportFooter": {
+    "description": "诊断页「导出诊断包」一组下面的说明。"
+  },
+  "diagExport": "导出诊断包",
+  "@diagExport": {
+    "description": "诊断页的按钮行：把诊断信息打包存下来。"
+  },
+  "diagExporting": "正在打包…",
+  "@diagExporting": {
+    "description": "「导出诊断包」正在打包时的摘要。"
+  },
+  "diagExported": "{count, plural, other {诊断包已导出（{count} 个文件，已打码）}}",
+  "@diagExported": {
+    "description": "导出诊断包成功后的 toast。",
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "diagExportFailed": "导出失败：{error}",
+  "@diagExportFailed": {
+    "description": "导出诊断包失败的 toast；error 是异常原文。",
+    "placeholders": {
+      "error": {
+        "type": "String"
+      }
+    }
+  },
+  "diagRunLog": "运行日志",
+  "@diagRunLog": {
+    "description": "诊断页一组的标题和运行日志页的标题：Zeta 自己记的关键事件。"
+  },
+  "diagRunLogFooter": "{count, plural, other {只留最近 {count} 条。}}",
+  "@diagRunLogFooter": {
+    "description": "「运行日志」一组下面的说明。",
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "diagViewRunLog": "查看运行日志",
+  "@diagViewRunLog": {
+    "description": "诊断页「运行日志」一组里打开日志的那一行。"
+  },
+  "diagErrorCount": "{count, plural, other {{count} 条出错}}",
+  "@diagErrorCount": {
+    "description": "「查看运行日志」右边的红字：有几条出错。",
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "diagNoRecords": "还没有记录",
+  "@diagNoRecords": {
+    "description": "运行日志一条都没有时。"
+  },
+  "diagRunLogCount": "{count, plural, other {共 {count} 条}}",
+  "@diagRunLogCount": {
+    "description": "「查看运行日志」的摘要：一共几条（没有警告时）。",
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "diagRunLogCountWarnings": "{count, plural, other {共 {count} 条}}，{warnings, plural, other {{warnings} 条警告}}",
+  "@diagRunLogCountWarnings": {
+    "description": "「查看运行日志」的摘要：一共几条、其中几条警告。",
+    "placeholders": {
+      "count": {
+        "type": "int"
+      },
+      "warnings": {
+        "type": "int"
+      }
+    }
+  },
+  "diagEnvironment": "环境",
+  "@diagEnvironment": {
+    "description": "诊断页「环境」一组的标题：版本、路径等。"
+  },
+  "diagPermissions": "权限",
+  "@diagPermissions": {
+    "description": "诊断页「权限」一组的标题。"
+  },
+  "diagPermissionsFooter": "要修的到权限健康页里修。",
+  "@diagPermissionsFooter": {
+    "description": "诊断页「权限」一组下面的说明。"
+  },
+  "diagLinuxUnavailable": "Linux 环境不可用",
+  "@diagLinuxUnavailable": {
+    "description": "诊断页里进不了 Linux 环境时日志那一组的标题行。"
+  },
+  "diagRunningConversation": "运行中的对话",
+  "@diagRunningConversation": {
+    "description": "运行中的对话没有标题时，它那份错误输出的名字。"
+  },
+  "diagClear": "清空",
+  "@diagClear": {
+    "description": "运行日志页右上角清空按钮的无障碍朗读，也是确认框的按钮。"
+  },
+  "diagClearTitle": "清空运行日志？",
+  "@diagClearTitle": {
+    "description": "清空运行日志确认框的标题。"
+  },
+  "diagClearSummary": "应用里和文件里的记录都会删掉。",
+  "@diagClearSummary": {
+    "description": "清空运行日志确认框的说明。"
+  },
+  "diagFilterTopic": "类别",
+  "@diagFilterTopic": {
+    "description": "运行日志页按类别筛选的下拉行。"
+  },
+  "diagFilterLevel": "轻重",
+  "@diagFilterLevel": {
+    "description": "运行日志页按轻重筛选的下拉行。"
+  },
+  "diagFilterAll": "全部",
+  "@diagFilterAll": {
+    "description": "运行日志筛选：不筛。"
+  },
+  "diagFilterWarnings": "警告和出错",
+  "@diagFilterWarnings": {
+    "description": "运行日志按轻重筛选：警告和出错。"
+  },
+  "diagFilterErrors": "只看出错",
+  "@diagFilterErrors": {
+    "description": "运行日志按轻重筛选：只看出错。"
+  },
+  "diagNoMatches": "没有符合条件的记录",
+  "@diagNoMatches": {
+    "description": "运行日志筛选后一条都没有。"
+  },
+  "diagTailOnly": "只显示最后 {size} KB",
+  "@diagTailOnly": {
+    "description": "日志文件页顶上的说明：文件太大只显示末尾。",
+    "placeholders": {
+      "size": {
+        "type": "int"
+      }
+    }
+  },
+  "diagFileUnreadable": "读不出这个文件（可能已经被删掉了）",
+  "@diagFileUnreadable": {
+    "description": "日志文件页读不出文件时。"
+  },
+  "diagFileEmpty": "空文件",
+  "@diagFileEmpty": {
+    "description": "日志文件页文件是空的时。"
+  },
+  "diagEnvZetaVersion": "Zeta 版本",
+  "@diagEnvZetaVersion": {
+    "description": "诊断页「环境」一组和诊断包里的一行名字。"
+  },
+  "diagEnvPackage": "包名",
+  "@diagEnvPackage": {
+    "description": "诊断页「环境」里应用包名那一行。"
+  },
+  "diagEnvDevBuild": "{name}（测试版）",
+  "@diagEnvDevBuild": {
+    "description": "包名后面标明是测试版。",
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "diagEnvSystemVersion": "系统版本",
+  "@diagEnvSystemVersion": {
+    "description": "诊断页「环境」里系统版本号（Build.DISPLAY）那一行。"
+  },
+  "diagEnvRootDenied": "没有授权",
+  "@diagEnvRootDenied": {
+    "description": "诊断页「环境」里 Root 一行的值：没有 root 授权。"
+  },
+  "diagEnvDebianPath": "Debian 路径",
+  "@diagEnvDebianPath": {
+    "description": "诊断页「环境」里 Debian rootfs 路径那一行。"
+  },
+  "diagEnvNotConfigured": "未配置",
+  "@diagEnvNotConfigured": {
+    "description": "诊断页「环境」里还没装环境时的值。"
+  },
+  "diagEnvLinuxUser": "Linux 用户",
+  "@diagEnvLinuxUser": {
+    "description": "诊断页「环境」里 Debian 用户那一行。"
+  },
+  "diagEnvLinuxUserValue": "{user}（uid {uid}，{home}）",
+  "@diagEnvLinuxUserValue": {
+    "description": "「Linux 用户」一行的值：用户名、uid、家目录。",
+    "placeholders": {
+      "user": {
+        "type": "String"
+      },
+      "uid": {
+        "type": "String"
+      },
+      "home": {
+        "type": "String"
+      }
+    }
+  },
+  "diagEnvDebianVersion": "Debian 版本",
+  "@diagEnvDebianVersion": {
+    "description": "诊断页「环境」里 Debian 版本那一行。"
+  },
+  "diagEnvNotInstalled": "没有安装",
+  "@diagEnvNotInstalled": {
+    "description": "诊断页「环境」里 Claude Code、Node 没装时的值。"
+  },
+  "diagEnvA11yGuard": "无障碍守护",
+  "@diagEnvA11yGuard": {
+    "description": "诊断页「环境」里一行：无障碍服务被系统拿掉时会不会自动加回、现在守没守着。"
+  },
+  "diagEnvA11yAutoOn": "自动打开",
+  "@diagEnvA11yAutoOn": {
+    "description": "「无障碍守护」的值前半：被拿掉时自动加回。"
+  },
+  "diagEnvA11yAutoOff": "不自动打开",
+  "@diagEnvA11yAutoOff": {
+    "description": "「无障碍守护」的值前半：被拿掉时只记一笔。"
+  },
+  "diagEnvA11yArmed": "在守",
+  "@diagEnvA11yArmed": {
+    "description": "「无障碍守护」的值后半：服务开过，正在守着。"
+  },
+  "diagEnvA11yUnarmed": "没在守",
+  "@diagEnvA11yUnarmed": {
+    "description": "「无障碍守护」的值后半：服务没开过或在 Zeta 里关了。"
+  },
+  "diagLevelInfo": "信息",
+  "@diagLevelInfo": {
+    "description": "运行日志一条的轻重：信息。"
+  },
+  "diagLevelWarn": "警告",
+  "@diagLevelWarn": {
+    "description": "运行日志一条的轻重：警告。"
+  },
+  "diagLevelError": "出错",
+  "@diagLevelError": {
+    "description": "运行日志一条的轻重：出错。"
+  },
+  "diagTopicApp": "应用",
+  "@diagTopicApp": {
+    "description": "运行日志的类别：Zeta 应用本身。"
+  },
+  "diagTopicClaude": "Claude 进程",
+  "@diagTopicClaude": {
+    "description": "运行日志的类别：Claude Code 进程的起停。"
+  },
+  "diagTopicPhone": "手机工具",
+  "@diagTopicPhone": {
+    "description": "运行日志的类别：给 Claude 用的手机工具。"
+  },
+  "diagTopicA11y": "无障碍",
+  "@diagTopicA11y": {
+    "description": "运行日志的类别：无障碍服务。"
+  },
+  "diagLogRunning": "运行中",
+  "@diagLogRunning": {
+    "description": "诊断页日志文件的种类：正在跑的对话的错误输出。"
+  },
+  "diagLogFinished": "已结束",
+  "@diagLogFinished": {
+    "description": "诊断页日志文件的种类：已经结束的对话留下的错误输出。"
+  },
+  "diagLogDebug": "调试日志",
+  "@diagLogDebug": {
+    "description": "诊断页日志文件的种类：Claude Code 自己的调试日志。"
+  },
+  "diagExportOpenFailed": "打不开要保存的文件",
+  "@diagExportOpenFailed": {
+    "description": "导出诊断包时打不开系统给的保存位置；接在「导出失败：」后面。"
+  },
+  "diagEnvVersionValue": "{name}（{code}）",
+  "@diagEnvVersionValue": {
+    "description": "诊断页「Zeta 版本」的值：版本名和版本号。",
+    "placeholders": {
+      "name": {
+        "type": "String"
+      },
+      "code": {
+        "type": "String"
+      }
+    }
+  },
+  "diagEnvAndroidValue": "{release}（API {sdk}）· {maker} {model}",
+  "@diagEnvAndroidValue": {
+    "description": "诊断页「Android」一行的值：系统版本、API 级别、厂商和机型。",
+    "placeholders": {
+      "release": {
+        "type": "String"
+      },
+      "sdk": {
+        "type": "String"
+      },
+      "maker": {
+        "type": "String"
+      },
+      "model": {
+        "type": "String"
+      }
+    }
+  },
+  "settingsHomeTitle": "设置",
+  "@settingsHomeTitle": {
+    "description": "设置首页的页标题。"
+  },
+  "settingsHomeDevices": "设备",
+  "@settingsHomeDevices": {
+    "description": "设置首页最上面一组的标题：手机和各台远程主机。"
+  },
+  "settingsHomeAddRemote": "添加远程设备",
+  "@settingsHomeAddRemote": {
+    "description": "设置首页「设备」一组最后一行，点了去添加远程主机。"
+  },
+  "settingsHomePhoneAndTools": "手机与工具",
+  "@settingsHomePhoneAndTools": {
+    "description": "设置首页一组的标题：手机操作、数字助理、浏览器、权限健康。"
+  },
+  "settingsHomeOff": "已关闭",
+  "@settingsHomeOff": {
+    "description": "设置首页「手机操作」一行右边：关着。"
+  },
+  "settingsHomeBrowser": "浏览器",
+  "@settingsHomeBrowser": {
+    "description": "设置首页一行，点了打开 Zeta 自带的浏览器。"
+  },
+  "settingsHomeGeneral": "通用",
+  "@settingsHomeGeneral": {
+    "description": "设置首页一组的标题：语言、外观、屏幕常亮等。"
+  },
+  "settingsHomeKeepScreenOn": "对话中保持屏幕常亮",
+  "@settingsHomeKeepScreenOn": {
+    "description": "设置首页的开关：Zeta 在前台时屏幕不熄灭。"
+  },
+  "settingsHomeAutoLoadImages": "自动加载网络图片",
+  "@settingsHomeAutoLoadImages": {
+    "description": "设置首页的开关：回答里的网络图片自动取来显示，关着时点一下才取。"
+  },
+  "settingsHomeAutoRead": "回答自动朗读",
+  "@settingsHomeAutoRead": {
+    "description": "设置首页的开关：一轮回答完了用系统朗读引擎念出来。"
+  },
+  "settingsHomeDisconnected": "已断开",
+  "@settingsHomeDisconnected": {
+    "description": "设置首页一台远程主机右边的状态：「连接」开关关着。"
+  },
+  "settingsHomeDebianNotReady": "Debian 未就绪",
+  "@settingsHomeDebianNotReady": {
+    "description": "设置首页一台经手机 Debian 连的远程主机右边的状态：手机上的 Debian 还不能用（红字）。"
+  },
+  "settingsHomeIssues": "{count, plural, other {# 项需关注}}",
+  "@settingsHomeIssues": {
+    "description": "设置首页「权限健康」右边：有几项权限要处理（红字）。",
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "settingsHomeHealthy": "正常",
+  "@settingsHomeHealthy": {
+    "description": "设置首页「权限健康」右边：没有要处理的。"
+  },
+  "settingsAccountsTitle": "账号与额度",
+  "@settingsAccountsTitle": {
+    "description": "设备页上账号与额度那一行的名字，也是手机本机那一页的页标题。"
+  },
+  "settingsAccountsTitleOnDevice": "账号与额度 · {device}",
+  "@settingsAccountsTitleOnDevice": {
+    "description": "远程设备的账号与额度页的页标题，后面是设备名。",
+    "placeholders": {
+      "device": {}
+    }
+  },
+  "settingsAccountsLinuxNotReady": "Linux 环境未就绪",
+  "@settingsAccountsLinuxNotReady": {
+    "description": "手机本机「账号与额度」一行的摘要：Debian 环境还不能用。"
+  },
+  "settingsAccountsDeviceUnavailable": "这台设备现在用不了",
+  "@settingsAccountsDeviceUnavailable": {
+    "description": "远程设备「账号与额度」一行的摘要：连不上或已断开。"
+  },
+  "settingsAccountsSignedOut": "未登录",
+  "@settingsAccountsSignedOut": {
+    "description": "「账号与额度」一行的摘要：那台设备上的 Claude Code 没登录。"
+  },
+  "settingsAccountsSignedIn": "已登录",
+  "@settingsAccountsSignedIn": {
+    "description": "「账号与额度」一行的摘要：登录着，但不知道邮箱。"
+  },
+  "settingsAccountsUsedPercent": "已用 {percent}%",
+  "@settingsAccountsUsedPercent": {
+    "description": "「账号与额度」一行右边：最要紧的额度窗口用了百分之几。",
+    "placeholders": {
+      "percent": {
+        "type": "int"
+      }
+    }
+  },
+  "settingsAccountsSwitchTitle": "切换到 {name}？",
+  "@settingsAccountsSwitchTitle": {
+    "description": "切换 Claude 账号的确认框标题，name 是账号名。",
+    "placeholders": {
+      "name": {}
+    }
+  },
+  "settingsAccountsSwitchSummary": "Zeta 会先关掉这台设备上闲着的对话进程（对话内容不丢）。之后这台上的新对话、额度都用这个账号；那边终端里的 claude 也一样。",
+  "@settingsAccountsSwitchSummary": {
+    "description": "切换 Claude 账号的确认框说明。"
+  },
+  "settingsAccountsSwitch": "切换",
+  "@settingsAccountsSwitch": {
+    "description": "切换账号确认框的确认按钮。"
+  },
+  "settingsAccountsRemoveTitle": "移除 {name}？",
+  "@settingsAccountsRemoveTitle": {
+    "description": "移除 Claude 账号的确认框标题，name 是账号名。",
+    "placeholders": {
+      "name": {}
+    }
+  },
+  "settingsAccountsRemoveSummary": "只删这台设备上存着的这份登录和记录，服务器上的登录还在。以后要用得重新登录。",
+  "@settingsAccountsRemoveSummary": {
+    "description": "移除 Claude 账号的确认框说明。"
+  },
+  "settingsAccountsRemove": "移除",
+  "@settingsAccountsRemove": {
+    "description": "移除账号：确认框的按钮、账号菜单里的一项。"
+  },
+  "settingsAccountsQuota": "订阅额度",
+  "@settingsAccountsQuota": {
+    "description": "账号与额度页上额度一组的标题。"
+  },
+  "settingsAccountsRefreshing": "正在刷新…",
+  "@settingsAccountsRefreshing": {
+    "description": "额度一组的刷新行：正在刷新。"
+  },
+  "settingsAccountsRefresh": "刷新",
+  "@settingsAccountsRefresh": {
+    "description": "额度一组的一行，点了重新取额度。"
+  },
+  "settingsAccountsGroup": "账号",
+  "@settingsAccountsGroup": {
+    "description": "账号与额度页上 claude-switch 管着的各账号那一组的标题。"
+  },
+  "settingsAccountsFooter": "这台设备上两个 Zeta 和终端里的 claude 共用一份登录，有对话在进行或别处开着 Claude Code 时不能切换。添加账号会先退出当前账号，中途取消的话，在这里切回去。",
+  "@settingsAccountsFooter": {
+    "description": "账号一组下面的说明。"
+  },
+  "settingsAccountsLoading": "正在读取…",
+  "@settingsAccountsLoading": {
+    "description": "账号一组：还在读账号清单。"
+  },
+  "settingsAccountsNone": "还没有登录",
+  "@settingsAccountsNone": {
+    "description": "账号一组：一个账号都没有。"
+  },
+  "settingsAccountsAdd": "添加账号",
+  "@settingsAccountsAdd": {
+    "description": "账号一组最后一行，点了登录另一个 Claude 账号。"
+  },
+  "settingsAccountsExpired": "登录已过期",
+  "@settingsAccountsExpired": {
+    "description": "一个账号的说明里的一段：它的登录过期了。"
+  },
+  "settingsAccountsUnnamed": "还没记下名字",
+  "@settingsAccountsUnnamed": {
+    "description": "一个账号的说明里的一段：在用的登录还没在 claude-switch 里记下名字。"
+  },
+  "settingsAccountsSwitchTo": "切换到这个账号",
+  "@settingsAccountsSwitchTo": {
+    "description": "点开一个账号的菜单里的一项。"
+  },
+  "settingsDefaultsFooter": "在这台设备上开新对话时用。存在这台设备上 Claude Code 自己的设置里，和那边终端里 /model、/effort 存为默认的是同一份；对话里选的只管那个对话。思考强度按模型分别存。上下文窗口是会话最多用多少 token，自动压缩按它算，比模型本身的窗口大时按模型的。",
+  "@settingsDefaultsFooter": {
+    "description": "设备页「新对话默认」一组下面的说明。"
+  },
+  "settingsDefaultsNotRead": "还没读到 Claude Code 的设置",
+  "@settingsDefaultsNotRead": {
+    "description": "新对话默认的几行灰着时的说明：环境没就绪或读失败。"
+  },
+  "settingsDefaultsChangeFailed": "没有改成：{reason}",
+  "@settingsDefaultsChangeFailed": {
+    "description": "改设备上的一项设置（默认值、闲置超时）失败时弹的提示，reason 是原因。",
+    "placeholders": {
+      "reason": {}
+    }
+  },
+  "settingsDefaultsModel": "默认模型",
+  "@settingsDefaultsModel": {
+    "description": "设备页「新对话默认」的一行；设置首页一台设备右边没设模型时也写它。"
+  },
+  "settingsDefaultsModelBuiltin": "Claude Code 内置的默认",
+  "@settingsDefaultsModelBuiltin": {
+    "description": "默认模型下拉里的第一项：不设，用 Claude Code 内置的默认模型。"
+  },
+  "settingsDefaultsContextWindow": "上下文窗口",
+  "@settingsDefaultsContextWindow": {
+    "description": "设备页「新对话默认」的一行：会话最多用多少 token。"
+  },
+  "settingsDefaultsContextWindowModel": "按模型的窗口",
+  "@settingsDefaultsContextWindowModel": {
+    "description": "上下文窗口下拉里的第一项：不设，按模型本身的窗口。"
+  },
+  "settingsDefaultsMode": "默认权限模式",
+  "@settingsDefaultsMode": {
+    "description": "设备页「新对话默认」的一行。"
+  },
+  "settingsDefaultsEffort": "默认思考强度",
+  "@settingsDefaultsEffort": {
+    "description": "设备页「新对话默认」的一行，也是点进去那一页的标题。"
+  },
+  "settingsDefaultsEffortFooter": "这台设备上的新对话按所用的模型取这里的设置，和那边终端里 /effort 存为默认的是同一份；对话里选的只管那个对话。",
+  "@settingsDefaultsEffortFooter": {
+    "description": "默认思考强度页下面的说明。"
+  },
+  "settingsDefaultsEffortFooterPending": "这台设备上的新对话按所用的模型取这里的设置，和那边终端里 /effort 存为默认的是同一份；对话里选的只管那个对话。正在向 Claude Code 要模型清单，先列出已经设过的。",
+  "@settingsDefaultsEffortFooterPending": {
+    "description": "默认思考强度页下面的说明，还没拿到模型清单时多一句。"
+  },
+  "settingsDefaultsCommaSeparator": "，",
+  "@settingsDefaultsCommaSeparator": {
+    "description": "默认思考强度摘要里各模型之间的分隔，比如「Opus 5.5 超高，Fable 5.2 高」。"
+  },
+  "settingsDefaultsOtherModels": "其他模型",
+  "@settingsDefaultsOtherModels": {
+    "description": "默认思考强度页最后一行：没单独设的模型共用的那一档。"
+  },
+  "settingsDefaultsEffortUnset": "没有设，按 Claude Code 的默认",
+  "@settingsDefaultsEffortUnset": {
+    "description": "默认思考强度一行的摘要：哪个模型都没设。"
+  },
+  "settingsDefaultsModelEffort": "{model} {level}",
+  "@settingsDefaultsModelEffort": {
+    "description": "默认思考强度摘要里的一段：模型名和它的档，比如「Opus 5.5 超高」。",
+    "placeholders": {
+      "model": {},
+      "level": {}
+    }
+  },
+  "settingsModelMore": "更多模型",
+  "@settingsModelMore": {
+    "description": "模型下拉的最后一项，点开是旧版本的模型；默认思考强度页收起旧模型的那一行也用它。"
+  },
+  "settingsFollowModel": "模型",
+  "@settingsFollowModel": {
+    "description": "定时任务、通知触发、数字助理设置里选模型的一行。"
+  },
+  "settingsFollowEffort": "思考强度",
+  "@settingsFollowEffort": {
+    "description": "定时任务、通知触发、数字助理设置里选思考强度的一行。"
+  },
+  "settingsFollowMode": "权限模式",
+  "@settingsFollowMode": {
+    "description": "定时任务、通知触发设置里选权限模式的一行。"
+  },
+  "settingsCompactDefault": "默认（快满时）",
+  "@settingsCompactDefault": {
+    "description": "「压缩时机」的选项：按 Claude Code 默认，快满时压缩。"
+  },
+  "settingsCompactAtPercent": "用到 {percent}% 时",
+  "@settingsCompactAtPercent": {
+    "description": "「压缩时机」的选项：上下文用到百分之几时压缩。",
+    "placeholders": {
+      "percent": {
+        "type": "int"
+      }
+    }
+  },
+  "settingsCompactAuto": "自动压缩上下文",
+  "@settingsCompactAuto": {
+    "description": "设备页的开关：让 Claude Code 自动压缩上下文。"
+  },
+  "settingsCompactAutoTitle": "自动生成对话标题",
+  "@settingsCompactAutoTitle": {
+    "description": "设备页的开关：第一轮回答后由 Claude Code 起个简短标题。"
+  },
+  "settingsCompactTiming": "压缩时机",
+  "@settingsCompactTiming": {
+    "description": "设备页的一行：上下文用到多少时自动压缩。"
+  },
+  "settingsIdleNever": "不自动结束",
+  "@settingsIdleNever": {
+    "description": "「闲置超时」的选项：闲着的 Claude Code 进程不自动结束。"
+  },
+  "settingsIdleTimeout": "闲置超时",
+  "@settingsIdleTimeout": {
+    "description": "设备页的一行：没人看着又闲着的 Claude Code 进程过多久结束。"
+  },
+  "settingsClaudeUpdateVersionFailed": "读不到版本：{error}",
+  "@settingsClaudeUpdateVersionFailed": {
+    "description": "远程设备页「Claude Code」一行的摘要：查版本失败。",
+    "placeholders": {
+      "error": {}
+    }
+  },
+  "settingsClaudeUpdateUpdating": "正在更新…",
+  "@settingsClaudeUpdateUpdating": {
+    "description": "远程设备页「Claude Code」一行的摘要：正在跑 claude update。"
+  },
+  "settingsClaudeUpdateHint": "点按更新到最新版",
+  "@settingsClaudeUpdateHint": {
+    "description": "远程设备页「Claude Code」一行的摘要：点它更新。"
+  },
+  "settingsClaudeUpdateFailed": "没更新成：{reason}",
+  "@settingsClaudeUpdateFailed": {
+    "description": "更新 Claude Code 失败，reason 是原因或 claude update 输出的最后一行。",
+    "placeholders": {
+      "reason": {}
+    }
+  },
+  "settingsClaudeUpdateError": "claude update 出错了",
+  "@settingsClaudeUpdateError": {
+    "description": "claude update 失败、又没有输出时的原因。"
+  },
+  "settingsClaudeUpdateUpdated": "已从 {before} 更新到 {after}",
+  "@settingsClaudeUpdateUpdated": {
+    "description": "更新 Claude Code 成功：旧版本和新版本。",
+    "placeholders": {
+      "before": {},
+      "after": {}
+    }
+  },
+  "settingsRowsDeviceName": "自定义设备名",
+  "@settingsRowsDeviceName": {
+    "description": "设备页的一行和改名对话框的标题：给设备起个名字。"
+  },
+  "settingsRowsDeviceNameHint": "留空就用设备自己的名字「{name}」",
+  "@settingsRowsDeviceNameHint": {
+    "description": "改设备名对话框的说明，name 是设备自己的名字。",
+    "placeholders": {
+      "name": {}
+    }
+  },
+  "settingsAppearanceTheme": "主题模式",
+  "@settingsAppearanceTheme": {
+    "description": "外观与主题页的一行：跟随系统、浅色、深色。"
+  },
+  "settingsAppearanceScale": "界面缩放",
+  "@settingsAppearanceScale": {
+    "description": "外观与主题页的滑块和它的输入框标题。"
+  },
+  "settingsAppearanceScaleSummary": "只缩放 Zeta 自己的页面",
+  "@settingsAppearanceScaleSummary": {
+    "description": "界面缩放滑块下的说明。"
+  },
+  "settingsAppearanceScaleHint": "请输入 80 至 110 之间的整数",
+  "@settingsAppearanceScaleHint": {
+    "description": "界面缩放输入框的说明。"
+  },
+  "settingsAppearancePercent": "百分比",
+  "@settingsAppearancePercent": {
+    "description": "界面缩放输入框里的提示。"
+  },
+  "aboutTitle": "关于",
+  "@aboutTitle": {
+    "description": "设置首页「关于」一组的标题。"
+  },
+  "aboutSource": "源码",
+  "@aboutSource": {
+    "description": "「关于」里打开这个版本源码的一行。"
+  },
+  "aboutLicense": "许可证",
+  "@aboutLicense": {
+    "description": "「关于」里看 Zeta 许可证的一行、那一页的标题，组件页里许可证一行。"
+  },
+  "aboutOpenSource": "开源许可",
+  "@aboutOpenSource": {
+    "description": "「关于」里看第三方组件许可的一行和那一页的标题。"
+  },
+  "aboutCredits": "鸣谢",
+  "@aboutCredits": {
+    "description": "「关于」里鸣谢一行和那一页的标题。"
+  },
+  "aboutDiagnostics": "诊断与日志",
+  "@aboutDiagnostics": {
+    "description": "「关于」里打开诊断页的一行。"
+  },
+  "aboutBundled": "随包的其他组件",
+  "@aboutBundled": {
+    "description": "「开源许可」页上手写条目那一组的标题。"
+  },
+  "aboutBundledFooter": "不在依赖库里的：改写自 Eta 的代码、字体、原生库和 zeta-helper 里的代码。",
+  "@aboutBundledFooter": {
+    "description": "「开源许可」页手写条目那一组下面的说明。"
+  },
+  "aboutLibraries": "依赖库",
+  "@aboutLibraries": {
+    "description": "「开源许可」页上 Maven 依赖那一组的标题。"
+  },
+  "aboutLibrariesFooter": "{count, plural, other {共 {count} 项，构建时由 licensee 从这个版本打包的依赖生成，许可证不在允许名单里的构建不过。}}",
+  "@aboutLibrariesFooter": {
+    "description": "「开源许可」页依赖库清单下面的说明；count 是清单里有几项。",
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "aboutUpstream": "上游",
+  "@aboutUpstream": {
+    "description": "组件页里打开它上游主页的一行。"
+  },
+  "aboutCopyright": "版权",
+  "@aboutCopyright": {
+    "description": "组件页里版权行那一组的标题。"
+  },
+  "aboutIncludes": "包含",
+  "@aboutIncludes": {
+    "description": "组件页里它包含的各部分那一组的标题。"
+  },
+  "aboutRepoFiles": "仓里的文件",
+  "@aboutRepoFiles": {
+    "description": "组件页里列出 Zeta 仓里哪些文件来自它的那一组标题。"
+  },
+  "aboutArtifacts": "构件",
+  "@aboutArtifacts": {
+    "description": "组件页里 Maven 构件名那一组的标题。"
+  },
+  "aboutLicenseTextMissing": "读不出这份全文（{path}）",
+  "@aboutLicenseTextMissing": {
+    "description": "许可证全文读不出来时的说明；path 是包里的文件路径。"
+  },
+  "aboutCreditEta": "Zeta 的功能和交互照它设计；Markdown 渲染、侧栏骨架的代码来自它（GPL-3.0）",
+  "@aboutCreditEta": {
+    "description": "鸣谢页里 Eta 一行的介绍。"
+  },
+  "aboutCreditCoui": "界面组件库，ColorOS 17 的样式（Apache-2.0）",
+  "@aboutCreditCoui": {
+    "description": "鸣谢页里 COUI 2 一行的介绍。"
+  },
+  "aboutCreditMiuix": "COUI 2 的上游（Apache-2.0）",
+  "@aboutCreditMiuix": {
+    "description": "鸣谢页里 Miuix 一行的介绍。"
+  },
+  "aboutCreditClaudeCode": "Anthropic 的编程 agent，Zeta 是它在手机上的客户端",
+  "@aboutCreditClaudeCode": {
+    "description": "鸣谢页里 Claude Code 一行的介绍。"
+  },
+  "aboutUnofficial": "Claude 是 Anthropic 的商标。Zeta 不是 Anthropic 的产品，与 Anthropic 没有关联。",
+  "@aboutUnofficial": {
+    "description": "「关于」一组和鸣谢页下面的非官方声明。"
+  },
+  "aboutLegalFree": "本程序是自由软件：你可以按自由软件基金会发布的 GNU 通用公共许可证第 3 版再分发、修改它。",
+  "@aboutLegalFree": {
+    "description": "「许可证」页 GPL 要求的声明第一段：可以再分发、修改。"
+  },
+  "aboutLegalWarranty": "发布本程序是希望它有用，但不提供任何担保，也不默示适销性或适用于某一特定用途的担保。详见下面的 GNU 通用公共许可证全文。",
+  "@aboutLegalWarranty": {
+    "description": "「许可证」页 GPL 要求的声明第二段：不提供担保。"
+  },
+  "aboutLegalEta": "Markdown 渲染、侧栏骨架等部分代码来自 Eta（Copyright © 2026 蛮吉 (Mangi-11)），同样按 GPL-3.0 授权。",
+  "@aboutLegalEta": {
+    "description": "「许可证」页声明第三段：来自 Eta 的代码。"
+  },
+  "updateCheck": "检查更新",
+  "@updateCheck": {
+    "description": "「关于」里版本一行右边：点它检查更新。"
+  },
+  "updateUpToDate": "已是最新",
+  "@updateUpToDate": {
+    "description": "版本一行右边：检查过，没有新版本。"
+  },
+  "updateCheckFailed": "检查失败",
+  "@updateCheckFailed": {
+    "description": "版本一行右边：检查更新失败（原因写在版本号下面）。"
+  },
+  "updateAvailable": "新版本 {version}",
+  "@updateAvailable": {
+    "description": "版本一行右边：有新版本，version 是它的版本号。"
+  },
+  "updateTitle": "版本更新",
+  "@updateTitle": {
+    "description": "「版本更新」页的标题。"
+  },
+  "updateNotes": "更新说明",
+  "@updateNotes": {
+    "description": "「版本更新」页上更新说明那一组的标题。"
+  },
+  "updateNoNotes": "这个版本没有写更新说明。",
+  "@updateNoNotes": {
+    "description": "新版本没写更新说明时显示。"
+  },
+  "updateCurrentVersion": "当前版本",
+  "@updateCurrentVersion": {
+    "description": "「版本更新」页上现在装着的版本一行。"
+  },
+  "updateInstallNote": "下载后核对大小、sha256 和签名，不对就删掉。装新版本会关掉 Zeta 的界面，进行中的对话照样跑完；有手机操作正在执行时等这一步结束再装。有 root 时直接装，装好自动重新打开；没有 root 时交给系统安装，由你确认。",
+  "@updateInstallNote": {
+    "description": "「版本更新」页新版本那一行下面的说明。"
+  },
+  "updatePublished": "发布于 {date}",
+  "@updatePublished": {
+    "description": "新版本一行的说明：发布日期（yyyy-MM-dd）。"
+  },
+  "updateDownloading": "下载中 {done} / {total}",
+  "@updateDownloading": {
+    "description": "新版本一行的说明：已下载 / 总大小（已格式化的大小）。"
+  },
+  "updateVerifying": "核对大小、sha256 和签名",
+  "@updateVerifying": {
+    "description": "新版本一行的说明：下完在核对。"
+  },
+  "updateWaitingIdle": "有手机操作正在执行，这一步结束后自动安装",
+  "@updateWaitingIdle": {
+    "description": "新版本一行的说明：等手机操作结束再装。"
+  },
+  "updateNeedsPermission": "没有 root：先允许 Zeta 安装未知应用，再点这里",
+  "@updateNeedsPermission": {
+    "description": "新版本一行的说明：没有 root，要先给「安装未知应用」权限。"
+  },
+  "updateDownloaded": "已下载并核对，点安装",
+  "@updateDownloaded": {
+    "description": "新版本一行的说明：下好了，等用户点安装。"
+  },
+  "updateInstallingRoot": "正在安装，装好后 Zeta 自动重新打开",
+  "@updateInstallingRoot": {
+    "description": "新版本一行的说明：有 root，正在装。"
+  },
+  "updateInstallingSystem": "在系统的安装界面上确认",
+  "@updateInstallingSystem": {
+    "description": "新版本一行的说明：交给系统安装，等用户确认。"
+  },
+  "updateActionUpdate": "更新",
+  "@updateActionUpdate": {
+    "description": "新版本一行右边的胶囊按钮：开始下载（地方只够两个汉字、一个短词）。"
+  },
+  "updateActionVerify": "核对",
+  "@updateActionVerify": {
+    "description": "胶囊按钮：正在核对（不能点）。"
+  },
+  "updateActionWait": "等待",
+  "@updateActionWait": {
+    "description": "胶囊按钮：等手机操作结束，点了取消。"
+  },
+  "updateActionAllow": "授权",
+  "@updateActionAllow": {
+    "description": "胶囊按钮：去给「安装未知应用」权限。"
+  },
+  "updateActionInstall": "安装",
+  "@updateActionInstall": {
+    "description": "胶囊按钮：安装，或正在安装。"
+  },
+  "updateVerifyFailed": "核对失败：{reason}，已删掉下载的文件",
+  "@updateVerifyFailed": {
+    "description": "新版本一行的红字：下好的安装包没过核对；reason 是下面几条 updateApk* 之一。"
+  },
+  "updateNoOwnSignature": "读不出本应用自己的签名",
+  "@updateNoOwnSignature": {
+    "description": "核对失败的原因：读不到已装的 Zeta 的签名。"
+  },
+  "updateApkUnreadable": "读不出下载的安装包（文件坏了，或不是 APK）",
+  "@updateApkUnreadable": {
+    "description": "核对失败的原因。"
+  },
+  "updateApkWrongPackage": "安装包的包名是 {got}，不是本应用（{want}）",
+  "@updateApkWrongPackage": {
+    "description": "核对失败的原因：包名不对。"
+  },
+  "updateApkWrongCode": "安装包的 versionCode 是 {got}，清单写的是 {want}",
+  "@updateApkWrongCode": {
+    "description": "核对失败的原因：版本号和更新清单对不上。"
+  },
+  "updateApkWrongSigner": "安装包的签名和已装的 Zeta 不一致",
+  "@updateApkWrongSigner": {
+    "description": "核对失败的原因：签名不对。"
+  },
+  "updateNotifyTitle": "Zeta 有新版本 {version}",
+  "@updateNotifyTitle": {
+    "description": "有新版本时发的通知标题。"
+  },
+  "updateNotifyText": "点开看更新说明、下载并安装",
+  "@updateNotifyText": {
+    "description": "有新版本时发的通知正文。"
+  },
+  "updateInstallFailed": "安装失败：{reason}",
+  "@updateInstallFailed": {
+    "description": "新版本一行的红字：没装上；reason 是系统或 pm 给的原文，或下面两条。"
+  },
+  "updatePmExit": "pm install 退出码 {code}",
+  "@updatePmExit": {
+    "description": "没装上且 pm 没输出时的原因。"
+  },
+  "updateStatusCode": "状态码 {status}",
+  "@updateStatusCode": {
+    "description": "系统安装没说原因时的原因：PackageInstaller 的状态码。"
+  },
+  "updateSessionFailed": "交给系统安装失败：{error}",
+  "@updateSessionFailed": {
+    "description": "新版本一行的红字：建不了系统安装会话。"
+  },
+  "updateConfirmUnavailable": "打不开系统的安装确认",
+  "@updateConfirmUnavailable": {
+    "description": "新版本一行的红字：系统要确认但界面打不开。"
+  },
+  "updateFromHost": "{host} 给的{error}",
+  "@updateFromHost": {
+    "description": "检查更新失败的原因：某个地址给的清单不对；error 是 updateManifestBad。"
+  },
+  "updateDownloadTooSmall": "从 {host} 下的文件只有 {got} 字节，清单写的是 {size}，已删掉",
+  "@updateDownloadTooSmall": {
+    "description": "下载失败的原因。"
+  },
+  "updateDownloadBadHash": "从 {host} 下的文件 sha256 和清单不一致，已删掉",
+  "@updateDownloadBadHash": {
+    "description": "下载失败的原因。"
+  },
+  "updateDownloadTooLarge": "从 {host} 下的文件比清单写的 {size} 字节大，已删掉",
+  "@updateDownloadTooLarge": {
+    "description": "下载失败的原因。"
+  },
+  "updateSaveFailed": "存不下下载的文件",
+  "@updateSaveFailed": {
+    "description": "下载失败的原因。"
+  },
+  "updateHttpStatus": "{host} 回了 HTTP {status}",
+  "@updateHttpStatus": {
+    "description": "检查或下载失败的原因：HTTP 状态码不是 200。"
+  },
+  "updateManifestTooLarge": "更新清单比 {size} KB 还大，不像是清单",
+  "@updateManifestTooLarge": {
+    "description": "检查更新失败的原因。"
+  },
+  "updateHostTimeout": "连 {host} 超时",
+  "@updateHostTimeout": {
+    "description": "检查或下载失败的原因。"
+  },
+  "updateHostNotFound": "找不到 {host}（没有网络？）",
+  "@updateHostNotFound": {
+    "description": "检查或下载失败的原因。"
+  },
+  "updateHostUnreachable": "连不上 {host}",
+  "@updateHostUnreachable": {
+    "description": "检查或下载失败的原因。"
+  },
+  "updateReasonSeparator": "；",
+  "@updateReasonSeparator": {
+    "description": "几个地址都失败时，各个原因之间的分隔。"
+  },
+  "updateManifestBad": "更新清单格式不对：{what}",
+  "@updateManifestBad": {
+    "description": "更新清单解析不了；what 是下面 updateManifest* 里的一条。"
+  },
+  "updateManifestNotObject": "不是 JSON 对象",
+  "@updateManifestNotObject": {
+    "description": "更新清单哪里不对。"
+  },
+  "updateManifestBadCode": "versionCode 缺少或不是正整数",
+  "@updateManifestBadCode": {
+    "description": "更新清单哪里不对。"
+  },
+  "updateManifestBadName": "versionName 缺少或不是 X.Y.Z",
+  "@updateManifestBadName": {
+    "description": "更新清单哪里不对。"
+  },
+  "updateManifestBadApk": "apk 缺少或不是 .apk 文件名",
+  "@updateManifestBadApk": {
+    "description": "更新清单哪里不对。"
+  },
+  "updateManifestBadUrl": "url 缺少或不是网址",
+  "@updateManifestBadUrl": {
+    "description": "更新清单哪里不对。"
+  },
+  "updateManifestBadSize": "size 缺少或不对",
+  "@updateManifestBadSize": {
+    "description": "更新清单哪里不对。"
+  },
+  "updateManifestBadSha": "sha256 缺少或不是 64 位小写十六进制",
+  "@updateManifestBadSha": {
+    "description": "更新清单哪里不对。"
+  },
+  "sshNoResponse": "zeta-ssh 没有回应",
+  "@sshNoResponse": {
+    "description": "检查远程主机连接时的问题：Zeta 自带的 SSH 程序没应答。"
+  },
+  "sshStartFailed": "Zeta 的 SSH 程序起不来：{error}",
+  "@sshStartFailed": {
+    "description": "直连远程主机失败的原因。"
+  },
+  "sshNoHello": "没有打招呼",
+  "@sshNoHello": {
+    "description": "Zeta 的 SSH 程序起来后没发招呼（接在 sshStartFailed 后面）。"
+  },
+  "sshExited": "Zeta 的 SSH 程序退出了",
+  "@sshExited": {
+    "description": "直连远程主机时 SSH 程序没了，没留下原因。"
+  },
+  "sshExitedWith": "Zeta 的 SSH 程序退出了：{error}",
+  "@sshExitedWith": {
+    "description": "直连远程主机时 SSH 程序没了；error 是它最后一行报错原文。"
+  },
+  "sshChannelClosed": "通道已经断了",
+  "@sshChannelClosed": {
+    "description": "往远程主机上的命令写输入时连接已断。"
+  },
+  "sshEnded": "已经结束",
+  "@sshEnded": {
+    "description": "往远程主机上已经结束的命令写输入。"
+  },
+  "overlayPhaseRunning": "运行中",
+  "@overlayPhaseRunning": {
+    "description": "悬浮胶囊上没有具体步骤时：Claude 在操作手机。"
+  },
+  "overlayPhasePaused": "已暂停",
+  "@overlayPhasePaused": {
+    "description": "悬浮胶囊上：用户点了暂停。"
+  },
+  "overlayPhaseControlling": "你在接管",
+  "@overlayPhaseControlling": {
+    "description": "悬浮胶囊上：用户接管了后台屏幕。"
+  },
+  "overlayPhaseFinished": "已完成",
+  "@overlayPhaseFinished": {
+    "description": "悬浮胶囊上、结果卡片标题：这一轮做完了。"
+  },
+  "overlayStagePaused": "已暂停，等你继续",
+  "@overlayStagePaused": {
+    "description": "展开的悬浮画面下方：暂停中。"
+  },
+  "overlayStageControlling": "手动接管中",
+  "@overlayStageControlling": {
+    "description": "展开的悬浮画面下方：用户接管中。"
+  },
+  "overlayStageCanvas": "后台画布",
+  "@overlayStageCanvas": {
+    "description": "展开的悬浮画面下方：Claude 在后台屏幕上操作（没有应用名时）。"
+  },
+  "overlayCapsuleCollapse": "{step}，点按收起",
+  "@overlayCapsuleCollapse": {
+    "description": "悬浮胶囊的无障碍朗读：已展开；step 是当前步骤。"
+  },
+  "overlayCapsuleExpand": "{step}，点按展开控制",
+  "@overlayCapsuleExpand": {
+    "description": "悬浮胶囊的无障碍朗读：已收起；step 是当前步骤。"
+  },
+  "overlaySupplement": "补充",
+  "@overlaySupplement": {
+    "description": "悬浮胶囊的按钮（无障碍朗读）：给这一轮补充指令。"
+  },
+  "overlayPause": "暂停",
+  "@overlayPause": {
+    "description": "悬浮胶囊的按钮（无障碍朗读）：暂停 Claude 操作手机。"
+  },
+  "overlayResume": "继续",
+  "@overlayResume": {
+    "description": "悬浮胶囊、展开画面的按钮：暂停后继续。"
+  },
+  "overlayHandBack": "交还给 Claude 继续",
+  "@overlayHandBack": {
+    "description": "悬浮胶囊的按钮（无障碍朗读）：结束接管，让 Claude 接着做。"
+  },
+  "overlayStop": "停止",
+  "@overlayStop": {
+    "description": "悬浮胶囊的按钮（无障碍朗读）：停下这一轮。"
+  },
+  "overlayOpenInZeta": "在 Zeta 中打开",
+  "@overlayOpenInZeta": {
+    "description": "悬浮胶囊上对话标题的点按说明（无障碍）。"
+  },
+  "overlayNewConversation": "新对话",
+  "@overlayNewConversation": {
+    "description": "悬浮胶囊上对话还没有标题时。"
+  },
+  "overlaySupplementHint": "补充指令，Claude 会继续当前任务",
+  "@overlaySupplementHint": {
+    "description": "悬浮胶囊里补充指令输入框的占位。"
+  },
+  "overlaySend": "发送",
+  "@overlaySend": {
+    "description": "悬浮胶囊补充指令的发送按钮。"
+  },
+  "overlayResultFailed": "出错了",
+  "@overlayResultFailed": {
+    "description": "结果卡片标题：这一轮出错结束。"
+  },
+  "overlayBackToConversation": "回到对话",
+  "@overlayBackToConversation": {
+    "description": "结果卡片的按钮：打开 Zeta 里的这个对话。"
+  },
+  "overlayTakeOver": "接管",
+  "@overlayTakeOver": {
+    "description": "展开画面的按钮：用户自己操作后台屏幕。"
+  },
+  "overlayFullscreen": "全屏",
+  "@overlayFullscreen": {
+    "description": "展开画面的按钮：全屏看后台屏幕。"
+  },
+  "markdownCode": "代码",
+  "@markdownCode": {
+    "description": "回答里代码块的标题（没写语言时）。"
+  },
+  "markdownCopyCode": "复制代码",
+  "@markdownCopyCode": {
+    "description": "代码块右上角复制按钮的无障碍朗读。"
+  },
+  "markdownAlertNote": "注意",
+  "@markdownAlertNote": {
+    "description": "回答里 GitHub 提示块（> [!NOTE]）的标题。"
+  },
+  "markdownAlertTip": "提示",
+  "@markdownAlertTip": {
+    "description": "回答里 GitHub 提示块（> [!TIP]）的标题。"
+  },
+  "markdownAlertImportant": "重要",
+  "@markdownAlertImportant": {
+    "description": "回答里 GitHub 提示块（> [!IMPORTANT]）的标题。"
+  },
+  "markdownAlertWarning": "警告",
+  "@markdownAlertWarning": {
+    "description": "回答里 GitHub 提示块（> [!WARNING]）的标题。"
+  },
+  "markdownAlertCaution": "小心",
+  "@markdownAlertCaution": {
+    "description": "回答里 GitHub 提示块（> [!CAUTION]）的标题。"
+  },
+  "componentsMore": "更多",
+  "@componentsMore": {
+    "description": "顶栏「更多」菜单按钮的无障碍朗读。"
   }
 }

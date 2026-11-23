@@ -15,6 +15,7 @@ import com.dzshzx.zeta.core.update.AppUpdates
 import com.dzshzx.zeta.core.update.UpdateInstaller
 import com.dzshzx.zeta.core.update.UpdateState
 import com.dzshzx.zeta.core.update.UpdateStep
+import com.dzshzx.zeta.i18n.Strings
 import com.dzshzx.zeta.ui.components.coui2.CouiPage
 import com.dzshzx.zeta.ui.components.coui2.PreferenceGroup
 import com.dzshzx.zeta.ui.components.coui2.PreferenceValue
@@ -39,24 +40,27 @@ internal fun VersionRow(updates: AppUpdates, onOpenUpdate: () -> Unit) {
     val version = BuildConfig.VERSION_NAME
     val icon = @Composable { SettingsIcon(COUIIcons.Info, SettingsHue.System) }
     if (!updates.enabled) {
-        BasicComponent(title = "版本", summary = version, startAction = icon)
+        BasicComponent(title = Strings.commonVersion(), summary = version, startAction = icon)
         return
     }
     val state = updates.state
     BasicComponent(
-        title = "版本",
+        title = Strings.commonVersion(),
         summary = if (state is UpdateState.CheckFailed) "$version\n${state.reason}" else version,
         startAction = icon,
         endActions = {
             when (state) {
-                UpdateState.Idle -> PreferenceValue("检查更新")
+                UpdateState.Idle -> PreferenceValue(Strings.updateCheck())
                 UpdateState.Checking -> InfiniteProgressIndicator(size = 20.dp)
-                UpdateState.UpToDate -> PreferenceValue("已是最新")
+                UpdateState.UpToDate -> PreferenceValue(Strings.updateUpToDate())
                 is UpdateState.CheckFailed ->
-                    PreferenceValue("检查失败", color = COUITheme.colorScheme.error)
+                    PreferenceValue(
+                        Strings.updateCheckFailed(),
+                        color = COUITheme.colorScheme.error,
+                    )
                 is UpdateState.Available ->
                     PreferenceValue(
-                        "新版本 ${state.manifest.versionName}",
+                        Strings.updateAvailable(state.manifest.versionName),
                         color = COUITheme.colorScheme.primary,
                     )
             }
@@ -70,7 +74,7 @@ internal fun VersionRow(updates: AppUpdates, onOpenUpdate: () -> Unit) {
 internal fun AutoUpdateSwitch() {
     val settings = Settings.of(LocalContext.current)
     SwitchPreference(
-        title = "自动检查更新",
+        title = Strings.settingsAutoCheckUpdates(),
         startAction = { SettingsIcon(COUIIcons.Update, SettingsHue.System) },
         checked = settings.autoUpdateCheck,
         onCheckedChange = { settings.autoUpdateCheck = it },
@@ -83,20 +87,22 @@ internal fun UpdateScreen(onBack: () -> Unit) {
     val updates = AppUpdates.get(LocalContext.current)
     LaunchedEffect(Unit) { if (updates.state == UpdateState.Idle) updates.check() }
     val available = updates.state as? UpdateState.Available
-    CouiPage(title = "版本更新", onBack = onBack) {
+    CouiPage(title = Strings.updateTitle(), onBack = onBack) {
         if (available == null) {
             item(key = "current") {
                 PreferenceGroup { item { VersionRow(updates, onOpenUpdate = {}) } }
             }
         } else {
             item(key = "release") {
-                PreferenceGroup(footer = INSTALL_NOTE) { item { ReleaseRow(updates, available) } }
+                PreferenceGroup(footer = Strings.updateInstallNote()) {
+                    item { ReleaseRow(updates, available) }
+                }
             }
             item(key = "notes") {
-                PreferenceGroup(title = "更新说明") {
+                PreferenceGroup(title = Strings.updateNotes()) {
                     item {
                         StaticMarkdown(
-                            content = available.manifest.notes.ifBlank { "这个版本没有写更新说明。" },
+                            content = available.manifest.notes.ifBlank { Strings.updateNoNotes() },
                             tone = MarkdownTone.Answer,
                             modifier =
                                 Modifier.fillMaxWidth()
@@ -109,7 +115,7 @@ internal fun UpdateScreen(onBack: () -> Unit) {
                 PreferenceGroup {
                     item {
                         BasicComponent(
-                            title = "当前版本",
+                            title = Strings.updateCurrentVersion(),
                             endActions = { PreferenceValue(BuildConfig.VERSION_NAME) },
                         )
                     }
@@ -118,10 +124,6 @@ internal fun UpdateScreen(onBack: () -> Unit) {
         }
     }
 }
-
-private const val INSTALL_NOTE =
-    "下载后核对大小、sha256 和签名，不对就删掉。装新版本会关掉 Zeta 的界面，进行中的对话照样跑完；" +
-        "有手机操作正在执行时等这一步结束再装。有 root 时直接装，装好自动重新打开；没有 root 时交给系统安装，由你确认。"
 
 /** 新版本一行：标题是版本号，说明随步骤变（失败时红字写原因），右边胶囊按钮的字和进度见 [capsule]。 */
 @Composable
@@ -135,15 +137,19 @@ private fun ReleaseRow(updates: AppUpdates, available: UpdateState.Available) {
             UpdateStep.Ready ->
                 listOfNotNull(
                         size,
-                        manifest.publishedAt.take(10).takeIf { it.length == 10 }?.let { "发布于 $it" },
+                        manifest.publishedAt
+                            .take(10)
+                            .takeIf { it.length == 10 }
+                            ?.let { Strings.updatePublished(it) },
                     )
                     .joinToString(" · ")
-            is UpdateStep.Downloading -> "下载中 ${formatBytes(step.done)} / $size"
-            UpdateStep.Verifying -> "核对大小、sha256 和签名"
-            UpdateStep.WaitingIdle -> "有手机操作正在执行，这一步结束后自动安装"
-            UpdateStep.NeedsPermission -> "没有 root：先允许 Zeta 安装未知应用，再点这里"
-            UpdateStep.Downloaded -> "已下载并核对，点安装"
-            is UpdateStep.Installing -> if (step.root) "正在安装，装好后 Zeta 自动重新打开" else "在系统的安装界面上确认"
+            is UpdateStep.Downloading -> Strings.updateDownloading(formatBytes(step.done), size)
+            UpdateStep.Verifying -> Strings.updateVerifying()
+            UpdateStep.WaitingIdle -> Strings.updateWaitingIdle()
+            UpdateStep.NeedsPermission -> Strings.updateNeedsPermission()
+            UpdateStep.Downloaded -> Strings.updateDownloaded()
+            is UpdateStep.Installing ->
+                if (step.root) Strings.updateInstallingRoot() else Strings.updateInstallingSystem()
             is UpdateStep.Failed -> step.reason
         }
     val (label, look, progress) = capsule(step, manifest.size)
@@ -177,15 +183,16 @@ private fun ReleaseRow(updates: AppUpdates, available: UpdateState.Available) {
 /** 胶囊按钮的字（两个字放得下）、样子和进度：点了做什么见 [ReleaseRow]。 */
 private fun capsule(step: UpdateStep, size: Long): Triple<String, InstallLoadState, Float> =
     when (step) {
-        UpdateStep.Ready -> Triple("更新", InstallLoadState.Idle, 0f)
+        UpdateStep.Ready -> Triple(Strings.updateActionUpdate(), InstallLoadState.Idle, 0f)
         is UpdateStep.Downloading -> {
             val fraction = (step.done.toFloat() / size).coerceIn(0f, 1f)
             Triple("${(fraction * 100).toInt()}%", InstallLoadState.Loading, fraction)
         }
-        UpdateStep.Verifying -> Triple("核对", InstallLoadState.Loading, 1f)
-        UpdateStep.WaitingIdle -> Triple("等待", InstallLoadState.Paused, 1f)
-        UpdateStep.NeedsPermission -> Triple("授权", InstallLoadState.Idle, 0f)
-        UpdateStep.Downloaded -> Triple("安装", InstallLoadState.Idle, 0f)
-        is UpdateStep.Installing -> Triple("安装", InstallLoadState.Loading, 1f)
-        is UpdateStep.Failed -> Triple("重试", InstallLoadState.Failed, 0f)
+        UpdateStep.Verifying -> Triple(Strings.updateActionVerify(), InstallLoadState.Loading, 1f)
+        UpdateStep.WaitingIdle -> Triple(Strings.updateActionWait(), InstallLoadState.Paused, 1f)
+        UpdateStep.NeedsPermission -> Triple(Strings.updateActionAllow(), InstallLoadState.Idle, 0f)
+        UpdateStep.Downloaded -> Triple(Strings.updateActionInstall(), InstallLoadState.Idle, 0f)
+        is UpdateStep.Installing ->
+            Triple(Strings.updateActionInstall(), InstallLoadState.Loading, 1f)
+        is UpdateStep.Failed -> Triple(Strings.commonRetry(), InstallLoadState.Failed, 0f)
     }

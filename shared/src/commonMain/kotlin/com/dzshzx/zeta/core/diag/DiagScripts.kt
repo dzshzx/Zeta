@@ -1,18 +1,28 @@
 package com.dzshzx.zeta.core.diag
 
 import com.dzshzx.zeta.core.formatBytes
+import com.dzshzx.zeta.i18n.Strings
 import java.util.Base64
 
 /** 诊断页“Claude Code”一节列出的日志文件从哪来。 */
-enum class LogKind(val code: String, val label: String) {
+enum class LogKind(val code: String) {
     /** 正在跑的对话进程的标准错误输出（`~/.cache/<名字>/hosts/<标识>/err.log`）。 */
-    Running("running", "运行中"),
+    Running("running"),
 
     /** 已经结束的对话进程留下的那份（zeta_host.sh 存到 `~/.cache/<名字>/stderr/`）。 */
-    Finished("finished", "已结束"),
+    Finished("finished"),
 
     /** Claude Code 自己的调试日志（`~/.claude/debug/`）。 */
-    Debug("debug", "调试日志"),
+    Debug("debug");
+
+    /** 界面上的名字，按界面语言取。 */
+    val label: String
+        get() =
+            when (this) {
+                Running -> Strings.diagLogRunning()
+                Finished -> Strings.diagLogFinished()
+                Debug -> Strings.diagLogDebug()
+            }
 }
 
 /** Linux 环境里的一个日志文件。[modified] 是毫秒；[title] 是对话标题（只有运行中的有）。 */

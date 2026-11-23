@@ -38,6 +38,8 @@ import com.dzshzx.zeta.core.schedule.ScheduledTask
 import com.dzshzx.zeta.core.schedule.Schedules
 import com.dzshzx.zeta.core.schedule.TaskDraft
 import com.dzshzx.zeta.core.schedule.TaskRun
+import com.dzshzx.zeta.i18n.Strings
+import com.dzshzx.zeta.i18n.UiLanguage
 import com.dzshzx.zeta.ui.components.SlideInPage
 import com.dzshzx.zeta.ui.components.StatusWarning
 import com.dzshzx.zeta.ui.components.coui2.ConfirmDialog
@@ -72,13 +74,11 @@ import java.time.Instant
 import java.time.LocalDate
 import java.time.LocalTime
 import java.time.ZoneId
+import java.time.format.DateTimeFormatter
+import java.util.Locale
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
-
-/** 列表页的说明。没写进去的：后台对话不打断正在看的对话；跑完的通知是任务名加回答的开头，点它打开那次的对话； 同一个任务上一次还没跑完时跳过这一次（编辑页的“跳过了 N 次”会列出来）。 */
-private const val ListFooter =
-    "到点时在这台设备上开一个对话在后台运行，跑完发通知；Zeta 没开着也照常运行。" + "也可以在对话里直接说，比如“每天早上 8 点汇总通知和日程”。"
 
 /** 设备页上的入口：主机 [backend] 上的定时任务开着几个、下一次什么时候。 */
 @Composable
@@ -91,12 +91,15 @@ internal fun ScheduleEntry(backend: String, onOpen: () -> Unit) {
     val enabled = tasks.filter { it.enabled }
     val next = enabled.mapNotNull { Schedules.nextTrigger(it.rule, now, zone) }.minOrNull()
     ArrowPreference(
-        title = "定时任务",
-        summary = next?.let { "下次 " + Schedules.formatWhen(it, now, zone) },
+        title = Strings.settingsTitleSchedules(),
+        summary = next?.let { Strings.settingsScheduleNext(Schedules.formatWhen(it, now, zone)) },
         startAction = { SettingsIcon(ZetaIcons.Clock, SettingsHue.Automation) },
         endActions = {
             if (tasks.isNotEmpty())
-                PreferenceValue(if (enabled.isEmpty()) "都关着" else "${enabled.size} 个开着")
+                PreferenceValue(
+                    if (enabled.isEmpty()) Strings.settingsScheduleAllOff()
+                    else Strings.settingsScheduleOnCount(enabled.size),
+                )
         },
         onClick = onOpen,
     )
@@ -125,10 +128,14 @@ internal fun ScheduleScreen(
     val now = Instant.now()
 
     CouiPage(
-        title = "定时任务",
+        title = Strings.settingsTitleSchedules(),
         onBack = onBack,
         actions = {
-            IconActionButton(COUIIcons.Add, "新建定时任务", enabled = total < Schedules.MAX_TASKS) {
+            IconActionButton(
+                COUIIcons.Add,
+                Strings.settingsScheduleNew(),
+                enabled = total < Schedules.MAX_TASKS,
+            ) {
                 editing = EditTarget(null)
             }
         },
@@ -140,8 +147,8 @@ internal fun ScheduleScreen(
                         PermissionFixRow(
                             hub,
                             PermissionId.ExactAlarm,
-                            "精确闹钟未允许",
-                            "到点可能被系统推迟。",
+                            Strings.settingsScheduleExactAlarmMissing(),
+                            Strings.settingsScheduleExactAlarmReason(),
                             StatusWarning,
                         )
                     }
@@ -149,10 +156,19 @@ internal fun ScheduleScreen(
             }
         }
         item(key = "tasks") {
-            PreferenceGroup(title = "定时任务 · ${tasks.size}", footer = ListFooter) {
+            PreferenceGroup(
+                title = Strings.settingsScheduleListTitle(tasks.size),
+                // 没写进说明的：后台对话不打断正在看的对话；跑完的通知是任务名加回答的开头，点它打开那次的对话；
+                // 同一个任务上一次还没跑完时跳过这一次（编辑页的“跳过了 N 次”会列出来）
+                footer = Strings.settingsScheduleListFooter(),
+            ) {
                 if (tasks.isEmpty()) {
                     item {
-                        BasicComponent(title = "还没有定时任务", summary = "点右上角 + 新建", enabled = false)
+                        BasicComponent(
+                            title = Strings.settingsScheduleEmpty(),
+                            summary = Strings.settingsScheduleEmptyHint(),
+                            enabled = false,
+                        )
                     }
                 }
                 tasks.forEach { task ->
@@ -160,10 +176,13 @@ internal fun ScheduleScreen(
                     // 摘要一行：怎么重复，再加状态。关没关着看开关；下次什么时候在首页入口和编辑页的“时间”下面
                     val state =
                         when {
-                            last?.outcome == RunOutcome.Running -> "正在运行"
+                            last?.outcome == RunOutcome.Running -> Strings.settingsScheduleRunning()
                             task.enabled && Schedules.nextTrigger(task.rule, now, zone) == null ->
-                                "时间已过"
-                            else -> last?.let { "上次" + outcomeWord(it.outcome) }
+                                Strings.settingsScheduleTimePassed()
+                            else ->
+                                last?.let {
+                                    Strings.settingsScheduleLastOutcome(outcomeWord(it.outcome))
+                                }
                         }
                     item(key = task.id) {
                         SwitchWithDividerPreference(
@@ -275,9 +294,16 @@ private fun TaskEditor(
     }
 
     CouiPage(
-        title = if (original == null) "新建定时任务" else "编辑定时任务",
+        title =
+            if (original == null) Strings.settingsScheduleNew() else Strings.settingsScheduleEdit(),
         onBack = onBack,
-        actions = { ToolbarTextButton(text = "保存", enabled = problem == null, onClick = ::save) },
+        actions = {
+            ToolbarTextButton(
+                text = Strings.commonSave(),
+                enabled = problem == null,
+                onClick = ::save,
+            )
+        },
         dialogs = {
             TaskDialogs(
                 dialog = dialog,
@@ -306,8 +332,8 @@ private fun TaskEditor(
                 InputView(
                     value = name,
                     onValueChange = { name = it.take(Schedules.MAX_NAME) },
-                    title = "名称",
-                    label = "每日简报",
+                    title = Strings.settingsScheduleName(),
+                    label = Strings.settingsScheduleNameHint(),
                 )
             }
         }
@@ -316,8 +342,8 @@ private fun TaskEditor(
                 InputView(
                     value = prompt,
                     onValueChange = { prompt = it },
-                    title = "指令",
-                    label = "比如：汇总今天的日程和昨晚以来的通知，三五行说完",
+                    title = Strings.settingsSchedulePrompt(),
+                    label = Strings.settingsSchedulePromptHint(),
                     singleLine = false,
                     maxLines = 10,
                 )
@@ -367,7 +393,13 @@ private fun TaskEditor(
                 }
             }
             item(key = "delete") {
-                PreferenceGroup { item { DangerRow("删除任务") { dialog = EditorDialog.Delete } } }
+                PreferenceGroup {
+                    item {
+                        DangerRow(Strings.settingsScheduleDeleteTask()) {
+                            dialog = EditorDialog.Delete
+                        }
+                    }
+                }
             }
         }
     }
@@ -425,7 +457,7 @@ private fun deleteTask(app: Application, task: ScheduledTask) {
 private fun timeFooter(problem: String?, next: Instant?, now: Instant, zone: ZoneId): String? =
     when {
         problem != null -> problem
-        next != null -> "下次运行：" + Schedules.formatWhen(next, now, zone)
+        next != null -> Strings.settingsScheduleNextRun(Schedules.formatWhen(next, now, zone))
         else -> null
     }
 
@@ -485,9 +517,9 @@ private fun TaskDialogs(
     )
     ConfirmDialog(
         show = dialog == EditorDialog.Delete,
-        title = "删除定时任务",
-        summary = original?.let { "删除“${it.name}”？以后不再运行。之前运行留下的对话还在。" },
-        confirmText = "删除",
+        title = Strings.settingsScheduleDeleteTitle(),
+        summary = original?.let { Strings.settingsScheduleDeleteSummary(it.name) },
+        confirmText = Strings.commonDelete(),
         destructive = true,
         onConfirm = onDelete,
         onDismissRequest = onClose,
@@ -507,7 +539,7 @@ private fun TaskTimeGroup(
     onDays: (Set<DayOfWeek>) -> Unit,
     onDialog: (EditorDialog) -> Unit,
 ) {
-    PreferenceGroup(title = "时间", footer = footer) {
+    PreferenceGroup(title = Strings.settingsScheduleTime(), footer = footer) {
         item(key = "kind") {
             Box(Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 12.dp)) {
                 SegmentButton(
@@ -523,22 +555,32 @@ private fun TaskTimeGroup(
         when (kind) {
             RuleKind.Once ->
                 item(key = "date") {
-                    ValueRow("日期", dateText(date)) { onDialog(EditorDialog.Date) }
+                    ValueRow(Strings.settingsScheduleDate(), dateText(date)) {
+                        onDialog(EditorDialog.Date)
+                    }
                 }
             RuleKind.Weekly -> item(key = "days") { WeekdayPicker(days, onDays) }
             RuleKind.Interval -> {
                 item(key = "hours") {
-                    ValueRow("每隔", "$hours 小时") { onDialog(EditorDialog.Hours) }
+                    ValueRow(
+                        Strings.settingsScheduleEvery(),
+                        Strings.settingsScheduleHours(hours),
+                    ) {
+                        onDialog(EditorDialog.Hours)
+                    }
                 }
                 item(key = "start") {
-                    ValueRow("从哪天开始", dateText(date)) { onDialog(EditorDialog.Date) }
+                    ValueRow(Strings.settingsScheduleStartDate(), dateText(date)) {
+                        onDialog(EditorDialog.Date)
+                    }
                 }
             }
             RuleKind.Daily -> Unit
         }
         item(key = "clock") {
             ValueRow(
-                if (kind == RuleKind.Interval) "从几点开始" else "时间",
+                if (kind == RuleKind.Interval) Strings.settingsScheduleStartTime()
+                else Strings.settingsScheduleTime(),
                 "%02d:%02d".format(time.hour, time.minute),
             ) {
                 onDialog(EditorDialog.Time)
@@ -563,15 +605,13 @@ private fun TaskRunGroup(
     onPickCwd: () -> Unit,
 ) {
     PreferenceGroup(
-        title = "运行方式",
-        footer =
-            "后台运行时没人确认。默认“自动判断”：由 Claude Code 判断每一步放不放行，一般不用停下来等你。" +
-                "选“逐项确认”的话，要改文件、执行命令时这一轮会停下来，发通知等你。",
+        title = Strings.settingsScheduleRunGroup(),
+        footer = Strings.settingsScheduleRunFooter(),
     ) {
         item {
             BasicComponent(
-                title = "工作目录",
-                summary = cwd.ifBlank { "$defaultCwd（默认）" },
+                title = Strings.commonWorkingDir(),
+                summary = cwd.ifBlank { Strings.settingsScheduleDefaultCwd(defaultCwd) },
                 onClick = onPickCwd,
             )
         }
@@ -579,8 +619,10 @@ private fun TaskRunGroup(
         item { PermissionModePreference(mode, onMode) }
         item {
             SwitchPreference(
-                title = "每次开新对话",
-                summary = if (newSession) "几次运行互不相干" else "接着同一个对话，记得之前的内容",
+                title = Strings.settingsScheduleNewSession(),
+                summary =
+                    if (newSession) Strings.settingsScheduleNewSessionOn()
+                    else Strings.settingsScheduleNewSessionOff(),
                 checked = newSession,
                 onCheckedChange = onNewSession,
             )
@@ -599,13 +641,19 @@ private fun TaskRecordGroup(
     onOpenConversation: () -> Unit,
     onRunNow: () -> Unit,
 ) {
-    PreferenceGroup(title = "运行记录") {
+    PreferenceGroup(title = Strings.commonRunHistory()) {
         original.lastRun?.let { run ->
             item(key = "last") { LastRunRow(hub, run, now, zone, onOpenConversation) }
         }
         if (original.skips > 0) {
             item(key = "skips") {
-                SkipsRow(original.skips, original.lastSkip, "上一次还没跑完", now, zone)
+                SkipsRow(
+                    original.skips,
+                    original.lastSkip,
+                    Strings.settingsScheduleSkippedBusy(),
+                    now,
+                    zone,
+                )
             }
         }
         item(key = "now") {
@@ -613,7 +661,7 @@ private fun TaskRecordGroup(
                 original.lastRun?.outcome == RunOutcome.Running ||
                     ScheduleRunner.isRunning(original.id)
             BasicComponent(
-                title = "立即运行一次",
+                title = Strings.settingsScheduleRunNow(),
                 summary = runNowSummary(running, original.onlyOnChange, runMessage),
                 titleColor =
                     BasicComponentDefaults.titleColor(color = COUITheme.colorScheme.primary),
@@ -626,9 +674,9 @@ private fun TaskRecordGroup(
 
 private fun runNowSummary(running: Boolean, onlyOnChange: Boolean, runMessage: String?): String =
     when {
-        running && onlyOnChange -> "正在运行，有变化才发通知"
-        running -> "正在运行，跑完会发通知"
-        else -> runMessage ?: "照已保存的设置跑一次，不影响定时"
+        running && onlyOnChange -> Strings.settingsScheduleRunningOnChange()
+        running -> Strings.settingsScheduleRunningNotify()
+        else -> runMessage ?: Strings.settingsScheduleRunNowHint()
     }
 
 /** 一项权限没给时列表顶上的那一行：点了先试 root，没 root 或没改成就打开系统设置。 [reason] 是缺了它的后果，后面接“点这里…”。 */
@@ -646,7 +694,12 @@ internal fun PermissionFixRow(
     val root = hub.environment.setup != SetupState.NoRoot
     BasicComponent(
         title = title,
-        summary = if (granting) "正在授予…" else reason + "点这里" + if (root) "经 root 允许" else "到系统设置里允许",
+        summary =
+            when {
+                granting -> Strings.commonGranting()
+                root -> Strings.settingsScheduleFixViaRoot(reason)
+                else -> Strings.settingsScheduleFixInSettings(reason)
+            },
         titleColor = BasicComponentDefaults.titleColor(color = titleColor),
         enabled = !granting,
         onClick = {
@@ -671,12 +724,12 @@ internal fun CwdDialog(
     var input by remember(visible) { mutableStateOf(cwd) }
     TextInputDialog(
         show = visible,
-        title = "工作目录",
-        summary = "这台设备上的绝对路径。留空用默认工作目录（现在是 $defaultCwd）。",
+        title = Strings.commonWorkingDir(),
+        summary = Strings.settingsScheduleCwdSummary(defaultCwd),
         value = input,
         onValueChange = { input = it },
         label = defaultCwd,
-        confirmText = "确定",
+        confirmText = Strings.commonOk(),
         onConfirm = { onConfirm(input.trim()) },
         onDismissRequest = onDismiss,
     )
@@ -687,7 +740,7 @@ internal fun CwdDialog(
 internal fun SkipsRow(skips: Int, lastSkip: Long?, reason: String, now: Instant, zone: ZoneId) {
     if (skips <= 0) return
     BasicComponent(
-        title = "跳过了 $skips 次",
+        title = Strings.settingsScheduleSkips(skips),
         summary =
             reason +
                 (lastSkip?.let { " · " + Schedules.formatWhen(Instant.ofEpochMilli(it), now, zone) }
@@ -702,15 +755,19 @@ internal fun OnlyOnChangeGroup(
     checked: Boolean,
     onChange: (Boolean) -> Unit,
 ) {
-    PreferenceGroup(title = "提醒", footer = OnlyOnChangeFooter) {
+    PreferenceGroup(
+        title = Strings.settingsScheduleAlertGroup(),
+        footer = Strings.settingsScheduleOnlyOnChangeFooter(),
+    ) {
         item {
             SwitchPreference(
-                title = "只在有变化时提醒",
+                title = Strings.settingsScheduleOnlyOnChange(),
                 summary =
                     when {
-                        checked && !hub.settings.phoneTools -> "手机工具关着，Claude 没法上报，照常提醒"
-                        checked -> "没有变化只记进运行记录，不发通知"
-                        else -> "每次跑完都发通知"
+                        checked && !hub.settings.phoneTools ->
+                            Strings.settingsScheduleOnlyOnChangeNoTools()
+                        checked -> Strings.settingsScheduleOnlyOnChangeOn()
+                        else -> Strings.settingsScheduleOnlyOnChangeOff()
                     },
                 checked = checked,
                 onCheckedChange = onChange,
@@ -718,9 +775,6 @@ internal fun OnlyOnChangeGroup(
         }
     }
 }
-
-private const val OnlyOnChangeFooter =
-    "打开后，Claude 每次跑完判断有没有值得告诉你的，没有就不发通知。" + "出了错、停下来等你确认、Claude 没给结论时照常提醒。"
 
 /**
  * 运行记录里的“上次运行”：有那次的对话时点了打开它。 摘要只写什么时候跑的：回答的开头在跑完的通知里，点进对话看全文；没有对话可开（没跑起来）、或没有变化（没发通知）时，才在后面接上原因或
@@ -735,10 +789,10 @@ internal fun LastRunRow(
     onOpenConversation: () -> Unit,
 ) {
     val session = run.sessionId
-    val title = "上次运行 · " + outcomeWord(run.outcome)
+    val title = Strings.settingsScheduleLastRun(outcomeWord(run.outcome))
     val summary =
         Schedules.formatWhen(Instant.ofEpochMilli(run.at), now, zone) +
-            (if (run.manual) "（手动）" else "") +
+            (if (run.manual) Strings.settingsScheduleManual() else "") +
             run.summary
                 .takeIf {
                     (session == null || run.outcome == RunOutcome.NoChange) && it.isNotBlank()
@@ -788,16 +842,21 @@ internal fun FieldCard(footer: String? = null, field: @Composable () -> Unit) {
 
 private fun dateText(date: LocalDate): String {
     val today = LocalDate.now()
-    val prefix =
-        when (date) {
-            today -> "今天 · "
-            today.plusDays(1) -> "明天 · "
-            else -> ""
-        }
-    return prefix +
-        (if (date.year == today.year) "" else "${date.year}年") +
-        "${date.monthValue}月${date.dayOfMonth}日 " +
-        Schedules.weekdayName(date.dayOfWeek)
+    val pattern =
+        if (date.year == today.year) Strings.settingsScheduleDatePattern()
+        else Strings.settingsScheduleDatePatternYear()
+    val day =
+        Strings.settingsScheduleDateWeekday(
+            date.format(
+                DateTimeFormatter.ofPattern(pattern, Locale.forLanguageTag(UiLanguage.current)),
+            ),
+            Schedules.weekdayName(date.dayOfWeek),
+        )
+    return when (date) {
+        today -> Strings.settingsScheduleToday(day)
+        today.plusDays(1) -> Strings.settingsScheduleTomorrow(day)
+        else -> day
+    }
 }
 
 /** 一周七天的小圆钮，可以多选。 */
@@ -822,7 +881,7 @@ private fun WeekdayPicker(days: Set<DayOfWeek>, onChange: (Set<DayOfWeek>) -> Un
                 contentAlignment = Alignment.Center,
             ) {
                 Text(
-                    text = Schedules.weekdayName(day).removePrefix("周"),
+                    text = Schedules.dayShort(day),
                     style = COUITheme.textStyles.bodyM,
                     color = if (selected) colors.onPrimary else colors.labelPrimary,
                 )
@@ -842,9 +901,9 @@ internal fun TimeDialog(
     var value by remember(visible) { mutableStateOf(TimeValue(initial.hour, initial.minute)) }
     ConfirmDialog(
         show = visible,
-        title = "选择时间",
+        title = Strings.settingsSchedulePickTime(),
         summary = null,
-        confirmText = "确定",
+        confirmText = Strings.commonOk(),
         onConfirm = { onConfirm(LocalTime.of(value.hour, value.minute)) },
         onDismissRequest = onDismiss,
     ) {
@@ -852,8 +911,8 @@ internal fun TimeDialog(
             value = value,
             onValueChange = { value = it },
             modifier = Modifier.fillMaxWidth(),
-            hourUnit = "时",
-            minuteUnit = "分",
+            hourUnit = Strings.settingsScheduleHourUnit(),
+            minuteUnit = Strings.settingsScheduleMinuteUnit(),
         )
     }
 }
@@ -869,9 +928,9 @@ private fun DateDialog(
     var value by remember(visible) { mutableStateOf(maxOf(initial, today)) }
     ConfirmDialog(
         show = visible,
-        title = "选择日期",
+        title = Strings.settingsSchedulePickDate(),
         summary = null,
-        confirmText = "确定",
+        confirmText = Strings.commonOk(),
         onConfirm = { onConfirm(value) },
         onDismissRequest = onDismiss,
     ) {
@@ -898,9 +957,9 @@ private fun HoursDialog(
         remember(visible) { mutableStateOf(initial.coerceIn(1, ScheduleRule.MAX_INTERVAL_HOURS)) }
     ConfirmDialog(
         show = visible,
-        title = "每隔几小时",
+        title = Strings.settingsSchedulePickHours(),
         summary = null,
-        confirmText = "确定",
+        confirmText = Strings.commonOk(),
         onConfirm = { onConfirm(value) },
         onDismissRequest = onDismiss,
     ) {
@@ -909,7 +968,7 @@ private fun HoursDialog(
             onValueChange = { value = it },
             modifier = Modifier.fillMaxWidth(),
             range = 1..ScheduleRule.MAX_INTERVAL_HOURS,
-            unit = "小时",
+            unit = Strings.settingsScheduleHoursUnit(),
             wrapAround = false,
         )
     }

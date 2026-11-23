@@ -20,6 +20,7 @@ import com.dzshzx.zeta.core.formatTokens
 import com.dzshzx.zeta.core.modelMenu
 import com.dzshzx.zeta.core.modelName
 import com.dzshzx.zeta.core.readableModelId
+import com.dzshzx.zeta.i18n.Strings
 import com.dzshzx.zeta.ui.chat.PermissionModes
 import com.dzshzx.zeta.ui.chat.permissionModeLabel
 import com.dzshzx.zeta.ui.components.coui2.CouiPage
@@ -36,12 +37,12 @@ import io.github.suqi8.coui.kmp.preference.ArrowPreference
  */
 
 /** 主机页「新对话默认」那一组的说明。 */
-internal const val ClaudeDefaultsFooter =
-    "在这台设备上开新对话时用。存在这台设备上 Claude Code 自己的设置里，和那边终端里 /model、/effort 存为默认的是同一份；" +
-        "对话里选的只管那个对话。思考强度按模型分别存。上下文窗口是会话最多用多少 token，自动压缩按它算，比模型本身的窗口大时按模型的。"
+internal val ClaudeDefaultsFooter: String
+    get() = Strings.settingsDefaultsFooter()
 
 /** 还没读到 Claude Code 的设置（环境没就绪、读失败）时三行灰着，写这一句。 */
-private const val NotRead = "还没读到 Claude Code 的设置"
+private val notRead: String
+    get() = Strings.settingsDefaultsNotRead()
 
 /** 改主机 [backend] 上的一项默认值：在后台写那台的 settings.json，写成了更新 hub，没写成弹一句原因。 */
 @Composable
@@ -57,7 +58,12 @@ private fun rememberDefaultsWriter(
             result
                 .onSuccess { hub.updateClaudeDefaults(backend, it) }
                 .onFailure {
-                    Toast.makeText(context, "没有改成：" + it.problem(), Toast.LENGTH_LONG).show()
+                    Toast.makeText(
+                            context,
+                            Strings.settingsDefaultsChangeFailed(it.problem()),
+                            Toast.LENGTH_LONG,
+                        )
+                        .show()
                 }
         }
     }
@@ -70,14 +76,14 @@ internal fun DefaultModelPreference(hub: ConversationHub, backend: String) {
     val defaults = hub.claudeDefaults(backend)
     val choices = modelChoices(hub.modelOptions(backend))
     FollowDropdownPreference(
-        title = "默认模型",
+        title = Strings.settingsDefaultsModel(),
         // 「默认」就是不设，和跟随那一项合成一项
         choices = choices.latest.filter { it.first != Conversation.DEFAULT_MODEL },
         more = choices.older,
         value = defaults?.model?.takeIf { it != Conversation.DEFAULT_MODEL },
         unknown = ::readableModelId,
-        followLabel = "Claude Code 内置的默认",
-        summary = NotRead.takeIf { defaults == null },
+        followLabel = Strings.settingsDefaultsModelBuiltin(),
+        summary = notRead.takeIf { defaults == null },
         enabled = defaults != null,
     ) { value ->
         write { setDefaultModel(value) }
@@ -97,12 +103,12 @@ internal fun CompactWindowPreference(hub: ConversationHub, backend: String) {
     val write = rememberDefaultsWriter(hub, backend)
     val defaults = hub.claudeDefaults(backend)
     FollowDropdownPreference(
-        title = "上下文窗口",
+        title = Strings.settingsDefaultsContextWindow(),
         choices = CompactWindows.map { it.toString() to formatTokens(it) },
         value = defaults?.compactWindow?.toString(),
         unknown = { it.toLongOrNull()?.let(::formatTokens) ?: it },
-        followLabel = "按模型的窗口",
-        summary = NotRead.takeIf { defaults == null },
+        followLabel = Strings.settingsDefaultsContextWindowModel(),
+        summary = notRead.takeIf { defaults == null },
         enabled = defaults != null,
     ) { value ->
         write { setCompactWindow(value?.toLong()) }
@@ -115,12 +121,12 @@ internal fun DefaultPermissionModePreference(hub: ConversationHub, backend: Stri
     val write = rememberDefaultsWriter(hub, backend)
     val defaults = hub.claudeDefaults(backend)
     FollowDropdownPreference(
-        title = "默认权限模式",
+        title = Strings.settingsDefaultsMode(),
         choices = PermissionModes.filter { it.first != "bypassPermissions" },
         value = hub.defaultPermissionMode(backend),
         unknown = ::permissionModeLabel,
         followLabel = null,
-        summary = NotRead.takeIf { defaults == null },
+        summary = notRead.takeIf { defaults == null },
         enabled = defaults != null,
     ) { value ->
         value?.let { mode -> write { setDefaultPermissionMode(mode) } }
@@ -132,8 +138,8 @@ internal fun DefaultPermissionModePreference(hub: ConversationHub, backend: Stri
 internal fun DefaultEffortEntry(hub: ConversationHub, backend: String, onOpen: () -> Unit) {
     val defaults = hub.claudeDefaults(backend)
     ArrowPreference(
-        title = "默认思考强度",
-        summary = defaults?.let(::effortSummary) ?: NotRead,
+        title = Strings.settingsDefaultsEffort(),
+        summary = defaults?.let(::effortSummary) ?: notRead,
         enabled = defaults != null,
         onClick = onOpen,
     )
@@ -152,15 +158,15 @@ internal fun DefaultEffortScreen(hub: ConversationHub, backend: String, onBack: 
     val waiting = models.isEmpty()
     var showOlder by remember { mutableStateOf(false) }
     LaunchedEffect(waiting) { if (waiting && hub.current.backend == backend) hub.current.prepare() }
-    CouiPage(title = "默认思考强度", onBack = onBack) {
+    CouiPage(title = Strings.settingsDefaultsEffort(), onBack = onBack) {
         item(key = "efforts") {
             PreferenceGroup(
                 footer =
-                    "这台设备上的新对话按所用的模型取这里的设置，和那边终端里 /effort 存为默认的是同一份；对话里选的只管那个对话。" +
-                        if (waiting) "正在向 Claude Code 要模型清单，先列出已经设过的。" else "",
+                    if (waiting) Strings.settingsDefaultsEffortFooterPending()
+                    else Strings.settingsDefaultsEffortFooter(),
             ) {
                 if (defaults == null) {
-                    item { ArrowPreference(title = NotRead, enabled = false) }
+                    item { ArrowPreference(title = notRead, enabled = false) }
                 } else {
                     effortItems(
                         effortRows(models, defaults),
@@ -188,7 +194,7 @@ private fun CardListGroupScope.effortItems(
                 title = row.title,
                 choices = row.choices,
                 value = row.value,
-                followLabel = "跟随 Claude Code",
+                followLabel = Strings.commonFollowClaudeCode(),
             ) { level ->
                 write { setDefaultEffort(row.model, level) }
             }
@@ -197,8 +203,8 @@ private fun CardListGroupScope.effortItems(
     if (folded.isNotEmpty()) {
         item {
             ArrowPreference(
-                title = "更多模型",
-                summary = folded.joinToString("、") { it.title },
+                title = Strings.settingsModelMore(),
+                summary = folded.joinToString(Strings.commonListSeparator()) { it.title },
                 onClick = onShowOlder,
             )
         }
@@ -248,7 +254,10 @@ internal fun effortRows(models: List<ModelOption>, defaults: ClaudeDefaults): Li
         defaults.efforts
             .filterKeys { id -> listed.none { it.resolvedModel == id } }
             .map { (id, level) -> EffortRow(id, readableModelId(id), EffortLevels, level) }
-    val rest = defaults.effort?.let { EffortRow(null, "其他模型", EffortLevels, it) }
+    val rest =
+        defaults.effort?.let {
+            EffortRow(null, Strings.settingsDefaultsOtherModels(), EffortLevels, it)
+        }
     return rows + others + listOfNotNull(rest)
 }
 
@@ -256,13 +265,19 @@ internal fun effortRows(models: List<ModelOption>, defaults: ClaudeDefaults): Li
 internal fun effortSummary(defaults: ClaudeDefaults): String {
     val perModel =
         defaults.efforts.map { (model, level) ->
-            readableModelId(model) + " " + (effortLabel(level) ?: level)
+            Strings.settingsDefaultsModelEffort(readableModelId(model), effortLabel(level) ?: level)
         }
     val rest = defaults.effort?.let { effortLabel(it) ?: it }
     return when {
-        perModel.isEmpty() -> rest ?: "没有设，按 Claude Code 的默认"
-        rest == null -> perModel.joinToString("，")
-        else -> (perModel + "其他模型 $rest").joinToString("，")
+        perModel.isEmpty() -> rest ?: Strings.settingsDefaultsEffortUnset()
+        rest == null -> perModel.joinToString(Strings.settingsDefaultsCommaSeparator())
+        else ->
+            (perModel +
+                    Strings.settingsDefaultsModelEffort(
+                        Strings.settingsDefaultsOtherModels(),
+                        rest,
+                    ))
+                .joinToString(Strings.settingsDefaultsCommaSeparator())
     }
 }
 
@@ -273,7 +288,7 @@ internal fun effortSummary(defaults: ClaudeDefaults): String {
 internal fun hostDefaultsSummary(defaults: ClaudeDefaults, models: List<ModelOption>): String {
     val model = defaults.model ?: Conversation.DEFAULT_MODEL
     val id = models.firstOrNull { it.value == model }?.resolvedModel
-    val name = modelName(model, models) ?: "默认模型"
+    val name = modelName(model, models) ?: Strings.settingsDefaultsModel()
     val effort = effortLabel(defaults.efforts[id ?: model] ?: defaults.effort)
     return listOfNotNull(name, effort).joinToString(" · ")
 }

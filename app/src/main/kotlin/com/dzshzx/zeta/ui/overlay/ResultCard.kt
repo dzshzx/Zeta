@@ -81,6 +81,7 @@ import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.Velocity
 import androidx.compose.ui.unit.dp
 import com.dzshzx.zeta.core.ResultCardPolicy
+import com.dzshzx.zeta.i18n.Strings
 import com.dzshzx.zeta.ui.components.coui2.ZetaIcons
 import com.dzshzx.zeta.ui.markdown.MarkdownTone
 import com.dzshzx.zeta.ui.markdown.StaticMarkdown
@@ -328,7 +329,11 @@ private fun ResultPanel(
                 .clip(shape)
                 .background(panel, shape)
                 .border(0.6.dp, colors.labelQuaternary, shape)
-                .semantics { paneTitle = if (failed) "出错了" else "已完成" }
+                .semantics {
+                    paneTitle =
+                        if (failed) Strings.overlayResultFailed()
+                        else Strings.overlayPhaseFinished()
+                }
                 .pointerInput(Unit) { watchTouches(onPress, onRelease) }
                 .nestedScroll(card.nested)
                 .draggable(
@@ -394,9 +399,9 @@ private fun ResultButtons(onDone: () -> Unit, onOpen: () -> Unit) {
                 .padding(start = ContentPadding, end = ContentPadding, top = 4.dp, bottom = 20.dp),
         horizontalArrangement = Arrangement.spacedBy(12.dp),
     ) {
-        TextButton(text = "完成", onClick = onDone, modifier = Modifier.weight(1f))
+        TextButton(text = Strings.commonDone(), onClick = onDone, modifier = Modifier.weight(1f))
         TextButton(
-            text = "回到对话",
+            text = Strings.overlayBackToConversation(),
             onClick = onOpen,
             modifier = Modifier.weight(1f),
             colors = ButtonDefaults.textButtonColorsPrimary(),
@@ -447,7 +452,7 @@ private fun Header(title: String, failed: Boolean) {
         }
         Spacer(Modifier.width(8.dp))
         Text(
-            text = if (failed) "出错了" else "已完成",
+            text = if (failed) Strings.overlayResultFailed() else Strings.overlayPhaseFinished(),
             color = colors.labelPrimary,
             style = COUITheme.textStyles.headlineXS,
         )

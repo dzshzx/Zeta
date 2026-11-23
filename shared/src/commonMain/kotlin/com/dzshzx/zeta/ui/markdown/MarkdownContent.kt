@@ -60,6 +60,7 @@ import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.TextUnit
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.dzshzx.zeta.i18n.Strings
 import com.dzshzx.zeta.ui.components.MonoFont
 import com.dzshzx.zeta.ui.components.coui2.CopyIconButton
 import com.dzshzx.zeta.ui.components.coui2.ZetaIcons
@@ -333,7 +334,7 @@ private fun MarkdownCodeBlock(block: MarkdownCode, scope: MarkdownRenderScope) {
             verticalAlignment = Alignment.CenterVertically,
         ) {
             Text(
-                text = block.language ?: "代码",
+                text = block.language ?: Strings.markdownCode(),
                 style =
                     COUITheme.textStyles.bodyXS.copy(
                         fontFamily = if (block.language != null) MonoFont else null,
@@ -350,7 +351,7 @@ private fun MarkdownCodeBlock(block: MarkdownCode, scope: MarkdownRenderScope) {
                 size = 32.dp,
                 iconSize = 14.dp,
                 tint = style.secondaryColor,
-                contentDescription = "复制代码",
+                contentDescription = Strings.markdownCopyCode(),
             )
         }
         Box(
@@ -472,11 +473,11 @@ private val MarkdownAlertKind.icon: ImageVector
 private val MarkdownAlertKind.label: String
     get() =
         when (this) {
-            MarkdownAlertKind.Note -> "注意"
-            MarkdownAlertKind.Tip -> "提示"
-            MarkdownAlertKind.Important -> "重要"
-            MarkdownAlertKind.Warning -> "警告"
-            MarkdownAlertKind.Caution -> "小心"
+            MarkdownAlertKind.Note -> Strings.markdownAlertNote()
+            MarkdownAlertKind.Tip -> Strings.markdownAlertTip()
+            MarkdownAlertKind.Important -> Strings.markdownAlertImportant()
+            MarkdownAlertKind.Warning -> Strings.markdownAlertWarning()
+            MarkdownAlertKind.Caution -> Strings.markdownAlertCaution()
         }
 
 @Composable

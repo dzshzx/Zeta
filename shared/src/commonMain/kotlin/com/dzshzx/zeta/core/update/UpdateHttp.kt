@@ -1,5 +1,6 @@
 package com.dzshzx.zeta.core.update
 
+import com.dzshzx.zeta.i18n.Strings
 import java.io.ByteArrayOutputStream
 import java.io.File
 import java.io.IOException
@@ -52,7 +53,7 @@ class UpdateHttp(
                 try {
                     UpdateManifest.parse(text)
                 } catch (e: UpdateException) {
-                    throw UpdateException("${host(candidate)} 给的${e.reason}")
+                    throw UpdateException(Strings.updateFromHost(host(candidate), e.reason))
                 }
             }
         }
@@ -92,12 +93,16 @@ class UpdateHttp(
             }
         if (total != pkg.size)
             throw UpdateException(
-                "从 ${host(candidate)} 下的文件只有 $total 字节，清单写的是 ${pkg.size}，已删掉",
+                Strings.updateDownloadTooSmall(
+                    host(candidate),
+                    total.toString(),
+                    pkg.size.toString(),
+                ),
             )
         if (hex(digest.digest()) != pkg.sha256)
-            throw UpdateException("从 ${host(candidate)} 下的文件 sha256 和清单不一致，已删掉")
+            throw UpdateException(Strings.updateDownloadBadHash(host(candidate)))
         dest.delete()
-        if (!part.renameTo(dest)) throw UpdateException("存不下下载的文件")
+        if (!part.renameTo(dest)) throw UpdateException(Strings.updateSaveFailed())
         return dest
     }
 
@@ -118,7 +123,10 @@ class UpdateHttp(
             val n = input.read(buffer)
             if (n < 0) return total
             total += n
-            if (total > size) throw UpdateException("从 ${host(candidate)} 下的文件比清单写的 $size 字节大，已删掉")
+            if (total > size)
+                throw UpdateException(
+                    Strings.updateDownloadTooLarge(host(candidate), size.toString()),
+                )
             digest.update(buffer, 0, n)
             out.write(buffer, 0, n)
             onProgress(total)
@@ -138,7 +146,7 @@ class UpdateHttp(
                 reasons += network(candidate, e)
             }
         }
-        throw UpdateException(reasons.joinToString("；"))
+        throw UpdateException(reasons.joinToString(Strings.updateReasonSeparator()))
     }
 
     private fun <T> get(url: String, read: (InputStream) -> T): T {
@@ -151,7 +159,7 @@ class UpdateHttp(
         try {
             val code = connection.responseCode
             if (code != HttpURLConnection.HTTP_OK)
-                throw UpdateException("${host(url)} 回了 HTTP $code")
+                throw UpdateException(Strings.updateHttpStatus(host(url), code.toString()))
             return connection.inputStream.use(read)
         } finally {
             connection.disconnect()
@@ -165,16 +173,17 @@ class UpdateHttp(
             val n = input.read(buffer)
             if (n < 0) break
             out.write(buffer, 0, n)
-            if (out.size() > limit) throw UpdateException("更新清单比 ${limit / 1024} KB 还大，不像是清单")
+            if (out.size() > limit)
+                throw UpdateException(Strings.updateManifestTooLarge((limit / 1024).toString()))
         }
         return out.toString(Charsets.UTF_8.name())
     }
 
     private fun network(url: String, e: IOException): String =
         when (e) {
-            is SocketTimeoutException -> "连 ${host(url)} 超时"
-            is UnknownHostException -> "找不到 ${host(url)}（没有网络？）"
-            else -> "连不上 ${host(url)}"
+            is SocketTimeoutException -> Strings.updateHostTimeout(host(url))
+            is UnknownHostException -> Strings.updateHostNotFound(host(url))
+            else -> Strings.updateHostUnreachable(host(url))
         }
 
     companion object {

@@ -1,5 +1,6 @@
 package com.dzshzx.zeta.core.update
 
+import com.dzshzx.zeta.i18n.Strings
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.JsonPrimitive
@@ -57,23 +58,26 @@ data class UpdateManifest(
         fun parse(text: String): UpdateManifest {
             val root =
                 runCatching { json.parseToJsonElement(text) }.getOrNull() as? JsonObject
-                    ?: throw bad("不是 JSON 对象")
+                    ?: throw bad(Strings.updateManifestNotObject())
             val fields = Fields(root)
             val versionCode =
                 fields.number("versionCode")?.takeIf { it in 1..Int.MAX_VALUE.toLong() }
-                    ?: throw bad("versionCode 缺少或不是正整数")
+                    ?: throw bad(Strings.updateManifestBadCode())
             val versionName =
                 fields.string("versionName")?.takeIf { VersionName.matches(it) }
-                    ?: throw bad("versionName 缺少或不是 X.Y.Z")
+                    ?: throw bad(Strings.updateManifestBadName())
             val apk =
                 fields.string("apk")?.takeIf { ApkName.matches(it) }
-                    ?: throw bad("apk 缺少或不是 .apk 文件名")
-            val url = fields.string("url")?.takeIf(::isWebAddress) ?: throw bad("url 缺少或不是网址")
+                    ?: throw bad(Strings.updateManifestBadApk())
+            val url =
+                fields.string("url")?.takeIf(::isWebAddress)
+                    ?: throw bad(Strings.updateManifestBadUrl())
             val size =
-                fields.number("size")?.takeIf { it in 1..MAX_APK_BYTES } ?: throw bad("size 缺少或不对")
+                fields.number("size")?.takeIf { it in 1..MAX_APK_BYTES }
+                    ?: throw bad(Strings.updateManifestBadSize())
             val sha256 =
                 fields.string("sha256")?.takeIf { Hex64.matches(it) }
-                    ?: throw bad("sha256 缺少或不是 64 位小写十六进制")
+                    ?: throw bad(Strings.updateManifestBadSha())
             return UpdateManifest(
                 versionCode = versionCode.toInt(),
                 versionName = versionName,
@@ -89,7 +93,7 @@ data class UpdateManifest(
         private fun isWebAddress(url: String) =
             url.startsWith("https://") || url.startsWith("http://")
 
-        private fun bad(what: String) = UpdateException("更新清单格式不对：$what")
+        private fun bad(what: String) = UpdateException(Strings.updateManifestBad(what))
     }
 
     /** 按类型取清单里的一项：字符串只认 JSON 字符串，数字只认不带引号的整数。 */

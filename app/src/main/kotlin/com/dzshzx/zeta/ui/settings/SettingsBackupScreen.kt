@@ -32,6 +32,7 @@ import com.dzshzx.zeta.core.Settings
 import com.dzshzx.zeta.core.SharedFolders
 import com.dzshzx.zeta.core.notify.NotifyRuleStore
 import com.dzshzx.zeta.core.schedule.ScheduleStore
+import com.dzshzx.zeta.i18n.Strings
 import com.dzshzx.zeta.ui.app.writeText
 import com.dzshzx.zeta.ui.components.coui2.ConfirmDialog
 import com.dzshzx.zeta.ui.components.coui2.CouiPage
@@ -86,7 +87,8 @@ private fun rememberSettingsBackup(hub: ConversationHub): SettingsBackupState {
                 state.busy = false
                 Toast.makeText(
                         context,
-                        if (ok) "设置已导出" else "导出失败",
+                        if (ok) Strings.settingsBackupExported()
+                        else Strings.settingsBackupExportFailed(),
                         if (ok) Toast.LENGTH_SHORT else Toast.LENGTH_LONG,
                     )
                     .show()
@@ -102,7 +104,11 @@ private fun rememberSettingsBackup(hub: ConversationHub): SettingsBackupState {
             }
         }
     state.export = {
-        runCatching { exportLauncher.launch(exportFileName("设置", extension = "json")) }
+        runCatching {
+            exportLauncher.launch(
+                exportFileName(Strings.settingsBackupFileName(), extension = "json"),
+            )
+        }
     }
     state.import = {
         runCatching {
@@ -121,24 +127,30 @@ private fun rememberSettingsBackup(hub: ConversationHub): SettingsBackupState {
 @Composable
 internal fun SettingsBackupScreen(hub: ConversationHub, onBack: () -> Unit) {
     val state = rememberSettingsBackup(hub)
-    CouiPage(title = "备份与恢复", onBack = onBack, dialogs = { SettingsBackupDialogs(hub, state) }) {
+    CouiPage(
+        title = Strings.settingsBackupTitle(),
+        onBack = onBack,
+        dialogs = { SettingsBackupDialogs(hub, state) },
+    ) {
         item(key = "backup") {
             // 备份里是外观、聊天、手机操作、数字助理的模型、置顶、共享文件夹、常用指令、定时任务和通知触发（[SettingsBackup.items]）；
             // 新对话的默认值是 Claude Code 的配置，不在里面；只属于这台手机的（Linux 环境的位置和用户、调试用的屏幕编号、各种缓存、
             // 闹钟登记）不导出，见 [SettingsBackup.machineKeys]；定时任务和通知触发只带规则本身，不带运行记录
-            PreferenceGroup(footer = "不含 Claude Code 的配置、对话和登录状态，也不含定时任务和通知触发的运行记录。") {
+            PreferenceGroup(footer = Strings.settingsBackupFooter()) {
                 item {
                     BasicComponent(
-                        title = "导出设置",
-                        summary = "保存成 JSON 文件",
+                        title = Strings.settingsBackupExport(),
+                        summary = Strings.settingsBackupExportSummary(),
                         enabled = !state.busy,
                         onClick = state.export,
                     )
                 }
                 item {
                     BasicComponent(
-                        title = "导入设置",
-                        summary = if (state.busy) "处理中…" else "导入前会列出要改的项",
+                        title = Strings.settingsBackupImport(),
+                        summary =
+                            if (state.busy) Strings.settingsBackupWorking()
+                            else Strings.settingsBackupImportSummary(),
                         enabled = !state.busy,
                         onClick = state.import,
                     )
@@ -160,13 +172,13 @@ private fun SettingsBackupDialogs(hub: ConversationHub, state: SettingsBackupSta
     val ready = last as? ImportReview.Ready
     NoticeDialog(
         show = shown is ImportReview.Failed,
-        title = "没法导入",
+        title = Strings.settingsBackupCantImport(),
         summary = failed?.reason,
         onDismissRequest = { state.review = null },
     )
     NoticeDialog(
         show = shown is ImportReview.Ready && shown.plan.changes.isEmpty(),
-        title = "没有要改的设置",
+        title = Strings.settingsBackupNothingToChange(),
         summary = null,
         onDismissRequest = { state.review = null },
     ) {
@@ -174,9 +186,9 @@ private fun SettingsBackupDialogs(hub: ConversationHub, state: SettingsBackupSta
     }
     ConfirmDialog(
         show = shown is ImportReview.Ready && shown.plan.changes.isNotEmpty(),
-        title = "导入设置？",
+        title = Strings.settingsBackupImportConfirm(),
         summary = null,
-        confirmText = "导入",
+        confirmText = Strings.settingsBackupImportButton(),
         onConfirm = {
             val confirmed = state.review as? ImportReview.Ready
             state.review = null
@@ -185,7 +197,8 @@ private fun SettingsBackupDialogs(hub: ConversationHub, state: SettingsBackupSta
                     val count = applyBackup(context, hub, confirmed)
                     Toast.makeText(
                             context,
-                            if (count != null) "已导入 $count 项设置" else "导入失败，设置没有改动",
+                            if (count != null) Strings.settingsBackupImported(count)
+                            else Strings.settingsBackupImportFailed(),
                             if (count != null) Toast.LENGTH_SHORT else Toast.LENGTH_LONG,
                         )
                         .show()
@@ -206,10 +219,14 @@ private fun PlanDetails(plan: ImportPlan) {
     val note = COUITheme.textStyles.bodyS
     Column(Modifier.fillMaxWidth().heightIn(max = 360.dp).verticalScroll(rememberScrollState())) {
         if (plan.changes.isNotEmpty()) {
-            Text("将覆盖 ${plan.changes.size} 项：", style = body, color = colors.labelPrimary)
+            Text(
+                Strings.settingsBackupWillOverwrite(plan.changes.size),
+                style = body,
+                color = colors.labelPrimary,
+            )
             for (change in plan.changes) {
                 Text(
-                    "${change.label}：${change.from} → ${change.to}",
+                    Strings.settingsBackupChange(change.label, change.from, change.to),
                     style = body,
                     color = colors.labelPrimary,
                     modifier = Modifier.padding(top = 4.dp),
@@ -218,14 +235,14 @@ private fun PlanDetails(plan: ImportPlan) {
         }
         if (plan.skipped.isNotEmpty()) {
             Text(
-                "跳过 ${plan.skipped.size} 项：",
+                Strings.settingsBackupSkipping(plan.skipped.size),
                 style = body,
                 color = colors.labelPrimary,
                 modifier = Modifier.padding(top = 12.dp),
             )
             for (item in plan.skipped) {
                 Text(
-                    "${item.label}：${item.reason}",
+                    Strings.settingsBackupSkipReason(item.label, item.reason),
                     style = note,
                     color = colors.labelSecondary,
                     modifier = Modifier.padding(top = 4.dp),
@@ -234,7 +251,10 @@ private fun PlanDetails(plan: ImportPlan) {
         }
         if (plan.unchanged.isNotEmpty()) {
             Text(
-                "和当前一样、不用改的 ${plan.unchanged.size} 项：" + plan.unchanged.joinToString("、"),
+                Strings.settingsBackupUnchanged(
+                    plan.unchanged.size,
+                    plan.unchanged.joinToString(Strings.commonListSeparator()),
+                ),
                 style = note,
                 color = colors.labelSecondary,
                 modifier = Modifier.padding(top = 12.dp),
@@ -259,8 +279,9 @@ private fun readBackup(context: Context, hub: ConversationHub, uri: Uri): Import
                 it.readNBytes(SettingsBackup.MAX_BYTES + 1)
             }
         }
-            .getOrNull() ?: return ImportReview.Failed("读不了这个文件")
-    if (bytes.size > SettingsBackup.MAX_BYTES) return ImportReview.Failed("文件太大，不像 Zeta 的设置备份")
+            .getOrNull() ?: return ImportReview.Failed(Strings.settingsBackupCantRead())
+    if (bytes.size > SettingsBackup.MAX_BYTES)
+        return ImportReview.Failed(Strings.settingsBackupTooLarge())
     val backup =
         when (val parsed = SettingsBackup.parse(bytes.toString(Charsets.UTF_8))) {
             is BackupFile.Invalid -> return ImportReview.Failed(parsed.reason)
@@ -278,14 +299,14 @@ private fun readBackup(context: Context, hub: ConversationHub, uri: Uri): Import
 
 /** 备份里的默认工作目录在这台手机的 Linux 环境里用不了的原因；能用返回 null。 */
 private fun cwdProblem(hub: ConversationHub, cwd: String): String? {
-    val config = hub.settings.env ?: return "还没有 Linux 环境，装好以后再导入这一项"
+    val config = hub.settings.env ?: return Strings.settingsBackupCwdNoEnv()
     if (config.defaultCwd == cwd) return null
     return when (PathCheck.check(EnvShell(config), cwd, null)) {
         PathKind.Folder -> null
-        PathKind.Missing -> "这台手机的 Linux 环境里没有这个目录"
-        PathKind.File -> "这台手机的 Linux 环境里这是个文件，不是目录"
-        PathKind.Denied -> "Linux 用户没有权限进这个目录"
-        else -> "查不了这个目录在不在"
+        PathKind.Missing -> Strings.settingsBackupCwdMissing()
+        PathKind.File -> Strings.settingsBackupCwdIsFile()
+        PathKind.Denied -> Strings.settingsBackupCwdDenied()
+        else -> Strings.settingsBackupCwdUnknown()
     }
 }
 

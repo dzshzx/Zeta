@@ -9,6 +9,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.text.input.KeyboardType
 import com.dzshzx.zeta.core.ConversationHub
+import com.dzshzx.zeta.i18n.Strings
 import com.dzshzx.zeta.ui.app.MAX_INTERFACE_SCALE
 import com.dzshzx.zeta.ui.app.MIN_INTERFACE_SCALE
 import com.dzshzx.zeta.ui.app.normalizeInterfaceScale
@@ -38,18 +39,18 @@ internal fun AppearanceScreen(hub: ConversationHub, onBack: () -> Unit) {
 
     val themeModes = listOf<Boolean?>(null, false, true)
     CouiPage(
-        title = "外观与主题",
+        title = Strings.settingsTitleAppearance(),
         onBack = onBack,
         dialogs = {
             TextInputDialog(
                 show = showScaleDialog,
-                title = "界面缩放",
-                summary = "请输入 80 至 110 之间的整数",
+                title = Strings.settingsAppearanceScale(),
+                summary = Strings.settingsAppearanceScaleHint(),
                 value = scaleInput,
                 onValueChange = { value -> scaleInput = value.filter(Char::isDigit).take(3) },
-                label = "百分比",
+                label = Strings.settingsAppearancePercent(),
                 keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
-                confirmText = "确定",
+                confirmText = Strings.commonOk(),
                 confirmEnabled = parsedScale != null && parsedScale in 80..110,
                 onConfirm = {
                     parsedScale?.let { commitScale(it.toFloat()) }
@@ -64,8 +65,13 @@ internal fun AppearanceScreen(hub: ConversationHub, onBack: () -> Unit) {
             PreferenceGroup {
                 item {
                     OverlayDropdownPreference(
-                        title = "主题模式",
-                        items = listOf("跟随系统", "浅色", "深色"),
+                        title = Strings.settingsAppearanceTheme(),
+                        items =
+                            listOf(
+                                Strings.commonFollowSystem(),
+                                Strings.commonThemeLight(),
+                                Strings.commonThemeDark(),
+                            ),
                         selectedIndex = themeModes.indexOf(hub.settings.darkTheme),
                         onSelectedIndexChange = { index ->
                             if (index in themeModes.indices)
@@ -76,8 +82,8 @@ internal fun AppearanceScreen(hub: ConversationHub, onBack: () -> Unit) {
                 item {
                     // 只缩放 Zeta 自己的页面，不改系统的显示大小；悬浮在其他应用上的提示（胶囊、结果卡片）保持原样。范围 80%–110%，点开输入框时有提示
                     SliderPreference(
-                        title = "界面缩放",
-                        summary = "只缩放 Zeta 自己的页面",
+                        title = Strings.settingsAppearanceScale(),
+                        summary = Strings.settingsAppearanceScaleSummary(),
                         value =
                             scaleDraft.coerceIn(
                                 MIN_INTERFACE_SCALE * 100f,

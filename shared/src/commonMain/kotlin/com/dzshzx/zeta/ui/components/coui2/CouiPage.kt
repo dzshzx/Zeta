@@ -35,6 +35,7 @@ import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.max
 import androidx.compose.ui.unit.sp
+import com.dzshzx.zeta.i18n.Strings
 import com.dzshzx.zeta.ui.layout.WidePageContent
 import com.dzshzx.zeta.ui.layout.rememberIsWideScreen
 import io.github.suqi8.coui.kmp.basic.COUIScrollBehavior
@@ -203,7 +204,7 @@ fun CouiPageTopBar(
     // 透明顶栏加光晕时，像 COUI 17 那样不画分隔线；没有光晕就是实色顶栏
     val barColor = if (backdrop != null) Color.Transparent else colors.backgroundWithCard
     val glow = pageGlow(backdrop, scrollBehavior, colors.isDark, colors.backgroundWithCard)
-    val backDescription = "返回"
+    val backDescription = Strings.commonBack()
     val navigationIcon: @Composable () -> Unit = {
         if (onBack != null) IconActionButton(COUIIcons.Back, backDescription, onClick = onBack)
     }

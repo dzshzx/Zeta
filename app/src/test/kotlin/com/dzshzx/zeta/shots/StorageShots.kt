@@ -7,6 +7,7 @@ import com.dzshzx.zeta.core.StorageKind
 import com.dzshzx.zeta.core.StoragePart
 import com.dzshzx.zeta.core.StorageReport
 import com.dzshzx.zeta.core.StorageUsage
+import com.dzshzx.zeta.i18n.UiLanguage
 import com.dzshzx.zeta.ui.settings.ProjectSessionsPage
 import com.dzshzx.zeta.ui.settings.StoragePage
 import com.dzshzx.zeta.ui.settings.StorageView
@@ -71,7 +72,18 @@ class StorageShots : ShotTest() {
 
     @Test
     fun page() {
-        shoot("storage") {
+        page("storage")
+    }
+
+    /** 英文界面的存储页（每个用例新建 Application，语言随之回到简体中文）。 */
+    @Test
+    fun pageEnglish() {
+        UiLanguage.current = UiLanguage.ENGLISH
+        page("storage-en")
+    }
+
+    private fun page(name: String) {
+        shoot(name) {
             StoragePage(
                 view,
                 onBack = {},

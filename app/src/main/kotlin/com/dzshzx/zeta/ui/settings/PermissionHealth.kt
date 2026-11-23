@@ -31,6 +31,7 @@ import com.dzshzx.zeta.core.environment
 import com.dzshzx.zeta.core.notify.ZetaNotificationListener
 import com.dzshzx.zeta.core.schedule.ScheduleAlarms
 import com.dzshzx.zeta.core.schedule.ScheduleStore
+import com.dzshzx.zeta.i18n.Strings
 import com.dzshzx.zeta.phone.AccessibilityGuard
 import com.dzshzx.zeta.phone.tools.HealthReader
 import com.dzshzx.zeta.phone.tools.HealthSummary
@@ -202,27 +203,27 @@ internal object PermissionHealth {
                 null ->
                     PermissionItem(
                         PermissionId.Root,
-                        "Root 权限",
+                        Strings.settingsPermRoot(),
                         null,
-                        "检查中",
+                        Strings.commonChecking(),
                         PermissionStatus.Checking,
                         false,
                     )
                 true ->
                     PermissionItem(
                         PermissionId.Root,
-                        "Root 权限",
-                        "Linux 环境和一键授予都靠它",
-                        "已授权",
+                        Strings.settingsPermRoot(),
+                        Strings.settingsPermRootReadySummary(),
+                        Strings.settingsPermGranted(),
                         PermissionStatus.Ready,
                         false,
                     )
                 false ->
                     PermissionItem(
                         PermissionId.Root,
-                        "Root 权限",
-                        "在 root 管理器里授权后点这里",
-                        "未授权",
+                        Strings.settingsPermRoot(),
+                        Strings.settingsPermRootMissingSummary(),
+                        Strings.settingsPermNotGranted(),
                         PermissionStatus.Missing,
                         false,
                     )
@@ -232,27 +233,27 @@ internal object PermissionHealth {
                 SetupState.Checking ->
                     PermissionItem(
                         PermissionId.Linux,
-                        "Linux 环境",
+                        Strings.settingsTitleLinux(),
                         null,
-                        "检查中",
+                        Strings.commonChecking(),
                         PermissionStatus.Checking,
                         false,
                     )
                 SetupState.NoRoot ->
                     PermissionItem(
                         PermissionId.Linux,
-                        "Linux 环境",
-                        "需要先有 root 权限",
-                        "不可用",
+                        Strings.settingsTitleLinux(),
+                        Strings.settingsPermLinuxNeedsRoot(),
+                        Strings.settingsPermUnavailable(),
                         PermissionStatus.Idle,
                         false,
                     )
                 SetupState.NoEnvironment ->
                     PermissionItem(
                         PermissionId.Linux,
-                        "Linux 环境",
-                        "点这里去安装",
-                        "未安装",
+                        Strings.settingsTitleLinux(),
+                        Strings.settingsPermLinuxInstall(),
+                        Strings.commonNotInstalled(),
                         PermissionStatus.Missing,
                         false,
                     )
@@ -262,20 +263,20 @@ internal object PermissionHealth {
                     if (account != null && !account.loggedIn) {
                         PermissionItem(
                             PermissionId.Linux,
-                            "Linux 环境",
-                            "点这里登录 Claude 账号",
-                            "未登录",
+                            Strings.settingsTitleLinux(),
+                            Strings.settingsPermLinuxSignIn(),
+                            Strings.settingsAccountsSignedOut(),
                             PermissionStatus.Attention,
                             false,
                         )
                     } else {
                         PermissionItem(
                             PermissionId.Linux,
-                            "Linux 环境",
+                            Strings.settingsTitleLinux(),
                             listOfNotNull(user, account?.email).joinToString(" · ").ifBlank {
                                 null
                             },
-                            "已就绪",
+                            Strings.settingsPermReady(),
                             PermissionStatus.Ready,
                             false,
                         )
@@ -288,54 +289,54 @@ internal object PermissionHealth {
                 checking ->
                     PermissionItem(
                         PermissionId.Accessibility,
-                        "无障碍服务",
+                        Strings.settingsPermAccessibility(),
                         null,
-                        "检查中",
+                        Strings.commonChecking(),
                         PermissionStatus.Checking,
                         false,
                     )
                 snapshot.accessibilityConnected ->
                     PermissionItem(
                         PermissionId.Accessibility,
-                        "无障碍服务",
-                        "Claude 读屏、点按都靠它",
-                        "已连接",
+                        Strings.settingsPermAccessibility(),
+                        Strings.settingsPermA11yReady(),
+                        Strings.settingsPermConnected(),
                         PermissionStatus.Ready,
                         false,
                     )
                 !hub.settings.phoneTools ->
                     PermissionItem(
                         PermissionId.Accessibility,
-                        "无障碍服务",
-                        "手机操作已关闭，现在用不到",
-                        "未开启",
+                        Strings.settingsPermAccessibility(),
+                        Strings.settingsPermA11yPhoneOff(),
+                        Strings.commonNotEnabled(),
                         PermissionStatus.Idle,
                         false,
                     )
                 snapshot.accessibilityListed ->
                     PermissionItem(
                         PermissionId.Accessibility,
-                        "无障碍服务",
-                        "已开启但没连上，点这里重开",
-                        "未连上",
+                        Strings.settingsPermAccessibility(),
+                        Strings.settingsPermA11yReconnect(),
+                        Strings.settingsPermNotConnected(),
                         PermissionStatus.Attention,
                         root == true,
                     )
                 root == true ->
                     PermissionItem(
                         PermissionId.Accessibility,
-                        "无障碍服务",
-                        "Claude 要用时会自动打开",
-                        "未开启",
+                        Strings.settingsPermAccessibility(),
+                        Strings.settingsPermA11yAuto(),
+                        Strings.commonNotEnabled(),
                         PermissionStatus.Idle,
                         true,
                     )
                 else ->
                     PermissionItem(
                         PermissionId.Accessibility,
-                        "无障碍服务",
-                        "没有 root，要到系统设置里开",
-                        "未开启",
+                        Strings.settingsPermAccessibility(),
+                        Strings.settingsPermA11yNoRoot(),
+                        Strings.commonNotEnabled(),
                         PermissionStatus.Missing,
                         false,
                     )
@@ -345,36 +346,36 @@ internal object PermissionHealth {
                 checking ->
                     PermissionItem(
                         PermissionId.Battery,
-                        "后台运行",
+                        Strings.settingsPermBattery(),
                         null,
-                        "检查中",
+                        Strings.commonChecking(),
                         PermissionStatus.Checking,
                         false,
                     )
                 !snapshot.ignoringBatteryOptimizations ->
                     PermissionItem(
                         PermissionId.Battery,
-                        "后台运行",
-                        "长时间息屏时不被系统限制",
-                        "未允许",
+                        Strings.settingsPermBattery(),
+                        Strings.settingsPermBatterySummary(),
+                        Strings.commonNotAllowed(),
                         PermissionStatus.Missing,
                         root == true,
                     )
                 snapshot.backgroundRestricted ->
                     PermissionItem(
                         PermissionId.Battery,
-                        "后台运行",
-                        "电池设置里限制了后台",
-                        "受限制",
+                        Strings.settingsPermBattery(),
+                        Strings.settingsPermBatteryRestricted(),
+                        Strings.settingsPermRestricted(),
                         PermissionStatus.Attention,
                         root == true,
                     )
                 else ->
                     PermissionItem(
                         PermissionId.Battery,
-                        "后台运行",
-                        "长时间息屏时不被系统限制",
-                        "已允许",
+                        Strings.settingsPermBattery(),
+                        Strings.settingsPermBatterySummary(),
+                        Strings.commonAllowed(),
                         PermissionStatus.Ready,
                         false,
                     )
@@ -385,36 +386,38 @@ internal object PermissionHealth {
                 checking ->
                     PermissionItem(
                         PermissionId.Notifications,
-                        "通知",
+                        Strings.settingsPermNotifications(),
                         null,
-                        "检查中",
+                        Strings.commonChecking(),
                         PermissionStatus.Checking,
                         false,
                     )
                 !snapshot.notificationsGranted ->
                     PermissionItem(
                         PermissionId.Notifications,
-                        "通知",
-                        "运行状态、完成与确认提醒",
-                        "未允许",
+                        Strings.settingsPermNotifications(),
+                        Strings.settingsPermNotificationsSummary(),
+                        Strings.commonNotAllowed(),
                         PermissionStatus.Missing,
                         root == true,
                     )
                 snapshot.blockedChannels.isNotEmpty() ->
                     PermissionItem(
                         PermissionId.Notifications,
-                        "通知",
-                        "已关掉：" + snapshot.blockedChannels.joinToString("、"),
-                        "部分关闭",
+                        Strings.settingsPermNotifications(),
+                        Strings.settingsPermNotificationsBlocked(
+                            snapshot.blockedChannels.joinToString(Strings.commonListSeparator()),
+                        ),
+                        Strings.settingsPermPartlyOff(),
                         PermissionStatus.Attention,
                         false,
                     )
                 else ->
                     PermissionItem(
                         PermissionId.Notifications,
-                        "通知",
-                        "运行状态、完成与确认提醒",
-                        "已允许",
+                        Strings.settingsPermNotifications(),
+                        Strings.settingsPermNotificationsSummary(),
+                        Strings.commonAllowed(),
                         PermissionStatus.Ready,
                         false,
                     )
@@ -425,27 +428,27 @@ internal object PermissionHealth {
                 checking ->
                     PermissionItem(
                         PermissionId.NotificationHistory,
-                        "通知历史",
+                        Strings.settingsPermNotificationHistory(),
                         null,
-                        "检查中",
+                        Strings.commonChecking(),
                         PermissionStatus.Checking,
                         false,
                     )
                 snapshot.notificationHistory == true ->
                     PermissionItem(
                         PermissionId.NotificationHistory,
-                        "通知历史",
-                        "Claude 能查已划掉的通知",
-                        "已开启",
+                        Strings.settingsPermNotificationHistory(),
+                        Strings.settingsPermHistoryOn(),
+                        Strings.commonOn(),
                         PermissionStatus.Ready,
                         false,
                     )
                 else ->
                     PermissionItem(
                         PermissionId.NotificationHistory,
-                        "通知历史",
-                        "开启后 Claude 能查已划掉的通知",
-                        "未开启",
+                        Strings.settingsPermNotificationHistory(),
+                        Strings.settingsPermHistoryOff(),
+                        Strings.commonNotEnabled(),
                         PermissionStatus.Idle,
                         root == true,
                     )
@@ -465,9 +468,9 @@ internal object PermissionHealth {
             return listOf(
                 PermissionItem(
                     PermissionId.ExactAlarm,
-                    "精确闹钟",
+                    Strings.settingsPermExactAlarm(),
                     null,
-                    "检查中",
+                    Strings.commonChecking(),
                     PermissionStatus.Checking,
                     false,
                 ),
@@ -476,18 +479,18 @@ internal object PermissionHealth {
             if (snapshot.exactAlarms) {
                 PermissionItem(
                     PermissionId.ExactAlarm,
-                    "精确闹钟",
-                    "定时任务到点准时开始",
-                    "已允许",
+                    Strings.settingsPermExactAlarm(),
+                    Strings.settingsPermExactOn(),
+                    Strings.commonAllowed(),
                     PermissionStatus.Ready,
                     false,
                 )
             } else {
                 PermissionItem(
                     PermissionId.ExactAlarm,
-                    "精确闹钟",
-                    "没有它定时任务可能推迟",
-                    "未允许",
+                    Strings.settingsPermExactAlarm(),
+                    Strings.settingsPermExactOff(),
+                    Strings.commonNotAllowed(),
                     missing,
                     root == true,
                 )
@@ -498,18 +501,18 @@ internal object PermissionHealth {
                 true ->
                     PermissionItem(
                         PermissionId.AutoStart,
-                        "自启动",
-                        "Zeta 没开着时定时任务也能跑",
-                        "已允许",
+                        Strings.settingsPermAutoStart(),
+                        Strings.settingsPermAutoStartOn(),
+                        Strings.commonAllowed(),
                         PermissionStatus.Ready,
                         false,
                     )
                 false ->
                     PermissionItem(
                         PermissionId.AutoStart,
-                        "自启动",
-                        "Zeta 没开着时定时任务跑不了",
-                        "未允许",
+                        Strings.settingsPermAutoStart(),
+                        Strings.settingsPermAutoStartOff(),
+                        Strings.commonNotAllowed(),
                         missing,
                         root == true,
                     )
@@ -523,27 +526,27 @@ internal object PermissionHealth {
             snapshot == null ->
                 PermissionItem(
                     PermissionId.Microphone,
-                    "麦克风",
+                    Strings.settingsPermMicrophone(),
                     null,
-                    "检查中",
+                    Strings.commonChecking(),
                     PermissionStatus.Checking,
                     false,
                 )
             snapshot.microphone ->
                 PermissionItem(
                     PermissionId.Microphone,
-                    "麦克风",
-                    "按住发送键说话时用",
-                    "已允许",
+                    Strings.settingsPermMicrophone(),
+                    Strings.settingsPermMicSummary(),
+                    Strings.commonAllowed(),
                     PermissionStatus.Ready,
                     false,
                 )
             else ->
                 PermissionItem(
                     PermissionId.Microphone,
-                    "麦克风",
-                    "按住发送键说话时用",
-                    "未允许",
+                    Strings.settingsPermMicrophone(),
+                    Strings.settingsPermMicSummary(),
+                    Strings.commonNotAllowed(),
                     PermissionStatus.Idle,
                     root == true,
                 )
@@ -556,9 +559,9 @@ internal object PermissionHealth {
                 if (snapshot == null)
                     PermissionItem(
                         PermissionId.Health,
-                        "健康数据",
+                        Strings.settingsPermHealth(),
                         null,
-                        "检查中",
+                        Strings.commonChecking(),
                         PermissionStatus.Checking,
                         false,
                     )
@@ -566,18 +569,18 @@ internal object PermissionHealth {
             true ->
                 PermissionItem(
                     PermissionId.Health,
-                    "健康数据",
-                    "Claude 能读步数、睡眠等（只读）",
-                    "已授权",
+                    Strings.settingsPermHealth(),
+                    Strings.settingsPermHealthOn(),
+                    Strings.settingsPermGranted(),
                     PermissionStatus.Ready,
                     false,
                 )
             false ->
                 PermissionItem(
                     PermissionId.Health,
-                    "健康数据",
-                    "授权后 Claude 能读步数、睡眠等",
-                    "未授权",
+                    Strings.settingsPermHealth(),
+                    Strings.settingsPermHealthOff(),
+                    Strings.settingsPermNotGranted(),
                     PermissionStatus.Idle,
                     root == true,
                 )
@@ -591,7 +594,7 @@ internal object PermissionHealth {
         snapshot: PermissionSnapshot?,
         root: Boolean?,
     ): PermissionItem? {
-        val title = "后台弹出界面"
+        val title = Strings.settingsPermBackgroundStart()
         return when (snapshot?.backgroundStart) {
             null ->
                 if (snapshot == null)
@@ -599,7 +602,7 @@ internal object PermissionHealth {
                         PermissionId.BackgroundStart,
                         title,
                         null,
-                        "检查中",
+                        Strings.commonChecking(),
                         PermissionStatus.Checking,
                         false,
                     )
@@ -608,8 +611,8 @@ internal object PermissionHealth {
                 PermissionItem(
                     PermissionId.BackgroundStart,
                     title,
-                    "从胶囊点对话标题回到 Zeta",
-                    "已允许",
+                    Strings.settingsPermBgStartOn(),
+                    Strings.commonAllowed(),
                     PermissionStatus.Ready,
                     false,
                 )
@@ -617,8 +620,9 @@ internal object PermissionHealth {
                 PermissionItem(
                     PermissionId.BackgroundStart,
                     title,
-                    if (root == true) "从胶囊回到 Zeta 会慢一些" else "从胶囊点对话标题回不到 Zeta",
-                    "未允许",
+                    if (root == true) Strings.settingsPermBgStartSlow()
+                    else Strings.settingsPermBgStartBlocked(),
+                    Strings.commonNotAllowed(),
                     if (root == true) PermissionStatus.Attention else PermissionStatus.Missing,
                     root == true,
                 )

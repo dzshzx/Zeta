@@ -7,6 +7,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import com.dzshzx.zeta.core.ConversationHub
 import com.dzshzx.zeta.core.RemoteHosts
+import com.dzshzx.zeta.i18n.Strings
 import com.dzshzx.zeta.ui.components.coui2.PreferenceValue
 import com.dzshzx.zeta.ui.components.coui2.TextInputDialog
 import io.github.suqi8.coui.kmp.basic.BasicComponent
@@ -30,7 +31,7 @@ fun DangerRow(title: String, onClick: () -> Unit) {
 @Composable
 fun DeviceNameRow(hub: ConversationHub, backend: String, onClick: () -> Unit) {
     ArrowPreference(
-        title = "自定义设备名",
+        title = Strings.settingsRowsDeviceName(),
         endActions = { PreferenceValue(hub.backendName(backend)) },
         onClick = onClick,
     )
@@ -50,12 +51,12 @@ fun DeviceNameDialog(
         RemoteHosts.nameProblem(draft, hub.backends.filter { it != backend }.map(hub::backendName))
     TextInputDialog(
         show = show,
-        title = "自定义设备名",
-        summary = problem ?: "留空就用设备自己的名字「$original」",
+        title = Strings.settingsRowsDeviceName(),
+        summary = problem ?: Strings.settingsRowsDeviceNameHint(original),
         value = draft,
         onValueChange = { draft = it },
         label = original,
-        confirmText = "确定",
+        confirmText = Strings.commonOk(),
         confirmEnabled = problem == null,
         onConfirm = {
             hub.rename(backend, draft)

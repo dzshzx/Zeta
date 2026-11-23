@@ -14,6 +14,7 @@ import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.ui.unit.dp
+import com.dzshzx.zeta.i18n.Strings
 import io.github.suqi8.coui.kmp.basic.Text
 import io.github.suqi8.coui.kmp.blur.MaterialBlurDefaults
 import io.github.suqi8.coui.kmp.layout.DialogButtonBar
@@ -71,7 +72,7 @@ fun ConfirmDialog(
     onConfirm: () -> Unit,
     onDismissRequest: () -> Unit,
     modifier: Modifier = Modifier,
-    cancelText: String = "取消",
+    cancelText: String = Strings.commonCancel(),
     onCancel: () -> Unit = onDismissRequest,
     confirmEnabled: Boolean = true,
     destructive: Boolean = false,
@@ -109,7 +110,7 @@ fun NoticeDialog(
     summary: String?,
     onDismissRequest: () -> Unit,
     modifier: Modifier = Modifier,
-    closeText: String = "关闭",
+    closeText: String = Strings.commonClose(),
     content: (@Composable () -> Unit)? = null,
 ) {
     PageDialog(
@@ -147,7 +148,7 @@ fun TextInputDialog(
     summary: String? = null,
     label: String = "",
     confirmEnabled: Boolean = true,
-    cancelText: String = "取消",
+    cancelText: String = Strings.commonCancel(),
     keyboardOptions: KeyboardOptions = KeyboardOptions.Default,
 ) {
     ConfirmDialog(

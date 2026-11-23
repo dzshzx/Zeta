@@ -20,6 +20,7 @@ import androidx.compose.ui.test.hasTestTag
 import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.unit.dp
+import com.dzshzx.zeta.i18n.UiLanguage
 import com.dzshzx.zeta.phone.OverlayFocus
 import com.dzshzx.zeta.phone.OverlayPhase
 import com.dzshzx.zeta.phone.TouchMark
@@ -65,6 +66,17 @@ class CapsuleShots : ShotTest() {
      */
     @Test
     fun agentDisplayStage() {
+        agentDisplayStage("status-capsule-stage")
+    }
+
+    /** 英文界面的后台屏幕胶囊：接管、全屏等按钮的译文放不放得下（每个用例新建 Application，语言随之回到简体中文）。 */
+    @Test
+    fun agentDisplayStageEnglish() {
+        UiLanguage.current = UiLanguage.ENGLISH
+        agentDisplayStage("status-capsule-stage-en")
+    }
+
+    private fun agentDisplayStage(name: String) {
         Fixtures.readyHub(app)
         val screen = fakeScreen()
         val collapsed =
@@ -90,7 +102,7 @@ class CapsuleShots : ShotTest() {
                 shown = true
                 this.expanded = true
             }
-        shootCapsules("status-capsule-stage", collapsed, expanded)
+        shootCapsules(name, collapsed, expanded)
     }
 
     /**

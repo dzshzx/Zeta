@@ -4,6 +4,7 @@ import com.dzshzx.zeta.core.update.AppUpdates
 import com.dzshzx.zeta.core.update.UpdateManifest
 import com.dzshzx.zeta.core.update.UpdateState
 import com.dzshzx.zeta.core.update.UpdateStep
+import com.dzshzx.zeta.i18n.UiLanguage
 import com.dzshzx.zeta.ui.components.coui2.CouiPage
 import com.dzshzx.zeta.ui.settings.AboutGroup
 import com.dzshzx.zeta.ui.settings.UpdateScreen
@@ -59,6 +60,19 @@ class UpdateShots : ShotTest() {
     @Test fun ready() = page("update-ready", UpdateStep.Ready)
 
     @Test fun downloading() = page("update-downloading", UpdateStep.Downloading(done = 5_960_000))
+
+    /** 英文界面：关于一组有新版本、「版本更新」页还没下载（每个用例新建 Application，语言随之回到简体中文）。 */
+    @Test
+    fun availableEnglish() {
+        UiLanguage.current = UiLanguage.ENGLISH
+        about("about-update-available-en", UpdateState.Available(manifest))
+    }
+
+    @Test
+    fun readyEnglish() {
+        UiLanguage.current = UiLanguage.ENGLISH
+        page("update-ready-en", UpdateStep.Ready)
+    }
 
     /** 下好、核对过了，有手机操作正在执行，等它结束再装。 */
     @Test fun waitingIdle() = page("update-waiting", UpdateStep.WaitingIdle)

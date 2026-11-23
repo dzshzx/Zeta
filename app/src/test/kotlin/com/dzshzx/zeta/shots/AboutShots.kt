@@ -1,6 +1,7 @@
 package com.dzshzx.zeta.shots
 
 import com.dzshzx.zeta.core.about.ThirdParty
+import com.dzshzx.zeta.i18n.UiLanguage
 import com.dzshzx.zeta.ui.settings.ComponentScreen
 import com.dzshzx.zeta.ui.settings.CreditsScreen
 import com.dzshzx.zeta.ui.settings.LicenseScreen
@@ -13,6 +14,19 @@ class AboutShots : ShotTest() {
     @Test
     fun license() {
         shoot("about-license") { LicenseScreen(onBack = {}) }
+    }
+
+    /** 英文界面的「许可证」和鸣谢（每个用例新建 Application，语言随之回到简体中文）。 */
+    @Test
+    fun licenseEnglish() {
+        UiLanguage.current = UiLanguage.ENGLISH
+        shoot("about-license-en") { LicenseScreen(onBack = {}) }
+    }
+
+    @Test
+    fun creditsEnglish() {
+        UiLanguage.current = UiLanguage.ENGLISH
+        shoot("about-credits-en") { CreditsScreen(onBack = {}) }
     }
 
     /** 「开源许可」：手写的几条在上，下面是 licensee 生成的依赖库（读的是这次构建打进 assets 的清单）。 */

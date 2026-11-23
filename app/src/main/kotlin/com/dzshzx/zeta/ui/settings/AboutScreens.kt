@@ -27,6 +27,7 @@ import com.dzshzx.zeta.core.about.Licenses
 import com.dzshzx.zeta.core.about.ThirdParty
 import com.dzshzx.zeta.core.about.ZetaInfo
 import com.dzshzx.zeta.core.update.AppUpdates
+import com.dzshzx.zeta.i18n.Strings
 import com.dzshzx.zeta.ui.components.SlideInPage
 import com.dzshzx.zeta.ui.components.coui2.CardListSegment
 import com.dzshzx.zeta.ui.components.coui2.CouiPage
@@ -56,13 +57,13 @@ import kotlinx.coroutines.withContext
 @Composable
 internal fun AboutGroup(onOpenSubPage: (SettingsSubPage) -> Unit) {
     val updates = AppUpdates.get(LocalContext.current)
-    PreferenceGroup(title = "关于", footer = ZetaInfo.UNOFFICIAL) {
+    PreferenceGroup(title = Strings.aboutTitle(), footer = ZetaInfo.unofficial) {
         item { VersionRow(updates, onOpenUpdate = { onOpenSubPage(SettingsSubPage.Update) }) }
         if (updates.enabled) item { AutoUpdateSwitch() }
         item {
             val context = LocalContext.current
             ArrowPreference(
-                title = "源码",
+                title = Strings.aboutSource(),
                 startAction = { SettingsIcon(ZetaIcons.Branch, SettingsHue.System) },
                 endActions = {
                     PreferenceValue(ZetaInfo.sourceRef(BuildConfig.VERSION_NAME) ?: "GitHub")
@@ -72,7 +73,7 @@ internal fun AboutGroup(onOpenSubPage: (SettingsSubPage) -> Unit) {
         }
         item {
             ArrowPreference(
-                title = "许可证",
+                title = Strings.aboutLicense(),
                 startAction = { SettingsIcon(COUIIcons.Notes, SettingsHue.System) },
                 endActions = { PreferenceValue("GPL-3.0") },
                 onClick = { onOpenSubPage(SettingsSubPage.License) },
@@ -80,21 +81,21 @@ internal fun AboutGroup(onOpenSubPage: (SettingsSubPage) -> Unit) {
         }
         item {
             ArrowPreference(
-                title = "开源许可",
+                title = Strings.aboutOpenSource(),
                 startAction = { SettingsIcon(COUIIcons.Layers, SettingsHue.System) },
                 onClick = { onOpenSubPage(SettingsSubPage.OpenSource) },
             )
         }
         item {
             ArrowPreference(
-                title = "鸣谢",
+                title = Strings.aboutCredits(),
                 startAction = { SettingsIcon(COUIIcons.Favorites, SettingsHue.System) },
                 onClick = { onOpenSubPage(SettingsSubPage.Credits) },
             )
         }
         item {
             ArrowPreference(
-                title = "诊断与日志",
+                title = Strings.aboutDiagnostics(),
                 startAction = { SettingsIcon(ZetaIcons.Pulse, SettingsHue.Files) },
                 onClick = { onOpenSubPage(SettingsSubPage.Diagnostics) },
             )
@@ -106,11 +107,16 @@ internal fun AboutGroup(onOpenSubPage: (SettingsSubPage) -> Unit) {
 @Composable
 internal fun LicenseScreen(onBack: () -> Unit) {
     val text = rememberAssetText(Licenses.asset("GPL-3.0-only"))
-    CouiPage(title = "许可证", onBack = onBack) {
+    CouiPage(title = Strings.aboutLicense(), onBack = onBack) {
         item(key = "zeta") {
-            PreferenceGroup(footer = ZetaInfo.LEGAL_NOTICE.joinToString("\n")) {
+            PreferenceGroup(footer = ZetaInfo.legalNotice.joinToString("\n")) {
                 item { BasicComponent(title = "Zeta", summary = ZetaInfo.COPYRIGHT) }
-                item { BasicComponent(title = "许可证", endActions = { PreferenceValue("GPL-3.0") }) }
+                item {
+                    BasicComponent(
+                        title = Strings.aboutLicense(),
+                        endActions = { PreferenceValue("GPL-3.0") },
+                    )
+                }
             }
         }
         licenseText("GPL-3.0-only", text)
@@ -127,18 +133,18 @@ internal fun OpenSourceScreen(onBack: () -> Unit) {
         }
     var open by remember { mutableStateOf<Component?>(null) }
     Box(Modifier.fillMaxSize()) {
-        CouiPage(title = "开源许可", onBack = onBack) {
+        CouiPage(title = Strings.aboutOpenSource(), onBack = onBack) {
             item(key = "bundled") {
                 PreferenceGroup(
-                    title = "随包的其他组件",
-                    footer = "不在依赖库里的：改写自 Eta 的代码、字体、原生库和 zeta-helper 里的代码。",
+                    title = Strings.aboutBundled(),
+                    footer = Strings.aboutBundledFooter(),
                 ) {
                     ThirdParty.BUNDLED.forEach { component ->
                         item { ComponentRow(component) { open = component } }
                     }
                 }
             }
-            item(key = "maven-title") { PreferenceCategory(title = "依赖库") }
+            item(key = "maven-title") { PreferenceCategory(title = Strings.aboutLibraries()) }
             val list = maven
             if (list == null) {
                 item(key = "maven-loading") { PreferenceGroup { item { ConfigLoadingRow() } } }
@@ -152,7 +158,7 @@ internal fun OpenSourceScreen(onBack: () -> Unit) {
                 }
                 item(key = "maven-footer") {
                     PagerFooterPreference(
-                        summary = "共 ${list.size} 项，构建时由 licensee 从这个版本打包的依赖生成，许可证不在允许名单里的构建不过。",
+                        summary = Strings.aboutLibrariesFooter(list.size),
                     )
                 }
             }
@@ -183,15 +189,15 @@ internal fun ComponentScreen(component: Component, onBack: () -> Unit) {
             PreferenceGroup(footer = component.note) {
                 item {
                     BasicComponent(
-                        title = "版本",
+                        title = Strings.commonVersion(),
                         endActions = { PreferenceValue(component.version) },
                     )
                 }
-                item { BasicComponent(title = "许可证", summary = component.license) }
+                item { BasicComponent(title = Strings.aboutLicense(), summary = component.license) }
                 component.url?.let { url ->
                     item {
                         ArrowPreference(
-                            title = "上游",
+                            title = Strings.aboutUpstream(),
                             summary = url,
                             onClick = { openLink(context, url) },
                         )
@@ -201,12 +207,14 @@ internal fun ComponentScreen(component: Component, onBack: () -> Unit) {
         }
         if (component.copyright.isNotEmpty()) {
             item(key = "copyright") {
-                PreferenceGroup(title = "版权") { item { TextBlock(component.copyright) } }
+                PreferenceGroup(title = Strings.aboutCopyright()) {
+                    item { TextBlock(component.copyright) }
+                }
             }
         }
         if (component.parts.isNotEmpty()) {
             item(key = "parts") {
-                PreferenceGroup(title = "包含") {
+                PreferenceGroup(title = Strings.aboutIncludes()) {
                     component.parts.forEach { part ->
                         item {
                             BasicComponent(
@@ -226,7 +234,7 @@ internal fun ComponentScreen(component: Component, onBack: () -> Unit) {
         if (component.files.isNotEmpty()) {
             // Kotlin 源码的路径去掉公共的前缀，手机上一行放得下
             item(key = "files") {
-                PreferenceGroup(title = "仓里的文件") {
+                PreferenceGroup(title = Strings.aboutRepoFiles()) {
                     item {
                         TextBlock(
                             component.files.map {
@@ -240,7 +248,9 @@ internal fun ComponentScreen(component: Component, onBack: () -> Unit) {
         }
         if (component.artifacts.isNotEmpty()) {
             item(key = "artifacts") {
-                PreferenceGroup(title = "构件") { item { TextBlock(component.artifacts) } }
+                PreferenceGroup(title = Strings.aboutArtifacts()) {
+                    item { TextBlock(component.artifacts) }
+                }
             }
         }
         ids.forEachIndexed { index, id -> licenseText(id, texts[index]) }
@@ -251,14 +261,14 @@ internal fun ComponentScreen(component: Component, onBack: () -> Unit) {
 @Composable
 internal fun CreditsScreen(onBack: () -> Unit) {
     val context = LocalContext.current
-    CouiPage(title = "鸣谢", onBack = onBack) {
+    CouiPage(title = Strings.aboutCredits(), onBack = onBack) {
         item(key = "credits") {
-            PreferenceGroup(footer = ZetaInfo.UNOFFICIAL) {
+            PreferenceGroup(footer = ZetaInfo.unofficial) {
                 CREDITS.forEach { credit ->
                     item {
                         ArrowPreference(
                             title = credit.name,
-                            summary = credit.summary,
+                            summary = credit.summary(),
                             onClick = { openLink(context, credit.url) },
                         )
                     }
@@ -268,20 +278,21 @@ internal fun CreditsScreen(onBack: () -> Unit) {
     }
 }
 
-private data class Credit(val name: String, val summary: String, val url: String)
+/** 鸣谢的一项：介绍（[summary]）是我们自己写的，显示时按界面语言取字。 */
+private data class Credit(val name: String, val summary: () -> String, val url: String)
 
 private val CREDITS =
     listOf(
         Credit(
             "Eta",
-            "Zeta 的功能和交互照它设计；Markdown 渲染、侧栏骨架的代码来自它（GPL-3.0）",
+            Strings::aboutCreditEta,
             "https://github.com/Mangi-11/Eta",
         ),
-        Credit("COUI 2", "界面组件库，ColorOS 17 的样式（Apache-2.0）", "https://github.com/suqi8/coui"),
-        Credit("Miuix", "COUI 2 的上游（Apache-2.0）", "https://github.com/compose-miuix-ui/miuix"),
+        Credit("COUI 2", Strings::aboutCreditCoui, "https://github.com/suqi8/coui"),
+        Credit("Miuix", Strings::aboutCreditMiuix, "https://github.com/compose-miuix-ui/miuix"),
         Credit(
             "Claude Code",
-            "Anthropic 的编程 agent，Zeta 是它在手机上的客户端",
+            Strings::aboutCreditClaudeCode,
             "https://github.com/anthropics/claude-code",
         ),
     )
@@ -295,7 +306,7 @@ private fun LazyListScope.licenseText(id: String, text: String?) {
             item(key = "loading:$id") { PreferenceGroup { item { ConfigLoadingRow() } } }
         paragraphs.isEmpty() ->
             item(key = "missing:$id") {
-                PagerFooterPreference(summary = "读不出这份全文（${Licenses.asset(id)}）")
+                PagerFooterPreference(summary = Strings.aboutLicenseTextMissing(Licenses.asset(id)))
             }
         else -> {
             // 几段一组放进列表，长的全文滚动时只组合看得见的那几组

@@ -2,6 +2,7 @@ package com.dzshzx.zeta.shots
 
 import androidx.compose.ui.test.hasScrollToIndexAction
 import androidx.compose.ui.test.performScrollToIndex
+import com.dzshzx.zeta.i18n.UiLanguage
 import com.dzshzx.zeta.ui.settings.PermissionHealthScreen
 import org.junit.Test
 
@@ -11,6 +12,16 @@ class PermissionShots : ShotTest() {
     fun page() {
         val hub = Fixtures.readyHub(app)
         shoot("permissions") {
+            PermissionHealthScreen(hub = hub, onBack = {}, onOpenLinux = {})
+        }
+    }
+
+    /** 英文界面：看译文在一行里放不放得下（每个用例新建 Application，语言随之回到简体中文）。 */
+    @Test
+    fun pageEnglish() {
+        UiLanguage.current = UiLanguage.ENGLISH
+        val hub = Fixtures.readyHub(app)
+        shoot("permissions-en") {
             PermissionHealthScreen(hub = hub, onBack = {}, onOpenLinux = {})
         }
     }

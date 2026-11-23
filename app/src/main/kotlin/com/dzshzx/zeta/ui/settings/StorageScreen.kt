@@ -1,6 +1,7 @@
 package com.dzshzx.zeta.ui.settings
 
 import android.content.Context
+import android.text.format.DateFormat
 import android.webkit.WebView
 import android.widget.Toast
 import androidx.compose.runtime.Composable
@@ -27,6 +28,8 @@ import com.dzshzx.zeta.core.StorageKind
 import com.dzshzx.zeta.core.StorageReport
 import com.dzshzx.zeta.core.StorageUsage
 import com.dzshzx.zeta.core.environment
+import com.dzshzx.zeta.i18n.Strings
+import com.dzshzx.zeta.i18n.UiLanguage
 import com.dzshzx.zeta.ui.components.SlideInPage
 import com.dzshzx.zeta.ui.components.coui2.ConfirmDialog
 import com.dzshzx.zeta.ui.components.coui2.CouiPage
@@ -59,9 +62,11 @@ import kotlinx.coroutines.withContext
 internal fun StorageEntry(onClick: () -> Unit) {
     val free = remember { Storage.phoneSpace().first }
     ArrowPreference(
-        title = "存储",
+        title = Strings.settingsStorageTitle(),
         startAction = { SettingsIcon(ZetaIcons.Storage, SettingsHue.Files) },
-        endActions = { if (free > 0) PreferenceValue("剩余 " + Storage.size(free)) },
+        endActions = {
+            if (free > 0) PreferenceValue(Strings.settingsStorageFree(Storage.size(free)))
+        },
         onClick = onClick,
     )
 }
@@ -209,7 +214,7 @@ private suspend fun cleanStorage(
 /** 清理的结果：清成了提示一声（返回 null），没清成返回要弹的说明。 */
 private fun reportClean(context: Context, kind: StorageKind, outcome: CleanOutcome): ConfigNotice? {
     val text = Storage.outcomeText(kind, outcome)
-    if (outcome.error != null) return ConfigNotice("没有清理成", text)
+    if (outcome.error != null) return ConfigNotice(Strings.settingsStorageCleanFailed(), text)
     Toast.makeText(context, text, Toast.LENGTH_SHORT).show()
     return null
 }
@@ -231,7 +236,12 @@ private fun readyToClean(context: Context, kind: StorageKind, usage: StorageUsag
             false
         }
         usage.freeable <= 0 -> {
-            Toast.makeText(context, "没有可清理的${kind.title}", Toast.LENGTH_SHORT).show()
+            Toast.makeText(
+                    context,
+                    Strings.settingsStorageNothingToClean(kind.title),
+                    Toast.LENGTH_SHORT,
+                )
+                .show()
             false
         }
         else -> true
@@ -259,12 +269,12 @@ internal fun StoragePage(
 ) {
     val report = view.report
     CouiPage(
-        title = "存储",
+        title = Strings.settingsStorageTitle(),
         onBack = onBack,
         actions = {
             IconActionButton(
                 COUIIcons.Refresh,
-                "重新统计",
+                Strings.settingsStorageRescan(),
                 enabled = !view.scanning && view.cleaning == null,
                 onClick = onRefresh,
             )
@@ -284,7 +294,7 @@ internal fun StoragePage(
             PreferenceGroup(
                 title = "Claude Code",
                 // 自动清理期限是 ~/.claude/settings.json 的 cleanupPeriodDays
-                footer = "Claude Code 启动时会删掉超过自动清理期限没动过的会话记录和上面这些文件。",
+                footer = Strings.settingsStorageClaudeFooter(),
             ) {
                 kindItems(StorageGroup.Claude, view, onAsk)
                 item(key = "cleanup") {
@@ -293,7 +303,7 @@ internal fun StoragePage(
                             ?.takeIf { view.ready }
                             ?.let { Storage.cleanupText(it.cleanupPeriodDays) }
                     BasicComponent(
-                        title = "自动清理期限",
+                        title = Strings.settingsStorageCleanupPeriod(),
                         endActions = { if (value != null) PreferenceValue(value) },
                     )
                 }
@@ -322,7 +332,8 @@ private fun KindRow(kind: StorageKind, view: StorageView, onAsk: (StorageKind) -
     val value = usage?.takeUnless { it.failed }?.let { Storage.size(it.bytes) }
     BasicComponent(
         title = kind.title,
-        summary = if (unavailable) "Linux 环境准备好以后才能看" else Storage.summary(kind, usage),
+        summary =
+            if (unavailable) Strings.settingsStorageNeedsLinux() else Storage.summary(kind, usage),
         endActions = {
             if (view.cleaning == kind) InfiniteProgressIndicator(size = 20.dp)
             if (value != null) PreferenceValue(value)
@@ -342,10 +353,10 @@ private fun CleanConfirmDialog(
     val shown = rememberRetained(view.confirming)
     ConfirmDialog(
         show = view.confirming != null,
-        title = shown?.let { "清理${it.title}？" },
+        title = shown?.let { Strings.settingsStorageCleanConfirm(it.title) },
         summary =
             shown?.let { kind -> view.usageOf(kind)?.let { Storage.confirmMessage(kind, it) } },
-        confirmText = "清理",
+        confirmText = Strings.settingsStorageClean(),
         destructive = true,
         onConfirm = { view.confirming?.let(onConfirm) },
         onDismissRequest = onDismiss,
@@ -358,12 +369,15 @@ private fun SpaceGroup(view: StorageView) {
     PreferenceGroup {
         item(key = "phone") {
             BasicComponent(
-                title = "手机剩余空间",
+                title = Strings.settingsStoragePhoneFree(),
                 endActions = { PreferenceValue(phoneSpaceText(view.phone)) },
             )
         }
         item(key = "rootfs") {
-            BasicComponent(title = "Debian 环境", endActions = { PreferenceValue(rootfsText(view)) })
+            BasicComponent(
+                title = Strings.settingsStorageDebian(),
+                endActions = { PreferenceValue(rootfsText(view)) },
+            )
         }
     }
 }
@@ -375,7 +389,7 @@ private fun rootfsText(view: StorageView): String =
     when {
         view.rootfs != null -> Storage.size(view.rootfs)
         !view.ready || view.rootfsDone -> "—"
-        else -> "统计中"
+        else -> Strings.settingsStorageCounting()
     }
 
 /** 会话记录（~/.claude/projects），按项目分。点进项目看各会话的占用，点一个会话会回到侧栏并定位到它。 */
@@ -383,19 +397,27 @@ private fun rootfsText(view: StorageView): String =
 private fun ProjectsGroup(view: StorageView, onOpenProject: (ProjectUsage) -> Unit) {
     val report = view.report
     PreferenceGroup(
-        title = "会话记录" + (report?.let { " · " + Storage.size(it.projectBytes) } ?: ""),
-        footer = "删会话到侧栏里长按或多选。",
+        title =
+            Strings.settingsStorageSessions() +
+                (report?.let { " · " + Storage.size(it.projectBytes) } ?: ""),
+        footer = Strings.settingsStorageSessionsFooter(),
     ) {
         when {
-            !view.ready -> item { BasicComponent(title = "Linux 环境准备好以后才能看", enabled = false) }
+            !view.ready ->
+                item {
+                    BasicComponent(title = Strings.settingsStorageNeedsLinux(), enabled = false)
+                }
             report == null -> item { ScanStateRow(view.scanFailed) }
-            report.projects.isEmpty() -> item { BasicComponent(title = "还没有会话记录", enabled = false) }
+            report.projects.isEmpty() ->
+                item {
+                    BasicComponent(title = Strings.settingsStorageNoSessions(), enabled = false)
+                }
             else ->
                 report.projects.forEach { entry ->
                     item(key = entry.dir) {
                         ArrowPreference(
                             title = entry.label,
-                            summary = "${entry.sessions} 个会话",
+                            summary = Strings.settingsStorageSessionCount(entry.sessions),
                             endActions = { PreferenceValue(Storage.size(entry.bytes)) },
                             onClick = { onOpenProject(entry) },
                         )
@@ -409,7 +431,9 @@ private fun ProjectsGroup(view: StorageView, onOpenProject: (ProjectUsage) -> Un
 @Composable
 private fun ScanStateRow(failed: Boolean) {
     BasicComponent(
-        title = if (failed) "没统计成" else "正在统计…",
+        title =
+            if (failed) Strings.settingsStorageCountFailed()
+            else Strings.settingsStorageCountingNow(),
         endActions = if (failed) null else ({ InfiniteProgressIndicator(size = 20.dp) }),
     )
 }
@@ -463,7 +487,8 @@ private fun ProjectSessionsScreen(
     }
     ProjectSessionsPage(project, sessions, rest, failed, summaries, onBack) { usage ->
         if (summaries[usage.id] == null) {
-            Toast.makeText(context, "侧栏里没有这个会话（它没有可显示的内容）", Toast.LENGTH_SHORT).show()
+            Toast.makeText(context, Strings.settingsStorageNotInSidebar(), Toast.LENGTH_SHORT)
+                .show()
         } else {
             onRevealSession(usage.id)
         }
@@ -481,27 +506,39 @@ internal fun ProjectSessionsPage(
     onBack: () -> Unit,
     onOpen: (SessionUsage) -> Unit,
 ) {
-    val dateFormat = remember { SimpleDateFormat("M月d日 HH:mm", Locale.CHINA) }
+    val dateFormat = remember { sessionDateFormat() }
     // 大标题放不下整条路径：标题用最后一段，整条路径写在分组标题里
     val path = project.label
     CouiPage(title = path.trimEnd('/').substringAfterLast('/').ifBlank { path }, onBack = onBack) {
         item(key = "sessions") {
             PreferenceGroup(
-                title = "$path · ${project.sessions} 个会话 · ${Storage.size(project.bytes)}",
+                title =
+                    "$path · ${Strings.settingsStorageSessionCount(project.sessions)} · ${Storage.size(project.bytes)}",
                 // 同名目录里是工具结果、子代理记录等。点一个会话回到侧栏并定位到它
-                footer = "大小含会话记录和它的同名目录。要删会话，到侧栏里长按或多选；进行中的删不了。",
+                footer = Strings.settingsStorageProjectFooter(),
             ) {
                 when {
-                    failed -> item { BasicComponent(title = "没统计成", enabled = false) }
+                    failed ->
+                        item {
+                            BasicComponent(
+                                title = Strings.settingsStorageCountFailed(),
+                                enabled = false,
+                            )
+                        }
                     sessions == null ->
                         item {
                             BasicComponent(
-                                title = "正在统计…",
+                                title = Strings.settingsStorageCountingNow(),
                                 endActions = { InfiniteProgressIndicator(size = 20.dp) },
                             )
                         }
                     sessions.isEmpty() ->
-                        item { BasicComponent(title = "这个项目里没有会话记录", enabled = false) }
+                        item {
+                            BasicComponent(
+                                title = Strings.settingsStorageProjectEmpty(),
+                                enabled = false,
+                            )
+                        }
                     else ->
                         sessions.forEach { usage ->
                             val summary = summaries[usage.id]
@@ -514,10 +551,10 @@ internal fun ProjectSessionsPage(
         }
         if (rest > 0) {
             item(key = "rest") {
-                PreferenceGroup(footer = "项目目录里不属于某个会话的东西，比如自动记忆、已删会话留下的同名目录。") {
+                PreferenceGroup(footer = Strings.settingsStorageRestFooter()) {
                     item {
                         BasicComponent(
-                            title = "其他",
+                            title = Strings.settingsStorageOther(),
                             endActions = { PreferenceValue(Storage.size(rest)) },
                         )
                     }
@@ -535,7 +572,9 @@ private fun SessionUsageRow(
     dateFormat: SimpleDateFormat,
     onClick: () -> Unit,
 ) {
-    val title = summary?.let { it.title.ifBlank { it.preview.take(40) } } ?: "（没有对话内容）"
+    val title =
+        summary?.let { it.title.ifBlank { it.preview.take(40) } }
+            ?: Strings.settingsStorageNoContent()
     val detail = sessionUsageDetail(usage, summary, dateFormat)
     if (summary != null) {
         ArrowPreference(
@@ -562,8 +601,14 @@ private fun sessionUsageDetail(
 ): String =
     listOfNotNull(
             dateFormat.format(Date(usage.updated)),
-            if (usage.live || summary?.external == true) "进行中" else null,
-            if (summary?.archived == true) "已归档" else null,
+            if (usage.live || summary?.external == true) Strings.settingsStorageLive() else null,
+            if (summary?.archived == true) Strings.settingsStorageArchived() else null,
             if (summary == null) usage.id.take(8) else null,
         )
         .joinToString(" · ")
+
+/** 会话一行里最后更新时间的写法：按界面语言取月、日、时、分的本地写法（简体中文是「M月d日 HH:mm」）。 */
+private fun sessionDateFormat(): SimpleDateFormat {
+    val locale = Locale.forLanguageTag(UiLanguage.current)
+    return SimpleDateFormat(DateFormat.getBestDateTimePattern(locale, "MMMdHHmm"), locale)
+}

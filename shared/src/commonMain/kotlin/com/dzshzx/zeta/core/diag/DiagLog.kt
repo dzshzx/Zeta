@@ -1,5 +1,6 @@
 package com.dzshzx.zeta.core.diag
 
+import com.dzshzx.zeta.i18n.Strings
 import java.io.File
 import java.time.Instant
 import java.time.LocalDate
@@ -18,21 +19,43 @@ import kotlinx.serialization.json.longOrNull
 import kotlinx.serialization.json.put
 
 /** 运行日志一条的轻重。 */
-enum class DiagLevel(val code: String, val label: String) {
-    Info("i", "信息"),
-    Warn("w", "警告"),
-    Error("e", "出错"),
+enum class DiagLevel(val code: String) {
+    Info("i"),
+    Warn("w"),
+    Error("e");
+
+    /** 界面上的名字，按界面语言取。 */
+    val label: String
+        get() =
+            when (this) {
+                Info -> Strings.diagLevelInfo()
+                Warn -> Strings.diagLevelWarn()
+                Error -> Strings.diagLevelError()
+            }
 }
 
 /** 运行日志一条记的是哪方面的事，诊断页按它筛。 */
-enum class DiagTopic(val code: String, val label: String) {
-    App("app", "应用"),
-    Env("env", "Linux 环境"),
-    Claude("claude", "Claude 进程"),
-    Helper("helper", "helper"),
-    Phone("phone", "手机工具"),
-    Accessibility("a11y", "无障碍"),
-    Schedule("schedule", "定时任务"),
+enum class DiagTopic(val code: String) {
+    App("app"),
+    Env("env"),
+    Claude("claude"),
+    Helper("helper"),
+    Phone("phone"),
+    Accessibility("a11y"),
+    Schedule("schedule");
+
+    /** 界面上的名字，按界面语言取。 */
+    val label: String
+        get() =
+            when (this) {
+                App -> Strings.diagTopicApp()
+                Env -> Strings.settingsTitleLinux()
+                Claude -> Strings.diagTopicClaude()
+                Helper -> "helper"
+                Phone -> Strings.diagTopicPhone()
+                Accessibility -> Strings.diagTopicA11y()
+                Schedule -> Strings.settingsTitleSchedules()
+            }
 }
 
 data class DiagEntry(val at: Long, val level: DiagLevel, val topic: DiagTopic, val message: String)

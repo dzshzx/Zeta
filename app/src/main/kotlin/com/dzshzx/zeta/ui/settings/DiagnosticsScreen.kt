@@ -37,6 +37,7 @@ import com.dzshzx.zeta.core.diag.LogFile
 import com.dzshzx.zeta.core.diag.LogKind
 import com.dzshzx.zeta.core.diag.Redact
 import com.dzshzx.zeta.core.environment
+import com.dzshzx.zeta.i18n.Strings
 import com.dzshzx.zeta.ui.components.MonoFont
 import com.dzshzx.zeta.ui.components.SlideInPage
 import com.dzshzx.zeta.ui.components.StatusWarning
@@ -121,9 +122,13 @@ internal fun DiagnosticsScreen(
 
     val current = probe
     CouiPage(
-        title = "诊断",
+        title = Strings.diagTitle(),
         onBack = onBack,
-        actions = { IconActionButton(COUIIcons.Refresh, "重新查询", enabled = !probing) { reloads++ } },
+        actions = {
+            IconActionButton(COUIIcons.Refresh, Strings.diagReload(), enabled = !probing) {
+                reloads++
+            }
+        },
     ) {
         // 运行日志是 Zeta 自己记下的关键事件：进 Linux 环境、起停 Claude 进程和退出码、helper 出错、手机工具失败、
         // 无障碍服务被关或加回、定时任务触发。存在应用数据里，Zeta 被关掉后还在
@@ -134,12 +139,12 @@ internal fun DiagnosticsScreen(
         // Claude Code 进程写到标准错误的内容；结束的对话列的是结束时留下的那份。点开只看最后 64 KB（页上写着）
         item(key = "stderr") {
             LogFilesGroup(
-                title = "对话进程的错误输出",
-                footer = "正在进行的对话和最近结束的 ${DiagScripts.FINISHED_LIMIT} 个。",
+                title = Strings.diagStderrTitle(),
+                footer = Strings.diagStderrFooter(DiagScripts.FINISHED_LIMIT),
                 files = current?.files?.filter { it.kind != LogKind.Debug },
                 probing = probing,
-                unavailable = "进不了环境时看不到 Claude Code 那边的日志",
-                empty = "没有" to "对话进程没有往标准错误写过东西",
+                unavailable = Strings.diagStderrUnavailable(),
+                empty = Strings.diagStderrEmpty() to Strings.diagStderrEmptyHint(),
             ) {
                 page = DiagPage.File(it)
             }
@@ -147,23 +152,23 @@ internal fun DiagnosticsScreen(
         // ~/.claude/debug 下的文件
         item(key = "debug") {
             LogFilesGroup(
-                title = "Claude Code 调试日志",
-                footer = "Claude Code 开着调试时才写，只列最近 ${DiagScripts.DEBUG_LIMIT} 个。",
+                title = Strings.diagDebugTitle(),
+                footer = Strings.diagDebugFooter(DiagScripts.DEBUG_LIMIT),
                 files = current?.files(LogKind.Debug),
                 probing = probing,
                 unavailable = null,
-                empty = "没有调试日志" to null,
+                empty = Strings.diagDebugEmpty() to null,
             ) {
                 page = DiagPage.File(it)
             }
         }
         // 用系统的“保存到”存下；两种日志文件各取最后 64 KB。打码的是 token、key、password、cookie、Authorization 这类值（见 Redact）
         item(key = "export") {
-            PreferenceGroup(footer = "把上面这些和本应用的 logcat 打成一个 zip。token、密码这类值会先打码。") {
+            PreferenceGroup(footer = Strings.diagExportFooter()) {
                 item {
                     BasicComponent(
-                        title = "导出诊断包",
-                        summary = if (exporting) "正在打包…" else null,
+                        title = Strings.diagExport(),
+                        summary = if (exporting) Strings.diagExporting() else null,
                         enabled = !exporting,
                         onClick = {
                             val stamp =
@@ -189,8 +194,8 @@ internal fun DiagnosticsScreen(
 private fun reportExport(context: Context, result: Result<Int>) {
     val message =
         result.fold(
-            { "诊断包已导出（$it 个文件，已打码）" },
-            { "导出失败：${it.message ?: it.javaClass.simpleName}" },
+            { Strings.diagExported(it) },
+            { Strings.diagExportFailed(it.message ?: it.javaClass.simpleName) },
         )
     Toast.makeText(
             context,
@@ -208,14 +213,20 @@ private fun reportExport(context: Context, result: Result<Int>) {
 private fun RunLogGroup(entries: List<DiagEntry>, onOpen: () -> Unit) {
     val errors = entries.count { it.level == DiagLevel.Error }
     val warnings = entries.count { it.level == DiagLevel.Warn }
-    PreferenceGroup(title = "运行日志", footer = "只留最近 ${DiagLog.CAPACITY} 条。") {
+    PreferenceGroup(
+        title = Strings.diagRunLog(),
+        footer = Strings.diagRunLogFooter(DiagLog.CAPACITY),
+    ) {
         item {
             ArrowPreference(
-                title = "查看运行日志",
+                title = Strings.diagViewRunLog(),
                 summary = runLogSummary(entries.size, warnings),
                 endActions = {
                     if (errors > 0)
-                        PreferenceValue("$errors 条出错", color = COUITheme.colorScheme.error)
+                        PreferenceValue(
+                            Strings.diagErrorCount(errors),
+                            color = COUITheme.colorScheme.error,
+                        )
                 },
                 onClick = onOpen,
             )
@@ -224,13 +235,17 @@ private fun RunLogGroup(entries: List<DiagEntry>, onOpen: () -> Unit) {
 }
 
 private fun runLogSummary(count: Int, warnings: Int): String =
-    if (count == 0) "还没有记录" else "共 $count 条" + (if (warnings > 0) "，$warnings 条警告" else "")
+    when {
+        count == 0 -> Strings.diagNoRecords()
+        warnings > 0 -> Strings.diagRunLogCountWarnings(count, warnings)
+        else -> Strings.diagRunLogCount(count)
+    }
 
 /** 环境信息：短的值放右边，长的（路径、系统版本）放标题下面。 */
 @Composable
 private fun EnvironmentGroup(hub: ConversationHub, probe: LinuxProbe?, probing: Boolean) {
     val context = LocalContext.current
-    PreferenceGroup(title = "环境") {
+    PreferenceGroup(title = Strings.diagEnvironment()) {
         Diagnostics.environment(context, hub, probe, probing).forEach { entry ->
             item {
                 if (entry.value.length <= 14) {
@@ -249,7 +264,7 @@ private fun EnvironmentGroup(hub: ConversationHub, probe: LinuxProbe?, probing: 
 /** 权限状态，和权限健康页是同一份检查。 */
 @Composable
 private fun PermissionsGroup(snapshot: PermissionSnapshot?, hub: ConversationHub) {
-    PreferenceGroup(title = "权限", footer = "要修的到权限健康页里修。") {
+    PreferenceGroup(title = Strings.diagPermissions(), footer = Strings.diagPermissionsFooter()) {
         PermissionHealth.items(snapshot, hub).forEach { entry ->
             item(key = entry.id) {
                 BasicComponent(
@@ -280,7 +295,7 @@ private fun LogFilesGroup(
     PreferenceGroup(title = title, footer = footer) {
         when {
             files == null && probing -> item { ConfigLoadingRow() }
-            files == null -> item { ConfigEmptyRow("Linux 环境不可用", unavailable) }
+            files == null -> item { ConfigEmptyRow(Strings.diagLinuxUnavailable(), unavailable) }
             files.isEmpty() -> item { ConfigEmptyRow(empty.first, empty.second) }
             else ->
                 files.forEach { file ->
@@ -295,7 +310,7 @@ private fun LogFileRow(file: LogFile, onClick: () -> Unit) {
     val zone = ZoneId.systemDefault()
     val title =
         when (file.kind) {
-            LogKind.Running -> file.title.ifBlank { "运行中的对话" }
+            LogKind.Running -> file.title.ifBlank { Strings.diagRunningConversation() }
             else -> file.name
         }
     ArrowPreference(
@@ -331,19 +346,23 @@ private fun DiagLogPage(entries: List<DiagEntry>, onBack: () -> Unit) {
         }
     val zone = ZoneId.systemDefault()
     CouiPage(
-        title = "运行日志",
+        title = Strings.diagRunLog(),
         onBack = onBack,
         actions = {
-            IconActionButton(COUIIcons.Delete, "清空", enabled = entries.isNotEmpty()) {
+            IconActionButton(
+                COUIIcons.Delete,
+                Strings.diagClear(),
+                enabled = entries.isNotEmpty(),
+            ) {
                 confirmClear = true
             }
         },
         dialogs = {
             ConfirmDialog(
                 show = confirmClear,
-                title = "清空运行日志？",
-                summary = "应用里和文件里的记录都会删掉。",
-                confirmText = "清空",
+                title = Strings.diagClearTitle(),
+                summary = Strings.diagClearSummary(),
+                confirmText = Strings.diagClear(),
                 destructive = true,
                 onConfirm = {
                     confirmClear = false
@@ -357,16 +376,21 @@ private fun DiagLogPage(entries: List<DiagEntry>, onBack: () -> Unit) {
             PreferenceGroup {
                 item {
                     OverlayDropdownPreference(
-                        title = "类别",
-                        items = topics.map { it?.label ?: "全部" },
+                        title = Strings.diagFilterTopic(),
+                        items = topics.map { it?.label ?: Strings.diagFilterAll() },
                         selectedIndex = topicIndex,
                         onSelectedIndexChange = { topicIndex = it },
                     )
                 }
                 item {
                     OverlayDropdownPreference(
-                        title = "轻重",
-                        items = listOf("全部", "警告和出错", "只看出错"),
+                        title = Strings.diagFilterLevel(),
+                        items =
+                            listOf(
+                                Strings.diagFilterAll(),
+                                Strings.diagFilterWarnings(),
+                                Strings.diagFilterErrors(),
+                            ),
                         selectedIndex = levelIndex,
                         onSelectedIndexChange = { levelIndex = it },
                     )
@@ -375,7 +399,10 @@ private fun DiagLogPage(entries: List<DiagEntry>, onBack: () -> Unit) {
         }
         if (shown.isEmpty()) {
             item(key = "empty") {
-                PagerFooterPreference(summary = if (entries.isEmpty()) "还没有记录" else "没有符合条件的记录")
+                PagerFooterPreference(
+                    summary =
+                        if (entries.isEmpty()) Strings.diagNoRecords() else Strings.diagNoMatches(),
+                )
             }
         }
         itemsIndexed(shown, key = { index, entry -> "${entry.at}:$index" }) { index, entry ->
@@ -449,7 +476,7 @@ private fun LogTailPage(file: LogFile, load: suspend (LogFile) -> String?, onBac
                             )
                             .joinToString(" · ") +
                             if (file.size > DiagScripts.TAIL_BYTES)
-                                " · 只显示最后 ${DiagScripts.TAIL_BYTES / 1024} KB"
+                                " · " + Strings.diagTailOnly(DiagScripts.TAIL_BYTES / 1024)
                             else "",
                     style = COUITheme.textStyles.bodyS,
                     color = COUITheme.colorScheme.labelSecondary,
@@ -461,13 +488,14 @@ private fun LogTailPage(file: LogFile, load: suspend (LogFile) -> String?, onBac
             failed ->
                 item(key = "error") {
                     PagerFooterPreference(
-                        summary = "读不出这个文件（可能已经被删掉了）",
+                        summary = Strings.diagFileUnreadable(),
                         summaryColor = COUITheme.colorScheme.error,
                     )
                 }
             loaded == null ->
                 item(key = "loading") { PreferenceGroup { item { ConfigLoadingRow() } } }
-            loaded.isBlank() -> item(key = "blank") { PagerFooterPreference(summary = "空文件") }
+            loaded.isBlank() ->
+                item(key = "blank") { PagerFooterPreference(summary = Strings.diagFileEmpty()) }
             else -> {
                 val parts = chunks(loaded)
                 itemsIndexed(parts, key = { index, _ -> "t:$index" }) { index, part ->

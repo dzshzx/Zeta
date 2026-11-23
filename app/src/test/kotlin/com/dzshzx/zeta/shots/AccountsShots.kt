@@ -15,6 +15,7 @@ import com.dzshzx.zeta.core.QuotaSeverity
 import com.dzshzx.zeta.core.QuotaSnapshot
 import com.dzshzx.zeta.core.QuotaWindow
 import com.dzshzx.zeta.core.UserItem
+import com.dzshzx.zeta.i18n.UiLanguage
 import com.dzshzx.zeta.shots.Fixtures.force
 import com.dzshzx.zeta.shots.Fixtures.showChat
 import com.dzshzx.zeta.ui.chat.ChatScreen
@@ -123,6 +124,13 @@ class AccountsShots : ShotTest() {
     }
 
     @Test fun accountsPage() = shootAccounts("accounts", accountsState())
+
+    /** 英文界面的账号页（每个用例新建 Application，语言随之回到简体中文）。 */
+    @Test
+    fun accountsPageEnglish() {
+        UiLanguage.current = UiLanguage.ENGLISH
+        shootAccounts("accounts-en", accountsState())
+    }
 
     @Test fun accountsUnrecorded() = shootAccounts("accounts-unrecorded", unrecordedState())
 

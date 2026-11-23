@@ -2,6 +2,7 @@ package com.dzshzx.zeta.ui.overlay
 
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.graphics.Color
+import com.dzshzx.zeta.i18n.Strings
 import com.dzshzx.zeta.phone.OverlayPhase
 import io.github.suqi8.coui.kmp.theme.COUITheme
 import io.github.suqi8.coui.kmp.theme.Colors
@@ -26,17 +27,17 @@ internal fun phaseAccent(phase: OverlayPhase, colors: Colors): Color =
 /** 胶囊上没有具体步骤时的那句。 */
 internal fun phaseLabel(phase: OverlayPhase) =
     when (phase) {
-        OverlayPhase.RUNNING -> "运行中"
-        OverlayPhase.PAUSED -> "已暂停"
-        OverlayPhase.CONTROLLING -> "你在接管"
-        OverlayPhase.FINISHED -> "已完成"
+        OverlayPhase.RUNNING -> Strings.overlayPhaseRunning()
+        OverlayPhase.PAUSED -> Strings.overlayPhasePaused()
+        OverlayPhase.CONTROLLING -> Strings.overlayPhaseControlling()
+        OverlayPhase.FINISHED -> Strings.overlayPhaseFinished()
     }
 
 /** 展开画面下方那一行的模式：后台画布 / 已暂停，等你继续 / 手动接管中。 */
 internal fun stageModeLabel(phase: OverlayPhase) =
     when (phase) {
-        OverlayPhase.PAUSED -> "已暂停，等你继续"
-        OverlayPhase.CONTROLLING -> "手动接管中"
+        OverlayPhase.PAUSED -> Strings.overlayStagePaused()
+        OverlayPhase.CONTROLLING -> Strings.overlayStageControlling()
         OverlayPhase.RUNNING,
-        OverlayPhase.FINISHED -> "后台画布"
+        OverlayPhase.FINISHED -> Strings.overlayStageCanvas()
     }

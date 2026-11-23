@@ -11,6 +11,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.platform.LocalContext
 import com.dzshzx.zeta.core.ConversationHub
 import com.dzshzx.zeta.core.notify.NotifyRules
+import com.dzshzx.zeta.i18n.Strings
 import com.dzshzx.zeta.ui.components.coui2.SettingsHue
 import com.dzshzx.zeta.ui.components.coui2.SettingsIcon
 import com.dzshzx.zeta.ui.setup.problem
@@ -23,7 +24,7 @@ import io.github.suqi8.coui.kmp.preference.OverlayDropdownPreference
 private val IdleChoices = listOf(5, 10, 30, 60, 120, 0)
 
 internal fun idleLabel(minutes: Int): String =
-    if (minutes == 0) "不自动结束" else NotifyRules.cooldownText(minutes)
+    if (minutes == 0) Strings.settingsIdleNever() else NotifyRules.cooldownText(minutes)
 
 /**
  * 设备页「闲置超时」：主机 [backend] 上没有客户端看着、又闲着（不在回答、不在等确认、没有后台任务）的 Claude Code 进程，
@@ -42,7 +43,7 @@ internal fun IdleEndPreference(hub: ConversationHub, backend: String, ready: Boo
     // 存着的值不在几档里时（比如在别的客户端上设的）也列出来，免得显示成别的
     val choices = IdleChoices + listOfNotNull(current?.takeIf { it !in IdleChoices })
     OverlayDropdownPreference(
-        title = "闲置超时",
+        title = Strings.settingsIdleTimeout(),
         startAction = {
             SettingsIcon(COUIIcons.Timer, SettingsHue.Claude, enabled = current != null)
         },
@@ -55,7 +56,12 @@ internal fun IdleEndPreference(hub: ConversationHub, backend: String, ready: Boo
                 result
                     .onSuccess { minutes = it }
                     .onFailure {
-                        Toast.makeText(context, "没有改成：" + it.problem(), Toast.LENGTH_LONG).show()
+                        Toast.makeText(
+                                context,
+                                Strings.settingsDefaultsChangeFailed(it.problem()),
+                                Toast.LENGTH_LONG,
+                            )
+                            .show()
                     }
             }
         },

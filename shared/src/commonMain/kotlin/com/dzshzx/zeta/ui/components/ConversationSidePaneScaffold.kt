@@ -51,6 +51,7 @@ import androidx.lifecycle.compose.LocalLifecycleOwner
 import androidx.navigationevent.NavigationEventInfo
 import androidx.navigationevent.compose.NavigationBackHandler
 import androidx.navigationevent.compose.rememberNavigationEventState
+import com.dzshzx.zeta.i18n.Strings
 import com.dzshzx.zeta.ui.components.coui2.PageBlurHost
 import com.dzshzx.zeta.ui.components.coui2.pageBlurSource
 import com.dzshzx.zeta.ui.components.coui2.rememberPageBlur
@@ -320,7 +321,7 @@ private fun ChatSlot(pushed: PushedPane, paneWidthPx: Float, content: @Composabl
                         .clickable(
                             interactionSource = null,
                             indication = null,
-                            onClickLabel = "关闭",
+                            onClickLabel = Strings.commonClose(),
                             onClick = pushed.close,
                         ),
             )

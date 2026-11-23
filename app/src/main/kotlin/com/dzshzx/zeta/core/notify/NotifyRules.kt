@@ -12,6 +12,7 @@ import com.dzshzx.zeta.core.schedule.Schedules
 import com.dzshzx.zeta.core.schedule.TaskRun
 import com.dzshzx.zeta.core.schedule.unattendedHint
 import com.dzshzx.zeta.core.str
+import com.dzshzx.zeta.i18n.Strings
 import java.security.SecureRandom
 import java.time.Instant
 import java.time.LocalDate
@@ -339,36 +340,37 @@ object NotifyRules {
         val keywords = parseKeywords(draft.keywords)
         val window = draft.window
         return when {
-            name.isEmpty() -> "写一个名字"
-            name.length > MAX_NAME -> "名字最多 $MAX_NAME 个字"
-            pkg.isEmpty() -> "选一个应用"
-            !PackagePattern.matches(pkg) -> "应用的包名格式不对"
-            AppVariant.isZetaPackage(pkg) -> "Zeta 自己的通知不会触发任务"
-            keywords.size > MAX_KEYWORDS -> "关键词最多 $MAX_KEYWORDS 个"
-            keywords.any { it.length > MAX_KEYWORD } -> "每个关键词最多 $MAX_KEYWORD 个字"
-            window != null && window.start == window.end -> "时段的开始和结束不能是同一时刻"
-            draft.prompt.isBlank() -> "写上要让 Claude 做什么"
-            draft.prompt.length > MAX_PROMPT -> "指令最多 $MAX_PROMPT 个字"
-            cwd.isNotEmpty() && (!cwd.startsWith("/") || '\n' in cwd) -> "工作目录要写 Linux 环境里的绝对路径"
-            draft.cooldownMinutes !in 1..MAX_COOLDOWN -> "冷却时间要在 1 分钟到 24 小时之间"
-            draft.dailyLimit !in 1..MAX_DAILY_LIMIT -> "每天上限要在 1 到 $MAX_DAILY_LIMIT 次之间"
+            name.isEmpty() -> Strings.notifyProblemName()
+            name.length > MAX_NAME -> Strings.notifyProblemNameLong(MAX_NAME)
+            pkg.isEmpty() -> Strings.notifyProblemApp()
+            !PackagePattern.matches(pkg) -> Strings.notifyProblemPackage()
+            AppVariant.isZetaPackage(pkg) -> Strings.notifyProblemZeta()
+            keywords.size > MAX_KEYWORDS -> Strings.notifyProblemKeywords(MAX_KEYWORDS)
+            keywords.any { it.length > MAX_KEYWORD } ->
+                Strings.notifyProblemKeywordLong(MAX_KEYWORD)
+            window != null && window.start == window.end -> Strings.notifyProblemWindow()
+            draft.prompt.isBlank() -> Strings.notifyProblemPrompt()
+            draft.prompt.length > MAX_PROMPT -> Strings.notifyProblemPromptLong(MAX_PROMPT)
+            cwd.isNotEmpty() && (!cwd.startsWith("/") || '\n' in cwd) -> Strings.notifyProblemCwd()
+            draft.cooldownMinutes !in 1..MAX_COOLDOWN -> Strings.notifyProblemCooldown()
+            draft.dailyLimit !in 1..MAX_DAILY_LIMIT ->
+                Strings.notifyProblemDailyLimit(MAX_DAILY_LIMIT)
             else -> null
         }
     }
 
     // ---- 界面上的文字 ----
 
-    fun windowText(window: TimeWindow): String =
-        window.start.format(HM) +
-            "–" +
-            window.end.format(HM) +
-            if (window.start > window.end) "（跨午夜）" else ""
+    fun windowText(window: TimeWindow): String {
+        val range = window.start.format(HM) + "–" + window.end.format(HM)
+        return if (window.start > window.end) Strings.notifyWindowOvernight(range) else range
+    }
 
     fun cooldownText(minutes: Int): String =
         when {
-            minutes % 1440 == 0 -> "${minutes / 1440} 天"
-            minutes % 60 == 0 -> "${minutes / 60} 小时"
-            else -> "$minutes 分钟"
+            minutes % 1440 == 0 -> Strings.notifyCooldownDays(minutes / 1440)
+            minutes % 60 == 0 -> Strings.notifyCooldownHours(minutes / 60)
+            else -> Strings.notifyCooldownMinutes(minutes)
         }
 
     // ---- 存储：Zeta 设置里的一个 JSON 数组 ----

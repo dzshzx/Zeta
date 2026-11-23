@@ -16,6 +16,7 @@ import com.dzshzx.zeta.core.Settings
 import com.dzshzx.zeta.core.get
 import com.dzshzx.zeta.core.of
 import com.dzshzx.zeta.core.phoneCallRunning
+import com.dzshzx.zeta.i18n.Strings
 import com.dzshzx.zeta.ui.MainActivity
 import com.dzshzx.zeta.ui.settings.SettingsLink
 import com.dzshzx.zeta.ui.settings.SettingsSubPage
@@ -232,7 +233,7 @@ internal class AppUpdates private constructor(private val app: Context) {
             val reason = withContext(Dispatchers.IO) { verify(file, manifest) }
             if (reason != null) {
                 file.delete()
-                return setStep(id, UpdateStep.Failed("核对失败：$reason，已删掉下载的文件"))
+                return setStep(id, UpdateStep.Failed(Strings.updateVerifyFailed(reason)))
             }
             install(id, file)
         } catch (e: UpdateException) {
@@ -246,7 +247,8 @@ internal class AppUpdates private constructor(private val app: Context) {
 
     private fun verify(file: File, manifest: UpdateManifest): String? {
         val installed =
-            ApkCheck.readInstalled(app.packageManager, app.packageName) ?: return "读不出本应用自己的签名"
+            ApkCheck.readInstalled(app.packageManager, app.packageName)
+                ?: return Strings.updateNoOwnSignature()
         return ApkCheck.verdict(ApkCheck.readArchive(app.packageManager, file), manifest, installed)
     }
 
@@ -303,8 +305,8 @@ internal class AppUpdates private constructor(private val app: Context) {
                 app,
                 null,
                 Notifier.ID_UPDATE,
-                "Zeta 有新版本 ${manifest.versionName}",
-                "点开看更新说明、下载并安装",
+                Strings.updateNotifyTitle(manifest.versionName),
+                Strings.updateNotifyText(),
                 pending,
                 channel = Notifier.CHANNEL_UPDATE,
             )

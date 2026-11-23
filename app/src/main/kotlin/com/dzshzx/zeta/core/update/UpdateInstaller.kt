@@ -8,6 +8,7 @@ import android.content.pm.PackageInstaller
 import android.net.Uri
 import android.provider.Settings
 import com.dzshzx.zeta.core.LinuxEnv
+import com.dzshzx.zeta.i18n.Strings
 import java.io.File
 
 /**
@@ -48,7 +49,7 @@ internal object UpdateInstaller {
         if (result.exitCode == 0) return null
         val said =
             (result.stdout + "\n" + result.stderr).lines().lastOrNull { it.isNotBlank() }?.trim()
-        return "安装失败：" + (said ?: "pm install 退出码 ${result.exitCode}")
+        return Strings.updateInstallFailed(said ?: Strings.updatePmExit(result.exitCode.toString()))
     }
 
     /** 没有 root 时能不能交给系统装：用户允许了 Zeta「安装未知应用」。 */
@@ -98,7 +99,7 @@ internal object UpdateInstaller {
         }
         null
     }
-        .getOrElse { "交给系统安装失败：${it.message ?: it.javaClass.simpleName}" }
+        .getOrElse { Strings.updateSessionFailed(it.message ?: it.javaClass.simpleName) }
 }
 
 /** PackageInstaller 会话的结果：要用户确认时打开系统的确认界面，用户取消或装不上时告诉 [AppUpdates]。 */
@@ -119,15 +120,16 @@ class UpdateInstallReceiver : BroadcastReceiver() {
                             )
                         }
                             .isSuccess
-                if (!opened) updates.installFailed("打不开系统的安装确认")
+                if (!opened) updates.installFailed(Strings.updateConfirmUnavailable())
             }
             PackageInstaller.STATUS_SUCCESS -> Unit // 本应用已被换成新版本，走不到这里
             PackageInstaller.STATUS_FAILURE_ABORTED -> updates.installCancelled()
             else ->
                 updates.installFailed(
-                    "安装失败：" +
-                        (intent.getStringExtra(PackageInstaller.EXTRA_STATUS_MESSAGE)
-                            ?: "状态码 $status"),
+                    Strings.updateInstallFailed(
+                        intent.getStringExtra(PackageInstaller.EXTRA_STATUS_MESSAGE)
+                            ?: Strings.updateStatusCode(status.toString()),
+                    ),
                 )
         }
     }

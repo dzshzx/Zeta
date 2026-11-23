@@ -93,6 +93,7 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.dzshzx.zeta.i18n.Strings
 import com.dzshzx.zeta.phone.OverlayFocus
 import com.dzshzx.zeta.phone.OverlayPhase
 import com.dzshzx.zeta.phone.TouchMark
@@ -382,7 +383,9 @@ private fun CapsuleHeader(
             Modifier.fillMaxWidth()
                 .clickable(headerSource, indication = null, onClick = controls::toggle)
                 .semantics {
-                    contentDescription = if (expanded) "$step，点按收起" else "$step，点按展开控制"
+                    contentDescription =
+                        if (expanded) Strings.overlayCapsuleCollapse(step)
+                        else Strings.overlayCapsuleExpand(step)
                 }
                 .padding(
                     start = 13.dp,
@@ -507,20 +510,30 @@ private fun ActionRow(focus: OverlayFocus, phase: OverlayPhase, onSupplement: ()
         horizontalArrangement = Arrangement.spacedBy(10.dp, Alignment.CenterHorizontally),
     ) {
         // 外部客户端没有一轮对话可补充
-        if (focus.inZeta) CapsuleAction(COUIIcons.Edit, "补充", colors.labelPrimary, onSupplement)
+        if (focus.inZeta)
+            CapsuleAction(
+                COUIIcons.Edit,
+                Strings.overlaySupplement(),
+                colors.labelPrimary,
+                onSupplement,
+            )
         when (phase) {
             OverlayPhase.RUNNING ->
-                CapsuleAction(COUIIcons.Pause, "暂停", colors.labelPrimary) { focus.pause() }
+                CapsuleAction(COUIIcons.Pause, Strings.overlayPause(), colors.labelPrimary) {
+                    focus.pause()
+                }
             // 点了暂停的就继续；接管着的交还给 Claude
             OverlayPhase.PAUSED ->
-                CapsuleAction(COUIIcons.Play, "继续", colors.primary) { focus.resume() }
+                CapsuleAction(COUIIcons.Play, Strings.overlayResume(), colors.primary) {
+                    focus.resume()
+                }
             OverlayPhase.CONTROLLING ->
-                CapsuleAction(COUIIcons.Play, "交还给 Claude 继续", colors.primary) {
+                CapsuleAction(COUIIcons.Play, Strings.overlayHandBack(), colors.primary) {
                     focus.resumeAuto()
                 }
             OverlayPhase.FINISHED -> Unit
         }
-        CapsuleAction(ZetaIcons.Stop, "停止", colors.error) { focus.stop() }
+        CapsuleAction(ZetaIcons.Stop, Strings.overlayStop(), colors.error) { focus.stop() }
     }
 }
 
@@ -608,12 +621,16 @@ private fun TitlePill(title: String, onClick: () -> Unit) {
                 .widthIn(max = TitlePillMaxWidth)
                 .clip(CircleShape)
                 .background(colors.secondaryButton)
-                .clickable(role = Role.Button, onClickLabel = "在 Zeta 中打开", onClick = onClick)
+                .clickable(
+                    role = Role.Button,
+                    onClickLabel = Strings.overlayOpenInZeta(),
+                    onClick = onClick,
+                )
                 .padding(start = 9.dp, end = 5.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
         Text(
-            text = title.ifBlank { "新对话" },
+            text = title.ifBlank { Strings.overlayNewConversation() },
             color = colors.labelSecondary,
             fontSize = 11.sp,
             fontWeight = FontWeight.Medium,
@@ -707,7 +724,11 @@ private fun SupplementInput(
         ) {
             val textStyle = COUITheme.textStyles.bodyM.copy(lineHeight = 18.sp)
             if (value.isEmpty()) {
-                Text(text = "补充指令，Claude 会继续当前任务", color = colors.hintNeutral, style = textStyle)
+                Text(
+                    text = Strings.overlaySupplementHint(),
+                    color = colors.hintNeutral,
+                    style = textStyle,
+                )
             }
             BasicTextField(
                 value = value,
@@ -726,7 +747,7 @@ private fun SupplementInput(
         ) {
             // COUI 的小号按钮，高度放到 32dp，悬浮层上好点
             TextButton(
-                text = "取消",
+                text = Strings.commonCancel(),
                 onClick = onCancel,
                 minWidth = ButtonDefaults.MinWidthSmall,
                 minHeight = 32.dp,
@@ -735,7 +756,7 @@ private fun SupplementInput(
             )
             Spacer(Modifier.width(8.dp))
             TextButton(
-                text = "发送",
+                text = Strings.overlaySend(),
                 onClick = onSend,
                 enabled = value.isNotBlank(),
                 minWidth = ButtonDefaults.MinWidthSmall,

@@ -9,6 +9,7 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import com.dzshzx.zeta.core.ConversationHub
 import com.dzshzx.zeta.core.conv.ClaudeUpdate
+import com.dzshzx.zeta.i18n.Strings
 import com.dzshzx.zeta.ui.components.coui2.PreferenceValue
 import com.dzshzx.zeta.ui.components.coui2.SettingsHue
 import com.dzshzx.zeta.ui.components.coui2.SettingsIcon
@@ -32,14 +33,18 @@ internal fun ClaudeCodeUpdateRow(hub: ConversationHub, backend: String, ready: B
     LaunchedEffect(backend, ready) {
         if (ready) {
             scope.runConfig({ hub.convLinks.claudeVersion(backend) }) { result ->
-                result.onSuccess { version = it }.onFailure { note = "读不到版本：" + it.problem() }
+                result
+                    .onSuccess { version = it }
+                    .onFailure { note = Strings.settingsClaudeUpdateVersionFailed(it.problem()) }
                 loaded = result.isSuccess
             }
         }
     }
     BasicComponent(
         title = "Claude Code",
-        summary = if (updating) "正在更新…" else note ?: "点按更新到最新版",
+        summary =
+            if (updating) Strings.settingsClaudeUpdateUpdating()
+            else note ?: Strings.settingsClaudeUpdateHint(),
         startAction = {
             SettingsIcon(
                 COUIIcons.Update,
@@ -48,7 +53,7 @@ internal fun ClaudeCodeUpdateRow(hub: ConversationHub, backend: String, ready: B
             )
         },
         endActions = {
-            PreferenceValue(if (!loaded) "…" else version ?: "未安装")
+            PreferenceValue(if (!loaded) "…" else version ?: Strings.commonNotInstalled())
         },
         enabled = ready && loaded && !updating,
         onClick = {
@@ -60,16 +65,23 @@ internal fun ClaudeCodeUpdateRow(hub: ConversationHub, backend: String, ready: B
                         version = it.version
                         note = updateNote(it)
                     }
-                    .onFailure { note = "没更新成：" + it.problem() }
+                    .onFailure { note = Strings.settingsClaudeUpdateFailed(it.problem()) }
             }
         },
     )
 }
 
 /** 更新完的一句话：成了说新旧版本，没成说 claude update 输出的最后一行。 */
-internal fun updateNote(u: ClaudeUpdate): String =
-    when {
-        !u.ok -> "没更新成：" + (u.output.lines().lastOrNull { it.isNotBlank() } ?: "claude update 出错了")
-        u.version != null && u.version != u.before -> "已从 ${u.before ?: "未安装"} 更新到 ${u.version}"
-        else -> "已是最新"
+internal fun updateNote(u: ClaudeUpdate): String {
+    val after = u.version
+    return when {
+        !u.ok ->
+            Strings.settingsClaudeUpdateFailed(
+                u.output.lines().lastOrNull { it.isNotBlank() }
+                    ?: Strings.settingsClaudeUpdateError(),
+            )
+        after != null && after != u.before ->
+            Strings.settingsClaudeUpdateUpdated(u.before ?: Strings.commonNotInstalled(), after)
+        else -> Strings.updateUpToDate()
     }
+}

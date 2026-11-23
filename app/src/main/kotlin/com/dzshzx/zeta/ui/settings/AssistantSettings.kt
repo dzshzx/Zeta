@@ -18,6 +18,7 @@ import com.dzshzx.zeta.assistant.PowerKeyStatus
 import com.dzshzx.zeta.core.AppVariant
 import com.dzshzx.zeta.core.Backends
 import com.dzshzx.zeta.core.ConversationHub
+import com.dzshzx.zeta.i18n.Strings
 import com.dzshzx.zeta.ui.components.coui2.CouiPage
 import com.dzshzx.zeta.ui.components.coui2.PreferenceGroup
 import com.dzshzx.zeta.ui.components.coui2.PreferenceValue
@@ -53,15 +54,15 @@ private fun rememberAssistantOwner(
 internal fun AssistantEntry(owner: AssistantOwner? = null, onOpen: () -> Unit) {
     val current = owner ?: rememberAssistantOwner(AssistantRole::owner)
     ArrowPreference(
-        title = "数字助理",
+        title = Strings.settingsAssistantTitle(),
         startAction = { SettingsIcon(COUIIcons.Mic, SettingsHue.System) },
         endActions = {
             PreferenceValue(
                 text =
                     when {
-                        current == null -> "查询中"
-                        current.self -> "已是默认"
-                        else -> "未设置"
+                        current == null -> Strings.commonQuerying()
+                        current.self -> Strings.settingsAssistantIsDefault()
+                        else -> Strings.settingsAssistantNotSet()
                     },
                 color =
                     if (current?.self == true) Color.Unspecified
@@ -84,21 +85,20 @@ internal fun AssistantSettingsScreen(
     val current = owner ?: rememberAssistantOwner(AssistantRole::owner)
     var model by remember { mutableStateOf(hub.settings.assistantModel) }
     var effort by remember { mutableStateOf(hub.settings.assistantEffort) }
-    CouiPage(title = "数字助理", onBack = onBack) {
+    CouiPage(title = Strings.settingsAssistantTitle(), onBack = onBack) {
         // HyperOS 的长按电源键默认直接拉起小爱，要靠 Zeta 自带的 LSPosed 模块交给
         // Zeta；模块装没装上、最近的记录在诊断页（AssistantDiagnosticsGroup）
         item(key = "owner") {
             PreferenceGroup(
-                footer =
-                    "设为默认后，系统的助理入口会唤起 Zeta 浮窗，带上当前屏幕问 Claude。HyperOS 上长按电源键还要启用 LSPosed 模块，见诊断页。",
+                footer = Strings.settingsAssistantFooter(),
             ) {
                 item { DefaultAssistantPreference(current) }
             }
         }
         item(key = "conversation") {
             PreferenceGroup(
-                title = "数字助理的对话",
-                footer = "选「跟随 Claude Code」时和新对话一样，用 Claude Code 设置里的默认（设置首页能看到）。单独选的不影响新对话。",
+                title = Strings.settingsAssistantConversations(),
+                footer = Strings.settingsAssistantConversationsFooter(),
             ) {
                 item {
                     ModelPreference(hub, Backends.LOCAL, model) { value ->
@@ -122,11 +122,11 @@ internal fun AssistantSettingsScreen(
 private fun DefaultAssistantPreference(current: AssistantOwner?) {
     val context = LocalContext.current
     ArrowPreference(
-        title = "默认数字助理",
-        summary = "在系统设置里选",
+        title = Strings.settingsAssistantDefault(),
+        summary = Strings.settingsAssistantDefaultSummary(),
         endActions = {
             PreferenceValue(
-                text = current?.summary ?: "查询中",
+                text = current?.summary ?: Strings.commonQuerying(),
                 color =
                     if (current?.self == true) Color.Unspecified
                     else COUITheme.colorScheme.labelTertiary,
@@ -134,7 +134,12 @@ private fun DefaultAssistantPreference(current: AssistantOwner?) {
         },
         onClick = {
             if (!AssistantRole.openSettings(context))
-                Toast.makeText(context, "打不开系统的默认助理设置", Toast.LENGTH_SHORT).show()
+                Toast.makeText(
+                        context,
+                        Strings.settingsAssistantCantOpenSettings(),
+                        Toast.LENGTH_SHORT,
+                    )
+                    .show()
         },
     )
 }
@@ -162,7 +167,10 @@ internal fun AssistantDiagnosticsGroup(
     // 正式版、测试版的模块各管各的。记录取自 LSPosed 的模块日志和 logcat，标签 PowerKeyPolicy.LOG_TAG
     // HyperOS 长按电源键默认直接拉起小爱，要交给本包得在 LSPosed 里启用本包的模块（作用域「系统框架」）并重启；
     // 正式版、测试版的模块各管各的。记录取自 LSPosed 的模块日志和 logcat，标签 PowerKeyPolicy.LOG_TAG
-    PreferenceGroup(title = "数字助理", footer = assistantFootnote(reading, log, recent)) {
+    PreferenceGroup(
+        title = Strings.settingsAssistantTitle(),
+        footer = assistantFootnote(reading, log, recent),
+    ) {
         item { DefaultAssistantPreference(current) }
         item { RecognizerPreference(current) }
         item { PowerKeyPreference(log, reading) }
@@ -177,11 +185,9 @@ private fun assistantFootnote(
 ): String? =
     when {
         reading && log == null -> null
-        log == null -> "读不到模块日志（没有 root）。"
-        recent.isEmpty() ->
-            "要让长按电源键唤起 Zeta，在 LSPosed 里启用本包（${AppVariant.current.packageName}）的模块，作用域选「系统框架」，再重启手机。" +
-                "现在还没有记录：没启用，或还没重启。"
-        else -> "模块最近的记录：\n" + recent.takeLast(8).joinToString("\n")
+        log == null -> Strings.settingsAssistantNoLog()
+        recent.isEmpty() -> Strings.settingsAssistantEnableModule(AppVariant.current.packageName)
+        else -> Strings.settingsAssistantRecentLog(recent.takeLast(8).joinToString("\n"))
     }
 
 /**
@@ -192,11 +198,13 @@ private fun assistantFootnote(
 private fun RecognizerPreference(current: AssistantOwner?) {
     val broken = current?.keepsOnBoot == false
     BasicComponent(
-        title = "系统语音识别",
-        summary = "开机后默认助理会被换掉".takeIf { broken },
+        title = Strings.settingsAssistantRecognizer(),
+        summary = Strings.settingsAssistantRecognizerBroken().takeIf { broken },
         endActions = {
             PreferenceValue(
-                text = if (broken) "不是 Zeta" else current?.recognizerSummary ?: "查询中",
+                text =
+                    if (broken) Strings.settingsAssistantNotZeta()
+                    else current?.recognizerSummary ?: Strings.commonQuerying(),
                 color = if (broken) COUITheme.colorScheme.error else Color.Unspecified,
             )
         },
@@ -207,7 +215,7 @@ private fun RecognizerPreference(current: AssistantOwner?) {
 @Composable
 private fun PowerKeyPreference(log: PowerKeyStatus?, reading: Boolean) {
     BasicComponent(
-        title = "长按电源键接管",
+        title = Strings.settingsAssistantPowerKey(),
         summary = log?.installNote?.takeIf { log.installed == false },
         endActions = {
             PreferenceValue(
@@ -222,6 +230,6 @@ private fun PowerKeyPreference(log: PowerKeyStatus?, reading: Boolean) {
 private fun powerKeyValue(log: PowerKeyStatus?, reading: Boolean): String =
     when {
         log != null -> log.summary
-        reading -> "查询中"
-        else -> "查不到"
+        reading -> Strings.commonQuerying()
+        else -> Strings.commonUnknown()
     }
