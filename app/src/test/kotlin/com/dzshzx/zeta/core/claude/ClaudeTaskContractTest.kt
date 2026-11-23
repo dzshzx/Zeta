@@ -747,28 +747,51 @@ class ClaudeTaskContractTest {
 
     /**
      * 一轮进行中（前台命令在跑），后台有一个命令和一个子代理，这时停止这一轮（interrupt）。返回 interrupt 之后、这一轮的 result 到了再过 2
-     * 秒的事件：停止引起的事件和 result 是一起到的，多看 2 秒是给「后台的没被动」这类断言留的观察时间。
+     * 秒的事件：停止引起的事件和 result 是一起到的，多看 2 秒是给「后台的没被动」这类断言留的观察时间。前台命令要随这一轮停掉。
      */
     private fun interruptWithBackgroundWork(claude: Claude): List<JsonObject> {
         claude.send(userMessage("go"))
         claude.until { it.str("type") == "assistant" && "toolu_2" in it.toString() }
-        // 前台命令起来以后再停
-        Thread.sleep(1500)
+        awaitForeground("前台命令没有起来", running = true)
         val before = claude.events.size
         val answer = claude.control(buildJsonObject { put("subtype", "interrupt") })
         assertEquals("success", answer.str("subtype"))
-        if (claude.events.drop(before).none { it.str("type") == "result" })
-            claude.until { it.str("type") == "result" }
+        claude.until { it.str("type") == "result" }
+        awaitForeground("停止这一轮后前台命令还在跑", running = false)
         claude.poll(2) { false }
         return claude.events.drop(before)
     }
 
-    private fun backgroundWorkScript() =
-        listOf(
+    /**
+     * 前台命令：一直跑到被停。不用 sleep：Claude Code 不让前台单独 sleep 这么久，直接报错，这一轮不等停就自己结束了。
+     * 它读的文件在这个用例的临时目录里，靠它认出这个进程。
+     */
+    private val foreground
+        get() = File(home, "foreground.log")
+
+    private fun foregroundRunning() =
+        ProcessHandle.allProcesses().anyMatch { p ->
+            p.info().command().orElse("").endsWith("/tail") &&
+                foreground.path in p.info().arguments().orElse(emptyArray())
+        }
+
+    /** 等到前台命令跑着（或不在了）；30 秒只防卡死，正常时一两秒内就到。 */
+    private fun awaitForeground(failure: String, running: Boolean) {
+        val deadline = System.currentTimeMillis() + 30_000
+        while (foregroundRunning() != running) {
+            assertTrue(failure, System.currentTimeMillis() < deadline)
+            Thread.sleep(100)
+        }
+    }
+
+    private fun backgroundWorkScript(): List<Pair<String, JsonObject>> {
+        foreground.createNewFile()
+        return listOf(
             bash("sleep 300", "bg sleeper", background = true),
             "Agent" to agentInput(),
-            bash("sleep 60", "foreground sleeper", background = false),
+            bash("tail -f ${foreground.path}", "foreground tail", background = false),
         )
+    }
 
     /** 不声明有逐个停止的按钮时，停止一轮会把后台子代理一起结束（后台命令留着）。 */
     @Test
