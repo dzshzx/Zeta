@@ -1,6 +1,8 @@
 package main
 
 import (
+	"os"
+	"path/filepath"
 	"slices"
 	"strings"
 	"testing"
@@ -142,5 +144,22 @@ func TestSigningNeedsTheRegisteredReleaseCertificate(t *testing.T) {
 	err := runVerify([]string{"-apk", "/x.apk", "-version", "0.7.1", "-version-code", "1"})
 	if err == nil || !strings.Contains(err.Error(), "生成正式发版密钥") {
 		t.Errorf("verify points at the key generation steps: %v", err)
+	}
+}
+
+// 没设 JAVA_HOME 时照仓里的 tools/java-home 找（工作站没有全局 java，ship 发完核对下载要用 apksigner）
+func TestFindBuildToolsJavaHome(t *testing.T) {
+	root := fakeRepo(t, oldCert+"\n"+newCert+"\n")
+	script := filepath.Join(root, "tools", "java-home")
+	if err := os.WriteFile(script, []byte("#!/bin/sh\necho /opt/jdk-25\n"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	t.Setenv("JAVA_HOME", "")
+	if _, err := findBuildTools(root); err != nil || os.Getenv("JAVA_HOME") != "/opt/jdk-25" {
+		t.Errorf("没设时照 tools/java-home：err %v，JAVA_HOME %q", err, os.Getenv("JAVA_HOME"))
+	}
+	t.Setenv("JAVA_HOME", "/given")
+	if _, err := findBuildTools(root); err != nil || os.Getenv("JAVA_HOME") != "/given" {
+		t.Errorf("设了就用设的：err %v，JAVA_HOME %q", err, os.Getenv("JAVA_HOME"))
 	}
 }

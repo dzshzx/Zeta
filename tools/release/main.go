@@ -19,7 +19,7 @@
 //	    commit status（publish 等它通过才发布），发完下载资产核对。-preview 只列这次的版本、versionCode 和发版说明
 //
 // apksigner、aapt2、zipalign 取 $ANDROID_HOME/build-tools/<app/build.gradle.kts 的 buildToolsVersion>；
-// 设了 JAVA_HOME 时把它的 bin 放到子进程 PATH 的最前（apksigner 用 PATH 上的 java）。
+// JAVA_HOME 的 bin 放到子进程 PATH 的最前（apksigner 用 PATH 上的 java）；没设时照 tools/java-home 找。
 // 签名口令只经环境变量 ZETA_RELEASE_STORE_PASSWORD、ZETA_RELEASE_KEY_PASSWORD 交给 apksigner，不进命令行。
 package main
 

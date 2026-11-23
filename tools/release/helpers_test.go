@@ -134,6 +134,7 @@ func fakeRepo(t *testing.T, certs string) string {
 		}
 	}
 	t.Setenv("ANDROID_HOME", sdk)
+	t.Setenv("JAVA_HOME", filepath.Join(sdk, "jdk"))
 	t.Chdir(filepath.Join(root, "tools/release"))
 	return root
 }

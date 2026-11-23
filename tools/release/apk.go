@@ -5,6 +5,7 @@ import (
 	"flag"
 	"fmt"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"regexp"
 	"slices"
@@ -57,6 +58,16 @@ func findBuildTools(root string) (buildTools, error) {
 	dir := buildTools(filepath.Join(sdk, "build-tools", string(m[1])))
 	if _, err := os.Stat(dir.tool("apksigner")); err != nil {
 		return "", fmt.Errorf("%s 里没有 apksigner：先 sdkmanager --install \"build-tools;%s\"", dir, m[1])
+	}
+	// apksigner 用 PATH 上的 java（command 把 JAVA_HOME 的 bin 放到最前）；工作站没有全局 java，没设时照 tools/java-home 找
+	if os.Getenv("JAVA_HOME") == "" {
+		out, err := exec.Command(filepath.Join(root, "tools", "java-home")).Output()
+		if err != nil {
+			return "", fmt.Errorf("找 JDK（tools/java-home）：%w", err)
+		}
+		if err := os.Setenv("JAVA_HOME", strings.TrimSpace(string(out))); err != nil {
+			return "", err
+		}
 	}
 	return dir, nil
 }

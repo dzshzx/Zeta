@@ -41,7 +41,7 @@ if [[ $variant == release ]]; then
   trap 'rm -rf "$dl"' EXIT
   gh release download ${tag:+"$tag"} --repo dzshzx/Zeta --dir "$dl" \
     --pattern 'Zeta-v*.apk' --pattern 'Zeta-v*.apk.sha256' --pattern update.json
-  APK=$(JAVA_HOME=$(tools/java-home) go -C tools/release run . check-download -dir "$dl")
+  APK=$(go -C tools/release run . check-download -dir "$dl")
 else
   if [[ -n $build ]]; then
     # 构建失败就停，不装旧包；输出只留错误、Kotlin 警告和结果行。
