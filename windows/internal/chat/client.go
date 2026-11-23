@@ -136,6 +136,7 @@ func (c *Client) Handle(line []byte) bool {
 		return true
 	}
 	if conv.apply(p.Type, line) {
+		conv.changed()
 		c.notify()
 	}
 	return true

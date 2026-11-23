@@ -22,13 +22,21 @@ type Options struct {
 	Post   func(func())    // 交回主线程跑（窗口的 Update）
 	// OpenZip 让用户选一个 Skill 的 ZIP，返回文件名和内容；取消时 name 为空。nil 时用系统的文件对话框。
 	OpenZip func() (name string, data []byte, err error)
-	// Models 是默认模型下拉里的选项（Claude Code 报的模型清单）；没有时列几个常用的别名。
+	// Models 是默认模型下拉里的选项（Claude Code 报的模型清单，Older 的收进「更多模型」）；没有时列几个常用的别名。
 	Models []Model
+	// ModelsPending：正在向那台的 Claude Code 要模型清单，到了用 SetModels 换上。
+	ModelsPending bool
 }
 
-// Model 是一个可选的模型：Value 写进 settings.json，Label 给人看。
+// Model 是一个可选的模型：Value 写进 settings.json，Label 给人看；Older 是旧版本，收在「更多模型」里。
 type Model struct {
 	Value, Label string
+	Older        bool
+}
+
+// SetModels 换上要到的模型清单（空的是没要到，照旧列常用的别名），不再说正在要。
+func (p *Page) SetModels(models []Model) {
+	p.opts.Models, p.opts.ModelsPending = models, false
 }
 
 // 子页。

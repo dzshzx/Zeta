@@ -32,6 +32,8 @@ type Conversation struct {
 	pending Update
 	// watched 是看着的东西（watch.go）和它们最近推来的样子（*Subagent、*tasks.Output），还没推来时为 nil。
 	watched map[Target]any
+	// wake 在每次推送带来变化时关上、换一个新的，Wait 等它。
+	wake chan struct{}
 }
 
 // Update 是上次 Take 以后的变化，界面在主线程上照着改自己的样子。
@@ -76,7 +78,8 @@ const (
 )
 
 func newConversation(client *Client, name string, spec Spec) *Conversation {
-	return &Conversation{client: client, name: name, api: client.api.Conv(name), spec: spec, watched: map[Target]any{}}
+	return &Conversation{client: client, name: name, api: client.api.Conv(name), spec: spec, watched: map[Target]any{},
+		wake: make(chan struct{})}
 }
 
 // Name 是这个对话在这条连接上的名字（conv）。
@@ -226,4 +229,30 @@ func (c *Conversation) State() State {
 	c.mu.Lock()
 	defer c.mu.Unlock()
 	return c.state
+}
+
+// changed 叫醒在 Wait 的：推送带来了变化。
+func (c *Conversation) changed() {
+	c.mu.Lock()
+	close(c.wake)
+	c.wake = make(chan struct{})
+	c.mu.Unlock()
+}
+
+// Wait 等到 done 对此刻的状态和条目为真（推送每带来一次变化看一回），或 ctx 到期（返回 ctx 的错误）。done 持锁调用，
+// 不能回头调这个对话的方法。
+func (c *Conversation) Wait(ctx context.Context, done func(s State, list []items.Item) bool) error {
+	for {
+		c.mu.Lock()
+		ok, wake := done(c.state, c.items), c.wake
+		c.mu.Unlock()
+		if ok {
+			return nil
+		}
+		select {
+		case <-wake:
+		case <-ctx.Done():
+			return ctx.Err()
+		}
+	}
 }

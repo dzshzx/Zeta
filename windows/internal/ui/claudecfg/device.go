@@ -67,11 +67,17 @@ func (p *Page) models() []Model {
 	return fallbackModels
 }
 
+// builtinDefault 是默认模型下拉里「不设」那一项（settings.json 里没有 model，用 Claude Code 内置的默认）。
+const builtinDefault = "Claude Code 内置的默认"
+
 func (p *Page) defaultsSection(c *ui.Context) {
 	d := p.defaults
 	footer := defaultsFooter
 	if p.defaultsErr != "" {
 		footer = "读取失败：" + p.defaultsErr + "\n\n" + footer
+	}
+	if p.opts.ModelsPending {
+		footer = "正在向这台设备上的 Claude Code 要模型清单，先列出常用的几个。\n\n" + footer
 	}
 	widget.Group(c, "新对话默认", footer, func(l *widget.List) {
 		if d == nil {
@@ -79,31 +85,64 @@ func (p *Page) defaultsSection(c *ui.Context) {
 			return
 		}
 		disabled := p.working
-		// 默认模型：第一项是不设（Claude Code 内置的默认）；设着的不在清单里时也列出来
-		models := slices.Clone(p.models())
-		if d.Model != "" && !slices.ContainsFunc(models, func(m Model) bool { return m.Value == d.Model }) {
-			models = append(models, Model{d.Model, readableModel(d.Model)})
-		}
-		labels := []string{"Claude Code 内置的默认"}
-		selected := 0
-		for i, m := range models {
-			labels = append(labels, m.Label)
-			if m.Value == d.Model {
-				selected = i + 1
-			}
-		}
-		item(l, "默认模型", "", func() {
-			choice(c, "默认模型", labels, selected, disabled, func(i int) {
-				value := ""
-				if i > 0 {
-					value = models[i-1].Value
-				}
-				p.setDefaults(func(ctx context.Context) (coreapi.Defaults, error) { return p.opts.Core.SetDefaultModel(ctx, value) })
-			})
-		})
+		item(l, "默认模型", "", func() { p.modelChoice(c, *d, disabled) })
 		entry(l, "默认思考强度", effortSummary(*d), "", true, func() { p.push(viewEffort) })
 		p.permissionModeRow(l, *d, disabled)
 		p.compactWindowRow(l, *d, disabled)
+	})
+}
+
+// modelChoice 是默认模型的下拉（同手机版的 DefaultModelPreference）：第一项是不设（Claude Code 内置的默认，default 也算不设），
+// 接着是各系列最新的；旧版本收在最后一项「更多模型」的二级菜单里，选中的是旧版本时写在那一项右边。设着的不在清单里（别处
+// 设的、下线的）时也列在上层。
+func (p *Page) modelChoice(c *ui.Context, d coreapi.Defaults, disabled bool) {
+	current := d.Model
+	if current == "default" {
+		current = ""
+	}
+	var top, older []Model
+	for _, m := range p.models() {
+		if m.Older {
+			older = append(older, m)
+		} else {
+			top = append(top, m)
+		}
+	}
+	all := append(slices.Clone(top), older...)
+	if current != "" && !slices.ContainsFunc(all, func(m Model) bool { return m.Value == current }) {
+		unknown := Model{Value: current, Label: readableModel(current)}
+		top, all = append(top, unknown), append(all, unknown)
+	}
+	shown, olderHint := builtinDefault, ""
+	for _, m := range all {
+		if m.Value == current {
+			shown = m.Label
+			if m.Older {
+				olderHint = m.Label
+			}
+		}
+	}
+	set := func(value string) {
+		p.setDefaults(func(ctx context.Context) (coreapi.Defaults, error) { return p.opts.Core.SetDefaultModel(ctx, value) })
+	}
+	choices := func(m *widget.Menu, list []Model) {
+		for _, mo := range list {
+			if m.Choice(mo.Label, mo.Value == current) && mo.Value != current {
+				set(mo.Value)
+			}
+		}
+	}
+	widget.MenuButton(c.Key("默认模型"), func(t ui.Element) {
+		widget.Dropdown(c, t, shown)
+		t.Label("默认模型").Disabled(disabled)
+	}, func(m *widget.Menu) {
+		if m.Choice(builtinDefault, current == "") && current != "" {
+			set("")
+		}
+		choices(m, top)
+		if len(older) > 0 {
+			m.Sub("更多模型", olderHint, func(m *widget.Menu) { choices(m, older) })
+		}
 	})
 }
 

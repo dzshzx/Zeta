@@ -15,7 +15,8 @@ import (
 // 界面上的说法：模型、思考强度、权限模式、权限规则的表、闲置超时、token 数、文件大小。
 
 // fallbackModels 是还没拿到 Claude Code 的模型清单时，默认模型下拉里的几个别名。
-var fallbackModels = []Model{{"opus", "Opus"}, {"sonnet", "Sonnet"}, {"haiku", "Haiku"}, {"fable", "Fable"}}
+var fallbackModels = []Model{{Value: "opus", Label: "Opus"}, {Value: "sonnet", Label: "Sonnet"}, {Value: "haiku", Label: "Haiku"},
+	{Value: "fable", Label: "Fable"}}
 
 // effortLevels 是思考强度的几档。
 var effortLevels = []struct{ value, label string }{

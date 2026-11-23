@@ -257,28 +257,19 @@ func (a *App) startDeviceConfig(x sshlink.Host) {
 		a.cfg = nil
 		return
 	}
+	models := a.models(x.ID)
 	a.cfg = claudecfg.New(claudecfg.Options{
 		Core:   r.Core,
 		Cwd:    x.DefaultCwd,
 		Device: cfg.DeviceSettings(a.hub.Settings().Store(), x.ID),
 		Run:    a.run,
 		Post:   a.post,
-		Models: a.models(x.ID),
+		Models: models,
+		// 还没有清单时去要一次，要到了换上（models.go）
+		ModelsPending: len(models) == 0,
 	})
 	a.cfg.Load()
-}
-
-// models 是设备 id 上 Claude Code 报过的模型（聊天窗格开着那台的对话时有），给默认模型下拉用；没有时 claudecfg 列常用的别名。
-func (a *App) models(id string) []claudecfg.Model {
-	p := a.pane
-	if p == nil || p.src.Backend != id {
-		return nil
-	}
-	var out []claudecfg.Model
-	for _, m := range p.state.Models {
-		out = append(out, claudecfg.Model{Value: m.Value, Label: m.DisplayName})
-	}
-	return out
+	a.askModels(x, r)
 }
 
 // defaultAbout 是没给关于页时用的：本程序的版本，不查更新（测试里；窗口由入口换成接了自动更新的）。

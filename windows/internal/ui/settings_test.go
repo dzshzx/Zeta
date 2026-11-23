@@ -198,7 +198,7 @@ func TestDevicePageShowsClaudeConfig(t *testing.T) {
 	}
 }
 
-// TestSettingsPreviews 在设了 ZETA_PREVIEW_DIR 时把设置页、设备页、账号与额度、诊断（清单、点开的日志、运行日志）、关于（有新版本）、界面缩放 125% 的设置页画成 PNG（浅色、深色）。
+// TestSettingsPreviews 在设了 ZETA_PREVIEW_DIR 时把设置页、设备页（含默认模型的下拉和「更多模型」）、账号与额度、诊断（清单、点开的日志、运行日志）、关于（有新版本）、界面缩放 125% 的设置页画成 PNG（浅色、深色）。
 func TestSettingsPreviews(t *testing.T) {
 	dir := os.Getenv("ZETA_PREVIEW_DIR")
 	if dir == "" {
@@ -217,6 +217,14 @@ func TestSettingsPreviews(t *testing.T) {
 			f.click(t, "设置")
 			f.clickButton(t, "box", 0)
 			f.until(t, "读到新对话默认", func() bool { return f.shows("Sonnet") })
+		}},
+		{"settings-device-models", 900, func(t *testing.T, f *settingsFixture) {
+			withPrepare(f)
+			f.click(t, "设置")
+			f.clickButton(t, "box", 0)
+			f.until(t, "要到清单", func() bool { return f.shows("Sonnet 5.5") })
+			f.press(t, "默认模型")
+			f.click(t, "更多模型")
 		}},
 		{"settings-accounts", 900, func(t *testing.T, f *settingsFixture) {
 			f.click(t, "设置")

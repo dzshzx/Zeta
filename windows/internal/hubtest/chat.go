@@ -32,6 +32,8 @@ type ChatLink struct {
 	hello   func(hostlink.Hello)
 	problem func(string)
 	closed  bool
+	// pushed 是推过几行（在 wire 锁里加），看 conv.prepare 的应答里推没推东西。
+	pushed int
 }
 
 // Call 是发来的一个请求。
@@ -79,10 +81,17 @@ func (l *ChatLink) Call(_ context.Context, method string, params map[string]any)
 	}
 	onCall := l.onCall
 	l.mu.Unlock()
-	if onCall == nil {
-		return nil, nil
+	before := l.pushes()
+	var result json.RawMessage
+	var err error
+	if onCall != nil {
+		result, err = onCall(c)
 	}
-	return onCall(c)
+	if method == "conv.prepare" && err == nil && l.pushes() == before {
+		// 测试没让它推东西：当作这台上起不来 Claude Code（同核心，条目里加一条「启动失败」），要模型清单的不用等到超时
+		l.Push(`{"type":"conv.items","conv":"` + c.Conv() + `","full":true,"items":[{"kind":"notice","id":"n1","text":"启动失败：假设备上没有 claude"}]}`)
+	}
+	return result, err
 }
 
 // Close 见 host.ChatLink。
@@ -129,6 +138,7 @@ func (l *ChatLink) Methods() []string {
 func (l *ChatLink) Push(line string) {
 	l.wire.Lock()
 	defer l.wire.Unlock()
+	l.pushed++
 	l.push([]byte(line))
 }
 
@@ -272,4 +282,11 @@ func (d *Devices) CheckPath(_ sshlink.Host, path string) (hostlink.PathKind, err
 		return kind, nil
 	}
 	return hostlink.PathMissing, nil
+}
+
+// pushes 是到现在推过几行。
+func (l *ChatLink) pushes() int {
+	l.wire.Lock()
+	defer l.wire.Unlock()
+	return l.pushed
 }

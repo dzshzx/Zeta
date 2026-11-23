@@ -20,10 +20,7 @@ func MenuButton(c *ui.Context, trigger func(t ui.Element), build func(m *Menu)) 
 		parts := ui.MenuBase(c, open)
 		trigger(parts.Trigger)
 		parts.Popup(func(panel ui.Element) {
-			k := Of(c)
-			// 阴影照 ListPopup：浅色是很淡、很散的一圈；浅色不描边（照 ChatGPT 客户端，只靠阴影和底分开）
-			Surface{Shape: ShapePopup, Fill: k.PopupGlass, Edge: PopupEdge(k)}.Paint(panel).MinWidth(180).MaxWidth(280).Padding(4, 0).
-				Margin(6, 0, 0, 0).Shadow(0, 6, 24, 0, popupShadow(k))
+			menuPanel(c, panel).Margin(6, 0, 0, 0)
 			build(&Menu{c: c, parts: parts})
 		})
 	})
@@ -97,4 +94,35 @@ func PopupEdge(k *Colors) ui.Color {
 		return k.Divider
 	}
 	return ui.Color{}
+}
+
+// menuPanel 是弹出菜单（和二级菜单）的面板：阴影照 ListPopup，浅色是很淡、很散的一圈；浅色不描边（照 ChatGPT 客户端，只靠阴影
+// 和底分开）。
+func menuPanel(c *ui.Context, panel ui.Element) ui.Element {
+	k := Of(c)
+	return Surface{Shape: ShapePopup, Fill: k.PopupGlass, Edge: PopupEdge(k)}.Paint(panel).MinWidth(180).MaxWidth(280).Padding(4, 0).
+		Shadow(0, 6, 24, 0, popupShadow(k))
+}
+
+// Sub 加一项点开二级菜单的（「更多模型」这类，同手机版的 DropdownItem 带 children）：鼠标移上去、点它或按右键打开，右边一个箭头；
+// hint 不空时写在名字右边（比如二级菜单里选中的那项）。build 加二级菜单的项，用的是同一个 Menu。
+func (m *Menu) Sub(label, hint string, build func(m *Menu)) {
+	c := m.c
+	k := Of(c)
+	it := m.parts.SubmenuItem().Label(label).MinHeight(30).Margin(0, 4).Radius(6).Padding(5, 6, 5, 10).Gap(10).
+		AlignItems(ui.Center).Cursor(ui.CursorPointer)
+	if it.Highlighted() {
+		it.Background(k.Hover)
+	}
+	it.Children(func() {
+		ui.Text(c, label).FontSize(SizeBodyM).TextColor(k.Text).Grow(1).SingleLine()
+		if hint != "" {
+			ui.Text(c, hint).FontSize(SizeBodyS).TextColor(k.Secondary).SingleLine().Ellipsis("…").Shrink(1)
+		}
+		ui.Icon(c, IconForward).Size(14, 14).TextColor(k.Secondary)
+	})
+	m.parts.Submenu(it, func(panel ui.Element) {
+		menuPanel(c, panel).Margin(0, 0, 0, 4)
+		build(m)
+	})
 }

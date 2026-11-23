@@ -344,3 +344,50 @@ func TestStripFrontmatter(t *testing.T) {
 		}
 	}
 }
+
+// 默认模型的下拉：上层是不设和各系列最新的，旧版本收在「更多模型」的二级菜单里；选了旧版本写进 settings.json，
+// 之后下拉上写它、「更多模型」右边也写它。
+func TestDefaultModelMoreModels(t *testing.T) {
+	f := newFixture(t, Options{Models: []Model{
+		{Value: "opus", Label: "Opus 5.5"}, {Value: "sonnet", Label: "Sonnet 5.5"},
+		{Value: "claude-opus-4-6", Label: "Opus 4.6", Older: true}, {Value: "claude-sonnet-4-6", Label: "Sonnet 4.6", Older: true},
+	}})
+	f.see(builtinDefault)
+	f.press("默认模型")
+	f.see("Opus 5.5", "Sonnet 5.5", "更多模型")
+	if f.tt.HasText("Opus 4.6") {
+		t.Fatal("旧版本不该在上层")
+	}
+	f.click("更多模型")
+	f.click("Opus 4.6")
+	if got := f.serve.Read(".claude/settings.json"); !strings.Contains(got, `"model": "claude-opus-4-6"`) {
+		t.Fatalf("settings.json：%s", got)
+	}
+	f.see("Opus 4.6")
+	f.press("默认模型")
+	f.see("更多模型", "Opus 4.6") // 选中的旧版本写在「更多模型」右边
+	f.tt.Key(0, ui.KeyEscape)
+
+	// 选回不设：settings.json 里去掉 model
+	f.press("默认模型")
+	f.click(builtinDefault)
+	if got := f.serve.Read(".claude/settings.json"); strings.Contains(got, `"model"`) {
+		t.Fatalf("settings.json：%s", got)
+	}
+}
+
+// 正在要模型清单时说一声、先列常用的别名；要到了换上，说明去掉。
+func TestDefaultModelWhileAskingForModels(t *testing.T) {
+	f := newFixture(t, Options{ModelsPending: true})
+	f.see("正在向这台设备上的 Claude Code 要模型清单，先列出常用的几个。")
+	f.press("默认模型")
+	f.see("Opus", "Sonnet", "Haiku", "Fable")
+	f.tt.Key(0, ui.KeyEscape)
+	f.page.SetModels([]Model{{Value: "opus", Label: "Opus 5.5"}})
+	f.tt.Frame()
+	if f.tt.HasText("正在向这台设备上的 Claude Code 要模型清单，先列出常用的几个。") {
+		t.Fatal("要到了还在说")
+	}
+	f.press("默认模型")
+	f.see("Opus 5.5")
+}
