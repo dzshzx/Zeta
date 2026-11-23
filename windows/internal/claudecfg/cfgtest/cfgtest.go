@@ -1,4 +1,4 @@
-// Package cfgtest 是测试用的 claudecfg.Caller：在本机的临时 HOME 里起一个真的 zeta-helper serve（从仓里的 helper/
+// Package cfgtest 是测试用的 coreapi.Caller：在本机的临时 HOME 里起一个真的 zeta-helper serve（从仓里的 helper/
 // 源码编，经 windows/testdata 里指向它的符号链接找，go test 的缓存才认得，见 client/testinput），经它的标准输入输出收发 config.* 请求。PATH 最前面放 helper 测试里冒充 claude 的那个程序，不碰本机真的
 // claude。只给测试用。
 package cfgtest
@@ -157,17 +157,11 @@ func (s *Serve) read(lines *bufio.Scanner) {
 	}
 }
 
-// Call 见 claudecfg.Caller。
-func (s *Serve) Call(ctx context.Context, method string, params any) (json.RawMessage, error) {
-	req := map[string]any{}
-	if params != nil {
-		raw, err := json.Marshal(params)
-		if err != nil {
-			return nil, err
-		}
-		if err := json.Unmarshal(raw, &req); err != nil {
-			return nil, errors.New("参数不是 JSON 对象")
-		}
+// Call 见 coreapi.Caller。
+func (s *Serve) Call(ctx context.Context, method string, params map[string]any) (json.RawMessage, error) {
+	req := maps.Clone(params)
+	if req == nil {
+		req = map[string]any{}
 	}
 	ch := make(chan reply, 1)
 	s.mu.Lock()

@@ -52,7 +52,7 @@ func TestRemoteUsesChatConnection(t *testing.T) {
 		}
 		return nil, nil
 	})
-	d, err := r.Config.Defaults(context.Background())
+	d, err := r.Core.Defaults(context.Background())
 	if err != nil || d.Model != "sonnet" || d.PermissionMode != "plan" {
 		t.Fatalf("默认值：%+v %v", d, err)
 	}
@@ -82,14 +82,14 @@ func TestRemoteDropsDeadConnection(t *testing.T) {
 	link.OnCall(func(hubtest.Call) (json.RawMessage, error) {
 		return nil, &hostlink.ReplyError{Message: "不认识的方法"}
 	})
-	if _, err := r.Config.Defaults(context.Background()); err == nil {
+	if _, err := r.Core.Defaults(context.Background()); err == nil {
 		t.Fatal("出错没有交回来")
 	}
 	if h.Remote(x.ID) != r || link.Closed() {
 		t.Fatal("serve 答的出错不该丢掉连接")
 	}
 	link.OnCall(func(hubtest.Call) (json.RawMessage, error) { return nil, errors.New("连不上「box」") })
-	if _, err := r.Config.Defaults(context.Background()); err == nil {
+	if _, err := r.Core.Defaults(context.Background()); err == nil {
 		t.Fatal("出错没有交回来")
 	}
 	if !link.Closed() {

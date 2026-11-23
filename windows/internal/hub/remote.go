@@ -7,16 +7,17 @@ import (
 	"strconv"
 
 	"github.com/dzshzx/Zeta/client/hostlink"
+	"github.com/dzshzx/Zeta/helper/coreapi"
 	"github.com/dzshzx/Zeta/windows/internal/accounts"
 	"github.com/dzshzx/Zeta/windows/internal/chat"
 	"github.com/dzshzx/Zeta/windows/internal/claudecfg"
 	"github.com/dzshzx/Zeta/windows/internal/settings"
 )
 
-// Remote 是设置里一台设备上经它的 serve 做的几样：Claude Code 配置（config.*）、账号与额度（accounts.*、quota.*）。
+// Remote 是设置里一台设备上经它的 serve 做的几样：核心的请求（Claude Code 配置 config.*、闲置超时 system.* 等）、账号与额度（accounts.*、quota.*）。
 // 请求走这台给对话用的那条 serve 连接（chatConn），不另开。账号和额度的状态留在这里，换页回来还在。
 type Remote struct {
-	Config   *claudecfg.Client
+	Core     *coreapi.Client
 	Accounts *accounts.Service
 	Quota    *accounts.Quota
 
@@ -35,10 +36,10 @@ func (h *Hub) Remote(id string) *Remote {
 	conn := h.chatConn(id)
 	caller := &remoteCaller{conn: conn, dead: func() { h.post(func() { h.dropDeadConn(id, conn) }) }}
 	loop := accounts.Loop{Run: h.run, Post: h.post}
-	q := accounts.NewQuota(caller, usageSource{conn}, loop, nil)
+	q := accounts.NewQuota(anyParams{caller}, usageSource{conn}, loop, nil)
 	r := &Remote{
-		Config:   claudecfg.New(caller, x.DefaultCwd),
-		Accounts: accounts.NewService(caller, h.devices.ClaudeSwitch(x), deviceConvs{conn, h.run}, q, loop),
+		Core:     coreapi.New(caller),
+		Accounts: accounts.NewService(anyParams{caller}, h.devices.ClaudeSwitch(x), deviceConvs{conn, h.run}, q, loop),
 		Quota:    q,
 		conn:     conn,
 	}
@@ -46,26 +47,33 @@ func (h *Hub) Remote(id string) *Remote {
 	return r
 }
 
-// remoteCaller 把设置的请求交给对话连接（claudecfg.Caller、accounts.Caller）。不是 serve 答的出错（连不上）时，
+// remoteCaller 把设置的请求交给对话连接（coreapi.Caller）。不是 serve 答的出错（连不上）时，
 // 一次都没连上的连接丢掉，下次打开设置页时重新连。
 type remoteCaller struct {
 	conn *chatConn
 	dead func()
 }
 
-func (c *remoteCaller) Call(ctx context.Context, method string, params any) (json.RawMessage, error) {
-	m, err := asMap(params)
-	if err != nil {
-		return nil, err
-	}
-	raw, err := c.conn.Call(ctx, method, m)
+func (c *remoteCaller) Call(ctx context.Context, method string, params map[string]any) (json.RawMessage, error) {
+	raw, err := c.conn.Call(ctx, method, params)
 	if _, replied := hostlink.ReplyCode(err); err != nil && !replied {
 		c.dead()
 	}
 	return raw, err
 }
 
-// asMap 把请求的参数换成连接要的 map（claudecfg、accounts 给的本来就是）。
+// anyParams 把 accounts.Caller 的请求（参数是 any）交给 coreapi.Caller。accounts 改走 coreapi 后删掉它和 asMap。
+type anyParams struct{ c coreapi.Caller }
+
+func (a anyParams) Call(ctx context.Context, method string, params any) (json.RawMessage, error) {
+	m, err := asMap(params)
+	if err != nil {
+		return nil, err
+	}
+	return a.c.Call(ctx, method, m)
+}
+
+// asMap 把请求的参数换成连接要的 map（accounts 给的本来就是）。
 func asMap(params any) (map[string]any, error) {
 	switch p := params.(type) {
 	case nil:

@@ -4,7 +4,7 @@ import (
 	"context"
 	"errors"
 
-	cfg "github.com/dzshzx/Zeta/windows/internal/claudecfg"
+	"github.com/dzshzx/Zeta/helper/coreapi"
 	"github.com/dzshzx/Zeta/windows/internal/ui/coui"
 	"github.com/egoist/mygo/ui"
 )
@@ -13,7 +13,7 @@ import (
 // 每个项目一个目录，每条一个文件，MEMORY.md 是索引。
 
 type memoryState struct {
-	data    *cfg.Memory
+	data    *coreapi.Memory
 	project string // 选着的项目，空是默认工作目录所在的
 	working bool
 }
@@ -26,7 +26,7 @@ func (p *Page) openMemory() {
 func (p *Page) reloadMemory() {
 	project := p.memory.project
 	p.async(func(ctx context.Context) func() {
-		m, err := p.opts.Client.Memory(ctx, project)
+		m, err := p.opts.Core.Memory(ctx, p.opts.Cwd, project)
 		return func() {
 			if err != nil {
 				p.failed("读取记忆失败", err)
@@ -83,7 +83,7 @@ func (p *Page) memoryPage(c *ui.Context) {
 	})
 }
 
-func (p *Page) autoMemoryRows(l *coui.List, m cfg.Memory) {
+func (p *Page) autoMemoryRows(l *coui.List, m coreapi.Memory) {
 	c := l.Context()
 	on := m.AutoMemory && !m.ForcedOff
 	summary := ""
@@ -95,7 +95,7 @@ func (p *Page) autoMemoryRows(l *coui.List, m cfg.Memory) {
 		if sw.Changed() {
 			p.memory.working = true
 			p.async(func(ctx context.Context) func() {
-				err := p.opts.Client.SetAutoMemory(ctx, on)
+				err := p.opts.Core.SetAutoMemory(ctx, on)
 				return func() {
 					p.memory.working = false
 					if err != nil {
@@ -141,7 +141,7 @@ func (p *Page) autoMemoryRows(l *coui.List, m cfg.Memory) {
 	}
 }
 
-func (p *Page) memoryFiles(c *ui.Context, m cfg.Memory) {
+func (p *Page) memoryFiles(c *ui.Context, m coreapi.Memory) {
 	coui.Group(c, "记忆 · "+itoa(len(m.Files)), "", func(l *coui.List) {
 		if len(m.Files) == 0 {
 			emptyRow(l, "这个项目还没有记忆", "让 Claude 记住的东西会出现在这里")
@@ -188,7 +188,7 @@ func (p *Page) openDocument(d document) {
 	p.doc = documentState{doc: d, loading: true}
 	p.push(viewDocument)
 	p.async(func(ctx context.Context) func() {
-		got, err := p.opts.Client.ReadFile(ctx, d.path)
+		got, err := p.opts.Core.ReadMemoryFile(ctx, d.path)
 		return func() {
 			p.doc.loading = false
 			if err != nil {
@@ -209,11 +209,11 @@ func (p *Page) saveDocument(force bool) {
 	s.saving = true
 	path, content, sha := s.doc.path, s.draft, s.sha
 	p.async(func(ctx context.Context) func() {
-		newSHA, err := p.opts.Client.WriteFile(ctx, path, content, sha, force)
+		newSHA, err := p.opts.Core.WriteMemoryFile(ctx, path, content, sha, force)
 		return func() {
 			s.saving = false
 			switch {
-			case errors.Is(err, cfg.ErrConflict):
+			case errors.Is(err, coreapi.ErrConflict):
 				s.conflict = true
 			case err != nil:
 				p.failed("保存失败", err)
@@ -246,7 +246,7 @@ func (p *Page) documentPage(c *ui.Context) {
 	ui.Column(c).Grow(1).MinHeight(0).FillWidth().MaxWidth(coui.PageWidth).AlignSelf(ui.Center).Padding(8, 16, 16, 16).Gap(8).
 		Children(func() {
 			size := int64(len(s.draft))
-			over := size > cfg.MaxDocument
+			over := size > coreapi.MaxMemoryFile
 			info := s.doc.file + " · " + sizeText(size) + " / 1 MiB"
 			if over {
 				info += " · 超过上限"
@@ -295,7 +295,7 @@ func (p *Page) documentDialogs(c *ui.Context) {
 	if alert(c, &s.deleting, "删除这条记忆", message, coui.Destructive, "取消", "删除") == 1 {
 		path := s.doc.path
 		p.async(func(ctx context.Context) func() {
-			err := p.opts.Client.DeleteMemory(ctx, path)
+			err := p.opts.Core.DeleteMemory(ctx, path)
 			return func() {
 				if err != nil {
 					p.failed("删除失败", err)

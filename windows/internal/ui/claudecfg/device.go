@@ -5,6 +5,7 @@ import (
 	"slices"
 	"strings"
 
+	"github.com/dzshzx/Zeta/helper/coreapi"
 	cfg "github.com/dzshzx/Zeta/windows/internal/claudecfg"
 	"github.com/dzshzx/Zeta/windows/internal/ui/coui"
 	"github.com/egoist/mygo/ui"
@@ -44,7 +45,7 @@ func (p *Page) Sections(c *ui.Context) {
 }
 
 // setDefaults 在后台改一项默认值，写成了换上新的，没写成说一声。
-func (p *Page) setDefaults(change func(ctx context.Context) (cfg.Defaults, error)) {
+func (p *Page) setDefaults(change func(ctx context.Context) (coreapi.Defaults, error)) {
 	p.working = true
 	p.async(func(ctx context.Context) func() {
 		d, err := change(ctx)
@@ -97,7 +98,7 @@ func (p *Page) defaultsSection(c *ui.Context) {
 				if i > 0 {
 					value = models[i-1].Value
 				}
-				p.setDefaults(func(ctx context.Context) (cfg.Defaults, error) { return p.opts.Client.SetDefaultModel(ctx, value) })
+				p.setDefaults(func(ctx context.Context) (coreapi.Defaults, error) { return p.opts.Core.SetDefaultModel(ctx, value) })
 			})
 		})
 		entry(l, "默认思考强度", effortSummary(*d), "", true, func() { p.push(viewEffort) })
@@ -106,7 +107,7 @@ func (p *Page) defaultsSection(c *ui.Context) {
 	})
 }
 
-func (p *Page) permissionModeRow(l *coui.List, d cfg.Defaults, disabled bool) {
+func (p *Page) permissionModeRow(l *coui.List, d coreapi.Defaults, disabled bool) {
 	c := l.Context()
 	var labels []string
 	selected := 0
@@ -126,14 +127,14 @@ func (p *Page) permissionModeRow(l *coui.List, d cfg.Defaults, disabled bool) {
 				return
 			}
 			mode := permissionModes[i].value
-			p.setDefaults(func(ctx context.Context) (cfg.Defaults, error) {
-				return p.opts.Client.SetDefaultPermissionMode(ctx, mode)
+			p.setDefaults(func(ctx context.Context) (coreapi.Defaults, error) {
+				return p.opts.Core.SetDefaultPermissionMode(ctx, mode)
 			})
 		})
 	})
 }
 
-func (p *Page) compactWindowRow(l *coui.List, d cfg.Defaults, disabled bool) {
+func (p *Page) compactWindowRow(l *coui.List, d coreapi.Defaults, disabled bool) {
 	c := l.Context()
 	windows := slices.Clone(compactWindows)
 	if d.CompactWindow != 0 && !slices.Contains(windows, d.CompactWindow) {
@@ -153,13 +154,13 @@ func (p *Page) compactWindowRow(l *coui.List, d cfg.Defaults, disabled bool) {
 			if i > 0 {
 				tokens = windows[i-1]
 			}
-			p.setDefaults(func(ctx context.Context) (cfg.Defaults, error) { return p.opts.Client.SetCompactWindow(ctx, tokens) })
+			p.setDefaults(func(ctx context.Context) (coreapi.Defaults, error) { return p.opts.Core.SetCompactWindow(ctx, tokens) })
 		})
 	})
 }
 
 // effortSummary：「Opus 5.5 超高，其他模型 高」；都没设时说由 Claude Code 定。
-func effortSummary(d cfg.Defaults) string {
+func effortSummary(d coreapi.Defaults) string {
 	var parts []string
 	for _, e := range d.Efforts {
 		parts = append(parts, readableModel(e.Model)+" "+effortLabel(e.Level))
@@ -212,7 +213,7 @@ func (p *Page) claudeSection(c *ui.Context) {
 // idleRow 是「闲置超时」：存着的值不在几档里时（在别的客户端上设的）也列出来；还没读到时灰着。
 func (p *Page) idleRow(l *coui.List) {
 	c := l.Context()
-	points := slices.Clone(cfg.IdleChoices)
+	points := slices.Clone(idleChoices)
 	selected := -1
 	if p.idle != nil {
 		if !slices.Contains(points, *p.idle) {
@@ -222,13 +223,13 @@ func (p *Page) idleRow(l *coui.List) {
 	}
 	var labels []string
 	for _, m := range points {
-		labels = append(labels, cfg.IdleLabel(m))
+		labels = append(labels, idleLabel(m))
 	}
 	item(l, "闲置超时", "", func() {
 		choice(c, "闲置超时", labels, selected, p.idle == nil, func(i int) {
 			minutes := points[i]
 			p.async(func(ctx context.Context) func() {
-				m, err := p.opts.Client.SetIdleMinutes(ctx, minutes)
+				m, err := p.opts.Core.SetIdleMinutes(ctx, minutes)
 				return func() {
 					if err != nil {
 						p.failed("没有改成", err)
@@ -253,7 +254,7 @@ type effortRow struct {
 }
 
 // effortRows：设过的模型、模型清单里的完整 ID，最后是「其他模型」。
-func (p *Page) effortRows(d cfg.Defaults) []effortRow {
+func (p *Page) effortRows(d coreapi.Defaults) []effortRow {
 	var rows []effortRow
 	for _, e := range d.Efforts {
 		rows = append(rows, effortRow{e.Model, readableModel(e.Model), e.Level})
@@ -292,8 +293,8 @@ func (p *Page) effortPage(c *ui.Context) {
 						if i > 0 {
 							level = effortLevels[i-1].value
 						}
-						p.setDefaults(func(ctx context.Context) (cfg.Defaults, error) {
-							return p.opts.Client.SetDefaultEffort(ctx, row.model, level)
+						p.setDefaults(func(ctx context.Context) (coreapi.Defaults, error) {
+							return p.opts.Core.SetDefaultEffort(ctx, row.model, level)
 						})
 					})
 				})

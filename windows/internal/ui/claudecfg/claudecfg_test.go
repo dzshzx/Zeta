@@ -6,6 +6,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/dzshzx/Zeta/helper/coreapi"
 	cfg "github.com/dzshzx/Zeta/windows/internal/claudecfg"
 	"github.com/dzshzx/Zeta/windows/internal/claudecfg/cfgtest"
 	"github.com/egoist/mygo/ui"
@@ -23,7 +24,7 @@ type fixture struct {
 func newFixture(t *testing.T, opts Options) *fixture {
 	serve := cfgtest.Start(t)
 	prefs := &fakePrefs{strings: map[string][]string{}}
-	opts.Client = cfg.New(serve, "")
+	opts.Core = coreapi.New(serve)
 	opts.Device = cfg.DeviceSettings(prefs, "dev1")
 	opts.Run = func(f func()) { f() }
 	opts.Post = func(f func()) { f() }
