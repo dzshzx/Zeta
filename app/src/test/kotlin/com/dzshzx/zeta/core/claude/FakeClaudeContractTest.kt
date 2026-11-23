@@ -772,8 +772,17 @@ class FakeClaudeContractTest {
             val settings = control(obj("subtype" to "get_settings"))
             control(obj("subtype" to "get_usage", "skip_behaviors" to JsonPrimitive(true)))
             // 启动时问的几样都答了才开始这一轮：答得晚（机器忙时真 Claude Code 可能过一秒多才答）会混进这一轮的事件。
-            // get_usage 不等，它的应答不计入比较（shapes 滤掉了）
-            for (id in listOf(initialize, contextUsage, settings)) until(60_000, response(id))
+            // get_usage 不等，它的应答不计入比较（shapes 滤掉了）。三个应答先后不定，在同一次 until 里一起等：until 读过的行
+            // 不会再给下一次 until，分开逐个等时先到的应答被前一次读走，后面就要等满超时
+            val waiting = mutableSetOf(initialize, contextUsage, settings)
+            val answered =
+                until(60_000) {
+                    if (it.str("type") == "control_response") {
+                        it.obj("response")?.str("request_id")?.let(waiting::remove)
+                    }
+                    waiting.isEmpty()
+                }
+            checkNotNull(answered) { "60 秒内启动时的请求没有都答：还差 $waiting" }
             settle(1500)
             user("11111111-2222-4333-8444-555555555555", "hi")
             when (mode) {
