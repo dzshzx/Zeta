@@ -4,6 +4,7 @@ import com.dzshzx.zeta.core.DirectSshShell
 import com.dzshzx.zeta.core.RemoteHost
 import com.dzshzx.zeta.core.RemoteHosts
 import com.dzshzx.zeta.core.RemoteShell
+import com.dzshzx.zeta.core.removeTestDir
 import com.dzshzx.zeta.core.waitUntil
 import java.io.File
 import java.nio.file.Files
@@ -51,7 +52,7 @@ class SshLinksTest {
     fun tearDown() {
         links.close()
         server.close()
-        home.deleteRecursively()
+        removeTestDir(home)
     }
 
     private fun probe(

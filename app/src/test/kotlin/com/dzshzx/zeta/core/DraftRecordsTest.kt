@@ -167,7 +167,7 @@ class DraftRecordsTest {
             assertEquals(0, process.waitFor())
             assertEquals(listOf(PathKind.File, PathKind.Missing), PathCheck.parse(out))
         } finally {
-            dir.deleteRecursively()
+            removeTestDir(dir)
         }
     }
 }

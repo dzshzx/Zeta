@@ -3,6 +3,7 @@ package com.dzshzx.zeta.core.claude
 import com.dzshzx.zeta.core.HelperProgram
 import com.dzshzx.zeta.core.HostTesting
 import com.dzshzx.zeta.core.LinuxShell
+import com.dzshzx.zeta.core.removeTestDir
 import java.io.File
 import java.nio.file.Files
 import org.junit.After
@@ -59,7 +60,7 @@ class ClaudeAccountsTest {
     @After
     fun tearDown() {
         spawned.forEach { it.destroyForcibly() }
-        if (::home.isInitialized) home.deleteRecursively()
+        if (::home.isInitialized) removeTestDir(home)
     }
 
     private val fake

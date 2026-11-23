@@ -2,6 +2,7 @@ package com.dzshzx.zeta.core.claude
 
 import com.dzshzx.zeta.core.LinuxEnv
 import com.dzshzx.zeta.core.LinuxShell
+import com.dzshzx.zeta.core.removeTestDir
 import com.sun.net.httpserver.HttpServer
 import java.net.InetSocketAddress
 import java.util.concurrent.TimeUnit
@@ -779,7 +780,7 @@ class LocalClientTest : ClaudeConfigClientTest() {
             }
 
             override fun cleanup() {
-                dir.deleteRecursively()
+                removeTestDir(dir)
             }
         }
 

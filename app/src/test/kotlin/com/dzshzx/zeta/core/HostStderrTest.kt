@@ -30,9 +30,7 @@ class HostStderrTest {
     @After
     fun tearDown() {
         if (!::home.isInitialized) return
-        // 测试半路失败时还开着的替身（它们读输入一直不退）
-        HostTesting.killHosts(home, name)
-        home.deleteRecursively()
+        removeTestDir(home)
     }
 
     /** claude 的替身：只跑 [script]，不读输入。 */

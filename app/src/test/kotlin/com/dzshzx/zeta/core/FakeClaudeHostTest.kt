@@ -38,8 +38,7 @@ class FakeClaudeHostTest {
             listOf(dev to "k-dev", release to "k-release", null to "k-old")) runCatching {
             run(name, "stop", key)
         }
-        for (name in listOf(dev, release)) HostTesting.killHosts(home, name)
-        home.deleteRecursively()
+        removeTestDir(home)
     }
 
     private fun onPath(command: String) =

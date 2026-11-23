@@ -1,5 +1,6 @@
 package com.dzshzx.zeta.core.diag
 
+import com.dzshzx.zeta.core.removeTestDir
 import java.io.File
 import java.nio.file.Files
 import java.util.Base64
@@ -181,7 +182,7 @@ class DiagScriptsTest {
                 DiagScripts.parseTails(tailOut).values.toList(),
             )
         } finally {
-            dir.deleteRecursively()
+            removeTestDir(dir)
         }
     }
 }

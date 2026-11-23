@@ -1,5 +1,6 @@
 package com.dzshzx.zeta.core.update
 
+import com.dzshzx.zeta.core.removeTestDir
 import com.sun.net.httpserver.HttpExchange
 import com.sun.net.httpserver.HttpServer
 import java.io.File
@@ -61,7 +62,7 @@ class UpdateHttpTest {
         github.server.stop(0)
         proxy.server.stop(0)
         closers.forEach { it() }
-        dir.deleteRecursively()
+        removeTestDir(dir)
     }
 
     private fun http(mirrored: String = github.base) =

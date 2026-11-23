@@ -46,7 +46,7 @@ class HostTurnTest {
             .orEmpty()
             .filter { it.startsWith("k-") }
             .forEach { key -> runCatching { execute("bash", host.path, "stop", key) } }
-        home.deleteRecursively()
+        removeTestDir(home)
     }
 
     /** 某一刻的样子：这一轮在进行（turn）、有后台任务在跑（tasks）。 */

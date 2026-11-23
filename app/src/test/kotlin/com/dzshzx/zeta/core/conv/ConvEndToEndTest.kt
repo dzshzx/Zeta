@@ -8,6 +8,7 @@ import com.dzshzx.zeta.core.LinuxShell
 import com.dzshzx.zeta.core.TestHelper
 import com.dzshzx.zeta.core.UserItem
 import com.dzshzx.zeta.core.WorkItem
+import com.dzshzx.zeta.core.removeTestDir
 import java.io.File
 import java.nio.file.Files
 import java.util.concurrent.LinkedBlockingQueue
@@ -60,8 +61,8 @@ class ConvEndToEndTest {
                     ProcessHandle.of(pid).ifPresent { it.destroyForcibly() }
                 }
             }
-        home.deleteRecursively()
-        coreDir.deleteRecursively()
+        removeTestDir(home)
+        removeTestDir(coreDir)
     }
 
     private class Events : ConvListener {

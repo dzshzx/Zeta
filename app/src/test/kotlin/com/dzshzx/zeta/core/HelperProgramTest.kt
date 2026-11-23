@@ -26,7 +26,7 @@ class HelperProgramTest {
 
     @After
     fun tearDown() {
-        home.deleteRecursively()
+        removeTestDir(home)
     }
 
     private fun program(tag: String, name: String = HelperProgram.ZETA_HELPER) =

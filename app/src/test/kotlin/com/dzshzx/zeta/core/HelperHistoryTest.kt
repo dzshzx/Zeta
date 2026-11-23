@@ -38,7 +38,7 @@ class HelperHistoryTest {
 
     @After
     fun tearDown() {
-        if (::home.isInitialized) home.deleteRecursively()
+        if (::home.isInitialized) removeTestDir(home)
     }
 
     private fun helper(vararg args: String): List<JsonObject> {

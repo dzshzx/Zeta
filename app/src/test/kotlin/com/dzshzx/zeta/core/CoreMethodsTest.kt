@@ -52,7 +52,7 @@ class CoreMethodsTest {
     @After
     fun cleanup() {
         serve.close()
-        dir.deleteRecursively()
+        removeTestDir(dir)
     }
 
     private fun writeSession(id: String, text: String): File =

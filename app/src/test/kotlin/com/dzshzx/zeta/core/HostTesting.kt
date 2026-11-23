@@ -78,16 +78,6 @@ internal object HostTesting {
     const val END_SESSION =
         "{\"type\":\"control_request\",\"request_id\":\"t\",\"request\":{\"subtype\":\"end_session\"}}\n"
 
-    /** 测试收尾：结束 [home] 下包 [name] 各托管目录 pid 文件记的进程，再按 [killRegistered] 结束包了一层时里面的那个。 */
-    fun killHosts(home: File, name: String) {
-        File(home, ".cache/$name/hosts")
-            .listFiles()
-            .orEmpty()
-            .mapNotNull { runCatching { File(it, "pid").readText().trim().toInt() }.getOrNull() }
-            .forEach { ProcessBuilder("kill", "-9", "$it").start().waitFor(5, TimeUnit.SECONDS) }
-        killRegistered(home)
-    }
-
     /**
      * 替身的 prelude：像 Claude Code 那样用自己的进程号在 ~/.claude/sessions 登记会话 [session]（[registeredPid] 读回来），
      * 输出里先打一行带这个会话的 init（Zeta 认托管的进程时要托管目录输出开头的会话和登记的对得上）。
@@ -108,22 +98,6 @@ internal object HostTesting {
         val dir = File(home, ".claude/sessions")
         assertTrue("替身没登记", waitUntil { dir.list().orEmpty().isNotEmpty() })
         return dir.list()!!.single().removeSuffix(".json").toInt()
-    }
-
-    /**
-     * 测试收尾：结束 [home] 的 ~/.claude/sessions 里登记的、HOME 是 [home] 的进程（包了一层的替身不是 pid 文件记的那个，只能从这里找）。
-     * 测试随手登记的假进程号（比如 999999）可能正是别的真进程，HOME 对不上的不动。
-     */
-    fun killRegistered(home: File) {
-        File(home, ".claude/sessions")
-            .list()
-            .orEmpty()
-            .mapNotNull { it.removeSuffix(".json").toIntOrNull() }
-            .forEach { pid ->
-                if (envOf(pid, "HOME") == home.path) {
-                    ProcessBuilder("kill", "-9", "$pid").start().waitFor(5, TimeUnit.SECONDS)
-                }
-            }
     }
 
     /** 进程启动时的环境变量 [name]；没有、读不了时是 null。 */
@@ -164,3 +138,37 @@ internal object HostTesting {
             }
         }
 }
+
+/**
+ * 测试收尾：结束 HOME 或当前目录在 [dir] 里的进程（测试起的进程和它们的子进程，经 [HostTesting.builder] 起的都带这个 HOME）， 等它们都退出了再删
+ * [dir]。不等就删时，还在跑的进程（托管脚本的收尾、假 Claude 退出前的清理）会和删除同时改这个目录， deleteRecursively 遍历到一半目录没了就抛
+ * AssertionError。一轮里刚 fork 出来的子进程下一轮再结束； 最多等 60 秒，只防卡死，到点还有进程就失败。别的进程的 HOME
+ * 和当前目录不会在测试新建的临时目录里，所以不会误伤。
+ */
+internal fun removeTestDir(dir: File) {
+    val roots = setOf(dir.absolutePath, dir.canonicalPath)
+    fun inside(path: String?) = path != null && roots.any { path == it || path.startsWith("$it/") }
+    val self = ProcessHandle.current().pid()
+    fun users(): List<ProcessHandle> =
+        ProcessHandle.allProcesses()
+            .filter { it.pid() != self }
+            .filter { handle ->
+                val pid = handle.pid().toInt()
+                HostTesting.alive(pid) &&
+                    (inside(HostTesting.envOf(pid, "HOME")) || inside(cwdOf(pid)))
+            }
+            .toList()
+    val ended = waitUntil {
+        val left = users()
+        left.forEach { it.destroyForcibly() }
+        left.isEmpty()
+    }
+    assertTrue("$dir 里还有进程没结束", ended)
+    dir.deleteRecursively()
+}
+
+/** 进程 [pid] 的当前目录；读不了（进程没了、不是自己的）时是 null。 */
+private fun cwdOf(pid: Int): String? = runCatching {
+    java.nio.file.Files.readSymbolicLink(java.nio.file.Path.of("/proc/$pid/cwd")).toString()
+}
+    .getOrNull()

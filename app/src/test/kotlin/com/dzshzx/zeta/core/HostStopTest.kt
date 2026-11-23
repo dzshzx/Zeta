@@ -44,9 +44,7 @@ class HostStopTest {
     @After
     fun tearDown() {
         if (!::home.isInitialized) return
-        // 替身没了，还在等宽限期的 stop 随即做完退出，不留在后台
-        HostTesting.killHosts(home, name)
-        home.deleteRecursively()
+        removeTestDir(home)
     }
 
     /** 跑 zeta_host.sh（[HostTesting.run]：一分钟内没返回就失败）。 */

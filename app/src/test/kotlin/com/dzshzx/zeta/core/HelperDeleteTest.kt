@@ -43,8 +43,8 @@ class HelperDeleteTest {
 
     @After
     fun tearDown() {
-        if (::home.isInitialized) home.deleteRecursively()
-        if (::outside.isInitialized) outside.deleteRecursively()
+        if (::home.isInitialized) removeTestDir(home)
+        if (::outside.isInitialized) removeTestDir(outside)
     }
 
     private fun helper(vararg args: String): Pair<Int, String> {

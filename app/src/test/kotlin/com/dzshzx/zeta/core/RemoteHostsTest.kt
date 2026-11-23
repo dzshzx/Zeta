@@ -17,7 +17,7 @@ class RemoteHostsTest {
 
     @After
     fun tearDown() {
-        temp.deleteRecursively()
+        removeTestDir(temp)
     }
 
     @Test

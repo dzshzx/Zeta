@@ -1,5 +1,6 @@
 package com.dzshzx.zeta.core.ssh
 
+import com.dzshzx.zeta.core.removeTestDir
 import java.io.File
 import java.io.InputStream
 import java.io.OutputStream
@@ -72,7 +73,7 @@ class TestSshServer(val clientKey: SshKey, val home: File) : AutoCloseable {
     override fun close() {
         relay.close()
         runCatching { server.stop(true) }
-        dir.deleteRecursively()
+        removeTestDir(dir)
     }
 
     /** sh -c 跑一条命令；setsid 让它自成一组，连接断了时整组结束。 */

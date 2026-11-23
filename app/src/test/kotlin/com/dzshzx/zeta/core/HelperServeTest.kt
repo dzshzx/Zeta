@@ -52,7 +52,7 @@ class HelperServeTest {
     @After
     fun cleanup() {
         serves.forEach { it.close() }
-        dir.deleteRecursively()
+        removeTestDir(dir)
     }
 
     private fun serve(open: () -> HelperServe.Opened = ::openServe): HelperServe =

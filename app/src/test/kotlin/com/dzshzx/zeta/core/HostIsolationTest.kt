@@ -36,7 +36,7 @@ class HostIsolationTest {
         if (!::home.isInitialized) return
         runCatching { run(null, "bash", host.path, "stop", "k-release") }
         runCatching { run(dev, "bash", host.path, "stop", "k-dev") }
-        home.deleteRecursively()
+        removeTestDir(home)
     }
 
     /** 以 [name] 作 ZETA_NAME（null 表示不设，和旧版正式版一样）跑一条命令（[HostTesting.run]）。 */

@@ -57,8 +57,7 @@ class HostSharedTest {
     fun tearDown() {
         if (!::home.isInitialized) return
         clients.forEach { it.process.destroyForcibly() }
-        HostTesting.killHosts(home, name)
-        home.deleteRecursively()
+        removeTestDir(home)
     }
 
     private fun hostDir(key: String) = File(home, ".cache/$name/hosts/$key")

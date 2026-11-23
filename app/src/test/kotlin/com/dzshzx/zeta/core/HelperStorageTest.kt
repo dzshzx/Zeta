@@ -64,7 +64,7 @@ class HelperStorageTest {
                 if (::outside.isInitialized) outside else null,
                 if (::tmp.isInitialized) tmp else null,
             )) {
-            dir?.deleteRecursively()
+            dir?.let(::removeTestDir)
         }
     }
 

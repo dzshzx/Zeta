@@ -1,5 +1,6 @@
 package com.dzshzx.zeta.core.claude
 
+import com.dzshzx.zeta.core.removeTestDir
 import com.dzshzx.zeta.phone.tools.ScheduleTools
 import com.sun.net.httpserver.HttpExchange
 import com.sun.net.httpserver.HttpServer
@@ -563,7 +564,7 @@ class FakeClaudeContractTest {
             return Driver(builder.start(), case.mode).use { it.play() }
         } finally {
             server.stop(0)
-            home.deleteRecursively()
+            removeTestDir(home)
         }
     }
 

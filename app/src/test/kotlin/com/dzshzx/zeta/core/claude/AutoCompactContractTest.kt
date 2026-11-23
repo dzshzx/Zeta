@@ -1,6 +1,7 @@
 package com.dzshzx.zeta.core.claude
 
 import com.dzshzx.zeta.core.AutoCompact
+import com.dzshzx.zeta.core.removeTestDir
 import com.sun.net.httpserver.HttpExchange
 import com.sun.net.httpserver.HttpServer
 import java.io.File
@@ -66,7 +67,7 @@ class AutoCompactContractTest {
     @After
     fun tearDown() {
         if (::server.isInitialized) server.stop(0)
-        if (::home.isInitialized) home.deleteRecursively()
+        if (::home.isInitialized) removeTestDir(home)
     }
 
     private fun searchPath() =

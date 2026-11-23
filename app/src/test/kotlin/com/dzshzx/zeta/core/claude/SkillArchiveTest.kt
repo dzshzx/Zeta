@@ -1,5 +1,6 @@
 package com.dzshzx.zeta.core.claude
 
+import com.dzshzx.zeta.core.removeTestDir
 import java.io.ByteArrayOutputStream
 import java.io.File
 import java.nio.file.Files
@@ -246,7 +247,7 @@ class SkillArchiveTest {
             assertEquals("中文", File(dir, "资料/说明.md").readText())
             assertArrayEquals(ByteArray(70_001) { it.toByte() }, File(dir, "blob").readBytes())
         } finally {
-            dir.deleteRecursively()
+            removeTestDir(dir)
         }
     }
 }

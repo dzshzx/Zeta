@@ -58,8 +58,8 @@ class ConversationEndToEndTest {
                     ProcessHandle.of(pid).ifPresent { it.destroyForcibly() }
                 }
             }
-        home.deleteRecursively()
-        coreDir.deleteRecursively()
+        removeTestDir(home)
+        removeTestDir(coreDir)
     }
 
     @Test

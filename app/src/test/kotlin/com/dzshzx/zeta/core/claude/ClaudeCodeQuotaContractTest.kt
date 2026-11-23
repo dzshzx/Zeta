@@ -3,6 +3,7 @@ package com.dzshzx.zeta.core.claude
 import com.dzshzx.zeta.core.HelperProgram
 import com.dzshzx.zeta.core.QuotaProbe
 import com.dzshzx.zeta.core.TestHelper
+import com.dzshzx.zeta.core.removeTestDir
 import com.dzshzx.zeta.core.waitUntil
 import com.sun.net.httpserver.HttpExchange
 import com.sun.net.httpserver.HttpServer
@@ -68,7 +69,7 @@ class ClaudeCodeQuotaContractTest {
     fun tearDown() {
         spawned.forEach { it.destroyForcibly() }
         if (::server.isInitialized) server.stop(0)
-        if (::home.isInitialized) home.deleteRecursively()
+        if (::home.isInitialized) removeTestDir(home)
     }
 
     private fun claudeAvailable(): Boolean =
