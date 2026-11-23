@@ -1,4 +1,4 @@
-github.com/dzshzx/claude-switch v0.0.1 h1:8MZ3aqADfAwsEb4O8EvE0L+F9XihzIXdiwZzOA8dp8Y=
-github.com/dzshzx/claude-switch v0.0.1/go.mod h1:hXAr/wePFVg0OC+mzrHVSDKfhuOAqJvjSceaFjpGgjM=
+github.com/dzshzx/claude-switch v0.0.3 h1:dW9bHfDPqn01oZyBgUMxx7F+sZxV4Hv/gbeAAdEa3EQ=
+github.com/dzshzx/claude-switch v0.0.3/go.mod h1:hXAr/wePFVg0OC+mzrHVSDKfhuOAqJvjSceaFjpGgjM=
 golang.org/x/text v0.44.0 h1:YItdp/mQNGnsmrgpcdA5yQ3bnRxCfo/Tj/iByGW9GGo=
 golang.org/x/text v0.44.0/go.mod h1:S4FR1waQ9LbjQTls97SyRjDaUUVkaM+cXwwuG/G+MwY=

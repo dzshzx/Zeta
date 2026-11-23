@@ -146,7 +146,7 @@ Go 团队维护的文字编码库，zeta-helper 读 GB18030 文本时用，静�
 
 | 版本 | 许可证 | 上游 |
 |---|---|---|
-| v0.0.1 | MIT | https://github.com/dzshzx/claude-switch |
+| v0.0.3 | MIT | https://github.com/dzshzx/claude-switch |
 
 给 Claude Code 冷切换多个 Claude 账号的程序，账号页用它。按 helper/go.mod 的 tool 编成单独的程序（未修改），打进 assets/claude-switch/linux-arm64、linux-amd64，第一次用时装进 Linux 一侧。
 
