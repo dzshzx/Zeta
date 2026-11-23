@@ -13,6 +13,7 @@ import (
 	"time"
 
 	"github.com/dzshzx/Zeta/client/hostlink"
+	"github.com/dzshzx/Zeta/helper/coreapi"
 	"github.com/dzshzx/Zeta/helper/sessionproto"
 )
 
@@ -23,25 +24,29 @@ import (
 // sessionsTimeout 是一次 sessions.* 最多等多久（删除、导出要读写大的会话记录）。
 const sessionsTimeout = 2 * time.Minute
 
-// sessionsCaller 是在后台对一台设备的核心发一个 sessions.* 请求的办法。
-type sessionsCaller = func(ctx context.Context, method string, params map[string]any) (json.RawMessage, error)
-
-// sessionsCall 是在后台对设备 backend 的核心发 sessions.* 请求的办法。在主线程上取，在后台调用。
-// 不是核心答的出错（连不上）时，一次都没连上的连接丢掉，下次重新连。
-func (h *Hub) sessionsCall(backend string) sessionsCaller {
-	conn := h.chatConn(backend)
-	return func(ctx context.Context, method string, params map[string]any) (json.RawMessage, error) {
-		raw, err := conn.Call(ctx, method, params)
-		if _, replied := hostlink.ReplyCode(err); err != nil && !replied {
-			h.post(func() { h.dropDeadConn(backend, conn) })
-		}
-		return raw, err
-	}
+// sessionsCall 是在后台对设备 backend 的核心发 sessions.* 请求的办法（给对话用的那条连接）。在主线程上取，在后台调用。
+func (h *Hub) sessionsCall(backend string) *coreapi.Client {
+	return coreapi.New(connCaller{h: h, backend: backend, conn: h.chatConn(backend)})
 }
 
-// callers 是 list 涉及的各台设备发请求的办法（设备编号 → open 给的办法）。在主线程上取。
-func callers(list []hostlink.Session, open func(backend string) sessionsCaller) map[string]sessionsCaller {
-	calls := map[string]sessionsCaller{}
+// connCaller 经设备 backend 上给对话用的连接 conn 发请求：不是核心答的出错（连不上）时，一次都没连上的连接丢掉，下次重新连。
+type connCaller struct {
+	h       *Hub
+	backend string
+	conn    *chatConn
+}
+
+func (c connCaller) Call(ctx context.Context, method string, params map[string]any) (json.RawMessage, error) {
+	raw, err := c.conn.Call(ctx, method, params)
+	if _, replied := hostlink.ReplyCode(err); err != nil && !replied {
+		c.h.post(func() { c.h.dropDeadConn(c.backend, c.conn) })
+	}
+	return raw, err
+}
+
+// callers 是 list 涉及的各台设备的核心（设备编号 → open 给的）。在主线程上取。
+func callers(list []hostlink.Session, open func(backend string) *coreapi.Client) map[string]*coreapi.Client {
+	calls := map[string]*coreapi.Client{}
 	for _, s := range list {
 		if calls[s.Backend] == nil {
 			calls[s.Backend] = open(s.Backend)
@@ -114,15 +119,9 @@ func (h *Hub) Rename(s hostlink.Session, title string, failed func(error)) {
 	}
 	old := s.Title
 	h.patch(s, func(x *hostlink.Session) { x.Title = title })
-	call := h.sessionsCall(s.Backend)
+	core := h.sessionsCall(s.Backend)
 	h.background(sessionsTimeout, func(ctx context.Context) func() {
-		var r struct {
-			Title string `json:"title"`
-		}
-		raw, err := call(ctx, "sessions.rename", map[string]any{"session": s.ID, "title": title})
-		if err == nil {
-			err = json.Unmarshal(raw, &r)
-		}
+		written, err := core.RenameSession(ctx, s.ID, title)
 		return func() {
 			h.patch(s, func(x *hostlink.Session) {
 				switch {
@@ -130,7 +129,7 @@ func (h *Hub) Rename(s hostlink.Session, title string, failed func(error)) {
 				case err != nil:
 					x.Title = old
 				default:
-					x.Title = r.Title
+					x.Title = written
 				}
 			})
 			if err != nil {
@@ -153,9 +152,8 @@ func (h *Hub) SetArchived(list []hostlink.Session, archived bool, failed func(er
 		}
 		h.patch(s, func(x *hostlink.Session) { x.Archived = archived })
 	}
-	h.each(list, func(ctx context.Context, call sessionsCaller, s hostlink.Session) error {
-		_, err := call(ctx, "sessions.archive", map[string]any{"session": s.ID, "archived": archived})
-		return err
+	h.each(list, func(ctx context.Context, core *coreapi.Client, s hostlink.Session) error {
+		return core.ArchiveSession(ctx, s.ID, archived)
 	}, func(s hostlink.Session, err error) {
 		if err != nil {
 			h.patch(s, func(x *hostlink.Session) { x.Archived = !archived })
@@ -180,8 +178,8 @@ func (h *Hub) Delete(list []hostlink.Session, failed func(error)) {
 		restore[Key(s)] = h.forget(s)
 	}
 	stale := map[string]bool{} // 要重订列表的设备
-	h.each(list, func(ctx context.Context, call sessionsCaller, s hostlink.Session) error {
-		_, err := call(ctx, "sessions.delete", map[string]any{"session": s.ID})
+	h.each(list, func(ctx context.Context, core *coreapi.Client, s hostlink.Session) error {
+		_, err := core.DeleteSession(ctx, s.ID)
 		switch code, _ := hostlink.ReplyCode(err); code {
 		case sessionproto.CodeNoSession:
 			return nil // 已经不在了
@@ -208,7 +206,7 @@ func (h *Hub) Delete(list []hostlink.Session, failed func(error)) {
 }
 
 // each 在后台对 list 里的会话各做一次 do（见 fanOut），每个的结果交给主线程上的 settle，最后把没成的说成一个错误交给 failed。
-func (h *Hub) each(list []hostlink.Session, do func(ctx context.Context, call sessionsCaller, s hostlink.Session) error,
+func (h *Hub) each(list []hostlink.Session, do func(ctx context.Context, core *coreapi.Client, s hostlink.Session) error,
 	settle func(s hostlink.Session, err error), failed func(error)) {
 	calls := callers(list, h.sessionsCall)
 	h.background(sessionsTimeout, func(ctx context.Context) func() {
@@ -296,13 +294,7 @@ func (h *Hub) Export(list []hostlink.Session, now time.Time, done func(Exported)
 			err   error
 		}
 		results := fanOut(heads, func(s hostlink.Session) (r result) {
-			raw, err := calls[s.Backend](ctx, "sessions.export", map[string]any{"sessions": ids[s.Backend], "utc_offset": offset / 60})
-			var answer struct {
-				Parts []sessionproto.ExportPart `json:"parts"`
-			}
-			if err == nil {
-				err = json.Unmarshal(raw, &answer)
-			}
+			answer, err := calls[s.Backend].ExportSessions(ctx, ids[s.Backend], offset/60)
 			return result{answer.Parts, err}
 		})
 		got := map[string]sessionproto.ExportPart{} // Key → 那个会话的导出

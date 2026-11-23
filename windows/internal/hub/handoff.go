@@ -2,7 +2,6 @@ package hub
 
 import (
 	"context"
-	"encoding/json"
 
 	"github.com/dzshzx/Zeta/helper/sessionproto"
 )
@@ -38,13 +37,9 @@ func (h *Hub) HandOver() {
 	}
 	ho := &c.Handoff
 	ho.Handing, ho.Problem = true, ""
-	call := h.sessionsCall(c.Backend)
+	core := h.sessionsCall(c.Backend)
 	h.background(sessionsTimeout, func(ctx context.Context) func() {
-		var r sessionproto.Handoff
-		raw, err := call(ctx, "sessions.handoff", map[string]any{"session": session})
-		if err == nil {
-			err = json.Unmarshal(raw, &r)
-		}
+		r, err := core.HandOffSession(ctx, session)
 		return func() {
 			ho.Handing = false
 			switch {

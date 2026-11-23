@@ -33,7 +33,7 @@ func TestDisconnectingADeviceStopsConnectingUntilReconnected(t *testing.T) {
 		t.Fatalf("断开后：Off %v，问题 %q", h.Off(id), h.Problem())
 	}
 	chats := d.Chats()
-	_, err := h.sessionsCall(id)(context.Background(), "sessions.rename", map[string]any{})
+	_, err := h.sessionsCall(id).RenameSession(context.Background(), "s1", "新名字")
 	h.OpenSession(hostlink.Session{ID: "s2", Backend: id})
 	h.Refresh()
 	if err == nil || !strings.Contains(err.Error(), "已断开") || d.Chats() != chats || slices.Contains(d.Watching(), id) {

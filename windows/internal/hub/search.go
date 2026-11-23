@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"github.com/dzshzx/Zeta/client/hostlink"
+	"github.com/dzshzx/Zeta/helper/coreapi"
 )
 
 // 侧栏的搜索（同 Kotlin 版 SessionPane 的搜索）：标题、首句当场比对；对话内容交给各台列着的设备上的核心（sessions.search，
@@ -167,18 +168,12 @@ func (c *chatConn) search(ctx context.Context, needle string, hit func(session, 
 	name := c.searchName
 	c.searchHit = hit
 	c.searchMu.Unlock()
-	raw, err := c.link.Call(ctx, "sessions.search", map[string]any{"query": needle, "search": name})
+	r, err := coreapi.New(c.link).SearchSessions(ctx, needle, name)
 	c.searchMu.Lock()
 	if c.searchName == name {
 		c.searchHit = nil
 	}
 	c.searchMu.Unlock()
-	var r struct {
-		Complete bool `json:"complete"`
-	}
-	if err == nil {
-		err = json.Unmarshal(raw, &r)
-	}
 	return r.Complete, err
 }
 

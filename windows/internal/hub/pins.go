@@ -7,6 +7,7 @@ import (
 	"strings"
 
 	"github.com/dzshzx/Zeta/client/hostlink"
+	"github.com/dzshzx/Zeta/helper/coreapi"
 	"github.com/dzshzx/Zeta/helper/sessionproto"
 	"github.com/dzshzx/Zeta/windows/internal/settings"
 )
@@ -28,9 +29,8 @@ func (h *Hub) TogglePin(s hostlink.Session, failed func(error)) {
 		h.dropLocalPins(s.Backend, []string{s.ID})
 	}
 	h.patch(s, func(x *hostlink.Session) { x.Pinned = pinned })
-	h.each([]hostlink.Session{s}, func(ctx context.Context, call sessionsCaller, s hostlink.Session) error {
-		_, err := call(ctx, "sessions.pin", map[string]any{"session": s.ID, "pinned": pinned})
-		return err
+	h.each([]hostlink.Session{s}, func(ctx context.Context, core *coreapi.Client, s hostlink.Session) error {
+		return core.PinSession(ctx, s.ID, pinned)
 	}, func(s hostlink.Session, err error) {
 		if err != nil {
 			h.patch(s, func(x *hostlink.Session) {
@@ -91,12 +91,9 @@ func (h *Hub) migratePins(id string) {
 	}
 	slices.SortFunc(list, func(a, b hostlink.Session) int { return strings.Compare(a.ID, b.ID) })
 	h.pins.tried[id] = true
-	call := h.sessionsCall(id)
+	core := h.sessionsCall(id)
 	h.background(sessionsTimeout, func(ctx context.Context) func() {
-		errs := fanOut(list, func(s hostlink.Session) error {
-			_, err := call(ctx, "sessions.pin", map[string]any{"session": s.ID, "pinned": true})
-			return err
-		})
+		errs := fanOut(list, func(s hostlink.Session) error { return core.PinSession(ctx, s.ID, true) })
 		return func() {
 			var done []string
 			for i, err := range errs {
