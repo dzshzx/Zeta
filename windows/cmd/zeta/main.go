@@ -16,10 +16,13 @@ import (
 	"github.com/dzshzx/Zeta/windows/internal/ui/widget"
 	"github.com/dzshzx/Zeta/windows/internal/update"
 	"github.com/egoist/mygo"
+	_ "github.com/egoist/mygo/locales/zh-Hans" // mygo 自带文字（选中文字的右键菜单、输入框菜单等）的简体中文
 	"github.com/egoist/mygo/ui"
 )
 
 func main() {
+	// 界面只有简体中文：mygo 自带的文字也一律用中文，不跟 Windows 的显示语言（没声明时它只认英文）
+	mygo.App.SetLanguages("zh-Hans")
 	dir, err := settings.Dir()
 	if err != nil {
 		log.Fatalf("zeta: 找不到放设置的目录：%v", err)
