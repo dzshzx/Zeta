@@ -48,13 +48,13 @@ func (a *App) pathDialog(c *ui.Context, p *chatPane) {
 	name := a.hub.Name(p.src.Backend)
 	r := d.result
 	coui.Dialog(c, &d.open, func() {
-		ui.Column(c).FillWidth().Padding(coui.DialogPadding, coui.DialogPadding, 4, coui.DialogPadding).Gap(6).AlignItems(ui.Center).
+		ui.Column(c).FillWidth().Padding(coui.DialogPadding, coui.DialogPadding, 4, coui.DialogPadding).Gap(6).
 			Children(func() {
-				ui.Text(c, "引用「"+name+"」上的路径").FontSize(coui.SizeHeadlineS).FontWeight(600).TextColor(k.Text).TextAlign(ui.Center)
+				ui.Text(c, "引用「"+name+"」上的路径").FontSize(coui.SizeHeadlineXS).FontWeight(600).TextColor(k.Text)
 				ui.Text(c, "这台设备上一个文件或文件夹的绝对路径，Claude 会直接读到它。").FontSize(coui.SizeBodyS).LineHeight(1.45).
-					TextColor(k.Secondary).TextAlign(ui.Center)
-				// 查到的结果跟在输入框末尾（同 Compose 的 trailingIcon），下划线连着它画
-				field := ui.Row(c).FillWidth().AlignItems(ui.Center).Gap(8).BorderWidth(0, 0, 1, 0).BorderColor(k.Divider)
+					TextColor(k.Secondary)
+				// 查到的结果跟在输入框末尾，边框连着它画
+				field := ui.Row(c).FillWidth().AlignItems(ui.Center).Gap(8).Padding(0, 10, 0, 0).Radius(8).Border(1, k.Divider)
 				field.Children(func() {
 					in := coui.LineInput(c.Key("path"), &d.input, 1).Placeholder(strings.TrimRight(a.chatCwd(p), "/")+"/…").Label("路径").
 						AutoFocus().BorderWidth(0, 0, 0, 0).Grow(1).OnSubmit(func() { a.attachPath(p) })
@@ -70,10 +70,10 @@ func (a *App) pathDialog(c *ui.Context, p *chatPane) {
 				}
 			})
 		coui.ButtonBar(c, func() {
-			if coui.DialogButton(c, "取消", coui.Plain).Grow(1).Basis(0).Clicked() {
+			if coui.DialogButton(c, "取消", coui.Plain).Clicked() {
 				d.open = false
 			}
-			if coui.DialogButton(c, "引用", coui.Recommend).Grow(1).Basis(0).Disabled(r.path == "").Clicked() {
+			if coui.DialogButton(c, "引用", coui.Recommend).Disabled(r.path == "").Clicked() {
 				a.attachPath(p)
 			}
 		})

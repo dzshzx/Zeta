@@ -24,13 +24,13 @@ func Rounded(radius, weight float32) Shape {
 // COUI 各组件用的形状（COUIRoundCorner 的 Normal 档平滑权重 2.5、Large 档 3）。胶囊按钮、圆按钮在 COUI 里是
 // 权重 1 的「软胶囊」，这里画成普通的半圆头（权重 2），两者只差在直边接半圆的那一小段。
 var (
-	ShapeCard     = Rounded(24, 2.5) // 卡片（CardDefaults.CornerRadius = Normal.XL）
-	ShapeDialog   = Rounded(45, 3)   // 对话框（DialogContentLayout）
-	ShapePopup    = Rounded(28, 2.5) // 弹出菜单（ListPopup）
+	ShapeCard     = Rounded(12, 2.5) // 设置里的卡片
+	ShapeDialog   = Rounded(16, 2.5) // 对话框
+	ShapePopup    = Rounded(12, 2.5) // 弹出菜单
 	ShapeComposer = Rounded(24, 2.5) // 输入栏、排队条（Composer.kt）
-	ShapeRow      = Rounded(16, 2.5) // 侧栏的会话行、聊天里的步骤卡（SessionPane、ChatItems）
+	ShapeRow      = Rounded(10, 2.5) // 侧栏的会话行、聊天里的步骤卡
 	ShapeBlock    = Rounded(12, 2.5) // 代码块、命令块（MarkdownContent、DetailBlock）
-	ShapeField    = Rounded(10, 2.5) // 输入框（TextField 的 Rectangle 模式）
+	ShapeField    = Rounded(8, 2.5)  // 输入框
 	ShapeBubble   = Shape{Radii: [4]float32{22, 22, 4, 22}, Weight: 2.5}
 )
 
@@ -143,9 +143,8 @@ func (s Surface) Paint(e ui.Element) ui.Element {
 // Shadow 是 COUI 浮起元素的阴影（COUIMaterialEffect）：往下偏 3.2、模糊 16，黑色约 12% 的不透明度。
 func Shadow(e ui.Element, k *Colors) ui.Element { return e.Shadow(0, 3.2, 16, 0, k.Shadow) }
 
-// BlurDialog、BlurPopup、BlurBar 是毛玻璃的模糊程度（DIP）。COUI 手机上对话框是 200、菜单是 160 个原始像素的 Kawase 模糊，换成高斯大约是这么多。
+// BlurPopup、BlurBar 是毛玻璃的模糊程度（DIP）：菜单、聊天页的顶栏。
 const (
-	BlurDialog = 30
-	BlurPopup  = 24
-	BlurBar    = 20
+	BlurPopup = 24
+	BlurBar   = 20
 )

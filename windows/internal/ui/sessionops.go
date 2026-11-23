@@ -168,7 +168,7 @@ func (a *App) selectionHeader(c *ui.Context, chosen []hostlink.Session) {
 	scope := a.visible()
 	all := a.allSelected(scope)
 	ui.Row(c).Height(coui.TitleBarHeight).Padding(0, 12, 0, 16).Gap(10).AlignItems(ui.Center).Shrink(0).DragWindow().Children(func() {
-		coui.CircleButton(c, coui.IconClose, "退出多选").OnClick(a.exitSelection)
+		coui.IconButton(c, coui.IconClose, "退出多选").OnClick(a.exitSelection)
 		title := "选择对话"
 		if n := len(chosen); n > 0 {
 			title = "已选 " + strconv.Itoa(n) + " 个"
@@ -220,11 +220,11 @@ func (a *App) selectionActions(c *ui.Context, chosen []hostlink.Session) {
 // archiveToggle 是侧栏底部归档的入口（同手机版 ArchiveToggle）：看归档时是返回全部对话，有归档的会话时是进归档，都没有时不显示。
 func (a *App) archiveToggle(c *ui.Context) {
 	if a.ops.archived {
-		coui.CircleButton(c, coui.IconBack, "返回全部对话").OnClick(func() { a.ops.archived = false })
+		coui.IconButton(c, coui.IconBack, "返回全部对话").OnClick(func() { a.ops.archived = false })
 		return
 	}
 	if n := len(a.hub.Archived(a.now(), a.currentSession())); n > 0 {
-		coui.CircleButton(c, coui.IconArchive, "已归档 · "+strconv.Itoa(n)).OnClick(func() { a.ops.archived = true })
+		coui.IconButton(c, coui.IconArchive, "已归档 · "+strconv.Itoa(n)).OnClick(func() { a.ops.archived = true })
 	}
 }
 

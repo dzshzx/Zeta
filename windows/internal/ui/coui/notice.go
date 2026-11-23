@@ -14,7 +14,7 @@ const (
 	Failure
 )
 
-// Notice 是一条提示条：14 的圆角、内边距 14/10，字 13，最多三行。
+// Notice 是一条提示条：8 的圆角、内边距 14/10，字 13，最多三行。
 func Notice(c *ui.Context, text string, tone Tone) ui.Element {
 	k := Of(c)
 	ink, fill := k.Secondary, k.Tint
@@ -25,5 +25,5 @@ func Notice(c *ui.Context, text string, tone Tone) ui.Element {
 		ink, fill = k.Error, k.Error.Alpha(0.08)
 	}
 	t := ui.Text(c, text).FontSize(SizeBodyS).LineHeight(1.45).TextColor(ink).MaxLines(3).FillWidth().Padding(10, 14).Selectable()
-	return Surface{Shape: Rounded(14, 2.5), Fill: fill}.Paint(t)
+	return Surface{Shape: Rounded(8, 2.5), Fill: fill}.Paint(t)
 }

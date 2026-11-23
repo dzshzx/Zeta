@@ -72,7 +72,7 @@ func (a *App) sidebarTop(c *ui.Context) {
 		ui.Text(c, "Zeta").FontSize(coui.SizeHeadlineM).FontWeight(600).TextColor(k.Text)
 		ui.Spacer(c)
 		if len(a.hub.Hosts()) > 0 {
-			coui.CircleButton(c, coui.IconNewChat, "新对话").OnClick(func() {
+			coui.IconButton(c, coui.IconNewChat, "新对话").OnClick(func() {
 				a.page = pageHome
 				a.hub.NewChat()
 			})
@@ -82,7 +82,7 @@ func (a *App) sidebarTop(c *ui.Context) {
 
 // settingsButton 是侧栏右下角的设置按钮，进设置页。
 func (a *App) settingsButton(c *ui.Context) {
-	coui.CircleButton(c, coui.IconSettings, "设置").OnClick(func() { a.open(pageSettings) })
+	coui.IconButton(c, coui.IconSettings, "设置").OnClick(func() { a.open(pageSettings) })
 }
 
 // hostSwitcher 是换设备的胶囊和菜单：先是「全部设备」，然后是各台，最后是管理设备。

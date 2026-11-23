@@ -19,14 +19,11 @@ type Colors struct {
 	Selected ui.Color
 	// Popup 是菜单的底色（backgroundTop），Dialog 是对话框的底色（surface；手机上是毛玻璃，这里不透明）。
 	Popup, Dialog ui.Color
-	// Bar 是浮起的圆按钮、搜索胶囊不开毛玻璃时的底色（bar），下面带阴影。
-	Bar ui.Color
 	// Tint 是淡淡的一层（labelPrimary 的 5%）：设备胶囊。Chip 是输入栏下面那排小圆钮（container8），
 	// Hover 是悬停、菜单行按下（hover），Press 是按下（press）。
 	Tint, Chip, Hover, Press ui.Color
-	// Button 是次按钮的底色（secondaryButton）；DialogButton 是对话框里普通按钮的底色，DialogBlock 是对话框里
-	// 命令、代码块的底色（自定的值：对话框是灰底，按钮比它亮，代码块比它暗）。
-	Button, DialogButton, DialogBlock ui.Color
+	// Button 是次按钮的底色（secondaryButton），对话框里的普通按钮也用它；DialogBlock 是对话框里命令、代码块的底色。
+	Button, DialogBlock ui.Color
 	// Field 是输入栏、排队条的面板（container4 叠在 background 上），Edge 是它的细边（container4）；
 	// CodeHeader、CodeBody 是代码块的语言栏和正文（fillThin、container4 各叠一层），CodeEdge 是代码块的边（container8）。
 	Field, Edge, CodeHeader, CodeBody, CodeEdge ui.Color
@@ -50,8 +47,8 @@ type Colors struct {
 	// Mask 是对话框后面的遮罩（mask），Shadow 是浮起元素的阴影色。
 	Mask, Shadow ui.Color
 	// 毛玻璃上叠的那层（手机上是 COUI 17 的材质模糊，MaterialBlur.kt，这里是高斯模糊加半透明底色，
-	// 落在白底、黑底上时等于不开毛玻璃时的不透明底色）：对话框、菜单、浮起的圆按钮和顶栏、输入栏。
-	DialogGlass, PopupGlass, BarGlass, FieldGlass ui.Color
+	// 落在白底、黑底上时等于不开毛玻璃时的不透明底色）：菜单、输入栏。
+	PopupGlass, FieldGlass ui.Color
 }
 
 // light、dark 是 COUI 2 的两套默认配色，没有改过任何槽位。
@@ -64,15 +61,13 @@ var (
 		Selected: ui.Hex("#FFFFFF"),
 		Popup:    ui.Hex("#FFFFFF"),
 		Dialog:   ui.Hex("#FFFFFF"),
-		Bar:      ui.Hex("#FAFAFA"),
 
-		Tint:         argb(0x0D000000),
-		Chip:         argb(0x14000000),
-		Hover:        argb(0x14000000),
-		Press:        argb(0x1F000000),
-		Button:       ui.Hex("#EBEBEB"),
-		DialogButton: ui.Hex("#FAFAFA"),
-		DialogBlock:  ui.Hex("#E7E7E7"),
+		Tint:        argb(0x0D000000),
+		Chip:        argb(0x14000000),
+		Hover:       argb(0x14000000),
+		Press:       argb(0x1F000000),
+		Button:      ui.Hex("#EBEBEB"),
+		DialogBlock: ui.Hex("#E7E7E7"),
 
 		Field:      ui.Hex("#F5F5F5"),
 		Edge:       argb(0x0A000000),
@@ -107,10 +102,8 @@ var (
 		Mask:   argb(0x33000000),
 		Shadow: ui.RGBA(0, 0, 0, 30.0/255),
 
-		DialogGlass: ui.RGBA(248, 248, 248, 0.87),
-		PopupGlass:  ui.RGBA(246, 246, 246, 0.86),
-		BarGlass:    ui.RGBA(250, 250, 250, 0.78),
-		FieldGlass:  ui.RGBA(245, 245, 245, 0.9),
+		PopupGlass: ui.RGBA(246, 246, 246, 0.86),
+		FieldGlass: ui.RGBA(245, 245, 245, 0.9),
 	}
 	dark = &Colors{
 		Dark:     true,
@@ -121,15 +114,13 @@ var (
 		Selected: ui.Hex("#353535"),
 		Popup:    ui.Hex("#333333"),
 		Dialog:   ui.Hex("#262626"),
-		Bar:      ui.Hex("#2A2A2A"),
 
-		Tint:         argb(0x0DFFFFFF),
-		Chip:         argb(0x1AFFFFFF),
-		Hover:        argb(0x26FFFFFF),
-		Press:        argb(0x33FFFFFF),
-		Button:       ui.Hex("#353535"),
-		DialogButton: ui.Hex("#4F4F4F"),
-		DialogBlock:  ui.Hex("#3B3B3B"),
+		Tint:        argb(0x0DFFFFFF),
+		Chip:        argb(0x1AFFFFFF),
+		Hover:       argb(0x26FFFFFF),
+		Press:       argb(0x33FFFFFF),
+		Button:      ui.Hex("#353535"),
+		DialogBlock: ui.Hex("#3B3B3B"),
 
 		Field:      ui.Hex("#1A1A1A"),
 		Edge:       argb(0x1AFFFFFF),
@@ -164,10 +155,8 @@ var (
 		Mask:   argb(0x99000000),
 		Shadow: ui.RGBA(0, 0, 0, 0.5),
 
-		DialogGlass: ui.RGBA(42, 42, 42, 0.9),
-		PopupGlass:  ui.RGBA(51, 51, 51, 0.88),
-		BarGlass:    ui.RGBA(42, 42, 42, 0.82),
-		FieldGlass:  ui.RGBA(26, 26, 26, 0.9),
+		PopupGlass: ui.RGBA(51, 51, 51, 0.88),
+		FieldGlass: ui.RGBA(26, 26, 26, 0.9),
 	}
 )
 

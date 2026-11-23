@@ -2,8 +2,8 @@ package coui
 
 import "github.com/egoist/mygo/ui"
 
-// 按钮。COUI 的按钮都是胶囊（basic/Button.kt）：主按钮蓝底白字，次按钮灰底黑字；大的最小 132×44、字 16 Medium，
-// 小的（Zeta 的 CompactButton）最小 52×36、字 14 Medium。不能点时主按钮换淡蓝底、白字变淡，次按钮整个变淡。
+// 按钮是胶囊：主按钮蓝底白字，次按钮灰底黑字（配色同 COUI）。尺寸是桌面的：大的最少 32 高、字 14 Medium，
+// 小的最少 28 高、字 13 Medium；鼠标点，不按手指的触控尺寸放大。不能点时整个变淡。
 
 // PrimaryButton 是大号主按钮（对话框、确认卡的推荐操作）。
 func PrimaryButton(c *ui.Context, label string) ui.Element {
@@ -39,7 +39,7 @@ const (
 	kindDialogDanger // 对话框里的危险操作
 )
 
-// DialogButton 是对话框底下的按钮：Recommend 是主按钮，Destructive 是红字，Plain 是比对话框亮一点的灰底。
+// DialogButton 是对话框底下的按钮：Recommend 是主按钮，Destructive 是灰底红字，Plain 是灰底黑字。
 func DialogButton(c *ui.Context, label string, style Style) ui.Element {
 	switch style {
 	case Recommend:
@@ -55,12 +55,12 @@ func button(c *ui.Context, label string, kind buttonKind, large bool) ui.Element
 	// 不能点时 mygo 在画的时候把整个按钮调到一半不透明（同 COUI 的 disabled 透明度）：调用方往往是建好按钮以后才设
 	// Disabled，这里建按钮时还看不出来
 	b := ui.ButtonBase(c).Label(label).Radius(999).Justify(ui.Center).AlignItems(ui.Center).Cursor(ui.CursorPointer)
-	size := float32(SizeBodyM)
+	size := float32(SizeBodyS)
 	if large {
-		b.MinWidth(96).MinHeight(44).Padding(8, 20)
-		size = SizeHeadlineXS
+		b.MinWidth(72).MinHeight(32).Padding(5, 16)
+		size = SizeBodyM
 	} else {
-		b.MinWidth(52).MinHeight(34).Padding(6, 16)
+		b.MinWidth(48).MinHeight(28).Padding(4, 12)
 	}
 	fill, text := k.Button, k.Text
 	switch kind {
@@ -68,10 +68,8 @@ func button(c *ui.Context, label string, kind buttonKind, large bool) ui.Element
 		fill, text = k.Primary, k.OnPrimary
 	case kindDanger:
 		text = k.Error
-	case kindDialog:
-		fill = k.DialogButton
 	case kindDialogDanger:
-		fill, text = k.DialogButton, k.Error
+		text = k.Error
 	}
 	switch {
 	case b.Pressed():
@@ -88,21 +86,19 @@ func button(c *ui.Context, label string, kind buttonKind, large bool) ui.Element
 // mygo 的文字颜色会传给子元素，这里只是写明用法。
 func TextColor(b ui.Element, color ui.Color) ui.Element { return b.TextColor(color) }
 
-// CircleButton 是浮起的圆按钮（COUI 的 IconActionButton、侧栏的 PaneCircleButton）：40 的圆，bar 色底，下面有一层柔和的阴影，
-// 图标 22、正文色。label 是读屏名字和悬停提示。
-func CircleButton(c *ui.Context, icon *ui.SVG, label string) ui.Element {
+// IconButton 是工具栏上的图标按钮（新对话、返回、侧栏开关这类）：32 的方块、8 的圆角，平时没有底色，悬停、按下时
+// 淡淡一层；图标 18、正文色。label 是读屏名字和悬停提示（有快捷键时写在提示里）。
+func IconButton(c *ui.Context, icon *ui.SVG, label string) ui.Element {
 	k := Of(c)
-	b := ui.ButtonBase(c).Size(40, 40).Justify(ui.Center).AlignItems(ui.Center).Label(label).Tooltip(label).
+	b := ui.ButtonBase(c).Size(32, 32).Radius(8).Justify(ui.Center).AlignItems(ui.Center).Label(label).Tooltip(label).
 		Cursor(ui.CursorPointer).Shrink(0)
-	fill := k.BarGlass
 	switch {
 	case b.Pressed():
-		fill = fill.Mix(k.Text, 0.12)
+		b.Background(k.Press)
 	case b.Hovered():
-		fill = fill.Mix(k.Text, 0.05)
+		b.Background(k.Hover)
 	}
-	Shadow(Surface{Shape: Rounded(20, 2), Fill: fill, Blur: BlurBar}.Paint(b), k)
-	b.Children(func() { ui.Icon(c, icon).Size(22, 22).TextColor(k.Text) })
+	b.Children(func() { ui.Icon(c, icon).Size(18, 18).TextColor(k.Text) })
 	return b
 }
 
@@ -204,10 +200,10 @@ func Pill(c *ui.Context, trigger ui.Element, icon *ui.SVG, label string) {
 	})
 }
 
-// Switch 是 COUI 的开关（basic/Switch.kt）：44×24 的轨道，18 的白色滑块离边 3；开着蓝色，关着灰色。
+// Switch 是开关：40×20 的轨道（Windows 开关的大小），14 的白色滑块离边 3；开着蓝色，关着灰色。
 func Switch(c *ui.Context, on *bool) ui.Element {
 	k := Of(c)
-	s := ui.SwitchBase(c, on).Size(44, 24).Radius(12).Shrink(0).Cursor(ui.CursorPointer)
+	s := ui.SwitchBase(c, on).Size(40, 20).Radius(10).Shrink(0).Cursor(ui.CursorPointer)
 	track := k.Track
 	if *on {
 		track = k.Primary
@@ -215,23 +211,27 @@ func Switch(c *ui.Context, on *bool) ui.Element {
 	s.Background(track)
 	x := s.AnimateTo("thumb", map[bool]float32{false: 3, true: 23}[*on], ui.Smooth)
 	s.Children(func() {
-		ui.Box(c).Absolute().Top(3).Left(x).Size(18, 18).Radius(9).Background(k.OnPrimary).
+		ui.Box(c).Absolute().Top(3).Left(x).Size(14, 14).Radius(7).Background(k.OnPrimary).
 			Shadow(0, 1.14, 2.29, 0, ui.RGBA(0, 0, 0, 0.1))
 	})
 	return s
 }
 
-// Input 是一行输入框（COUI TextField 的 Rectangle 模式）：淡灰底、10 的平滑圆角，有焦点时一圈主题色细边。
-// 占位、读屏名字、提交照 mygo 的写法接着调。对话框里用 LineInput。
+// Input 是一行输入框：白底（深色是卡片底）、8 的圆角、一圈细边，有焦点时边变主题色；字 14，34 高。
+// 占位、读屏名字、提交照 mygo 的写法接着调。
 func Input(c *ui.Context, value *string) ui.Element {
+	return field(c, ui.TextInputBase(c, value))
+}
+
+// field 给输入框 in 一行输入框的样子（Input、LineInput 共用）。
+func field(c *ui.Context, in ui.Element) ui.Element {
 	k := Of(c)
-	in := ui.TextInputBase(c, value).Padding(8, 12).MinHeight(36).FontSize(SizeBodyM).PlaceholderColor(k.Tertiary).
-		FocusRing(false)
-	surface := Surface{Shape: ShapeField, Fill: k.Edge}
+	in.Padding(7, 10).MinHeight(34).FontSize(SizeBodyM).PlaceholderColor(k.Tertiary).FocusRing(false).Radius(8).
+		Background(k.Card).Border(1, k.Divider)
 	if in.Focused() {
-		surface.Edge = k.Primary
+		in.BorderColor(k.Primary)
 	}
-	return surface.Paint(in)
+	return in
 }
 
 // Ring 给按钮 b 画成 28 的圆环（输入栏右边的上下文用量，UsageControls.kt）：灰色的圈上，fraction（0 到 1）那么长一段
@@ -259,58 +259,53 @@ func RingArc(c *ui.Context, size, fraction float32, color ui.Color) ui.Element {
 	return ring
 }
 
-// Dropdown 给菜单的触发器 trigger 设置行右边下拉值的样子（COUI 的 OverlayDropdownPreference）：
-// 值 13 次要文字色，旁边上下两个小箭头。
+// Dropdown 给菜单的触发器 trigger 设置成下拉框的样子（Windows 的 ComboBox）：一圈细边、6 的圆角，值 13 正文色，
+// 右边一个向下的箭头。
 func Dropdown(c *ui.Context, trigger ui.Element, value string) {
 	k := Of(c)
-	trigger.Gap(2).AlignItems(ui.Center).Padding(4, 2, 4, 8).Radius(8).Cursor(ui.CursorPointer)
+	trigger.Gap(6).AlignItems(ui.Center).Padding(4, 8, 4, 10).MinHeight(30).Radius(6).Border(1, k.Divider).
+		Cursor(ui.CursorPointer)
 	if trigger.Hovered() {
 		trigger.Background(k.Hover)
 	}
 	trigger.Children(func() {
-		ui.Text(c, value).FontSize(SizeBodyS).TextColor(k.Secondary).SingleLine().Ellipsis("…").Shrink(1)
-		ui.Icon(c, IconUnfold).Size(16, 16).TextColor(k.Tertiary)
+		ui.Text(c, value).FontSize(SizeBodyS).TextColor(k.Text).SingleLine().Ellipsis("…").Shrink(1)
+		ui.Icon(c, IconChevronDown).Size(14, 14).TextColor(k.Secondary)
 	})
 }
 
-// LineInput 是对话框里的输入框（COUI TextField 的 Line 模式，Zeta 的 DialogTextField）：没有底色，下面一条分隔线，
-// 有焦点时线变成主题色；字 16，最少 48 高。lines 大于 1 时是多行，最多 lines 行。
+// LineInput 是对话框、表单里的输入框：样子同 Input，占满一行。lines 大于 1 时是多行，最多 lines 行。
 func LineInput(c *ui.Context, value *string, lines int) ui.Element {
-	k := Of(c)
 	var in ui.Element
 	if lines > 1 {
 		in = ui.TextAreaBase(c, value).Lines(1, lines)
 	} else {
 		in = ui.TextInputBase(c, value)
 	}
-	in.Padding(13, 0).MinHeight(48).FontSize(SizeBodyXL).PlaceholderColor(k.Tertiary).FocusRing(false).FillWidth()
-	line := k.Divider
-	if in.Focused() {
-		line = k.Primary
-	}
-	return in.BorderWidth(0, 0, 1, 0).BorderColor(line)
+	return field(c, in).FillWidth()
 }
 
-// SearchField 是浮起的搜索胶囊（COUI 的 InputField，侧栏底下的「搜索对话」）：40 高的毛玻璃胶囊带阴影，左边放大镜，
-// 有字时右边是清除键。label 是占位字和读屏名字。返回输入框。
+// SearchField 是侧栏顶上的搜索框：32 高、8 的圆角、淡淡一层底，左边放大镜，有字时右边是清除键。
+// label 是占位字和读屏名字。返回输入框。
 func SearchField(c *ui.Context, value *string, label string) ui.Element {
 	k := Of(c)
 	var in ui.Element
-	box := ui.Row(c).Height(40).Grow(1).MinWidth(0).Padding(0, 6, 0, 12).Gap(6).AlignItems(ui.Center)
-	Shadow(Surface{Shape: Rounded(20, 2), Fill: k.BarGlass, Blur: BlurBar}.Paint(box), k)
+	box := ui.Row(c).Height(32).Grow(1).MinWidth(0).Padding(0, 4, 0, 10).Gap(6).AlignItems(ui.Center).Radius(8).
+		Background(k.Chip)
 	box.Children(func() {
-		ui.Icon(c, IconSearch).Size(18, 18).TextColor(k.Secondary).Shrink(0)
-		in = ui.TextInputBase(c, value).Grow(1).MinWidth(0).FontSize(SizeBodyL).Placeholder(label).Label(label).
+		ui.Icon(c, IconSearch).Size(15, 15).TextColor(k.Secondary).Shrink(0)
+		in = ui.TextInputBase(c, value).Grow(1).MinWidth(0).FontSize(SizeBodyM).Placeholder(label).Label(label).
 			PlaceholderColor(k.Tertiary).TextColor(k.Text).FocusRing(false)
+		if in.Focused() {
+			box.Border(1, k.Primary)
+		}
 		if *value != "" {
-			// 清除键：淡灰的实心小圆里一个白叉（同 COUI InputField 的清除键）
-			clear := ui.ButtonBase(c).Size(28, 28).Justify(ui.Center).AlignItems(ui.Center).Label("清除").Tooltip("清除").
-				Cursor(ui.CursorPointer).Shrink(0)
-			clear.Children(func() {
-				ui.Box(c).Size(18, 18).Radius(9).Background(k.Tertiary).Center().Children(func() {
-					ui.Icon(c, IconClose).Size(11, 11).TextColor(ui.RGBA(255, 255, 255, 1))
-				})
-			})
+			clear := ui.ButtonBase(c).Size(24, 24).Radius(6).Justify(ui.Center).AlignItems(ui.Center).Label("清除").
+				Tooltip("清除").Cursor(ui.CursorPointer).Shrink(0)
+			if clear.Hovered() {
+				clear.Background(k.Hover)
+			}
+			clear.Children(func() { ui.Icon(c, IconClose).Size(12, 12).TextColor(k.Secondary) })
 			clear.OnClick(func() { *value = "" })
 		}
 	})

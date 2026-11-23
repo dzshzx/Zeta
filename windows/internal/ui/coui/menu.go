@@ -2,8 +2,8 @@ package coui
 
 import "github.com/egoist/mygo/ui"
 
-// 弹出菜单照 COUI 的 ListPopup 和 DropdownImpl：bar 色的圆角面板（手机上 28 的平滑圆角、毛玻璃），上下留 8；
-// 一行最少 40 高、左右 20、字 15；选中的那项右边一个对勾；按下、悬停时一层淡灰，左右缩进 8。
+// 弹出菜单是桌面的尺寸：12 圆角的面板，上下留 4；一行 30 高、字 14、图标 16；选中的那项右边一个对勾；
+// 悬停、键盘移到时一层淡灰，左右缩进 4。
 
 // Menu 是正在建的菜单：一项项加。
 type Menu struct {
@@ -22,7 +22,7 @@ func MenuButton(c *ui.Context, trigger func(t ui.Element), build func(m *Menu)) 
 		parts.Popup(func(panel ui.Element) {
 			k := Of(c)
 			// 阴影照 ListPopup：浅色是很淡、很散的一圈
-			Surface{Shape: ShapePopup, Fill: k.PopupGlass, Blur: BlurPopup}.Paint(panel).MinWidth(168).MaxWidth(256).Padding(8, 0).
+			Surface{Shape: ShapePopup, Fill: k.PopupGlass, Blur: BlurPopup}.Paint(panel).MinWidth(180).MaxWidth(280).Padding(4, 0).
 				Margin(6, 0, 0, 0).Shadow(0, 6, 24, 0, popupShadow(k))
 			build(&Menu{c: c, parts: parts})
 		})
@@ -38,7 +38,7 @@ func (m *Menu) Choice(label string, on bool) bool { return m.item(label, m.parts
 
 // Separator 加一条分隔线。
 func (m *Menu) Separator() {
-	ui.Box(m.c).Height(1).Margin(4, 20).Background(Of(m.c).Divider)
+	ui.Box(m.c).Height(1).Margin(4, 10).Background(Of(m.c).Divider)
 }
 
 // Entry 是菜单的一项：前面的图标（可以没有）和名字；Disabled 时灰着点不了，Danger 时红字（删除这类）。
@@ -62,7 +62,7 @@ func (m *Menu) item(label string, it ui.Element, on bool) bool {
 func (m *Menu) entry(e Entry, it ui.Element, on bool) bool {
 	c := m.c
 	k := Of(c)
-	it.Label(e.Label).MinHeight(40).Margin(0, 8).Radius(14).Padding(8, 12).Gap(12).AlignItems(ui.Center).Cursor(ui.CursorPointer)
+	it.Label(e.Label).MinHeight(30).Margin(0, 4).Radius(6).Padding(5, 10).Gap(10).AlignItems(ui.Center).Cursor(ui.CursorPointer)
 	if it.Highlighted() && !e.Disabled {
 		it.Background(k.Hover)
 	}
@@ -72,11 +72,11 @@ func (m *Menu) entry(e Entry, it ui.Element, on bool) bool {
 	}
 	it.Children(func() {
 		if e.Icon != nil {
-			ui.Icon(c, e.Icon).Size(20, 20).TextColor(color).Shrink(0)
+			ui.Icon(c, e.Icon).Size(16, 16).TextColor(color).Shrink(0)
 		}
-		ui.Text(c, e.Label).FontSize(SizeBodyL).TextColor(color).Grow(1).SingleLine()
+		ui.Text(c, e.Label).FontSize(SizeBodyM).TextColor(color).Grow(1).SingleLine()
 		if on {
-			ui.Icon(c, IconOK).Size(18, 18).TextColor(k.Primary)
+			ui.Icon(c, IconOK).Size(16, 16).TextColor(k.Primary)
 		}
 	})
 	return it.Clicked()

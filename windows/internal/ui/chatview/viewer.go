@@ -151,14 +151,14 @@ func (v *Viewer) top(c *ui.Context) {
 				TextColor(k.Text)
 		}
 	})
-	coui.CircleButton(c, coui.IconBack, "返回").Absolute().Left(16).Top((coui.TitleBarHeight - 40) / 2).
+	coui.IconButton(c, coui.IconBack, "返回").Absolute().Left(16).Top((coui.TitleBarHeight - 40) / 2).
 		OnClick(v.close)
 }
 
 // pageButton 是两边竖直居中的翻页键（浮起的圆钮）；到头的那边变灰。
 func pageButton(c *ui.Context, icon *ui.SVG, label string, enabled, left bool) ui.Element {
 	_, h := c.Size()
-	b := coui.CircleButton(c, icon, label).Absolute().Top((coui.TitleBarHeight + h - viewerBottom - 40) / 2)
+	b := coui.IconButton(c, icon, label).Absolute().Top((coui.TitleBarHeight + h - viewerBottom - 40) / 2)
 	if left {
 		b.Left(18)
 	} else {

@@ -365,12 +365,12 @@ func (p *Page) ruleDialog(c *ui.Context, e *ruleEdit) {
 			problemText(c, e.problem)
 		}
 	}, func() {
-		dialogButton(coui.DialogButton(c, "取消", coui.Plain)).Disabled(e.saving).OnClick(func() { e.open = false })
+		coui.DialogButton(c, "取消", coui.Plain).Disabled(e.saving).OnClick(func() { e.open = false })
 		label := "保存"
 		if e.saving {
 			label = "正在保存…"
 		}
-		dialogButton(coui.DialogButton(c, label, coui.Recommend)).Disabled(e.saving).OnClick(p.saveRule)
+		coui.DialogButton(c, label, coui.Recommend).Disabled(e.saving).OnClick(p.saveRule)
 	})
 }
 

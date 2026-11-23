@@ -291,12 +291,12 @@ func (p *Page) addServerDialog(c *ui.Context) {
 			problemText(c, f.problem)
 		}
 	}, func() {
-		dialogButton(coui.DialogButton(c, "取消", coui.Plain)).Disabled(f.working).OnClick(func() { m.adding = false })
+		coui.DialogButton(c, "取消", coui.Plain).Disabled(f.working).OnClick(func() { m.adding = false })
 		label := "添加"
 		if f.working {
 			label = "正在添加…"
 		}
-		dialogButton(coui.DialogButton(c, label, coui.Recommend)).Disabled(f.working).OnClick(p.addServer)
+		coui.DialogButton(c, label, coui.Recommend).Disabled(f.working).OnClick(p.addServer)
 	})
 }
 
@@ -462,8 +462,8 @@ func (p *Page) mcpServerDialogs(c *ui.Context) {
 			TextColor(coui.Of(c).Secondary).TextAlign(ui.Center).FillWidth()
 		coui.LineInput(c.Key("token"), &m.token, 1).Placeholder("Bearer Token").Label("Bearer Token").Password().AutoFocus()
 	}, func() {
-		dialogButton(coui.DialogButton(c, "取消", coui.Plain)).OnClick(func() { m.tokenOpen, m.token = false, "" })
-		dialogButton(coui.DialogButton(c, "保存", coui.Recommend)).OnClick(func() {
+		coui.DialogButton(c, "取消", coui.Plain).OnClick(func() { m.tokenOpen, m.token = false, "" })
+		coui.DialogButton(c, "保存", coui.Recommend).OnClick(func() {
 			token := m.token
 			m.tokenOpen, m.token, m.working = false, "", true
 			p.async(func(ctx context.Context) func() {

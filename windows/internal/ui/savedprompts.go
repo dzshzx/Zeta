@@ -50,10 +50,10 @@ func (a *App) promptList(c *ui.Context, p *chatPane) {
 			a.promptRow(c.Key("prompt/"+pr.ID), p, pr, i == 0, i == len(list)-1)
 		}
 	}, func() {
-		if coui.DialogButton(c, "关闭", coui.Plain).Grow(1).Basis(0).Clicked() {
+		if coui.DialogButton(c, "关闭", coui.Plain).Clicked() {
 			u.listOpen = false
 		}
-		if coui.DialogButton(c, "新建", coui.Recommend).Grow(1).Basis(0).Disabled(len(list) >= settings.MaxPrompts).Clicked() {
+		if coui.DialogButton(c, "新建", coui.Recommend).Disabled(len(list) >= settings.MaxPrompts).Clicked() {
 			text := ""
 			if strings.TrimSpace(p.draft) != "" {
 				text = p.draft
@@ -128,7 +128,7 @@ func (a *App) promptEditor(c *ui.Context) {
 	}
 	coui.Dialog(c, &d.open, func() {
 		ui.Column(c).FillWidth().Padding(coui.DialogPadding, coui.DialogPadding, 4, coui.DialogPadding).Gap(6).Children(func() {
-			ui.Text(c, title).FontSize(coui.SizeHeadlineS).FontWeight(600).TextColor(k.Text).TextAlign(ui.Center).FillWidth()
+			ui.Text(c, title).FontSize(coui.SizeHeadlineXS).FontWeight(600).TextColor(k.Text)
 			coui.LineInput(c.Key("name"), &d.name, 1).Placeholder("名字（可不填）").Label("名字").AutoFocus()
 			coui.LineInput(c.Key("text"), &d.text, 8).Placeholder("内容").Label("内容").MinHeight(96)
 			// 空着时不报错，「保存」变灰就够了
@@ -137,10 +137,10 @@ func (a *App) promptEditor(c *ui.Context) {
 			}
 		})
 		coui.ButtonBar(c, func() {
-			if coui.DialogButton(c, "取消", coui.Plain).Grow(1).Basis(0).Clicked() {
+			if coui.DialogButton(c, "取消", coui.Plain).Clicked() {
 				d.open = false
 			}
-			if coui.DialogButton(c, "保存", coui.Recommend).Grow(1).Basis(0).Disabled(problem != "").Clicked() {
+			if coui.DialogButton(c, "保存", coui.Recommend).Disabled(problem != "").Clicked() {
 				a.saveDraft(d)
 				d.open = false
 			}

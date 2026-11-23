@@ -275,10 +275,10 @@ func (a *App) messageDialogs(c *ui.Context, p *chatPane) {
 	title, summary, button := confirmTexts(cf)
 	ok := false
 	coui.Dialog(c, &cf.open, func() {
-		ui.Column(c).FillWidth().Padding(coui.DialogPadding, coui.DialogPadding, 8, coui.DialogPadding).Gap(6).AlignItems(ui.Center).
+		ui.Column(c).FillWidth().Padding(coui.DialogPadding, coui.DialogPadding, 8, coui.DialogPadding).Gap(6).
 			Children(func() {
-				ui.Text(c, title).FontSize(coui.SizeHeadlineS).FontWeight(600).TextColor(k.Text).TextAlign(ui.Center)
-				ui.Text(c, summary).FontSize(coui.SizeBodyS).LineHeight(1.45).TextColor(k.Secondary).TextAlign(ui.Center).Selectable()
+				ui.Text(c, title).FontSize(coui.SizeHeadlineXS).FontWeight(600).TextColor(k.Text)
+				ui.Text(c, summary).FontSize(coui.SizeBodyS).LineHeight(1.45).TextColor(k.Secondary).Selectable()
 				if cf.kind == confirmRestore && cf.changes != nil {
 					changedFiles(c, cf.changes, p.state.Cwd)
 				}
@@ -296,19 +296,19 @@ func (a *App) messageDialogs(c *ui.Context, p *chatPane) {
 		}
 		coui.ButtonBar(c, func() {
 			if cf.kind == confirmRestore && cf.asked && cf.changes == nil {
-				if coui.DialogButton(c, "好", coui.Recommend).Grow(1).Basis(0).Clicked() {
+				if coui.DialogButton(c, "好", coui.Recommend).Clicked() {
 					cf.open = false
 				}
 				return
 			}
-			if coui.DialogButton(c, "取消", coui.Plain).Grow(1).Basis(0).Clicked() {
+			if coui.DialogButton(c, "取消", coui.Plain).Clicked() {
 				cf.open = false
 			}
 			style := coui.Destructive
 			if cf.kind == confirmRegenerate {
 				style = coui.Recommend
 			}
-			if coui.DialogButton(c, button, style).Grow(1).Basis(0).Disabled(cf.kind == confirmRestore && cf.changes == nil).Clicked() {
+			if coui.DialogButton(c, button, style).Disabled(cf.kind == confirmRestore && cf.changes == nil).Clicked() {
 				ok, cf.open = true, false
 			}
 		})

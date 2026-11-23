@@ -14,7 +14,7 @@ func Header(c *ui.Context, title string, back func()) {
 	k := Of(c)
 	TitleRow(c).Children(func() {
 		if back != nil {
-			CircleButton(c, IconBack, "返回").OnClick(back)
+			IconButton(c, IconBack, "返回").OnClick(back)
 		}
 		ui.Text(c, title).FontSize(SizeHeadlineS).FontWeight(Medium).TextColor(k.Text).SingleLine().Ellipsis("…").Shrink(1)
 	})
@@ -60,10 +60,10 @@ func (l *List) divider(start float32) {
 
 // Row 是一行设置（COUI 的 BasicComponent 和 ArrowPreference）的内容。
 type Row struct {
-	// Icon 是行首的图标（24，颜色 IconColor），没有就不画。
+	// Icon 是行首的图标（20，颜色 IconColor），没有就不画。
 	Icon      *ui.SVG
 	IconColor ui.Color
-	// Title 是标题（16），Summary 是下面一行小字（13，次要文字色；SummaryColor 不是零值时用它，像出错原因用 Error）。
+	// Title 是标题（14），Summary 是下面一行小字（13，次要文字色；SummaryColor 不是零值时用它，像出错原因用 Error）。
 	Title, Summary string
 	SummaryColor   ui.Color
 	// Value 是右边的值（14，淡）。
@@ -86,7 +86,7 @@ func (l *List) Row(r Row) ui.Element {
 	k := Of(c)
 	start := float32(16)
 	if r.Icon != nil {
-		start += 24 + 16
+		start += 20 + 12
 	}
 	l.divider(start)
 	if r.Key != nil {
@@ -105,10 +105,10 @@ func (l *List) Row(r Row) ui.Element {
 	} else {
 		row = ui.Row(c)
 	}
-	row.FillWidth().MinHeight(48).Padding(10, 16).Gap(16).AlignItems(ui.Center)
+	row.FillWidth().MinHeight(44).Padding(8, 16).Gap(12).AlignItems(ui.Center)
 	row.Children(func() {
 		if r.Icon != nil {
-			ui.Icon(c, r.Icon).Size(24, 24).TextColor(r.IconColor).Shrink(0)
+			ui.Icon(c, r.Icon).Size(20, 20).TextColor(r.IconColor).Shrink(0)
 		}
 		r.texts(c, k)
 		if r.Value != "" || r.End != nil || r.Arrow {
@@ -138,7 +138,7 @@ func (r Row) texts(c *ui.Context, k *Colors) {
 		summary = r.SummaryColor
 	}
 	ui.Column(c).Grow(1).MinWidth(0).Gap(1).Children(func() {
-		ui.Text(c, r.Title).FontSize(SizeHeadlineXS).TextColor(title).SingleLine().Ellipsis("…")
+		ui.Text(c, r.Title).FontSize(SizeBodyM).TextColor(title).SingleLine().Ellipsis("…")
 		if r.Summary != "" {
 			ui.Text(c, r.Summary).FontSize(SizeBodyS).TextColor(summary).MaxLines(3).Selectable()
 		}
@@ -148,7 +148,7 @@ func (r Row) texts(c *ui.Context, k *Colors) {
 // Custom 加一行自己排的内容（比如一行输入框和按钮），左右留 16、上下留 8，前面照样画分隔线。
 func (l *List) Custom(fn func()) {
 	l.divider(16)
-	ui.Row(l.c).FillWidth().MinHeight(48).Padding(8, 16).Gap(12).AlignItems(ui.Center).Children(fn)
+	ui.Row(l.c).FillWidth().MinHeight(44).Padding(6, 16).Gap(12).AlignItems(ui.Center).Children(fn)
 }
 
 // Message 加一行灰字（列表空着、正在读之类的说明）。

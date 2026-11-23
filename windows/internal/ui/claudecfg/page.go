@@ -186,7 +186,7 @@ func (p *Page) noticeDialog(c *ui.Context) {
 func pageTitle(c *ui.Context, title string, back func(), actions func()) {
 	k := coui.Of(c)
 	coui.TitleRow(c).Children(func() {
-		coui.CircleButton(c, coui.IconBack, "返回").OnClick(back)
+		coui.IconButton(c, coui.IconBack, "返回").OnClick(back)
 		ui.Text(c, title).FontSize(coui.SizeHeadlineS).FontWeight(coui.Medium).TextColor(k.Text).SingleLine().Ellipsis("…").
 			Shrink(1)
 		ui.Spacer(c)
@@ -277,20 +277,17 @@ func area(c *ui.Context, value *string, minLines, maxLines int) ui.Element {
 }
 
 // dialog 是填表的对话框（coui.Dialog）：标题、fn 排的内容（离两边 24），底下 buttons 画的一排按钮
-// （coui.Button、coui.PrimaryButton，各自一样宽）。
+// （coui.DialogButton，靠右，主按钮最后）。
 func dialog(c *ui.Context, open *bool, title string, fn, buttons func()) {
 	coui.Dialog(c, open, func() {
 		k := coui.Of(c)
 		ui.Column(c).FillWidth().Padding(coui.DialogPadding, coui.DialogPadding, 8, coui.DialogPadding).Gap(12).Children(func() {
-			ui.Text(c, title).FontSize(coui.SizeHeadlineS).FontWeight(600).TextColor(k.Text).AlignSelf(ui.Center)
+			ui.Text(c, title).FontSize(coui.SizeHeadlineXS).FontWeight(600).TextColor(k.Text)
 			fn()
 		})
 		coui.ButtonBar(c, buttons)
 	})
 }
-
-// dialogButton 是对话框底下的一个按钮，和别的一样宽。
-func dialogButton(b ui.Element) ui.Element { return b.Grow(1).Basis(0) }
 
 // labeled 是对话框里带名字的一行：左边 label，右边 fn 画的（下拉这类）。
 func labeled(c *ui.Context, label string, fn func()) {

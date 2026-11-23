@@ -121,7 +121,7 @@ func dialogButton(c *ui.Context, label string, primary bool) ui.Element {
 	if primary {
 		style = coui.Recommend
 	}
-	return coui.DialogButton(c, label, style).Grow(1).Basis(0)
+	return coui.DialogButton(c, label, style)
 }
 
 // toolCard 是工具确认（ToolSheet）：命令或参数；Claude Code 给了「以后不再问」的建议时可以勾「以后不再询问」；
