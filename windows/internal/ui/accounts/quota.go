@@ -1,6 +1,7 @@
 package accounts
 
 import (
+	"github.com/dzshzx/Zeta/helper/coreapi"
 	acct "github.com/dzshzx/Zeta/windows/internal/accounts"
 	"github.com/dzshzx/Zeta/windows/internal/ui/coui"
 	"github.com/egoist/mygo/ui"
@@ -13,7 +14,7 @@ func QuotaDetails(c *ui.Context, q *acct.Quota) {
 	ui.Row(c).AlignItems(ui.Center).Children(func() {
 		ui.Text(c, "订阅额度").FontSize(coui.SizeHeadlineXS).FontWeight(coui.Medium).TextColor(k.Text).Grow(1)
 		if ok && s.Subscription != "" {
-			ui.Text(c, acct.PlanName(s.Subscription)).FontSize(coui.SizeBodyM).TextColor(k.Tertiary)
+			ui.Text(c, coreapi.PlanName(s.Subscription)).FontSize(coui.SizeBodyM).TextColor(k.Tertiary)
 		}
 	})
 	if ok && !s.Unavailable && len(s.Windows) > 0 {

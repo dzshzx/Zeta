@@ -13,14 +13,16 @@ import (
 	"sync/atomic"
 	"testing"
 	"time"
+
+	"github.com/dzshzx/Zeta/helper/coreapi"
 )
 
 // fakeServe 是一台主机上的 serve：账号是 accounts，在用的是 current（为空时是认不出的 unknown），额度是 quota。
 type fakeServe struct {
 	mu        sync.Mutex
-	accounts  []Account
+	accounts  []coreapi.Account
 	current   string
-	unknown   *Account
+	unknown   *coreapi.Account
 	blocker   string
 	installed bool
 	quota     string // quota.get 回的 snapshot（JSON），空是 null
@@ -32,10 +34,9 @@ type codeErr struct{ code, msg string }
 func (e codeErr) Error() string { return e.msg }
 func (e codeErr) Code() string  { return e.code }
 
-func (f *fakeServe) Call(_ context.Context, method string, params any) (json.RawMessage, error) {
+func (f *fakeServe) Call(_ context.Context, method string, p map[string]any) (json.RawMessage, error) {
 	f.mu.Lock()
 	defer f.mu.Unlock()
-	p, _ := params.(map[string]any)
 	name, _ := p["name"].(string)
 	f.calls = append(f.calls, strings.TrimSpace(method+" "+name))
 	if strings.HasPrefix(method, "accounts.") && !f.installed {
@@ -58,7 +59,7 @@ func (f *fakeServe) Call(_ context.Context, method string, params any) (json.Raw
 		if name == f.current {
 			return nil, errors.New("claude-b 是在用的账号，未改动")
 		}
-		f.accounts = slices.DeleteFunc(f.accounts, func(a Account) bool { return a.Name == name })
+		f.accounts = slices.DeleteFunc(f.accounts, func(a coreapi.Account) bool { return a.Name == name })
 	case "quota.get":
 		return json.RawMessage(`{"snapshot":` + or(f.quota, "null") + `}`), nil
 	case "quota.usage":
@@ -68,9 +69,7 @@ func (f *fakeServe) Call(_ context.Context, method string, params any) (json.Raw
 		}
 		f.quota = snapshotJSON(86)
 		return json.RawMessage(`{"snapshot":` + f.quota + `,"fresh":true}`), nil
-	case "quota.event":
-		f.quota = snapshotJSON(97)
-		return json.RawMessage(`{"snapshot":` + f.quota + `,"changed":true}`), nil
+
 	default:
 		return nil, errors.New("unknown method: " + method)
 	}
@@ -84,8 +83,8 @@ func or(s, def string) string {
 	return s
 }
 
-func (f *fakeServe) state() State {
-	st := State{Current: f.unknown, Blocker: f.blocker}
+func (f *fakeServe) state() coreapi.AccountList {
+	st := coreapi.AccountList{Current: f.unknown, Blocker: f.blocker}
 	if f.unknown != nil {
 		st.Accounts = append(st.Accounts, *f.unknown)
 	}
@@ -93,7 +92,7 @@ func (f *fakeServe) state() State {
 		if a.Name == f.current {
 			live := a
 			st.Current = &live
-			st.Accounts = append([]Account{a}, st.Accounts...)
+			st.Accounts = append([]coreapi.Account{a}, st.Accounts...)
 		} else {
 			st.Accounts = append(st.Accounts, a)
 		}
@@ -118,7 +117,7 @@ func snapshotJSON(percent int) string {
 }
 
 func newServe() *fakeServe {
-	return &fakeServe{current: "claude", accounts: []Account{
+	return &fakeServe{current: "claude", accounts: []coreapi.Account{
 		{Name: "claude", Email: "a@example.com", Subscription: "max"},
 		{Name: "claude-b", Email: "b@example.com", Subscription: "pro"},
 	}}
@@ -201,8 +200,8 @@ type fixture struct {
 func newFixture() *fixture {
 	f := &fixture{serve: newServe(), convs: &fakeConvs{}, src: &source{}, loop: newLoop()}
 	f.prog = &program{serve: f.serve}
-	f.quota = NewQuota(f.serve, f.src, f.loop.accounts(), nil)
-	f.svc = NewService(f.serve, f.prog, f.convs, f.quota, f.loop.accounts())
+	f.quota = NewQuota(coreapi.New(f.serve), f.src, f.loop.accounts(), nil)
+	f.svc = NewService(coreapi.New(f.serve), f.prog, f.convs, f.quota, f.loop.accounts())
 	return f
 }
 
@@ -227,11 +226,11 @@ func TestInstallsClaudeSwitchWhenMissing(t *testing.T) {
 func TestSwitch(t *testing.T) {
 	f := newFixture()
 	f.serve.installed = true
-	f.svc.Switch(Account{Name: "claude-b", Email: "b@example.com"})
+	f.svc.Switch(coreapi.Account{Name: "claude-b", Email: "b@example.com"})
 	if f.svc.Working() != "正在切换到 b@example.com" {
 		t.Fatalf("%q", f.svc.Working())
 	}
-	f.svc.Switch(Account{Name: "claude"})
+	f.svc.Switch(coreapi.Account{Name: "claude"})
 	if f.svc.Problem() != "上一件事还没做完" {
 		t.Fatalf("%q", f.svc.Problem())
 	}
@@ -250,13 +249,13 @@ func TestSwitchRefused(t *testing.T) {
 	f := newFixture()
 	f.serve.installed = true
 	f.convs.busy = true
-	f.svc.Switch(Account{Name: "claude-b"})
+	f.svc.Switch(coreapi.Account{Name: "claude-b"})
 	if f.svc.Problem() != ownBusy || f.svc.Working() != "" {
 		t.Fatalf("本客户端有对话在进行：%q", f.svc.Problem())
 	}
 
 	f.convs.busy, f.convs.refuse = false, true
-	f.svc.Switch(Account{Name: "claude-b"})
+	f.svc.Switch(coreapi.Account{Name: "claude-b"})
 	f.loop.until(t, "做完", func() bool { return f.svc.Working() == "" })
 	if f.svc.Problem() != ownBusy || f.serve.called("accounts.switch claude-b") {
 		t.Fatalf("查进程时有对话开始了：%q", f.svc.Problem())
@@ -264,7 +263,7 @@ func TestSwitchRefused(t *testing.T) {
 
 	f.convs.refuse = false
 	f.serve.blocker = "另一个 Zeta（测试版）开着 1 个对话"
-	f.svc.Switch(Account{Name: "claude-b"})
+	f.svc.Switch(coreapi.Account{Name: "claude-b"})
 	f.loop.until(t, "做完", func() bool { return f.svc.Working() == "" })
 	if f.svc.Problem() != f.serve.blocker || f.convs.closed != 0 || f.serve.called("accounts.switch claude-b") {
 		t.Fatalf("别处挡着：%q，收掉 %d 次", f.svc.Problem(), f.convs.closed)
@@ -274,11 +273,11 @@ func TestSwitchRefused(t *testing.T) {
 func TestSaveAndRemove(t *testing.T) {
 	f := newFixture()
 	f.serve.installed = true
-	f.serve.current, f.serve.unknown = "", &Account{Email: "x@example.com"}
+	f.serve.current, f.serve.unknown = "", &coreapi.Account{Email: "x@example.com"}
 	f.svc.Save()
 	f.loop.until(t, "记下", func() bool { return f.svc.Working() == "" && current(f.svc) == "claude-c" })
 
-	f.svc.Remove(Account{Name: "claude-b", Email: "b@example.com"})
+	f.svc.Remove(coreapi.Account{Name: "claude-b", Email: "b@example.com"})
 	if f.svc.Working() != "正在移除 b@example.com" {
 		t.Fatalf("%q", f.svc.Working())
 	}
@@ -287,7 +286,7 @@ func TestSaveAndRemove(t *testing.T) {
 	if f.svc.Problem() != "" || len(st.Accounts) != 2 {
 		t.Fatalf("%q %+v", f.svc.Problem(), st.Accounts)
 	}
-	f.svc.Remove(Account{Name: "claude-c"})
+	f.svc.Remove(coreapi.Account{Name: "claude-c"})
 	f.loop.until(t, "移除", func() bool { return f.svc.Working() == "" })
 	if !strings.HasPrefix(f.svc.Problem(), "没有移除：") {
 		t.Fatalf("删在用的号：%q", f.svc.Problem())
@@ -296,7 +295,7 @@ func TestSaveAndRemove(t *testing.T) {
 
 func TestUnreachableHost(t *testing.T) {
 	l := newLoop()
-	svc := NewService(callerFunc(func() error { return errors.New("连不上") }), nil, &fakeConvs{}, nil, l.accounts())
+	svc := NewService(coreapi.New(callerFunc(func() error { return errors.New("连不上") })), nil, &fakeConvs{}, nil, l.accounts())
 	svc.Refresh()
 	l.until(t, "读完", func() bool { return svc.Problem() != "" })
 	if svc.Problem() != "读不了账号：连不上" {
@@ -306,7 +305,9 @@ func TestUnreachableHost(t *testing.T) {
 
 type callerFunc func() error
 
-func (f callerFunc) Call(context.Context, string, any) (json.RawMessage, error) { return nil, f() }
+func (f callerFunc) Call(context.Context, string, map[string]any) (json.RawMessage, error) {
+	return nil, f()
+}
 
 // 数够新时只读主机上存着的；旧了、点刷新时向 Claude Code 要，两次至少隔 15 秒。
 func TestQuotaRefreshRules(t *testing.T) {
@@ -346,43 +347,18 @@ func TestQuotaRefreshRules(t *testing.T) {
 	}
 }
 
-func TestQuotaWithoutSourceAndEvents(t *testing.T) {
+func TestQuotaWithoutSource(t *testing.T) {
 	l := newLoop()
 	serve := newServe()
 	serve.quota = snapshotJSON(40)
-	q := NewQuota(serve, nil, l.accounts(), nil)
+	q := NewQuota(coreapi.New(serve), nil, l.accounts(), nil)
 	q.Refresh(true)
 	l.until(t, "读完", func() bool { return !q.Refreshing() })
 	s, ok := q.Snapshot()
 	if h, _ := s.Headline(); !ok || h.Percent() != 40 || h.Label != "每周 · 全部模型" {
 		t.Fatalf("%+v", s)
 	}
-	q.Observe([]byte(`{"type":"assistant"}`))
-	q.Observe([]byte(`{"type":"rate_limit_event","rate_limit_info":{"status":"allowed"}}`))
-	l.until(t, "并进事件", func() bool {
-		s, _ := q.Snapshot()
-		h, _ := s.Headline()
-		return h.Severity == Critical
-	})
 	if serve.called("quota.usage") {
 		t.Fatal("没有 UsageSource 时不该要")
-	}
-}
-
-func TestSnapshotAt(t *testing.T) {
-	now := time.Now()
-	s := Snapshot{Blocked: true, BlockedUntil: now.Add(time.Minute), Windows: []Window{
-		{Kind: "session", Used: 1, ResetsAt: now.Add(time.Minute), Severity: Critical},
-		{Kind: "weekly_all", Used: 0.5, Active: true},
-	}}
-	if h, _ := s.Headline(); h.Kind != "session" {
-		t.Fatalf("被拒时头条是最满的：%+v", h)
-	}
-	later := s.At(now.Add(2 * time.Minute))
-	if later.Blocked || later.Windows[0].Used != 0 || s.Windows[0].Used != 1 {
-		t.Fatalf("%+v", later)
-	}
-	if h, _ := later.Headline(); h.Kind != "weekly_all" {
-		t.Fatalf("服务器挑的：%+v", h)
 	}
 }
