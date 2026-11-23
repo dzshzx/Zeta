@@ -1,4 +1,4 @@
-// Package about 是设置里的「关于」页：版本、检查更新、有新版本时的更新与更新说明、开源许可。
+// Package about 是设置里的「关于」页：版本、源码、检查更新、有新版本时的更新与更新说明、开源许可、鸣谢。
 package about
 
 import (
@@ -41,6 +41,7 @@ func (p *Page) View(c *ui.Context) ui.Element {
 		if st := p.Updates.Status(); st.Phase == update.Available {
 			p.releaseSection(c, st)
 		}
+		creditsSection(c)
 		p.licenseSection(c)
 	})
 }
@@ -52,6 +53,11 @@ func (p *Page) aboutSection(c *ui.Context) {
 			version = "开发版 " + version
 		}
 		l.Row(widget.Row{Title: "版本", Value: version})
+		ref := sourceRef(p.Version.Name)
+		if ref == "" {
+			ref = "GitHub"
+		}
+		l.Row(widget.Row{Title: "源码", Value: ref, Arrow: true, OnClick: func() { c.OpenURL(sourceURL(p.Version.Name)) }})
 		if !p.Updates.Enabled() {
 			return
 		}
@@ -228,4 +234,13 @@ func formatBytes(n int64) string {
 		value, suffix = value/unit, s
 	}
 	return fmt.Sprintf("%.1f %s", value, suffix)
+}
+
+// creditsSection 是鸣谢：桌面版参照和依靠的几个项目，点一行用浏览器打开它的主页（同手机版的「鸣谢」页，桌面版放在关于页里）。
+func creditsSection(c *ui.Context) {
+	widget.Group(c, "鸣谢", "", func(l *widget.List) {
+		for _, cr := range credits {
+			l.Row(widget.Row{Key: cr.name, Title: cr.name, Summary: cr.summary, Arrow: true, OnClick: func() { c.OpenURL(cr.url) }})
+		}
+	})
 }

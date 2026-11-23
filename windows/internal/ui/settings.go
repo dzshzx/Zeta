@@ -151,7 +151,7 @@ func headline(q *acct.Quota, now time.Time) (coreapi.QuotaWindow, bool) {
 
 func percentText(n int) string { return strconv.Itoa(n) + "%" }
 
-// appearanceSection 是外观：跟随系统、浅色、深色，存在设置里（键同手机版）。
+// appearanceSection 是外观：主题（跟随系统、浅色、深色，存在设置里，键同手机版）和界面缩放（zoom.go）。
 func (a *App) appearanceSection(c *ui.Context) {
 	s := a.hub.Settings()
 	widget.Group(c, "外观", "", func(l *widget.List) {
@@ -168,6 +168,7 @@ func (a *App) appearanceSection(c *ui.Context) {
 				}
 			})
 		}})
+		a.zoomRow(l)
 	})
 }
 

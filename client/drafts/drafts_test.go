@@ -65,3 +65,24 @@ func TestFitKeepsNewestWithinLimits(t *testing.T) {
 		t.Errorf("UTF-16 长度：%d", got)
 	}
 }
+
+// 侧栏的预览同 DraftRecords.preview：第一行不空的字（空白并成一个），再是图片张数、附件名。
+func TestPreview(t *testing.T) {
+	long := strings.Repeat("字", 70)
+	for _, c := range []struct {
+		d    Draft
+		want string
+	}{
+		{Draft{Text: "\n  \n  先看\t\t日志  \n第二行"}, "先看 日志"},
+		{Draft{Text: long}, strings.Repeat("字", 60)},
+		{Draft{Text: strings.Repeat("a", 59) + "😀"}, strings.Repeat("a", 59)},
+		{Draft{Text: " ", Images: []Image{{ID: "a"}, {ID: "b"}}, Files: []File{{Label: "a.txt"}}}, "2 张图片"},
+		{Draft{Files: []File{{Label: "a.txt"}, {Label: "logs"}, {Label: "b"}}}, "a.txt 等 3 个文件"},
+		{Draft{Files: []File{{Label: "a.txt"}}}, "a.txt"},
+		{Draft{}, ""},
+	} {
+		if got := Preview(c.d); got != c.want {
+			t.Errorf("%q：%q，要 %q", c.d.Text, got, c.want)
+		}
+	}
+}

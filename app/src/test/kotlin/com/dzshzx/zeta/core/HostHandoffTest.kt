@@ -126,7 +126,7 @@ class HostHandoffTest {
         assertTrue(out, out.contains("\"reason\":\"held_elsewhere\""))
     }
 
-    /** claude 被包了一层（[HostTesting.Wrapper]）时本包的进程照样认得：不算别处占着（start 接上它），账号脚本也认得它归本包。 */
+    /** claude 被包了一层（[HostTesting.Wrapper]）时本包的进程照样认得：不算别处占着（start 接上它），它身上也带着本包的记号（核心的账号页据此认归属）。 */
     @Test
     fun thisPackagesWrappedProcessIsNotElsewhere() {
         for (wrapper in HostTesting.Wrapper.entries) {
@@ -135,7 +135,7 @@ class HostHandoffTest {
             val env = HostTesting.named(name) + HostTesting.wrapClaude(home, wrapper)
             HostTesting.run(home, command("start", "k1", home.path, "t", "-p"), env)
             val claude = HostTesting.registeredPid(home)
-            assertEquals("$wrapper：账号脚本说的归属", listOf(name), accountsOwners(claude))
+            assertEquals("$wrapper：记号说的归属", name, markedOwner(claude))
             val out =
                 HostTesting.run(
                     home,
@@ -152,32 +152,15 @@ class HostHandoffTest {
         }
     }
 
-    /** 另一个包托管的进程（身上是那个包的记号）对本包来说是别处占着；账号脚本说它归那个包，终端里的归属是空的。 */
+    /**
+     * 另一个包托管的进程（身上是那个包的记号）对本包来说是别处占着。账号页说它归哪个包由核心认（helper/accounts 的 TestProcessOwnersAndBlocker）。
+     */
     @Test
     fun aProcessOfTheOtherPackageIsElsewhere() {
         val other = AppVariant(AppVariant.RELEASE_PACKAGE).linuxName
-        val pid = terminalHolding(SESSION, mark = "$other/k9")
-        val terminal = terminalHolding(OTHER)
+        terminalHolding(SESSION, mark = "$other/k9")
         val out = start("k1", "--resume", SESSION)
         assertTrue(out, out.contains("\"reason\":\"held_elsewhere\""))
-        assertEquals(listOf(other), accountsOwners(pid.toInt()))
-        assertEquals(listOf(""), accountsOwners(terminal.toInt()))
-    }
-
-    /** 账号脚本（zeta_accounts.sh list）列出的进程 [pid] 归哪个包（P 记录的第三个字段，终端里的是空串）。没有 jq 时跳过。 */
-    private fun accountsOwners(pid: Int): List<String> {
-        assumeTrue("账号脚本要 jq", File("/usr/bin/jq").exists())
-        File(home, "cs").apply {
-            writeText("#!/bin/bash\necho '{}'\n")
-            setExecutable(true)
-        }
-        val accounts = File("src/main/assets/zeta_accounts.sh").absoluteFile
-        // 参数：claude-switch 相对家目录的路径（这里是假的），再是子命令
-        return HostTesting.run(home, listOf("bash", accounts.path, "cs", "list"))
-            .lines()
-            .map { it.split('\u0000') }
-            .filter { it.firstOrNull() == "P" && it.getOrNull(1) == "$pid" }
-            .map { it[2] }
     }
 
     /** 登记里的启动时刻和进程对不上（进程号被别的进程复用了）的不算，和 zeta-helper 同一口径。 */
@@ -218,6 +201,15 @@ class HostHandoffTest {
         assertTrue("替身没退出", waitUntil { !alive(pid) })
         return generateSequence { lines.readLine() }.firstOrNull { it.contains("zeta_exit") }
     }
+
+    /**
+     * 进程 [pid] 身上的记号 ZETA_HOST=<包>/<托管目录名> 说它归哪个包，没有时为 null。认法同 helper/accounts 的 hostMark（账号页列开着的
+     * Claude Code 归谁）：包名以 zeta 开头，托管目录名不空、不含 /、不以 . 开头。
+     */
+    private fun markedOwner(pid: Int): String? =
+        File("/proc/$pid/environ").readText().split('\u0000').firstNotNullOfOrNull {
+            Regex("^ZETA_HOST=(zeta[^/]*)/[^/.][^/]*\$").find(it)?.groupValues?.get(1)
+        }
 
     private companion object {
         const val SESSION = "aaaaaaaa-1111-4222-8333-444444444444"

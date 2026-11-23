@@ -2,11 +2,13 @@ package com.dzshzx.zeta.shots
 
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
+import com.dzshzx.zeta.core.Backends
 import com.dzshzx.zeta.core.ConversationHub
 import com.dzshzx.zeta.core.EnvHealth
 import com.dzshzx.zeta.core.LoginState
 import com.dzshzx.zeta.core.SshStatus
 import com.dzshzx.zeta.core.environment
+import com.dzshzx.zeta.shots.Fixtures.force
 import com.dzshzx.zeta.ui.setup.EnvInstallScreen
 import com.dzshzx.zeta.ui.setup.LinuxScreen
 import com.dzshzx.zeta.ui.setup.LoginScreen
@@ -98,19 +100,23 @@ class SetupShots : ShotTest() {
     @Test
     fun login() {
         val hub = Fixtures.readyHub(app)
-        shoot("login") { LoginScreen(hub = hub, onBack = {}) }
+        shoot("login") { LoginScreen(hub = hub, backend = Backends.LOCAL, onBack = {}) }
     }
 
     /** 开始登录以后：打开登录页、贴授权码那一步。 */
     @Test
     fun loginCode() {
         val hub = Fixtures.readyHub(app)
-        hub.environment.login.state =
-            LoginState.WaitingCode(
-                "https://claude.ai/oauth/authorize?code=true",
-                notice = "授权码不完整，请重新复制",
+        hub.accounts(Backends.LOCAL)
+            .login
+            .force(
+                "state",
+                LoginState.WaitingCode(
+                    "https://claude.ai/oauth/authorize?code=true",
+                    notice = "授权码不完整，请重新复制",
+                ),
             )
-        shoot("login-code") { LoginScreen(hub = hub, onBack = {}) }
+        shoot("login-code") { LoginScreen(hub = hub, backend = Backends.LOCAL, onBack = {}) }
     }
 
     /** SSH 页每次打开都会重新查一遍（没有 root，查出来是空的），查完再把状态摆上去。 */

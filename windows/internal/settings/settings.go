@@ -217,3 +217,17 @@ func (s *Settings) SidebarHidden() bool {
 
 // SetSidebarHidden 存侧栏收没收起来。
 func (s *Settings) SetSidebarHidden(hidden bool) { logSave(s.store.SetBool(keySidebarHidden, hidden)) }
+
+// keyZoom 是界面缩放（桌面版自己的，手机版没有）：百分数，在系统的 DPI 缩放之上再乘它；没存过是 100。
+const keyZoom = "desktopZoom"
+
+// Zoom 是界面缩放的百分数，没存过或存坏了是 100。
+func (s *Settings) Zoom() int {
+	if v, ok := s.store.Int(keyZoom); ok && v > 0 {
+		return int(v)
+	}
+	return 100
+}
+
+// SetZoom 存界面缩放的百分数。
+func (s *Settings) SetZoom(percent int) { logSave(s.store.SetInt(keyZoom, percent)) }

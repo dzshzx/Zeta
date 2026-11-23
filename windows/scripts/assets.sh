@@ -1,7 +1,7 @@
 #!/bin/bash
 # 把桌面版要带到主机上的程序和脚本放进 windows/internal/assets/gen（go:embed 读它，不进 Git）：
 # zeta-helper 和 claude-switch 的 linux arm64、amd64 两份，编法同 app/build.gradle.kts 的 GoProgramTask，
-# 所以和 APK 里的逐字节一样，主机上按内容哈希装的是同一份；托管脚本照抄 helper/host，账号脚本照抄 app/src/main/assets；还有关于页列的开源许可全文（见文件末尾）。
+# 所以和 APK 里的逐字节一样，主机上按内容哈希装的是同一份；托管脚本照抄 helper/host；还有关于页列的开源许可全文（见文件末尾）。
 # 门禁在检查 windows/ 之前跑它；改了 helper/、这几个脚本或 windows/ 的依赖后，本地跑 windows/ 的测试前也先跑一次。
 set -euo pipefail
 root=$(cd "$(dirname "$0")/../.." && pwd)
@@ -50,4 +50,9 @@ licenses() { # <用在哪> <模块目录> <GOOS> <包模式...>
     done
 }
 licenses app "$root/windows" windows ./...
+# widget/icons.go 里照搬了 COUI 2 自带图标（coui-icons）的路径数据，它是 Apache-2.0：许可全文同 APK 带的那份，版本取手机版用的 COUI 2
+coui_version=$(sed -n 's/^coui2 = "\(.*\)"$/\1/p' "$root/gradle/libs.versions.toml")
+[[ -n $coui_version ]] || { echo "assets.sh: gradle/libs.versions.toml 里没有 coui2 的版本" >&2; exit 1; }
+cp "$root/app/src/main/assets/licenses/Apache-2.0.txt" "$lic/coui-icons"
+printf 'app\tgithub.com/suqi8/coui（coui-icons 图标）\t%s\tcoui-icons\n' "$coui_version" >>"$lic/index.tsv"
 licenses host "$root/helper" linux ./... tool

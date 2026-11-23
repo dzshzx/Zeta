@@ -24,10 +24,10 @@ import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
+import com.dzshzx.zeta.core.Backends
 import com.dzshzx.zeta.core.ConversationHub
 import com.dzshzx.zeta.core.Intake
 import com.dzshzx.zeta.core.LinuxEnv
-import com.dzshzx.zeta.core.environment
 import com.dzshzx.zeta.core.fromIntent
 import com.dzshzx.zeta.core.get
 import com.dzshzx.zeta.core.offerIntake
@@ -206,7 +206,7 @@ private fun ZetaApp(hub: ConversationHub, conversationRequests: Int) {
     val pages = rememberPageStack()
     /** 回到聊天页：收起侧栏和盖在上面的页面。[keepSetup] 时进行中的安装、登录不打断。 */
     fun showChat(keepSetup: Boolean = false) {
-        if (!keepSetup && AppPage.Login in pages) hub.environment.login.cancel()
+        if (!keepSetup && AppPage.Login in pages) hub.accounts(Backends.LOCAL).login.cancel()
         pages.closeAll(keepSetup)
         paneOpen = false
     }
@@ -272,7 +272,7 @@ private fun ZetaApp(hub: ConversationHub, conversationRequests: Int) {
     }
     // 返回键关最上面那页。放在页面前面注册：页面里自己的返回键处理器（关子页）后注册，先收到返回键
     BackHandler(enabled = pages.any) {
-        if (pages.top == AppPage.Login) hub.environment.login.cancel()
+        if (pages.top == AppPage.Login) hub.accounts(Backends.LOCAL).login.cancel()
         pages.pop()
     }
     PageStackHost(pages) { page ->
@@ -306,7 +306,8 @@ private fun ZetaApp(hub: ConversationHub, conversationRequests: Int) {
                     onBack = { pages.close(page) },
                     onOpenLogin = { pages.open(AppPage.Login) },
                 )
-            AppPage.Login -> LoginScreen(hub = hub, onBack = { pages.close(page) })
+            AppPage.Login ->
+                LoginScreen(hub = hub, backend = Backends.LOCAL, onBack = { pages.close(page) })
             AppPage.RemoteHosts -> RemoteHostsScreen(hub = hub, onBack = { pages.close(page) })
             is AppPage.Tasks ->
                 BackgroundTasksScreen(

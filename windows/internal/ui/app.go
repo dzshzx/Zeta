@@ -52,6 +52,7 @@ type App struct {
 	query  string     // 侧栏搜索框里的字（每帧交给中枢，见 searchField）
 	ops    sessionOps // 侧栏的会话操作（sessionops.go）
 	layout layout     // 侧栏的宽度、收起（layout.go）
+	zoom   int        // 界面缩放的百分数（zoom.go）
 
 	pick    picker     // 选本机的文件、文件夹（系统的对话框；测试里换掉）
 	path    pathAttach // 「输入路径」的对话框
@@ -111,6 +112,7 @@ func (a *App) async(work func() func()) {
 // View 是窗口的内容：COUI 的配色（跟着系统的深浅色），左边侧栏（能拖宽、能收起，layout.go），右边是在看的那一页。
 func (a *App) View(c *ui.Context) {
 	c.SetTheme(widget.Theme(a.dark(c.Theme().Dark)))
+	a.applyZoom(c)
 	a.syncChat()
 	a.saveDraftsWhenDue(c)
 	if a.shown == pageDevice && a.page != pageDevice {

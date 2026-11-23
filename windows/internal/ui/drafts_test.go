@@ -5,6 +5,7 @@ import (
 	"image/color"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 
 	"github.com/dzshzx/Zeta/client/drafts"
@@ -158,5 +159,49 @@ func TestDraftsIgnoreMessageBeingEdited(t *testing.T) {
 	f.click(t, "修登录页")
 	if f.app.pane.draft != "还没发的草稿" || f.app.pane.acts.editing != nil {
 		t.Fatalf("回来后输入栏：%q", f.app.pane.draft)
+	}
+}
+
+// 侧栏里有没发出的草稿的会话行尾标「草稿」（同手机版），草稿的开头接在悬停提示里；正开着的那个不标，
+// 草稿删空了、重开 Zeta 后从存盘的那份照样标。
+func TestSidebarMarksDrafts(t *testing.T) {
+	f := newChatFixture(t)
+	marked := func() (bool, string) {
+		t.Helper()
+		row, ok := f.tt.AccessByRole(ui.RoleButton, "修登录页")
+		if !ok {
+			t.Fatalf("没有这一行：%q", f.tt.Texts())
+		}
+		return f.shows("草稿"), row.Description
+	}
+	f.click(t, "修登录页")
+	f.click(t, "消息")
+	f.tt.Type("登录页的按钮\n  再大一点")
+	if on, _ := marked(); on {
+		t.Fatalf("正开着的会话不标草稿：%q", f.tt.Texts())
+	}
+	f.newChat(t)
+	if on, tip := marked(); !on || !strings.HasSuffix(tip, "草稿：登录页的按钮") {
+		t.Fatalf("切走后：标了 %v，提示 %q", on, tip)
+	}
+	// 重开：从存盘的恢复，只有附件、没写名字的按路径取名
+	f.app.drafts = nil
+	f.tt.Frame()
+	if on, _ := marked(); !on {
+		t.Fatal("重开后没标")
+	}
+	f.app.draftBook().records["s1"] = drafts.Draft{Key: "s1", Files: []drafts.File{{Entry: "@/home/box/web/src/"}}}
+	f.tt.Frame()
+	if _, tip := marked(); !strings.HasSuffix(tip, "草稿：src") {
+		t.Fatalf("只有附件时的提示 %q", tip)
+	}
+	// 回去把草稿删空：不再标
+	f.click(t, "修登录页")
+	f.app.pane.draft = ""
+	f.app.pane.att.files = nil
+	f.tt.Frame()
+	f.newChat(t)
+	if on, tip := marked(); on || strings.Contains(tip, "草稿") {
+		t.Fatalf("删空后：标了 %v，提示 %q", on, tip)
 	}
 }

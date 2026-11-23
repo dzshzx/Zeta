@@ -7,6 +7,7 @@ import (
 	"bytes"
 	"cmp"
 	"encoding/json"
+	"fmt"
 	"slices"
 	"strings"
 	"unicode/utf16"
@@ -85,6 +86,28 @@ func Fit(list []Draft) []Draft {
 		}
 	}
 	return kept
+}
+
+// previewChars 是侧栏预览最多几个字（UTF-16 单位，同 DraftRecords 的 PREVIEW_CHARS）。
+const previewChars = 60
+
+// Preview 是侧栏里这份草稿的一行预览（同 DraftRecords.preview）：第一行不空的字，连续的空白并成一个空格，最多 60 个字；
+// 没有字时是「N 张图片」，再没有是附件的名字（Label，多个时「a.txt 等 3 个文件」）。
+func Preview(d Draft) string {
+	for line := range strings.Lines(d.Text) {
+		if words := strings.Fields(line); len(words) > 0 {
+			return clipUTF16(strings.Join(words, " "), previewChars)
+		}
+	}
+	switch {
+	case len(d.Images) > 0:
+		return fmt.Sprintf("%d 张图片", len(d.Images))
+	case len(d.Files) > 1:
+		return fmt.Sprintf("%s 等 %d 个文件", d.Files[0].Label, len(d.Files))
+	case len(d.Files) == 1:
+		return d.Files[0].Label
+	}
+	return ""
 }
 
 // file 是存盘的整份。
