@@ -142,6 +142,18 @@ func TestDefaultsAndDeviceSettings(t *testing.T) {
 	f.see("45 分钟")
 }
 
+// Claude Code 一行：右边是那台主机上的版本，点「更新」在那边跑 claude update，说明里写新旧版本。
+func TestClaudeCodeUpdate(t *testing.T) {
+	f := newFixture(t, Options{})
+	f.page.Load()
+	f.see("Claude Code", "2.1.330")
+	f.serve.Write(t, "fake-claude-next", "2.1.331\n")
+	f.press("更新")
+	f.see("已从 2.1.330 更新到 2.1.331")
+	f.press("更新")
+	f.see("已是最新")
+}
+
 func TestMemoryEditorAsksBeforeOverwriting(t *testing.T) {
 	f := newFixture(t, Options{})
 	f.press("打开记忆")

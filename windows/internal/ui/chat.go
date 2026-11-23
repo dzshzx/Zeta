@@ -45,6 +45,13 @@ type chatPane struct {
 	slash slashMenu
 	// find 是对话内查找的查找栏（find.go）。
 	find findBar
+	// load 是输入栏上的负载标识（hostload.go）。
+	load hostLoad
+	// cwd 是新对话顶栏上换工作目录的对话框。
+	cwd struct {
+		open  bool
+		value string
+	}
 	// earlier 是载入更早记录的情况：这边发出了请求、上次没读成的原因、那个原因能不能重试。
 	earlier struct {
 		asked  bool
@@ -182,6 +189,7 @@ func (a *App) chatPage(c *ui.Context) {
 		a.pathDialog(c, p)
 		a.savedPrompts(c, p)
 		a.messageDialogs(c, p)
+		a.cwdDialog(c, p)
 		ui.Column(c).Grow(1).MinHeight(0).Children(func() {
 			switch {
 			case a.hub.Off(p.src.Backend):
@@ -253,15 +261,46 @@ func (a *App) chatHeader(c *ui.Context, p *chatPane) {
 		Gap(1).DragWindow().Children(func() {
 		ui.Text(c, a.chatTitle(p)).FontSize(widget.SizeBodyM).FontWeight(600).TextColor(k.Text).SingleLine().Ellipsis("…").
 			MaxWidthPercent(100)
-		ui.Text(c, a.hub.Name(p.src.Backend)+" · "+cwd).FontSize(widget.SizeBodyXS).TextColor(k.Secondary).SingleLine().
-			Ellipsis("…").MaxWidthPercent(100)
+		if !newChat(p) {
+			ui.Text(c, a.hub.Name(p.src.Backend)+" · "+cwd).FontSize(widget.SizeBodyXS).TextColor(k.Secondary).SingleLine().
+				Ellipsis("…").MaxWidthPercent(100)
+			return
+		}
+		// 新对话还没发消息：这一行能点，换一个工作目录重开
+		b := ui.ButtonBase(c).Label("换工作目录").Tooltip("换工作目录").Cursor(ui.CursorPointer).Radius(4).Padding(0, 3).
+			Margin(0, 0, 0, -3).MaxWidthPercent(100)
+		if b.Hovered() {
+			b.Background(k.Hover)
+		}
+		b.Children(func() {
+			ui.Text(c, a.hub.Name(p.src.Backend)+" · "+cwd).FontSize(widget.SizeBodyXS).TextColor(k.Secondary).SingleLine().
+				Ellipsis("…").Shrink(1)
+		})
+		b.OnClick(func() { p.cwd.open, p.cwd.value = true, cwd })
 	})
+}
+
+// newChat：窗格里是还没发过消息的新对话（没有会话号），这时还能换工作目录。
+func newChat(p *chatPane) bool {
+	return p.src.Session.ID == "" && p.state.Session == "" && !p.src.Opening
+}
+
+// cwdDialog 是新对话换工作目录的对话框：确定后在那个目录重开新对话（进不去时输入栏上方说原因）。
+func (a *App) cwdDialog(c *ui.Context, p *chatPane) {
+	if !p.cwd.open {
+		return
+	}
+	path := strings.TrimSpace(p.cwd.value)
+	summary := "这个对话在「" + a.hub.Name(p.src.Backend) + "」上的哪个目录下进行"
+	if widget.InputDialog(c, &p.cwd.open, "工作目录", summary, &p.cwd.value, "/home/…", "确定", strings.HasPrefix(path, "/")) {
+		a.hub.NewChatIn(path)
+	}
 }
 
 // chatNotices 是输入栏上方的几句说明：工作目录进不去、连接断了、上次操作没成。会话在别处运行时输入栏换成卡片（handoffCard）。
 func (a *App) chatNotices(c *ui.Context, p *chatPane) {
 	if why := p.src.CwdProblem; why != "" {
-		widget.Notice(c, "Claude Code 起不来："+why+"。在「设备」页改默认工作目录后再开新对话。", widget.Failure)
+		widget.Notice(c, "Claude Code 起不来："+why+"。点上面的工作目录换一个，或在「设备」页改默认工作目录。", widget.Failure)
 	}
 	if why := a.hub.ChatLinkProblem(); why != "" && p.src.Conv != nil {
 		widget.Notice(c, "正在重连："+why, widget.Caution)

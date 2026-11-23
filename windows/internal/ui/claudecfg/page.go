@@ -56,6 +56,7 @@ type Page struct {
 	defaultsErr string
 	working     bool // 正在改新对话默认
 	idle        *int // 这台主机的闲置超时（分钟），还没读到时是 nil
+	claude      claudeState
 
 	notice *notice
 
@@ -93,6 +94,7 @@ func (p *Page) Load() {
 			p.defaults = &d
 		}
 	})
+	p.loadClaude()
 	p.async(func(ctx context.Context) func() {
 		m, err := p.opts.Core.IdleMinutes(ctx)
 		return func() {

@@ -74,7 +74,9 @@ func (l *ChatLink) Call(_ context.Context, method string, params map[string]any)
 		return l.devices.answerSessions(l, Call{Method: method, Params: params})
 	}
 	c := Call{Method: method, Params: params}
-	l.calls = append(l.calls, c)
+	if method != "system.cpu" { // 输入栏的负载标识隔几秒问一次，不记，免得各测试核对的请求清单里混进它
+		l.calls = append(l.calls, c)
+	}
 	onCall := l.onCall
 	l.mu.Unlock()
 	if onCall == nil {

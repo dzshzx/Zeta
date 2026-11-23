@@ -207,6 +207,7 @@ func (p *Page) claudeSection(c *ui.Context) {
 			}
 		})
 		p.idleRow(l)
+		p.claudeRow(l)
 	})
 }
 

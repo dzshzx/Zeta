@@ -59,6 +59,7 @@ func (a *App) composer(c *ui.Context, p *chatPane) {
 			if p.src.Conv != nil {
 				a.modelMenu(c, p)
 				a.effortMenu(c, p)
+				a.hostLoadChip(c, p)
 				a.usageButton(c, p)
 			}
 			if p.state.Busy {
