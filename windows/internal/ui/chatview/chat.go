@@ -282,7 +282,11 @@ func (ch *Chat) item(c *ui.Context, row int) {
 	it := ch.items[row]
 	switch it.Kind {
 	case items.User:
-		ch.userMessage(c, it, row)
+		if it.Peer != "" {
+			ch.peerMessage(c, it)
+		} else {
+			ch.userMessage(c, it, row)
+		}
 	case items.Answer:
 		ch.answerBlock(c, it, row)
 	case items.Thought:

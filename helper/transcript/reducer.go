@@ -297,6 +297,7 @@ func (r *Reducer) finalizeToolUse(id string, b Block, lb *liveBlock) {
 type UserOptions struct {
 	SessionFile string         // 这条消息所在的会话记录：历史里的图片只带位置，要靠它去取
 	UUID        string         // 这条消息在记录里的 uuid
+	Peer        string         // 另一个会话发来的（会话互通）时，发信会话的名字
 	Result      *ToolUseResult // 事件上的 tool_use_result
 }
 
@@ -352,7 +353,7 @@ func (r *Reducer) replayUser(blocks []Block, opts UserOptions) bool {
 	}
 	files, text := splitAttachedFiles(raw)
 	if len(images) > 0 || len(files) > 0 || text != "" {
-		r.AddUser(text, images, files, opts.UUID)
+		r.AddUser(text, images, files, opts.UUID).Peer = opts.Peer
 	}
 	return false
 }

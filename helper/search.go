@@ -29,6 +29,9 @@ func spokenText(o obj) (role, text string) {
 		if attachment["type"] != "queued_command" || !truthy(attachment["prompt"]) {
 			return "", ""
 		}
+		if name, body, ok := peerMessage(attachment); ok {
+			return "user", "来自会话 " + name + "：" + body // 片段里也认得出是别的会话发来的
+		}
 		return "user", userText(attachment["prompt"])
 	case "user":
 		if truthy(o["isCompactSummary"]) || hasToolResult(content) {

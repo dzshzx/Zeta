@@ -29,6 +29,7 @@ type Item struct {
 	Images []Image  `json:"images,omitempty"` // user
 	Files  []string `json:"files,omitempty"`  // user：随消息附带的路径（附件行，见 SplitAttachedFiles）
 	UUID   string   `json:"uuid,omitempty"`   // user：这条消息在会话记录里的 uuid
+	Peer   string   `json:"peer,omitempty"`   // user：另一个 Claude Code 会话发来的（会话互通）时，发信会话的名字
 
 	// user：这一轮能做什么。归约器不管，由核心按对话的规则算好（SetRound，见 docs/core.md 的 conv.items）
 	Rewindable bool   `json:"rewindable,omitempty"`

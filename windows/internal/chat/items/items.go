@@ -30,6 +30,8 @@ type Item struct {
 	Images []Image  `json:"images"`
 	Files  []string `json:"files"`
 	UUID   string   `json:"uuid"`
+	// Peer：user 是另一个 Claude Code 会话发来的（会话互通）时，发信会话的名字（核心的 peer），Text 是不带外壳的正文。
+	Peer string `json:"peer"`
 	// Rewindable、Forkable、RoundLast：user 这一轮能做什么，核心算好的（docs/core.md 的 conv.items）。Rewindable 是能编辑、
 	// 重新生成、删除这一轮、还原代码；Forkable 是能从这一轮之后分支；RoundLast 是这一轮的操作排挂在哪一项下面，
 	// 这一轮除了用户消息只有灰色提示时为空。真能做还要 conv.state 的 can_rewind 为真。

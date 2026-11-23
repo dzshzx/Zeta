@@ -11,7 +11,7 @@ import (
 
 // exportBlock 是导出里的一块。工具调用的结果在后面几行，先记下调用，最后一起写。
 type exportBlock struct {
-	kind   string // user、notice、text、thinking、tool
+	kind   string // user、peer（另一个会话发来的，name 是发信会话）、notice、text、thinking、tool
 	text   string
 	images int
 	toolID any
@@ -114,6 +114,12 @@ func (r *exportReader) record(o obj, line []byte) {
 	case kind == "user" && !truthy(o["isMeta"]) && !truthy(o["isCompactSummary"]):
 		r.user(content, line)
 	case kind == "attachment":
+		if name, body, ok := peerMessage(asObj(o["attachment"])); ok {
+			if !truthy(o["isSidechain"]) && body != "" {
+				r.add(exportBlock{kind: "peer", name: name, text: body})
+			}
+			return
+		}
 		if _, text := spokenText(o); text != "" {
 			r.add(exportBlock{kind: "user", text: text, images: imageCount(asObj(o["attachment"])["prompt"])})
 		}
@@ -231,6 +237,10 @@ func renderExport(title string, blocks []exportBlock, results map[string]obj) st
 		switch b.kind {
 		case "user":
 			parts = append(parts, renderUser(b))
+			answering = false
+			continue
+		case "peer":
+			parts = append(parts, "## 来自会话 "+b.name+"\n\n"+b.text)
 			answering = false
 			continue
 		case "notice":

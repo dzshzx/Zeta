@@ -177,6 +177,28 @@ func userText(content any) string {
 	return text
 }
 
+// peerMessage 是另一个 Claude Code 会话发来的消息（会话互通）：Claude Code 把它记成 queued_command 附件，
+// prompt 是 <cross-session-message from=… from-name=… from-mode=…>正文</cross-session-message>，
+// origin 里有结构化的 kind（peer）、name（发信会话的名字）和 body（正文，较早的版本没有，从 prompt 里剥）。
+// 不是这种附件时 ok 为假。
+func peerMessage(attachment obj) (name, body string, ok bool) {
+	origin := asObj(attachment["origin"])
+	if attachment["type"] != "queued_command" || origin["kind"] != "peer" {
+		return "", "", false
+	}
+	body = asString(origin["body"])
+	if body == "" {
+		body = asString(attachment["prompt"])
+		if m := peerWrapper.FindStringSubmatch(body); m != nil {
+			body = m[1]
+		}
+	}
+	return asString(origin["name"]), strings.TrimSpace(body), true
+}
+
+// peerWrapper 是会话互通消息在 prompt 里的外壳，取出里面的正文。
+var peerWrapper = regexp.MustCompile(`(?s)^\s*<cross-session-message[^>]*>(.*?)</cross-session-message>\s*$`)
+
 // rawUserText 是用户消息里的文字块连起来、去掉首尾空白，不做别的处理。
 func rawUserText(content any) string {
 	var text string

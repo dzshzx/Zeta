@@ -30,6 +30,7 @@ func previewScenes(t *testing.T) []previewScene {
 		{name: "many-edits", items: func(t *testing.T) []items.Item { return manyEdits(t, 5) }},
 		{name: "answer-images", items: answerImageItems},
 		{name: "math", items: mathItems},
+		{name: "peer", items: peerItems},
 		{name: "earlier", items: func(*testing.T) []items.Item { return longConversation("", 2) }, earlier: Earlier{Skipped: 120}},
 		{name: "earlier-loading", items: func(*testing.T) []items.Item { return longConversation("", 2) }, earlier: Earlier{Skipped: 120, Loading: true}},
 	}

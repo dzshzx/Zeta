@@ -153,6 +153,11 @@ func (r *historyReader) record(o obj, number int) {
 		if attachment["type"] != "queued_command" || truthy(o["isSidechain"]) {
 			return
 		}
+		if name, body, ok := peerMessage(attachment); ok {
+			// 另一个会话发来的：正文不带外壳，peer 写明发信会话，Zeta 画成单独的样子
+			r.add(obj{"type": "user", "peer": name, "message": obj{"content": []any{obj{"type": "text", "text": body}}}}, row)
+			return
+		}
 		r.user(o, attachment["prompt"], number, row)
 		return
 	}

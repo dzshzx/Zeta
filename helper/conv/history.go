@@ -26,6 +26,7 @@ type historyLine struct {
 	Type          string                    `json:"type"`
 	Subtype       string                    `json:"subtype"`
 	UUID          string                    `json:"uuid"`
+	Peer          string                    `json:"peer"`
 	Message       *transcript.Message       `json:"message"`
 	ToolUseResult *transcript.ToolUseResult `json:"tool_use_result"`
 }
@@ -57,7 +58,7 @@ func readHistory(out []byte, file, prefix string, keepRunningTools bool) history
 		case h.Type == "assistant" && h.Message != nil:
 			r.ApplyAssistant(*h.Message, true)
 		case h.Type == "user" && h.Message != nil:
-			r.ApplyUser(*h.Message, true, transcript.UserOptions{SessionFile: file, UUID: h.UUID, Result: h.ToolUseResult})
+			r.ApplyUser(*h.Message, true, transcript.UserOptions{SessionFile: file, UUID: h.UUID, Peer: h.Peer, Result: h.ToolUseResult})
 		}
 	}
 	r.FinishTurn(keepRunningTools)
