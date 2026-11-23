@@ -282,7 +282,7 @@ func (r *Reducer) toThought(lb *liveBlock) {
 func (r *Reducer) finalizeToolUse(id string, b Block, lb *liveBlock) {
 	input := b.input()
 	if lb != nil {
-		lb.step.Input = input
+		lb.step.Input, lb.step.Clipped = input, b.Clipped
 		touch(lb.item)
 		return
 	}
@@ -293,10 +293,10 @@ func (r *Reducer) finalizeToolUse(id string, b Block, lb *liveBlock) {
 	ref, known := r.tools[stepID]
 	switch {
 	case !known:
-		s := &Step{Kind: StepTool, ID: stepID, Name: b.Name, Input: input, Status: ToolRunning}
+		s := &Step{Kind: StepTool, ID: stepID, Name: b.Name, Input: input, Clipped: b.Clipped, Status: ToolRunning}
 		r.tools[stepID] = stepRef{r.appendStep(s), s}
 	case ref.step.Input == nil:
-		ref.step.Input = input
+		ref.step.Input, ref.step.Clipped = input, b.Clipped
 		touch(ref.item)
 	}
 }

@@ -60,8 +60,8 @@ func (f *fileChange) label() string {
 	return ""
 }
 
-// clipMarker 是 zeta-helper 截断过长字符串时加的尾巴。
-const clipMarker = "\n…（已截断）"
+// clipMarker 是 zeta-helper 截断过长字符串时加的尾巴（不分语言）；只在步骤标着 Clipped 时去掉它，不靠它认截断。
+const clipMarker = "\n…"
 
 // contextLines：自己对比新旧字符串时，改动前后留几行没变的。
 const contextLines = 3
@@ -99,7 +99,7 @@ func changeOf(s items.Step) *fileChange {
 			return nil
 		}
 		f := &fileChange{path: path, kind: editChange, replaceAll: s.Bool("replace_all")}
-		f.addEdit(old, nw)
+		f.addEdit(old, nw, s.Clipped)
 		return f
 	default: // MultiEdit
 		edits, _ := s.Input["edits"].([]any)
@@ -108,7 +108,7 @@ func changeOf(s items.Step) *fileChange {
 			m, _ := e.(map[string]any)
 			old, _ := m["old_string"].(string)
 			nw, _ := m["new_string"].(string)
-			f.addEdit(old, nw)
+			f.addEdit(old, nw, s.Clipped)
 		}
 		if len(f.hunks) == 0 {
 			return nil
@@ -117,10 +117,10 @@ func changeOf(s items.Step) *fileChange {
 	}
 }
 
-// addEdit 把一处新旧字符串的对比接到改动后面。
-func (f *fileChange) addEdit(old, nw string) {
-	old, clippedOld := unclip(old)
-	nw, clippedNew := unclip(nw)
+// addEdit 把一处新旧字符串的对比接到改动后面；clipped 是核心截断过参数（items.Step 的 Clipped）。
+func (f *fileChange) addEdit(old, nw string, clipped bool) {
+	old, clippedOld := unclip(old, clipped)
+	nw, clippedNew := unclip(nw, clipped)
 	f.truncated = f.truncated || clippedOld || clippedNew
 	f.hunks = append(f.hunks, compareLines(old, nw)...)
 }
@@ -130,7 +130,7 @@ func newFileChange(path string, s items.Step) *fileChange {
 	if !ok {
 		return nil
 	}
-	content, truncated := unclip(content)
+	content, truncated := unclip(content, s.Clipped)
 	f := &fileChange{path: path, kind: createChange, numbered: true, truncated: truncated}
 	if lines := splitLines(content); len(lines) > 0 {
 		h := items.Hunk{Lines: make([]items.Line, len(lines))}
@@ -142,9 +142,11 @@ func newFileChange(path string, s items.Step) *fileChange {
 	return f
 }
 
-func unclip(s string) (string, bool) {
-	out, cut := strings.CutSuffix(s, clipMarker)
-	return out, cut
+func unclip(s string, clipped bool) (string, bool) {
+	if !clipped {
+		return s, false
+	}
+	return strings.CutSuffix(s, clipMarker)
 }
 
 // splitLines 按行切开；结尾的换行不算多出一个空行。

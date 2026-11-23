@@ -86,16 +86,24 @@ data class FileChange(
 /** 会改文件、能画成对比的工具。 */
 val FileEditTools = setOf("Edit", "MultiEdit", "Write")
 
-/** zeta-helper 截断过长字符串时加的尾巴。 */
-private const val ClipMarker = "\n…（已截断）"
+/** zeta-helper 截断过长字符串时加的尾巴（不分语言）；只在步骤标着 clipped 时去掉它，不靠它认截断。 */
+private const val ClipMarker = "\n…"
 
-/** 从一次工具调用算出文件改动；不是改文件的工具、参数还没到时返回 null。 有 Claude Code 给的 [patch] 就照它画（带真实行号），否则按参数里的新旧字符串自己对比。 */
-fun fileChangeOf(name: String, input: JsonObject?, patch: EditPatch?): FileChange? {
+/**
+ * 从一次工具调用算出文件改动；不是改文件的工具、参数还没到时返回 null。 有 Claude Code 给的 [patch] 就照它画（带真实行号），否则按参数里的新旧字符串自己对比。
+ * [clipped] 是核心截断过参数（[ToolStep.clipped]），这时对比只画得出一部分。
+ */
+fun fileChangeOf(
+    name: String,
+    input: JsonObject?,
+    patch: EditPatch?,
+    clipped: Boolean = false,
+): FileChange? {
     if (name !in FileEditTools || input == null) return null
     val path = input.str("file_path") ?: return null
     if (patch != null && (patch.hunks.isNotEmpty() || patch.created)) {
         return when {
-            name == "Write" && patch.created -> writeAsNewFile(path, input)
+            name == "Write" && patch.created -> writeAsNewFile(path, input, clipped)
             name == "Write" ->
                 FileChange(path, FileChange.Kind.Overwrite, patch.hunks, numbered = true)
             else ->
@@ -110,10 +118,10 @@ fun fileChangeOf(name: String, input: JsonObject?, patch: EditPatch?): FileChang
     }
     return when (name) {
         // 还不知道是不是新建：先当作整份新内容显示，结果到了再换成真实对比
-        "Write" -> writeAsNewFile(path, input)
+        "Write" -> writeAsNewFile(path, input, clipped)
         "Edit" -> {
-            val old = unclip(input.str("old_string") ?: return null)
-            val new = unclip(input.str("new_string") ?: return null)
+            val old = unclip(input.str("old_string") ?: return null, clipped)
+            val new = unclip(input.str("new_string") ?: return null, clipped)
             FileChange(
                 path,
                 FileChange.Kind.Edit,
@@ -128,8 +136,8 @@ fun fileChangeOf(name: String, input: JsonObject?, patch: EditPatch?): FileChang
             val hunks =
                 (input["edits"] as? JsonArray).orEmpty().flatMap { element ->
                     val edit = element as? JsonObject ?: return@flatMap emptyList()
-                    val old = unclip(edit.str("old_string").orEmpty())
-                    val new = unclip(edit.str("new_string").orEmpty())
+                    val old = unclip(edit.str("old_string").orEmpty(), clipped)
+                    val new = unclip(edit.str("new_string").orEmpty(), clipped)
                     truncated = truncated || old.second || new.second
                     LineDiff.hunks(old.first, new.first)
                 }
@@ -147,8 +155,8 @@ fun fileChangeOf(name: String, input: JsonObject?, patch: EditPatch?): FileChang
     }
 }
 
-private fun writeAsNewFile(path: String, input: JsonObject): FileChange? {
-    val (content, truncated) = unclip(input.str("content") ?: return null)
+private fun writeAsNewFile(path: String, input: JsonObject, clipped: Boolean): FileChange? {
+    val (content, truncated) = unclip(input.str("content") ?: return null, clipped)
     val lines = splitLines(content)
     val hunk =
         DiffHunk(
@@ -163,8 +171,9 @@ private fun writeAsNewFile(path: String, input: JsonObject): FileChange? {
     )
 }
 
-private fun unclip(text: String): Pair<String, Boolean> =
-    if (text.endsWith(ClipMarker)) text.removeSuffix(ClipMarker) to true else text to false
+private fun unclip(text: String, clipped: Boolean): Pair<String, Boolean> =
+    if (clipped && text.endsWith(ClipMarker)) text.removeSuffix(ClipMarker) to true
+    else text to false
 
 /** 按行切开；结尾的换行不算多出一个空行。 */
 fun splitLines(text: String): List<String> {

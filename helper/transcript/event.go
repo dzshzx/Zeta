@@ -66,6 +66,7 @@ type Block struct {
 	ID        string          `json:"id"`
 	Name      string          `json:"name"`
 	Input     json.RawMessage `json:"input"`
+	Clipped   bool            `json:"clipped"` // tool_use：zeta-helper history 截断过参数里的长字符串
 	ToolUseID string          `json:"tool_use_id"`
 	IsError   bool            `json:"is_error"`
 	Content   Content         `json:"content"`

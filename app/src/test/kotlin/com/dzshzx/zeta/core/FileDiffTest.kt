@@ -217,10 +217,14 @@ class FileDiffTest {
 
     @Test
     fun clippedHistoryIsMarkedTruncated() {
-        val input = json("""{"file_path":"/a","old_string":"x","new_string":"y\n…（已截断）"}""")
-        val change = notNull(fileChangeOf("Edit", input, patch = null))
+        val input = json("""{"file_path":"/a","old_string":"x","new_string":"y\n…"}""")
+        val change = notNull(fileChangeOf("Edit", input, patch = null, clipped = true))
         assertTrue(change.truncated)
         assertEquals(listOf("x", "y"), change.hunks.single().lines.map { it.text })
+        // 没标 clipped 的照原样：正文自己以 … 结尾不算截断
+        val whole = notNull(fileChangeOf("Edit", input, patch = null))
+        assertFalse(whole.truncated)
+        assertEquals(listOf("x", "y", "…"), whole.hunks.single().lines.map { it.text })
     }
 
     @Test

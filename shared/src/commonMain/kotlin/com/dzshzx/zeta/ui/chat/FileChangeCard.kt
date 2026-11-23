@@ -81,7 +81,7 @@ private const val CollapsedCards = 3
 fun rememberFileChange(step: ToolStep): FileChange? =
     remember(step.name, step.input, step.patch, step.status) {
         if (step.status == ToolStatus.Failed) null
-        else fileChangeOf(step.name, step.input, step.patch)
+        else fileChangeOf(step.name, step.input, step.patch, step.clipped)
     }
 
 /** 时间线里改文件的一步：标题行带增删行数，点标题行展开或收起下面的对比，默认收着。 */

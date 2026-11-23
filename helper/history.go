@@ -2,6 +2,7 @@ package main
 
 import (
 	"fmt"
+	"reflect"
 	"strings"
 )
 
@@ -256,6 +257,9 @@ func assistantBlocks(content any) []any {
 		}
 		c := clip(m).(obj)
 		delete(c, "signature")
+		if m["type"] == "tool_use" && !reflect.DeepEqual(c["input"], m["input"]) {
+			c["clipped"] = true // 参数不全：客户端据此知道改文件的对比画不全，不去认截断的尾巴
+		}
 		blocks = append(blocks, c)
 	}
 	return blocks

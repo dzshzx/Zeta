@@ -162,8 +162,9 @@ func numberKey(n json.Number) string {
 func isIntegerLiteral(n json.Number) bool { return !strings.ContainsAny(string(n), ".eE") }
 
 const (
-	maxText   = 6000
-	truncMark = "\n…（已截断）" // 应用的 FileDiff.kt 认这个尾巴
+	maxText = 6000
+	// truncMark 是截断处加的尾巴，不分语言；客户端不认它，改文件的工具参数被截断时看块上的 clipped（history.go 的 assistantBlocks）
+	truncMark = "\n…"
 )
 
 // clip 把值里过长的字符串（按字符数）截到 maxText，数组、对象逐项处理，返回新的值。

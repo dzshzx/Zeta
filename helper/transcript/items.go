@@ -103,12 +103,14 @@ type Step struct {
 	Running bool   `json:"running,omitempty"` // thinking：还在想
 	Seconds int    `json:"seconds,omitempty"` // thinking：想了几秒，只有实时看着它想完的才知道
 
-	Name   string          `json:"name,omitempty"`   // tool
-	Input  json.RawMessage `json:"input,omitempty"`  // tool：调用的参数（对象），还没收到时没有
-	Status ToolStatus      `json:"status,omitempty"` // tool
-	Result string          `json:"result,omitempty"` // tool：结果的文字，status 不是 running 时才有意义
-	Images []Image         `json:"images,omitempty"` // tool：结果里的图
-	Patch  *Patch          `json:"patch,omitempty"`  // tool：改文件的工具给出的改动
+	Name  string          `json:"name,omitempty"`  // tool
+	Input json.RawMessage `json:"input,omitempty"` // tool：调用的参数（对象），还没收到时没有
+	// Clipped：tool 的参数里有长字符串被截断了（会话记录里读来的，截断处是 "\n…"），改文件的对比只能画出一部分
+	Clipped bool       `json:"clipped,omitempty"`
+	Status  ToolStatus `json:"status,omitempty"` // tool
+	Result  string     `json:"result,omitempty"` // tool：结果的文字，status 不是 running 时才有意义
+	Images  []Image    `json:"images,omitempty"` // tool：结果里的图
+	Patch   *Patch     `json:"patch,omitempty"`  // tool：改文件的工具给出的改动
 }
 
 // Image 是聊天里的一张图：实时收到的带着数据，会话记录里的只有位置。

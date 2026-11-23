@@ -88,14 +88,19 @@ func TestChangeOfWrite(t *testing.T) {
 }
 
 func TestChangeOfMultiEditAndTruncated(t *testing.T) {
-	s := step(t, `{"kind":"tool","id":"m","name":"MultiEdit","status":"success","input":{"file_path":"/w/a.go","edits":[
-		{"old_string":"a","new_string":"b"},{"old_string":"c","new_string":"d`+jsonString(clipMarker)[1:len(jsonString(clipMarker))-1]+`"}]}}`)
-	f := changeOf(s)
+	js := `{"kind":"tool","id":"m","name":"MultiEdit","status":"success","clipped":true,"input":{"file_path":"/w/a.go","edits":[
+		{"old_string":"a","new_string":"b"},{"old_string":"c","new_string":"d\n…"}]}}`
+	f := changeOf(step(t, js))
 	if f == nil || len(f.hunks) != 2 || !f.truncated || lineKinds(f.hunks) != "-+|-+" {
 		t.Fatalf("MultiEdit：%+v %q", f, lineKinds(f.hunks))
 	}
 	if f.hunks[1].Lines[1].Text != "d" {
 		t.Errorf("截断记号没去掉：%q", f.hunks[1].Lines[1].Text)
+	}
+	// 核心没标 clipped 的照原样画：正文自己以 … 结尾不算截断
+	whole := changeOf(step(t, strings.Replace(js, `"clipped":true,`, "", 1)))
+	if whole == nil || whole.truncated || len(whole.hunks[1].Lines) != 3 {
+		t.Fatalf("没截断的：%+v", whole)
 	}
 }
 

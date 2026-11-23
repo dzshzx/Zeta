@@ -164,6 +164,8 @@ data class ToolStep(
     val images: List<ImageRef> = emptyList(),
     /** 改文件工具的结果里 Claude Code 给出的改动（带真实行号）。 */
     val patch: EditPatch? = null,
+    /** 参数里有长字符串被核心截断了（会话记录里读来的，截断处是 "\n…"），改文件的对比只画得出一部分。 */
+    val clipped: Boolean = false,
 ) : WorkStep {
     override val running: Boolean
         get() = status == ToolStatus.Running

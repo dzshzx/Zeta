@@ -102,6 +102,8 @@ type Step struct {
 	Result string         `json:"result"`
 	Images []Image        `json:"images"`
 	Patch  *Patch         `json:"patch"`
+	// Clipped：参数里有长字符串被核心截断了（会话记录里读来的，截断处是 "\n…"），改文件的对比只画得出一部分。
+	Clipped bool `json:"clipped"`
 }
 
 // Running 报告这一步还在进行：思考还在想，或工具还在跑。

@@ -79,6 +79,7 @@ private fun workStepJson(step: WorkStep): JsonObject =
                 put("result", step.result)
                 put("images", JsonArray(step.images.map(::imageRefJson)))
                 put("patch", step.patch?.let(::editPatchJson) ?: JsonNull)
+                if (step.clipped) put("clipped", true)
             }
     }
 
@@ -179,6 +180,7 @@ private fun workStepOf(o: JsonObject, conv: String): WorkStep? {
                 result = o.str("result"),
                 images = imagesOf(o, conv),
                 patch = o.obj("patch")?.let(::editPatchOf),
+                clipped = o.bool("clipped") == true,
             )
         else -> null
     }
