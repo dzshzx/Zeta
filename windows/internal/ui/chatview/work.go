@@ -174,7 +174,7 @@ func stepText(s items.Step) (title, detail string) {
 func (ch *Chat) stepDetailView(c *ui.Context, s items.Step, detail string) {
 	t := c.Theme()
 	if s.Kind == items.Thinking {
-		markdown.View(c, detail, &ch.thinking).FillWidth()
+		markdown.View(c, mathSource(detail), &ch.thinking).FillWidth()
 		return
 	}
 	if detail != "" {

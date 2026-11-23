@@ -37,8 +37,8 @@ type credit struct {
 }
 
 // credits 是桌面版参照和依靠的项目（同手机版的「鸣谢」，只列桌面版用到的）：
-// Eta 是整个项目的参考来源；mygo、x/crypto、x/image 是 windows/go.mod 直接依赖的模块；
-// 图标的路径数据有一部分照搬 COUI 2 的 coui-icons（见 widget/icons.go）。
+// Eta 是整个项目的参考来源；mygo、x/crypto、x/image、wazero 是 windows/go.mod 直接依赖的模块；
+// 图标的路径数据有一部分照搬 COUI 2 的 coui-icons（见 widget/icons.go）；公式用 RaTeX 的 wasm 和 KaTeX 字体（见 mathtex）。
 var credits = []credit{
 	{"Eta", "Zeta 的参考来源，功能和交互照它设计（GPL-3.0）", "https://github.com/Mangi-11/Eta", ""},
 	{"Claude Code", "Anthropic 的编程 agent，Zeta 是它的客户端", "https://github.com/anthropics/claude-code", ""},
@@ -46,4 +46,7 @@ var credits = []credit{
 	{"Go x/crypto", "直连设备用的 SSH（BSD-3-Clause）", "https://github.com/golang/crypto", "golang.org/x/crypto"},
 	{"Go x/image", "附件图片的缩小与 WebP、BMP 解码（BSD-3-Clause）", "https://github.com/golang/image", "golang.org/x/image"},
 	{"COUI 2", "一部分图标取自它的图标库 coui-icons（Apache-2.0）", "https://github.com/suqi8/coui", ""},
+	{"RaTeX", "排回答里的数学公式，同手机版（MIT）", "https://github.com/erweixin/RaTeX", ""},
+	{"KaTeX 字体", "公式用的字体（OFL-1.1）", "https://github.com/KaTeX/KaTeX", ""},
+	{"wazero", "运行 RaTeX 的 WebAssembly（Apache-2.0）", "https://github.com/tetratelabs/wazero", "github.com/tetratelabs/wazero"},
 }

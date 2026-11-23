@@ -84,9 +84,9 @@ func (ch *Chat) answerBlock(c *ui.Context, it items.Item, row int) {
 		case strings.TrimSpace(shown.Text) == "":
 			md = ui.Box(c) // 只有图
 		case it.Streaming:
-			md = markdown.Stream(c, shown.Text, &ch.answer)
+			md = markdown.Stream(c, mathSource(shown.Text), &ch.answer)
 		default:
-			md = markdown.View(c, ch.answerSource(c, shown), &ch.answer)
+			md = markdown.View(c, mathSource(ch.answerSource(c, shown)), &ch.answer)
 		}
 		md.FillWidth()
 		ch.answerImages(c, parts)
@@ -105,9 +105,9 @@ func (ch *Chat) thoughtBlock(c *ui.Context, it items.Item, row int) {
 	ui.Column(c).FillWidth().Padding(4, 0, 6, 0).Children(func() {
 		var md ui.Element
 		if it.Streaming {
-			md = markdown.Stream(c, it.Text, &ch.answer)
+			md = markdown.Stream(c, mathSource(it.Text), &ch.answer)
 		} else {
-			md = markdown.View(c, ch.answerSource(c, it), &ch.answer)
+			md = markdown.View(c, mathSource(ch.answerSource(c, it)), &ch.answer)
 		}
 		md.FillWidth()
 	})

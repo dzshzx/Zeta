@@ -111,6 +111,8 @@ func New() *Chat {
 	ch.answer.Theme = &ch.answerTheme
 	ch.answer.CodeBlock = codeBlock
 	ch.thinking.CodeBlock = codeBlock
+	setMath(&ch.answer, &ch.answerTheme, answerMathScale)
+	setMath(&ch.thinking, &ch.thinkingTheme, thinkingMathScale)
 	return ch
 }
 

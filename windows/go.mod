@@ -6,6 +6,7 @@ require (
 	github.com/dzshzx/Zeta/client v0.0.0
 	github.com/dzshzx/Zeta/helper v0.0.0
 	github.com/egoist/mygo v0.10.0
+	github.com/tetratelabs/wazero v1.12.0
 	golang.org/x/crypto v0.57.0
 	golang.org/x/image v0.46.0
 )
