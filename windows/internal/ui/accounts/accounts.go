@@ -9,7 +9,7 @@ import (
 
 	"github.com/dzshzx/Zeta/helper/coreapi"
 	acct "github.com/dzshzx/Zeta/windows/internal/accounts"
-	"github.com/dzshzx/Zeta/windows/internal/ui/coui"
+	"github.com/dzshzx/Zeta/windows/internal/ui/widget"
 	"github.com/egoist/mygo/ui"
 )
 
@@ -40,21 +40,21 @@ func (p *Page) View(c *ui.Context) {
 		p.quota(c)
 		p.accounts(c)
 	})
-	if coui.Alert(c, &p.askSwitch, "切换到 "+p.switching.Title()+"？",
+	if widget.Alert(c, &p.askSwitch, "切换到 "+p.switching.Title()+"？",
 		"会先关掉这台设备上闲着的对话进程，对话内容不丢。之后这台上的新对话、额度和终端里的 claude 都用这个账号。",
-		coui.Action{Label: "取消"}, coui.Action{Label: "切换", Style: coui.Recommend}) == 1 {
+		widget.Action{Label: "取消"}, widget.Action{Label: "切换", Style: widget.Recommend}) == 1 {
 		p.Accounts.Switch(p.switching)
 	}
-	if coui.Alert(c, &p.askRemove, "移除 "+p.removing.Title()+"？",
+	if widget.Alert(c, &p.askRemove, "移除 "+p.removing.Title()+"？",
 		"只删这台设备上存着的这份登录，服务器上的登录还在。以后要用得重新登录。",
-		coui.Action{Label: "取消"}, coui.Action{Label: "移除", Style: coui.Destructive}) == 1 {
+		widget.Action{Label: "取消"}, widget.Action{Label: "移除", Style: widget.Destructive}) == 1 {
 		p.Accounts.Remove(p.removing)
 	}
 }
 
 func (p *Page) quota(c *ui.Context) {
 	q := p.Quota
-	coui.Group(c, "订阅额度", q.Footnote(c.Now()), func(l *coui.List) {
+	widget.Group(c, "订阅额度", q.Footnote(c.Now()), func(l *widget.List) {
 		if s, ok := q.Snapshot(); ok && !s.Unavailable && len(s.Windows) > 0 {
 			l.Custom(func() {
 				ui.Column(c).Grow(1).Padding(4, 0).Children(func() { Windows(c, s, c.Now()) })
@@ -66,7 +66,7 @@ func (p *Page) quota(c *ui.Context) {
 			if q.Refreshing() {
 				label = "正在刷新"
 			}
-			coui.SmallButton(c, label).Disabled(q.Refreshing()).OnClick(func() { q.Refresh(true) })
+			widget.SmallButton(c, label).Disabled(q.Refreshing()).OnClick(func() { q.Refresh(true) })
 		})
 	})
 }
@@ -74,8 +74,8 @@ func (p *Page) quota(c *ui.Context) {
 func (p *Page) accounts(c *ui.Context) {
 	svc := p.Accounts
 	st, loaded := svc.State()
-	coui.Group(c, "账号", "这台设备上两个 Zeta 和终端里的 claude 共用一份登录，有对话在进行或别处开着 Claude Code 时不能切换。"+
-		"添加账号时在用的号先存起来，之后能切换回去。", func(l *coui.List) {
+	widget.Group(c, "账号", "这台设备上两个 Zeta 和终端里的 claude 共用一份登录，有对话在进行或别处开着 Claude Code 时不能切换。"+
+		"添加账号时在用的号先存起来，之后能切换回去。", func(l *widget.List) {
 		switch {
 		case !loaded:
 			l.Message("正在读取")
@@ -87,8 +87,8 @@ func (p *Page) accounts(c *ui.Context) {
 		}
 		if _, logging := svc.Login(); loaded && !logging {
 			l.Custom(func() {
-				ui.Text(c, "添加账号").FontSize(coui.SizeHeadlineXS).TextColor(coui.Of(c).Text).Grow(1)
-				coui.SmallButton(c, "添加").Disabled(svc.Working() != "").OnClick(func() {
+				ui.Text(c, "添加账号").FontSize(widget.SizeHeadlineXS).TextColor(widget.Of(c).Text).Grow(1)
+				widget.SmallButton(c, "添加").Disabled(svc.Working() != "").OnClick(func() {
 					p.code = ""
 					svc.StartLogin()
 				})
@@ -97,7 +97,7 @@ func (p *Page) accounts(c *ui.Context) {
 		if w := svc.Working(); w != "" {
 			l.Custom(func() {
 				ui.Spinner(c).Size(16, 16).Label(w)
-				ui.Text(c, w).FontSize(coui.SizeHeadlineXS).TextColor(coui.Of(c).Text)
+				ui.Text(c, w).FontSize(widget.SizeHeadlineXS).TextColor(widget.Of(c).Text)
 			})
 		}
 	})
@@ -105,24 +105,24 @@ func (p *Page) accounts(c *ui.Context) {
 		p.login(c, l)
 	}
 	if problem := svc.Problem(); problem != "" {
-		ui.Column(c).Padding(0, 16, 16, 16).Children(func() { coui.Notice(c, problem, coui.Failure) })
+		ui.Column(c).Padding(0, 16, 16, 16).Children(func() { widget.Notice(c, problem, widget.Failure) })
 	}
 }
 
 // row 是一个账号：在用的右边写「当前」（还没记下名字的给「记下」），别的给「切换」「移除」。
-func (p *Page) row(l *coui.List, a coreapi.Account, current bool, now time.Time) {
+func (p *Page) row(l *widget.List, a coreapi.Account, current bool, now time.Time) {
 	c := l.Context()
 	idle := p.Accounts.Working() == ""
-	row := coui.Row{Key: "account:" + a.Name, Title: a.Title(), Summary: summary(a, now)}
+	row := widget.Row{Key: "account:" + a.Name, Title: a.Title(), Summary: summary(a, now)}
 	if current {
 		row.Value = "当前"
 		if a.Name == "" {
-			row.End = func() { coui.SmallPrimaryButton(c, "记下").Disabled(!idle).OnClick(p.Accounts.Save) }
+			row.End = func() { widget.SmallPrimaryButton(c, "记下").Disabled(!idle).OnClick(p.Accounts.Save) }
 		}
 	} else {
 		row.End = func() {
-			coui.SmallButton(c, "切换").Disabled(!idle).OnClick(func() { p.switching, p.askSwitch = a, true })
-			coui.SmallDangerButton(c, "移除").Disabled(!idle).OnClick(func() { p.removing, p.askRemove = a, true })
+			widget.SmallButton(c, "切换").Disabled(!idle).OnClick(func() { p.switching, p.askSwitch = a, true })
+			widget.SmallDangerButton(c, "移除").Disabled(!idle).OnClick(func() { p.removing, p.askRemove = a, true })
 		}
 	}
 	l.Row(row)
@@ -147,14 +147,14 @@ func summary(a coreapi.Account, now time.Time) string {
 
 // note 是额度下面的一句小字（12，次要文字色）。
 func note(c *ui.Context, text string) ui.Element {
-	return ui.Text(c, text).FontSize(coui.SizeBodyXS).LineHeight(1.35).TextColor(coui.Of(c).Secondary)
+	return ui.Text(c, text).FontSize(widget.SizeBodyXS).LineHeight(1.35).TextColor(widget.Of(c).Secondary)
 }
 
 // Windows 画各个额度窗口（同手机版 QuotaControls 的 QuotaWindows）：名字、已用比例、细进度条、什么时候重置；
 // 被拒时先说一句，开了额外用量时最后一行。页面和小控件共用。
 func Windows(c *ui.Context, s coreapi.QuotaSnapshot, now time.Time) {
 	s = s.At(now)
-	k := coui.Of(c)
+	k := widget.Of(c)
 	ui.Column(c).FillWidth().Gap(12).Children(func() {
 		if s.Blocked {
 			text := "已达上限，暂时发不出请求"
@@ -184,12 +184,12 @@ func Windows(c *ui.Context, s coreapi.QuotaSnapshot, now time.Time) {
 
 func line(c *ui.Context, label, value string, used *float64, sev coreapi.Severity, detail string) {
 	t := c.Theme()
-	k := coui.Of(c)
+	k := widget.Of(c)
 	ink := k.Text.Alpha(0.88 * float32(k.Text.A) / 255)
 	ui.Column(c).FillWidth().Children(func() {
 		ui.Row(c).AlignItems(ui.Center).Children(func() {
-			ui.Text(c, label).FontSize(coui.SizeBodyS).TextColor(ink).Grow(1)
-			ui.Text(c, value).FontSize(coui.SizeBodyS).FontWeight(coui.Medium).FontFeatures("tnum").TextColor(Color(t, sev, ink))
+			ui.Text(c, label).FontSize(widget.SizeBodyS).TextColor(ink).Grow(1)
+			ui.Text(c, value).FontSize(widget.SizeBodyS).FontWeight(widget.Medium).FontFeatures("tnum").TextColor(Color(t, sev, ink))
 		})
 		if used != nil {
 			usageBar(c, float32(min(max(*used, 0), 1)), Color(t, sev, k.Primary)).Label(label).Margin(5, 0, 0, 0)
@@ -202,7 +202,7 @@ func line(c *ui.Context, label, value string, used *float64, sev coreapi.Severit
 
 // usageBar 是用量的细条（同手机版 UsageBar）：6 高、3 的圆角，淡灰的槽上一段 color。
 func usageBar(c *ui.Context, fraction float32, color ui.Color) ui.Element {
-	k := coui.Of(c)
+	k := widget.Of(c)
 	track := k.Text.Alpha(0.07)
 	if k.Dark {
 		track = k.Text.Alpha(0.12)

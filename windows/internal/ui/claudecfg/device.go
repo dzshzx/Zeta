@@ -7,7 +7,7 @@ import (
 
 	"github.com/dzshzx/Zeta/helper/coreapi"
 	cfg "github.com/dzshzx/Zeta/windows/internal/claudecfg"
-	"github.com/dzshzx/Zeta/windows/internal/ui/coui"
+	"github.com/dzshzx/Zeta/windows/internal/ui/widget"
 	"github.com/egoist/mygo/ui"
 )
 
@@ -23,7 +23,7 @@ const (
 func (p *Page) Sections(c *ui.Context) {
 	p.defaultsSection(c)
 	p.claudeSection(c)
-	coui.Group(c, "Claude Code 配置", configFooter, func(l *coui.List) {
+	widget.Group(c, "Claude Code 配置", configFooter, func(l *widget.List) {
 		for _, e := range []struct {
 			label string
 			v     view
@@ -73,7 +73,7 @@ func (p *Page) defaultsSection(c *ui.Context) {
 	if p.defaultsErr != "" {
 		footer = "读取失败：" + p.defaultsErr + "\n\n" + footer
 	}
-	coui.Group(c, "新对话默认", footer, func(l *coui.List) {
+	widget.Group(c, "新对话默认", footer, func(l *widget.List) {
 		if d == nil {
 			emptyRow(l, notRead, "")
 			return
@@ -107,7 +107,7 @@ func (p *Page) defaultsSection(c *ui.Context) {
 	})
 }
 
-func (p *Page) permissionModeRow(l *coui.List, d coreapi.Defaults, disabled bool) {
+func (p *Page) permissionModeRow(l *widget.List, d coreapi.Defaults, disabled bool) {
 	c := l.Context()
 	var labels []string
 	selected := 0
@@ -134,7 +134,7 @@ func (p *Page) permissionModeRow(l *coui.List, d coreapi.Defaults, disabled bool
 	})
 }
 
-func (p *Page) compactWindowRow(l *coui.List, d coreapi.Defaults, disabled bool) {
+func (p *Page) compactWindowRow(l *widget.List, d coreapi.Defaults, disabled bool) {
 	c := l.Context()
 	windows := slices.Clone(compactWindows)
 	if d.CompactWindow != 0 && !slices.Contains(windows, d.CompactWindow) {
@@ -179,10 +179,10 @@ func effortSummary(d coreapi.Defaults) string {
 // claudeSection 是自动压缩、压缩时机、自动标题（存在这台电脑上，每台设备各设各的）和闲置超时（存在那台主机上）。
 func (p *Page) claudeSection(c *ui.Context) {
 	dev := p.opts.Device
-	coui.Group(c, "Claude", claudeFooter, func(l *coui.List) {
+	widget.Group(c, "Claude", claudeFooter, func(l *widget.List) {
 		on := dev.AutoCompact()
 		item(l, "自动压缩上下文", "", func() {
-			if coui.Switch(c.Key("auto-compact"), &on).Label("自动压缩上下文").Changed() {
+			if widget.Switch(c.Key("auto-compact"), &on).Label("自动压缩上下文").Changed() {
 				p.saveDevice(dev.SetAutoCompact(on))
 			}
 		})
@@ -202,7 +202,7 @@ func (p *Page) claudeSection(c *ui.Context) {
 		})
 		title := dev.AutoTitle()
 		item(l, "自动生成对话标题", "第一轮回答后由 Claude Code 起个简短标题，改过名的不动", func() {
-			if coui.Switch(c.Key("auto-title"), &title).Label("自动生成对话标题").Changed() {
+			if widget.Switch(c.Key("auto-title"), &title).Label("自动生成对话标题").Changed() {
 				p.saveDevice(dev.SetAutoTitle(title))
 			}
 		})
@@ -211,7 +211,7 @@ func (p *Page) claudeSection(c *ui.Context) {
 }
 
 // idleRow 是「闲置超时」：存着的值不在几档里时（在别的客户端上设的）也列出来；还没读到时灰着。
-func (p *Page) idleRow(l *coui.List) {
+func (p *Page) idleRow(l *widget.List) {
 	c := l.Context()
 	points := slices.Clone(idleChoices)
 	selected := -1
@@ -271,7 +271,7 @@ func (p *Page) effortRows(d coreapi.Defaults) []effortRow {
 func (p *Page) effortPage(c *ui.Context) {
 	pageTitle(c, "默认思考强度", p.back, nil)
 	body(c, "effort", func() {
-		coui.Group(c, "", "这台设备上的新对话按所用的模型取这里的设置，和那边终端里 /effort 存为默认的是同一份；没单独设的模型用「其他模型」那一档。", func(l *coui.List) {
+		widget.Group(c, "", "这台设备上的新对话按所用的模型取这里的设置，和那边终端里 /effort 存为默认的是同一份；没单独设的模型用「其他模型」那一档。", func(l *widget.List) {
 			if p.defaults == nil {
 				emptyRow(l, notRead, p.defaultsErr)
 				return

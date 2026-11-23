@@ -4,7 +4,7 @@ import (
 	"context"
 
 	"github.com/dzshzx/Zeta/helper/coreapi"
-	"github.com/dzshzx/Zeta/windows/internal/ui/coui"
+	"github.com/dzshzx/Zeta/windows/internal/ui/widget"
 	"github.com/egoist/mygo/ui"
 )
 
@@ -87,13 +87,13 @@ func (p *Page) skillsPage(c *ui.Context) {
 	s := &p.skills
 	pageTitle(c, "Skills", p.back, nil)
 	body(c, "skills", func() {
-		coui.Group(c, "", "", func(l *coui.List) {
+		widget.Group(c, "", "", func(l *widget.List) {
 			summary := "选一个含 SKILL.md 的 Skill 包"
 			if s.importing {
 				summary = "正在检查并安装…"
 			}
 			item(l, "从 ZIP 导入", summary, func() {
-				coui.SmallPrimaryButton(c, "选择文件").Disabled(s.importing).OnClick(p.pickZip)
+				widget.SmallPrimaryButton(c, "选择文件").Disabled(s.importing).OnClick(p.pickZip)
 			})
 		})
 		p.userSkills(c)
@@ -104,7 +104,7 @@ func (p *Page) skillsPage(c *ui.Context) {
 
 func (p *Page) userSkills(c *ui.Context) {
 	s := &p.skills
-	coui.Group(c, "用户安装 · "+itoa(p.userSkillCount()), "装在 ~/.claude/skills 里。关掉后文件留着，Claude 不再用它；改动对之后新开始的对话生效。", func(l *coui.List) {
+	widget.Group(c, "用户安装 · "+itoa(p.userSkillCount()), "装在 ~/.claude/skills 里。关掉后文件留着，Claude 不再用它；改动对之后新开始的对话生效。", func(l *widget.List) {
 		switch {
 		case s.data == nil:
 			loadingRow(l, "正在读取…")
@@ -124,11 +124,11 @@ func (p *Page) syncedSkills(c *ui.Context) {
 	if s.data == nil || len(s.data.Synced) == 0 {
 		return
 	}
-	coui.Group(c, "账号同步 · "+itoa(len(s.data.Synced)), "在 claude.ai 上管理，这里只能看。", func(l *coui.List) {
+	widget.Group(c, "账号同步 · "+itoa(len(s.data.Synced)), "在 claude.ai 上管理，这里只能看。", func(l *widget.List) {
 		for _, sk := range s.data.Synced {
 			item(l, sk.Name, clipLine(orNone(sk.Description), 90), func() {
 				if !sk.Enabled {
-					ui.Text(c, "已停用").FontSize(coui.SizeBodyM).TextColor(coui.Of(c).Tertiary)
+					ui.Text(c, "已停用").FontSize(widget.SizeBodyM).TextColor(widget.Of(c).Tertiary)
 				}
 			})
 		}
@@ -149,7 +149,7 @@ func orNone(s string) string {
 	return s
 }
 
-func (p *Page) skillRow(l *coui.List, sk coreapi.Skill) {
+func (p *Page) skillRow(l *widget.List, sk coreapi.Skill) {
 	c := l.Context()
 	title := sk.Name
 	if sk.Title != "" && sk.Title != sk.Name {
@@ -164,10 +164,10 @@ func (p *Page) skillRow(l *coui.List, sk coreapi.Skill) {
 		if !sk.Valid {
 			description = "这个文件夹里没有 SKILL.md，Claude Code 不会把它当成 Skill。"
 		}
-		coui.SmallButton(c, "说明").Label("说明：" + sk.Name).OnClick(func() { p.skills.showing = &notice{title: sk.Name, message: description, open: true} })
-		coui.SmallDangerButton(c, "删除").Label("删除：" + sk.Name).OnClick(func() { p.skills.deleting = &sk })
+		widget.SmallButton(c, "说明").Label("说明：" + sk.Name).OnClick(func() { p.skills.showing = &notice{title: sk.Name, message: description, open: true} })
+		widget.SmallDangerButton(c, "删除").Label("删除：" + sk.Name).OnClick(func() { p.skills.deleting = &sk })
 		on := sk.Enabled
-		if coui.Switch(c, &on).Label("启用：" + sk.Name).Changed() {
+		if widget.Switch(c, &on).Label("启用：" + sk.Name).Changed() {
 			p.async(func(ctx context.Context) func() {
 				err := p.opts.Core.SetSkillEnabled(ctx, sk, on)
 				return func() {
@@ -189,7 +189,7 @@ func (p *Page) skillDialogs(c *ui.Context) {
 	s := &p.skills
 	if pz := s.pending; pz != nil {
 		message := "已经有一个叫“" + pz.name + "”的 Skill。替换会覆盖它当前的全部文件。"
-		if alert(c, &pz.open, "替换 Skill？", message, coui.Destructive, "取消", "替换") == 1 {
+		if alert(c, &pz.open, "替换 Skill？", message, widget.Destructive, "取消", "替换") == 1 {
 			s.importing = true
 			p.async(func(ctx context.Context) func() {
 				res, err := p.opts.Core.ImportSkill(ctx, pz.file, pz.data, true)
@@ -202,7 +202,7 @@ func (p *Page) skillDialogs(c *ui.Context) {
 	}
 	if d := s.deleting; d != nil {
 		open := true
-		switch alert(c, &open, "删除 Skill", "删除“"+d.Name+"”的整个文件夹，之后需要重新导入才能恢复。", coui.Destructive, "取消", "删除") {
+		switch alert(c, &open, "删除 Skill", "删除“"+d.Name+"”的整个文件夹，之后需要重新导入才能恢复。", widget.Destructive, "取消", "删除") {
 		case 1:
 			name := d.Name
 			p.async(func(ctx context.Context) func() {
@@ -220,7 +220,7 @@ func (p *Page) skillDialogs(c *ui.Context) {
 		}
 	}
 	if n := s.showing; n != nil {
-		alert(c, &n.open, n.title, n.message, coui.Recommend, "关闭")
+		alert(c, &n.open, n.title, n.message, widget.Recommend, "关闭")
 		if !n.open {
 			s.showing = nil
 		}

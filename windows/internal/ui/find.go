@@ -3,7 +3,7 @@ package ui
 import (
 	"strconv"
 
-	"github.com/dzshzx/Zeta/windows/internal/ui/coui"
+	"github.com/dzshzx/Zeta/windows/internal/ui/widget"
 	"github.com/egoist/mygo/ui"
 )
 
@@ -44,14 +44,14 @@ func (a *App) findBar(c *ui.Context, p *chatPane) {
 	if !f.asked && p.state.Earlier > 0 && p.src.Conv != nil {
 		f.asked = a.loadEarlier(p, true)
 	}
-	k := coui.Of(c)
+	k := widget.Of(c)
 	index, count := p.list.FindCount()
 	left := p.state.Earlier
 	box := ui.Column(c.Key("find")).Absolute().Top(headerHeight+4).Right(20).Width(400).Gap(4).Padding(6, 6, 8, 6)
-	coui.Shadow(coui.Surface{Shape: coui.ShapePopup, Fill: k.PopupGlass, Edge: k.Divider}.Paint(box), k)
+	widget.Shadow(widget.Surface{Shape: widget.ShapePopup, Fill: k.PopupGlass, Edge: k.Divider}.Paint(box), k)
 	box.Children(func() {
 		ui.Row(c).FillWidth().Gap(2).AlignItems(ui.Center).Children(func() {
-			in := coui.SearchField(c, &f.input, "在对话中查找").OnTextKey(func(tk ui.TextKey) bool {
+			in := widget.SearchField(c, &f.input, "在对话中查找").OnTextKey(func(tk ui.TextKey) bool {
 				switch {
 				case tk.Key == ui.KeyEnter && tk.Mods == 0:
 					p.list.FindStep(1)
@@ -73,14 +73,14 @@ func (a *App) findBar(c *ui.Context, p *chatPane) {
 				if count == 0 {
 					color = k.Tertiary
 				}
-				ui.Text(c, matchCount(index, count, left, p.earlier.failed)).FontSize(coui.SizeBodyS).TextColor(color).SingleLine().
+				ui.Text(c, matchCount(index, count, left, p.earlier.failed)).FontSize(widget.SizeBodyS).TextColor(color).SingleLine().
 					Margin(0, 2, 0, 8).Shrink(0)
 			}
-			coui.FlatButton(c, coui.IconChevronUp, "上一个", 30, 18).Disabled(count == 0).OnClick(func() { p.list.FindStep(-1) })
-			coui.FlatButton(c, coui.IconChevronDown, "下一个", 30, 18).Disabled(count == 0).OnClick(func() { p.list.FindStep(1) })
-			coui.FlatButton(c, coui.IconClose, "关闭查找", 30, 18).OnClick(p.closeFind)
+			widget.FlatButton(c, widget.IconChevronUp, "上一个", 30, 18).Disabled(count == 0).OnClick(func() { p.list.FindStep(-1) })
+			widget.FlatButton(c, widget.IconChevronDown, "下一个", 30, 18).Disabled(count == 0).OnClick(func() { p.list.FindStep(1) })
+			widget.FlatButton(c, widget.IconClose, "关闭查找", 30, 18).OnClick(p.closeFind)
 		})
-		ui.Text(c, findScope(left, p.earlier.failed)).FontSize(coui.SizeBodyXS).TextColor(k.Secondary).Padding(0, 10)
+		ui.Text(c, findScope(left, p.earlier.failed)).FontSize(widget.SizeBodyXS).TextColor(k.Secondary).Padding(0, 10)
 	})
 }
 

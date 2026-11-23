@@ -6,7 +6,7 @@ import (
 	"strings"
 
 	"github.com/dzshzx/Zeta/helper/coreapi"
-	"github.com/dzshzx/Zeta/windows/internal/ui/coui"
+	"github.com/dzshzx/Zeta/windows/internal/ui/widget"
 	"github.com/egoist/mygo/ui"
 )
 
@@ -149,15 +149,15 @@ func (p *Page) checkMcp() {
 func (p *Page) mcpPage(c *ui.Context) {
 	m := &p.mcp
 	pageTitle(c, "MCP 服务器", p.back, func() {
-		coui.SmallButton(c, "重新检查").Disabled(m.checking).OnClick(p.checkMcp)
-		coui.SmallPrimaryButton(c, "添加服务器").OnClick(func() { m.adding, m.form = true, serverForm{typ: "http"} })
+		widget.SmallButton(c, "重新检查").Disabled(m.checking).OnClick(p.checkMcp)
+		widget.SmallPrimaryButton(c, "添加服务器").OnClick(func() { m.adding, m.form = true, serverForm{typ: "http"} })
 	})
 	body(c, "mcp", func() {
 		footer := "新加的服务器所有项目都能用，改动对之后新开始的对话生效。"
 		if m.statusErr != "" {
 			footer += "\n\n检查状态没有成功：" + m.statusErr
 		}
-		coui.Group(c, "服务器 · "+itoa(len(m.servers)), footer, func(l *coui.List) {
+		widget.Group(c, "服务器 · "+itoa(len(m.servers)), footer, func(l *widget.List) {
 			switch {
 			case !m.loaded:
 				loadingRow(l, "正在读取…")
@@ -171,7 +171,7 @@ func (p *Page) mcpPage(c *ui.Context) {
 			}
 		})
 		if m.status != nil && len(m.status.Connectors) > 0 {
-			coui.Group(c, "Claude 账号的连接器", "在 claude.ai 上管理，这里只能看。", func(l *coui.List) {
+			widget.Group(c, "Claude 账号的连接器", "在 claude.ai 上管理，这里只能看。", func(l *widget.List) {
 				for _, cn := range m.status.Connectors {
 					st := cn.State
 					valueItem(l, strings.TrimPrefix(cn.Name, "claude.ai "), stateLabel(&st))
@@ -277,26 +277,26 @@ func (p *Page) addServerDialog(c *ui.Context) {
 			choice(c, "类型", labels, selected, f.working, func(i int) { f.typ = serverTypes[i].value })
 		})
 		ui.Column(c).FillWidth().Children(func() {
-			coui.LineInput(c.Key("name"), &f.name, 1).Placeholder("名称，比如 github").Label("名称")
+			widget.LineInput(c.Key("name"), &f.name, 1).Placeholder("名称，比如 github").Label("名称")
 			if f.typ == "stdio" {
-				coui.LineInput(c.Key("command"), &f.command, 1).Placeholder("命令，比如 npx").Label("命令")
-				coui.LineInput(c.Key("args"), &f.args, 1).Placeholder("参数（可选，空格分开）").Label("参数")
-				coui.LineInput(c.Key("env"), &f.env, 5).Placeholder("环境变量（可选，每行一个 KEY=VALUE）").Label("环境变量")
+				widget.LineInput(c.Key("command"), &f.command, 1).Placeholder("命令，比如 npx").Label("命令")
+				widget.LineInput(c.Key("args"), &f.args, 1).Placeholder("参数（可选，空格分开）").Label("参数")
+				widget.LineInput(c.Key("env"), &f.env, 5).Placeholder("环境变量（可选，每行一个 KEY=VALUE）").Label("环境变量")
 			} else {
-				coui.LineInput(c.Key("url"), &f.url, 1).Placeholder("服务器地址 https://").Label("服务器地址")
-				coui.LineInput(c.Key("token"), &f.token, 1).Placeholder("Bearer Token（可选）").Label("Bearer Token").Password()
+				widget.LineInput(c.Key("url"), &f.url, 1).Placeholder("服务器地址 https://").Label("服务器地址")
+				widget.LineInput(c.Key("token"), &f.token, 1).Placeholder("Bearer Token（可选）").Label("Bearer Token").Password()
 			}
 		})
 		if f.problem != "" {
 			problemText(c, f.problem)
 		}
 	}, func() {
-		coui.DialogButton(c, "取消", coui.Plain).Disabled(f.working).OnClick(func() { m.adding = false })
+		widget.DialogButton(c, "取消", widget.Plain).Disabled(f.working).OnClick(func() { m.adding = false })
 		label := "添加"
 		if f.working {
 			label = "正在添加…"
 		}
-		coui.DialogButton(c, label, coui.Recommend).Disabled(f.working).OnClick(p.addServer)
+		widget.DialogButton(c, label, widget.Recommend).Disabled(f.working).OnClick(p.addServer)
 	})
 }
 
@@ -367,24 +367,24 @@ func (p *Page) mcpServerPage(c *ui.Context) {
 	m := &p.mcp
 	s := m.detail
 	pageTitle(c, s.Name, p.back, func() {
-		coui.SmallButton(c, "刷新工具").Disabled(m.toolsBusy || s.OAuth).OnClick(p.loadTools)
+		widget.SmallButton(c, "刷新工具").Disabled(m.toolsBusy || s.OAuth).OnClick(p.loadTools)
 	})
 	body(c, "mcp-server", func() {
-		coui.Group(c, "服务器", "", func(l *coui.List) {
+		widget.Group(c, "服务器", "", func(l *widget.List) {
 			st := m.stateOf(s)
-			l.Row(coui.Row{Title: "状态", Summary: issueOf(st), Value: stateLabel(st)})
+			l.Row(widget.Row{Title: "状态", Summary: issueOf(st), Value: stateLabel(st)})
 			valueItem(l, "范围", scopeLabel(s.Scope))
 			valueItem(l, "类型", typeName(s.Type))
 			if s.Type == "stdio" {
 				item(l, "命令", target(s), nil)
 				if len(s.EnvKeys) > 0 {
-					l.Row(coui.Row{Title: "环境变量", Summary: strings.Join(s.EnvKeys, "、"), Value: "值已隐藏"})
+					l.Row(widget.Row{Title: "环境变量", Summary: strings.Join(s.EnvKeys, "、"), Value: "值已隐藏"})
 				}
 				return
 			}
 			item(l, "地址", s.URL, nil)
 			if len(s.HeaderKeys) > 0 {
-				l.Row(coui.Row{Title: "其他请求头", Summary: strings.Join(s.HeaderKeys, "、"), Value: "值已隐藏"})
+				l.Row(widget.Row{Title: "其他请求头", Summary: strings.Join(s.HeaderKeys, "、"), Value: "值已隐藏"})
 			}
 			editable := s.Scope == "user" || s.Scope == "local"
 			summary := authSummary(s)
@@ -392,14 +392,14 @@ func (p *Page) mcpServerPage(c *ui.Context) {
 				summary += " · 在项目里改"
 			}
 			item(l, "身份认证", summary, func() {
-				coui.SmallButton(c, "更换").Label("更换 Token").Disabled(!editable || m.working).OnClick(func() { m.tokenOpen, m.token = true, "" })
+				widget.SmallButton(c, "更换").Label("更换 Token").Disabled(!editable || m.working).OnClick(func() { m.tokenOpen, m.token = true, "" })
 			})
 		})
 		p.toolsSection(c)
 		if s.Scope != "project" {
-			coui.Group(c, "", "", func(l *coui.List) {
+			widget.Group(c, "", "", func(l *widget.List) {
 				item(l, "删除服务器", "它的地址、Token 和设置都会从配置里去掉", func() {
-					coui.SmallDangerButton(c, "删除").Disabled(m.working).OnClick(func() { m.removing = true })
+					widget.SmallDangerButton(c, "删除").Disabled(m.working).OnClick(func() { m.removing = true })
 				})
 			})
 		}
@@ -432,18 +432,18 @@ func (p *Page) toolsSection(c *ui.Context) {
 	if m.tools != nil {
 		title += " · " + itoa(len(m.tools))
 	}
-	coui.Group(c, title, "", func(l *coui.List) {
+	widget.Group(c, title, "", func(l *widget.List) {
 		switch {
 		case m.toolsBusy:
 			loadingRow(l, "正在连接…")
 		case m.toolsErr != "":
-			item(l, "取不到工具清单", m.toolsErr, func() { coui.SmallButton(c, "重试").OnClick(p.loadTools) })
+			item(l, "取不到工具清单", m.toolsErr, func() { widget.SmallButton(c, "重试").OnClick(p.loadTools) })
 		case m.tools == nil:
 			summary := "连上服务器取工具清单"
 			if m.detail.OAuth {
 				summary = "用 OAuth 登录的服务器取不到"
 			}
-			item(l, "列出工具", summary, func() { coui.SmallButton(c, "列出").Disabled(m.detail.OAuth).OnClick(p.loadTools) })
+			item(l, "列出工具", summary, func() { widget.SmallButton(c, "列出").Disabled(m.detail.OAuth).OnClick(p.loadTools) })
 		case len(m.tools) == 0:
 			emptyRow(l, "没有工具", "")
 		default:
@@ -458,12 +458,12 @@ func (p *Page) mcpServerDialogs(c *ui.Context) {
 	m := &p.mcp
 	s := m.detail
 	dialog(c, &m.tokenOpen, "身份认证", func() {
-		ui.Text(c, "输入新 Token，留空则移除身份认证。原来的 Token 不会显示出来。").FontSize(coui.SizeBodyS).LineHeight(1.45).
-			TextColor(coui.Of(c).Secondary).TextAlign(ui.Center).FillWidth()
-		coui.LineInput(c.Key("token"), &m.token, 1).Placeholder("Bearer Token").Label("Bearer Token").Password().AutoFocus()
+		ui.Text(c, "输入新 Token，留空则移除身份认证。原来的 Token 不会显示出来。").FontSize(widget.SizeBodyS).LineHeight(1.45).
+			TextColor(widget.Of(c).Secondary).TextAlign(ui.Center).FillWidth()
+		widget.LineInput(c.Key("token"), &m.token, 1).Placeholder("Bearer Token").Label("Bearer Token").Password().AutoFocus()
 	}, func() {
-		coui.DialogButton(c, "取消", coui.Plain).OnClick(func() { m.tokenOpen, m.token = false, "" })
-		coui.DialogButton(c, "保存", coui.Recommend).OnClick(func() {
+		widget.DialogButton(c, "取消", widget.Plain).OnClick(func() { m.tokenOpen, m.token = false, "" })
+		widget.DialogButton(c, "保存", widget.Recommend).OnClick(func() {
 			token := m.token
 			m.tokenOpen, m.token, m.working = false, "", true
 			p.async(func(ctx context.Context) func() {
@@ -483,7 +483,7 @@ func (p *Page) mcpServerDialogs(c *ui.Context) {
 	if !m.tokenOpen {
 		m.token = ""
 	}
-	if alert(c, &m.removing, "删除服务器", "删除 "+s.Name+"？它的地址、Token 和设置都会从配置里去掉，无法撤销。", coui.Destructive, "取消", "删除") == 1 {
+	if alert(c, &m.removing, "删除服务器", "删除 "+s.Name+"？它的地址、Token 和设置都会从配置里去掉，无法撤销。", widget.Destructive, "取消", "删除") == 1 {
 		m.working = true
 		p.async(func(ctx context.Context) func() {
 			err := p.opts.Core.RemoveMcp(ctx, p.opts.Cwd, s)

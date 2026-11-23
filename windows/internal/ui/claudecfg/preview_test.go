@@ -6,7 +6,7 @@ import (
 	"path/filepath"
 	"testing"
 
-	"github.com/dzshzx/Zeta/windows/internal/ui/coui"
+	"github.com/dzshzx/Zeta/windows/internal/ui/widget"
 	"github.com/egoist/mygo/ui"
 )
 
@@ -27,15 +27,15 @@ func TestPreviews(t *testing.T) {
 		f.serve.Write(t, ".claude/agents/code-reviewer.md", "---\nname: code-reviewer\ndescription: 改完代码后审查改动\nmodel: sonnet\n---\n你是审查员\n")
 		f.page.Load()
 		page := f.page
-		// 和设置窗口里一样：COUI 的主题；设备页的几组画在 coui.Body 里，子页自己带顶栏和内容
+		// 和设置窗口里一样：COUI 的主题；设备页的几组画在 widget.Body 里，子页自己带顶栏和内容
 		f.tt = ui.NewTesterWith(func(c *ui.Context) {
-			c.SetTheme(coui.Theme(c.Theme().Dark))
-			ui.Column(c).Fill().Background(coui.Of(c).Page).Children(func() {
+			c.SetTheme(widget.Theme(c.Theme().Dark))
+			ui.Column(c).Fill().Background(widget.Of(c).Page).Children(func() {
 				if page.Open() {
 					page.SubPage(c)
 					return
 				}
-				coui.Body(c, "device", func() { page.Sections(c) })
+				widget.Body(c, "device", func() { page.Sections(c) })
 			})
 		}, 900, 1000, ui.TesterOptions{Dark: dark})
 		shot := func(name string) {

@@ -6,7 +6,7 @@ import (
 	"strings"
 
 	"github.com/dzshzx/Zeta/windows/internal/settings"
-	"github.com/dzshzx/Zeta/windows/internal/ui/coui"
+	"github.com/dzshzx/Zeta/windows/internal/ui/widget"
 	"github.com/egoist/mygo/ui"
 )
 
@@ -45,15 +45,15 @@ func (a *App) promptList(c *ui.Context, p *chatPane) {
 	if len(list) == 0 {
 		summary = "还没有常用指令。点「新建」写一条。点一条就把它填进输入框，可以改了再发。"
 	}
-	coui.Sheet(c, "常用指令", summary, 420, func() {
+	widget.Sheet(c, "常用指令", summary, 420, func() {
 		for i, pr := range list {
 			a.promptRow(c.Key("prompt/"+pr.ID), p, pr, i == 0, i == len(list)-1)
 		}
 	}, func() {
-		if coui.DialogButton(c, "关闭", coui.Plain).Clicked() {
+		if widget.DialogButton(c, "关闭", widget.Plain).Clicked() {
 			u.listOpen = false
 		}
-		if coui.DialogButton(c, "新建", coui.Recommend).Disabled(len(list) >= settings.MaxPrompts).Clicked() {
+		if widget.DialogButton(c, "新建", widget.Recommend).Disabled(len(list) >= settings.MaxPrompts).Clicked() {
 			text := ""
 			if strings.TrimSpace(p.draft) != "" {
 				text = p.draft
@@ -65,10 +65,10 @@ func (a *App) promptList(c *ui.Context, p *chatPane) {
 
 // promptRow 是列表里的一条：起了名字的是名字加两行内容，没起名字的直接是内容（两行），点了填进输入框；右边「更多操作」。
 func (a *App) promptRow(c *ui.Context, p *chatPane, pr settings.SavedPrompt, first, last bool) {
-	k := coui.Of(c)
+	k := widget.Of(c)
 	u := &a.prompts
 	ui.Row(c).FillWidth().Padding(0, 8, 0, 0).AlignItems(ui.Center).Children(func() {
-		pick := ui.ButtonBase(c).Label(pr.DisplayName()).Grow(1).MinWidth(0).Padding(8, 4, 8, coui.DialogPadding).AlignItems(ui.Center).
+		pick := ui.ButtonBase(c).Label(pr.DisplayName()).Grow(1).MinWidth(0).Padding(8, 4, 8, widget.DialogPadding).AlignItems(ui.Center).
 			Radius(12).Cursor(ui.CursorPointer).FocusRingOffset(-2)
 		if pick.Hovered() {
 			pick.Background(k.Hover)
@@ -84,31 +84,31 @@ func (a *App) promptRow(c *ui.Context, p *chatPane, pr settings.SavedPrompt, fir
 				title, lines = strings.TrimSpace(pr.Name), 1
 			}
 			ui.Column(c).Grow(1).MinWidth(0).Gap(2).Children(func() {
-				ui.Text(c, title).FontSize(14.5).LineHeight(1.38).FontWeight(coui.Medium).TextColor(k.Text).MaxLines(lines).Ellipsis("…")
+				ui.Text(c, title).FontSize(14.5).LineHeight(1.38).FontWeight(widget.Medium).TextColor(k.Text).MaxLines(lines).Ellipsis("…")
 				if named {
 					ui.Text(c, strings.TrimSpace(pr.Text)).FontSize(12.5).LineHeight(1.36).TextColor(k.Secondary).MaxLines(2).Ellipsis("…")
 				}
 			})
 		})
-		coui.MenuButton(c, func(t ui.Element) { coui.FlatButtonOf(c, t, coui.IconMore, "更多操作", 36, 20) }, func(m *coui.Menu) {
+		widget.MenuButton(c, func(t ui.Element) { widget.FlatButtonOf(c, t, widget.IconMore, "更多操作", 36, 20) }, func(m *widget.Menu) {
 			a.promptActions(m, pr, first, last)
 		})
 	})
 }
 
-func (a *App) promptActions(m *coui.Menu, pr settings.SavedPrompt, first, last bool) {
+func (a *App) promptActions(m *widget.Menu, pr settings.SavedPrompt, first, last bool) {
 	u := &a.prompts
-	if m.Add(coui.Entry{Icon: coui.IconEdit, Label: "编辑"}) {
+	if m.Add(widget.Entry{Icon: widget.IconEdit, Label: "编辑"}) {
 		u.listOpen, u.editing = false, &promptDraft{open: true, id: pr.ID, name: pr.Name, text: pr.Text}
 	}
-	if m.Add(coui.Entry{Icon: coui.IconArrowUp, Label: "上移", Disabled: first}) {
+	if m.Add(widget.Entry{Icon: widget.IconArrowUp, Label: "上移", Disabled: first}) {
 		a.savePrompts(settings.MovePrompt(a.hub.Prompts(), pr.ID, -1))
 	}
-	if m.Add(coui.Entry{Icon: coui.IconArrowDown, Label: "下移", Disabled: last}) {
+	if m.Add(widget.Entry{Icon: widget.IconArrowDown, Label: "下移", Disabled: last}) {
 		a.savePrompts(settings.MovePrompt(a.hub.Prompts(), pr.ID, 1))
 	}
 	m.Separator()
-	if m.Add(coui.Entry{Icon: coui.IconDelete, Label: "删除", Danger: true}) {
+	if m.Add(widget.Entry{Icon: widget.IconDelete, Label: "删除", Danger: true}) {
 		chosen := pr
 		u.listOpen, u.deleting = false, &chosen
 	}
@@ -120,27 +120,27 @@ func (a *App) promptEditor(c *ui.Context) {
 	if d == nil {
 		return
 	}
-	k := coui.Of(c)
+	k := widget.Of(c)
 	problem := settings.PromptProblem(a.hub.Prompts(), d.name, d.text, d.id)
 	title := "编辑常用指令"
 	if d.id == "" {
 		title = "新建常用指令"
 	}
-	coui.Dialog(c, &d.open, func() {
-		ui.Column(c).FillWidth().Padding(coui.DialogPadding, coui.DialogPadding, 4, coui.DialogPadding).Gap(6).Children(func() {
-			ui.Text(c, title).FontSize(coui.SizeHeadlineXS).FontWeight(600).TextColor(k.Text)
-			coui.LineInput(c.Key("name"), &d.name, 1).Placeholder("名字（可不填）").Label("名字").AutoFocus()
-			coui.LineInput(c.Key("text"), &d.text, 8).Placeholder("内容").Label("内容").MinHeight(96)
+	widget.Dialog(c, &d.open, func() {
+		ui.Column(c).FillWidth().Padding(widget.DialogPadding, widget.DialogPadding, 4, widget.DialogPadding).Gap(6).Children(func() {
+			ui.Text(c, title).FontSize(widget.SizeHeadlineXS).FontWeight(600).TextColor(k.Text)
+			widget.LineInput(c.Key("name"), &d.name, 1).Placeholder("名字（可不填）").Label("名字").AutoFocus()
+			widget.LineInput(c.Key("text"), &d.text, 8).Placeholder("内容").Label("内容").MinHeight(96)
 			// 空着时不报错，「保存」变灰就够了
 			if problem != "" && d.text != "" {
-				ui.Text(c, problem).FontSize(coui.SizeBodyM).TextColor(k.Error).Padding(8, 0, 0, 0)
+				ui.Text(c, problem).FontSize(widget.SizeBodyM).TextColor(k.Error).Padding(8, 0, 0, 0)
 			}
 		})
-		coui.ButtonBar(c, func() {
-			if coui.DialogButton(c, "取消", coui.Plain).Clicked() {
+		widget.ButtonBar(c, func() {
+			if widget.DialogButton(c, "取消", widget.Plain).Clicked() {
 				d.open = false
 			}
-			if coui.DialogButton(c, "保存", coui.Recommend).Disabled(problem != "").Clicked() {
+			if widget.DialogButton(c, "保存", widget.Recommend).Disabled(problem != "").Clicked() {
 				a.saveDraft(d)
 				d.open = false
 			}
@@ -168,8 +168,8 @@ func (a *App) promptDelete(c *ui.Context) {
 		return
 	}
 	open := true
-	if coui.Alert(c, &open, "删除这条常用指令？", "「"+pr.DisplayName()+"」删除后找不回来。",
-		coui.Action{Label: "取消"}, coui.Action{Label: "删除", Style: coui.Destructive}) == 1 {
+	if widget.Alert(c, &open, "删除这条常用指令？", "「"+pr.DisplayName()+"」删除后找不回来。",
+		widget.Action{Label: "取消"}, widget.Action{Label: "删除", Style: widget.Destructive}) == 1 {
 		a.savePrompts(settings.RemovePrompt(a.hub.Prompts(), pr.ID))
 	}
 	if !open {

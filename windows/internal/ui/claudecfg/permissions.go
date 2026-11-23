@@ -5,7 +5,7 @@ import (
 	"strings"
 
 	"github.com/dzshzx/Zeta/helper/coreapi"
-	"github.com/dzshzx/Zeta/windows/internal/ui/coui"
+	"github.com/dzshzx/Zeta/windows/internal/ui/widget"
 	"github.com/egoist/mygo/ui"
 )
 
@@ -138,7 +138,7 @@ func toolSummary(fallback string, st coreapi.ToolState, serverLabel string) stri
 }
 
 // toolRow 是一个工具（或整个服务器）一行，右边下拉选 未设置、允许、询问、拒绝；显示的是它自己的规则。
-func (p *Page) toolRow(l *coui.List, title, summary, rule string, own coreapi.Behavior) {
+func (p *Page) toolRow(l *widget.List, title, summary, rule string, own coreapi.Behavior) {
 	c := l.Context()
 	editable := p.perm.data != nil && !p.perm.working
 	ui.Column(c.Key(rule)).Children(func() {
@@ -161,8 +161,8 @@ func (p *Page) toolRow(l *coui.List, title, summary, rule string, own coreapi.Be
 func (p *Page) permissionsPage(c *ui.Context) {
 	s := &p.perm
 	pageTitle(c, "工具权限", p.back, func() {
-		coui.SmallButton(c, "重新读取").Disabled(s.working).OnClick(p.reloadPermissions)
-		coui.SmallPrimaryButton(c, "添加规则").Disabled(s.data == nil || s.working).OnClick(func() { p.openRule(nil) })
+		widget.SmallButton(c, "重新读取").Disabled(s.working).OnClick(p.reloadPermissions)
+		widget.SmallPrimaryButton(c, "添加规则").Disabled(s.data == nil || s.working).OnClick(func() { p.openRule(nil) })
 	})
 	body(c, "permissions", func() {
 		intro := permissionSemantics + "改动对所有项目、之后新开始的对话生效。"
@@ -172,7 +172,7 @@ func (p *Page) permissionsPage(c *ui.Context) {
 		muted(c, intro)
 		if s.data == nil {
 			if s.loadErr == "" {
-				coui.Group(c, "", "", func(l *coui.List) { loadingRow(l, "正在读取…") })
+				widget.Group(c, "", "", func(l *widget.List) { loadingRow(l, "正在读取…") })
 			}
 			return
 		}
@@ -186,7 +186,7 @@ func (p *Page) permissionsPage(c *ui.Context) {
 func (p *Page) builtinSection(c *ui.Context) {
 	s := &p.perm
 	d := s.data
-	coui.Group(c, "内置工具", "", func(l *coui.List) {
+	widget.Group(c, "内置工具", "", func(l *widget.List) {
 		p.bulkButtons(l, "内置工具", d.BuiltinGroup(), d.BuiltinBulk)
 		more := 0
 		for _, t := range d.Builtin {
@@ -198,13 +198,13 @@ func (p *Page) builtinSection(c *ui.Context) {
 		}
 		if !s.showMore && more > 0 {
 			item(l, "更多内置工具", "", func() {
-				ui.Text(c, itoa(more)+" 个").FontSize(coui.SizeBodyM).TextColor(coui.Of(c).Tertiary)
-				coui.SmallButton(c, "展开").Label("展开更多内置工具").OnClick(func() { s.showMore = true })
+				ui.Text(c, itoa(more)+" 个").FontSize(widget.SizeBodyM).TextColor(widget.Of(c).Tertiary)
+				widget.SmallButton(c, "展开").Label("展开更多内置工具").OnClick(func() { s.showMore = true })
 			})
 		}
 	})
 	if s.showMore {
-		coui.Group(c, "更多内置工具", "", func(l *coui.List) {
+		widget.Group(c, "更多内置工具", "", func(l *widget.List) {
 			for _, t := range d.Builtin {
 				if t.More {
 					p.toolRow(l, t.Name, toolSummary(t.Label, t.State, "整个服务器"), t.Rule, t.Own)
@@ -215,15 +215,15 @@ func (p *Page) builtinSection(c *ui.Context) {
 }
 
 // bulkButtons 是一组上面的一对按钮；已经全是那个状态（没什么可加可删）时置灰。
-func (p *Page) bulkButtons(l *coui.List, label string, g coreapi.PermissionGroup, pair coreapi.BulkPair) {
+func (p *Page) bulkButtons(l *widget.List, label string, g coreapi.PermissionGroup, pair coreapi.BulkPair) {
 	disabled := p.perm.data == nil || p.perm.working
 	ask := func(enable bool, change coreapi.BulkChange) {
 		p.perm.bulk = &bulkRequest{label: label, group: g, enable: enable, change: change, open: true}
 	}
 	c := l.Context()
 	l.Custom(func() {
-		coui.SmallButton(c, "全部开启").Label("全部开启" + label).Disabled(disabled || pair.Enable.Empty()).OnClick(func() { ask(true, pair.Enable) })
-		coui.SmallButton(c, "全部关闭").Label("全部关闭" + label).Disabled(disabled || pair.Disable.Empty()).OnClick(func() { ask(false, pair.Disable) })
+		widget.SmallButton(c, "全部开启").Label("全部开启" + label).Disabled(disabled || pair.Enable.Empty()).OnClick(func() { ask(true, pair.Enable) })
+		widget.SmallButton(c, "全部关闭").Label("全部关闭" + label).Disabled(disabled || pair.Disable.Empty()).OnClick(func() { ask(false, pair.Disable) })
 	})
 }
 
@@ -253,7 +253,7 @@ func bulkMessage(change coreapi.BulkChange, warnNoTools bool) string {
 
 func (p *Page) serversSection(c *ui.Context) {
 	d := p.perm.data
-	coui.Group(c, "MCP 服务器", "", func(l *coui.List) {
+	widget.Group(c, "MCP 服务器", "", func(l *widget.List) {
 		if len(d.Servers) == 0 {
 			emptyRow(l, "没有配置 MCP 服务器", "")
 		}
@@ -267,7 +267,7 @@ func (p *Page) serversSection(c *ui.Context) {
 
 func (p *Page) rulesSection(c *ui.Context) {
 	s := &p.perm
-	coui.Group(c, "规则 · "+itoa(len(s.data.Rules)), "带参数的规则只在这里改，上面的下拉不动它们。", func(l *coui.List) {
+	widget.Group(c, "规则 · "+itoa(len(s.data.Rules)), "带参数的规则只在这里改，上面的下拉不动它们。", func(l *widget.List) {
 		if len(s.data.Rules) == 0 {
 			emptyRow(l, "还没有规则", "点右上角的“添加规则”")
 		}
@@ -278,8 +278,8 @@ func (p *Page) rulesSection(c *ui.Context) {
 			}
 			ui.Column(c.Key(string(r.Behavior) + "/" + r.Text)).Children(func() {
 				item(l, r.Text, summary, func() {
-					coui.SmallButton(c, "编辑").Label("编辑：" + r.Text).Disabled(s.working).OnClick(func() { p.openRule(&r.Rule) })
-					coui.SmallDangerButton(c, "删除").Label("删除：" + r.Text).Disabled(s.working).OnClick(func() { s.deleting = &r.Rule })
+					widget.SmallButton(c, "编辑").Label("编辑：" + r.Text).Disabled(s.working).OnClick(func() { p.openRule(&r.Rule) })
+					widget.SmallDangerButton(c, "删除").Label("删除：" + r.Text).Disabled(s.working).OnClick(func() { s.deleting = &r.Rule })
 				})
 			})
 		}
@@ -328,7 +328,7 @@ func (p *Page) permDialogs(c *ui.Context) {
 	}
 	if r := s.deleting; r != nil {
 		open := true
-		if alert(c, &open, "删除规则", "删除"+behaviorLabel(r.Behavior)+"规则 "+r.Text+"？", coui.Destructive, "取消", "删除") == 1 {
+		if alert(c, &open, "删除规则", "删除"+behaviorLabel(r.Behavior)+"规则 "+r.Text+"？", widget.Destructive, "取消", "删除") == 1 {
 			rule := *r
 			p.applyPermissions(func(ctx context.Context, pv coreapi.PermissionView) (coreapi.Permissions, error) {
 				return p.opts.Core.RemovePermissionRule(ctx, pv, rule)
@@ -358,19 +358,19 @@ func (p *Page) ruleDialog(c *ui.Context, e *ruleEdit) {
 		labeled(c, "表", func() {
 			choice(c, "表", labels, selected, e.saving, func(i int) { e.behavior = behaviors[i] })
 		})
-		coui.LineInput(c.Key("rule"), &e.text, 1).Placeholder("Bash(git push:*)").Label("规则").Disabled(e.saving).AutoFocus()
+		widget.LineInput(c.Key("rule"), &e.text, 1).Placeholder("Bash(git push:*)").Label("规则").Disabled(e.saving).AutoFocus()
 		ui.Text(c, "写成 工具名 或 工具名(参数)。比如 Bash(npm run test:*)、Read(./.env)、Edit(src/**)、WebFetch(domain:github.com)、mcp__github（整个服务器）。").
-			FontSize(coui.SizeBodyXS).LineHeight(1.4).TextColor(coui.Of(c).Secondary)
+			FontSize(widget.SizeBodyXS).LineHeight(1.4).TextColor(widget.Of(c).Secondary)
 		if e.problem != "" {
 			problemText(c, e.problem)
 		}
 	}, func() {
-		coui.DialogButton(c, "取消", coui.Plain).Disabled(e.saving).OnClick(func() { e.open = false })
+		widget.DialogButton(c, "取消", widget.Plain).Disabled(e.saving).OnClick(func() { e.open = false })
 		label := "保存"
 		if e.saving {
 			label = "正在保存…"
 		}
-		coui.DialogButton(c, label, coui.Recommend).Disabled(e.saving).OnClick(p.saveRule)
+		widget.DialogButton(c, label, widget.Recommend).Disabled(e.saving).OnClick(p.saveRule)
 	})
 }
 
@@ -385,9 +385,9 @@ func (p *Page) bulkDialog(c *ui.Context) {
 		verb = "全部关闭"
 	}
 	warn := !r.enable && r.group.Server == ""
-	style := coui.Recommend
+	style := widget.Recommend
 	if !r.enable {
-		style = coui.Destructive
+		style = widget.Destructive
 	}
 	if alert(c, &r.open, verb+r.label+"？", bulkMessage(r.change, warn), style, "取消", verb) == 1 {
 		g, enable := r.group, r.enable
@@ -450,10 +450,10 @@ func (p *Page) permServerPage(c *ui.Context) {
 	s := &p.perm
 	sv := s.server
 	pageTitle(c, sv.Name, p.back, func() {
-		coui.SmallButton(c, "刷新工具").Disabled(s.toolsBusy || sv.OAuth).OnClick(p.loadServerTools)
+		widget.SmallButton(c, "刷新工具").Disabled(s.toolsBusy || sv.OAuth).OnClick(p.loadServerTools)
 	})
 	body(c, "perm-server", func() {
-		coui.Group(c, "", "整个服务器的设置管它的每个工具；工具自己也设了的，取更严的那个。", func(l *coui.List) {
+		widget.Group(c, "", "整个服务器的设置管它的每个工具；工具自己也设了的，取更严的那个。", func(l *widget.List) {
 			p.bulkButtons(l, sv.Name+" 的工具", coreapi.PermissionGroup{Server: sv.Name}, sv.Bulk)
 			p.toolRow(l, "整个服务器", sv.Rule, sv.Rule, sv.State.Behavior)
 		})
@@ -465,25 +465,25 @@ func (p *Page) permServerPage(c *ui.Context) {
 		if sv.OAuth {
 			footer = "要按工具设置，在上一页的“规则”里手写 " + sv.Rule + "__工具名。"
 		}
-		coui.Group(c, title, footer, p.serverToolRows)
+		widget.Group(c, title, footer, p.serverToolRows)
 	})
 	p.permDialogs(c)
 }
 
-func (p *Page) serverToolRows(l *coui.List) {
+func (p *Page) serverToolRows(l *widget.List) {
 	c := l.Context()
 	s := &p.perm
 	switch {
 	case s.toolsBusy:
 		loadingRow(l, "正在连接…")
 	case s.toolsErr != "":
-		item(l, "取不到工具清单", s.toolsErr, func() { coui.SmallButton(c, "重试").OnClick(p.loadServerTools) })
+		item(l, "取不到工具清单", s.toolsErr, func() { widget.SmallButton(c, "重试").OnClick(p.loadServerTools) })
 	case s.tools == nil:
 		summary := "连上服务器取工具清单"
 		if s.server.OAuth {
 			summary = "用 OAuth 登录的服务器取不到"
 		}
-		item(l, "列出工具", summary, func() { coui.SmallButton(c, "列出").Disabled(s.server.OAuth).OnClick(p.loadServerTools) })
+		item(l, "列出工具", summary, func() { widget.SmallButton(c, "列出").Disabled(s.server.OAuth).OnClick(p.loadServerTools) })
 	case len(s.tools) == 0:
 		emptyRow(l, "没有工具", "")
 	}

@@ -6,7 +6,7 @@ import (
 	"time"
 
 	"github.com/dzshzx/Zeta/windows/internal/chat/items"
-	"github.com/dzshzx/Zeta/windows/internal/ui/coui"
+	"github.com/dzshzx/Zeta/windows/internal/ui/widget"
 	"github.com/egoist/mygo/ui"
 	"github.com/egoist/mygo/ui/markdown"
 )
@@ -32,11 +32,11 @@ func (ch *Chat) userMessage(c *ui.Context, it items.Item, row int) {
 		if it.Text == "" {
 			return
 		}
-		k := coui.Of(c)
+		k := widget.Of(c)
 		text := it.Text
 		// 同手机版的气泡（ChatItems.kt）：淡蓝灰，三个角 22、右下角 4，字 16
-		bubble := coui.Surface{Shape: coui.ShapeBubble, Fill: k.Bubble, Edge: ch.editingEdge(c, it)}
-		bubble.Paint(ch.bubbleText(c, it)).Selectable().FontSize(coui.SizeBodyXL).LineHeight(1.44).TextColor(k.Text).MaxWidthPercent(bubbleWidthPercent).
+		bubble := widget.Surface{Shape: widget.ShapeBubble, Fill: k.Bubble, Edge: ch.editingEdge(c, it)}
+		bubble.Paint(ch.bubbleText(c, it)).Selectable().FontSize(widget.SizeBodyXL).LineHeight(1.44).TextColor(k.Text).MaxWidthPercent(bubbleWidthPercent).
 			Padding(10.5, 16).ContextMenu(func(m *ui.Menu) {
 			if m.Item("复制").Chosen() {
 				c.Services().WriteClipboard(text)
@@ -101,7 +101,7 @@ func (ch *Chat) answerBlock(c *ui.Context, it items.Item, row int) {
 
 // copyButton 是回答下面的复制键：平的圆形图标按钮，30 的圆、15 的图标（同手机版 MessageActions.kt）。
 func copyButton(c *ui.Context, text string) {
-	b := coui.FlatButton(c, iconCopy, "复制", 30, 15).Margin(6, 0, 0, -8)
+	b := widget.FlatButton(c, iconCopy, "复制", 30, 15).Margin(6, 0, 0, -8)
 	if b.Clicked() {
 		c.Services().WriteClipboard(text)
 	}
@@ -135,7 +135,7 @@ func triangle(p float32) float32 {
 func noticeRow(c *ui.Context, it items.Item) {
 	t := c.Theme()
 	if it.Error {
-		coui.Notice(c, it.Text, coui.Failure).MarginY(6)
+		widget.Notice(c, it.Text, widget.Failure).MarginY(6)
 		return
 	}
 	ui.Row(c).FillWidth().Justify(ui.Center).PaddingY(8).Children(func() {

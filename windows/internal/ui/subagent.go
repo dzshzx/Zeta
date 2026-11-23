@@ -11,7 +11,7 @@ import (
 	"github.com/dzshzx/Zeta/windows/internal/chat"
 	"github.com/dzshzx/Zeta/windows/internal/chat/items"
 	"github.com/dzshzx/Zeta/windows/internal/ui/chatview"
-	"github.com/dzshzx/Zeta/windows/internal/ui/coui"
+	"github.com/dzshzx/Zeta/windows/internal/ui/widget"
 	"github.com/egoist/mygo/ui"
 )
 
@@ -35,7 +35,7 @@ func (a *App) openSubagent(p *chatPane, toolUseID string) {
 	v.list.OpenImages = func(list []items.Image, index int) { a.openImages(v.list, list, index) }
 	v.list.ExpandWork = true
 	// 内容最宽同设置页，步骤连成一张卡片
-	v.list.Width, v.list.Framed = coui.PageWidth, true
+	v.list.Width, v.list.Framed = widget.PageWidth, true
 	p.pages.stack = append(p.pages.stack, subpage{agent: v})
 	a.hub.RunChat(func(ctx context.Context, conv *chat.Conversation) error {
 		return conv.Watch(ctx, chat.SubagentTarget(toolUseID), true)
@@ -107,7 +107,7 @@ func (a *App) subagentPage(c *ui.Context, p *chatPane, v *subagentView) {
 		v.follow(s)
 	}
 	v.list.Cwd = p.list.Cwd
-	coui.Header(c, "子代理", func() { a.back(p) })
+	widget.Header(c, "子代理", func() { a.back(p) })
 	// 每一帧照这一版的 s 重设
 	l := v.list
 	l.Header = func(c *ui.Context) {
@@ -138,13 +138,13 @@ func subagentHead(c *ui.Context, v *subagentView, s chat.Subagent) {
 	if s.Skipped > 0 {
 		title += " · 更早的 " + strconv.Itoa(s.Skipped) + " 条记录未载入"
 	}
-	ui.Text(c, title).FontSize(coui.SizeBodyXS).FontWeight(coui.Medium).TextColor(coui.Of(c).Secondary).Padding(8, 32, 8, 32)
+	ui.Text(c, title).FontSize(widget.SizeBodyXS).FontWeight(widget.Medium).TextColor(widget.Of(c).Secondary).Padding(8, 32, 8, 32)
 }
 
 // subagentSummary 是概要卡片：第一行说明和状态，第二行类型、模型、工具调用次数（知道的才列）。手机版一项一行，
 // 桌面版宽，压成两行。
 func subagentSummary(c *ui.Context, s chat.Subagent, description, kind, model string) {
-	k := coui.Of(c)
+	k := widget.Of(c)
 	var facts []string
 	if kind != "" {
 		facts = append(facts, "子代理类型 "+kind)
@@ -155,27 +155,27 @@ func subagentSummary(c *ui.Context, s chat.Subagent, description, kind, model st
 	if s.ToolUses > 0 {
 		facts = append(facts, "工具调用 "+strconv.Itoa(s.ToolUses)+" 次")
 	}
-	coui.Group(c, "", "", func(l *coui.List) {
+	widget.Group(c, "", "", func(l *widget.List) {
 		l.Custom(func() {
 			ui.Column(c).Grow(1).MinWidth(0).Gap(2).Padding(4, 0).Children(func() {
-				ui.Text(c, description).FontSize(coui.SizeHeadlineXS).TextColor(k.Text).MaxLines(2).Selectable()
+				ui.Text(c, description).FontSize(widget.SizeHeadlineXS).TextColor(k.Text).MaxLines(2).Selectable()
 				if len(facts) > 0 {
-					ui.Text(c, strings.Join(facts, " · ")).FontSize(coui.SizeBodyS).TextColor(k.Secondary).SingleLine().Ellipsis("…")
+					ui.Text(c, strings.Join(facts, " · ")).FontSize(widget.SizeBodyS).TextColor(k.Secondary).SingleLine().Ellipsis("…")
 				}
 			})
 			state, tone := subagentState(s)
-			ui.Text(c, state).FontSize(coui.SizeBodyM).TextColor(tone.color(k)).Shrink(0)
+			ui.Text(c, state).FontSize(widget.SizeBodyM).TextColor(tone.color(k)).Shrink(0)
 		})
 	})
 }
 
 // promptBlock 是交给它的指令：长的先只露三行，点了展开（展开后最高 240，里面滚动），展开了可以再收起。
 func promptBlock(c *ui.Context, v *subagentView, prompt string) {
-	k := coui.Of(c)
+	k := widget.Of(c)
 	long := len([]rune(prompt)) > 160 || strings.Count(prompt, "\n") > 2
-	coui.Group(c, "交给它的指令", "", func(*coui.List) {
+	widget.Group(c, "交给它的指令", "", func(*widget.List) {
 		text := func() ui.Element {
-			return ui.Text(c, prompt).FontSize(coui.SizeBodyM).LineHeight(1.5).TextColor(k.Text).FillWidth().Padding(12, 16)
+			return ui.Text(c, prompt).FontSize(widget.SizeBodyM).LineHeight(1.5).TextColor(k.Text).FillWidth().Padding(12, 16)
 		}
 		switch {
 		case !long:
@@ -185,21 +185,21 @@ func promptBlock(c *ui.Context, v *subagentView, prompt string) {
 				OnClick(func() { v.promptOpen = true })
 		default:
 			ui.Scroll(c.Key("subagent/prompt")).FillWidth().MaxHeight(240).Children(func() { text().Selectable() })
-			coui.SmallButton(c, "收起").OnClick(func() { v.promptOpen = false }).Margin(0, 16, 10, 16).AlignSelf(ui.Start)
+			widget.SmallButton(c, "收起").OnClick(func() { v.promptOpen = false }).Margin(0, 16, 10, 16).AlignSelf(ui.Start)
 		}
 	})
 }
 
 // noSteps 是一步都还没有时的卡片：在跑时是「正在工作」，不然说明为什么没有。
 func noSteps(c *ui.Context, v *subagentView, s chat.Subagent) {
-	k := coui.Of(c)
-	card := coui.Surface{Shape: coui.ShapeCard, Fill: k.Card}.Paint(ui.Column(c)).Margin(0, 16)
+	k := widget.Of(c)
+	card := widget.Surface{Shape: widget.ShapeCard, Fill: k.Card}.Paint(ui.Column(c)).Margin(0, 16)
 	card.Children(func() {
 		if s.State == sessionproto.SubagentRunning {
 			working(c).Padding(14, 24)
 			return
 		}
-		ui.Text(c, noStepsText(s, v.failed)).FontSize(coui.SizeBodyS).TextColor(k.Secondary).Padding(14, 16)
+		ui.Text(c, noStepsText(s, v.failed)).FontSize(widget.SizeBodyS).TextColor(k.Secondary).Padding(14, 16)
 	})
 }
 
@@ -207,6 +207,6 @@ func noSteps(c *ui.Context, v *subagentView, s chat.Subagent) {
 func working(c *ui.Context) ui.Element {
 	return ui.Row(c).Gap(10).AlignItems(ui.Center).Children(func() {
 		ui.Spinner(c).Size(14, 14)
-		ui.Text(c, "正在工作").FontSize(coui.SizeBodyS).TextColor(coui.Of(c).Secondary)
+		ui.Text(c, "正在工作").FontSize(widget.SizeBodyS).TextColor(widget.Of(c).Secondary)
 	})
 }

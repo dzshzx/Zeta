@@ -4,7 +4,7 @@ import (
 	"github.com/dzshzx/Zeta/client/hostlink"
 	"github.com/dzshzx/Zeta/windows/internal/hub"
 	"github.com/dzshzx/Zeta/windows/internal/settings"
-	"github.com/dzshzx/Zeta/windows/internal/ui/coui"
+	"github.com/dzshzx/Zeta/windows/internal/ui/widget"
 	"github.com/egoist/mygo/ui"
 )
 
@@ -54,9 +54,9 @@ func (a *App) frame(c *ui.Context, main func()) {
 		ui.Box(c).Fill().Children(func() {
 			ui.Column(c).Fill().Children(main)
 			ui.Row(c).Absolute().Top(10).Left(10).Gap(2).Children(func() {
-				coui.IconButton(c, coui.IconSidebar, "展开侧栏 (Ctrl+B)").OnClick(a.toggleSidebar)
+				widget.IconButton(c, widget.IconSidebar, "展开侧栏 (Ctrl+B)").OnClick(a.toggleSidebar)
 				if len(a.hub.Hosts()) > 0 {
-					coui.IconButton(c, coui.IconNewChat, "新对话 (Ctrl+N)").OnClick(a.newChat)
+					widget.IconButton(c, widget.IconNewChat, "新对话 (Ctrl+N)").OnClick(a.newChat)
 				}
 			})
 		})
@@ -144,14 +144,14 @@ func (a *App) focusSearch() {
 
 // shortcutsSection 是设置「常规」里的快捷键：窗口的和聊天页的，一行一个，键在右边。
 func shortcutsSection(c *ui.Context) {
-	coui.Group(c, "快捷键", "", func(l *coui.List) {
+	widget.Group(c, "快捷键", "", func(l *widget.List) {
 		for _, sc := range shortcuts {
 			if sc.keys != "" {
-				l.Row(coui.Row{Key: sc.keys, Title: sc.label, Value: sc.keys})
+				l.Row(widget.Row{Key: sc.keys, Title: sc.label, Value: sc.keys})
 			}
 		}
 		for _, k := range chatKeys {
-			l.Row(coui.Row{Key: k.keys, Title: k.label, Value: k.keys})
+			l.Row(widget.Row{Key: k.keys, Title: k.label, Value: k.keys})
 		}
 	})
 }

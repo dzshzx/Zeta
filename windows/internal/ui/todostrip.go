@@ -6,7 +6,7 @@ import (
 
 	"github.com/dzshzx/Zeta/helper/sessionproto"
 	"github.com/dzshzx/Zeta/windows/internal/chat"
-	"github.com/dzshzx/Zeta/windows/internal/ui/coui"
+	"github.com/dzshzx/Zeta/windows/internal/ui/widget"
 	"github.com/egoist/mygo/ui"
 )
 
@@ -55,7 +55,7 @@ func (a *App) todoStrip(c *ui.Context, p *chatPane) {
 	if l == nil {
 		return
 	}
-	k := coui.Of(c)
+	k := widget.Of(c)
 	summary := todoSummary(l)
 	panel(c, func() {
 		ui.Row(c).Padding(0, 4, 0, 0).Gap(4).AlignItems(ui.Center).Children(func() {
@@ -72,16 +72,16 @@ func (a *App) todoStrip(c *ui.Context, p *chatPane) {
 				if todosDone(l) == len(l) {
 					tone = k.Success
 				}
-				ui.Text(c, todoPosition(l)).FontSize(coui.SizeBodyS).FontWeight(coui.Medium).FontFeatures("tnum").TextColor(tone)
-				ui.Text(c, summary).FontSize(coui.SizeBodyM).TextColor(k.Text).SingleLine().Ellipsis("…").Grow(1).MinWidth(0)
-				chevron := coui.IconChevronDown
+				ui.Text(c, todoPosition(l)).FontSize(widget.SizeBodyS).FontWeight(widget.Medium).FontFeatures("tnum").TextColor(tone)
+				ui.Text(c, summary).FontSize(widget.SizeBodyM).TextColor(k.Text).SingleLine().Ellipsis("…").Grow(1).MinWidth(0)
+				chevron := widget.IconChevronDown
 				if s.expanded {
-					chevron = coui.IconChevronUp
+					chevron = widget.IconChevronUp
 				}
 				ui.Icon(c, chevron).Size(16, 16).TextColor(k.Secondary).Shrink(0)
 			})
 			head.OnClick(func() { s.expanded = !s.expanded })
-			coui.FlatButton(c, coui.IconClose, "收掉这份任务清单", 32, 16).OnClick(func() { s.dismissed = l })
+			widget.FlatButton(c, widget.IconClose, "收掉这份任务清单", 32, 16).OnClick(func() { s.dismissed = l })
 		})
 		if !s.expanded {
 			return
@@ -99,19 +99,19 @@ func (a *App) todoStrip(c *ui.Context, p *chatPane) {
 
 // todoRow 是展开后清单里的一项：状态记号和这一项（进行中的用进行中的说法、加粗，做完的划掉、淡色）。
 func todoRow(c *ui.Context, t sessionproto.Todo) {
-	k := coui.Of(c)
+	k := widget.Of(c)
 	ui.Row(c).FillWidth().Padding(6, 14, 2, 14).Gap(9).AlignItems(ui.Start).Children(func() {
 		ui.Box(c).Size(16, 16).Margin(2, 0, 0, 0).Center().Shrink(0).Children(func() { todoMark(c, t.Status) })
 		shown := t.Content
 		if t.Status == sessionproto.TodoInProgress {
 			shown = t.ActiveForm
 		}
-		text := ui.Text(c, shown).FontSize(coui.SizeBodyS).LineHeight(1.4).Grow(1).MinWidth(0)
+		text := ui.Text(c, shown).FontSize(widget.SizeBodyS).LineHeight(1.4).Grow(1).MinWidth(0)
 		switch t.Status {
 		case sessionproto.TodoCompleted:
 			text.TextColor(k.Tertiary).Strikethrough()
 		case sessionproto.TodoInProgress:
-			text.TextColor(k.Text).FontWeight(coui.Medium)
+			text.TextColor(k.Text).FontWeight(widget.Medium)
 		default:
 			text.TextColor(k.Text.Alpha(0.85))
 		}
@@ -120,11 +120,11 @@ func todoRow(c *ui.Context, t sessionproto.Todo) {
 
 // todoMark 是一项的状态：做完是绿底对勾，进行中是主题色圆圈里一个实心点，待做是空心圆圈。
 func todoMark(c *ui.Context, s string) {
-	k := coui.Of(c)
+	k := widget.Of(c)
 	switch s {
 	case sessionproto.TodoCompleted:
 		ui.Box(c).Size(15, 15).Radius(7.5).Background(k.Success).Center().Label("已完成").Children(func() {
-			ui.Icon(c, coui.IconOK).Size(11, 11).TextColor(k.OnPrimary)
+			ui.Icon(c, widget.IconOK).Size(11, 11).TextColor(k.OnPrimary)
 		})
 	case sessionproto.TodoInProgress:
 		ui.Box(c).Size(15, 15).Radius(7.5).Border(1.5, k.Primary).Center().Label("进行中").Children(func() {
@@ -142,7 +142,7 @@ func todoRing(c *ui.Context, l []sessionproto.Todo) {
 		todoMark(c, sessionproto.TodoCompleted)
 		return
 	}
-	coui.RingArc(c, 16, float32(done)/float32(len(l)), coui.Of(c).Primary).Shrink(0)
+	widget.RingArc(c, 16, float32(done)/float32(len(l)), widget.Of(c).Primary).Shrink(0)
 }
 
 // todosDone 是清单里做完了几项。

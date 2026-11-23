@@ -5,7 +5,7 @@ import (
 	"errors"
 
 	"github.com/dzshzx/Zeta/helper/coreapi"
-	"github.com/dzshzx/Zeta/windows/internal/ui/coui"
+	"github.com/dzshzx/Zeta/windows/internal/ui/widget"
 	"github.com/egoist/mygo/ui"
 )
 
@@ -56,7 +56,7 @@ func (p *Page) memoryPage(c *ui.Context) {
 	m := p.memory.data
 	pageTitle(c, "记忆", p.back, nil)
 	body(c, "memory", func() {
-		coui.Group(c, "用户指令", "~/.claude/CLAUDE.md 里是你写给 Claude 的长期指令，所有项目通用。改动对之后新开始的对话生效。", func(l *coui.List) {
+		widget.Group(c, "用户指令", "~/.claude/CLAUDE.md 里是你写给 Claude 的长期指令，所有项目通用。改动对之后新开始的对话生效。", func(l *widget.List) {
 			if m == nil {
 				loadingRow(l, "正在读取…")
 				return
@@ -70,7 +70,7 @@ func (p *Page) memoryPage(c *ui.Context) {
 					placeholder: "比如：回答用中文；我的主要技术栈是 Go；改代码前先说明打算怎么改"})
 			})
 		})
-		coui.Group(c, "自动记忆", "Claude 会在对话中自己记下你的偏好、纠正和项目背景。开关对所有项目生效；关掉后不再读写，记忆留着。", func(l *coui.List) {
+		widget.Group(c, "自动记忆", "Claude 会在对话中自己记下你的偏好、纠正和项目背景。开关对所有项目生效；关掉后不再读写，记忆留着。", func(l *widget.List) {
 			if m == nil {
 				loadingRow(l, "正在读取…")
 				return
@@ -83,7 +83,7 @@ func (p *Page) memoryPage(c *ui.Context) {
 	})
 }
 
-func (p *Page) autoMemoryRows(l *coui.List, m coreapi.Memory) {
+func (p *Page) autoMemoryRows(l *widget.List, m coreapi.Memory) {
 	c := l.Context()
 	on := m.AutoMemory && !m.ForcedOff
 	summary := ""
@@ -91,7 +91,7 @@ func (p *Page) autoMemoryRows(l *coui.List, m coreapi.Memory) {
 		summary = "被环境变量关掉了，这里改不了"
 	}
 	item(l, "启用自动记忆", summary, func() {
-		sw := coui.Switch(c.Key("auto-memory"), &on).Label("启用自动记忆").Disabled(m.ForcedOff || p.memory.working)
+		sw := widget.Switch(c.Key("auto-memory"), &on).Label("启用自动记忆").Disabled(m.ForcedOff || p.memory.working)
 		if sw.Changed() {
 			p.memory.working = true
 			p.async(func(ctx context.Context) func() {
@@ -109,7 +109,7 @@ func (p *Page) autoMemoryRows(l *coui.List, m coreapi.Memory) {
 	switch {
 	case m.CustomDir != "":
 		// settings.json 里设了 autoMemoryDirectory：所有项目共用这一个目录，没有项目可选
-		l.Row(coui.Row{Title: "记忆目录", Summary: m.CustomDir, Value: "所有项目共用"})
+		l.Row(widget.Row{Title: "记忆目录", Summary: m.CustomDir, Value: "所有项目共用"})
 	case len(m.Projects) > 0:
 		var labels []string
 		selected := 0
@@ -142,7 +142,7 @@ func (p *Page) autoMemoryRows(l *coui.List, m coreapi.Memory) {
 }
 
 func (p *Page) memoryFiles(c *ui.Context, m coreapi.Memory) {
-	coui.Group(c, "记忆 · "+itoa(len(m.Files)), "", func(l *coui.List) {
+	widget.Group(c, "记忆 · "+itoa(len(m.Files)), "", func(l *widget.List) {
 		if len(m.Files) == 0 {
 			emptyRow(l, "这个项目还没有记忆", "让 Claude 记住的东西会出现在这里")
 		}
@@ -229,7 +229,7 @@ func (p *Page) saveDocument(force bool) {
 // （多半是 Claude 改的）先问一声。
 func (p *Page) documentPage(c *ui.Context) {
 	s := &p.doc
-	k := coui.Of(c)
+	k := widget.Of(c)
 	dirty := !s.loading && s.draft != s.saved
 	leave := func() {
 		if dirty {
@@ -240,10 +240,10 @@ func (p *Page) documentPage(c *ui.Context) {
 	}
 	pageTitle(c, s.doc.title, leave, func() {
 		if s.doc.deletable {
-			coui.SmallDangerButton(c, "删除").Disabled(s.loading || s.saving).OnClick(func() { s.deleting = true })
+			widget.SmallDangerButton(c, "删除").Disabled(s.loading || s.saving).OnClick(func() { s.deleting = true })
 		}
 	})
-	ui.Column(c).Grow(1).MinHeight(0).FillWidth().MaxWidth(coui.PageWidth).AlignSelf(ui.Center).Padding(8, 16, 16, 16).Gap(8).
+	ui.Column(c).Grow(1).MinHeight(0).FillWidth().MaxWidth(widget.PageWidth).AlignSelf(ui.Center).Padding(8, 16, 16, 16).Gap(8).
 		Children(func() {
 			size := int64(len(s.draft))
 			over := size > coreapi.MaxMemoryFile
@@ -251,16 +251,16 @@ func (p *Page) documentPage(c *ui.Context) {
 			if over {
 				info += " · 超过上限"
 			}
-			ui.Text(c, info).FontSize(coui.SizeBodyXS).TextColor(k.Secondary).Padding(0, 16)
+			ui.Text(c, info).FontSize(widget.SizeBodyXS).TextColor(k.Secondary).Padding(0, 16)
 			if s.loading {
-				coui.Group(c, "", "", func(l *coui.List) { loadingRow(l, "正在读取…") })
+				widget.Group(c, "", "", func(l *widget.List) { loadingRow(l, "正在读取…") })
 				return
 			}
 			// 正文在一张白卡片里，占满剩下的高
 			editor := ui.TextAreaBase(c.Key("document"), &s.draft).Placeholder(s.doc.placeholder).Label(s.doc.file).
-				Disabled(s.saving).Grow(1).FillWidth().Padding(14, 16).FontSize(coui.SizeBodyL).LineHeight(1.55).
+				Disabled(s.saving).Grow(1).FillWidth().Padding(14, 16).FontSize(widget.SizeBodyL).LineHeight(1.55).
 				PlaceholderColor(k.Tertiary).TextColor(k.Text).FocusRing(false)
-			coui.Surface{Shape: coui.ShapeCard, Fill: k.Card}.Paint(editor)
+			widget.Surface{Shape: widget.ShapeCard, Fill: k.Card}.Paint(editor)
 			if dirty || s.saving {
 				ui.Row(c).Gap(8).Padding(4, 0, 0, 16).AlignItems(ui.Center).Children(func() {
 					hint := "未保存的更改"
@@ -268,14 +268,14 @@ func (p *Page) documentPage(c *ui.Context) {
 					if over {
 						hint, color = "已超过 1 MiB 上限，请删减", k.Error
 					}
-					ui.Text(c, hint).FontSize(coui.SizeBodyXS).TextColor(color)
+					ui.Text(c, hint).FontSize(widget.SizeBodyXS).TextColor(color)
 					ui.Spacer(c)
-					coui.SmallButton(c, "放弃").Disabled(s.saving).OnClick(func() { s.draft = s.saved })
+					widget.SmallButton(c, "放弃").Disabled(s.saving).OnClick(func() { s.draft = s.saved })
 					label := "保存"
 					if s.saving {
 						label = "保存中"
 					}
-					coui.SmallPrimaryButton(c, label).Disabled(s.saving || over).OnClick(func() { p.saveDocument(false) })
+					widget.SmallPrimaryButton(c, label).Disabled(s.saving || over).OnClick(func() { p.saveDocument(false) })
 				})
 			}
 		})
@@ -285,14 +285,14 @@ func (p *Page) documentPage(c *ui.Context) {
 func (p *Page) documentDialogs(c *ui.Context) {
 	s := &p.doc
 	if alert(c, &s.conflict, "文件已经变了", "编辑期间这个文件被改过了，多半是 Claude 在对话里更新了它。保存会用你的版本覆盖。",
-		coui.Destructive, "取消", "仍然保存") == 1 {
+		widget.Destructive, "取消", "仍然保存") == 1 {
 		p.saveDocument(true)
 	}
-	if alert(c, &s.leaving, "放弃未保存的更改？", "", coui.Destructive, "取消", "放弃") == 1 {
+	if alert(c, &s.leaving, "放弃未保存的更改？", "", widget.Destructive, "取消", "放弃") == 1 {
 		p.back()
 	}
 	message := "删除 " + s.doc.file + "，并从 MEMORY.md 里去掉它那一行。删了就找不回来。"
-	if alert(c, &s.deleting, "删除这条记忆", message, coui.Destructive, "取消", "删除") == 1 {
+	if alert(c, &s.deleting, "删除这条记忆", message, widget.Destructive, "取消", "删除") == 1 {
 		path := s.doc.path
 		p.async(func(ctx context.Context) func() {
 			err := p.opts.Core.DeleteMemory(ctx, path)

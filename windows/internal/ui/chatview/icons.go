@@ -1,27 +1,27 @@
 package chatview
 
-import "github.com/dzshzx/Zeta/windows/internal/ui/coui"
+import "github.com/dzshzx/Zeta/windows/internal/ui/widget"
 
 // 聊天列表用到的图标，和手机版同样的（ToolPresentation.kt、ChatItems.kt）：颜色跟着文字。
 var (
-	iconChevron   = coui.IconChevronDown
-	iconThinking  = coui.IconLightbulb
-	iconTerminal  = coui.IconTerminal
-	iconFile      = coui.IconFile
-	iconFileAdd   = coui.IconFileAdd
-	iconEdit      = coui.IconEdit
-	iconSearch    = coui.IconSearchText
-	iconGlobe     = coui.IconGlobe
-	iconAgent     = coui.IconBranch
-	iconChecklist = coui.IconTodo
-	iconQuestion  = coui.IconAsk
-	iconSparkle   = coui.IconSparkle
-	iconPlug      = coui.IconPuzzle
-	iconWrench    = coui.IconWrench
-	iconDone      = coui.IconTodo
-	iconFolder    = coui.IconFolder
-	iconCopy      = coui.IconCopy
-	iconForward   = coui.IconForward
-	iconImage     = coui.IconImage
-	iconPhone     = coui.IconPhone
+	iconChevron   = widget.IconChevronDown
+	iconThinking  = widget.IconLightbulb
+	iconTerminal  = widget.IconTerminal
+	iconFile      = widget.IconFile
+	iconFileAdd   = widget.IconFileAdd
+	iconEdit      = widget.IconEdit
+	iconSearch    = widget.IconSearchText
+	iconGlobe     = widget.IconGlobe
+	iconAgent     = widget.IconBranch
+	iconChecklist = widget.IconTodo
+	iconQuestion  = widget.IconAsk
+	iconSparkle   = widget.IconSparkle
+	iconPlug      = widget.IconPuzzle
+	iconWrench    = widget.IconWrench
+	iconDone      = widget.IconTodo
+	iconFolder    = widget.IconFolder
+	iconCopy      = widget.IconCopy
+	iconForward   = widget.IconForward
+	iconImage     = widget.IconImage
+	iconPhone     = widget.IconPhone
 )

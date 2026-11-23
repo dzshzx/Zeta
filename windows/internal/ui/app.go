@@ -11,7 +11,7 @@ import (
 	uiacct "github.com/dzshzx/Zeta/windows/internal/ui/accounts"
 	"github.com/dzshzx/Zeta/windows/internal/ui/chatview"
 	"github.com/dzshzx/Zeta/windows/internal/ui/claudecfg"
-	"github.com/dzshzx/Zeta/windows/internal/ui/coui"
+	"github.com/dzshzx/Zeta/windows/internal/ui/widget"
 	"github.com/egoist/mygo"
 	"github.com/egoist/mygo/ui"
 )
@@ -110,14 +110,14 @@ func (a *App) async(work func() func()) {
 
 // View 是窗口的内容：COUI 的配色（跟着系统的深浅色），左边侧栏（能拖宽、能收起，layout.go），右边是在看的那一页。
 func (a *App) View(c *ui.Context) {
-	c.SetTheme(coui.Theme(a.dark(c.Theme().Dark)))
+	c.SetTheme(widget.Theme(a.dark(c.Theme().Dark)))
 	a.syncChat()
 	a.saveDraftsWhenDue(c)
 	if a.shown == pageDevice && a.page != pageDevice {
 		a.hub.ApplyOptions(a.device) // 设备页上改过的自动压缩、自动标题
 	}
 	a.shown = a.page
-	k := coui.Of(c)
+	k := widget.Of(c)
 	a.shortcuts(c)
 	a.frame(c, func() {
 		main := ui.Column(c).Fill().Background(k.Window)
@@ -140,7 +140,7 @@ func (a *App) View(c *ui.Context) {
 				a.chatPage(c)
 			default:
 				a.home(c)
-				coui.DragStrip(c)
+				widget.DragStrip(c)
 			}
 			a.updateBar(c)
 		})
@@ -185,28 +185,28 @@ func (a *App) open(page string) {
 
 // home 是没在看别的页时的主区域：还没有设备时请用户加一台。
 func (a *App) home(c *ui.Context) {
-	k := coui.Of(c)
+	k := widget.Of(c)
 	ui.Column(c).Fill().Center().Gap(14).Padding(32).Children(func() {
 		brand(c, 56)
-		ui.Text(c, "Zeta").FontSize(coui.SizeHeadlineM + 4).FontWeight(600).TextColor(k.Text)
+		ui.Text(c, "Zeta").FontSize(widget.SizeHeadlineM + 4).FontWeight(600).TextColor(k.Text)
 		if len(a.hub.Hosts()) > 0 {
 			return
 		}
-		ui.Text(c, desktopFooter).FontSize(coui.SizeBodyS).LineHeight(1.5).TextColor(k.Secondary).MaxWidth(420).
+		ui.Text(c, desktopFooter).FontSize(widget.SizeBodyS).LineHeight(1.5).TextColor(k.Secondary).MaxWidth(420).
 			TextAlign(ui.Center)
-		coui.PrimaryButton(c, "添加设备").OnClick(func() { a.open(pageDevices) }).Margin(8, 0, 0, 0)
+		widget.PrimaryButton(c, "添加设备").OnClick(func() { a.open(pageDevices) }).Margin(8, 0, 0, 0)
 	})
 }
 
 // brand 是品牌标：主题蓝的圆角方块（往下渐深），里面白色的 ζ（同手机版侧栏的 BrandMark）。
 func brand(c *ui.Context, size float32) {
-	k := coui.Of(c)
+	k := widget.Of(c)
 	deep := k.Primary.Mix(ui.RGB(0, 0, 0), 0.12)
 	if k.Dark {
 		deep = k.Primary.Mix(ui.RGB(255, 255, 255), 0.12)
 	}
 	ui.Box(c).Size(size, size).Radius(size*0.29).Gradient(k.Primary, deep, 180).Center().Shrink(0).Children(func() {
-		ui.Icon(c, coui.IconBrand).Size(size*0.78, size*0.78).TextColor(k.OnPrimary)
+		ui.Icon(c, widget.IconBrand).Size(size*0.78, size*0.78).TextColor(k.OnPrimary)
 	})
 }
 
@@ -220,7 +220,7 @@ func (a *App) noticeDialog(c *ui.Context) {
 	if n == nil {
 		return
 	}
-	coui.Alert(c, &n.open, n.title, n.message, coui.Action{Label: "好", Style: coui.Recommend})
+	widget.Alert(c, &n.open, n.title, n.message, widget.Action{Label: "好", Style: widget.Recommend})
 	if !n.open {
 		a.notice = nil
 	}

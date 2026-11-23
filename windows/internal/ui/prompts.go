@@ -11,7 +11,7 @@ import (
 	"github.com/dzshzx/Zeta/helper/prompt"
 	"github.com/dzshzx/Zeta/windows/internal/chat"
 	"github.com/dzshzx/Zeta/windows/internal/ui/chatview"
-	"github.com/dzshzx/Zeta/windows/internal/ui/coui"
+	"github.com/dzshzx/Zeta/windows/internal/ui/widget"
 	"github.com/egoist/mygo/ui"
 	"github.com/egoist/mygo/ui/markdown"
 )
@@ -58,7 +58,7 @@ func (qa *questionAnswer) text(q prompt.Question) string {
 }
 
 // promptCard 是 Claude Code 在等的第一个请求（工具确认、计划审批、提问、MCP 表单或网址）：照 ChatGPT 客户端，是输入栏
-// 位置上的一张卡片（coui.Panel），等你回应时输入栏先收起，上面的对话照样能翻；只有点按钮（或 Enter、Esc）才算回应。
+// 位置上的一张卡片（widget.Panel），等你回应时输入栏先收起，上面的对话照样能翻；只有点按钮（或 Enter、Esc）才算回应。
 func (a *App) promptCard(c *ui.Context, p *chatPane) {
 	if len(p.state.Prompts) == 0 {
 		return
@@ -106,11 +106,11 @@ func detailBlock(c *ui.Context, text string) {
 	if r := []rune(text); len(r) > 4000 {
 		text = string(r[:4000]) + "\n…"
 	}
-	k := coui.Of(c)
-	ui.Column(c).FillWidth().Padding(0, coui.DialogPadding).Children(func() {
-		box := coui.Surface{Shape: coui.ShapeBlock, Fill: k.DialogBlock}.Paint(ui.Scroll(c)).FillWidth().MaxHeight(260)
+	k := widget.Of(c)
+	ui.Column(c).FillWidth().Padding(0, widget.DialogPadding).Children(func() {
+		box := widget.Surface{Shape: widget.ShapeBlock, Fill: k.DialogBlock}.Paint(ui.Scroll(c)).FillWidth().MaxHeight(260)
 		box.Children(func() {
-			ui.Text(c, text).FontSize(12).LineHeight(1.25).Font(coui.Mono).TextColor(k.Text.Alpha(0.8)).Padding(10, 12).Selectable()
+			ui.Text(c, text).FontSize(12).LineHeight(1.25).Font(widget.Mono).TextColor(k.Text.Alpha(0.8)).Padding(10, 12).Selectable()
 		})
 	})
 }
@@ -119,11 +119,11 @@ func detailBlock(c *ui.Context, text string) {
 // 卡片出来时焦点在主按钮上（原先在侧栏按钮上时 Enter 会点到那边）；焦点在卡片里的输入框时 Enter 归输入框（换行、
 // 提交那一项）。
 func cardButton(c *ui.Context, label string, primary, disabled bool, do func()) {
-	style, key := coui.Plain, ui.KeyEscape
+	style, key := widget.Plain, ui.KeyEscape
 	if primary {
-		style, key = coui.Recommend, ui.KeyEnter
+		style, key = widget.Recommend, ui.KeyEnter
 	}
-	b := coui.DialogButton(c, label, style).Disabled(disabled).OnClick(do)
+	b := widget.DialogButton(c, label, style).Disabled(disabled).OnClick(do)
 	if primary {
 		b.AutoFocus()
 	}
@@ -146,14 +146,14 @@ func (a *App) toolCard(c *ui.Context, p *chatPane, pr prompt.Prompt) {
 		summary = append(summary, pr.Reason)
 	}
 	f := &p.form
-	coui.Panel(c, "允许这次操作？", strings.Join(summary, "\n"), 460, func() {
+	widget.Panel(c, "允许这次操作？", strings.Join(summary, "\n"), 460, func() {
 		detailBlock(c, detail)
 		if len(pr.SuggestionLines) > 0 {
-			coui.Choice(c, "以后不再询问", strings.Join(pr.SuggestionLines, "\n"), coui.MarkCheck, f.remember).
+			widget.Choice(c, "以后不再询问", strings.Join(pr.SuggestionLines, "\n"), widget.MarkCheck, f.remember).
 				OnClick(func() { f.remember = !f.remember })
 		}
-		ui.Box(c).FillWidth().Padding(0, coui.DialogPadding).Children(func() {
-			coui.LineInput(c.Key("feedback"), &f.feedback, 4).Placeholder("拒绝时告诉 Claude 换个做法（可不填）").Label("拒绝的理由")
+		ui.Box(c).FillWidth().Padding(0, widget.DialogPadding).Children(func() {
+			widget.LineInput(c.Key("feedback"), &f.feedback, 4).Placeholder("拒绝时告诉 Claude 换个做法（可不填）").Label("拒绝的理由")
 		})
 	}, func() {
 		deny := "拒绝"
@@ -181,9 +181,9 @@ var (
 )
 
 func stylePlan(c *ui.Context) {
-	k := coui.Of(c)
+	k := widget.Of(c)
 	planTheme = *markdown.DefaultTheme(c.Theme())
-	planTheme.FontSize, planTheme.Text, planTheme.Strong = coui.SizeBodyS, k.Text, k.Text
+	planTheme.FontSize, planTheme.Text, planTheme.Strong = widget.SizeBodyS, k.Text, k.Text
 	for i := range planTheme.Headings {
 		planTheme.Headings[i] = markdown.HeadingStyle{Size: 1, Weight: 600, Top: 0.6, Bottom: 0.3}
 	}
@@ -197,16 +197,16 @@ func (a *App) planCard(c *ui.Context, p *chatPane, pr prompt.Prompt) {
 	}
 	_ = json.Unmarshal(pr.Input, &input)
 	f := &p.form
-	coui.Panel(c, "按这个计划执行？", "", 520, func() {
-		ui.Box(c).FillWidth().Padding(4, coui.DialogPadding).Children(func() {
+	widget.Panel(c, "按这个计划执行？", "", 520, func() {
+		ui.Box(c).FillWidth().Padding(4, widget.DialogPadding).Children(func() {
 			stylePlan(c)
 			markdown.View(c, input.Plan, &planMarkdown).FillWidth()
 		})
 		for _, m := range []struct{ value, label string }{{"acceptEdits", "批准，自动接受改动"}, {"default", "批准，改动逐项确认"}} {
-			coui.Choice(c.Key(m.value), m.label, "", coui.MarkRadio, f.planMode == m.value).OnClick(func() { f.planMode = m.value })
+			widget.Choice(c.Key(m.value), m.label, "", widget.MarkRadio, f.planMode == m.value).OnClick(func() { f.planMode = m.value })
 		}
-		ui.Box(c).FillWidth().Padding(0, coui.DialogPadding).Children(func() {
-			coui.LineInput(c.Key("feedback"), &f.feedback, 4).Placeholder("不批准：告诉 Claude 要改什么").Label("要改什么")
+		ui.Box(c).FillWidth().Padding(0, widget.DialogPadding).Children(func() {
+			widget.LineInput(c.Key("feedback"), &f.feedback, 4).Placeholder("不批准：告诉 Claude 要改什么").Label("要改什么")
 		})
 	}, func() {
 		cardButton(c, "继续完善", false, f.sending || strings.TrimSpace(f.feedback) == "", func() {
@@ -222,7 +222,7 @@ func (a *App) planCard(c *ui.Context, p *chatPane, pr prompt.Prompt) {
 // 能写备注；也可以先不答，和 Claude 聊聊这些问题。
 func (a *App) questionCard(c *ui.Context, p *chatPane, pr prompt.Prompt) {
 	f := &p.form
-	k := coui.Of(c)
+	k := widget.Of(c)
 	title := "需要你的选择"
 	if len(pr.Questions) == 1 {
 		title = pr.Questions[0].Question
@@ -234,18 +234,18 @@ func (a *App) questionCard(c *ui.Context, p *chatPane, pr prompt.Prompt) {
 		}
 	}
 	answers, notes := questionReplies(pr.Questions, f.answers)
-	coui.Panel(c, title, "", 520, func() {
+	widget.Panel(c, title, "", 520, func() {
 		for i, q := range pr.Questions {
 			qa := &f.answers[i]
 			ui.Column(c.Key("question/" + strconv.Itoa(i))).FillWidth().Children(func() {
 				if len(pr.Questions) > 1 {
-					ui.Text(c, q.Question).FontSize(coui.SizeBodyM).TextColor(k.Secondary).Padding(12, coui.DialogPadding, 4, coui.DialogPadding)
+					ui.Text(c, q.Question).FontSize(widget.SizeBodyM).TextColor(k.Secondary).Padding(12, widget.DialogPadding, 4, widget.DialogPadding)
 				}
 				questionOptions(c, q, qa)
 			})
 		}
-		clarify := ui.Text(c, "先不回答，和 Claude 聊聊这些问题").FontSize(coui.SizeBodyS).TextColor(k.PrimaryText).
-			Padding(12, coui.DialogPadding).Cursor(ui.CursorPointer).Role(ui.RoleButton)
+		clarify := ui.Text(c, "先不回答，和 Claude 聊聊这些问题").FontSize(widget.SizeBodyS).TextColor(k.PrimaryText).
+			Padding(12, widget.DialogPadding).Cursor(ui.CursorPointer).Role(ui.RoleButton)
 		if !f.sending {
 			clarify.OnClick(func() {
 				a.answer(p, pr, prompt.Reply{Kind: prompt.ReplyClarify, Answers: answers, Notes: notes})
@@ -263,13 +263,13 @@ func (a *App) questionCard(c *ui.Context, p *chatPane, pr prompt.Prompt) {
 
 // questionOptions 是一个问题的选项：单选题点一项换成它，多选题各项开关；最后一项「其他」是自己写。
 func questionOptions(c *ui.Context, q prompt.Question, qa *questionAnswer) {
-	mark := coui.MarkRadio
+	mark := widget.MarkRadio
 	if q.MultiSelect {
-		mark = coui.MarkCheck
+		mark = widget.MarkCheck
 	}
 	for i, o := range q.Options {
 		on := slices.Contains(qa.chosen, o.Label) && (q.MultiSelect || !qa.otherOn)
-		coui.Choice(c.Key("option/"+strconv.Itoa(i)), o.Label, o.Description, mark, on).OnClick(func() {
+		widget.Choice(c.Key("option/"+strconv.Itoa(i)), o.Label, o.Description, mark, on).OnClick(func() {
 			switch {
 			case !q.MultiSelect:
 				qa.chosen, qa.otherOn = []string{o.Label}, false
@@ -280,15 +280,15 @@ func questionOptions(c *ui.Context, q prompt.Question, qa *questionAnswer) {
 			}
 		})
 	}
-	coui.Choice(c.Key("other"), "其他", "", mark, qa.otherOn).OnClick(func() {
+	widget.Choice(c.Key("other"), "其他", "", mark, qa.otherOn).OnClick(func() {
 		qa.otherOn = !q.MultiSelect || !qa.otherOn
 		if !q.MultiSelect {
 			qa.chosen = nil
 		}
 	})
 	field := func(key string, value *string, label, hint string, lines int) {
-		ui.Box(c).FillWidth().Padding(0, coui.DialogPadding).Children(func() {
-			coui.LineInput(c.Key(key), value, lines).Placeholder(hint).Label(label)
+		ui.Box(c).FillWidth().Padding(0, widget.DialogPadding).Children(func() {
+			widget.LineInput(c.Key(key), value, lines).Placeholder(hint).Label(label)
 		})
 	}
 	if qa.otherOn {
@@ -324,16 +324,16 @@ func questionReplies(questions []prompt.Question, answers []questionAnswer) (map
 // elicitCard 是 MCP 服务器的表单（逐项填，核心核对，不对的原因写在那一项下面）或网址（去网页上做，点「打开网页」算同意），
 // 照手机版的 ElicitationSheet。
 func (a *App) elicitCard(c *ui.Context, p *chatPane, pr prompt.Prompt) {
-	k := coui.Of(c)
+	k := widget.Of(c)
 	f := &p.form
 	title := pr.Server + " 需要你填写"
 	if pr.URL != "" {
 		title = pr.Server + " 请你去网页上操作"
 	}
-	coui.Panel(c, title, pr.Message, 520, func() {
+	widget.Panel(c, title, pr.Message, 520, func() {
 		if pr.URL != "" {
-			ui.Text(c, pr.URL).FontSize(coui.SizeBodyS).TextColor(k.PrimaryText).Selectable().TextAlign(ui.Center).FillWidth().
-				Padding(0, coui.DialogPadding)
+			ui.Text(c, pr.URL).FontSize(widget.SizeBodyS).TextColor(k.PrimaryText).Selectable().TextAlign(ui.Center).FillWidth().
+				Padding(0, widget.DialogPadding)
 		}
 		for _, field := range pr.Fields {
 			ui.Column(c.Key("field/" + field.Key)).FillWidth().Children(func() { elicitField(c, field, f) })
@@ -355,7 +355,7 @@ func (a *App) elicitCard(c *ui.Context, p *chatPane, pr prompt.Prompt) {
 
 // elicitField 是表单的一项：开关是开关行，单选、多选是选项行，别的是输入框；核心说不对时原因写在下面。
 func elicitField(c *ui.Context, field prompt.Field, f *promptForm) {
-	k := coui.Of(c)
+	k := widget.Of(c)
 	title := field.Title
 	if title == "" {
 		title = field.Key
@@ -371,17 +371,17 @@ func elicitField(c *ui.Context, field prompt.Field, f *promptForm) {
 	switch field.Kind {
 	case prompt.FieldToggle:
 		on := len(value) > 0 && value[0] == "true"
-		coui.Choice(c.Key("toggle"), title, field.Description, coui.MarkSwitch, on).
+		widget.Choice(c.Key("toggle"), title, field.Description, widget.MarkSwitch, on).
 			OnClick(func() { set([]string{strconv.FormatBool(!on)}) })
 	case prompt.FieldSingle, prompt.FieldMulti:
-		ui.Text(c, title).FontSize(coui.SizeBodyM).TextColor(k.Secondary).Padding(12, coui.DialogPadding, 4, coui.DialogPadding)
-		mark := coui.MarkRadio
+		ui.Text(c, title).FontSize(widget.SizeBodyM).TextColor(k.Secondary).Padding(12, widget.DialogPadding, 4, widget.DialogPadding)
+		mark := widget.MarkRadio
 		if field.Kind == prompt.FieldMulti {
-			mark = coui.MarkCheck
+			mark = widget.MarkCheck
 		}
 		for i, ch := range field.Choices {
 			on := slices.Contains(value, ch.Value)
-			coui.Choice(c.Key("choice/"+strconv.Itoa(i)), ch.Label, "", mark, on).OnClick(func() {
+			widget.Choice(c.Key("choice/"+strconv.Itoa(i)), ch.Label, "", mark, on).OnClick(func() {
 				switch {
 				case field.Kind == prompt.FieldSingle:
 					set([]string{ch.Value})
@@ -393,7 +393,7 @@ func elicitField(c *ui.Context, field prompt.Field, f *promptForm) {
 			})
 		}
 		if field.Description != "" {
-			ui.Text(c, field.Description).FontSize(coui.SizeBodyXS).TextColor(k.Secondary).Padding(0, coui.DialogPadding)
+			ui.Text(c, field.Description).FontSize(widget.SizeBodyXS).TextColor(k.Secondary).Padding(0, widget.DialogPadding)
 		}
 	default:
 		text := f.texts[field.Key]
@@ -404,20 +404,20 @@ func elicitField(c *ui.Context, field prompt.Field, f *promptForm) {
 			}
 			f.texts[field.Key] = text
 		}
-		ui.Column(c).FillWidth().Padding(4, coui.DialogPadding, 0, coui.DialogPadding).Children(func() {
-			ui.Text(c, title).FontSize(coui.SizeBodyS).TextColor(k.Secondary)
+		ui.Column(c).FillWidth().Padding(4, widget.DialogPadding, 0, widget.DialogPadding).Children(func() {
+			ui.Text(c, title).FontSize(widget.SizeBodyS).TextColor(k.Secondary)
 			hint := field.Description
 			if hint == "" {
 				hint = title
 			}
-			input := coui.LineInput(c.Key("text"), text, 1).Placeholder(hint).Label(title)
+			input := widget.LineInput(c.Key("text"), text, 1).Placeholder(hint).Label(title)
 			if input.Changed() {
 				delete(f.errors, field.Key)
 			}
 		})
 	}
 	if why := f.errors[field.Key]; why != "" {
-		ui.Text(c, why).FontSize(coui.SizeBodyXS).TextColor(k.Error).Padding(2, coui.DialogPadding, 4, coui.DialogPadding)
+		ui.Text(c, why).FontSize(widget.SizeBodyXS).TextColor(k.Error).Padding(2, widget.DialogPadding, 4, widget.DialogPadding)
 	}
 }
 

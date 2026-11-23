@@ -14,7 +14,7 @@ import (
 	"github.com/dzshzx/Zeta/helper/coreapi"
 	"github.com/dzshzx/Zeta/windows/internal/attach"
 	"github.com/dzshzx/Zeta/windows/internal/host"
-	"github.com/dzshzx/Zeta/windows/internal/ui/coui"
+	"github.com/dzshzx/Zeta/windows/internal/ui/widget"
 	"github.com/egoist/mygo"
 	"github.com/egoist/mygo/transfer"
 	"github.com/egoist/mygo/ui"
@@ -411,7 +411,7 @@ func (a *App) attachProblems(c *ui.Context, p *chatPane) {
 	if at.tooLarge {
 		message += "\n\n" + tooLargeAdvice
 	}
-	coui.Alert(c, &open, "有些内容没有加进来", message, coui.Action{Label: "好", Style: coui.Recommend})
+	widget.Alert(c, &open, "有些内容没有加进来", message, widget.Action{Label: "好", Style: widget.Recommend})
 	if !open {
 		at.problems, at.tooLarge = nil, false
 	}

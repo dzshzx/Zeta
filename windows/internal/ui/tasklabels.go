@@ -5,7 +5,7 @@ import (
 
 	"github.com/dzshzx/Zeta/helper/tasks"
 	"github.com/dzshzx/Zeta/windows/internal/attach"
-	"github.com/dzshzx/Zeta/windows/internal/ui/coui"
+	"github.com/dzshzx/Zeta/windows/internal/ui/widget"
 	"github.com/egoist/mygo/ui"
 )
 
@@ -62,7 +62,7 @@ const (
 )
 
 // color 是这一档的文字色。
-func (t tone) color(k *coui.Colors) ui.Color {
+func (t tone) color(k *widget.Colors) ui.Color {
 	switch t {
 	case toneRunning:
 		return k.PrimaryText

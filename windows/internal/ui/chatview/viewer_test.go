@@ -9,7 +9,7 @@ import (
 	"time"
 
 	"github.com/dzshzx/Zeta/windows/internal/chat/items"
-	"github.com/dzshzx/Zeta/windows/internal/ui/coui"
+	"github.com/dzshzx/Zeta/windows/internal/ui/widget"
 	"github.com/egoist/mygo/ui"
 )
 
@@ -27,7 +27,7 @@ func viewerTester(ch *Chat, dark bool, save func(data []byte, name string) (stri
 		w.v.Save = w.save
 	}
 	view := func(c *ui.Context) {
-		c.SetTheme(coui.Theme(c.Theme().Dark))
+		c.SetTheme(widget.Theme(c.Theme().Dark))
 		ui.Column(c).Fill().Background(c.Theme().Background).Children(func() {
 			ch.View(c).Grow(1).FillWidth()
 		})
@@ -226,7 +226,7 @@ func TestViewerZoom(t *testing.T) {
 	}
 	z := &w.v.zoom
 	// 图在 900×700 的窗口里：框是两边各让出翻页键、上下让出两条栏的那块，中心在窗口中心偏下
-	cx, cy := float32(450), float32(coui.TitleBarHeight+(700-coui.TitleBarHeight-viewerBottom)/2)
+	cx, cy := float32(450), float32(widget.TitleBarHeight+(700-widget.TitleBarHeight-viewerBottom)/2)
 	tt.Wheel(cx, cy, 0, -100)
 	tt.Frame()
 	if z.factor() != wheelStep || z.x != 0 || z.y != 0 {

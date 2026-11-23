@@ -4,7 +4,7 @@ import (
 	"unicode/utf8"
 
 	"github.com/dzshzx/Zeta/windows/internal/chat"
-	"github.com/dzshzx/Zeta/windows/internal/ui/coui"
+	"github.com/dzshzx/Zeta/windows/internal/ui/widget"
 	"github.com/egoist/mygo/ui"
 )
 
@@ -88,7 +88,7 @@ func (a *App) slashList(c *ui.Context, p *chatPane) {
 		p.slash.chosen = 0
 		return
 	}
-	k := coui.Of(c)
+	k := widget.Of(c)
 	m := &p.slash
 	m.chosen = min(max(m.chosen, 0), len(list)-1)
 	ui.Scroll(c.Key("slash")).FillWidth().MaxHeight(slashCommandHeight).Margin(0, 0, 4, 0).Label("斜杠命令").Children(func() {
@@ -108,21 +108,21 @@ func (a *App) slashList(c *ui.Context, p *chatPane) {
 
 // slashRow 是一条命令：主题色的「/命令」和参数提示一行，说明在下一行（同 Composer.kt 的 SlashSuggestionRow）；选中的那条有底色。
 func slashRow(c *ui.Context, cmd chat.Command, chosen bool) ui.Element {
-	k := coui.Of(c)
+	k := widget.Of(c)
 	row := ui.Column(c).Label("/"+cmd.Name).Role(ui.RoleButton).FillWidth().Padding(7, 8).Radius(12).Gap(1).Cursor(ui.CursorPointer)
 	if chosen || row.Hovered() {
 		row.Background(k.Hover)
 	}
 	row.Children(func() {
 		ui.Row(c).Gap(8).AlignItems(ui.Center).Children(func() {
-			ui.Text(c, "/"+cmd.Name).FontSize(coui.SizeBodyM).FontWeight(500).TextColor(k.PrimaryText).SingleLine().Shrink(0)
+			ui.Text(c, "/"+cmd.Name).FontSize(widget.SizeBodyM).FontWeight(500).TextColor(k.PrimaryText).SingleLine().Shrink(0)
 			if cmd.ArgumentHint != "" {
-				ui.Text(c, cmd.ArgumentHint).FontSize(coui.SizeBodyXS).TextColor(k.Secondary).SingleLine().Ellipsis("…").
+				ui.Text(c, cmd.ArgumentHint).FontSize(widget.SizeBodyXS).TextColor(k.Secondary).SingleLine().Ellipsis("…").
 					Shrink(1).MinWidth(0)
 			}
 		})
 		if cmd.Description != "" {
-			ui.Text(c, cmd.Description).FontSize(coui.SizeBodyXS).TextColor(k.Secondary).SingleLine().Ellipsis("…")
+			ui.Text(c, cmd.Description).FontSize(widget.SizeBodyXS).TextColor(k.Secondary).SingleLine().Ellipsis("…")
 		}
 	})
 	return row

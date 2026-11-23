@@ -7,13 +7,13 @@ import (
 	"time"
 
 	"github.com/dzshzx/Zeta/windows/internal/hub"
-	"github.com/dzshzx/Zeta/windows/internal/ui/coui"
+	"github.com/dzshzx/Zeta/windows/internal/ui/widget"
 	"github.com/egoist/mygo/ui"
 )
 
 // searchField 是侧栏底下的搜索框（同 Compose 的 SearchCapsule）：框里的字一变就交给中枢去搜。
 func (a *App) searchField(c *ui.Context) {
-	in := coui.SearchField(c, &a.query, "搜索对话 (Ctrl+K)")
+	in := widget.SearchField(c, &a.query, "搜索对话 (Ctrl+K)")
 	if a.layout.searchFocus {
 		in.Focus()
 		a.layout.searchFocus = false
@@ -35,7 +35,7 @@ func (a *App) searchResults(c *ui.Context) {
 		if progress == hub.SearchRunning {
 			text = "正在搜索…"
 		}
-		ui.Text(c, text).FontSize(coui.SizeBodyM).TextColor(coui.Of(c).Secondary).TextAlign(ui.Center).FillWidth().Padding(36, 24)
+		ui.Text(c, text).FontSize(widget.SizeBodyM).TextColor(widget.Of(c).Secondary).TextAlign(ui.Center).FillWidth().Padding(36, 24)
 		return
 	}
 	sectionTitle(c, "搜索结果", true)
@@ -43,7 +43,7 @@ func (a *App) searchResults(c *ui.Context) {
 		a.sessionRow(c, s, h.Snippet(s))
 	}
 	if text := searchFooter(progress); text != "" {
-		ui.Text(c, text).FontSize(coui.SizeBodyXS).TextColor(coui.Of(c).Secondary).FillWidth().Padding(12, 32)
+		ui.Text(c, text).FontSize(widget.SizeBodyXS).TextColor(widget.Of(c).Secondary).FillWidth().Padding(12, 32)
 	}
 }
 
@@ -61,12 +61,12 @@ func searchFooter(p hub.SearchProgress) string {
 
 // highlighted 是一段字，其中每处 needle（不分大小写）标成主题色、中等字重（同 Compose 的 highlighted）。weight 是 0 时用常规字重。
 func highlighted(c *ui.Context, text, needle string, size float32, weight int, color ui.Color) ui.Element {
-	k := coui.Of(c)
+	k := widget.Of(c)
 	var spans []ui.Span
 	for _, part := range matches(text, needle) {
 		span := ui.Span{Text: part.text, Size: size, Weight: weight, Color: color}
 		if part.hit {
-			span.Color, span.Weight = k.PrimaryText, coui.Medium
+			span.Color, span.Weight = k.PrimaryText, widget.Medium
 		}
 		spans = append(spans, span)
 	}
@@ -126,7 +126,7 @@ func statusText(st hub.Status) string {
 }
 
 // statusColor：等确认是警告色，在回答、后台任务是主题色，有新回答是绿色，闲着是淡灰。
-func statusColor(k *coui.Colors, a hub.Activity) ui.Color {
+func statusColor(k *widget.Colors, a hub.Activity) ui.Color {
 	switch a {
 	case hub.Waiting:
 		return k.Warning
@@ -140,11 +140,11 @@ func statusColor(k *coui.Colors, a hub.Activity) ui.Color {
 
 // statusLabel 是会话行尾的状态（同 Compose 的 SessionStatusLabel）：12 的圆形记号加两三个字，颜色跟着状态走。
 func statusLabel(c *ui.Context, st hub.Status) {
-	k := coui.Of(c)
+	k := widget.Of(c)
 	color := statusColor(k, st.Activity)
 	ui.Row(c).Gap(5).AlignItems(ui.Center).Shrink(0).Children(func() {
 		ui.Box(c).Size(markSize, markSize).Shrink(0).Draw(func(p *ui.Painter, r ui.Rect) { drawMark(p, r, st.Activity, color) })
-		ui.Text(c, statusText(st)).FontSize(coui.SizeBodyXS).TextColor(color).SingleLine()
+		ui.Text(c, statusText(st)).FontSize(widget.SizeBodyXS).TextColor(color).SingleLine()
 	})
 }
 

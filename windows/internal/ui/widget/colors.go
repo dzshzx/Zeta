@@ -1,9 +1,9 @@
-// Package coui 是桌面版的外观：浅色、深色两套配色，字号，和界面常用的几样组件（页面与卡片分组、列表行、开关、按钮、
+// Package widget 是桌面版的外观：浅色、深色两套配色，字号，和界面常用的几样组件（页面与卡片分组、列表行、开关、按钮、
 // 输入框、菜单、对话框、提示条）。配色和交互照 ChatGPT 的 Windows 客户端（黑白灰，主按钮黑底白字，蓝色只给链接），
-// 尺寸是鼠标用的桌面尺寸；包名、槽位名和图标沿用手机版 COUI 2 的（槽位后面括号里是 COUI 的名字），手机版的规矩不管这里。
+// 尺寸是鼠标用的桌面尺寸；槽位名和图标沿用手机版 COUI 2 的（槽位后面括号里是 COUI 的名字），手机版的规矩不管这里。
 //
 // 组件只管样子，行为用 mygo 的 base（ButtonBase、SwitchBase、MenuBase、DialogBase……），文字、读屏名字照调用方给的。
-package coui
+package widget
 
 import "github.com/egoist/mygo/ui"
 

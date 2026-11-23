@@ -4,7 +4,7 @@ import (
 	"slices"
 
 	"github.com/dzshzx/Zeta/windows/internal/chat/items"
-	"github.com/dzshzx/Zeta/windows/internal/ui/coui"
+	"github.com/dzshzx/Zeta/windows/internal/ui/widget"
 	"github.com/egoist/mygo/ui"
 )
 
@@ -25,7 +25,7 @@ func (ch *Chat) shownRows() int {
 // editingEdge 是用户消息气泡的描边：正在编辑的那条描一圈主题色，别的没有。
 func (ch *Chat) editingEdge(c *ui.Context, it items.Item) ui.Color {
 	if ch.Editing != "" && it.ID == ch.Editing {
-		return coui.Of(c).Primary
+		return widget.Of(c).Primary
 	}
 	return ui.Color{}
 }
@@ -75,7 +75,7 @@ const actionGap = 4
 
 // ActionButton 是回答下面那排的一个操作键，和复制键一个样子：30 的平圆钮、15 的次要色图标。
 func ActionButton(c *ui.Context, icon *ui.SVG, label string, enabled bool) ui.Element {
-	return coui.FlatButton(c, icon, label, 30, 15).Margin(6, 0, 0, 0).Disabled(!enabled)
+	return widget.FlatButton(c, icon, label, 30, 15).Margin(6, 0, 0, 0).Disabled(!enabled)
 }
 
 // opensImage 让 e 点了交给 OpenImages 打开看大图：从 list 的第 index 张看起，左右能翻到同一组的别的图。返回 e。
