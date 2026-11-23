@@ -1,6 +1,9 @@
 package hub
 
 import (
+	"cmp"
+	"slices"
+
 	"github.com/dzshzx/Zeta/client/hostlink"
 )
 
@@ -91,3 +94,37 @@ func (h *Hub) showing(backend, session string) bool {
 
 // seen：点开了会话 s，有新回答的标记去掉。
 func (h *Hub) seen(s hostlink.Session) { delete(h.unread, Key(s)) }
+
+// BackgroundChat 是后台任务面板「后台对话」里的一个：会话（列表里还没有它时只有会话号和设备）和它所在设备的核心报的样子。
+type BackgroundChat struct {
+	Session  hostlink.Session
+	Activity hostlink.Activity
+}
+
+// BackgroundChats 是列着的各台上核心报在回答、等确认或还有后台任务的会话（同手机版 parkedConversations 里还在跑的），
+// 聊天窗格开着的那个不算：桌面版只拿着眼前这一个对话，别的对话在核心里接着跑，忙闲看 conv.activity，
+// 手机或别的客户端开着的也在里面。按会话列表的先后（新的在前），列表里还没有的排在最后、按会话号。
+func (h *Hub) BackgroundChats() []BackgroundChat {
+	var out []BackgroundChat
+	for _, id := range h.Listed() {
+		for session, a := range h.activity[id] {
+			if !inProgress(a) || h.showing(id, session) {
+				continue
+			}
+			s := hostlink.Session{ID: session, Backend: id}
+			if i := slices.IndexFunc(h.sessions, func(x hostlink.Session) bool { return x.Backend == id && x.ID == session }); i >= 0 {
+				s = h.sessions[i]
+			}
+			out = append(out, BackgroundChat{Session: s, Activity: a})
+		}
+	}
+	slices.SortStableFunc(out, func(x, y BackgroundChat) int {
+		return cmp.Or(cmp.Compare(y.Session.Updated, x.Session.Updated), cmp.Compare(Key(x.Session), Key(y.Session)))
+	})
+	return out
+}
+
+// inProgress：核心报这个会话在进行（在回答、等确认，或答完了还有后台任务）；闲着的核心过一会儿自己放手，不算。
+func inProgress(a hostlink.Activity) bool {
+	return a.State == "waiting" || a.State == "answering" || a.State == "background" || a.Tasks > 0
+}

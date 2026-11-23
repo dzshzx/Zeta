@@ -43,7 +43,7 @@ func (a *App) startSettings() {
 // 没有返回键；侧栏顶上的「返回应用」或 Esc 回到对话。分类：常规（外观、快捷键）、各台设备、添加设备、各台的账号与额度、诊断、关于。
 
 // inSettings：在看设置的某一页（不是对话）。
-func (a *App) inSettings() bool { return a.page != pageHome }
+func (a *App) inSettings() bool { return a.page != pageHome && a.page != pageTasks }
 
 // leaveSettings 回到对话。
 func (a *App) leaveSettings() { a.page = pageHome }

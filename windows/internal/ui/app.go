@@ -126,6 +126,7 @@ func (a *App) View(c *ui.Context) {
 	if a.shown == pageDevice && a.page != pageDevice {
 		a.hub.ApplyOptions(a.device) // 设备页上改过的自动压缩、自动标题
 	}
+	a.leftAllTasks()
 	a.shown = a.page
 	k := widget.Of(c)
 	a.shortcuts(c)
@@ -148,6 +149,8 @@ func (a *App) View(c *ui.Context) {
 				a.aboutPage(c)
 			case a.page == pageDiag:
 				a.diagPage(c)
+			case a.page == pageTasks:
+				a.tasksPanel(c) // 后台任务面板（alltasks.go）
 			case a.pane != nil:
 				a.chatPage(c)
 			default:

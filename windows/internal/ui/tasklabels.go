@@ -1,6 +1,7 @@
 package ui
 
 import (
+	"strconv"
 	"strings"
 
 	"github.com/dzshzx/Zeta/helper/tasks"
@@ -121,4 +122,34 @@ func stopSummary(t tasks.Task) string {
 		return taskTitle(t) + "\n子代理停下后，Claude 会收到通知并接着处理。"
 	}
 	return taskTitle(t)
+}
+
+// conversationState 是后台对话一行的状态（同手机版 TaskLabels.conversation，桌面版没有定时任务，不带它的名字）：
+// 等确认、在回答、后台任务在跑，都没有时是快要收起了。
+func conversationState(waiting, busy bool, tasks int) string {
+	switch {
+	case waiting:
+		return "等你确认"
+	case busy:
+		return "正在回答"
+	case tasks > 0:
+		return strconv.Itoa(tasks) + " 个后台任务在跑"
+	}
+	return "已结束，稍后收起"
+}
+
+// backgroundSummary 是侧栏「后台任务」入口的说明（同手机版 BackgroundTasksEntry 那一行字）：几个后台对话、几个任务在运行，
+// 没有在运行的任务时说有几个结束了的；都没有时是空。
+func backgroundSummary(conversations, running, finished int) string {
+	var parts []string
+	if conversations > 0 {
+		parts = append(parts, strconv.Itoa(conversations)+" 个对话")
+	}
+	if running > 0 {
+		parts = append(parts, strconv.Itoa(running)+" 个任务在运行")
+	}
+	if finished > 0 && running == 0 {
+		parts = append(parts, strconv.Itoa(finished)+" 个任务已结束")
+	}
+	return strings.Join(parts, " · ")
 }

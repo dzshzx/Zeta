@@ -141,3 +141,42 @@ func TestCombinedSearchOutcome(t *testing.T) {
 		}
 	}
 }
+
+func TestBackgroundChatsAreRunningSessionsOtherThanTheOpenOne(t *testing.T) {
+	d := hubtest.NewDevices()
+	h, _ := newHub(t, d)
+	a, _ := h.AddHost("a", "", d.Found("a"))
+	b, _ := h.AddHost("b", "", d.Found("b"))
+	h.ListOnly(a.ID)
+	d.Push(a.ID, hostlink.SessionsUpdate{Full: true, Upsert: []hostlink.Session{
+		{ID: "old", Title: "旧的", Updated: 10}, {ID: "new", Title: "新的", Updated: 30}, {ID: "quiet", Updated: 40}, {ID: "open", Updated: 50},
+	}})
+	if got := h.BackgroundChats(); got != nil {
+		t.Fatalf("before activity: %+v", got)
+	}
+	// 闲着的、只是历史的不算；还有后台任务的算；列表里还没有的排在最后
+	d.PushActivity(a.ID, map[string]hostlink.Activity{
+		"old": {State: "background", Tasks: 2}, "new": {State: "waiting"}, "quiet": {State: "idle"}, "zz": {State: "answering"},
+		"open": {State: "answering"},
+	})
+	d.PushActivity(b.ID, map[string]hostlink.Activity{"b1": {State: "answering"}})
+	h.OpenSession(hostlink.Session{ID: "open", Backend: a.ID})
+	got := h.BackgroundChats()
+	var keys []string
+	for _, x := range got {
+		keys = append(keys, x.Session.ID+":"+x.Session.Title+":"+x.Activity.State)
+	}
+	// 聊天窗格开着的 open 不算；b 没列着，没订阅它的忙闲
+	if want := []string{"new:新的:waiting", "old:旧的:background", "zz::answering"}; !reflect.DeepEqual(keys, want) {
+		t.Errorf("backgrounds %v, want %v", keys, want)
+	}
+	if got[1].Activity.Tasks != 2 || got[2].Session.Backend != a.ID {
+		t.Errorf("fields %+v", got)
+	}
+	// 列全部设备时两台的都在
+	h.ListAll()
+	d.PushActivity(b.ID, map[string]hostlink.Activity{"b1": {State: "answering"}})
+	if n := len(h.BackgroundChats()); n != 4 {
+		t.Errorf("all hosts: %+v", h.BackgroundChats())
+	}
+}

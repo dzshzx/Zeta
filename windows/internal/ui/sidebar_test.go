@@ -89,6 +89,15 @@ var sidebarScenes = map[string]func(t *testing.T, f *chatFixture){
 		f.app.draftBook().records["s2"] = drafts.Draft{Key: "s2", Text: "登录按钮再大一点，颜色换成"}
 		f.tt.Frame()
 	},
+	// 后台任务面板：别的两个会话在后台进行，当前对话有两个后台任务
+	"all-tasks": func(t *testing.T, f *chatFixture) {
+		f.showTurn(t, false)
+		f.listSample()
+		f.push(`"session":"s1",` + twoTasks)
+		f.devices.PushActivity(f.id, map[string]hostlink.Activity{"s2": {State: "answering", Tasks: 1}, "s3": {State: "waiting"}})
+		f.tt.Frame()
+		f.click(t, "后台任务")
+	},
 }
 
 // listSample 推一份会话列表：正开着的 s1，今天的 s2，三天前的 s3。

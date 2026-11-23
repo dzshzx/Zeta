@@ -29,6 +29,7 @@ func (a *App) sidebar(c *ui.Context) {
 		if hosts {
 			ui.Column(c).Padding(0, 10, 8, 10).Gap(6).Shrink(0).Children(func() {
 				widget.NavItem(c, widget.IconNewChat, "新对话", "Ctrl+N", false).OnClick(a.newChat)
+				a.tasksEntry(c)
 				ui.Row(c).FillWidth().Children(func() { a.searchField(c) })
 				ui.Row(c).FillWidth().Padding(2, 0, 0, 0).Children(func() { a.hostSwitcher(c) })
 			})

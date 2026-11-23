@@ -155,34 +155,38 @@ const taskListFooter = "Claude 在对话里放到后台跑的命令、监视器�
 func (a *App) taskListPage(c *ui.Context, p *chatPane) {
 	widget.Header(c, "后台任务", func() { a.back(p) })
 	list := p.state.Tasks // 核心给的顺序：在跑的在前，各自按开始时间新的在前
-	now := a.now().UnixMilli()
 	running := false
 	widget.Body(c, "tasks", func() {
 		if len(list) == 0 {
-			widget.Group(c, "", taskListFooter, func(l *widget.List) {
-				l.Row(widget.Row{Title: "没有后台任务", Summary: "Claude 用 run_in_background 跑的命令、Monitor 和后台子代理会列在这里"})
-			})
+			noTasks(c)
 			return
 		}
 		widget.Group(c, a.chatTitle(p), taskListFooter, func(l *widget.List) {
-			k := widget.Of(c)
-			for _, t := range list {
-				running = running || t.Running()
-				row := widget.Row{Key: t.ID, Title: taskTitle(t), Summary: taskSummary(t, now), Arrow: true,
-					OnClick: func() { a.openTask(p, t) }}
-				switch {
-				case t.State == tasks.StateFailed:
-					row.SummaryColor = k.Error
-				case t.Running():
-					row.SummaryColor = k.PrimaryText
-				}
-				l.Row(row)
-			}
+			running = a.taskRows(c, l, p, list)
 		})
 	})
 	if running {
 		c.After(time.Second) // 已运行的时间每秒走一次
 	}
+}
+
+// taskRows 是一个对话的后台任务，一行一个，点一个看详情（这个对话的列表页和后台任务面板共用）；返回有没有在跑的。
+func (a *App) taskRows(c *ui.Context, l *widget.List, p *chatPane, list []tasks.Task) (running bool) {
+	k := widget.Of(c)
+	now := a.now().UnixMilli()
+	for _, t := range list {
+		running = running || t.Running()
+		row := widget.Row{Key: t.ID, Title: taskTitle(t), Summary: taskSummary(t, now), Arrow: true,
+			OnClick: func() { a.openTask(p, t) }}
+		switch {
+		case t.State == tasks.StateFailed:
+			row.SummaryColor = k.Error
+		case t.Running():
+			row.SummaryColor = k.PrimaryText
+		}
+		l.Row(row)
+	}
+	return running
 }
 
 // findTask 是这个对话里 id 那个任务。
@@ -256,7 +260,7 @@ func (a *App) taskInfo(c *ui.Context, p *chatPane, t tasks.Task) {
 		if t.Kind == tasks.KindAgent {
 			a.agentRows(l, p, t)
 		}
-		l.Row(widget.Row{Title: "所属对话", Value: a.chatTitle(p), Arrow: true, OnClick: func() { a.closePages(p) }})
+		l.Row(widget.Row{Title: "所属对话", Value: a.chatTitle(p), Arrow: true, OnClick: func() { a.closePages(p); a.page = pageHome }})
 		if t.Running() {
 			label := "停止这个任务"
 			if t.Stopping {
