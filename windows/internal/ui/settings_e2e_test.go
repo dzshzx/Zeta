@@ -16,6 +16,7 @@ import (
 	"github.com/dzshzx/Zeta/windows/internal/host"
 	"github.com/dzshzx/Zeta/windows/internal/hub"
 	"github.com/dzshzx/Zeta/windows/internal/settings"
+	"github.com/dzshzx/Zeta/windows/internal/ui/uitest"
 	"github.com/egoist/mygo/ui"
 )
 
@@ -100,23 +101,10 @@ func loadProgram(t *testing.T, name string) *hostlink.Program {
 	return program
 }
 
-// until 一帧帧画、跑交回主线程的函数，直到 done；90 秒没等到就失败。
+// until 跑交回主线程的函数、画帧，直到 done；90 秒没等到就失败。
 func (f *coreFixture) until(t *testing.T, what string, done func() bool) {
 	t.Helper()
-	deadline := time.After(90 * time.Second)
-	for {
-		f.tt.Frame()
-		if done() {
-			return
-		}
-		select {
-		case fn := <-f.posts:
-			fn()
-		case <-time.After(20 * time.Millisecond):
-		case <-deadline:
-			t.Fatalf("90 秒内没等到%s；界面上：%q", what, f.tt.Texts())
-		}
-	}
+	uitest.Until(t, f.tt, f.posts, what, 90*time.Second, done)
 }
 
 // fakeClaude 把假 Claude（tools/fake-claude）装成设备上的 claude，按 scenario 一行一轮回话。

@@ -33,9 +33,11 @@ func TestTodosThroughCore(t *testing.T) {
 }
 
 // 重新生成：核心照原来那条消息原样重发（resend），列表里那一轮换成新的回答，提问不变。
+// 第一版回答一个字一个字慢慢送：界面一定会画到它还在送来的时候，钉住等待时测试时钟跟着真的时间走（uitest.Until），
+// 逐字显现能显现完、下面的「重新生成」出得来。
 func TestRegenerateThroughCore(t *testing.T) {
 	f := newCoreFixture(t, 860)
-	f.fakeClaude(t, `{"steps":[{"text":"第一版回答"}]}
+	f.fakeClaude(t, `{"steps":[{"text":"第一版回答","chunk":1,"delay":100}]}
 {"steps":[{"text":"重新生成的回答"}]}
 `)
 	app := f.app

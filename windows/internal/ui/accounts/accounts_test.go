@@ -15,6 +15,7 @@ import (
 	"time"
 
 	acct "github.com/dzshzx/Zeta/windows/internal/accounts"
+	"github.com/dzshzx/Zeta/windows/internal/ui/uitest"
 	"github.com/egoist/mygo/ui"
 )
 
@@ -135,19 +136,7 @@ func newFixture() *fixture {
 
 func (f *fixture) until(t *testing.T, tt *ui.Tester, what string, cond func() bool) {
 	t.Helper()
-	deadline := time.After(30 * time.Second)
-	for {
-		tt.Frame()
-		if cond() {
-			return
-		}
-		select {
-		case fn := <-f.posts:
-			fn()
-		case <-deadline:
-			t.Fatalf("等不到%s；界面上：%q", what, tt.Texts())
-		}
-	}
+	uitest.Until(t, tt, f.posts, what, 30*time.Second, cond)
 }
 
 func (f *fixture) loaded() bool {

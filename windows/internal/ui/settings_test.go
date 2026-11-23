@@ -16,6 +16,7 @@ import (
 	"github.com/dzshzx/Zeta/windows/internal/hubtest"
 	"github.com/dzshzx/Zeta/windows/internal/settings"
 	"github.com/dzshzx/Zeta/windows/internal/ui/about"
+	"github.com/dzshzx/Zeta/windows/internal/ui/uitest"
 	"github.com/dzshzx/Zeta/windows/internal/update"
 	"github.com/egoist/mygo/ui"
 )
@@ -83,23 +84,10 @@ func (f *settingsFixture) answer(c hubtest.Call) (json.RawMessage, error) {
 	return nil, errors.New("不认识的方法 " + c.Method)
 }
 
-// until 执行交回主线程的事、画一帧，直到 done 为真；限时 30 秒。
+// until 执行交回主线程的事、画帧，直到 done 为真；限时 30 秒。
 func (f *settingsFixture) until(t *testing.T, what string, done func() bool) {
 	t.Helper()
-	deadline := time.After(30 * time.Second)
-	for {
-		f.tt.Frame()
-		if done() {
-			return
-		}
-		select {
-		case fn := <-f.posts:
-			fn()
-		case <-time.After(10 * time.Millisecond):
-		case <-deadline:
-			t.Fatalf("等不到%s；界面上：%q", what, f.tt.Texts())
-		}
-	}
+	uitest.Until(t, f.tt, f.posts, what, 30*time.Second, done)
 }
 
 // fakeUpdates 是关于页用的更新：available 时有新版本 0.9.0。
