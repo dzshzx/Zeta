@@ -40,3 +40,25 @@ func codeBlock(c *ui.Context, b *markdown.CodeBlockView) {
 		b.Body(c).FontSize(13).Padding(11, 14)
 	})
 }
+
+// Document 是照回答的样子排的一段 Markdown（同一套字号、代码块、公式），给聊天以外要这样排的地方用：记忆、CLAUDE.md 的预览。
+// 一段文字一个，只在界面线程上用。链接照 mygo 的默认，网址用系统浏览器打开。
+type Document struct {
+	opts          markdown.Options
+	theme, unused markdown.Theme
+}
+
+// NewDocument 建一个。
+func NewDocument() *Document {
+	d := &Document{}
+	d.opts.Theme = &d.theme
+	d.opts.CodeBlock = codeBlock
+	setMath(&d.opts, &d.theme, answerMathScale)
+	return d
+}
+
+// View 排 text，配色每帧跟着深浅色换。
+func (d *Document) View(c *ui.Context, text string) ui.Element {
+	styleMarkdown(c, &d.theme, &d.unused)
+	return markdown.View(c, mathSource(text), &d.opts)
+}

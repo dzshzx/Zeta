@@ -338,3 +338,30 @@ func ToolPill(c *ui.Context, trigger ui.Element, icon *ui.SVG, label string, tin
 		ui.Icon(c, IconChevronDown).Size(12, 12).TextColor(ink)
 	})
 }
+
+// Segmented 是几段里选一段的切换（预览 / 编辑这类）：淡灰的槽，选中的一段白底（深色里是浅一档的灰）带一点阴影，字 13；
+// name 是读屏名字。
+// 返回这一帧换没换。
+func Segmented(c *ui.Context, name string, selected *int, labels ...string) bool {
+	k := Of(c)
+	parts := ui.SegmentedBase(c.Key(name), selected, len(labels))
+	track := parts.Track.Label(name).Padding(2).Gap(2).Radius(8).Background(k.Chip).AlignItems(ui.Stretch)
+	selectedFill := k.Card
+	if k.Dark {
+		selectedFill = k.Button
+	}
+	track.Children(func() {
+		for i, label := range labels {
+			s := parts.Segment(i).Label(label).Padding(3, 12).Radius(6).Cursor(ui.CursorPointer)
+			color := k.Secondary
+			if i == *selected {
+				s.Background(selectedFill).Shadow(0, 1, 2, 0, ui.RGBA(0, 0, 0, 0.12))
+				color = k.Text
+			} else if s.Hovered() {
+				color = k.Text
+			}
+			s.Children(func() { ui.Text(c, label).FontSize(SizeBodyS).FontWeight(Medium).TextColor(color).SingleLine() })
+		}
+	})
+	return track.Changed()
+}

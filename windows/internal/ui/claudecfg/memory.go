@@ -3,8 +3,10 @@ package claudecfg
 import (
 	"context"
 	"errors"
+	"strings"
 
 	"github.com/dzshzx/Zeta/helper/coreapi"
+	"github.com/dzshzx/Zeta/windows/internal/ui/chatview"
 	"github.com/dzshzx/Zeta/windows/internal/ui/widget"
 	"github.com/egoist/mygo/ui"
 )
@@ -182,10 +184,12 @@ type documentState struct {
 	conflict bool // 正问着：文件在编辑期间被改过了，覆盖不覆盖
 	leaving  bool // 正问着：放弃未保存的更改吗
 	deleting bool
+	preview  bool // 在看排好的样子（预览），不是在编辑；有内容的打开时先预览
+	md       *chatview.Document
 }
 
 func (p *Page) openDocument(d document) {
-	p.doc = documentState{doc: d, loading: true}
+	p.doc = documentState{doc: d, loading: true, md: chatview.NewDocument()}
 	p.push(viewDocument)
 	p.async(func(ctx context.Context) func() {
 		got, err := p.opts.Core.ReadMemoryFile(ctx, d.path)
@@ -197,6 +201,7 @@ func (p *Page) openDocument(d document) {
 				return
 			}
 			p.doc.saved, p.doc.draft = got.Content, got.Content
+			p.doc.preview = strings.TrimSpace(got.Content) != ""
 			if got.Exists {
 				p.doc.sha = got.SHA
 			}
@@ -225,7 +230,8 @@ func (p *Page) saveDocument(force bool) {
 	})
 }
 
-// documentPage 是整页的文件编辑：上面一行文件名和大小，中间是正文，有改动时底下是保存、放弃。保存时文件在编辑期间被改过
+// documentPage 是整页的文件编辑（同手机版的 DocumentEditorScreen）：上面一行文件名和大小，右边「预览 / 编辑」切换；中间是正文，
+// 预览时照聊天里回答的样子排（去掉开头的 --- 前言块），编辑时是输入框；有改动时底下是保存、放弃。保存时文件在编辑期间被改过
 // （多半是 Claude 改的）先问一声。
 func (p *Page) documentPage(c *ui.Context) {
 	s := &p.doc
@@ -251,35 +257,99 @@ func (p *Page) documentPage(c *ui.Context) {
 			if over {
 				info += " · 超过上限"
 			}
-			ui.Text(c, info).FontSize(widget.SizeBodyXS).TextColor(k.Secondary).Padding(0, 16)
+			ui.Row(c).FillWidth().Padding(0, 0, 0, 16).AlignItems(ui.Center).Children(func() {
+				ui.Text(c, info).FontSize(widget.SizeBodyXS).TextColor(k.Secondary).Grow(1)
+				if !s.loading {
+					mode := 1
+					if s.preview {
+						mode = 0
+					}
+					if widget.Segmented(c, "预览或编辑", &mode, "预览", "编辑") {
+						s.preview = mode == 0
+					}
+				}
+			})
 			if s.loading {
 				widget.Group(c, "", "", func(l *widget.List) { loadingRow(l, "正在读取…") })
 				return
 			}
-			// 正文在一张白卡片里，占满剩下的高
-			editor := ui.TextAreaBase(c.Key("document"), &s.draft).Placeholder(s.doc.placeholder).Label(s.doc.file).
-				Disabled(s.saving).Grow(1).FillWidth().Padding(14, 16).FontSize(widget.SizeBodyL).LineHeight(1.55).
-				PlaceholderColor(k.Tertiary).TextColor(k.Text).FocusRing(false)
-			widget.Surface{Shape: widget.ShapeCard, Fill: k.Card}.Paint(editor)
+			if s.preview {
+				p.documentPreview(c)
+			} else {
+				// 正文在一张白卡片里，占满剩下的高
+				editor := ui.TextAreaBase(c.Key("document"), &s.draft).Placeholder(s.doc.placeholder).Label(s.doc.file).
+					Disabled(s.saving).Grow(1).FillWidth().Padding(14, 16).FontSize(widget.SizeBodyL).LineHeight(1.55).
+					PlaceholderColor(k.Tertiary).TextColor(k.Text).FocusRing(false)
+				widget.Surface{Shape: widget.ShapeCard, Fill: k.Card}.Paint(editor)
+			}
 			if dirty || s.saving {
-				ui.Row(c).Gap(8).Padding(4, 0, 0, 16).AlignItems(ui.Center).Children(func() {
-					hint := "未保存的更改"
-					color := k.Secondary
-					if over {
-						hint, color = "已超过 1 MiB 上限，请删减", k.Error
-					}
-					ui.Text(c, hint).FontSize(widget.SizeBodyXS).TextColor(color)
-					ui.Spacer(c)
-					widget.SmallButton(c, "放弃").Disabled(s.saving).OnClick(func() { s.draft = s.saved })
-					label := "保存"
-					if s.saving {
-						label = "保存中"
-					}
-					widget.SmallPrimaryButton(c, label).Disabled(s.saving || over).OnClick(func() { p.saveDocument(false) })
-				})
+				p.saveBar(c, over)
 			}
 		})
 	p.documentDialogs(c)
+}
+
+// documentPreview 是预览：正文照聊天里回答的样子排在一张白卡片里，能滚动；没有内容时说一句，点一下去编辑。
+func (p *Page) documentPreview(c *ui.Context) {
+	s := &p.doc
+	k := widget.Of(c)
+	body := stripFrontmatter(s.draft)
+	if strings.TrimSpace(body) == "" {
+		empty := ui.ButtonBase(c.Key("empty")).Label("还没有内容，去编辑").Grow(1).FillWidth().Cursor(ui.CursorText).Padding(24)
+		widget.Surface{Shape: widget.ShapeCard, Fill: k.Card}.Paint(empty)
+		empty.OnClick(func() { s.preview = false })
+		empty.Children(func() {
+			ui.Column(c).Grow(1).Center().Gap(6).Children(func() {
+				ui.Text(c, "还没有内容").FontSize(widget.SizeBodyXL).FontWeight(widget.Medium).TextColor(k.Text)
+				ui.Text(c, s.doc.placeholder).FontSize(widget.SizeBodyM).TextColor(k.Secondary)
+			})
+		})
+		return
+	}
+	box := ui.Scroll(c.Key("preview")).Grow(1).MinHeight(0).FillWidth()
+	widget.Surface{Shape: widget.ShapeCard, Fill: k.Card}.Paint(box)
+	box.Children(func() {
+		ui.Column(c).FillWidth().Padding(14, 16).Children(func() { s.md.View(c, body).FillWidth() })
+	})
+}
+
+// saveBar 是有改动时底下那一行：说明（超过上限时红字），放弃、保存。
+func (p *Page) saveBar(c *ui.Context, over bool) {
+	s := &p.doc
+	k := widget.Of(c)
+	ui.Row(c).Gap(8).Padding(4, 0, 0, 16).AlignItems(ui.Center).Children(func() {
+		hint := "未保存的更改"
+		color := k.Secondary
+		if over {
+			hint, color = "已超过 1 MiB 上限，请删减", k.Error
+		}
+		ui.Text(c, hint).FontSize(widget.SizeBodyXS).TextColor(color)
+		ui.Spacer(c)
+		widget.SmallButton(c, "放弃").Disabled(s.saving).OnClick(func() { s.draft = s.saved })
+		label := "保存"
+		if s.saving {
+			label = "保存中"
+		}
+		widget.SmallPrimaryButton(c, label).Disabled(s.saving || over).OnClick(func() { p.saveDocument(false) })
+	})
+}
+
+// stripFrontmatter 去掉正文开头的 --- 前言块（记忆文件的 name、description、type）：预览时不显示，Markdown 会把它排成分隔线和标题
+// （同手机版的 stripFrontmatter）。没有收尾的 --- 时原样。
+func stripFrontmatter(text string) string {
+	if !strings.HasPrefix(text, "---") {
+		return text
+	}
+	lines := strings.Split(text, "\n")
+	if strings.TrimSpace(lines[0]) != "---" {
+		return text
+	}
+	for i := 1; i < len(lines); i++ {
+		if strings.TrimSpace(lines[i]) == "---" {
+			return strings.TrimLeft(strings.Join(lines[i+1:], "\n"), "\n")
+		}
+	}
+	return text
 }
 
 func (p *Page) documentDialogs(c *ui.Context) {

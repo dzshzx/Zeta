@@ -282,3 +282,65 @@ func TestMcpServers(t *testing.T) {
 	f.press("删除")
 	f.see("还没有 MCP 服务器")
 }
+
+// 有内容的文件打开时先预览：照聊天里回答的样子排（标题、列表、加粗都排出来），没有输入框；切到编辑改了再切回预览，看到的是改过的。
+func TestMemoryDocumentPreview(t *testing.T) {
+	f := newFixture(t, Options{})
+	f.serve.Write(t, ".claude/CLAUDE.md", "# 规矩\n\n- 回答用中文\n- **先跑测试**\n")
+	f.press("打开记忆")
+	f.press("打开CLAUDE.md")
+	f.see("规矩", "回答用中文", "先跑测试", "预览", "编辑")
+	if f.hasEditor() {
+		t.Fatal("预览时不该有输入框")
+	}
+	f.press("编辑")
+	if !f.hasEditor() {
+		t.Fatal("切到编辑要有输入框")
+	}
+	f.typeInto("CLAUDE.md", "\n- 改完说一声\n")
+	f.press("预览")
+	f.see("改完说一声", "未保存的更改")
+	if f.hasEditor() {
+		t.Fatal("切回预览后不该有输入框")
+	}
+}
+
+// 空文件打开时直接编辑；预览里没有内容时点一下去编辑。
+func TestMemoryDocumentEmptyStartsEditing(t *testing.T) {
+	f := newFixture(t, Options{})
+	f.press("打开记忆")
+	f.press("打开CLAUDE.md")
+	if !f.hasEditor() {
+		t.Fatal("空文件要直接编辑")
+	}
+	f.press("预览")
+	f.see("还没有内容")
+	f.press("还没有内容，去编辑")
+	if !f.hasEditor() {
+		t.Fatal("点了要回到编辑")
+	}
+}
+
+// hasEditor：页上有正文的输入框（无障碍名字是文件名的文本框）。
+func (f *fixture) hasEditor() bool {
+	f.tt.Frame()
+	for _, a := range f.tt.AccessAll() {
+		if a.Name == "CLAUDE.md" && a.Role == ui.RoleTextField {
+			return true
+		}
+	}
+	return false
+}
+
+func TestStripFrontmatter(t *testing.T) {
+	for _, c := range []struct{ in, want string }{
+		{"---\nname: x\ntype: user\n---\n\n正文\n", "正文\n"},
+		{"正文", "正文"},
+		{"---\n没有收尾", "---\n没有收尾"},
+		{"--- 不是前言\n正文", "--- 不是前言\n正文"},
+	} {
+		if got := stripFrontmatter(c.in); got != c.want {
+			t.Errorf("stripFrontmatter(%q) = %q，要 %q", c.in, got, c.want)
+		}
+	}
+}
