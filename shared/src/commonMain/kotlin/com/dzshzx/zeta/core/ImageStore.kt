@@ -52,7 +52,8 @@ object ImageStore {
     private fun cacheKey(ref: ImageRef, backend: String): String =
         when (ref) {
             is SessionImage,
-            is FileImage -> backend + "|" + ref.key
+            is FileImage,
+            is CoreImage -> backend + "|" + ref.key
             else -> ref.key
         }
 
@@ -92,7 +93,8 @@ object ImageStore {
             when (ref) {
                 is InlineImage -> ref.base64
                 is SessionImage,
-                is FileImage -> fetch(hub, backend, ref)?.str("data")
+                is FileImage,
+                is CoreImage -> fetch(hub, backend, ref)?.str("data")
                 is RemoteImage -> null
             } ?: return null
         return Base64.getMimeDecoder().decode(data)
@@ -126,8 +128,8 @@ object ImageStore {
     }
 
     /**
-     * 让主机 [backend] 取一张会话记录里的（[SessionImage]，核心的 `sessions.image`）或主机上文件里的（[FileImage]）图： 应答里有
-     * media_type 和 base64 的 data；没取到、别的种类是 null。阻塞。
+     * 让主机 [backend] 取一张会话记录里的（[SessionImage]，核心的 `sessions.image`）、核心里对话条目中只带键的（[CoreImage]，核心的
+     * `conv.image`）或主机上文件里的（[FileImage]）图： 应答里有 media_type 和 base64 的 data；没取到、别的种类是 null。阻塞。
      *
      * 手机本机的图片文件仍各起一次 zeta-helper 的 file-image：核心只看得到它启动时挂着的共享文件夹（/mnt/shared 下），增删后才换
      * （core-takeover）；单起的进程进来时现挂，看到的总是现在的（docs/core.md「存储与文件」）。
@@ -142,6 +144,16 @@ object ImageStore {
                     buildJsonObject {
                         put("file", ref.file)
                         put("ref", ref.ref)
+                    },
+                )
+            is CoreImage ->
+                fromCore(
+                    hub,
+                    backend,
+                    "conv.image",
+                    buildJsonObject {
+                        put("key", ref.conv)
+                        put("image", ref.image)
                     },
                 )
             is FileImage ->

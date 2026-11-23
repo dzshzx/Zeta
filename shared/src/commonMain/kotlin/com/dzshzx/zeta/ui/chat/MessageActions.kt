@@ -29,6 +29,7 @@ import com.dzshzx.zeta.core.CodeRewind
 import com.dzshzx.zeta.core.ComposerDraft
 import com.dzshzx.zeta.core.Conversation
 import com.dzshzx.zeta.core.ConversationHub
+import com.dzshzx.zeta.core.CoreImage
 import com.dzshzx.zeta.core.FileUpload
 import com.dzshzx.zeta.core.ImageRef
 import com.dzshzx.zeta.core.ImageStore
@@ -390,7 +391,8 @@ private fun reattach(hub: ConversationHub, backend: String, ref: ImageRef): Atta
                 is InlineImage ->
                     (imageMediaType(Base64.getMimeDecoder().decode(ref.base64)) ?: "image/jpeg") to
                         ref.base64
-                is SessionImage -> {
+                is SessionImage,
+                is CoreImage -> {
                     val reply = ImageStore.fetch(hub, backend, ref) ?: return null
                     (reply.str("media_type") ?: return null) to (reply.str("data") ?: return null)
                 }

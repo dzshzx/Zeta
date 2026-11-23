@@ -192,6 +192,9 @@ internal constructor(
         }
     }
 
+    /** 这个对话在核心里的标识（conv.state 的 key）：只带键的实时图（[CoreImage]）靠它去取。核心先推状态再推条目，所以条目到时已经有了。 */
+    private fun coreKey(): String = synchronized(client.lock) { view.state.key }
+
     private fun isClosed(): Boolean = synchronized(client.lock) { closed }
 
     private inline fun update(change: (ConvView) -> ConvView) {
@@ -209,7 +212,7 @@ internal constructor(
     }
 
     private fun receiveItems(o: JsonObject) {
-        val change = itemsChange(o)
+        val change = itemsChange(o, coreKey())
         val result =
             synchronized(client.lock) { if (closed) Splice.Ignored else applyItems(change) }
         when (result) {
@@ -241,7 +244,7 @@ internal constructor(
 
     private fun receiveSubagent(o: JsonObject) {
         val id = o.str("tool_use_id") ?: return
-        val change = itemsChange(o)
+        val change = itemsChange(o, coreKey())
         var rewatch = false
         val merged =
             synchronized(client.lock) {
@@ -594,12 +597,15 @@ internal constructor(
             if (files.isNotEmpty()) put("files", JsonArray(files.map(::JsonPrimitive)))
         }
 
-        fun itemsChange(o: JsonObject): ItemsChange =
+        fun itemsChange(o: JsonObject, conv: String = ""): ItemsChange =
             ItemsChange(
                 full = o.bool("full") == true,
                 at = o.int("at") ?: 0,
                 remove = o.int("remove") ?: 0,
-                items = o.arr("items").orEmpty().filterIsInstance<JsonObject>().map(::chatItemOf),
+                items =
+                    o.arr("items").orEmpty().filterIsInstance<JsonObject>().map {
+                        chatItemOf(it, conv)
+                    },
             )
     }
 }

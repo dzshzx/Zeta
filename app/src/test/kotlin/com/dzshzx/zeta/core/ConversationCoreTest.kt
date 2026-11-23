@@ -52,6 +52,7 @@ class ConversationCoreTest {
         assertEquals(JsonPrimitive(true), options["phone"])
         assertNotNull("手机工具的 MCP 设置和起进程时一样带上", options["mcp_config"])
         assertNull("本机不开桌面窗口", options["desk"])
+        assertEquals("图只要键，显示时再取", JsonPrimitive(true), options["image_refs"])
         val send = core.next("conv.send")
         assertEquals(open.conv, send.conv)
         assertEquals("你好", send.str("text"))
@@ -227,5 +228,6 @@ class ConversationCoreTest {
         val options = core.next("conv.open").params["options"]!!.jsonObject
         assertEquals(JsonPrimitive(true), options["desk"])
         assertEquals(JsonPrimitive(true), options["phone"])
+        assertEquals(JsonPrimitive(true), options["image_refs"])
     }
 }

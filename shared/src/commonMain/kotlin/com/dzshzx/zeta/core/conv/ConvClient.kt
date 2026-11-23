@@ -91,6 +91,8 @@ data class ConvOptions(
     val compactPercent: Int = 0,
     /** 这台主机是远程主机，不是客户端所在的设备（核心给会话开 tmux 窗口）；手机本机的 Debian 不设。 */
     val desk: Boolean = false,
+    /** 推来的条目里实时收到的图只带键、不带数据，显示时经 conv.image 取（[CoreImage]）：带图的对话整份推一次就是几十 MB。 */
+    val imageRefs: Boolean = false,
 ) {
     fun json(): JsonObject = buildJsonObject {
         if (env.isNotEmpty()) put("env", JsonObject(env.mapValues { JsonPrimitive(it.value) }))
@@ -100,6 +102,7 @@ data class ConvOptions(
         if (autoTitle) put("auto_title", true)
         if (compactPercent != 0) put("compact_percent", compactPercent)
         if (desk) put("desk", true)
+        if (imageRefs) put("image_refs", true)
     }
 }
 

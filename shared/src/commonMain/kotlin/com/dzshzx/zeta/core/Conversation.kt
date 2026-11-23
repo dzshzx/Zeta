@@ -388,6 +388,7 @@ class Conversation(
             autoTitle = claude.autoTitle,
             compactPercent = claude.autoCompactPercent?.takeIf { claude.autoCompact } ?: 0,
             desk = backend != Backends.LOCAL,
+            imageRefs = true,
         )
     }
 

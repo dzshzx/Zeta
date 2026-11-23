@@ -90,6 +90,12 @@ private fun imageRefJson(image: ImageRef): JsonObject =
                 put("key", image.key)
                 put("data", image.base64)
             }
+        is CoreImage ->
+            buildJsonObject {
+                put("kind", "inline")
+                put("key", image.image)
+                put("data", "")
+            }
         is SessionImage ->
             buildJsonObject {
                 put("kind", "session")
@@ -129,14 +135,14 @@ private fun diffLinesJson(hunk: DiffHunk): JsonArray =
  * [chatItemJson] 的逆操作，也读 Go 核心省掉零值的写法。认不出的种类读成一条提示（[NoticeItem]），不丢掉：conv.items
  * 的增量按下标替换，少一项后面就全对不上了。
  */
-fun chatItemOf(o: JsonObject): ChatItem {
+fun chatItemOf(o: JsonObject, conv: String = ""): ChatItem {
     val id = o.str("id").orEmpty()
     return when (o.str("kind")) {
         "user" ->
             UserItem(
                 id = id,
                 text = o.str("text").orEmpty(),
-                images = imagesOf(o),
+                images = imagesOf(o, conv),
                 files = o.arr("files").orEmpty().mapNotNull { (it as? JsonPrimitive)?.content },
                 uuid = o.str("uuid")?.ifEmpty { null },
                 rewindable = o.bool("rewindable") == true,
@@ -148,14 +154,16 @@ fun chatItemOf(o: JsonObject): ChatItem {
         "work" ->
             WorkItem(
                 id,
-                o.arr("steps").orEmpty().mapNotNull { (it as? JsonObject)?.let(::workStepOf) },
+                o.arr("steps").orEmpty().mapNotNull {
+                    (it as? JsonObject)?.let { s -> workStepOf(s, conv) }
+                },
             )
         else -> NoticeItem(id, o.str("text").orEmpty(), o.bool("error") == true)
     }
 }
 
 /** 一步；认不出的种类是 null（工作组里少一步不影响别的）。 */
-private fun workStepOf(o: JsonObject): WorkStep? {
+private fun workStepOf(o: JsonObject, conv: String): WorkStep? {
     val id = o.str("id").orEmpty()
     return when (o.str("kind")) {
         "thinking" ->
@@ -167,7 +175,7 @@ private fun workStepOf(o: JsonObject): WorkStep? {
                 input = o.obj("input"),
                 status = toolStatusOf(o.str("status")),
                 result = o.str("result"),
-                images = imagesOf(o),
+                images = imagesOf(o, conv),
                 patch = o.obj("patch")?.let(::editPatchOf),
             )
         else -> null
@@ -181,12 +189,17 @@ private fun toolStatusOf(status: String?): ToolStatus =
         else -> ToolStatus.Running
     }
 
-private fun imagesOf(o: JsonObject): List<ImageRef> =
-    o.arr("images").orEmpty().mapNotNull { (it as? JsonObject)?.let(::imageRefOf) }
+private fun imagesOf(o: JsonObject, conv: String): List<ImageRef> =
+    o.arr("images").orEmpty().mapNotNull { (it as? JsonObject)?.let { im -> imageRefOf(im, conv) } }
 
-private fun imageRefOf(o: JsonObject): ImageRef? =
+/** [conv] 是条目所在的对话在核心里的标识：只带了键没带数据的实时图（[CoreImage]）要靠它去取。 */
+private fun imageRefOf(o: JsonObject, conv: String): ImageRef? =
     when (o.str("kind")) {
-        "inline" -> InlineImage(o.str("key").orEmpty(), o.str("data").orEmpty())
+        "inline" -> {
+            val data = o.str("data").orEmpty()
+            if (data.isEmpty() && conv.isNotEmpty()) CoreImage(conv, o.str("key").orEmpty())
+            else InlineImage(o.str("key").orEmpty(), data)
+        }
         "session" -> SessionImage(o.str("file").orEmpty(), o.str("ref").orEmpty())
         "file" -> FileImage(o.str("path").orEmpty())
         "remote" -> RemoteImage(o.str("url").orEmpty())

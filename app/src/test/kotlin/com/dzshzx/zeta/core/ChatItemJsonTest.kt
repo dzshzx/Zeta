@@ -48,6 +48,31 @@ class ChatItemJsonTest {
         }
     }
 
+    /** 只带键的实时图（核心按 image_refs 推来的）读成 [CoreImage]，记下对话在核心里的标识；带着数据的、不知道标识的照旧是 [InlineImage]。 */
+    @Test
+    fun inlineImagesWithoutDataNeedTheCore() {
+        val o =
+            Json.parseToJsonElement(
+                    """{"kind":"user","id":"u","images":[{"kind":"inline","key":"a:1:0"},""" +
+                        """{"kind":"inline","key":"a:1:1","data":"AAAA"}]}""",
+                )
+                .jsonObject
+        val held = (chatItemOf(o, conv = "c3") as UserItem).images
+        assertEquals(CoreImage("c3", "a:1:0"), held[0])
+        assertEquals("a:1:0", held[0].key)
+        assertEquals("AAAA", (held[1] as InlineImage).base64)
+        assertTrue((chatItemOf(o) as UserItem).images.all { it is InlineImage })
+
+        val step =
+            Json.parseToJsonElement(
+                    """{"kind":"work","id":"w","steps":[{"kind":"tool","id":"t","name":"Read",""" +
+                        """"images":[{"kind":"inline","key":"t:0"}]}]}""",
+                )
+                .jsonObject
+        val tool = (chatItemOf(step, conv = "c3") as WorkItem).steps.single() as ToolStep
+        assertEquals(listOf(CoreImage("c3", "t:0")), tool.images)
+    }
+
     @Test
     fun unknownKindsKeepTheirPlace() {
         val items =
