@@ -31,6 +31,10 @@ func TestSessionShortcuts(t *testing.T) {
 		{ui.Ctrl | ui.Shift, ui.KeyTab, "s3"},
 		{ui.Cmd, ui.Key2, "s2"},
 		{ui.Cmd, ui.Key9, "s2"}, // 没有第九个：不动
+		{ui.Ctrl | ui.Alt, ui.KeyBracketRight, "s3"},
+		{ui.Ctrl | ui.Alt, ui.KeyBracketLeft, "s2"},
+		{ui.Ctrl | ui.Alt, ui.KeyRight, "s3"},
+		{ui.Ctrl | ui.Alt, ui.KeyLeft, "s2"},
 	}
 	for i, s := range steps {
 		f.tt.Key(s.mods, s.key)
@@ -44,6 +48,14 @@ func TestSessionShortcuts(t *testing.T) {
 	f.tt.Frame()
 	if got := f.opened(); got != "" {
 		t.Fatalf("Ctrl+N 以后开着 %q，要新对话", got)
+	}
+	f.tt.Key(ui.Cmd, ui.Key1)
+	f.tt.Frame()
+	f.reportSession("s1")
+	f.tt.Key(ui.Cmd|ui.Shift, ui.KeyO)
+	f.tt.Frame()
+	if got := f.opened(); got != "" {
+		t.Fatalf("Ctrl+Shift+O 以后开着 %q，要新对话", got)
 	}
 }
 
@@ -83,6 +95,12 @@ func TestSidebarCollapses(t *testing.T) {
 	if f.hub.Settings().SidebarHidden() {
 		t.Fatal("Ctrl+K 展开侧栏没存进设置")
 	}
+	f.tt.Key(ui.Cmd|ui.Shift, ui.KeyS)
+	f.tt.Frame()
+	f.notSee(t, "修登录页")
+	f.tt.Key(ui.Cmd|ui.Shift, ui.KeyS)
+	f.tt.Frame()
+	f.see(t, "修登录页")
 }
 
 // 拖过的侧栏宽度关窗口时存进设置，下次打开照它；拖不出 sidebarMin 到 sidebarMax。

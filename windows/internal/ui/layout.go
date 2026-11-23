@@ -88,14 +88,21 @@ const (
 	needSession
 )
 
-// shortcuts 是窗口的快捷键，键位同 ChatGPT 的 Windows 客户端；聊天页自己的（查找、停止）在 chatKeys。
+// shortcuts 是窗口的快捷键，键位照 ChatGPT Windows 客户端命令表里的默认键（安装包 app.asar 的 defaultKeybindings）；聊天页自己的（查找、停止）在 chatKeys。
 var shortcuts = []shortcut{
-	{ui.Cmd, ui.KeyN, "Ctrl+N", "新对话", 0, func(a *App, _ hostlink.Session) { a.newChat() }},
+	{ui.Cmd, ui.KeyN, "Ctrl+N / Ctrl+Shift+O", "新对话", 0, func(a *App, _ hostlink.Session) { a.newChat() }},
+	{ui.Cmd | ui.Shift, ui.KeyO, "", "", 0, func(a *App, _ hostlink.Session) { a.newChat() }},
 	{ui.Cmd, ui.KeyK, "Ctrl+K", "搜索对话", needHosts, func(a *App, _ hostlink.Session) { a.focusSearch() }},
 	{ui.Cmd, ui.KeyComma, "Ctrl+,", "设置", 0, func(a *App, _ hostlink.Session) { a.open(pageSettings) }},
-	{ui.Cmd, ui.KeyB, "Ctrl+B", "收起、展开侧栏", 0, func(a *App, _ hostlink.Session) { a.toggleSidebar() }},
-	{ui.Ctrl, ui.KeyTab, "Ctrl+Tab", "下一个对话", needHosts, func(a *App, _ hostlink.Session) { a.stepSession(1) }},
-	{ui.Ctrl | ui.Shift, ui.KeyTab, "Ctrl+Shift+Tab", "上一个对话", needHosts, func(a *App, _ hostlink.Session) { a.stepSession(-1) }},
+	{ui.Cmd, ui.KeyB, "Ctrl+B / Ctrl+Shift+S", "收起、展开侧栏", 0, func(a *App, _ hostlink.Session) { a.toggleSidebar() }},
+	{ui.Cmd | ui.Shift, ui.KeyS, "", "", 0, func(a *App, _ hostlink.Session) { a.toggleSidebar() }},
+	// ChatGPT 的上一个、下一个对话是 Ctrl+Alt+[ ] 和 Ctrl+Alt+← →，它的 Ctrl+Tab 切标签页；Zeta 没有标签页，Ctrl+Tab 也切对话
+	{ui.Ctrl | ui.Alt, ui.KeyBracketRight, "Ctrl+Alt+] / Ctrl+Alt+→ / Ctrl+Tab", "下一个对话", needHosts, step(1)},
+	{ui.Ctrl | ui.Alt, ui.KeyRight, "", "", needHosts, step(1)},
+	{ui.Ctrl, ui.KeyTab, "", "", needHosts, step(1)},
+	{ui.Ctrl | ui.Alt, ui.KeyBracketLeft, "Ctrl+Alt+[ / Ctrl+Alt+← / Ctrl+Shift+Tab", "上一个对话", needHosts, step(-1)},
+	{ui.Ctrl | ui.Alt, ui.KeyLeft, "", "", needHosts, step(-1)},
+	{ui.Ctrl | ui.Shift, ui.KeyTab, "", "", needHosts, step(-1)},
 	{ui.Cmd, ui.Key1, "Ctrl+1 … 9", "侧栏里第几个对话", needHosts, nth(0)},
 	{ui.Cmd, ui.Key2, "", "", needHosts, nth(1)},
 	{ui.Cmd, ui.Key3, "", "", needHosts, nth(2)},
@@ -114,6 +121,10 @@ var shortcuts = []shortcut{
 	{ui.Cmd | ui.Shift, ui.KeyEqual, "", "", 0, func(a *App, _ hostlink.Session) { a.setZoom(zoomStep(a.zoom, 1)) }},
 	{ui.Cmd, ui.KeyMinus, "Ctrl+-", "缩小界面", 0, func(a *App, _ hostlink.Session) { a.setZoom(zoomStep(a.zoom, -1)) }},
 	{ui.Cmd, ui.Key0, "Ctrl+0", "界面恢复 100%", 0, func(a *App, _ hostlink.Session) { a.setZoom(100) }},
+}
+
+func step(d int) func(a *App, _ hostlink.Session) {
+	return func(a *App, _ hostlink.Session) { a.stepSession(d) }
 }
 
 func nth(i int) func(a *App, _ hostlink.Session) {
