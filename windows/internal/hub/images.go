@@ -2,23 +2,18 @@ package hub
 
 import (
 	"context"
-	"encoding/json"
 	"errors"
 	"fmt"
 	"io"
 	"net/http"
 	"strings"
+
+	"github.com/dzshzx/Zeta/helper/coreapi"
 )
 
-// imageData 是核心取图的应答（sessions.image、images.file 都是 {media_type, data}）里的图片内容。
-func imageData(raw json.RawMessage, err error) ([]byte, error) {
+// imageData 是核心取来的图（sessions.image、images.file）的内容；空的算没取到。
+func imageData(im coreapi.Image, err error) ([]byte, error) {
 	if err != nil {
-		return nil, err
-	}
-	var im struct {
-		Data []byte `json:"data"` // base64
-	}
-	if err := json.Unmarshal(raw, &im); err != nil {
 		return nil, err
 	}
 	if len(im.Data) == 0 {
@@ -36,14 +31,14 @@ var imageHTTP = &http.Client{Timeout: imageTimeout}
 // LinkedImageLoader 是聊天列表取回答里写的图片的办法（在后台 goroutine 上调用）：http、https 的网址从这台电脑下载
 // （太大的不要）；别的是设备 backend 上的路径，经核心的 images.file 取（~ 开头的从那边的家目录算），走取大块数据的连接。
 func (h *Hub) LinkedImageLoader(backend string) func(url string) ([]byte, error) {
-	call := h.bulkCall(backend)
+	core := h.bulkCall(backend)
 	return func(url string) ([]byte, error) {
 		ctx, cancel := context.WithTimeout(context.Background(), imageTimeout)
 		defer cancel()
 		if strings.HasPrefix(url, "https://") || strings.HasPrefix(url, "http://") {
 			return download(ctx, url)
 		}
-		return imageData(call(ctx, "images.file", map[string]any{"path": url}))
+		return imageData(core.FileImage(ctx, url))
 	}
 }
 

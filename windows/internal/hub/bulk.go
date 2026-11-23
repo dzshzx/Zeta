@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"github.com/dzshzx/Zeta/client/hostlink"
+	"github.com/dzshzx/Zeta/helper/coreapi"
 	"github.com/dzshzx/Zeta/windows/internal/host"
 )
 
@@ -89,7 +90,7 @@ func (b *bulkLink) Close() {
 }
 
 // bulkCall 是在后台对设备 backend 的核心取大块数据的办法（另一条连接，见 bulkLink）。在主线程上取，在后台调用。
-func (h *Hub) bulkCall(backend string) sessionsCaller {
+func (h *Hub) bulkCall(backend string) *coreapi.Client {
 	b := h.bulks[backend]
 	if b == nil {
 		x, _ := h.Host(backend)
@@ -97,7 +98,7 @@ func (h *Hub) bulkCall(backend string) sessionsCaller {
 		b = &bulkLink{open: func() host.ChatLink { return devices.OpenBulk(x) }, idle: h.bulkIdle}
 		h.bulks[backend] = b
 	}
-	return b.Call
+	return coreapi.New(b)
 }
 
 // closeBulk 关掉设备 id 上取大块数据的连接。
