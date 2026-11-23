@@ -4,7 +4,6 @@ package attach
 
 import (
 	"bytes"
-	"errors"
 	"fmt"
 	"image"
 	"image/color"
@@ -18,6 +17,7 @@ import (
 	"strings"
 
 	"github.com/dzshzx/Zeta/helper/coreapi"
+	"github.com/dzshzx/Zeta/windows/internal/locales"
 	xdraw "golang.org/x/image/draw"
 
 	_ "golang.org/x/image/bmp"
@@ -56,8 +56,12 @@ func IsImage(name string) bool {
 	return false
 }
 
-// ErrNotImage：解不开，不是认得的图片。
-var ErrNotImage = errors.New("不是能读的图片")
+// ErrNotImage：解不开，不是认得的图片。说法按界面当时的语言。
+var ErrNotImage error = notImage{}
+
+type notImage struct{}
+
+func (notImage) Error() string { return locales.AttachNotImage() }
 
 // EncodeImage 把图片文件的内容做成随消息发的一张图：长边缩到 MaxEdge 以内，透明的地方铺白，编成 JPEG（质量 85）。
 // Data 是 JPEG 的字节，输入栏的缩略图也从它解。解不开时返回 ErrNotImage。
@@ -114,11 +118,10 @@ func TooLarge(size int64) bool { return size > MaxBytes }
 
 // TooLargeReason 是没收某个文件的原因；size 是 -1 时是传到一半才发现超过上限。
 func TooLargeReason(name string, size int64) string {
-	text := "「" + name + "」"
 	if size >= 0 {
-		text += "有 " + FormatBytes(size) + "，"
+		return locales.AttachTooLargeSized(name, FormatBytes(size), FormatBytes(MaxBytes))
 	}
-	return text + "超过 " + FormatBytes(MaxBytes) + " 的上限，没有传上去"
+	return locales.AttachTooLarge(name, FormatBytes(MaxBytes))
 }
 
 // FormatBytes 是给人看的大小，按 1000 进位，三位有效数字（同 shared 的 formatBytes）：999 B、1.5 KB、12.3 MB、200 MB。

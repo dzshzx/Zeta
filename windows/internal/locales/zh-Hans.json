@@ -7,5 +7,2005 @@
   "settingsLanguageSystem": "跟随系统",
   "@settingsLanguageSystem": {
     "description": "语言选项：用 Windows 的显示语言，没有对应翻译时用简体中文。"
+  },
+  "widgetBack": "返回",
+  "@widgetBack": {
+    "description": "子页顶栏左边返回按钮的读屏名字和悬停提示。"
+  },
+  "widgetClear": "清除",
+  "@widgetClear": {
+    "description": "搜索框右边清空内容的小按钮（读屏名字和悬停提示）。"
+  },
+  "widgetCancel": "取消",
+  "@widgetCancel": {
+    "description": "填一行字的对话框底部的取消按钮。"
+  },
+  "aboutTitle": "关于",
+  "@aboutTitle": {
+    "description": "设置「关于」页第一组的标题。"
+  },
+  "aboutVersion": "版本",
+  "@aboutVersion": {
+    "description": "关于页的一行：本程序的版本。"
+  },
+  "aboutVersionDev": "开发版 {version}",
+  "@aboutVersionDev": {
+    "description": "关于页版本一行的值：不是正式发版打的包。",
+    "placeholders": {
+      "version": {
+        "type": "String",
+        "example": "0.7.7-dev.3+gabc1234"
+      }
+    }
+  },
+  "aboutVersionUnknown": "未知",
+  "@aboutVersionUnknown": {
+    "description": "关于页版本一行的值：构建时没写进版本（go run、测试）。"
+  },
+  "aboutSource": "源码",
+  "@aboutSource": {
+    "description": "关于页的一行：点了在浏览器里打开这个版本的源码。"
+  },
+  "aboutAutoCheck": "自动检查更新",
+  "@aboutAutoCheck": {
+    "description": "关于页的开关：启动时每天最多自动检查一次更新。"
+  },
+  "aboutCheck": "检查更新",
+  "@aboutCheck": {
+    "description": "关于页的一行：点了检查有没有新版本。"
+  },
+  "aboutChecking": "正在检查…",
+  "@aboutChecking": {
+    "description": "检查更新一行右边：正在取更新清单。"
+  },
+  "aboutUpToDate": "已是最新版本",
+  "@aboutUpToDate": {
+    "description": "检查更新一行右边：没有新版本。"
+  },
+  "aboutCheckFailed": "检查失败",
+  "@aboutCheckFailed": {
+    "description": "检查更新一行右边：没查成，原因写在标题下面。"
+  },
+  "aboutAvailable": "有新版本 {version}",
+  "@aboutAvailable": {
+    "description": "检查更新一行右边：查到了新版本。",
+    "placeholders": {
+      "version": {
+        "type": "String",
+        "example": "0.7.6"
+      }
+    }
+  },
+  "aboutRelease": "新版本",
+  "@aboutRelease": {
+    "description": "关于页里有新版本时的一组标题。"
+  },
+  "aboutReleaseFooter": "安装时 Zeta 会关闭，完成后自动重新打开。",
+  "@aboutReleaseFooter": {
+    "description": "新版本一组下面的说明。"
+  },
+  "aboutDownloadProgress": "下载进度",
+  "@aboutDownloadProgress": {
+    "description": "下载新版本时进度条的读屏名字。"
+  },
+  "aboutNotes": "更新说明",
+  "@aboutNotes": {
+    "description": "新版本的更新说明一组的标题。"
+  },
+  "aboutNoNotes": "- 没有更新说明",
+  "@aboutNoNotes": {
+    "description": "清单里没有更新说明时显示的一行（Markdown 列表项）。"
+  },
+  "aboutUpdate": "更新",
+  "@aboutUpdate": {
+    "description": "新版本一行右边的按钮：下载并安装。"
+  },
+  "aboutRetry": "重试",
+  "@aboutRetry": {
+    "description": "新版本下载或安装失败后的按钮。"
+  },
+  "aboutCancel": "取消",
+  "@aboutCancel": {
+    "description": "正在下载新版本时的按钮：取消下载。"
+  },
+  "aboutDownloading": "正在下载 {done} / {total}",
+  "@aboutDownloading": {
+    "description": "新版本一行的说明：已下载和总共多大。",
+    "placeholders": {
+      "done": {
+        "type": "String",
+        "example": "5.0 MB"
+      },
+      "total": {
+        "type": "String",
+        "example": "21.4 MB"
+      }
+    }
+  },
+  "aboutVerifying": "正在校验",
+  "@aboutVerifying": {
+    "description": "新版本一行的说明：下完了，正在核对大小和 sha256。"
+  },
+  "aboutInstalling": "正在安装",
+  "@aboutInstalling": {
+    "description": "新版本一行的说明：安装程序起来了。"
+  },
+  "aboutPublished": "{size} · {date} 发布",
+  "@aboutPublished": {
+    "description": "新版本一行的说明：安装包大小和发布日期。",
+    "placeholders": {
+      "size": {
+        "type": "String",
+        "example": "21.4 MB"
+      },
+      "date": {
+        "type": "String",
+        "example": "2026-11-20"
+      }
+    }
+  },
+  "aboutLicenses": "开源许可",
+  "@aboutLicenses": {
+    "description": "关于页开源许可一组的标题。"
+  },
+  "aboutLicensesFooter": "Zeta 按 GPL-3.0 授权，Copyright © 2026 dzshzx。程序里还带着下面这些第三方组件，各自按它们的许可证分发。",
+  "@aboutLicensesFooter": {
+    "description": "开源许可一组下面的说明。"
+  },
+  "aboutLicensesLoadFailed": "读不出许可证清单：{error}",
+  "@aboutLicensesLoadFailed": {
+    "description": "开源许可下面的报错：编进程序的许可证清单读不出来。",
+    "placeholders": {
+      "error": {
+        "type": "String",
+        "example": "file does not exist"
+      }
+    }
+  },
+  "aboutLicensesApp": "Windows 程序链接的",
+  "@aboutLicensesApp": {
+    "description": "开源许可里的一组标题：Windows 程序带着的第三方组件。"
+  },
+  "aboutLicensesHost": "带到主机上的 zeta-helper、claude-switch 链接的",
+  "@aboutLicensesHost": {
+    "description": "开源许可里的一组标题：带到远程主机上的程序带着的第三方组件。"
+  },
+  "aboutLicenseTextFailed": "读不出许可证全文：{error}",
+  "@aboutLicenseTextFailed": {
+    "description": "展开一项许可证时全文读不出来的报错。",
+    "placeholders": {
+      "error": {
+        "type": "String",
+        "example": "file does not exist"
+      }
+    }
+  },
+  "aboutLicensesBadLine": "licenses/index.tsv 第 {line} 行格式不对：{text}",
+  "@aboutLicensesBadLine": {
+    "description": "许可证清单某一行格式不对的报错（显示在开源许可下面）。",
+    "placeholders": {
+      "line": {
+        "type": "int",
+        "example": "3"
+      },
+      "text": {
+        "type": "String",
+        "example": "\"app\\tfoo\""
+      }
+    }
+  },
+  "aboutCredits": "鸣谢",
+  "@aboutCredits": {
+    "description": "关于页鸣谢一组的标题。"
+  },
+  "updateAvailableNotice": "Zeta {version} 已发布，可在设置中更新",
+  "@updateAvailableNotice": {
+    "description": "自动检查查到新版本时窗口底部提示条的一句话。",
+    "placeholders": {
+      "version": {
+        "type": "String",
+        "example": "0.7.6"
+      }
+    }
+  },
+  "updateMkdirFailed": "建不了下载目录：{error}",
+  "@updateMkdirFailed": {
+    "description": "下载新版本失败的原因（关于页新版本一行的说明）。",
+    "placeholders": {
+      "error": {
+        "type": "String",
+        "example": "permission denied"
+      }
+    }
+  },
+  "updateManifestTooLarge": "{host} 给的更新清单比 {size} KB 还大，不像是清单",
+  "@updateManifestTooLarge": {
+    "description": "检查更新失败的原因：取到的清单太大。",
+    "placeholders": {
+      "host": {
+        "type": "String",
+        "example": "github.com"
+      },
+      "size": {
+        "type": "int",
+        "example": "256"
+      }
+    }
+  },
+  "updateFromHost": "{host} 给的{error}",
+  "@updateFromHost": {
+    "description": "检查更新失败的原因：某处给的清单格式不对，error 是 updateManifest… 的一句。",
+    "placeholders": {
+      "host": {
+        "type": "String",
+        "example": "github.com"
+      },
+      "error": {
+        "type": "String",
+        "example": "更新清单格式不对：不是 JSON 对象"
+      }
+    }
+  },
+  "updateManifestNotObject": "更新清单格式不对：不是 JSON 对象",
+  "@updateManifestNotObject": {
+    "description": "检查更新失败的原因。"
+  },
+  "updateManifestBadCode": "更新清单格式不对：versionCode 缺少或不是正整数",
+  "@updateManifestBadCode": {
+    "description": "检查更新失败的原因。"
+  },
+  "updateManifestBadName": "更新清单格式不对：versionName 缺少或不是 X.Y.Z",
+  "@updateManifestBadName": {
+    "description": "检查更新失败的原因。"
+  },
+  "updateSaveFailed": "存不下下载的文件：{error}",
+  "@updateSaveFailed": {
+    "description": "下载新版本失败的原因。",
+    "placeholders": {
+      "error": {
+        "type": "String",
+        "example": "disk full"
+      }
+    }
+  },
+  "updateDownloadTooLarge": "从 {host} 下的文件比清单写的 {size} 字节大，已删掉",
+  "@updateDownloadTooLarge": {
+    "description": "下载新版本失败的原因。",
+    "placeholders": {
+      "host": {
+        "type": "String",
+        "example": "github.com"
+      },
+      "size": {
+        "type": "int",
+        "example": "12"
+      }
+    }
+  },
+  "updateDownloadTooSmall": "从 {host} 下的文件只有 {got} 字节，清单写的是 {size}，已删掉",
+  "@updateDownloadTooSmall": {
+    "description": "下载新版本失败的原因。",
+    "placeholders": {
+      "host": {
+        "type": "String",
+        "example": "github.com"
+      },
+      "got": {
+        "type": "int",
+        "example": "4"
+      },
+      "size": {
+        "type": "int",
+        "example": "12"
+      }
+    }
+  },
+  "updateDownloadBadHash": "从 {host} 下的文件 sha256 和清单不一致，已删掉",
+  "@updateDownloadBadHash": {
+    "description": "下载新版本失败的原因。",
+    "placeholders": {
+      "host": {
+        "type": "String",
+        "example": "github.com"
+      }
+    }
+  },
+  "updateHTTPStatus": "{host} 回了 HTTP {status}",
+  "@updateHTTPStatus": {
+    "description": "检查或下载更新失败的原因。",
+    "placeholders": {
+      "host": {
+        "type": "String",
+        "example": "github.com"
+      },
+      "status": {
+        "type": "int",
+        "example": "404"
+      }
+    }
+  },
+  "updateHostTimeout": "连 {host} 超时",
+  "@updateHostTimeout": {
+    "description": "检查或下载更新失败的原因。",
+    "placeholders": {
+      "host": {
+        "type": "String",
+        "example": "github.com"
+      }
+    }
+  },
+  "updateHostNotFound": "找不到 {host}（没有网络？）",
+  "@updateHostNotFound": {
+    "description": "检查或下载更新失败的原因。",
+    "placeholders": {
+      "host": {
+        "type": "String",
+        "example": "github.com"
+      }
+    }
+  },
+  "updateHostUnreachable": "连不上 {host}",
+  "@updateHostUnreachable": {
+    "description": "检查或下载更新失败的原因。",
+    "placeholders": {
+      "host": {
+        "type": "String",
+        "example": "github.com"
+      }
+    }
+  },
+  "updateReasonSeparator": "；",
+  "@updateReasonSeparator": {
+    "description": "几处都没取成时，各处原因之间的分隔。"
+  },
+  "updateInstallWindowsOnly": "只有 Windows 版能自动安装",
+  "@updateInstallWindowsOnly": {
+    "description": "不在 Windows 上点安装时的原因。"
+  },
+  "updateInstallerFailed": "启动安装程序失败：{error}",
+  "@updateInstallerFailed": {
+    "description": "安装新版本失败的原因。",
+    "placeholders": {
+      "error": {
+        "type": "String",
+        "example": "access denied"
+      }
+    }
+  },
+  "hostNoResponse": "「{host}」没有响应（超时）",
+  "@hostNoResponse": {
+    "description": "查对话的工作目录时那台设备没回话。",
+    "placeholders": {
+      "host": {
+        "type": "String",
+        "example": "devbox"
+      }
+    }
+  },
+  "hostDirMissing": "「{host}」上没有 {path} 这个目录",
+  "@hostDirMissing": {
+    "description": "聊天窗格里的提示：对话的工作目录在那台设备上不存在。",
+    "placeholders": {
+      "host": {
+        "type": "String",
+        "example": "devbox"
+      },
+      "path": {
+        "type": "String",
+        "example": "/home/me/proj"
+      }
+    }
+  },
+  "hostDirIsFile": "{path} 是文件，不是目录",
+  "@hostDirIsFile": {
+    "description": "聊天窗格里的提示：对话的工作目录是个文件。",
+    "placeholders": {
+      "path": {
+        "type": "String",
+        "example": "/home/me/proj"
+      }
+    }
+  },
+  "hostDirDenied": "「{host}」上的 {path} 没有权限进去",
+  "@hostDirDenied": {
+    "description": "聊天窗格里的提示：对话的工作目录进不去。",
+    "placeholders": {
+      "host": {
+        "type": "String",
+        "example": "devbox"
+      },
+      "path": {
+        "type": "String",
+        "example": "/home/me/proj"
+      }
+    }
+  },
+  "hostProbeTimeout": "连接超时",
+  "@hostProbeTimeout": {
+    "description": "添加设备、检查连接时的结果：连接超时。"
+  },
+  "hostProbeNotConnected": "没有连上",
+  "@hostProbeNotConnected": {
+    "description": "添加设备、检查连接时的结果：没连上，SSH 也没说原因。"
+  },
+  "hostProbeNoClaude": "那台设备上找不到 claude（登录 shell 的 PATH 里和 ~/.local/bin 都没有）",
+  "@hostProbeNoClaude": {
+    "description": "添加设备、检查连接时的结果：那边没装 Claude Code。"
+  },
+  "hostProbeUnknownSystem": "未知的系统",
+  "@hostProbeUnknownSystem": {
+    "description": "添加设备时查不到系统，填进 hostProbeUnsupported 的 system。"
+  },
+  "hostProbeUnsupported": "Zeta 读会话记录的程序只能在 arm64、x86-64 的 Linux 上跑，这台是 {system}",
+  "@hostProbeUnsupported": {
+    "description": "添加设备、检查连接时的结果：那台的系统或 CPU 不支持。",
+    "placeholders": {
+      "system": {
+        "type": "String",
+        "example": "Darwin arm64"
+      }
+    }
+  },
+  "hostProgramMissing": "桌面版里没有带这个程序",
+  "@hostProgramMissing": {
+    "description": "往设备上装 claude-switch 时桌面版里没带它（账号与额度页的报错）。"
+  },
+  "hostProgramNotInstalled": "{program} 没装上",
+  "@hostProgramNotInstalled": {
+    "description": "往设备上装程序失败、那边没说原因时（账号与额度页的报错）。",
+    "placeholders": {
+      "program": {
+        "type": "String",
+        "example": "claude-switch"
+      }
+    }
+  },
+  "attachNotImage": "不是能读的图片",
+  "@attachNotImage": {
+    "description": "附图片时文件解不开的原因。"
+  },
+  "attachTooLargeSized": "「{name}」有 {size}，超过 {limit} 的上限，没有传上去",
+  "@attachTooLargeSized": {
+    "description": "输入栏里没收某个附件的原因：文件太大。",
+    "placeholders": {
+      "name": {
+        "type": "String",
+        "example": "video.mp4"
+      },
+      "size": {
+        "type": "String",
+        "example": "120 MB"
+      },
+      "limit": {
+        "type": "String",
+        "example": "100 MB"
+      }
+    }
+  },
+  "attachTooLarge": "「{name}」超过 {limit} 的上限，没有传上去",
+  "@attachTooLarge": {
+    "description": "输入栏里没收某个附件的原因：传到一半发现超过上限。",
+    "placeholders": {
+      "name": {
+        "type": "String",
+        "example": "video.mp4"
+      },
+      "limit": {
+        "type": "String",
+        "example": "100 MB"
+      }
+    }
+  },
+  "claudecfgOK": "知道了",
+  "@claudecfgOK": {
+    "description": "设备页、Claude Code 配置各页弹出提示框的确认按钮。"
+  },
+  "claudecfgOpenEntry": "打开{name}",
+  "@claudecfgOpenEntry": {
+    "description": "点了进下一页的一行的读屏名字。",
+    "placeholders": {
+      "name": {
+        "type": "String",
+        "example": "记忆"
+      }
+    }
+  },
+  "claudecfgLoading": "正在读取…",
+  "@claudecfgLoading": {
+    "description": "Claude Code 配置各页还没读到内容时的一行。"
+  },
+  "claudecfgConnecting": "正在连接…",
+  "@claudecfgConnecting": {
+    "description": "MCP 服务器、工具权限页正在连服务器取工具清单。"
+  },
+  "claudecfgCancel": "取消",
+  "@claudecfgCancel": {
+    "description": "Claude Code 配置各页对话框的取消按钮。"
+  },
+  "claudecfgDelete": "删除",
+  "@claudecfgDelete": {
+    "description": "Claude Code 配置各页的删除按钮。"
+  },
+  "claudecfgDeleteItem": "删除：{name}",
+  "@claudecfgDeleteItem": {
+    "description": "一行右边删除按钮的读屏名字。",
+    "placeholders": {
+      "name": {
+        "type": "String",
+        "example": "tidy"
+      }
+    }
+  },
+  "claudecfgDeleteFailed": "删除失败",
+  "@claudecfgDeleteFailed": {
+    "description": "删除没成功时弹出提示的标题。"
+  },
+  "claudecfgSave": "保存",
+  "@claudecfgSave": {
+    "description": "Claude Code 配置各页的保存按钮。"
+  },
+  "claudecfgSaving": "保存中",
+  "@claudecfgSaving": {
+    "description": "编辑页保存按钮在保存时的字样。"
+  },
+  "claudecfgDiscard": "放弃",
+  "@claudecfgDiscard": {
+    "description": "放弃未保存的更改的按钮。"
+  },
+  "claudecfgDiscardTitle": "放弃未保存的更改？",
+  "@claudecfgDiscardTitle": {
+    "description": "有改动时离开编辑页的确认框标题。"
+  },
+  "claudecfgRetry": "重试",
+  "@claudecfgRetry": {
+    "description": "取工具清单失败后的按钮。"
+  },
+  "claudecfgNew": "新建",
+  "@claudecfgNew": {
+    "description": "Subagent 页右上角的新建按钮。"
+  },
+  "claudecfgChangeFailed": "没有改成",
+  "@claudecfgChangeFailed": {
+    "description": "改设置没成功时弹出提示的标题。"
+  },
+  "claudecfgSaveFailed": "没存上",
+  "@claudecfgSaveFailed": {
+    "description": "设备上的自动压缩、自动标题没存上时弹出提示的标题。"
+  },
+  "claudecfgLoadFailed": "读取失败：{error}",
+  "@claudecfgLoadFailed": {
+    "description": "新对话默认、工具权限说明里读取失败的原因。",
+    "placeholders": {
+      "error": {
+        "type": "String",
+        "example": "connection lost"
+      }
+    }
+  },
+  "claudecfgReadFailed": "读取失败",
+  "@claudecfgReadFailed": {
+    "description": "打开记忆文件读取失败时弹出提示的标题。"
+  },
+  "claudecfgSaveError": "保存失败",
+  "@claudecfgSaveError": {
+    "description": "记忆文件保存失败时弹出提示的标题。"
+  },
+  "claudecfgListSeparator": "、",
+  "@claudecfgListSeparator": {
+    "description": "列出几个名字时的分隔（键名、规则）。"
+  },
+  "claudecfgCommaSeparator": "，",
+  "@claudecfgCommaSeparator": {
+    "description": "几个模型的思考强度连成一句时的分隔。"
+  },
+  "claudecfgConfirmQuestion": "{action}？",
+  "@claudecfgConfirmQuestion": {
+    "description": "确认框标题：把按钮上的操作写成问句。",
+    "placeholders": {
+      "action": {
+        "type": "String",
+        "example": "全部开启内置工具"
+      }
+    }
+  },
+  "claudecfgManagedOnClaudeAi": "在 claude.ai 上管理，这里只能看。",
+  "@claudecfgManagedOnClaudeAi": {
+    "description": "账号同步的 Skills、Claude 账号的连接器一组下面的说明。"
+  },
+  "claudecfgNotConfigured": "未配置",
+  "@claudecfgNotConfigured": {
+    "description": "MCP 服务器的状态或身份认证：没配。"
+  },
+  "claudecfgZipDialogTitle": "选择 Skill 包",
+  "@claudecfgZipDialogTitle": {
+    "description": "导入 Skill 时系统文件对话框的标题。"
+  },
+  "claudecfgZipUnreadable": "读不了这个文件",
+  "@claudecfgZipUnreadable": {
+    "description": "导入 Skill 时选的文件读不了。"
+  },
+  "claudecfgZipTooLarge": "文件超过 45 MB，不像是一个 Skill 包",
+  "@claudecfgZipTooLarge": {
+    "description": "导入 Skill 时选的文件太大。"
+  },
+  "claudecfgEffortLow": "低",
+  "@claudecfgEffortLow": {
+    "description": "思考强度的一档。"
+  },
+  "claudecfgEffortMedium": "中",
+  "@claudecfgEffortMedium": {
+    "description": "思考强度的一档。"
+  },
+  "claudecfgEffortHigh": "高",
+  "@claudecfgEffortHigh": {
+    "description": "思考强度的一档。"
+  },
+  "claudecfgEffortXHigh": "超高",
+  "@claudecfgEffortXHigh": {
+    "description": "思考强度的一档。"
+  },
+  "claudecfgEffortMax": "最高",
+  "@claudecfgEffortMax": {
+    "description": "思考强度的一档。"
+  },
+  "claudecfgModeDefault": "逐项确认",
+  "@claudecfgModeDefault": {
+    "description": "权限模式：每次改动和命令都问（Claude Code 的 default）。"
+  },
+  "claudecfgModeAcceptEdits": "自动接受编辑",
+  "@claudecfgModeAcceptEdits": {
+    "description": "权限模式：Claude Code 的 acceptEdits。"
+  },
+  "claudecfgModePlan": "计划模式",
+  "@claudecfgModePlan": {
+    "description": "权限模式：Claude Code 的 plan。"
+  },
+  "claudecfgModeAuto": "自动判断",
+  "@claudecfgModeAuto": {
+    "description": "权限模式：Claude Code 的 auto。"
+  },
+  "claudecfgBehaviorAllow": "允许",
+  "@claudecfgBehaviorAllow": {
+    "description": "工具权限的一张表，也是下拉里的选项。"
+  },
+  "claudecfgBehaviorAsk": "询问",
+  "@claudecfgBehaviorAsk": {
+    "description": "工具权限的一张表，也是下拉里的选项。"
+  },
+  "claudecfgBehaviorDeny": "拒绝",
+  "@claudecfgBehaviorDeny": {
+    "description": "工具权限的一张表，也是下拉里的选项。"
+  },
+  "claudecfgBehaviorNone": "未设置",
+  "@claudecfgBehaviorNone": {
+    "description": "工具权限下拉里的选项：不在任何一张表里。"
+  },
+  "claudecfgIdleNever": "不自动结束",
+  "@claudecfgIdleNever": {
+    "description": "闲置超时的一档：对话进程闲着也不结束。"
+  },
+  "claudecfgIdleDays": "{count, plural, other {# 天}}",
+  "@claudecfgIdleDays": {
+    "description": "闲置超时的一档。",
+    "placeholders": {
+      "count": {
+        "type": "int",
+        "example": "1"
+      }
+    }
+  },
+  "claudecfgIdleHours": "{count, plural, other {# 小时}}",
+  "@claudecfgIdleHours": {
+    "description": "闲置超时的一档。",
+    "placeholders": {
+      "count": {
+        "type": "int",
+        "example": "2"
+      }
+    }
+  },
+  "claudecfgIdleMinutes": "{count, plural, other {# 分钟}}",
+  "@claudecfgIdleMinutes": {
+    "description": "闲置超时的一档。",
+    "placeholders": {
+      "count": {
+        "type": "int",
+        "example": "30"
+      }
+    }
+  },
+  "claudecfgConfigTitle": "Claude Code 配置",
+  "@claudecfgConfigTitle": {
+    "description": "设备页上 Claude Code 配置入口那一组的标题。"
+  },
+  "claudecfgConfigFooter": "改的是这台设备上 Claude Code 自己的配置（~/.claude），那边终端里的 claude 同样生效。",
+  "@claudecfgConfigFooter": {
+    "description": "Claude Code 配置一组下面的说明。"
+  },
+  "claudecfgMemory": "记忆",
+  "@claudecfgMemory": {
+    "description": "Claude Code 配置的一项，也是那一页的标题。"
+  },
+  "claudecfgMcpServers": "MCP 服务器",
+  "@claudecfgMcpServers": {
+    "description": "Claude Code 配置的一项，也是那一页的标题；工具权限页里的一组标题。"
+  },
+  "claudecfgSubagents": "Subagent",
+  "@claudecfgSubagents": {
+    "description": "Claude Code 配置的一项，也是那一页的标题。"
+  },
+  "claudecfgPermissions": "工具权限",
+  "@claudecfgPermissions": {
+    "description": "Claude Code 配置的一项，也是那一页的标题。"
+  },
+  "claudecfgDefaultsTitle": "新对话默认",
+  "@claudecfgDefaultsTitle": {
+    "description": "设备页上一组的标题。"
+  },
+  "claudecfgDefaultsFooter": "在这台设备上开新对话时用。存在这台设备上 Claude Code 自己的设置里，和那边终端里 /model、/effort 存为默认的是同一份；对话里选的只管那个对话。思考强度按模型分别存。上下文窗口是会话最多用多少 token，自动压缩按它算，比模型本身的窗口大时按模型的。",
+  "@claudecfgDefaultsFooter": {
+    "description": "新对话默认一组下面的说明。"
+  },
+  "claudecfgNotRead": "还没读到 Claude Code 的设置",
+  "@claudecfgNotRead": {
+    "description": "新对话默认、默认思考强度还没读到时的一行。"
+  },
+  "claudecfgModelBuiltin": "Claude Code 内置的默认",
+  "@claudecfgModelBuiltin": {
+    "description": "默认模型下拉的第一项：不设，用 Claude Code 内置的默认。"
+  },
+  "claudecfgDefaultModel": "默认模型",
+  "@claudecfgDefaultModel": {
+    "description": "新对话默认的一行。"
+  },
+  "claudecfgDefaultEffort": "默认思考强度",
+  "@claudecfgDefaultEffort": {
+    "description": "新对话默认的一行，也是点进去那一页的标题。"
+  },
+  "claudecfgDefaultMode": "默认权限模式",
+  "@claudecfgDefaultMode": {
+    "description": "新对话默认的一行。"
+  },
+  "claudecfgContextWindow": "上下文窗口",
+  "@claudecfgContextWindow": {
+    "description": "新对话默认的一行。"
+  },
+  "claudecfgContextWindowModel": "按模型的窗口",
+  "@claudecfgContextWindowModel": {
+    "description": "上下文窗口下拉的第一项：按模型本身的窗口。"
+  },
+  "claudecfgEffortUnset": "没有设，按 Claude Code 的默认",
+  "@claudecfgEffortUnset": {
+    "description": "默认思考强度一行的说明：一档都没设。"
+  },
+  "claudecfgEffortOtherModels": "其他模型",
+  "@claudecfgEffortOtherModels": {
+    "description": "默认思考强度页的最后一行：没单独设的模型共用的那一档。"
+  },
+  "claudecfgEffortModelLevel": "{model} {level}",
+  "@claudecfgEffortModelLevel": {
+    "description": "默认思考强度一行的说明里的一项：模型和它的那一档。",
+    "placeholders": {
+      "model": {
+        "type": "String",
+        "example": "Opus 5.5"
+      },
+      "level": {
+        "type": "String",
+        "example": "超高"
+      }
+    }
+  },
+  "claudecfgEffortFooter": "这台设备上的新对话按所用的模型取这里的设置，和那边终端里 /effort 存为默认的是同一份；没单独设的模型用「其他模型」那一档。",
+  "@claudecfgEffortFooter": {
+    "description": "默认思考强度页的说明。"
+  },
+  "claudecfgEffortFollow": "跟随 Claude Code",
+  "@claudecfgEffortFollow": {
+    "description": "默认思考强度下拉的第一项：不设，由 Claude Code 定。"
+  },
+  "claudecfgClaudeFooter": "只管 Zeta 在这台设备上起的对话。闲置超时马上生效，其余的下次起进程时生效。",
+  "@claudecfgClaudeFooter": {
+    "description": "设备页 Claude 一组下面的说明。"
+  },
+  "claudecfgAutoCompact": "自动压缩上下文",
+  "@claudecfgAutoCompact": {
+    "description": "设备页 Claude 一组的开关。"
+  },
+  "claudecfgCompactAt": "压缩时机",
+  "@claudecfgCompactAt": {
+    "description": "设备页 Claude 一组的下拉：上下文用到多少时压缩。"
+  },
+  "claudecfgCompactAtDefault": "默认（快满时）",
+  "@claudecfgCompactAtDefault": {
+    "description": "压缩时机的一档。"
+  },
+  "claudecfgCompactAtPercent": "用到 {percent}% 时",
+  "@claudecfgCompactAtPercent": {
+    "description": "压缩时机的一档。",
+    "placeholders": {
+      "percent": {
+        "type": "int",
+        "example": "80"
+      }
+    }
+  },
+  "claudecfgAutoTitle": "自动生成对话标题",
+  "@claudecfgAutoTitle": {
+    "description": "设备页 Claude 一组的开关。"
+  },
+  "claudecfgAutoTitleSummary": "第一轮回答后由 Claude Code 起个简短标题，改过名的不动",
+  "@claudecfgAutoTitleSummary": {
+    "description": "自动生成对话标题开关下面的说明。"
+  },
+  "claudecfgIdleTimeout": "闲置超时",
+  "@claudecfgIdleTimeout": {
+    "description": "设备页 Claude 一组的下拉：对话进程闲多久后结束。"
+  },
+  "claudecfgClaudeVersionFailed": "读不到版本：{error}",
+  "@claudecfgClaudeVersionFailed": {
+    "description": "设备页 Claude Code 一行的说明。",
+    "placeholders": {
+      "error": {
+        "type": "String",
+        "example": "connection lost"
+      }
+    }
+  },
+  "claudecfgClaudeUpdating": "正在更新…",
+  "@claudecfgClaudeUpdating": {
+    "description": "设备页 Claude Code 一行的说明：正在跑 claude update。"
+  },
+  "claudecfgClaudeNotInstalled": "未安装",
+  "@claudecfgClaudeNotInstalled": {
+    "description": "设备页 Claude Code 一行的版本：那边没装。"
+  },
+  "claudecfgClaudeUpdate": "更新",
+  "@claudecfgClaudeUpdate": {
+    "description": "设备页 Claude Code 一行右边的按钮：在那台上跑 claude update。"
+  },
+  "claudecfgClaudeUpdateFailed": "没更新成：{reason}",
+  "@claudecfgClaudeUpdateFailed": {
+    "description": "设备页 Claude Code 一行的说明：更新没成，原因是报错或 claude update 输出的最后一行。",
+    "placeholders": {
+      "reason": {
+        "type": "String",
+        "example": "network error"
+      }
+    }
+  },
+  "claudecfgClaudeUpdateError": "claude update 出错了",
+  "@claudecfgClaudeUpdateError": {
+    "description": "claude update 失败又没有输出时的原因。"
+  },
+  "claudecfgClaudeUpdated": "已从 {before} 更新到 {after}",
+  "@claudecfgClaudeUpdated": {
+    "description": "设备页 Claude Code 一行的说明：更新成了。",
+    "placeholders": {
+      "before": {
+        "type": "String",
+        "example": "2.1.330"
+      },
+      "after": {
+        "type": "String",
+        "example": "2.1.340"
+      }
+    }
+  },
+  "claudecfgClaudeUpToDate": "已是最新",
+  "@claudecfgClaudeUpToDate": {
+    "description": "设备页 Claude Code 一行的说明：claude update 说已是最新。"
+  },
+  "claudecfgAgentModelDefault": "默认",
+  "@claudecfgAgentModelDefault": {
+    "description": "Subagent 模型下拉的选项：不写，跟随主对话的模型。"
+  },
+  "claudecfgAgentModelInherit": "跟随主对话",
+  "@claudecfgAgentModelInherit": {
+    "description": "Subagent 模型下拉的选项：inherit。"
+  },
+  "claudecfgToolRead": "读文件",
+  "@claudecfgToolRead": {
+    "description": "Subagent 工具清单里 Read 的说明。"
+  },
+  "claudecfgToolEdit": "修改文件",
+  "@claudecfgToolEdit": {
+    "description": "Subagent 工具清单里 Edit 的说明。"
+  },
+  "claudecfgToolWrite": "新建、覆盖文件",
+  "@claudecfgToolWrite": {
+    "description": "Subagent 工具清单里 Write 的说明。"
+  },
+  "claudecfgToolGlob": "按文件名查找",
+  "@claudecfgToolGlob": {
+    "description": "Subagent 工具清单里 Glob 的说明。"
+  },
+  "claudecfgToolGrep": "在文件里搜索",
+  "@claudecfgToolGrep": {
+    "description": "Subagent 工具清单里 Grep 的说明。"
+  },
+  "claudecfgToolBash": "执行命令",
+  "@claudecfgToolBash": {
+    "description": "Subagent 工具清单里 Bash 的说明。"
+  },
+  "claudecfgToolWebFetch": "抓取网页",
+  "@claudecfgToolWebFetch": {
+    "description": "Subagent 工具清单里 WebFetch 的说明。"
+  },
+  "claudecfgToolWebSearch": "网络搜索",
+  "@claudecfgToolWebSearch": {
+    "description": "Subagent 工具清单里 WebSearch 的说明。"
+  },
+  "claudecfgToolNotebookEdit": "编辑 Jupyter 笔记本",
+  "@claudecfgToolNotebookEdit": {
+    "description": "Subagent 工具清单里 NotebookEdit 的说明。"
+  },
+  "claudecfgToolSkill": "使用 Skill",
+  "@claudecfgToolSkill": {
+    "description": "Subagent 工具清单里 Skill 的说明。"
+  },
+  "claudecfgAgentNameInvalid": "名称只能用小写字母、数字和连字符，并以字母或数字开头",
+  "@claudecfgAgentNameInvalid": {
+    "description": "Subagent 编辑页：名称不合规时的提示。"
+  },
+  "claudecfgAgentWhenMissing": "写上什么时候用它才能保存",
+  "@claudecfgAgentWhenMissing": {
+    "description": "Subagent 编辑页：还没写什么时候用时的提示。"
+  },
+  "claudecfgAgentsLoadFailed": "读取 Subagent 失败",
+  "@claudecfgAgentsLoadFailed": {
+    "description": "Subagent 页读取失败时弹出提示的标题。"
+  },
+  "claudecfgAgentNew": "新建 Subagent",
+  "@claudecfgAgentNew": {
+    "description": "新建按钮的读屏名字，也是新建页的标题。"
+  },
+  "claudecfgAgentEdit": "编辑 Subagent",
+  "@claudecfgAgentEdit": {
+    "description": "编辑页的标题。"
+  },
+  "claudecfgAgentsFooter": "存在 ~/.claude/agents，所有项目都能用。Claude 按“什么时候用”自己决定交给哪个，你也可以在对话里点名。",
+  "@claudecfgAgentsFooter": {
+    "description": "Subagent 页一组下面的说明。"
+  },
+  "claudecfgAgentsCount": "自定义 Subagent · {count}",
+  "@claudecfgAgentsCount": {
+    "description": "Subagent 页一组的标题和个数。",
+    "placeholders": {
+      "count": {
+        "type": "int",
+        "example": "2"
+      }
+    }
+  },
+  "claudecfgAgentsEmpty": "还没有自定义 Subagent",
+  "@claudecfgAgentsEmpty": {
+    "description": "Subagent 页没有时的一行。"
+  },
+  "claudecfgAgentsEmptyHint": "让 Claude 写一个，或点右上角的“新建”",
+  "@claudecfgAgentsEmptyHint": {
+    "description": "Subagent 页没有时那一行的说明。"
+  },
+  "claudecfgName": "名称",
+  "@claudecfgName": {
+    "description": "Subagent 编辑页的一组和输入框，添加 MCP 服务器对话框的输入框。"
+  },
+  "claudecfgAgentNameFooter": "小写字母、数字和连字符，比如 code-reviewer。",
+  "@claudecfgAgentNameFooter": {
+    "description": "Subagent 编辑页名称一组下面的说明。"
+  },
+  "claudecfgAgentWhen": "什么时候用",
+  "@claudecfgAgentWhen": {
+    "description": "Subagent 编辑页的一组和输入框。"
+  },
+  "claudecfgAgentWhenFooter": "Claude 靠这段话决定要不要交给它，写清楚它擅长什么。",
+  "@claudecfgAgentWhenFooter": {
+    "description": "Subagent 编辑页什么时候用一组下面的说明。"
+  },
+  "claudecfgAgentWhenPlaceholder": "比如：改完代码后用它审查改动，找出 bug 和不清楚的地方",
+  "@claudecfgAgentWhenPlaceholder": {
+    "description": "Subagent 编辑页什么时候用的占位。"
+  },
+  "claudecfgAgentPrompt": "系统提示词",
+  "@claudecfgAgentPrompt": {
+    "description": "Subagent 编辑页的一组和输入框。"
+  },
+  "claudecfgAgentPromptFooter": "写它的角色和做事方式。它看不到主对话，只看到这段话和交给它的任务。",
+  "@claudecfgAgentPromptFooter": {
+    "description": "Subagent 编辑页系统提示词一组下面的说明。"
+  },
+  "claudecfgAgentPromptPlaceholder": "你是一名代码审查员……",
+  "@claudecfgAgentPromptPlaceholder": {
+    "description": "Subagent 编辑页系统提示词的占位。"
+  },
+  "claudecfgAgentExtraKeys": "另外还设了 {keys}，保存时原样保留。",
+  "@claudecfgAgentExtraKeys": {
+    "description": "Subagent 编辑页底下：文件里还有别的前言项。",
+    "placeholders": {
+      "keys": {
+        "type": "String",
+        "example": "color、memory"
+      }
+    }
+  },
+  "claudecfgAgentModel": "模型",
+  "@claudecfgAgentModel": {
+    "description": "Subagent 编辑页的一组和下拉。"
+  },
+  "claudecfgAgentModelFooter": "默认时跟随主对话的模型。",
+  "@claudecfgAgentModelFooter": {
+    "description": "Subagent 编辑页模型一组下面的说明。"
+  },
+  "claudecfgAgentToolsFooter": "关掉“全部工具”后只能用勾选的。MCP 工具写成 mcp__服务器__工具，多个用逗号分开。",
+  "@claudecfgAgentToolsFooter": {
+    "description": "Subagent 编辑页工具一组下面的说明。"
+  },
+  "claudecfgTools": "工具",
+  "@claudecfgTools": {
+    "description": "Subagent 编辑页、MCP 服务器页、工具权限页的一组标题。"
+  },
+  "claudecfgToolsCount": "工具 · {count}",
+  "@claudecfgToolsCount": {
+    "description": "MCP 服务器页、工具权限页取到工具清单后的一组标题。",
+    "placeholders": {
+      "count": {
+        "type": "int",
+        "example": "12"
+      }
+    }
+  },
+  "claudecfgAllTools": "全部工具",
+  "@claudecfgAllTools": {
+    "description": "Subagent 编辑页的开关。"
+  },
+  "claudecfgAllToolsSummary": "包括 MCP 工具",
+  "@claudecfgAllToolsSummary": {
+    "description": "全部工具开关下面的说明。"
+  },
+  "claudecfgOtherTools": "其他工具",
+  "@claudecfgOtherTools": {
+    "description": "Subagent 编辑页的输入框：不在清单里的工具。"
+  },
+  "claudecfgAgentDeleteTitle": "删除 Subagent",
+  "@claudecfgAgentDeleteTitle": {
+    "description": "删除 Subagent 的确认框标题。"
+  },
+  "claudecfgAgentDeleteMessage": "删除“{name}”？删了就找不回来。",
+  "@claudecfgAgentDeleteMessage": {
+    "description": "删除 Subagent 的确认框说明。",
+    "placeholders": {
+      "name": {
+        "type": "String",
+        "example": "code-reviewer"
+      }
+    }
+  },
+  "claudecfgMemoryLoadFailed": "读取记忆失败",
+  "@claudecfgMemoryLoadFailed": {
+    "description": "记忆页读取失败时弹出提示的标题。"
+  },
+  "claudecfgMemoryTypeUser": "用户",
+  "@claudecfgMemoryTypeUser": {
+    "description": "一条记忆的类型。"
+  },
+  "claudecfgMemoryTypeFeedback": "反馈",
+  "@claudecfgMemoryTypeFeedback": {
+    "description": "一条记忆的类型。"
+  },
+  "claudecfgMemoryTypeProject": "项目",
+  "@claudecfgMemoryTypeProject": {
+    "description": "一条记忆的类型。"
+  },
+  "claudecfgMemoryTypeReference": "参考",
+  "@claudecfgMemoryTypeReference": {
+    "description": "一条记忆的类型。"
+  },
+  "claudecfgMemoryInstructions": "用户指令",
+  "@claudecfgMemoryInstructions": {
+    "description": "记忆页的一组标题，也是编辑 CLAUDE.md 那一页的标题。"
+  },
+  "claudecfgMemoryInstructionsFooter": "~/.claude/CLAUDE.md 里是你写给 Claude 的长期指令，所有项目通用。改动对之后新开始的对话生效。",
+  "@claudecfgMemoryInstructionsFooter": {
+    "description": "记忆页用户指令一组下面的说明。"
+  },
+  "claudecfgMemoryInstructionsMissing": "还没有创建，打开就能写",
+  "@claudecfgMemoryInstructionsMissing": {
+    "description": "CLAUDE.md 一行的说明：文件还不存在。"
+  },
+  "claudecfgMemoryInstructionsPlaceholder": "比如：回答用中文；我的主要技术栈是 Go；改代码前先说明打算怎么改",
+  "@claudecfgMemoryInstructionsPlaceholder": {
+    "description": "编辑 CLAUDE.md 时正文的占位。"
+  },
+  "claudecfgAutoMemory": "自动记忆",
+  "@claudecfgAutoMemory": {
+    "description": "记忆页的一组标题。"
+  },
+  "claudecfgAutoMemoryFooter": "Claude 会在对话中自己记下你的偏好、纠正和项目背景。开关对所有项目生效；关掉后不再读写，记忆留着。",
+  "@claudecfgAutoMemoryFooter": {
+    "description": "记忆页自动记忆一组下面的说明。"
+  },
+  "claudecfgAutoMemoryForcedOff": "被环境变量关掉了，这里改不了",
+  "@claudecfgAutoMemoryForcedOff": {
+    "description": "启用自动记忆开关下面的说明。"
+  },
+  "claudecfgAutoMemoryEnable": "启用自动记忆",
+  "@claudecfgAutoMemoryEnable": {
+    "description": "记忆页的开关。"
+  },
+  "claudecfgMemoryDir": "记忆目录",
+  "@claudecfgMemoryDir": {
+    "description": "记忆页的一行：settings.json 里设的记忆目录。"
+  },
+  "claudecfgMemoryDirShared": "所有项目共用",
+  "@claudecfgMemoryDirShared": {
+    "description": "记忆目录一行右边的值。"
+  },
+  "claudecfgMemoryDefaultProject": "{project}（默认工作目录）",
+  "@claudecfgMemoryDefaultProject": {
+    "description": "记忆页项目下拉里默认工作目录所在的那个项目。",
+    "placeholders": {
+      "project": {
+        "type": "String",
+        "example": "~/proj"
+      }
+    }
+  },
+  "claudecfgMemoryProject": "项目",
+  "@claudecfgMemoryProject": {
+    "description": "记忆页的下拉：看哪个项目的自动记忆。"
+  },
+  "claudecfgMemoryIndexMissing": "记忆的索引，还没有",
+  "@claudecfgMemoryIndexMissing": {
+    "description": "MEMORY.md 一行的说明：文件还不存在。"
+  },
+  "claudecfgMemoryIndex": "记忆的索引",
+  "@claudecfgMemoryIndex": {
+    "description": "MEMORY.md 一行的说明。"
+  },
+  "claudecfgMemoryIndexPlaceholder": "一行一条记忆：- [标题](文件名.md) — 一句话说明",
+  "@claudecfgMemoryIndexPlaceholder": {
+    "description": "编辑 MEMORY.md 时正文的占位。"
+  },
+  "claudecfgMemoryFiles": "记忆 · {count}",
+  "@claudecfgMemoryFiles": {
+    "description": "记忆页列出各条记忆的一组标题。",
+    "placeholders": {
+      "count": {
+        "type": "int",
+        "example": "3"
+      }
+    }
+  },
+  "claudecfgMemoryFilesEmpty": "这个项目还没有记忆",
+  "@claudecfgMemoryFilesEmpty": {
+    "description": "记忆页这个项目没有记忆时的一行。"
+  },
+  "claudecfgMemoryFilesEmptyHint": "让 Claude 记住的东西会出现在这里",
+  "@claudecfgMemoryFilesEmptyHint": {
+    "description": "没有记忆那一行的说明。"
+  },
+  "claudecfgDocumentOverLimit": "超过上限",
+  "@claudecfgDocumentOverLimit": {
+    "description": "编辑记忆文件时顶上一行：文件超过 1 MiB。"
+  },
+  "claudecfgDocumentUnsaved": "未保存的更改",
+  "@claudecfgDocumentUnsaved": {
+    "description": "编辑记忆文件时底下一行：有没保存的改动。"
+  },
+  "claudecfgDocumentTooLarge": "已超过 1 MiB 上限，请删减",
+  "@claudecfgDocumentTooLarge": {
+    "description": "编辑记忆文件时底下一行：太大存不了。"
+  },
+  "claudecfgConflictTitle": "文件已经变了",
+  "@claudecfgConflictTitle": {
+    "description": "保存记忆文件时发现文件在编辑期间被改过的确认框标题。"
+  },
+  "claudecfgConflictMessage": "编辑期间这个文件被改过了，多半是 Claude 在对话里更新了它。保存会用你的版本覆盖。",
+  "@claudecfgConflictMessage": {
+    "description": "文件已经变了确认框的说明。"
+  },
+  "claudecfgSaveAnyway": "仍然保存",
+  "@claudecfgSaveAnyway": {
+    "description": "文件已经变了确认框的按钮。"
+  },
+  "claudecfgMemoryDeleteTitle": "删除这条记忆",
+  "@claudecfgMemoryDeleteTitle": {
+    "description": "删除一条记忆的确认框标题。"
+  },
+  "claudecfgMemoryDeleteMessage": "删除 {file}，并从 MEMORY.md 里去掉它那一行。删了就找不回来。",
+  "@claudecfgMemoryDeleteMessage": {
+    "description": "删除一条记忆的确认框说明。",
+    "placeholders": {
+      "file": {
+        "type": "String",
+        "example": "prefs.md"
+      }
+    }
+  },
+  "claudecfgMcpTypeCommand": "命令",
+  "@claudecfgMcpTypeCommand": {
+    "description": "MCP 服务器的类型：本地命令（stdio）；也是添加对话框和详情页里命令的标签。"
+  },
+  "claudecfgMcpScopeUser": "所有项目",
+  "@claudecfgMcpScopeUser": {
+    "description": "MCP 服务器的范围：用户配置。"
+  },
+  "claudecfgMcpScopeLocal": "只在默认工作目录",
+  "@claudecfgMcpScopeLocal": {
+    "description": "MCP 服务器的范围：本地配置。"
+  },
+  "claudecfgMcpScopeProject": "项目的 .mcp.json",
+  "@claudecfgMcpScopeProject": {
+    "description": "MCP 服务器的范围：项目配置。"
+  },
+  "claudecfgMcpStateChecking": "检查中…",
+  "@claudecfgMcpStateChecking": {
+    "description": "MCP 服务器的状态：健康检查还没回来。"
+  },
+  "claudecfgMcpStateConnected": "已连接",
+  "@claudecfgMcpStateConnected": {
+    "description": "MCP 服务器的状态。"
+  },
+  "claudecfgMcpStatePartial": "已连接 · 取工具出错",
+  "@claudecfgMcpStatePartial": {
+    "description": "MCP 服务器的状态。"
+  },
+  "claudecfgMcpStateFailed": "连不上",
+  "@claudecfgMcpStateFailed": {
+    "description": "MCP 服务器的状态。"
+  },
+  "claudecfgMcpStateAuth": "需要登录",
+  "@claudecfgMcpStateAuth": {
+    "description": "MCP 服务器的状态。"
+  },
+  "claudecfgMcpStatePending": "等待批准",
+  "@claudecfgMcpStatePending": {
+    "description": "MCP 服务器的状态：项目的 .mcp.json 里的服务器还没批准。"
+  },
+  "claudecfgMcpStateRejected": "已拒绝",
+  "@claudecfgMcpStateRejected": {
+    "description": "MCP 服务器的状态。"
+  },
+  "claudecfgMcpStateDisabled": "已停用",
+  "@claudecfgMcpStateDisabled": {
+    "description": "MCP 服务器的状态。"
+  },
+  "claudecfgMcpStateShadowed": "未生效",
+  "@claudecfgMcpStateShadowed": {
+    "description": "MCP 服务器的状态：被同名服务器盖住。"
+  },
+  "claudecfgMcpStateUnknown": "未知",
+  "@claudecfgMcpStateUnknown": {
+    "description": "MCP 服务器的状态：健康检查里没有它。"
+  },
+  "claudecfgMcpShadowedBy": "被“{scope}”里的同名服务器盖住",
+  "@claudecfgMcpShadowedBy": {
+    "description": "被盖住的 MCP 服务器的状态说明。",
+    "placeholders": {
+      "scope": {
+        "type": "String",
+        "example": "所有项目"
+      }
+    }
+  },
+  "claudecfgMcpLoadFailed": "读取 MCP 配置失败",
+  "@claudecfgMcpLoadFailed": {
+    "description": "MCP 服务器页读取失败时弹出提示的标题。"
+  },
+  "claudecfgMcpRecheck": "重新检查",
+  "@claudecfgMcpRecheck": {
+    "description": "MCP 服务器页右上角的按钮：重新做健康检查。"
+  },
+  "claudecfgMcpAdd": "添加服务器",
+  "@claudecfgMcpAdd": {
+    "description": "MCP 服务器页右上角的按钮，也是添加对话框的标题。"
+  },
+  "claudecfgMcpFooter": "新加的服务器所有项目都能用，改动对之后新开始的对话生效。",
+  "@claudecfgMcpFooter": {
+    "description": "MCP 服务器页一组下面的说明。"
+  },
+  "claudecfgMcpStatusFailed": "检查状态没有成功：{error}",
+  "@claudecfgMcpStatusFailed": {
+    "description": "MCP 服务器页一组下面：健康检查没成功。",
+    "placeholders": {
+      "error": {
+        "type": "String",
+        "example": "timed out"
+      }
+    }
+  },
+  "claudecfgMcpServersCount": "服务器 · {count}",
+  "@claudecfgMcpServersCount": {
+    "description": "MCP 服务器页一组的标题和个数。",
+    "placeholders": {
+      "count": {
+        "type": "int",
+        "example": "2"
+      }
+    }
+  },
+  "claudecfgMcpEmpty": "还没有 MCP 服务器",
+  "@claudecfgMcpEmpty": {
+    "description": "MCP 服务器页没有服务器时的一行。"
+  },
+  "claudecfgMcpEmptyHint": "点右上角的“添加服务器”",
+  "@claudecfgMcpEmptyHint": {
+    "description": "没有 MCP 服务器那一行的说明。"
+  },
+  "claudecfgMcpConnectors": "Claude 账号的连接器",
+  "@claudecfgMcpConnectors": {
+    "description": "MCP 服务器页的一组：claude.ai 账号上的连接器。"
+  },
+  "claudecfgMcpNameInvalid": "名称只能用字母、数字、下划线和连字符",
+  "@claudecfgMcpNameInvalid": {
+    "description": "添加 MCP 服务器对话框的提示。"
+  },
+  "claudecfgMcpURLInvalid": "地址要以 http:// 或 https:// 开头",
+  "@claudecfgMcpURLInvalid": {
+    "description": "添加 MCP 服务器对话框的提示。"
+  },
+  "claudecfgMcpCommandMissing": "请输入要运行的命令",
+  "@claudecfgMcpCommandMissing": {
+    "description": "添加 MCP 服务器对话框的提示。"
+  },
+  "claudecfgMcpEnvInvalid": "环境变量每行一个，写成 KEY=VALUE",
+  "@claudecfgMcpEnvInvalid": {
+    "description": "添加 MCP 服务器对话框的提示。"
+  },
+  "claudecfgMcpType": "类型",
+  "@claudecfgMcpType": {
+    "description": "添加 MCP 服务器对话框的下拉，详情页的一行。"
+  },
+  "claudecfgMcpNamePlaceholder": "名称，比如 github",
+  "@claudecfgMcpNamePlaceholder": {
+    "description": "添加 MCP 服务器对话框的占位。"
+  },
+  "claudecfgMcpCommandPlaceholder": "命令，比如 npx",
+  "@claudecfgMcpCommandPlaceholder": {
+    "description": "添加 MCP 服务器对话框的占位。"
+  },
+  "claudecfgMcpArgsPlaceholder": "参数（可选，空格分开）",
+  "@claudecfgMcpArgsPlaceholder": {
+    "description": "添加 MCP 服务器对话框的占位。"
+  },
+  "claudecfgMcpArgs": "参数",
+  "@claudecfgMcpArgs": {
+    "description": "添加 MCP 服务器对话框参数输入框的读屏名字。"
+  },
+  "claudecfgMcpEnvPlaceholder": "环境变量（可选，每行一个 KEY=VALUE）",
+  "@claudecfgMcpEnvPlaceholder": {
+    "description": "添加 MCP 服务器对话框的占位。"
+  },
+  "claudecfgMcpEnv": "环境变量",
+  "@claudecfgMcpEnv": {
+    "description": "添加 MCP 服务器对话框的读屏名字，详情页的一行。"
+  },
+  "claudecfgMcpURLPlaceholder": "服务器地址 https://",
+  "@claudecfgMcpURLPlaceholder": {
+    "description": "添加 MCP 服务器对话框的占位。"
+  },
+  "claudecfgMcpURL": "服务器地址",
+  "@claudecfgMcpURL": {
+    "description": "添加 MCP 服务器对话框地址输入框的读屏名字。"
+  },
+  "claudecfgMcpTokenOptional": "Bearer Token（可选）",
+  "@claudecfgMcpTokenOptional": {
+    "description": "添加 MCP 服务器对话框的占位。"
+  },
+  "claudecfgMcpAddButton": "添加",
+  "@claudecfgMcpAddButton": {
+    "description": "添加 MCP 服务器对话框的确认按钮。"
+  },
+  "claudecfgMcpAdding": "正在添加…",
+  "@claudecfgMcpAdding": {
+    "description": "添加 MCP 服务器对话框确认按钮正在添加时。"
+  },
+  "claudecfgMcpRefreshTools": "刷新工具",
+  "@claudecfgMcpRefreshTools": {
+    "description": "MCP 服务器详情页、工具权限的服务器页右上角的按钮。"
+  },
+  "claudecfgMcpServer": "服务器",
+  "@claudecfgMcpServer": {
+    "description": "MCP 服务器详情页的一组标题。"
+  },
+  "claudecfgMcpStatus": "状态",
+  "@claudecfgMcpStatus": {
+    "description": "MCP 服务器详情页的一行。"
+  },
+  "claudecfgMcpScope": "范围",
+  "@claudecfgMcpScope": {
+    "description": "MCP 服务器详情页的一行。"
+  },
+  "claudecfgMcpValuesHidden": "值已隐藏",
+  "@claudecfgMcpValuesHidden": {
+    "description": "MCP 服务器详情页环境变量、请求头一行右边：只列键名。"
+  },
+  "claudecfgMcpAddress": "地址",
+  "@claudecfgMcpAddress": {
+    "description": "MCP 服务器详情页的一行。"
+  },
+  "claudecfgMcpHeaders": "其他请求头",
+  "@claudecfgMcpHeaders": {
+    "description": "MCP 服务器详情页的一行。"
+  },
+  "claudecfgMcpEditInProject": "{summary} · 在项目里改",
+  "@claudecfgMcpEditInProject": {
+    "description": "MCP 服务器详情页身份认证一行的说明：项目配置的服务器在这里改不了。",
+    "placeholders": {
+      "summary": {
+        "type": "String",
+        "example": "Bearer Token"
+      }
+    }
+  },
+  "claudecfgMcpAuth": "身份认证",
+  "@claudecfgMcpAuth": {
+    "description": "MCP 服务器详情页的一行，也是换 Token 对话框的标题。"
+  },
+  "claudecfgMcpChange": "更换",
+  "@claudecfgMcpChange": {
+    "description": "身份认证一行右边的按钮。"
+  },
+  "claudecfgMcpChangeToken": "更换 Token",
+  "@claudecfgMcpChangeToken": {
+    "description": "更换按钮的读屏名字。"
+  },
+  "claudecfgMcpDelete": "删除服务器",
+  "@claudecfgMcpDelete": {
+    "description": "MCP 服务器详情页的一行，也是删除确认框的标题。"
+  },
+  "claudecfgMcpDeleteSummary": "它的地址、Token 和设置都会从配置里去掉",
+  "@claudecfgMcpDeleteSummary": {
+    "description": "删除服务器一行的说明。"
+  },
+  "claudecfgMcpAuthHeader": "Authorization 请求头",
+  "@claudecfgMcpAuthHeader": {
+    "description": "身份认证一行的说明：用 Authorization 请求头认证。"
+  },
+  "claudecfgMcpAuthOAuth": "OAuth：在终端用 claude 的 /mcp 登录",
+  "@claudecfgMcpAuthOAuth": {
+    "description": "身份认证一行的说明：用 OAuth 认证。"
+  },
+  "claudecfgToolsListFailed": "取不到工具清单",
+  "@claudecfgToolsListFailed": {
+    "description": "MCP 服务器详情页、工具权限的服务器页：取工具清单失败。"
+  },
+  "claudecfgToolsConnectHint": "连上服务器取工具清单",
+  "@claudecfgToolsConnectHint": {
+    "description": "列出工具一行的说明。"
+  },
+  "claudecfgToolsOAuth": "用 OAuth 登录的服务器取不到",
+  "@claudecfgToolsOAuth": {
+    "description": "列出工具一行的说明：OAuth 的服务器取不了。"
+  },
+  "claudecfgToolsList": "列出工具",
+  "@claudecfgToolsList": {
+    "description": "MCP 服务器详情页、工具权限的服务器页的一行。"
+  },
+  "claudecfgToolsListButton": "列出",
+  "@claudecfgToolsListButton": {
+    "description": "列出工具一行右边的按钮。"
+  },
+  "claudecfgToolsNone": "没有工具",
+  "@claudecfgToolsNone": {
+    "description": "服务器的工具清单是空的。"
+  },
+  "claudecfgMcpTokenHint": "输入新 Token，留空则移除身份认证。原来的 Token 不会显示出来。",
+  "@claudecfgMcpTokenHint": {
+    "description": "更换 Token 对话框的说明。"
+  },
+  "claudecfgMcpDeleteMessage": "删除 {name}？它的地址、Token 和设置都会从配置里去掉，无法撤销。",
+  "@claudecfgMcpDeleteMessage": {
+    "description": "删除 MCP 服务器的确认框说明。",
+    "placeholders": {
+      "name": {
+        "type": "String",
+        "example": "github"
+      }
+    }
+  },
+  "claudecfgPermInherited": "跟随：{behavior}",
+  "@claudecfgPermInherited": {
+    "description": "工具权限一行的说明：从上一级继承来的设置。",
+    "placeholders": {
+      "behavior": {
+        "type": "String",
+        "example": "允许"
+      }
+    }
+  },
+  "claudecfgPermInheritedServer": "跟随整个服务器：{behavior}",
+  "@claudecfgPermInheritedServer": {
+    "description": "工具权限一行的说明：从整个服务器继承来的设置。",
+    "placeholders": {
+      "behavior": {
+        "type": "String",
+        "example": "允许"
+      }
+    }
+  },
+  "claudecfgPermSpecific": "{count, plural, other {另有 # 条带参数的规则}}",
+  "@claudecfgPermSpecific": {
+    "description": "工具权限一行的说明：这个工具另有带参数的规则。",
+    "placeholders": {
+      "count": {
+        "type": "int",
+        "example": "2"
+      }
+    }
+  },
+  "claudecfgPermReload": "重新读取",
+  "@claudecfgPermReload": {
+    "description": "工具权限页右上角的按钮。"
+  },
+  "claudecfgPermAddRule": "添加规则",
+  "@claudecfgPermAddRule": {
+    "description": "工具权限页右上角的按钮，也是添加规则对话框的标题。"
+  },
+  "claudecfgPermissionsIntro": "规则按“拒绝 > 询问 > 允许”取最严的，写得再细也一样。完全放行模式下，询问和拒绝照样生效。改动对所有项目、之后新开始的对话生效。",
+  "@claudecfgPermissionsIntro": {
+    "description": "工具权限页顶上的说明。"
+  },
+  "claudecfgPermBuiltin": "内置工具",
+  "@claudecfgPermBuiltin": {
+    "description": "工具权限页的一组标题。"
+  },
+  "claudecfgPermWholeServer": "整个服务器",
+  "@claudecfgPermWholeServer": {
+    "description": "工具权限的服务器页的一行：管这个服务器的每个工具。"
+  },
+  "claudecfgPermMore": "更多内置工具",
+  "@claudecfgPermMore": {
+    "description": "工具权限页的一行和一组标题：不常用的内置工具。"
+  },
+  "claudecfgPermMoreCount": "{count, plural, other {# 个}}",
+  "@claudecfgPermMoreCount": {
+    "description": "更多内置工具一行右边的个数。",
+    "placeholders": {
+      "count": {
+        "type": "int",
+        "example": "8"
+      }
+    }
+  },
+  "claudecfgPermShowMore": "展开",
+  "@claudecfgPermShowMore": {
+    "description": "更多内置工具一行右边的按钮。"
+  },
+  "claudecfgPermShowMoreLabel": "展开更多内置工具",
+  "@claudecfgPermShowMoreLabel": {
+    "description": "展开按钮的读屏名字。"
+  },
+  "claudecfgPermEnableAll": "全部开启",
+  "@claudecfgPermEnableAll": {
+    "description": "工具权限一组上面的按钮，也是确认框的确认按钮。"
+  },
+  "claudecfgPermDisableAll": "全部关闭",
+  "@claudecfgPermDisableAll": {
+    "description": "工具权限一组上面的按钮，也是确认框的确认按钮。"
+  },
+  "claudecfgPermEnableAllBuiltin": "全部开启内置工具",
+  "@claudecfgPermEnableAllBuiltin": {
+    "description": "全部开启按钮的读屏名字和确认框标题（内置工具一组）。"
+  },
+  "claudecfgPermDisableAllBuiltin": "全部关闭内置工具",
+  "@claudecfgPermDisableAllBuiltin": {
+    "description": "全部关闭按钮的读屏名字和确认框标题（内置工具一组）。"
+  },
+  "claudecfgPermEnableAllServer": "全部开启{server} 的工具",
+  "@claudecfgPermEnableAllServer": {
+    "description": "全部开启按钮的读屏名字和确认框标题（一个 MCP 服务器）。",
+    "placeholders": {
+      "server": {
+        "type": "String",
+        "example": "github"
+      }
+    }
+  },
+  "claudecfgPermDisableAllServer": "全部关闭{server} 的工具",
+  "@claudecfgPermDisableAllServer": {
+    "description": "全部关闭按钮的读屏名字和确认框标题（一个 MCP 服务器）。",
+    "placeholders": {
+      "server": {
+        "type": "String",
+        "example": "github"
+      }
+    }
+  },
+  "claudecfgPermBulkAdd": "{count, plural, other {加到{behavior}（# 条）：{rules}}}",
+  "@claudecfgPermBulkAdd": {
+    "description": "全部开启、关闭确认框里的一行：会加进某张表的规则。",
+    "placeholders": {
+      "count": {
+        "type": "int",
+        "example": "2"
+      },
+      "behavior": {
+        "type": "String",
+        "example": "允许"
+      },
+      "rules": {
+        "type": "String",
+        "example": "Read、Edit"
+      }
+    }
+  },
+  "claudecfgPermBulkRemove": "{count, plural, other {从{behavior}里删（# 条）：{rules}}}",
+  "@claudecfgPermBulkRemove": {
+    "description": "全部开启、关闭确认框里的一行：会从某张表里删的规则。",
+    "placeholders": {
+      "count": {
+        "type": "int",
+        "example": "2"
+      },
+      "behavior": {
+        "type": "String",
+        "example": "拒绝"
+      },
+      "rules": {
+        "type": "String",
+        "example": "Read、Edit"
+      }
+    }
+  },
+  "claudecfgPermNoToolsWarning": "关掉以后 Claude 连读写文件、跑命令都做不了，只能聊天和用 MCP 工具。",
+  "@claudecfgPermNoToolsWarning": {
+    "description": "全部关闭内置工具确认框里的提醒。"
+  },
+  "claudecfgPermNoServers": "没有配置 MCP 服务器",
+  "@claudecfgPermNoServers": {
+    "description": "工具权限页 MCP 服务器一组是空的。"
+  },
+  "claudecfgPermRulesCount": "规则 · {count}",
+  "@claudecfgPermRulesCount": {
+    "description": "工具权限页规则一组的标题和条数。",
+    "placeholders": {
+      "count": {
+        "type": "int",
+        "example": "3"
+      }
+    }
+  },
+  "claudecfgPermRulesFooter": "带参数的规则只在这里改，上面的下拉不动它们。",
+  "@claudecfgPermRulesFooter": {
+    "description": "工具权限页规则一组下面的说明。"
+  },
+  "claudecfgPermRulesEmpty": "还没有规则",
+  "@claudecfgPermRulesEmpty": {
+    "description": "工具权限页没有规则时的一行。"
+  },
+  "claudecfgPermRulesEmptyHint": "点右上角的“添加规则”",
+  "@claudecfgPermRulesEmptyHint": {
+    "description": "没有规则那一行的说明。"
+  },
+  "claudecfgPermRuleMalformed": "{behavior} · 括号不配对，Claude Code 认不出这条",
+  "@claudecfgPermRuleMalformed": {
+    "description": "一条规则的说明：写法不对。",
+    "placeholders": {
+      "behavior": {
+        "type": "String",
+        "example": "允许"
+      }
+    }
+  },
+  "claudecfgPermEdit": "编辑",
+  "@claudecfgPermEdit": {
+    "description": "一条规则右边的按钮。"
+  },
+  "claudecfgPermEditRule": "编辑：{rule}",
+  "@claudecfgPermEditRule": {
+    "description": "编辑按钮的读屏名字。",
+    "placeholders": {
+      "rule": {
+        "type": "String",
+        "example": "Bash(npm test)"
+      }
+    }
+  },
+  "claudecfgPermRuleEmpty": "规则不能是空的",
+  "@claudecfgPermRuleEmpty": {
+    "description": "添加、编辑规则对话框的提示。"
+  },
+  "claudecfgPermDeleteRule": "删除规则",
+  "@claudecfgPermDeleteRule": {
+    "description": "删除一条规则的确认框标题。"
+  },
+  "claudecfgPermDeleteRuleMessage": "删除{behavior}规则 {rule}？",
+  "@claudecfgPermDeleteRuleMessage": {
+    "description": "删除一条规则的确认框说明。",
+    "placeholders": {
+      "behavior": {
+        "type": "String",
+        "example": "允许"
+      },
+      "rule": {
+        "type": "String",
+        "example": "Bash(npm test)"
+      }
+    }
+  },
+  "claudecfgPermEditRuleTitle": "编辑规则",
+  "@claudecfgPermEditRuleTitle": {
+    "description": "编辑规则对话框的标题。"
+  },
+  "claudecfgPermList": "表",
+  "@claudecfgPermList": {
+    "description": "添加、编辑规则对话框的下拉：允许、询问、拒绝哪张表。"
+  },
+  "claudecfgPermRule": "规则",
+  "@claudecfgPermRule": {
+    "description": "添加、编辑规则对话框输入框的读屏名字。"
+  },
+  "claudecfgPermRuleHelp": "写成 工具名 或 工具名(参数)。比如 Bash(npm run test:*)、Read(./.env)、Edit(src/**)、WebFetch(domain:github.com)、mcp__github（整个服务器）。",
+  "@claudecfgPermRuleHelp": {
+    "description": "添加、编辑规则对话框的说明。"
+  },
+  "claudecfgPermSaving": "正在保存…",
+  "@claudecfgPermSaving": {
+    "description": "添加、编辑规则对话框的保存按钮正在保存时。"
+  },
+  "claudecfgPermServerFooter": "整个服务器的设置管它的每个工具；工具自己也设了的，取更严的那个。",
+  "@claudecfgPermServerFooter": {
+    "description": "工具权限的服务器页顶上的说明。"
+  },
+  "claudecfgPermServerOAuth": "要按工具设置，在上一页的“规则”里手写 {rule}__工具名。",
+  "@claudecfgPermServerOAuth": {
+    "description": "工具权限的服务器页：OAuth 的服务器取不到工具清单时的说明。",
+    "placeholders": {
+      "rule": {
+        "type": "String",
+        "example": "mcp__github"
+      }
+    }
+  },
+  "claudecfgSkillsLoadFailed": "读取 Skills 失败",
+  "@claudecfgSkillsLoadFailed": {
+    "description": "Skills 页读取失败时弹出提示的标题。"
+  },
+  "claudecfgSkillInstallFailed": "没有装上",
+  "@claudecfgSkillInstallFailed": {
+    "description": "导入 Skill 失败时弹出提示的标题。"
+  },
+  "claudecfgSkillInstalled": "已安装",
+  "@claudecfgSkillInstalled": {
+    "description": "导入 Skill 成功时弹出提示的标题。"
+  },
+  "claudecfgSkillReplaced": "已替换",
+  "@claudecfgSkillReplaced": {
+    "description": "替换已有的 Skill 成功时弹出提示的标题。"
+  },
+  "claudecfgSkillInstalledMessage": "“{name}”装好了，Claude 会按需调用它。",
+  "@claudecfgSkillInstalledMessage": {
+    "description": "导入 Skill 成功时弹出提示的说明。",
+    "placeholders": {
+      "name": {
+        "type": "String",
+        "example": "tidy"
+      }
+    }
+  },
+  "claudecfgSkillInstalledDisabled": "“{name}”装好了，但它被设成停用，打开开关后才能用。",
+  "@claudecfgSkillInstalledDisabled": {
+    "description": "导入的 Skill 被设成停用时弹出提示的说明。",
+    "placeholders": {
+      "name": {
+        "type": "String",
+        "example": "tidy"
+      }
+    }
+  },
+  "claudecfgSkillPick": "选一个含 SKILL.md 的 Skill 包",
+  "@claudecfgSkillPick": {
+    "description": "从 ZIP 导入一行的说明。"
+  },
+  "claudecfgSkillInstalling": "正在检查并安装…",
+  "@claudecfgSkillInstalling": {
+    "description": "从 ZIP 导入一行的说明：正在装。"
+  },
+  "claudecfgSkillImport": "从 ZIP 导入",
+  "@claudecfgSkillImport": {
+    "description": "Skills 页的一行。"
+  },
+  "claudecfgSkillChooseFile": "选择文件",
+  "@claudecfgSkillChooseFile": {
+    "description": "从 ZIP 导入一行右边的按钮。"
+  },
+  "claudecfgSkillsUser": "用户安装 · {count}",
+  "@claudecfgSkillsUser": {
+    "description": "Skills 页一组的标题和个数。",
+    "placeholders": {
+      "count": {
+        "type": "int",
+        "example": "2"
+      }
+    }
+  },
+  "claudecfgSkillsUserFooter": "装在 ~/.claude/skills 里。关掉后文件留着，Claude 不再用它；改动对之后新开始的对话生效。",
+  "@claudecfgSkillsUserFooter": {
+    "description": "Skills 页用户安装一组下面的说明。"
+  },
+  "claudecfgSkillsEmpty": "还没有 Skill",
+  "@claudecfgSkillsEmpty": {
+    "description": "Skills 页没有用户安装的 Skill 时的一行。"
+  },
+  "claudecfgSkillsEmptyHint": "从 ZIP 导入，或让 Claude 写一个",
+  "@claudecfgSkillsEmptyHint": {
+    "description": "没有 Skill 那一行的说明。"
+  },
+  "claudecfgSkillsSynced": "账号同步 · {count}",
+  "@claudecfgSkillsSynced": {
+    "description": "Skills 页一组的标题和个数：claude.ai 账号同步来的。",
+    "placeholders": {
+      "count": {
+        "type": "int",
+        "example": "2"
+      }
+    }
+  },
+  "claudecfgSkillDisabled": "已停用",
+  "@claudecfgSkillDisabled": {
+    "description": "账号同步的 Skill 一行右边：被停用了。"
+  },
+  "claudecfgSkillNoDescription": "无描述",
+  "@claudecfgSkillNoDescription": {
+    "description": "Skill 没写描述时的说明。"
+  },
+  "claudecfgSkillTitle": "{title}（{name}）",
+  "@claudecfgSkillTitle": {
+    "description": "Skill 一行的标题：显示名和文件夹名不同时。",
+    "placeholders": {
+      "title": {
+        "type": "String",
+        "example": "Tidy"
+      },
+      "name": {
+        "type": "String",
+        "example": "tidy"
+      }
+    }
+  },
+  "claudecfgSkillMissingFile": "缺少 SKILL.md",
+  "@claudecfgSkillMissingFile": {
+    "description": "Skill 一行的说明：文件夹里没有 SKILL.md。"
+  },
+  "claudecfgSkillMissingFileDetail": "这个文件夹里没有 SKILL.md，Claude Code 不会把它当成 Skill。",
+  "@claudecfgSkillMissingFileDetail": {
+    "description": "点说明时弹出的说明：文件夹里没有 SKILL.md。"
+  },
+  "claudecfgSkillDetails": "说明",
+  "@claudecfgSkillDetails": {
+    "description": "Skill 一行右边的按钮：看它的描述。"
+  },
+  "claudecfgSkillDetailsOf": "说明：{name}",
+  "@claudecfgSkillDetailsOf": {
+    "description": "说明按钮的读屏名字。",
+    "placeholders": {
+      "name": {
+        "type": "String",
+        "example": "tidy"
+      }
+    }
+  },
+  "claudecfgSkillEnableOf": "启用：{name}",
+  "@claudecfgSkillEnableOf": {
+    "description": "Skill 一行开关的读屏名字。",
+    "placeholders": {
+      "name": {
+        "type": "String",
+        "example": "tidy"
+      }
+    }
+  },
+  "claudecfgSkillDisableFailed": "没有停用",
+  "@claudecfgSkillDisableFailed": {
+    "description": "停用 Skill 没成功时弹出提示的标题。"
+  },
+  "claudecfgSkillEnableFailed": "没有启用",
+  "@claudecfgSkillEnableFailed": {
+    "description": "启用 Skill 没成功时弹出提示的标题。"
+  },
+  "claudecfgSkillReplaceMessage": "已经有一个叫“{name}”的 Skill。替换会覆盖它当前的全部文件。",
+  "@claudecfgSkillReplaceMessage": {
+    "description": "导入同名 Skill 时确认框的说明。",
+    "placeholders": {
+      "name": {
+        "type": "String",
+        "example": "tidy"
+      }
+    }
+  },
+  "claudecfgSkillReplaceTitle": "替换 Skill？",
+  "@claudecfgSkillReplaceTitle": {
+    "description": "导入同名 Skill 时确认框的标题。"
+  },
+  "claudecfgSkillReplace": "替换",
+  "@claudecfgSkillReplace": {
+    "description": "导入同名 Skill 时确认框的按钮。"
+  },
+  "claudecfgSkillDeleteTitle": "删除 Skill",
+  "@claudecfgSkillDeleteTitle": {
+    "description": "删除 Skill 的确认框标题。"
+  },
+  "claudecfgSkillDeleteMessage": "删除“{name}”的整个文件夹，之后需要重新导入才能恢复。",
+  "@claudecfgSkillDeleteMessage": {
+    "description": "删除 Skill 的确认框说明。",
+    "placeholders": {
+      "name": {
+        "type": "String",
+        "example": "tidy"
+      }
+    }
+  },
+  "claudecfgClose": "关闭",
+  "@claudecfgClose": {
+    "description": "看 Skill 说明的弹框的按钮。"
+  },
+  "claudecfgModelsPending": "正在向这台设备上的 Claude Code 要模型清单，先列出常用的几个。",
+  "@claudecfgModelsPending": {
+    "description": "新对话默认一组下面的说明：模型清单还没要到。"
+  },
+  "claudecfgMoreModels": "更多模型",
+  "@claudecfgMoreModels": {
+    "description": "默认模型下拉最后一项：点开是旧版本模型的二级菜单。"
+  },
+  "claudecfgDocumentMode": "预览或编辑",
+  "@claudecfgDocumentMode": {
+    "description": "记忆文件编辑页右上方预览、编辑切换的读屏名字。"
+  },
+  "claudecfgDocumentPreview": "预览",
+  "@claudecfgDocumentPreview": {
+    "description": "记忆文件编辑页的切换：看排好的样子。"
+  },
+  "claudecfgDocumentEdit": "编辑",
+  "@claudecfgDocumentEdit": {
+    "description": "记忆文件编辑页的切换：改正文。"
+  },
+  "claudecfgDocumentEmpty": "还没有内容",
+  "@claudecfgDocumentEmpty": {
+    "description": "记忆文件预览时正文是空的。"
+  },
+  "claudecfgDocumentEmptyEdit": "还没有内容，去编辑",
+  "@claudecfgDocumentEmptyEdit": {
+    "description": "正文是空的那块的读屏名字：点了切到编辑。"
+  },
+  "aboutCreditEta": "Zeta 的参考来源，功能和交互照它设计（GPL-3.0）",
+  "@aboutCreditEta": {
+    "description": "关于页鸣谢里 Eta 的介绍。"
+  },
+  "aboutCreditClaudeCode": "Anthropic 的编程 agent，Zeta 是它的客户端",
+  "@aboutCreditClaudeCode": {
+    "description": "关于页鸣谢里 Claude Code 的介绍。"
+  },
+  "aboutCreditMygo": "桌面版的界面框架：窗口、控件、排版和绘制（MIT）",
+  "@aboutCreditMygo": {
+    "description": "关于页鸣谢里 mygo 的介绍。"
+  },
+  "aboutCreditCrypto": "直连设备用的 SSH（BSD-3-Clause）",
+  "@aboutCreditCrypto": {
+    "description": "关于页鸣谢里 Go x/crypto 的介绍。"
+  },
+  "aboutCreditImage": "附件图片的缩小与 WebP、BMP 解码（BSD-3-Clause）",
+  "@aboutCreditImage": {
+    "description": "关于页鸣谢里 Go x/image 的介绍。"
+  },
+  "aboutCreditCoui": "一部分图标取自它的图标库 coui-icons（Apache-2.0）",
+  "@aboutCreditCoui": {
+    "description": "关于页鸣谢里 COUI 2 的介绍。"
+  },
+  "aboutCreditRatex": "排回答里的数学公式，同手机版（MIT）",
+  "@aboutCreditRatex": {
+    "description": "关于页鸣谢里 RaTeX 的介绍。"
+  },
+  "aboutCreditKatexFonts": "KaTeX 字体",
+  "@aboutCreditKatexFonts": {
+    "description": "关于页鸣谢里一项的名字：KaTeX 的字体。"
+  },
+  "aboutCreditKatex": "公式用的字体（OFL-1.1）",
+  "@aboutCreditKatex": {
+    "description": "关于页鸣谢里 KaTeX 字体的介绍。"
+  },
+  "aboutCreditWazero": "运行 RaTeX 的 WebAssembly（Apache-2.0）",
+  "@aboutCreditWazero": {
+    "description": "关于页鸣谢里 wazero 的介绍。"
   }
 }

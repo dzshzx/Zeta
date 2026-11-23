@@ -5,6 +5,7 @@ import (
 	"strings"
 
 	"github.com/dzshzx/Zeta/helper/coreapi"
+	"github.com/dzshzx/Zeta/windows/internal/locales"
 	"github.com/dzshzx/Zeta/windows/internal/ui/widget"
 )
 
@@ -28,7 +29,7 @@ func (p *Page) loadClaude() {
 			p.claude.version = v
 			p.claude.note = ""
 			if err != nil {
-				p.claude.note = "读不到版本：" + err.Error()
+				p.claude.note = locales.ClaudecfgClaudeVersionFailed(err.Error())
 			}
 		}
 	})
@@ -40,17 +41,17 @@ func (p *Page) claudeRow(l *widget.List) {
 	st := &p.claude
 	summary := st.note
 	if st.updating {
-		summary = "正在更新…"
+		summary = locales.ClaudecfgClaudeUpdating()
 	}
 	value := "…"
 	if st.loaded {
 		value = st.version
 		if value == "" {
-			value = "未安装"
+			value = locales.ClaudecfgClaudeNotInstalled()
 		}
 	}
 	l.Row(widget.Row{Title: "Claude Code", Summary: summary, Value: value, End: func() {
-		widget.SmallButton(c, "更新").Disabled(!st.loaded || st.updating).OnClick(p.updateClaude)
+		widget.SmallButton(c, locales.ClaudecfgClaudeUpdate()).Disabled(!st.loaded || st.updating).OnClick(p.updateClaude)
 	}})
 }
 
@@ -62,7 +63,7 @@ func (p *Page) updateClaude() {
 		return func() {
 			p.claude.updating = false
 			if err != nil {
-				p.claude.note = "没更新成：" + err.Error()
+				p.claude.note = locales.ClaudecfgClaudeUpdateFailed(err.Error())
 				return
 			}
 			p.claude.version = u.Version
@@ -75,19 +76,19 @@ func (p *Page) updateClaude() {
 func updateNote(u coreapi.ClaudeUpdate) string {
 	switch {
 	case !u.OK:
-		last := "claude update 出错了"
+		last := locales.ClaudecfgClaudeUpdateError()
 		for _, line := range strings.Split(u.Output, "\n") {
 			if strings.TrimSpace(line) != "" {
 				last = line
 			}
 		}
-		return "没更新成：" + last
+		return locales.ClaudecfgClaudeUpdateFailed(last)
 	case u.Version != "" && u.Version != u.Before:
 		before := u.Before
 		if before == "" {
-			before = "未安装"
+			before = locales.ClaudecfgClaudeNotInstalled()
 		}
-		return "已从 " + before + " 更新到 " + u.Version
+		return locales.ClaudecfgClaudeUpdated(before, u.Version)
 	}
-	return "已是最新"
+	return locales.ClaudecfgClaudeUpToDate()
 }

@@ -7,6 +7,7 @@ import (
 	"strings"
 
 	"github.com/dzshzx/Zeta/helper/coreapi"
+	"github.com/dzshzx/Zeta/windows/internal/locales"
 	"github.com/dzshzx/Zeta/windows/internal/ui/widget"
 	"github.com/egoist/mygo/ui"
 )
@@ -33,14 +34,20 @@ type agentDraft struct {
 }
 
 // agentModels 是模型下拉里的选项；不写时 Subagent 跟随主对话的模型（除非设了 CLAUDE_CODE_SUBAGENT_MODEL）。
-var agentModels = []struct{ value, label string }{
-	{"", "默认"}, {"inherit", "跟随主对话"}, {"sonnet", "Sonnet"}, {"opus", "Opus"}, {"haiku", "Haiku"}, {"fable", "Fable"},
+var agentModels = []option{
+	{"", locales.ClaudecfgAgentModelDefault}, {"inherit", locales.ClaudecfgAgentModelInherit}, {"sonnet", fixed("Sonnet")},
+	{"opus", fixed("Opus")}, {"haiku", fixed("Haiku")}, {"fable", fixed("Fable")},
 }
 
+// fixed 是不分语言的说法（模型名）。
+func fixed(s string) func() string { return func() string { return s } }
+
 // commonTools 是常用的内置工具；别的（比如 MCP 工具 mcp__服务器__工具）写进“其他工具”。
-var commonTools = []struct{ name, label string }{
-	{"Read", "读文件"}, {"Edit", "修改文件"}, {"Write", "新建、覆盖文件"}, {"Glob", "按文件名查找"}, {"Grep", "在文件里搜索"},
-	{"Bash", "执行命令"}, {"WebFetch", "抓取网页"}, {"WebSearch", "网络搜索"}, {"NotebookEdit", "编辑 Jupyter 笔记本"}, {"Skill", "使用 Skill"},
+var commonTools = []option{
+	{"Read", locales.ClaudecfgToolRead}, {"Edit", locales.ClaudecfgToolEdit}, {"Write", locales.ClaudecfgToolWrite},
+	{"Glob", locales.ClaudecfgToolGlob}, {"Grep", locales.ClaudecfgToolGrep}, {"Bash", locales.ClaudecfgToolBash},
+	{"WebFetch", locales.ClaudecfgToolWebFetch}, {"WebSearch", locales.ClaudecfgToolWebSearch},
+	{"NotebookEdit", locales.ClaudecfgToolNotebookEdit}, {"Skill", locales.ClaudecfgToolSkill},
 }
 
 var agentName = regexp.MustCompile(`^[a-z0-9][a-z0-9-]{0,63}$`)
@@ -48,14 +55,14 @@ var agentName = regexp.MustCompile(`^[a-z0-9][a-z0-9-]{0,63}$`)
 func agentModelLabel(model string) string {
 	for _, m := range agentModels {
 		if strings.EqualFold(m.value, model) {
-			return m.label
+			return m.label()
 		}
 	}
 	return model
 }
 
 func isCommonTool(name string) bool {
-	return slices.ContainsFunc(commonTools, func(t struct{ name, label string }) bool { return t.name == name })
+	return slices.ContainsFunc(commonTools, func(t option) bool { return t.value == name })
 }
 
 func draftOf(a *coreapi.Subagent) agentDraft {
@@ -84,8 +91,8 @@ func (d agentDraft) tools() []string {
 	}
 	out := []string{}
 	for _, t := range commonTools {
-		if d.checked[t.name] {
-			out = append(out, t.name)
+		if d.checked[t.value] {
+			out = append(out, t.value)
 		}
 	}
 	for _, t := range strings.FieldsFunc(d.others, func(r rune) bool { return r == ',' || r == '，' }) {
@@ -100,9 +107,9 @@ func (d agentDraft) tools() []string {
 func (d agentDraft) missing() string {
 	switch {
 	case !agentName.MatchString(strings.TrimSpace(d.name)):
-		return "名称只能用小写字母、数字和连字符，并以字母或数字开头"
+		return locales.ClaudecfgAgentNameInvalid()
 	case strings.TrimSpace(d.description) == "":
-		return "写上什么时候用它才能保存"
+		return locales.ClaudecfgAgentWhenMissing()
 	}
 	return ""
 }
@@ -117,7 +124,7 @@ func (p *Page) reloadAgents() {
 		list, err := p.opts.Core.Agents(ctx)
 		return func() {
 			if err != nil {
-				p.failed("读取 Subagent 失败", err)
+				p.failed(locales.ClaudecfgAgentsLoadFailed(), err)
 				return
 			}
 			p.agents.list, p.agents.loaded = list, true
@@ -127,17 +134,17 @@ func (p *Page) reloadAgents() {
 
 func (p *Page) agentsPage(c *ui.Context) {
 	a := &p.agents
-	pageTitle(c, "Subagent", p.back, func() {
-		widget.SmallPrimaryButton(c, "新建").Label("新建 Subagent").OnClick(func() { p.openAgent(nil) })
+	pageTitle(c, locales.ClaudecfgSubagents(), p.back, func() {
+		widget.SmallPrimaryButton(c, locales.ClaudecfgNew()).Label(locales.ClaudecfgAgentNew()).OnClick(func() { p.openAgent(nil) })
 	})
 	body(c, "agents", func() {
-		footer := "存在 ~/.claude/agents，所有项目都能用。Claude 按“什么时候用”自己决定交给哪个，你也可以在对话里点名。"
-		widget.Group(c, "自定义 Subagent · "+itoa(len(a.list)), footer, func(l *widget.List) {
+		footer := locales.ClaudecfgAgentsFooter()
+		widget.Group(c, locales.ClaudecfgAgentsCount(len(a.list)), footer, func(l *widget.List) {
 			switch {
 			case !a.loaded:
-				loadingRow(l, "正在读取…")
+				loadingRow(l, locales.ClaudecfgLoading())
 			case len(a.list) == 0:
-				emptyRow(l, "还没有自定义 Subagent", "让 Claude 写一个，或点右上角的“新建”")
+				emptyRow(l, locales.ClaudecfgAgentsEmpty(), locales.ClaudecfgAgentsEmptyHint())
 			}
 			for i := range a.list {
 				ag := a.list[i]
@@ -146,7 +153,7 @@ func (p *Page) agentsPage(c *ui.Context) {
 					name = ag.File
 				}
 				ui.Column(c.Key(ag.File)).Children(func() {
-					entry(l, name, clipLine(ag.Description, 90), agentModelLabel(ag.Model), true, func() { p.openAgent(&ag) })
+					entry(l, ag.File, name, clipLine(ag.Description, 90), agentModelLabel(ag.Model), true, func() { p.openAgent(&ag) })
 				})
 			}
 		})
@@ -183,9 +190,9 @@ func (p *Page) agentPage(c *ui.Context) {
 	d := &a.draft
 	missing := d.missing()
 	dirty := a.editing == nil || !agentDraftEqual(*d, draftOf(a.editing))
-	title := "新建 Subagent"
+	title := locales.ClaudecfgAgentNew()
 	if a.editing != nil {
-		title = "编辑 Subagent"
+		title = locales.ClaudecfgAgentEdit()
 	}
 	leave := func() {
 		if dirty && (a.editing != nil || d.name != "" || d.description != "" || d.prompt != "") {
@@ -196,29 +203,29 @@ func (p *Page) agentPage(c *ui.Context) {
 	}
 	pageTitle(c, title, leave, func() {
 		if a.editing != nil {
-			widget.SmallDangerButton(c, "删除").Disabled(a.saving).OnClick(func() { a.delete = true })
+			widget.SmallDangerButton(c, locales.ClaudecfgDelete()).Disabled(a.saving).OnClick(func() { a.delete = true })
 		}
-		label := "保存"
+		label := locales.ClaudecfgSave()
 		if a.saving {
-			label = "保存中"
+			label = locales.ClaudecfgSaving()
 		}
 		widget.SmallPrimaryButton(c, label).Disabled(a.saving || missing != "").OnClick(p.saveAgent)
 	})
 	body(c, "agent", func() {
-		widget.Group(c, "名称", "小写字母、数字和连字符，比如 code-reviewer。", func(l *widget.List) {
-			field(l, "name", &d.name, "名称", "code-reviewer", a.saving)
+		widget.Group(c, locales.ClaudecfgName(), locales.ClaudecfgAgentNameFooter(), func(l *widget.List) {
+			field(l, "name", &d.name, locales.ClaudecfgName(), "code-reviewer", a.saving)
 		})
-		widget.Group(c, "什么时候用", "Claude 靠这段话决定要不要交给它，写清楚它擅长什么。", func(l *widget.List) {
+		widget.Group(c, locales.ClaudecfgAgentWhen(), locales.ClaudecfgAgentWhenFooter(), func(l *widget.List) {
 			l.Custom(func() {
-				area(c.Key("description"), &d.description, 2, 6).Placeholder("比如：改完代码后用它审查改动，找出 bug 和不清楚的地方").Label("什么时候用").
+				area(c.Key("description"), &d.description, 2, 6).Placeholder(locales.ClaudecfgAgentWhenPlaceholder()).Label(locales.ClaudecfgAgentWhen()).
 					Disabled(a.saving).Grow(1)
 			})
 		})
 		p.agentModelSection(c)
 		p.agentToolsSection(c)
-		widget.Group(c, "系统提示词", "写它的角色和做事方式。它看不到主对话，只看到这段话和交给它的任务。", func(l *widget.List) {
+		widget.Group(c, locales.ClaudecfgAgentPrompt(), locales.ClaudecfgAgentPromptFooter(), func(l *widget.List) {
 			l.Custom(func() {
-				area(c.Key("prompt"), &d.prompt, 8, 24).Placeholder("你是一名代码审查员……").Label("系统提示词").Disabled(a.saving).Grow(1)
+				area(c.Key("prompt"), &d.prompt, 8, 24).Placeholder(locales.ClaudecfgAgentPromptPlaceholder()).Label(locales.ClaudecfgAgentPrompt()).Disabled(a.saving).Grow(1)
 			})
 		})
 		if a.problem != "" {
@@ -227,7 +234,7 @@ func (p *Page) agentPage(c *ui.Context) {
 			muted(c, missing)
 		}
 		if a.editing != nil && len(a.editing.ExtraKeys) > 0 {
-			muted(c, "另外还设了 "+strings.Join(a.editing.ExtraKeys, "、")+"，保存时原样保留。")
+			muted(c, locales.ClaudecfgAgentExtraKeys(strings.Join(a.editing.ExtraKeys, locales.ClaudecfgListSeparator())))
 		}
 	})
 	p.agentDialogs(c)
@@ -244,16 +251,16 @@ func (p *Page) agentModelSection(c *ui.Context) {
 	values := []string{}
 	labels := []string{}
 	for _, m := range agentModels {
-		values, labels = append(values, m.value), append(labels, m.label)
+		values, labels = append(values, m.value), append(labels, m.label())
 	}
 	selected := slices.IndexFunc(values, func(v string) bool { return strings.EqualFold(v, d.model) })
 	if selected < 0 {
 		values, labels = append(values, d.model), append(labels, d.model)
 		selected = len(values) - 1
 	}
-	widget.Group(c, "模型", "默认时跟随主对话的模型。", func(l *widget.List) {
-		item(l, "模型", "", func() {
-			choice(c, "模型", labels, selected, p.agents.saving, func(i int) { d.model = values[i] })
+	widget.Group(c, locales.ClaudecfgAgentModel(), locales.ClaudecfgAgentModelFooter(), func(l *widget.List) {
+		item(l, locales.ClaudecfgAgentModel(), "", func() {
+			choice(c, "model", locales.ClaudecfgAgentModel(), labels, selected, p.agents.saving, func(i int) { d.model = values[i] })
 		})
 	})
 }
@@ -261,43 +268,44 @@ func (p *Page) agentModelSection(c *ui.Context) {
 func (p *Page) agentToolsSection(c *ui.Context) {
 	d := &p.agents.draft
 	saving := p.agents.saving
-	footer := "关掉“全部工具”后只能用勾选的。MCP 工具写成 mcp__服务器__工具，多个用逗号分开。"
-	widget.Group(c, "工具", footer, func(l *widget.List) {
-		item(l, "全部工具", "包括 MCP 工具", func() {
-			widget.Switch(c.Key("all-tools"), &d.allTools).Label("全部工具").Disabled(saving)
+	footer := locales.ClaudecfgAgentToolsFooter()
+	widget.Group(c, locales.ClaudecfgTools(), footer, func(l *widget.List) {
+		item(l, locales.ClaudecfgAllTools(), locales.ClaudecfgAllToolsSummary(), func() {
+			widget.Switch(c.Key("all-tools"), &d.allTools).Label(locales.ClaudecfgAllTools()).Disabled(saving)
 		})
 		if d.allTools {
 			return
 		}
 		for _, tool := range commonTools {
-			on := d.checked[tool.name]
-			row := widget.Row{Key: "tool-" + tool.name, Title: tool.label, Summary: tool.name, End: func() { widget.MarkLook(c, widget.MarkCheck, on) }}
+			on := d.checked[tool.value]
+			row := widget.Row{Key: "tool-" + tool.value, Title: tool.label(), Summary: tool.value, End: func() { widget.MarkLook(c, widget.MarkCheck, on) }}
 			if !saving {
-				row.OnClick = func() { d.checked[tool.name] = !on }
+				row.OnClick = func() { d.checked[tool.value] = !on }
 			}
 			l.Row(row).Role(ui.RoleCheckBox).Checked(on)
 		}
-		item(l, "其他工具", "", func() {
-			widget.Input(c.Key("others"), &d.others).Placeholder("mcp__github__create_issue, …").Label("其他工具").Disabled(saving).Width(320)
+		item(l, locales.ClaudecfgOtherTools(), "", func() {
+			widget.Input(c.Key("others"), &d.others).Placeholder("mcp__github__create_issue, …").Label(locales.ClaudecfgOtherTools()).Disabled(saving).Width(320)
 		})
 	})
 }
 
 func (p *Page) agentDialogs(c *ui.Context) {
 	a := &p.agents
-	if alert(c, &a.leaving, "放弃未保存的更改？", "", widget.Destructive, "取消", "放弃") == 1 {
+	if alert(c, &a.leaving, locales.ClaudecfgDiscardTitle(), "", widget.Destructive, locales.ClaudecfgCancel(), locales.ClaudecfgDiscard()) == 1 {
 		p.back()
 	}
 	if a.editing == nil {
 		return
 	}
 	file, name := a.editing.File, a.editing.Name
-	if alert(c, &a.delete, "删除 Subagent", "删除“"+name+"”？删了就找不回来。", widget.Destructive, "取消", "删除") == 1 {
+	if alert(c, &a.delete, locales.ClaudecfgAgentDeleteTitle(), locales.ClaudecfgAgentDeleteMessage(name), widget.Destructive,
+		locales.ClaudecfgCancel(), locales.ClaudecfgDelete()) == 1 {
 		p.async(func(ctx context.Context) func() {
 			err := p.opts.Core.DeleteAgent(ctx, file)
 			return func() {
 				if err != nil {
-					p.failed("删除失败", err)
+					p.failed(locales.ClaudecfgDeleteFailed(), err)
 					return
 				}
 				p.back()

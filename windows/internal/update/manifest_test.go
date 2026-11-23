@@ -115,10 +115,10 @@ func TestVersion(t *testing.T) {
 	}{
 		{"812", "0.7.6", Version{812, "0.7.6"}, true},
 		{"815", "0.7.7-dev.3+gabc1234", Version{815, "0.7.7-dev.3+gabc1234"}, false},
-		{"", "", Version{0, "未知"}, false}, // go run、go test 编的
-		{"abc", "0.7.6", Version{0, "未知"}, false},
-		{"0", "0.7.6", Version{0, "未知"}, false},
-		{"812", "", Version{0, "未知"}, false},
+		{"", "", Version{}, false}, // go run、go test 编的
+		{"abc", "0.7.6", Version{}, false},
+		{"0", "0.7.6", Version{}, false},
+		{"812", "", Version{}, false},
 		{"812", "v0.7.6", Version{812, "v0.7.6"}, false},
 	} {
 		v := parseVersion(tc.code, tc.name)
@@ -126,7 +126,7 @@ func TestVersion(t *testing.T) {
 			t.Errorf("parseVersion(%q, %q) = %+v release %v, want %+v release %v", tc.code, tc.name, v, v.Release(), tc.want, tc.release)
 		}
 	}
-	if Current() != (Version{0, "未知"}) {
+	if Current() != (Version{}) {
 		t.Errorf("a test build is %+v, want a development build", Current())
 	}
 }

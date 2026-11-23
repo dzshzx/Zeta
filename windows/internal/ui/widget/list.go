@@ -1,6 +1,9 @@
 package widget
 
-import "github.com/egoist/mygo/ui"
+import (
+	"github.com/dzshzx/Zeta/windows/internal/locales"
+	"github.com/egoist/mygo/ui"
+)
 
 // 设置页的骨架：页面顶上一行（返回键、标题），下面是一组组白色圆角卡片，卡片里是一行行设置。
 // 数值照 COUI 的 SmallTopAppBar、PreferenceCategory、Card、BasicComponent、ArrowPreference、PagerFooterPreference
@@ -14,7 +17,7 @@ func Header(c *ui.Context, title string, back func()) {
 	k := Of(c)
 	TitleRow(c).Children(func() {
 		if back != nil {
-			IconButton(c, IconBack, "返回").OnClick(back)
+			IconButton(c, IconBack, locales.WidgetBack()).OnClick(back)
 		}
 		ui.Text(c, title).FontSize(SizeHeadlineS).FontWeight(Medium).TextColor(k.Text).SingleLine().Ellipsis("…").Shrink(1)
 	})

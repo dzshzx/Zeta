@@ -11,6 +11,7 @@ import (
 
 	"github.com/dzshzx/Zeta/client/hostlink"
 	"github.com/dzshzx/Zeta/client/sshlink"
+	"github.com/dzshzx/Zeta/windows/internal/locales"
 	"github.com/egoist/mygo/i18n"
 )
 
@@ -62,7 +63,7 @@ func (d *Devices) CheckDir(h sshlink.Host, path string) (string, error) {
 		return "", errors.New(problem)
 	}
 	if r.TimedOut {
-		return "", errors.New("「" + h.Name() + "」没有响应（超时）")
+		return "", errors.New(locales.HostNoResponse(h.Name()))
 	}
 	return DirProblem(r.Stdout, h.Name(), path), nil
 }
@@ -82,11 +83,11 @@ func DirProblem(stdout, hostName, path string) string {
 		}
 		switch kind {
 		case "missing":
-			return "「" + hostName + "」上没有 " + path + " 这个目录"
+			return locales.HostDirMissing(hostName, path)
 		case "file":
-			return path + " 是文件，不是目录"
+			return locales.HostDirIsFile(path)
 		case "denied":
-			return "「" + hostName + "」上的 " + path + " 没有权限进去"
+			return locales.HostDirDenied(hostName, path)
 		}
 		return ""
 	}

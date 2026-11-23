@@ -6,21 +6,33 @@ import (
 	"path/filepath"
 	"testing"
 
+	"github.com/dzshzx/Zeta/windows/internal/locales"
 	"github.com/dzshzx/Zeta/windows/internal/ui/widget"
+	"github.com/egoist/mygo/i18n"
 	"github.com/egoist/mygo/ui"
 )
 
 // TestPreviews 把设备页上的三组和点进去的各页画成 PNG 写到 $ZETA_PREVIEW_DIR，改界面时人工看；没设时不画。
+// 简体中文画浅色、深色两套，英文（文件名带 -en）画浅色一套，看译文有没有挤爆。
 func TestPreviews(t *testing.T) {
 	dir := os.Getenv("ZETA_PREVIEW_DIR")
 	if dir == "" {
 		t.Skip("ZETA_PREVIEW_DIR 没设：不画预览")
 	}
-	for _, dark := range []bool{false, true} {
-		look := "light"
+	t.Cleanup(func() { i18n.SetLocaleFunc(nil) })
+	for _, run := range []struct {
+		lang string
+		dark bool
+	}{{"zh-Hans", false}, {"zh-Hans", true}, {"en", false}} {
+		dark, look := run.dark, "light"
 		if dark {
 			look = "dark"
 		}
+		if run.lang != "zh-Hans" {
+			look += "-" + run.lang
+		}
+		lang := run.lang
+		i18n.SetLocaleFunc(func() string { return lang })
 		f := newFixture(t, Options{})
 		f.serve.Write(t, ".claude/settings.json", `{"model":"sonnet","permissions":{"allow":["Bash(npm test)"]}}`)
 		f.serve.Write(t, ".claude/skills/tidy/SKILL.md", "---\nname: tidy\ndescription: 整理代码，统一格式和命名\n---\n正文\n")
@@ -38,6 +50,7 @@ func TestPreviews(t *testing.T) {
 				widget.Body(c, "device", func() { page.Sections(c) })
 			})
 		}, 900, 1000, ui.TesterOptions{Dark: dark})
+		f.tt.SetLocale(lang)
 		shot := func(name string) {
 			t.Helper()
 			f.tt.Frame()
@@ -51,55 +64,55 @@ func TestPreviews(t *testing.T) {
 			out.Close()
 		}
 		shot("device")
-		f.press("默认权限模式")
+		f.press(locales.ClaudecfgDefaultMode())
 		shot("menu")
 		f.tt.Key(0, ui.KeyEscape)
 
-		f.press("打开默认思考强度")
+		f.press(locales.ClaudecfgOpenEntry(locales.ClaudecfgDefaultEffort()))
 		shot("effort")
-		f.press("返回")
+		f.press(locales.WidgetBack())
 
-		f.press("打开记忆")
+		f.press(locales.ClaudecfgOpenEntry(locales.ClaudecfgMemory()))
 		shot("memory")
-		f.press("打开CLAUDE.md")
+		f.press(locales.ClaudecfgOpenEntry("CLAUDE.md"))
 		f.typeInto("CLAUDE.md", "# 规矩\n\n- 回答用中文\n- **先跑测试**，再说做完了\n\n```go\nfmt.Println(\"hi\")\n```\n")
 		shot("document")
-		f.press("预览")
+		f.press(locales.ClaudecfgDocumentPreview())
 		shot("document-preview")
-		f.click("保存")
-		f.press("返回")
-		f.press("返回")
+		f.click(locales.ClaudecfgSave())
+		f.press(locales.WidgetBack())
+		f.press(locales.WidgetBack())
 
-		f.press("打开Skills")
+		f.press(locales.ClaudecfgOpenEntry("Skills"))
 		shot("skills")
-		f.press("返回")
+		f.press(locales.WidgetBack())
 
-		f.press("打开MCP 服务器")
-		f.click("添加服务器")
+		f.press(locales.ClaudecfgOpenEntry(locales.ClaudecfgMcpServers()))
+		f.click(locales.ClaudecfgMcpAdd())
 		shot("mcp-add")
-		f.typeInto("名称", "docs")
-		f.typeInto("服务器地址", "https://mcp.invalid/mcp")
-		f.click("添加")
+		f.typeInto(locales.ClaudecfgName(), "docs")
+		f.typeInto(locales.ClaudecfgMcpURL(), "https://mcp.invalid/mcp")
+		f.click(locales.ClaudecfgMcpAddButton())
 		shot("mcp")
-		f.press("打开docs")
+		f.press(locales.ClaudecfgOpenEntry("docs"))
 		shot("mcp-server")
-		f.press("返回")
-		f.press("返回")
+		f.press(locales.WidgetBack())
+		f.press(locales.WidgetBack())
 
-		f.press("打开Subagent")
+		f.press(locales.ClaudecfgOpenEntry(locales.ClaudecfgSubagents()))
 		shot("agents")
-		f.press("新建 Subagent")
-		f.typeInto("名称", "code-reviewer")
-		f.press("全部工具")
-		f.press("读文件")
+		f.press(locales.ClaudecfgAgentNew())
+		f.typeInto(locales.ClaudecfgName(), "code-reviewer")
+		f.press(locales.ClaudecfgAllTools())
+		f.press(locales.ClaudecfgToolRead())
 		shot("agent")
-		f.press("返回")
-		f.click("放弃")
-		f.press("返回")
+		f.press(locales.WidgetBack())
+		f.click(locales.ClaudecfgDiscard())
+		f.press(locales.WidgetBack())
 
-		f.press("打开工具权限")
+		f.press(locales.ClaudecfgOpenEntry(locales.ClaudecfgPermissions()))
 		shot("permissions")
-		f.click("添加规则")
+		f.click(locales.ClaudecfgPermAddRule())
 		shot("rule")
 	}
 }

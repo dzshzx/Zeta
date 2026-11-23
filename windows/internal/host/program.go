@@ -9,6 +9,7 @@ import (
 	"github.com/dzshzx/Zeta/client/hostlink"
 	"github.com/dzshzx/Zeta/client/sshlink"
 	"github.com/dzshzx/Zeta/windows/internal/accounts"
+	"github.com/dzshzx/Zeta/windows/internal/locales"
 )
 
 // installTimeout 是装一个程序最多等多久（要传几 MB 过去）。
@@ -36,7 +37,7 @@ func (i installed) Path() string {
 // Install 没装就装上。ctx 到期时不再等那边的结果（命令本身由 installTimeout 收尾）。
 func (i installed) Install(ctx context.Context) error {
 	if i.program == nil {
-		return errors.New("桌面版里没有带这个程序")
+		return errors.New(locales.HostProgramMissing())
 	}
 	exec := func(command string, stdin []byte) (sshlink.Result, error) {
 		return i.shell.Run(command, stdin, installTimeout, true)
@@ -50,7 +51,7 @@ func (i installed) Install(ctx context.Context) error {
 		case i.shell.LinkProblem(r) != "":
 			done <- errors.New(i.shell.LinkProblem(r))
 		case r.Code != 0:
-			done <- errors.New(orDefault(strings.TrimSpace(r.Stderr), i.program.Name+" 没装上"))
+			done <- errors.New(orDefault(strings.TrimSpace(r.Stderr), locales.HostProgramNotInstalled(i.program.Name)))
 		default:
 			done <- nil
 		}

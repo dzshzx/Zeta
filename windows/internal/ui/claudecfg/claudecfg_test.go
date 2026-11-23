@@ -9,6 +9,7 @@ import (
 	"github.com/dzshzx/Zeta/helper/coreapi"
 	cfg "github.com/dzshzx/Zeta/windows/internal/claudecfg"
 	"github.com/dzshzx/Zeta/windows/internal/claudecfg/cfgtest"
+	"github.com/dzshzx/Zeta/windows/internal/locales"
 	"github.com/egoist/mygo/ui"
 )
 
@@ -352,7 +353,7 @@ func TestDefaultModelMoreModels(t *testing.T) {
 		{Value: "opus", Label: "Opus 5.5"}, {Value: "sonnet", Label: "Sonnet 5.5"},
 		{Value: "claude-opus-4-6", Label: "Opus 4.6", Older: true}, {Value: "claude-sonnet-4-6", Label: "Sonnet 4.6", Older: true},
 	}})
-	f.see(builtinDefault)
+	f.see(locales.ClaudecfgModelBuiltin())
 	f.press("默认模型")
 	f.see("Opus 5.5", "Sonnet 5.5", "更多模型")
 	if f.tt.HasText("Opus 4.6") {
@@ -370,7 +371,7 @@ func TestDefaultModelMoreModels(t *testing.T) {
 
 	// 选回不设：settings.json 里去掉 model
 	f.press("默认模型")
-	f.click(builtinDefault)
+	f.click(locales.ClaudecfgModelBuiltin())
 	if got := f.serve.Read(".claude/settings.json"); strings.Contains(got, `"model"`) {
 		t.Fatalf("settings.json：%s", got)
 	}

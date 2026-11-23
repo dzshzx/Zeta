@@ -40,7 +40,4 @@ func TestDeviceSettings(t *testing.T) {
 	if d.AutoCompact() || d.CompactPercent() != 0 || !d.AutoTitle() {
 		t.Error("stored values not read back")
 	}
-	if claudecfg.CompactPercentLabel(0) != "默认（快满时）" || claudecfg.CompactPercentLabel(80) != "用到 80% 时" {
-		t.Error("labels")
-	}
 }

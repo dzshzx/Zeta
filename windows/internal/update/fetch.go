@@ -5,7 +5,6 @@ import (
 	"crypto/sha256"
 	"encoding/hex"
 	"errors"
-	"fmt"
 	"io"
 	"io/fs"
 	"net"
@@ -14,6 +13,8 @@ import (
 	"os"
 	"strings"
 	"time"
+
+	"github.com/dzshzx/Zeta/windows/internal/locales"
 )
 
 // ghProxy 是 GitHub 连不上时的中转（地址前面加上它），和 assets/zeta_setup_debian.sh 下载 GitHub 文件的做法一样。
@@ -55,10 +56,10 @@ func (c *Client) Manifest(ctx context.Context) (*Manifest, error) {
 				return err
 			}
 			if len(data) > maxManifestBytes {
-				return fmt.Errorf("%s 给的更新清单比 %d KB 还大，不像是清单", host(u), maxManifestBytes>>10)
+				return errors.New(locales.UpdateManifestTooLarge(host(u), maxManifestBytes>>10))
 			}
 			if m, err = ParseManifest(data); err != nil {
-				return fmt.Errorf("%s 给的%w", host(u), err)
+				return &localized{locales.UpdateFromHost(host(u), err.Error()), err}
 			}
 			return nil
 		})
@@ -76,7 +77,7 @@ func (c *Client) Download(ctx context.Context, p Package, dest string, progress 
 			return err
 		}
 		if err := os.Rename(part, dest); err != nil {
-			return fmt.Errorf("存不下下载的文件：%w", err)
+			return saveFailed(err)
 		}
 		return nil
 	})
@@ -86,27 +87,39 @@ func (c *Client) Download(ctx context.Context, p Package, dest string, progress 
 func save(body io.Reader, part string, p Package, u string, progress func(int64)) error {
 	f, err := os.Create(part)
 	if err != nil {
-		return fmt.Errorf("存不下下载的文件：%w", err)
+		return saveFailed(err)
 	}
 	defer f.Close()
 	sum := sha256.New()
 	w := &counter{w: io.MultiWriter(f, sum), progress: progress}
 	if _, err := io.Copy(w, io.LimitReader(body, p.Size+1)); err != nil {
 		if pe := (*fs.PathError)(nil); errors.As(err, &pe) {
-			return fmt.Errorf("存不下下载的文件：%w", err)
+			return saveFailed(err)
 		}
 		return err
 	}
 	switch {
 	case w.n > p.Size:
-		return fmt.Errorf("从 %s 下的文件比清单写的 %d 字节大，已删掉", host(u), p.Size)
+		return errors.New(locales.UpdateDownloadTooLarge(host(u), int(p.Size)))
 	case w.n < p.Size:
-		return fmt.Errorf("从 %s 下的文件只有 %d 字节，清单写的是 %d，已删掉", host(u), w.n, p.Size)
+		return errors.New(locales.UpdateDownloadTooSmall(host(u), int(w.n), int(p.Size)))
 	case hex.EncodeToString(sum.Sum(nil)) != p.SHA256:
-		return fmt.Errorf("从 %s 下的文件 sha256 和清单不一致，已删掉", host(u))
+		return errors.New(locales.UpdateDownloadBadHash(host(u)))
 	}
 	return f.Close()
 }
+
+// saveFailed 是下载的文件存不下的原因。
+func saveFailed(err error) error { return &localized{locales.UpdateSaveFailed(err.Error()), err} }
+
+// localized 是一句按界面语言写好的原因，底下连着原来的错误（errors.Is、errors.As 照样认得）。
+type localized struct {
+	text string
+	err  error
+}
+
+func (e *localized) Error() string { return e.text }
+func (e *localized) Unwrap() error { return e.err }
 
 // counter 数写了多少字节，每写一次报一次进度。
 type counter struct {
@@ -141,7 +154,7 @@ func (c *Client) each(ctx context.Context, src string, try func(context.Context,
 		}
 		reasons = append(reasons, reason(u, err))
 	}
-	return errors.New(strings.Join(reasons, "；"))
+	return errors.New(strings.Join(reasons, locales.UpdateReasonSeparator()))
 }
 
 // get 请求 u，HTTP 200 时把响应体交给 read。Stall 内既没连上也没收到数据就取消这次请求。
@@ -175,7 +188,7 @@ func (c *Client) get(ctx context.Context, u string, read func(io.Reader) error) 
 	}
 	defer resp.Body.Close()
 	if resp.StatusCode != http.StatusOK {
-		return fmt.Errorf("%s 回了 HTTP %d", host(u), resp.StatusCode)
+		return errors.New(locales.UpdateHTTPStatus(host(u), resp.StatusCode))
 	}
 	return stalled(ctx, read(&resetReader{r: resp.Body, timer: timer, after: stall}))
 }
@@ -209,11 +222,11 @@ func reason(u string, err error) string {
 	var ne net.Error
 	switch {
 	case errors.Is(err, errStalled), errors.As(err, &ne) && ne.Timeout():
-		return "连 " + host(u) + " 超时"
+		return locales.UpdateHostTimeout(host(u))
 	case errors.As(err, &dns):
-		return "找不到 " + host(u) + "（没有网络？）"
+		return locales.UpdateHostNotFound(host(u))
 	case isNetwork(err):
-		return "连不上 " + host(u)
+		return locales.UpdateHostUnreachable(host(u))
 	}
 	return err.Error()
 }

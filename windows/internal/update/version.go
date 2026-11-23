@@ -23,13 +23,13 @@ type Version struct {
 
 var releaseName = regexp.MustCompile(`^\d+\.\d+\.\d+$`)
 
-// Current 是本程序的版本；构建时没写进来或写坏了时是 Code 为 0 的开发版。
+// Current 是本程序的版本；构建时没写进来或写坏了时是零值（Code 为 0、Name 为空的开发版，界面上说「未知」）。
 func Current() Version { return parseVersion(versionCode, versionName) }
 
 func parseVersion(code, name string) Version {
 	n, err := strconv.Atoi(code)
 	if err != nil || n <= 0 || name == "" {
-		return Version{Name: "未知"}
+		return Version{}
 	}
 	return Version{Code: n, Name: name}
 }

@@ -6,6 +6,7 @@ import (
 
 	"github.com/dzshzx/Zeta/client/hostlink"
 	"github.com/dzshzx/Zeta/client/sshlink"
+	"github.com/dzshzx/Zeta/windows/internal/locales"
 )
 
 // ProbeScript 是加设备、检查连接时在那边查的几样：家目录、claude 的版本、系统和 CPU、主机名。每样一行“zeta_<名字> <值>”，
@@ -62,21 +63,21 @@ func parseProbe(r sshlink.Result) (Found, error) {
 	f.Claude, _, _ = strings.Cut(values["claude"], " (")
 	switch {
 	case r.TimedOut:
-		return f, sshlink.Problem("连接超时")
+		return f, sshlink.Problem(locales.HostProbeTimeout())
 	case r.Code == sshlink.ConnectionFailed || f.Home == "":
 		why := lastLine(r.Stderr)
 		if why == "" {
-			why = "没有连上"
+			why = locales.HostProbeNotConnected()
 		}
 		return f, sshlink.Problem(why)
 	case f.Claude == "":
-		return f, sshlink.Problem("那台设备上找不到 claude（登录 shell 的 PATH 里和 ~/.local/bin 都没有）")
+		return f, sshlink.Problem(locales.HostProbeNoClaude())
 	case !hostlink.HelperRuns(f.System):
 		system := f.System
 		if system == "" {
-			system = "未知的系统"
+			system = locales.HostProbeUnknownSystem()
 		}
-		return f, sshlink.Problem("Zeta 读会话记录的程序只能在 arm64、x86-64 的 Linux 上跑，这台是 " + system)
+		return f, sshlink.Problem(locales.HostProbeUnsupported(system))
 	}
 	return f, nil
 }

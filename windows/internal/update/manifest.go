@@ -4,6 +4,8 @@ import (
 	"encoding/json"
 	"errors"
 	"regexp"
+
+	"github.com/dzshzx/Zeta/windows/internal/locales"
 )
 
 // LatestURL 是最新正式版的清单：GitHub 把 latest 跳到最新发布的那个 Release。手机正式版和桌面版都读它。
@@ -36,27 +38,26 @@ type Manifest struct {
 }
 
 var (
-	hex64    = regexp.MustCompile(`^[0-9a-f]{64}$`)
-	xyz      = regexp.MustCompile(`^\d+\.\d+\.\d+$`)
-	msiName  = regexp.MustCompile(`^[A-Za-z0-9][A-Za-z0-9._-]{0,127}\.msi$`)
-	webURL   = regexp.MustCompile(`^https?://`)
-	errNoObj = errors.New("更新清单格式不对：不是 JSON 对象")
+	hex64   = regexp.MustCompile(`^[0-9a-f]{64}$`)
+	xyz     = regexp.MustCompile(`^\d+\.\d+\.\d+$`)
+	msiName = regexp.MustCompile(`^[A-Za-z0-9][A-Za-z0-9._-]{0,127}\.msi$`)
+	webURL  = regexp.MustCompile(`^https?://`)
 )
 
 // ParseManifest 读 update.json。版本两项不对时返回错误，说哪一项不对；桌面版那四项不对时只是没有 MSI，不算清单坏了。
 func ParseManifest(data []byte) (*Manifest, error) {
 	var f fields
 	if err := json.Unmarshal(data, &f); err != nil || f == nil {
-		return nil, errNoObj
+		return nil, errors.New(locales.UpdateManifestNotObject())
 	}
 	m := &Manifest{Notes: f.str("notes"), PublishedAt: f.str("publishedAt")}
 	code, ok := f.num("versionCode")
 	if !ok || code < 1 || code > 1<<31-1 {
-		return nil, errors.New("更新清单格式不对：versionCode 缺少或不是正整数")
+		return nil, errors.New(locales.UpdateManifestBadCode())
 	}
 	m.VersionCode = int(code)
 	if m.VersionName = f.str("versionName"); !xyz.MatchString(m.VersionName) {
-		return nil, errors.New("更新清单格式不对：versionName 缺少或不是 X.Y.Z")
+		return nil, errors.New(locales.UpdateManifestBadName())
 	}
 	m.MSI = f.msi()
 	return m, nil

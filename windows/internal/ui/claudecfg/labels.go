@@ -1,6 +1,7 @@
 package claudecfg
 
 import (
+	"errors"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -9,6 +10,7 @@ import (
 	"strings"
 
 	"github.com/dzshzx/Zeta/helper/coreapi"
+	"github.com/dzshzx/Zeta/windows/internal/locales"
 	"github.com/egoist/mygo"
 )
 
@@ -18,29 +20,37 @@ import (
 var fallbackModels = []Model{{Value: "opus", Label: "Opus"}, {Value: "sonnet", Label: "Sonnet"}, {Value: "haiku", Label: "Haiku"},
 	{Value: "fable", Label: "Fable"}}
 
+// option 是下拉里的一项：value 写进配置，label 是按界面当前的语言给人看的说法。
+type option struct {
+	value string
+	label func() string
+}
+
 // effortLevels 是思考强度的几档。
-var effortLevels = []struct{ value, label string }{
-	{"low", "低"}, {"medium", "中"}, {"high", "高"}, {"xhigh", "超高"}, {"max", "最高"},
+var effortLevels = []option{
+	{"low", locales.ClaudecfgEffortLow}, {"medium", locales.ClaudecfgEffortMedium}, {"high", locales.ClaudecfgEffortHigh},
+	{"xhigh", locales.ClaudecfgEffortXHigh}, {"max", locales.ClaudecfgEffortMax},
 }
 
 func effortLabel(v string) string {
 	for _, l := range effortLevels {
 		if l.value == v {
-			return l.label
+			return l.label()
 		}
 	}
 	return v
 }
 
 // permissionModes 是能设成默认的权限模式（完全放行 Claude Code 不肯存成默认，不列）。
-var permissionModes = []struct{ value, label string }{
-	{"default", "逐项确认"}, {"acceptEdits", "自动接受编辑"}, {"plan", "计划模式"}, {"auto", "自动判断"},
+var permissionModes = []option{
+	{"default", locales.ClaudecfgModeDefault}, {"acceptEdits", locales.ClaudecfgModeAcceptEdits},
+	{"plan", locales.ClaudecfgModePlan}, {"auto", locales.ClaudecfgModeAuto},
 }
 
 func permissionModeLabel(v string) string {
 	for _, m := range permissionModes {
 		if m.value == v {
-			return m.label
+			return m.label()
 		}
 	}
 	return v
@@ -106,25 +116,23 @@ func clipLine(s string, n int) string {
 
 // openZipDialog 用系统的文件对话框选一个 ZIP。
 func openZipDialog() (string, []byte, error) {
-	paths, err := mygo.Dialog.Open(mygo.OpenDialogOptions{Title: "选择 Skill 包", Filters: []mygo.FileFilter{{Name: "ZIP", Extensions: []string{"zip"}}}})
+	paths, err := mygo.Dialog.Open(mygo.OpenDialogOptions{Title: locales.ClaudecfgZipDialogTitle(), Filters: []mygo.FileFilter{{Name: "ZIP", Extensions: []string{"zip"}}}})
 	if err != nil || len(paths) == 0 {
 		return "", nil, err
 	}
 	st, err := os.Stat(paths[0])
 	if err != nil {
-		return "", nil, fmt.Errorf("读不了这个文件")
+		return "", nil, errors.New(locales.ClaudecfgZipUnreadable())
 	}
 	if st.Size() > 45<<20 {
-		return "", nil, fmt.Errorf("文件超过 45 MB，不像是一个 Skill 包")
+		return "", nil, errors.New(locales.ClaudecfgZipTooLarge())
 	}
 	data, err := os.ReadFile(paths[0])
 	if err != nil {
-		return "", nil, fmt.Errorf("读不了这个文件")
+		return "", nil, errors.New(locales.ClaudecfgZipUnreadable())
 	}
 	return filepath.Base(paths[0]), data, nil
 }
-
-func itoa(n int) string { return strconv.Itoa(n) }
 
 // behaviors 是权限下拉里的三张表，按页面上的顺序。
 var behaviors = []coreapi.Behavior{coreapi.Allow, coreapi.Ask, coreapi.Deny}
@@ -133,17 +141,14 @@ var behaviors = []coreapi.Behavior{coreapi.Allow, coreapi.Ask, coreapi.Deny}
 func behaviorLabel(b coreapi.Behavior) string {
 	switch b {
 	case coreapi.Allow:
-		return "允许"
+		return locales.ClaudecfgBehaviorAllow()
 	case coreapi.Ask:
-		return "询问"
+		return locales.ClaudecfgBehaviorAsk()
 	case coreapi.Deny:
-		return "拒绝"
+		return locales.ClaudecfgBehaviorDeny()
 	}
-	return "未设置"
+	return locales.ClaudecfgBehaviorNone()
 }
-
-// permissionSemantics 是权限页上说的规则语义。
-const permissionSemantics = "规则按“拒绝 > 询问 > 允许”取最严的，写得再细也一样。完全放行模式下，询问和拒绝照样生效。"
 
 // idleChoices 是闲置超时可选的几档（分钟），0 是不自动结束；和手机上的设置页一样。
 var idleChoices = []int{5, 10, 30, 60, 120, 0}
@@ -152,16 +157,24 @@ var idleChoices = []int{5, 10, 30, 60, 120, 0}
 func idleLabel(minutes int) string {
 	switch {
 	case minutes == 0:
-		return "不自动结束"
+		return locales.ClaudecfgIdleNever()
 	case minutes%1440 == 0:
-		return strconv.Itoa(minutes/1440) + " 天"
+		return locales.ClaudecfgIdleDays(minutes / 1440)
 	case minutes%60 == 0:
-		return strconv.Itoa(minutes/60) + " 小时"
+		return locales.ClaudecfgIdleHours(minutes / 60)
 	}
-	return strconv.Itoa(minutes) + " 分钟"
+	return locales.ClaudecfgIdleMinutes(minutes)
 }
 
 var mcpNamePattern = regexp.MustCompile(`^[A-Za-z0-9_-]{1,64}$`)
 
 // validMcpName：字母、数字、下划线和连字符，最长 64（添加前在表单里先查一遍，核心还会再查）。
 func validMcpName(name string) bool { return mcpNamePattern.MatchString(name) }
+
+// compactPercentLabel 是压缩时机的说法：0 是默认（快满时）。
+func compactPercentLabel(p int) string {
+	if p == 0 {
+		return locales.ClaudecfgCompactAtDefault()
+	}
+	return locales.ClaudecfgCompactAtPercent(p)
+}

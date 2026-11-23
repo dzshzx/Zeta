@@ -6,6 +6,7 @@ import (
 	"strings"
 
 	"github.com/dzshzx/Zeta/helper/coreapi"
+	"github.com/dzshzx/Zeta/windows/internal/locales"
 	"github.com/dzshzx/Zeta/windows/internal/ui/widget"
 	"github.com/egoist/mygo/ui"
 )
@@ -39,12 +40,12 @@ type serverForm struct {
 	working                                   bool
 }
 
-var serverTypes = []struct{ value, label string }{{"http", "HTTP"}, {"sse", "SSE"}, {"stdio", "命令"}}
+var serverTypes = []option{{"http", fixed("HTTP")}, {"sse", fixed("SSE")}, {"stdio", locales.ClaudecfgMcpTypeCommand}}
 
 func typeName(t string) string {
 	for _, st := range serverTypes {
 		if st.value == t {
-			return st.label
+			return st.label()
 		}
 	}
 	if t == "ws" {
@@ -56,46 +57,46 @@ func typeName(t string) string {
 func scopeLabel(scope string) string {
 	switch scope {
 	case "user":
-		return "所有项目"
+		return locales.ClaudecfgMcpScopeUser()
 	case "local":
-		return "只在默认工作目录"
+		return locales.ClaudecfgMcpScopeLocal()
 	case "project":
-		return "项目的 .mcp.json"
+		return locales.ClaudecfgMcpScopeProject()
 	}
 	return scope
 }
 
 func stateLabel(st *coreapi.McpState) string {
 	if st == nil {
-		return "检查中…"
+		return locales.ClaudecfgMcpStateChecking()
 	}
 	switch st.State {
 	case "connected":
-		return "已连接"
+		return locales.ClaudecfgMcpStateConnected()
 	case "partial":
-		return "已连接 · 取工具出错"
+		return locales.ClaudecfgMcpStatePartial()
 	case "failed":
-		return "连不上"
+		return locales.ClaudecfgMcpStateFailed()
 	case "auth":
-		return "需要登录"
+		return locales.ClaudecfgMcpStateAuth()
 	case "pending":
-		return "等待批准"
+		return locales.ClaudecfgMcpStatePending()
 	case "rejected":
-		return "已拒绝"
+		return locales.ClaudecfgMcpStateRejected()
 	case "disabled":
-		return "已停用"
+		return locales.ClaudecfgMcpStateDisabled()
 	case "unconfigured":
-		return "未配置"
+		return locales.ClaudecfgNotConfigured()
 	case "shadowed":
-		return "未生效"
+		return locales.ClaudecfgMcpStateShadowed()
 	}
-	return "未知"
+	return locales.ClaudecfgMcpStateUnknown()
 }
 
 // stateOf 是列表和详情里显示的状态：被同名服务器盖住的不会被用到，不看健康检查的结果。
 func (m *mcpState) stateOf(s coreapi.McpServer) *coreapi.McpState {
 	if s.ShadowedBy != "" {
-		return &coreapi.McpState{State: "shadowed", Issue: "被“" + scopeLabel(s.ShadowedBy) + "”里的同名服务器盖住"}
+		return &coreapi.McpState{State: "shadowed", Issue: locales.ClaudecfgMcpShadowedBy(scopeLabel(s.ShadowedBy))}
 	}
 	if m.status != nil {
 		if st, ok := m.status.Servers[s.Key()]; ok {
@@ -119,7 +120,7 @@ func (p *Page) reloadMcp(check bool) {
 		list, err := p.opts.Core.McpServers(ctx, p.opts.Cwd)
 		return func() {
 			if err != nil {
-				p.failed("读取 MCP 配置失败", err)
+				p.failed(locales.ClaudecfgMcpLoadFailed(), err)
 				return
 			}
 			p.mcp.servers, p.mcp.loaded = list, true
@@ -148,30 +149,30 @@ func (p *Page) checkMcp() {
 
 func (p *Page) mcpPage(c *ui.Context) {
 	m := &p.mcp
-	pageTitle(c, "MCP 服务器", p.back, func() {
-		widget.SmallButton(c, "重新检查").Disabled(m.checking).OnClick(p.checkMcp)
-		widget.SmallPrimaryButton(c, "添加服务器").OnClick(func() { m.adding, m.form = true, serverForm{typ: "http"} })
+	pageTitle(c, locales.ClaudecfgMcpServers(), p.back, func() {
+		widget.SmallButton(c, locales.ClaudecfgMcpRecheck()).Disabled(m.checking).OnClick(p.checkMcp)
+		widget.SmallPrimaryButton(c, locales.ClaudecfgMcpAdd()).OnClick(func() { m.adding, m.form = true, serverForm{typ: "http"} })
 	})
 	body(c, "mcp", func() {
-		footer := "新加的服务器所有项目都能用，改动对之后新开始的对话生效。"
+		footer := locales.ClaudecfgMcpFooter()
 		if m.statusErr != "" {
-			footer += "\n\n检查状态没有成功：" + m.statusErr
+			footer += "\n\n" + locales.ClaudecfgMcpStatusFailed(m.statusErr)
 		}
-		widget.Group(c, "服务器 · "+itoa(len(m.servers)), footer, func(l *widget.List) {
+		widget.Group(c, locales.ClaudecfgMcpServersCount(len(m.servers)), footer, func(l *widget.List) {
 			switch {
 			case !m.loaded:
-				loadingRow(l, "正在读取…")
+				loadingRow(l, locales.ClaudecfgLoading())
 			case len(m.servers) == 0:
-				emptyRow(l, "还没有 MCP 服务器", "点右上角的“添加服务器”")
+				emptyRow(l, locales.ClaudecfgMcpEmpty(), locales.ClaudecfgMcpEmptyHint())
 			}
 			for _, s := range m.servers {
 				ui.Column(c.Key(s.Key())).Children(func() {
-					entry(l, s.Name, serverSummary(s), stateLabel(m.stateOf(s)), true, func() { p.openMcpServer(s) })
+					entry(l, s.Name, s.Name, serverSummary(s), stateLabel(m.stateOf(s)), true, func() { p.openMcpServer(s) })
 				})
 			}
 		})
 		if m.status != nil && len(m.status.Connectors) > 0 {
-			widget.Group(c, "Claude 账号的连接器", "在 claude.ai 上管理，这里只能看。", func(l *widget.List) {
+			widget.Group(c, locales.ClaudecfgMcpConnectors(), locales.ClaudecfgManagedOnClaudeAi(), func(l *widget.List) {
 				for _, cn := range m.status.Connectors {
 					st := cn.State
 					valueItem(l, strings.TrimPrefix(cn.Name, "claude.ai "), stateLabel(&st))
@@ -207,15 +208,15 @@ var (
 func formProblem(f serverForm) string {
 	switch {
 	case !validMcpName(strings.TrimSpace(f.name)):
-		return "名称只能用字母、数字、下划线和连字符"
+		return locales.ClaudecfgMcpNameInvalid()
 	case f.typ != "stdio" && !urlForm.MatchString(strings.TrimSpace(f.url)):
-		return "地址要以 http:// 或 https:// 开头"
+		return locales.ClaudecfgMcpURLInvalid()
 	case f.typ == "stdio" && strings.TrimSpace(f.command) == "":
-		return "请输入要运行的命令"
+		return locales.ClaudecfgMcpCommandMissing()
 	}
 	for _, l := range envLines(f.env) {
 		if !envLine.MatchString(l) {
-			return "环境变量每行一个，写成 KEY=VALUE"
+			return locales.ClaudecfgMcpEnvInvalid()
 		}
 	}
 	return ""
@@ -264,37 +265,37 @@ func splitArgs(line string) []string {
 func (p *Page) addServerDialog(c *ui.Context) {
 	m := &p.mcp
 	f := &m.form
-	dialog(c, &m.adding, "添加服务器", func() {
+	dialog(c, &m.adding, locales.ClaudecfgMcpAdd(), func() {
 		labels := []string{}
 		selected := 0
 		for i, st := range serverTypes {
-			labels = append(labels, st.label)
+			labels = append(labels, st.label())
 			if st.value == f.typ {
 				selected = i
 			}
 		}
-		labeled(c, "类型", func() {
-			choice(c, "类型", labels, selected, f.working, func(i int) { f.typ = serverTypes[i].value })
+		labeled(c, locales.ClaudecfgMcpType(), func() {
+			choice(c, "type", locales.ClaudecfgMcpType(), labels, selected, f.working, func(i int) { f.typ = serverTypes[i].value })
 		})
 		ui.Column(c).FillWidth().Children(func() {
-			widget.LineInput(c.Key("name"), &f.name, 1).Placeholder("名称，比如 github").Label("名称")
+			widget.LineInput(c.Key("name"), &f.name, 1).Placeholder(locales.ClaudecfgMcpNamePlaceholder()).Label(locales.ClaudecfgName())
 			if f.typ == "stdio" {
-				widget.LineInput(c.Key("command"), &f.command, 1).Placeholder("命令，比如 npx").Label("命令")
-				widget.LineInput(c.Key("args"), &f.args, 1).Placeholder("参数（可选，空格分开）").Label("参数")
-				widget.LineInput(c.Key("env"), &f.env, 5).Placeholder("环境变量（可选，每行一个 KEY=VALUE）").Label("环境变量")
+				widget.LineInput(c.Key("command"), &f.command, 1).Placeholder(locales.ClaudecfgMcpCommandPlaceholder()).Label(locales.ClaudecfgMcpTypeCommand())
+				widget.LineInput(c.Key("args"), &f.args, 1).Placeholder(locales.ClaudecfgMcpArgsPlaceholder()).Label(locales.ClaudecfgMcpArgs())
+				widget.LineInput(c.Key("env"), &f.env, 5).Placeholder(locales.ClaudecfgMcpEnvPlaceholder()).Label(locales.ClaudecfgMcpEnv())
 			} else {
-				widget.LineInput(c.Key("url"), &f.url, 1).Placeholder("服务器地址 https://").Label("服务器地址")
-				widget.LineInput(c.Key("token"), &f.token, 1).Placeholder("Bearer Token（可选）").Label("Bearer Token").Password()
+				widget.LineInput(c.Key("url"), &f.url, 1).Placeholder(locales.ClaudecfgMcpURLPlaceholder()).Label(locales.ClaudecfgMcpURL())
+				widget.LineInput(c.Key("token"), &f.token, 1).Placeholder(locales.ClaudecfgMcpTokenOptional()).Label("Bearer Token").Password()
 			}
 		})
 		if f.problem != "" {
 			problemText(c, f.problem)
 		}
 	}, func() {
-		widget.DialogButton(c, "取消", widget.Plain).Disabled(f.working).OnClick(func() { m.adding = false })
-		label := "添加"
+		widget.DialogButton(c, locales.ClaudecfgCancel(), widget.Plain).Disabled(f.working).OnClick(func() { m.adding = false })
+		label := locales.ClaudecfgMcpAddButton()
 		if f.working {
-			label = "正在添加…"
+			label = locales.ClaudecfgMcpAdding()
 		}
 		widget.DialogButton(c, label, widget.Recommend).Disabled(f.working).OnClick(p.addServer)
 	})
@@ -367,39 +368,41 @@ func (p *Page) mcpServerPage(c *ui.Context) {
 	m := &p.mcp
 	s := m.detail
 	pageTitle(c, s.Name, p.back, func() {
-		widget.SmallButton(c, "刷新工具").Disabled(m.toolsBusy || s.OAuth).OnClick(p.loadTools)
+		widget.SmallButton(c, locales.ClaudecfgMcpRefreshTools()).Disabled(m.toolsBusy || s.OAuth).OnClick(p.loadTools)
 	})
 	body(c, "mcp-server", func() {
-		widget.Group(c, "服务器", "", func(l *widget.List) {
+		widget.Group(c, locales.ClaudecfgMcpServer(), "", func(l *widget.List) {
 			st := m.stateOf(s)
-			l.Row(widget.Row{Title: "状态", Summary: issueOf(st), Value: stateLabel(st)})
-			valueItem(l, "范围", scopeLabel(s.Scope))
-			valueItem(l, "类型", typeName(s.Type))
+			l.Row(widget.Row{Title: locales.ClaudecfgMcpStatus(), Summary: issueOf(st), Value: stateLabel(st)})
+			valueItem(l, locales.ClaudecfgMcpScope(), scopeLabel(s.Scope))
+			valueItem(l, locales.ClaudecfgMcpType(), typeName(s.Type))
 			if s.Type == "stdio" {
-				item(l, "命令", target(s), nil)
+				item(l, locales.ClaudecfgMcpTypeCommand(), target(s), nil)
 				if len(s.EnvKeys) > 0 {
-					l.Row(widget.Row{Title: "环境变量", Summary: strings.Join(s.EnvKeys, "、"), Value: "值已隐藏"})
+					l.Row(widget.Row{Title: locales.ClaudecfgMcpEnv(), Summary: strings.Join(s.EnvKeys, locales.ClaudecfgListSeparator()),
+						Value: locales.ClaudecfgMcpValuesHidden()})
 				}
 				return
 			}
-			item(l, "地址", s.URL, nil)
+			item(l, locales.ClaudecfgMcpAddress(), s.URL, nil)
 			if len(s.HeaderKeys) > 0 {
-				l.Row(widget.Row{Title: "其他请求头", Summary: strings.Join(s.HeaderKeys, "、"), Value: "值已隐藏"})
+				l.Row(widget.Row{Title: locales.ClaudecfgMcpHeaders(), Summary: strings.Join(s.HeaderKeys, locales.ClaudecfgListSeparator()),
+					Value: locales.ClaudecfgMcpValuesHidden()})
 			}
 			editable := s.Scope == "user" || s.Scope == "local"
 			summary := authSummary(s)
 			if !editable {
-				summary += " · 在项目里改"
+				summary = locales.ClaudecfgMcpEditInProject(summary)
 			}
-			item(l, "身份认证", summary, func() {
-				widget.SmallButton(c, "更换").Label("更换 Token").Disabled(!editable || m.working).OnClick(func() { m.tokenOpen, m.token = true, "" })
+			item(l, locales.ClaudecfgMcpAuth(), summary, func() {
+				widget.SmallButton(c, locales.ClaudecfgMcpChange()).Label(locales.ClaudecfgMcpChangeToken()).Disabled(!editable || m.working).OnClick(func() { m.tokenOpen, m.token = true, "" })
 			})
 		})
 		p.toolsSection(c)
 		if s.Scope != "project" {
 			widget.Group(c, "", "", func(l *widget.List) {
-				item(l, "删除服务器", "它的地址、Token 和设置都会从配置里去掉", func() {
-					widget.SmallDangerButton(c, "删除").Disabled(m.working).OnClick(func() { m.removing = true })
+				item(l, locales.ClaudecfgMcpDelete(), locales.ClaudecfgMcpDeleteSummary(), func() {
+					widget.SmallDangerButton(c, locales.ClaudecfgDelete()).Disabled(m.working).OnClick(func() { m.removing = true })
 				})
 			})
 		}
@@ -419,33 +422,35 @@ func authSummary(s coreapi.McpServer) string {
 	case s.Bearer:
 		return "Bearer Token"
 	case s.AuthHeader:
-		return "Authorization 请求头"
+		return locales.ClaudecfgMcpAuthHeader()
 	case s.OAuth:
-		return "OAuth：在终端用 claude 的 /mcp 登录"
+		return locales.ClaudecfgMcpAuthOAuth()
 	}
-	return "未配置"
+	return locales.ClaudecfgNotConfigured()
 }
 
 func (p *Page) toolsSection(c *ui.Context) {
 	m := &p.mcp
-	title := "工具"
+	title := locales.ClaudecfgTools()
 	if m.tools != nil {
-		title += " · " + itoa(len(m.tools))
+		title = locales.ClaudecfgToolsCount(len(m.tools))
 	}
 	widget.Group(c, title, "", func(l *widget.List) {
 		switch {
 		case m.toolsBusy:
-			loadingRow(l, "正在连接…")
+			loadingRow(l, locales.ClaudecfgConnecting())
 		case m.toolsErr != "":
-			item(l, "取不到工具清单", m.toolsErr, func() { widget.SmallButton(c, "重试").OnClick(p.loadTools) })
+			item(l, locales.ClaudecfgToolsListFailed(), m.toolsErr, func() { widget.SmallButton(c, locales.ClaudecfgRetry()).OnClick(p.loadTools) })
 		case m.tools == nil:
-			summary := "连上服务器取工具清单"
+			summary := locales.ClaudecfgToolsConnectHint()
 			if m.detail.OAuth {
-				summary = "用 OAuth 登录的服务器取不到"
+				summary = locales.ClaudecfgToolsOAuth()
 			}
-			item(l, "列出工具", summary, func() { widget.SmallButton(c, "列出").Disabled(m.detail.OAuth).OnClick(p.loadTools) })
+			item(l, locales.ClaudecfgToolsList(), summary, func() {
+				widget.SmallButton(c, locales.ClaudecfgToolsListButton()).Disabled(m.detail.OAuth).OnClick(p.loadTools)
+			})
 		case len(m.tools) == 0:
-			emptyRow(l, "没有工具", "")
+			emptyRow(l, locales.ClaudecfgToolsNone(), "")
 		default:
 			for _, tool := range m.tools {
 				item(l, tool.Name, clipLine(tool.Description, 120), nil)
@@ -457,13 +462,13 @@ func (p *Page) toolsSection(c *ui.Context) {
 func (p *Page) mcpServerDialogs(c *ui.Context) {
 	m := &p.mcp
 	s := m.detail
-	dialog(c, &m.tokenOpen, "身份认证", func() {
-		ui.Text(c, "输入新 Token，留空则移除身份认证。原来的 Token 不会显示出来。").FontSize(widget.SizeBodyS).LineHeight(1.45).
+	dialog(c, &m.tokenOpen, locales.ClaudecfgMcpAuth(), func() {
+		ui.Text(c, locales.ClaudecfgMcpTokenHint()).FontSize(widget.SizeBodyS).LineHeight(1.45).
 			TextColor(widget.Of(c).Secondary).TextAlign(ui.Center).FillWidth()
 		widget.LineInput(c.Key("token"), &m.token, 1).Placeholder("Bearer Token").Label("Bearer Token").Password().AutoFocus()
 	}, func() {
-		widget.DialogButton(c, "取消", widget.Plain).OnClick(func() { m.tokenOpen, m.token = false, "" })
-		widget.DialogButton(c, "保存", widget.Recommend).OnClick(func() {
+		widget.DialogButton(c, locales.ClaudecfgCancel(), widget.Plain).OnClick(func() { m.tokenOpen, m.token = false, "" })
+		widget.DialogButton(c, locales.ClaudecfgSave(), widget.Recommend).OnClick(func() {
 			token := m.token
 			m.tokenOpen, m.token, m.working = false, "", true
 			p.async(func(ctx context.Context) func() {
@@ -471,7 +476,7 @@ func (p *Page) mcpServerDialogs(c *ui.Context) {
 				return func() {
 					m.working = false
 					if err != nil {
-						p.failed("没有改成", err)
+						p.failed(locales.ClaudecfgChangeFailed(), err)
 						return
 					}
 					p.reloadMcp(true)
@@ -483,14 +488,15 @@ func (p *Page) mcpServerDialogs(c *ui.Context) {
 	if !m.tokenOpen {
 		m.token = ""
 	}
-	if alert(c, &m.removing, "删除服务器", "删除 "+s.Name+"？它的地址、Token 和设置都会从配置里去掉，无法撤销。", widget.Destructive, "取消", "删除") == 1 {
+	if alert(c, &m.removing, locales.ClaudecfgMcpDelete(), locales.ClaudecfgMcpDeleteMessage(s.Name), widget.Destructive,
+		locales.ClaudecfgCancel(), locales.ClaudecfgDelete()) == 1 {
 		m.working = true
 		p.async(func(ctx context.Context) func() {
 			err := p.opts.Core.RemoveMcp(ctx, p.opts.Cwd, s)
 			return func() {
 				m.working = false
 				if err != nil {
-					p.failed("删除失败", err)
+					p.failed(locales.ClaudecfgDeleteFailed(), err)
 					return
 				}
 				p.back()

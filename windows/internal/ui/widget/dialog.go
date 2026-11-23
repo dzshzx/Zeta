@@ -1,6 +1,9 @@
 package widget
 
-import "github.com/egoist/mygo/ui"
+import (
+	"github.com/dzshzx/Zeta/windows/internal/locales"
+	"github.com/egoist/mygo/ui"
+)
 
 // 对话框是桌面的写法（配色同 COUI）：宽 440，16 的圆角，标题 16 左对齐，说明 13 次要文字色，四周留 24；
 // 底下一排按钮靠右、宽度跟着字，主按钮在最右。Esc 关上；Alert 里推荐的那个按钮（没有就是危险操作那个）开着时带焦点，
@@ -122,7 +125,7 @@ func InputDialog(c *ui.Context, open *bool, title, summary string, value *string
 			})
 		})
 		ButtonBar(c, func() {
-			if DialogButton(c, "取消", Plain).Clicked() {
+			if DialogButton(c, locales.WidgetCancel(), Plain).Clicked() {
 				*open = false
 			}
 			if DialogButton(c, confirm, Recommend).Disabled(!ok).Clicked() {

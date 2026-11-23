@@ -7,35 +7,28 @@ import (
 
 	"github.com/dzshzx/Zeta/helper/coreapi"
 	cfg "github.com/dzshzx/Zeta/windows/internal/claudecfg"
+	"github.com/dzshzx/Zeta/windows/internal/locales"
 	"github.com/dzshzx/Zeta/windows/internal/ui/widget"
 	"github.com/egoist/mygo/ui"
-)
-
-const (
-	defaultsFooter = "在这台设备上开新对话时用。存在这台设备上 Claude Code 自己的设置里，和那边终端里 /model、/effort 存为默认的是同一份；" +
-		"对话里选的只管那个对话。思考强度按模型分别存。上下文窗口是会话最多用多少 token，自动压缩按它算，比模型本身的窗口大时按模型的。"
-	claudeFooter = "只管 Zeta 在这台设备上起的对话。闲置超时马上生效，其余的下次起进程时生效。"
-	configFooter = "改的是这台设备上 Claude Code 自己的配置（~/.claude），那边终端里的 claude 同样生效。"
-	notRead      = "还没读到 Claude Code 的设置"
 )
 
 // Sections 是设备页上的三组：新对话默认、Claude（自动压缩、压缩时机、自动标题、闲置超时）、Claude Code 配置的入口。
 func (p *Page) Sections(c *ui.Context) {
 	p.defaultsSection(c)
 	p.claudeSection(c)
-	widget.Group(c, "Claude Code 配置", configFooter, func(l *widget.List) {
+	widget.Group(c, locales.ClaudecfgConfigTitle(), locales.ClaudecfgConfigFooter(), func(l *widget.List) {
 		for _, e := range []struct {
-			label string
-			v     view
-			open  func()
+			key, label string
+			v          view
+			open       func()
 		}{
-			{"记忆", viewMemory, p.openMemory},
-			{"Skills", viewSkills, p.openSkills},
-			{"MCP 服务器", viewMcp, p.openMcp},
-			{"Subagent", viewAgents, p.openAgents},
-			{"工具权限", viewPermissions, p.openPermissions},
+			{"memory", locales.ClaudecfgMemory(), viewMemory, p.openMemory},
+			{"skills", "Skills", viewSkills, p.openSkills},
+			{"mcp", locales.ClaudecfgMcpServers(), viewMcp, p.openMcp},
+			{"agents", locales.ClaudecfgSubagents(), viewAgents, p.openAgents},
+			{"permissions", locales.ClaudecfgPermissions(), viewPermissions, p.openPermissions},
 		} {
-			entry(l, e.label, "", "", true, func() {
+			entry(l, e.key, e.label, "", "", true, func() {
 				p.push(e.v)
 				e.open()
 			})
@@ -52,7 +45,7 @@ func (p *Page) setDefaults(change func(ctx context.Context) (coreapi.Defaults, e
 		return func() {
 			p.working = false
 			if err != nil {
-				p.failed("没有改成", err)
+				p.failed(locales.ClaudecfgChangeFailed(), err)
 				return
 			}
 			p.defaults = &d
@@ -67,26 +60,23 @@ func (p *Page) models() []Model {
 	return fallbackModels
 }
 
-// builtinDefault 是默认模型下拉里「不设」那一项（settings.json 里没有 model，用 Claude Code 内置的默认）。
-const builtinDefault = "Claude Code 内置的默认"
-
 func (p *Page) defaultsSection(c *ui.Context) {
 	d := p.defaults
-	footer := defaultsFooter
+	footer := locales.ClaudecfgDefaultsFooter()
 	if p.defaultsErr != "" {
-		footer = "读取失败：" + p.defaultsErr + "\n\n" + footer
+		footer = locales.ClaudecfgLoadFailed(p.defaultsErr) + "\n\n" + footer
 	}
 	if p.opts.ModelsPending {
-		footer = "正在向这台设备上的 Claude Code 要模型清单，先列出常用的几个。\n\n" + footer
+		footer = locales.ClaudecfgModelsPending() + "\n\n" + footer
 	}
-	widget.Group(c, "新对话默认", footer, func(l *widget.List) {
+	widget.Group(c, locales.ClaudecfgDefaultsTitle(), footer, func(l *widget.List) {
 		if d == nil {
-			emptyRow(l, notRead, "")
+			emptyRow(l, locales.ClaudecfgNotRead(), "")
 			return
 		}
 		disabled := p.working
-		item(l, "默认模型", "", func() { p.modelChoice(c, *d, disabled) })
-		entry(l, "默认思考强度", effortSummary(*d), "", true, func() { p.push(viewEffort) })
+		item(l, locales.ClaudecfgDefaultModel(), "", func() { p.modelChoice(c, *d, disabled) })
+		entry(l, "default-effort", locales.ClaudecfgDefaultEffort(), effortSummary(*d), "", true, func() { p.push(viewEffort) })
 		p.permissionModeRow(l, *d, disabled)
 		p.compactWindowRow(l, *d, disabled)
 	})
@@ -113,7 +103,7 @@ func (p *Page) modelChoice(c *ui.Context, d coreapi.Defaults, disabled bool) {
 		unknown := Model{Value: current, Label: readableModel(current)}
 		top, all = append(top, unknown), append(all, unknown)
 	}
-	shown, olderHint := builtinDefault, ""
+	shown, olderHint := locales.ClaudecfgModelBuiltin(), ""
 	for _, m := range all {
 		if m.Value == current {
 			shown = m.Label
@@ -132,16 +122,16 @@ func (p *Page) modelChoice(c *ui.Context, d coreapi.Defaults, disabled bool) {
 			}
 		}
 	}
-	widget.MenuButton(c.Key("默认模型"), func(t ui.Element) {
+	widget.MenuButton(c.Key("default-model"), func(t ui.Element) {
 		widget.Dropdown(c, t, shown)
-		t.Label("默认模型").Disabled(disabled)
+		t.Label(locales.ClaudecfgDefaultModel()).Disabled(disabled)
 	}, func(m *widget.Menu) {
-		if m.Choice(builtinDefault, current == "") && current != "" {
+		if m.Choice(locales.ClaudecfgModelBuiltin(), current == "") && current != "" {
 			set("")
 		}
 		choices(m, top)
 		if len(older) > 0 {
-			m.Sub("更多模型", olderHint, func(m *widget.Menu) { choices(m, older) })
+			m.Sub(locales.ClaudecfgMoreModels(), olderHint, func(m *widget.Menu) { choices(m, older) })
 		}
 	})
 }
@@ -151,17 +141,17 @@ func (p *Page) permissionModeRow(l *widget.List, d coreapi.Defaults, disabled bo
 	var labels []string
 	selected := 0
 	for i, m := range permissionModes {
-		labels = append(labels, m.label)
+		labels = append(labels, m.label())
 		if m.value == d.PermissionMode {
 			selected = i
 		}
 	}
-	if d.PermissionMode != "" && !slices.ContainsFunc(permissionModes, func(m struct{ value, label string }) bool { return m.value == d.PermissionMode }) {
+	if d.PermissionMode != "" && !slices.ContainsFunc(permissionModes, func(m option) bool { return m.value == d.PermissionMode }) {
 		labels = append(labels, permissionModeLabel(d.PermissionMode))
 		selected = len(labels) - 1
 	}
-	item(l, "默认权限模式", "", func() {
-		choice(c, "默认权限模式", labels, selected, disabled, func(i int) {
+	item(l, locales.ClaudecfgDefaultMode(), "", func() {
+		choice(c, "default-mode", locales.ClaudecfgDefaultMode(), labels, selected, disabled, func(i int) {
 			if i >= len(permissionModes) {
 				return
 			}
@@ -179,7 +169,7 @@ func (p *Page) compactWindowRow(l *widget.List, d coreapi.Defaults, disabled boo
 	if d.CompactWindow != 0 && !slices.Contains(windows, d.CompactWindow) {
 		windows = append(windows, d.CompactWindow)
 	}
-	labels := []string{"按模型的窗口"}
+	labels := []string{locales.ClaudecfgContextWindowModel()}
 	selected := 0
 	for i, w := range windows {
 		labels = append(labels, formatTokens(w))
@@ -187,8 +177,8 @@ func (p *Page) compactWindowRow(l *widget.List, d coreapi.Defaults, disabled boo
 			selected = i + 1
 		}
 	}
-	item(l, "上下文窗口", "", func() {
-		choice(c, "上下文窗口", labels, selected, disabled, func(i int) {
+	item(l, locales.ClaudecfgContextWindow(), "", func() {
+		choice(c, "context-window", locales.ClaudecfgContextWindow(), labels, selected, disabled, func(i int) {
 			var tokens int64
 			if i > 0 {
 				tokens = windows[i-1]
@@ -202,26 +192,26 @@ func (p *Page) compactWindowRow(l *widget.List, d coreapi.Defaults, disabled boo
 func effortSummary(d coreapi.Defaults) string {
 	var parts []string
 	for _, e := range d.Efforts {
-		parts = append(parts, readableModel(e.Model)+" "+effortLabel(e.Level))
+		parts = append(parts, locales.ClaudecfgEffortModelLevel(readableModel(e.Model), effortLabel(e.Level)))
 	}
 	switch {
 	case len(parts) == 0 && d.Effort == "":
-		return "没有设，按 Claude Code 的默认"
+		return locales.ClaudecfgEffortUnset()
 	case len(parts) == 0:
 		return effortLabel(d.Effort)
 	case d.Effort != "":
-		parts = append(parts, "其他模型 "+effortLabel(d.Effort))
+		parts = append(parts, locales.ClaudecfgEffortModelLevel(locales.ClaudecfgEffortOtherModels(), effortLabel(d.Effort)))
 	}
-	return strings.Join(parts, "，")
+	return strings.Join(parts, locales.ClaudecfgCommaSeparator())
 }
 
 // claudeSection 是自动压缩、压缩时机、自动标题（存在这台电脑上，每台设备各设各的）和闲置超时（存在那台主机上）。
 func (p *Page) claudeSection(c *ui.Context) {
 	dev := p.opts.Device
-	widget.Group(c, "Claude", claudeFooter, func(l *widget.List) {
+	widget.Group(c, "Claude", locales.ClaudecfgClaudeFooter(), func(l *widget.List) {
 		on := dev.AutoCompact()
-		item(l, "自动压缩上下文", "", func() {
-			if widget.Switch(c.Key("auto-compact"), &on).Label("自动压缩上下文").Changed() {
+		item(l, locales.ClaudecfgAutoCompact(), "", func() {
+			if widget.Switch(c.Key("auto-compact"), &on).Label(locales.ClaudecfgAutoCompact()).Changed() {
 				p.saveDevice(dev.SetAutoCompact(on))
 			}
 		})
@@ -232,16 +222,16 @@ func (p *Page) claudeSection(c *ui.Context) {
 		}
 		var labels []string
 		for _, pt := range points {
-			labels = append(labels, cfg.CompactPercentLabel(pt))
+			labels = append(labels, compactPercentLabel(pt))
 		}
-		item(l, "压缩时机", "", func() {
-			choice(c, "压缩时机", labels, slices.Index(points, percent), !on, func(i int) {
+		item(l, locales.ClaudecfgCompactAt(), "", func() {
+			choice(c, "compact-at", locales.ClaudecfgCompactAt(), labels, slices.Index(points, percent), !on, func(i int) {
 				p.saveDevice(dev.SetCompactPercent(points[i]))
 			})
 		})
 		title := dev.AutoTitle()
-		item(l, "自动生成对话标题", "第一轮回答后由 Claude Code 起个简短标题，改过名的不动", func() {
-			if widget.Switch(c.Key("auto-title"), &title).Label("自动生成对话标题").Changed() {
+		item(l, locales.ClaudecfgAutoTitle(), locales.ClaudecfgAutoTitleSummary(), func() {
+			if widget.Switch(c.Key("auto-title"), &title).Label(locales.ClaudecfgAutoTitle()).Changed() {
 				p.saveDevice(dev.SetAutoTitle(title))
 			}
 		})
@@ -265,14 +255,14 @@ func (p *Page) idleRow(l *widget.List) {
 	for _, m := range points {
 		labels = append(labels, idleLabel(m))
 	}
-	item(l, "闲置超时", "", func() {
-		choice(c, "闲置超时", labels, selected, p.idle == nil, func(i int) {
+	item(l, locales.ClaudecfgIdleTimeout(), "", func() {
+		choice(c, "idle-timeout", locales.ClaudecfgIdleTimeout(), labels, selected, p.idle == nil, func(i int) {
 			minutes := points[i]
 			p.async(func(ctx context.Context) func() {
 				m, err := p.opts.Core.SetIdleMinutes(ctx, minutes)
 				return func() {
 					if err != nil {
-						p.failed("没有改成", err)
+						p.failed(locales.ClaudecfgChangeFailed(), err)
 						return
 					}
 					p.idle = &m
@@ -284,7 +274,7 @@ func (p *Page) idleRow(l *widget.List) {
 
 func (p *Page) saveDevice(err error) {
 	if err != nil {
-		p.failed("没存上", err)
+		p.failed(locales.ClaudecfgSaveFailed(), err)
 	}
 }
 
@@ -304,21 +294,21 @@ func (p *Page) effortRows(d coreapi.Defaults) []effortRow {
 			rows = append(rows, effortRow{m.Value, readableModel(m.Value), ""})
 		}
 	}
-	return append(rows, effortRow{"", "其他模型", d.Effort})
+	return append(rows, effortRow{"", locales.ClaudecfgEffortOtherModels(), d.Effort})
 }
 
 // effortPage 是默认思考强度：每个模型一行，写进 modelSettings.<模型>.effortLevel，「其他模型」是顶层的 effortLevel。
 func (p *Page) effortPage(c *ui.Context) {
-	pageTitle(c, "默认思考强度", p.back, nil)
+	pageTitle(c, locales.ClaudecfgDefaultEffort(), p.back, nil)
 	body(c, "effort", func() {
-		widget.Group(c, "", "这台设备上的新对话按所用的模型取这里的设置，和那边终端里 /effort 存为默认的是同一份；没单独设的模型用「其他模型」那一档。", func(l *widget.List) {
+		widget.Group(c, "", locales.ClaudecfgEffortFooter(), func(l *widget.List) {
 			if p.defaults == nil {
-				emptyRow(l, notRead, p.defaultsErr)
+				emptyRow(l, locales.ClaudecfgNotRead(), p.defaultsErr)
 				return
 			}
-			labels := []string{"跟随 Claude Code"}
+			labels := []string{locales.ClaudecfgEffortFollow()}
 			for _, l := range effortLevels {
-				labels = append(labels, l.label)
+				labels = append(labels, l.label())
 			}
 			for _, row := range p.effortRows(*p.defaults) {
 				selected := 0
@@ -328,7 +318,7 @@ func (p *Page) effortPage(c *ui.Context) {
 					}
 				}
 				item(l, row.title, "", func() {
-					choice(c, row.title, labels, selected, p.working, func(i int) {
+					choice(c, "effort-"+row.model, row.title, labels, selected, p.working, func(i int) {
 						level := ""
 						if i > 0 {
 							level = effortLevels[i-1].value

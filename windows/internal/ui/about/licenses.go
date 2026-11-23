@@ -1,10 +1,12 @@
 package about
 
 import (
-	"fmt"
+	"errors"
+	"strconv"
 	"strings"
 
 	"github.com/dzshzx/Zeta/windows/internal/assets"
+	"github.com/dzshzx/Zeta/windows/internal/locales"
 )
 
 // License 是一项开源许可：程序里带着的一个模块，或 Go 标准库。全文由 windows/scripts/assets.sh 从模块目录里取，编进程序。
@@ -24,7 +26,7 @@ func zetaLicense() string { return readLicense("Zeta") }
 func readLicense(file string) string {
 	data, err := assets.Read("licenses/" + file)
 	if err != nil {
-		return "读不出许可证全文：" + err.Error()
+		return locales.AboutLicenseTextFailed(err.Error())
 	}
 	return string(data)
 }
@@ -39,7 +41,7 @@ func licenses() ([]License, error) {
 	for i, line := range strings.Split(strings.TrimSpace(string(data)), "\n") {
 		f := strings.Split(line, "\t")
 		if len(f) != 4 || (f[0] != "app" && f[0] != "host") {
-			return nil, fmt.Errorf("licenses/index.tsv 第 %d 行格式不对：%q", i+1, line)
+			return nil, errors.New(locales.AboutLicensesBadLine(i+1, strconv.Quote(line)))
 		}
 		out = append(out, License{Where: f[0], Module: f[1], Version: f[2], file: f[3]})
 	}

@@ -6,6 +6,7 @@ import (
 	"strings"
 
 	"github.com/dzshzx/Zeta/helper/coreapi"
+	"github.com/dzshzx/Zeta/windows/internal/locales"
 	"github.com/dzshzx/Zeta/windows/internal/ui/chatview"
 	"github.com/dzshzx/Zeta/windows/internal/ui/widget"
 	"github.com/egoist/mygo/ui"
@@ -31,7 +32,7 @@ func (p *Page) reloadMemory() {
 		m, err := p.opts.Core.Memory(ctx, p.opts.Cwd, project)
 		return func() {
 			if err != nil {
-				p.failed("读取记忆失败", err)
+				p.failed(locales.ClaudecfgMemoryLoadFailed(), err)
 				return
 			}
 			p.memory.data = &m
@@ -43,38 +44,38 @@ func (p *Page) reloadMemory() {
 func typeLabel(t string) string {
 	switch t {
 	case "user":
-		return "用户"
+		return locales.ClaudecfgMemoryTypeUser()
 	case "feedback":
-		return "反馈"
+		return locales.ClaudecfgMemoryTypeFeedback()
 	case "project":
-		return "项目"
+		return locales.ClaudecfgMemoryTypeProject()
 	case "reference":
-		return "参考"
+		return locales.ClaudecfgMemoryTypeReference()
 	}
 	return t
 }
 
 func (p *Page) memoryPage(c *ui.Context) {
 	m := p.memory.data
-	pageTitle(c, "记忆", p.back, nil)
+	pageTitle(c, locales.ClaudecfgMemory(), p.back, nil)
 	body(c, "memory", func() {
-		widget.Group(c, "用户指令", "~/.claude/CLAUDE.md 里是你写给 Claude 的长期指令，所有项目通用。改动对之后新开始的对话生效。", func(l *widget.List) {
+		widget.Group(c, locales.ClaudecfgMemoryInstructions(), locales.ClaudecfgMemoryInstructionsFooter(), func(l *widget.List) {
 			if m == nil {
-				loadingRow(l, "正在读取…")
+				loadingRow(l, locales.ClaudecfgLoading())
 				return
 			}
-			summary := "还没有创建，打开就能写"
+			summary := locales.ClaudecfgMemoryInstructionsMissing()
 			if m.Instructions.Exists {
 				summary = sizeText(m.Instructions.Size)
 			}
-			entry(l, "CLAUDE.md", summary, "", true, func() {
-				p.openDocument(document{path: m.Instructions.Path, title: "用户指令", file: "CLAUDE.md",
-					placeholder: "比如：回答用中文；我的主要技术栈是 Go；改代码前先说明打算怎么改"})
+			entry(l, "CLAUDE.md", "CLAUDE.md", summary, "", true, func() {
+				p.openDocument(document{path: m.Instructions.Path, title: locales.ClaudecfgMemoryInstructions(), file: "CLAUDE.md",
+					placeholder: locales.ClaudecfgMemoryInstructionsPlaceholder()})
 			})
 		})
-		widget.Group(c, "自动记忆", "Claude 会在对话中自己记下你的偏好、纠正和项目背景。开关对所有项目生效；关掉后不再读写，记忆留着。", func(l *widget.List) {
+		widget.Group(c, locales.ClaudecfgAutoMemory(), locales.ClaudecfgAutoMemoryFooter(), func(l *widget.List) {
 			if m == nil {
-				loadingRow(l, "正在读取…")
+				loadingRow(l, locales.ClaudecfgLoading())
 				return
 			}
 			p.autoMemoryRows(l, *m)
@@ -90,10 +91,10 @@ func (p *Page) autoMemoryRows(l *widget.List, m coreapi.Memory) {
 	on := m.AutoMemory && !m.ForcedOff
 	summary := ""
 	if m.ForcedOff {
-		summary = "被环境变量关掉了，这里改不了"
+		summary = locales.ClaudecfgAutoMemoryForcedOff()
 	}
-	item(l, "启用自动记忆", summary, func() {
-		sw := widget.Switch(c.Key("auto-memory"), &on).Label("启用自动记忆").Disabled(m.ForcedOff || p.memory.working)
+	item(l, locales.ClaudecfgAutoMemoryEnable(), summary, func() {
+		sw := widget.Switch(c.Key("auto-memory"), &on).Label(locales.ClaudecfgAutoMemoryEnable()).Disabled(m.ForcedOff || p.memory.working)
 		if sw.Changed() {
 			p.memory.working = true
 			p.async(func(ctx context.Context) func() {
@@ -101,7 +102,7 @@ func (p *Page) autoMemoryRows(l *widget.List, m coreapi.Memory) {
 				return func() {
 					p.memory.working = false
 					if err != nil {
-						p.failed("没有改成", err)
+						p.failed(locales.ClaudecfgChangeFailed(), err)
 					}
 					p.reloadMemory()
 				}
@@ -111,42 +112,42 @@ func (p *Page) autoMemoryRows(l *widget.List, m coreapi.Memory) {
 	switch {
 	case m.CustomDir != "":
 		// settings.json 里设了 autoMemoryDirectory：所有项目共用这一个目录，没有项目可选
-		l.Row(widget.Row{Title: "记忆目录", Summary: m.CustomDir, Value: "所有项目共用"})
+		l.Row(widget.Row{Title: locales.ClaudecfgMemoryDir(), Summary: m.CustomDir, Value: locales.ClaudecfgMemoryDirShared()})
 	case len(m.Projects) > 0:
 		var labels []string
 		selected := 0
 		for i, pr := range m.Projects {
 			label := pr.Label
 			if pr.Default {
-				label += "（默认工作目录）"
+				label = locales.ClaudecfgMemoryDefaultProject(label)
 			}
 			labels = append(labels, label)
 			if pr.Key == m.Selected {
 				selected = i
 			}
 		}
-		item(l, "项目", "", func() {
-			choice(c, "项目", labels, selected, false, func(i int) {
+		item(l, locales.ClaudecfgMemoryProject(), "", func() {
+			choice(c, "project", locales.ClaudecfgMemoryProject(), labels, selected, false, func(i int) {
 				p.memory.project = m.Projects[i].Key
 				p.reloadMemory()
 			})
 		})
 	}
 	if idx := m.Index; idx != nil {
-		summary, value := "记忆的索引，还没有", ""
+		summary, value := locales.ClaudecfgMemoryIndexMissing(), ""
 		if idx.Exists {
-			summary, value = "记忆的索引", sizeText(idx.Size)
+			summary, value = locales.ClaudecfgMemoryIndex(), sizeText(idx.Size)
 		}
-		entry(l, "MEMORY.md", summary, value, true, func() {
-			p.openDocument(document{path: idx.Path, title: "MEMORY.md", file: "MEMORY.md", placeholder: "一行一条记忆：- [标题](文件名.md) — 一句话说明"})
+		entry(l, "MEMORY.md", "MEMORY.md", summary, value, true, func() {
+			p.openDocument(document{path: idx.Path, title: "MEMORY.md", file: "MEMORY.md", placeholder: locales.ClaudecfgMemoryIndexPlaceholder()})
 		})
 	}
 }
 
 func (p *Page) memoryFiles(c *ui.Context, m coreapi.Memory) {
-	widget.Group(c, "记忆 · "+itoa(len(m.Files)), "", func(l *widget.List) {
+	widget.Group(c, locales.ClaudecfgMemoryFiles(len(m.Files)), "", func(l *widget.List) {
 		if len(m.Files) == 0 {
-			emptyRow(l, "这个项目还没有记忆", "让 Claude 记住的东西会出现在这里")
+			emptyRow(l, locales.ClaudecfgMemoryFilesEmpty(), locales.ClaudecfgMemoryFilesEmptyHint())
 		}
 		for _, f := range m.Files {
 			name := f.Name
@@ -158,7 +159,7 @@ func (p *Page) memoryFiles(c *ui.Context, m coreapi.Memory) {
 				summary = f.FileName
 			}
 			ui.Column(c.Key(f.Path)).Children(func() {
-				entry(l, name, clipLine(summary, 90), typeLabel(f.Type), true, func() {
+				entry(l, f.Path, name, clipLine(summary, 90), typeLabel(f.Type), true, func() {
 					p.openDocument(document{path: f.Path, title: name, file: f.FileName, deletable: true})
 				})
 			})
@@ -197,7 +198,7 @@ func (p *Page) openDocument(d document) {
 			p.doc.loading = false
 			if err != nil {
 				p.back()
-				p.failed("读取失败", err)
+				p.failed(locales.ClaudecfgReadFailed(), err)
 				return
 			}
 			p.doc.saved, p.doc.draft = got.Content, got.Content
@@ -221,7 +222,7 @@ func (p *Page) saveDocument(force bool) {
 			case errors.Is(err, coreapi.ErrConflict):
 				s.conflict = true
 			case err != nil:
-				p.failed("保存失败", err)
+				p.failed(locales.ClaudecfgSaveError(), err)
 			default:
 				s.saved, s.sha = content, newSHA
 				p.reloadMemory()
@@ -246,7 +247,7 @@ func (p *Page) documentPage(c *ui.Context) {
 	}
 	pageTitle(c, s.doc.title, leave, func() {
 		if s.doc.deletable {
-			widget.SmallDangerButton(c, "删除").Disabled(s.loading || s.saving).OnClick(func() { s.deleting = true })
+			widget.SmallDangerButton(c, locales.ClaudecfgDelete()).Disabled(s.loading || s.saving).OnClick(func() { s.deleting = true })
 		}
 	})
 	ui.Column(c).Grow(1).MinHeight(0).FillWidth().MaxWidth(widget.PageWidth).AlignSelf(ui.Center).Padding(8, 16, 16, 16).Gap(8).
@@ -255,7 +256,7 @@ func (p *Page) documentPage(c *ui.Context) {
 			over := size > coreapi.MaxMemoryFile
 			info := s.doc.file + " · " + sizeText(size) + " / 1 MiB"
 			if over {
-				info += " · 超过上限"
+				info += " · " + locales.ClaudecfgDocumentOverLimit()
 			}
 			ui.Row(c).FillWidth().Padding(0, 0, 0, 16).AlignItems(ui.Center).Children(func() {
 				ui.Text(c, info).FontSize(widget.SizeBodyXS).TextColor(k.Secondary).Grow(1)
@@ -264,13 +265,14 @@ func (p *Page) documentPage(c *ui.Context) {
 					if s.preview {
 						mode = 0
 					}
-					if widget.Segmented(c, "预览或编辑", &mode, "预览", "编辑") {
+					if widget.Segmented(c, "document-mode", locales.ClaudecfgDocumentMode(), &mode, locales.ClaudecfgDocumentPreview(),
+						locales.ClaudecfgDocumentEdit()) {
 						s.preview = mode == 0
 					}
 				}
 			})
 			if s.loading {
-				widget.Group(c, "", "", func(l *widget.List) { loadingRow(l, "正在读取…") })
+				widget.Group(c, "", "", func(l *widget.List) { loadingRow(l, locales.ClaudecfgLoading()) })
 				return
 			}
 			if s.preview {
@@ -295,12 +297,12 @@ func (p *Page) documentPreview(c *ui.Context) {
 	k := widget.Of(c)
 	body := stripFrontmatter(s.draft)
 	if strings.TrimSpace(body) == "" {
-		empty := ui.ButtonBase(c.Key("empty")).Label("还没有内容，去编辑").Grow(1).FillWidth().Cursor(ui.CursorText).Padding(24)
+		empty := ui.ButtonBase(c.Key("empty")).Label(locales.ClaudecfgDocumentEmptyEdit()).Grow(1).FillWidth().Cursor(ui.CursorText).Padding(24)
 		widget.Surface{Shape: widget.ShapeCard, Fill: k.Card}.Paint(empty)
 		empty.OnClick(func() { s.preview = false })
 		empty.Children(func() {
 			ui.Column(c).Grow(1).Center().Gap(6).Children(func() {
-				ui.Text(c, "还没有内容").FontSize(widget.SizeBodyXL).FontWeight(widget.Medium).TextColor(k.Text)
+				ui.Text(c, locales.ClaudecfgDocumentEmpty()).FontSize(widget.SizeBodyXL).FontWeight(widget.Medium).TextColor(k.Text)
 				ui.Text(c, s.doc.placeholder).FontSize(widget.SizeBodyM).TextColor(k.Secondary)
 			})
 		})
@@ -318,17 +320,17 @@ func (p *Page) saveBar(c *ui.Context, over bool) {
 	s := &p.doc
 	k := widget.Of(c)
 	ui.Row(c).Gap(8).Padding(4, 0, 0, 16).AlignItems(ui.Center).Children(func() {
-		hint := "未保存的更改"
+		hint := locales.ClaudecfgDocumentUnsaved()
 		color := k.Secondary
 		if over {
-			hint, color = "已超过 1 MiB 上限，请删减", k.Error
+			hint, color = locales.ClaudecfgDocumentTooLarge(), k.Error
 		}
 		ui.Text(c, hint).FontSize(widget.SizeBodyXS).TextColor(color)
 		ui.Spacer(c)
-		widget.SmallButton(c, "放弃").Disabled(s.saving).OnClick(func() { s.draft = s.saved })
-		label := "保存"
+		widget.SmallButton(c, locales.ClaudecfgDiscard()).Disabled(s.saving).OnClick(func() { s.draft = s.saved })
+		label := locales.ClaudecfgSave()
 		if s.saving {
-			label = "保存中"
+			label = locales.ClaudecfgSaving()
 		}
 		widget.SmallPrimaryButton(c, label).Disabled(s.saving || over).OnClick(func() { p.saveDocument(false) })
 	})
@@ -354,21 +356,21 @@ func stripFrontmatter(text string) string {
 
 func (p *Page) documentDialogs(c *ui.Context) {
 	s := &p.doc
-	if alert(c, &s.conflict, "文件已经变了", "编辑期间这个文件被改过了，多半是 Claude 在对话里更新了它。保存会用你的版本覆盖。",
-		widget.Destructive, "取消", "仍然保存") == 1 {
+	if alert(c, &s.conflict, locales.ClaudecfgConflictTitle(), locales.ClaudecfgConflictMessage(),
+		widget.Destructive, locales.ClaudecfgCancel(), locales.ClaudecfgSaveAnyway()) == 1 {
 		p.saveDocument(true)
 	}
-	if alert(c, &s.leaving, "放弃未保存的更改？", "", widget.Destructive, "取消", "放弃") == 1 {
+	if alert(c, &s.leaving, locales.ClaudecfgDiscardTitle(), "", widget.Destructive, locales.ClaudecfgCancel(), locales.ClaudecfgDiscard()) == 1 {
 		p.back()
 	}
-	message := "删除 " + s.doc.file + "，并从 MEMORY.md 里去掉它那一行。删了就找不回来。"
-	if alert(c, &s.deleting, "删除这条记忆", message, widget.Destructive, "取消", "删除") == 1 {
+	message := locales.ClaudecfgMemoryDeleteMessage(s.doc.file)
+	if alert(c, &s.deleting, locales.ClaudecfgMemoryDeleteTitle(), message, widget.Destructive, locales.ClaudecfgCancel(), locales.ClaudecfgDelete()) == 1 {
 		path := s.doc.path
 		p.async(func(ctx context.Context) func() {
 			err := p.opts.Core.DeleteMemory(ctx, path)
 			return func() {
 				if err != nil {
-					p.failed("删除失败", err)
+					p.failed(locales.ClaudecfgDeleteFailed(), err)
 				} else {
 					p.back()
 				}

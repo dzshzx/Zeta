@@ -1,6 +1,9 @@
 package widget
 
-import "github.com/egoist/mygo/ui"
+import (
+	"github.com/dzshzx/Zeta/windows/internal/locales"
+	"github.com/egoist/mygo/ui"
+)
 
 // 按钮是胶囊（照 ChatGPT）：主按钮黑底白字（深色里白底黑字），次按钮透明底一圈细边，危险操作红底白字。尺寸是桌面的：大的最少 32 高、字 14 Medium，
 // 小的最少 28 高、字 13 Medium；鼠标点，不按手指的触控尺寸放大。不能点时整个变淡。
@@ -304,8 +307,8 @@ func SearchField(c *ui.Context, value *string, label string) ui.Element {
 			box.Border(1, k.Primary)
 		}
 		if *value != "" {
-			clear := ui.ButtonBase(c).Size(24, 24).Radius(6).Justify(ui.Center).AlignItems(ui.Center).Label("清除").
-				Tooltip("清除").Cursor(ui.CursorPointer).Shrink(0)
+			clear := ui.ButtonBase(c).Size(24, 24).Radius(6).Justify(ui.Center).AlignItems(ui.Center).Label(locales.WidgetClear()).
+				Tooltip(locales.WidgetClear()).Cursor(ui.CursorPointer).Shrink(0)
 			if clear.Hovered() {
 				clear.Background(k.Hover)
 			}
@@ -340,11 +343,11 @@ func ToolPill(c *ui.Context, trigger ui.Element, icon *ui.SVG, label string, tin
 }
 
 // Segmented 是几段里选一段的切换（预览 / 编辑这类）：淡灰的槽，选中的一段白底（深色里是浅一档的灰）带一点阴影，字 13；
-// name 是读屏名字。
+// key 是不随语言变的元素名，name 是读屏名字。
 // 返回这一帧换没换。
-func Segmented(c *ui.Context, name string, selected *int, labels ...string) bool {
+func Segmented(c *ui.Context, key, name string, selected *int, labels ...string) bool {
 	k := Of(c)
-	parts := ui.SegmentedBase(c.Key(name), selected, len(labels))
+	parts := ui.SegmentedBase(c.Key(key), selected, len(labels))
 	track := parts.Track.Label(name).Padding(2).Gap(2).Radius(8).Background(k.Chip).AlignItems(ui.Stretch)
 	selectedFill := k.Card
 	if k.Dark {

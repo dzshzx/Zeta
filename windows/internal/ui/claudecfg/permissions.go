@@ -5,6 +5,7 @@ import (
 	"strings"
 
 	"github.com/dzshzx/Zeta/helper/coreapi"
+	"github.com/dzshzx/Zeta/windows/internal/locales"
 	"github.com/dzshzx/Zeta/windows/internal/ui/widget"
 	"github.com/egoist/mygo/ui"
 )
@@ -27,9 +28,8 @@ type permState struct {
 	toolsErr  string
 }
 
-// bulkRequest 是点了“全部开启”或“全部关闭”、等确认的那一组。
+// bulkRequest 是点了“全部开启”或“全部关闭”、等确认的那一组（group.Server 为空是内置工具）。
 type bulkRequest struct {
-	label  string
 	group  coreapi.PermissionGroup
 	enable bool
 	change coreapi.BulkChange
@@ -46,17 +46,17 @@ type ruleEdit struct {
 	open     bool
 }
 
-// choiceLabels 是工具一行右边下拉的四项，和 choiceValues 一一对应。
-var (
-	choiceValues = append([]coreapi.Behavior{""}, behaviors...)
-	choiceLabels = func() []string {
-		var out []string
-		for _, b := range choiceValues {
-			out = append(out, behaviorLabel(b))
-		}
-		return out
-	}()
-)
+// choiceValues 是工具一行右边下拉的四项。
+var choiceValues = append([]coreapi.Behavior{""}, behaviors...)
+
+// choiceLabels 是 choiceValues 按界面当前的语言的说法，一一对应。
+func choiceLabels() []string {
+	var out []string
+	for _, b := range choiceValues {
+		out = append(out, behaviorLabel(b))
+	}
+	return out
+}
 
 func (p *Page) openPermissions() {
 	p.perm = permState{}
@@ -101,7 +101,7 @@ func (p *Page) applyPermissions(op func(context.Context, coreapi.PermissionView)
 			case s.data == nil:
 				s.loadErr = err.Error()
 			default:
-				p.failed("没有改成", err)
+				p.failed(locales.ClaudecfgChangeFailed(), err)
 			}
 		}
 	})
@@ -122,14 +122,18 @@ func (p *Page) setTool(rule string, b coreapi.Behavior) {
 	}, nil)
 }
 
-// toolSummary 是一行的说明：有从服务器继承来的设置、带参数的规则时写这些，没有时写 fallback。
-func toolSummary(fallback string, st coreapi.ToolState, serverLabel string) string {
+// toolSummary 是一行的说明：有继承来的设置（fromServer 时是从整个服务器）、带参数的规则时写这些，没有时写 fallback。
+func toolSummary(fallback string, st coreapi.ToolState, fromServer bool) string {
 	var parts []string
 	if st.Inherited && st.Behavior != "" {
-		parts = append(parts, "跟随"+serverLabel+"："+behaviorLabel(st.Behavior))
+		inherited := locales.ClaudecfgPermInherited(behaviorLabel(st.Behavior))
+		if fromServer {
+			inherited = locales.ClaudecfgPermInheritedServer(behaviorLabel(st.Behavior))
+		}
+		parts = append(parts, inherited)
 	}
 	if n := len(st.Specific); n > 0 {
-		parts = append(parts, "另有 "+itoa(n)+" 条带参数的规则")
+		parts = append(parts, locales.ClaudecfgPermSpecific(n))
 	}
 	if len(parts) == 0 {
 		return fallback
@@ -149,7 +153,7 @@ func (p *Page) toolRow(l *widget.List, title, summary, rule string, own coreapi.
 					selected = i
 				}
 			}
-			choice(c, title, choiceLabels, selected, !editable, func(i int) {
+			choice(c, rule, title, choiceLabels(), selected, !editable, func(i int) {
 				if choiceValues[i] != own {
 					p.setTool(rule, choiceValues[i])
 				}
@@ -160,19 +164,19 @@ func (p *Page) toolRow(l *widget.List, title, summary, rule string, own coreapi.
 
 func (p *Page) permissionsPage(c *ui.Context) {
 	s := &p.perm
-	pageTitle(c, "工具权限", p.back, func() {
-		widget.SmallButton(c, "重新读取").Disabled(s.working).OnClick(p.reloadPermissions)
-		widget.SmallPrimaryButton(c, "添加规则").Disabled(s.data == nil || s.working).OnClick(func() { p.openRule(nil) })
+	pageTitle(c, locales.ClaudecfgPermissions(), p.back, func() {
+		widget.SmallButton(c, locales.ClaudecfgPermReload()).Disabled(s.working).OnClick(p.reloadPermissions)
+		widget.SmallPrimaryButton(c, locales.ClaudecfgPermAddRule()).Disabled(s.data == nil || s.working).OnClick(func() { p.openRule(nil) })
 	})
 	body(c, "permissions", func() {
-		intro := permissionSemantics + "改动对所有项目、之后新开始的对话生效。"
+		intro := locales.ClaudecfgPermissionsIntro()
 		if s.loadErr != "" {
-			intro += "\n\n读取失败：" + s.loadErr
+			intro += "\n\n" + locales.ClaudecfgLoadFailed(s.loadErr)
 		}
 		muted(c, intro)
 		if s.data == nil {
 			if s.loadErr == "" {
-				widget.Group(c, "", "", func(l *widget.List) { loadingRow(l, "正在读取…") })
+				widget.Group(c, "", "", func(l *widget.List) { loadingRow(l, locales.ClaudecfgLoading()) })
 			}
 			return
 		}
@@ -186,28 +190,28 @@ func (p *Page) permissionsPage(c *ui.Context) {
 func (p *Page) builtinSection(c *ui.Context) {
 	s := &p.perm
 	d := s.data
-	widget.Group(c, "内置工具", "", func(l *widget.List) {
-		p.bulkButtons(l, "内置工具", d.BuiltinGroup(), d.BuiltinBulk)
+	widget.Group(c, locales.ClaudecfgPermBuiltin(), "", func(l *widget.List) {
+		p.bulkButtons(l, d.BuiltinGroup(), d.BuiltinBulk)
 		more := 0
 		for _, t := range d.Builtin {
 			if t.More {
 				more++
 				continue
 			}
-			p.toolRow(l, t.Name, toolSummary(t.Label, t.State, "整个服务器"), t.Rule, t.Own)
+			p.toolRow(l, t.Name, toolSummary(t.Label, t.State, true), t.Rule, t.Own)
 		}
 		if !s.showMore && more > 0 {
-			item(l, "更多内置工具", "", func() {
-				ui.Text(c, itoa(more)+" 个").FontSize(widget.SizeBodyM).TextColor(widget.Of(c).Tertiary)
-				widget.SmallButton(c, "展开").Label("展开更多内置工具").OnClick(func() { s.showMore = true })
+			item(l, locales.ClaudecfgPermMore(), "", func() {
+				ui.Text(c, locales.ClaudecfgPermMoreCount(more)).FontSize(widget.SizeBodyM).TextColor(widget.Of(c).Tertiary)
+				widget.SmallButton(c, locales.ClaudecfgPermShowMore()).Label(locales.ClaudecfgPermShowMoreLabel()).OnClick(func() { s.showMore = true })
 			})
 		}
 	})
 	if s.showMore {
-		widget.Group(c, "更多内置工具", "", func(l *widget.List) {
+		widget.Group(c, locales.ClaudecfgPermMore(), "", func(l *widget.List) {
 			for _, t := range d.Builtin {
 				if t.More {
-					p.toolRow(l, t.Name, toolSummary(t.Label, t.State, "整个服务器"), t.Rule, t.Own)
+					p.toolRow(l, t.Name, toolSummary(t.Label, t.State, true), t.Rule, t.Own)
 				}
 			}
 		})
@@ -215,22 +219,35 @@ func (p *Page) builtinSection(c *ui.Context) {
 }
 
 // bulkButtons 是一组上面的一对按钮；已经全是那个状态（没什么可加可删）时置灰。
-func (p *Page) bulkButtons(l *widget.List, label string, g coreapi.PermissionGroup, pair coreapi.BulkPair) {
+func (p *Page) bulkButtons(l *widget.List, g coreapi.PermissionGroup, pair coreapi.BulkPair) {
 	disabled := p.perm.data == nil || p.perm.working
 	ask := func(enable bool, change coreapi.BulkChange) {
-		p.perm.bulk = &bulkRequest{label: label, group: g, enable: enable, change: change, open: true}
+		p.perm.bulk = &bulkRequest{group: g, enable: enable, change: change, open: true}
 	}
 	c := l.Context()
 	l.Custom(func() {
-		widget.SmallButton(c, "全部开启").Label("全部开启" + label).Disabled(disabled || pair.Enable.Empty()).OnClick(func() { ask(true, pair.Enable) })
-		widget.SmallButton(c, "全部关闭").Label("全部关闭" + label).Disabled(disabled || pair.Disable.Empty()).OnClick(func() { ask(false, pair.Disable) })
+		widget.SmallButton(c, locales.ClaudecfgPermEnableAll()).Label(bulkLabel(g, true)).Disabled(disabled || pair.Enable.Empty()).OnClick(func() { ask(true, pair.Enable) })
+		widget.SmallButton(c, locales.ClaudecfgPermDisableAll()).Label(bulkLabel(g, false)).Disabled(disabled || pair.Disable.Empty()).OnClick(func() { ask(false, pair.Disable) })
 	})
+}
+
+// bulkLabel 是全部开启（enable）或关闭一组的说法：按钮的读屏名字，加问号是确认框的标题。
+func bulkLabel(g coreapi.PermissionGroup, enable bool) string {
+	switch {
+	case g.Server == "" && enable:
+		return locales.ClaudecfgPermEnableAllBuiltin()
+	case g.Server == "":
+		return locales.ClaudecfgPermDisableAllBuiltin()
+	case enable:
+		return locales.ClaudecfgPermEnableAllServer(g.Server)
+	}
+	return locales.ClaudecfgPermDisableAllServer(g.Server)
 }
 
 // bulkMessage 是确认框里的说明：按表列出会加、会删的规则；关掉全部内置工具时另外说清后果。
 func bulkMessage(change coreapi.BulkChange, warnNoTools bool) string {
 	var b strings.Builder
-	list := func(verb string, rules []coreapi.Rule, suffix string) {
+	list := func(line func(count int, behavior, rules string) string, rules []coreapi.Rule) {
 		for _, be := range behaviors {
 			var texts []string
 			for _, r := range rules {
@@ -239,27 +256,27 @@ func bulkMessage(change coreapi.BulkChange, warnNoTools bool) string {
 				}
 			}
 			if len(texts) > 0 {
-				b.WriteString(verb + behaviorLabel(be) + suffix + "（" + itoa(len(texts)) + " 条）：" + strings.Join(texts, "、") + "\n")
+				b.WriteString(line(len(texts), behaviorLabel(be), strings.Join(texts, locales.ClaudecfgListSeparator())) + "\n")
 			}
 		}
 	}
-	list("加到", change.Add, "")
-	list("从", change.Remove, "里删")
+	list(locales.ClaudecfgPermBulkAdd, change.Add)
+	list(locales.ClaudecfgPermBulkRemove, change.Remove)
 	if warnNoTools {
-		b.WriteString("\n关掉以后 Claude 连读写文件、跑命令都做不了，只能聊天和用 MCP 工具。")
+		b.WriteString("\n" + locales.ClaudecfgPermNoToolsWarning())
 	}
 	return strings.TrimRight(b.String(), "\n")
 }
 
 func (p *Page) serversSection(c *ui.Context) {
 	d := p.perm.data
-	widget.Group(c, "MCP 服务器", "", func(l *widget.List) {
+	widget.Group(c, locales.ClaudecfgMcpServers(), "", func(l *widget.List) {
 		if len(d.Servers) == 0 {
-			emptyRow(l, "没有配置 MCP 服务器", "")
+			emptyRow(l, locales.ClaudecfgPermNoServers(), "")
 		}
 		for _, sv := range d.Servers {
 			ui.Column(c.Key("server-" + sv.Name)).Children(func() {
-				entry(l, sv.Name, toolSummary(sv.Rule, sv.State, ""), behaviorLabel(sv.State.Behavior), true, func() { p.openPermServer(sv) })
+				entry(l, sv.Name, sv.Name, toolSummary(sv.Rule, sv.State, false), behaviorLabel(sv.State.Behavior), true, func() { p.openPermServer(sv) })
 			})
 		}
 	})
@@ -267,19 +284,19 @@ func (p *Page) serversSection(c *ui.Context) {
 
 func (p *Page) rulesSection(c *ui.Context) {
 	s := &p.perm
-	widget.Group(c, "规则 · "+itoa(len(s.data.Rules)), "带参数的规则只在这里改，上面的下拉不动它们。", func(l *widget.List) {
+	widget.Group(c, locales.ClaudecfgPermRulesCount(len(s.data.Rules)), locales.ClaudecfgPermRulesFooter(), func(l *widget.List) {
 		if len(s.data.Rules) == 0 {
-			emptyRow(l, "还没有规则", "点右上角的“添加规则”")
+			emptyRow(l, locales.ClaudecfgPermRulesEmpty(), locales.ClaudecfgPermRulesEmptyHint())
 		}
 		for _, r := range s.data.Rules {
 			summary := behaviorLabel(r.Behavior)
 			if r.Malformed {
-				summary += " · 括号不配对，Claude Code 认不出这条"
+				summary = locales.ClaudecfgPermRuleMalformed(summary)
 			}
 			ui.Column(c.Key(string(r.Behavior) + "/" + r.Text)).Children(func() {
 				item(l, r.Text, summary, func() {
-					widget.SmallButton(c, "编辑").Label("编辑：" + r.Text).Disabled(s.working).OnClick(func() { p.openRule(&r.Rule) })
-					widget.SmallDangerButton(c, "删除").Label("删除：" + r.Text).Disabled(s.working).OnClick(func() { s.deleting = &r.Rule })
+					widget.SmallButton(c, locales.ClaudecfgPermEdit()).Label(locales.ClaudecfgPermEditRule(r.Text)).Disabled(s.working).OnClick(func() { p.openRule(&r.Rule) })
+					widget.SmallDangerButton(c, locales.ClaudecfgDelete()).Label(locales.ClaudecfgDeleteItem(r.Text)).Disabled(s.working).OnClick(func() { s.deleting = &r.Rule })
 				})
 			})
 		}
@@ -298,7 +315,7 @@ func (p *Page) saveRule() {
 	e := p.perm.edit
 	nw := coreapi.Rule{Behavior: e.behavior, Text: strings.TrimSpace(e.text)}
 	if nw.Text == "" {
-		e.problem = "规则不能是空的"
+		e.problem = locales.ClaudecfgPermRuleEmpty()
 		return
 	}
 	original := e.original
@@ -328,7 +345,8 @@ func (p *Page) permDialogs(c *ui.Context) {
 	}
 	if r := s.deleting; r != nil {
 		open := true
-		if alert(c, &open, "删除规则", "删除"+behaviorLabel(r.Behavior)+"规则 "+r.Text+"？", widget.Destructive, "取消", "删除") == 1 {
+		if alert(c, &open, locales.ClaudecfgPermDeleteRule(), locales.ClaudecfgPermDeleteRuleMessage(behaviorLabel(r.Behavior), r.Text),
+			widget.Destructive, locales.ClaudecfgCancel(), locales.ClaudecfgDelete()) == 1 {
 			rule := *r
 			p.applyPermissions(func(ctx context.Context, pv coreapi.PermissionView) (coreapi.Permissions, error) {
 				return p.opts.Core.RemovePermissionRule(ctx, pv, rule)
@@ -342,9 +360,9 @@ func (p *Page) permDialogs(c *ui.Context) {
 }
 
 func (p *Page) ruleDialog(c *ui.Context, e *ruleEdit) {
-	title := "添加规则"
+	title := locales.ClaudecfgPermAddRule()
 	if e.original != nil {
-		title = "编辑规则"
+		title = locales.ClaudecfgPermEditRuleTitle()
 	}
 	dialog(c, &e.open, title, func() {
 		labels := []string{}
@@ -355,20 +373,20 @@ func (p *Page) ruleDialog(c *ui.Context, e *ruleEdit) {
 				selected = i
 			}
 		}
-		labeled(c, "表", func() {
-			choice(c, "表", labels, selected, e.saving, func(i int) { e.behavior = behaviors[i] })
+		labeled(c, locales.ClaudecfgPermList(), func() {
+			choice(c, "list", locales.ClaudecfgPermList(), labels, selected, e.saving, func(i int) { e.behavior = behaviors[i] })
 		})
-		widget.LineInput(c.Key("rule"), &e.text, 1).Placeholder("Bash(git push:*)").Label("规则").Disabled(e.saving).AutoFocus()
-		ui.Text(c, "写成 工具名 或 工具名(参数)。比如 Bash(npm run test:*)、Read(./.env)、Edit(src/**)、WebFetch(domain:github.com)、mcp__github（整个服务器）。").
+		widget.LineInput(c.Key("rule"), &e.text, 1).Placeholder("Bash(git push:*)").Label(locales.ClaudecfgPermRule()).Disabled(e.saving).AutoFocus()
+		ui.Text(c, locales.ClaudecfgPermRuleHelp()).
 			FontSize(widget.SizeBodyXS).LineHeight(1.4).TextColor(widget.Of(c).Secondary)
 		if e.problem != "" {
 			problemText(c, e.problem)
 		}
 	}, func() {
-		widget.DialogButton(c, "取消", widget.Plain).Disabled(e.saving).OnClick(func() { e.open = false })
-		label := "保存"
+		widget.DialogButton(c, locales.ClaudecfgCancel(), widget.Plain).Disabled(e.saving).OnClick(func() { e.open = false })
+		label := locales.ClaudecfgSave()
 		if e.saving {
-			label = "正在保存…"
+			label = locales.ClaudecfgPermSaving()
 		}
 		widget.DialogButton(c, label, widget.Recommend).Disabled(e.saving).OnClick(p.saveRule)
 	})
@@ -380,16 +398,17 @@ func (p *Page) bulkDialog(c *ui.Context) {
 	if r == nil {
 		return
 	}
-	verb := "全部开启"
+	verb := locales.ClaudecfgPermEnableAll()
 	if !r.enable {
-		verb = "全部关闭"
+		verb = locales.ClaudecfgPermDisableAll()
 	}
 	warn := !r.enable && r.group.Server == ""
 	style := widget.Recommend
 	if !r.enable {
 		style = widget.Destructive
 	}
-	if alert(c, &r.open, verb+r.label+"？", bulkMessage(r.change, warn), style, "取消", verb) == 1 {
+	if alert(c, &r.open, locales.ClaudecfgConfirmQuestion(bulkLabel(r.group, r.enable)), bulkMessage(r.change, warn), style,
+		locales.ClaudecfgCancel(), verb) == 1 {
 		g, enable := r.group, r.enable
 		p.applyPermissions(func(ctx context.Context, pv coreapi.PermissionView) (coreapi.Permissions, error) {
 			return p.opts.Core.SetPermissionGroup(ctx, pv, g, enable)
@@ -450,20 +469,20 @@ func (p *Page) permServerPage(c *ui.Context) {
 	s := &p.perm
 	sv := s.server
 	pageTitle(c, sv.Name, p.back, func() {
-		widget.SmallButton(c, "刷新工具").Disabled(s.toolsBusy || sv.OAuth).OnClick(p.loadServerTools)
+		widget.SmallButton(c, locales.ClaudecfgMcpRefreshTools()).Disabled(s.toolsBusy || sv.OAuth).OnClick(p.loadServerTools)
 	})
 	body(c, "perm-server", func() {
-		widget.Group(c, "", "整个服务器的设置管它的每个工具；工具自己也设了的，取更严的那个。", func(l *widget.List) {
-			p.bulkButtons(l, sv.Name+" 的工具", coreapi.PermissionGroup{Server: sv.Name}, sv.Bulk)
-			p.toolRow(l, "整个服务器", sv.Rule, sv.Rule, sv.State.Behavior)
+		widget.Group(c, "", locales.ClaudecfgPermServerFooter(), func(l *widget.List) {
+			p.bulkButtons(l, coreapi.PermissionGroup{Server: sv.Name}, sv.Bulk)
+			p.toolRow(l, locales.ClaudecfgPermWholeServer(), sv.Rule, sv.Rule, sv.State.Behavior)
 		})
-		title := "工具"
+		title := locales.ClaudecfgTools()
 		if s.tools != nil {
-			title += " · " + itoa(len(s.tools))
+			title = locales.ClaudecfgToolsCount(len(s.tools))
 		}
 		footer := ""
 		if sv.OAuth {
-			footer = "要按工具设置，在上一页的“规则”里手写 " + sv.Rule + "__工具名。"
+			footer = locales.ClaudecfgPermServerOAuth(sv.Rule)
 		}
 		widget.Group(c, title, footer, p.serverToolRows)
 	})
@@ -475,17 +494,19 @@ func (p *Page) serverToolRows(l *widget.List) {
 	s := &p.perm
 	switch {
 	case s.toolsBusy:
-		loadingRow(l, "正在连接…")
+		loadingRow(l, locales.ClaudecfgConnecting())
 	case s.toolsErr != "":
-		item(l, "取不到工具清单", s.toolsErr, func() { widget.SmallButton(c, "重试").OnClick(p.loadServerTools) })
+		item(l, locales.ClaudecfgToolsListFailed(), s.toolsErr, func() { widget.SmallButton(c, locales.ClaudecfgRetry()).OnClick(p.loadServerTools) })
 	case s.tools == nil:
-		summary := "连上服务器取工具清单"
+		summary := locales.ClaudecfgToolsConnectHint()
 		if s.server.OAuth {
-			summary = "用 OAuth 登录的服务器取不到"
+			summary = locales.ClaudecfgToolsOAuth()
 		}
-		item(l, "列出工具", summary, func() { widget.SmallButton(c, "列出").Disabled(s.server.OAuth).OnClick(p.loadServerTools) })
+		item(l, locales.ClaudecfgToolsList(), summary, func() {
+			widget.SmallButton(c, locales.ClaudecfgToolsListButton()).Disabled(s.server.OAuth).OnClick(p.loadServerTools)
+		})
 	case len(s.tools) == 0:
-		emptyRow(l, "没有工具", "")
+		emptyRow(l, locales.ClaudecfgToolsNone(), "")
 	}
 	for _, tool := range s.tools {
 		v, ok := p.serverTool(tool.Name)
@@ -493,6 +514,6 @@ func (p *Page) serverToolRows(l *widget.List) {
 			item(l, tool.Name, clipLine(tool.Description, 60), nil)
 			continue
 		}
-		p.toolRow(l, tool.Name, toolSummary(clipLine(tool.Description, 60), v.State, "整个服务器"), v.Rule, v.Own)
+		p.toolRow(l, tool.Name, toolSummary(clipLine(tool.Description, 60), v.State, true), v.Rule, v.Own)
 	}
 }

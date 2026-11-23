@@ -4,6 +4,7 @@ package about
 import (
 	"fmt"
 
+	"github.com/dzshzx/Zeta/windows/internal/locales"
 	"github.com/dzshzx/Zeta/windows/internal/ui/widget"
 	"github.com/dzshzx/Zeta/windows/internal/update"
 	"github.com/egoist/mygo/ui"
@@ -47,25 +48,28 @@ func (p *Page) View(c *ui.Context) ui.Element {
 }
 
 func (p *Page) aboutSection(c *ui.Context) {
-	widget.Group(c, "关于", "", func(l *widget.List) {
+	widget.Group(c, locales.AboutTitle(), "", func(l *widget.List) {
 		version := p.Version.Name
-		if !p.Version.Release() {
-			version = "开发版 " + version
+		if version == "" {
+			version = locales.AboutVersionUnknown()
 		}
-		l.Row(widget.Row{Title: "版本", Value: version})
+		if !p.Version.Release() {
+			version = locales.AboutVersionDev(version)
+		}
+		l.Row(widget.Row{Title: locales.AboutVersion(), Value: version})
 		ref := sourceRef(p.Version.Name)
 		if ref == "" {
 			ref = "GitHub"
 		}
-		l.Row(widget.Row{Title: "源码", Value: ref, Arrow: true, OnClick: func() { c.OpenURL(sourceURL(p.Version.Name)) }})
+		l.Row(widget.Row{Title: locales.AboutSource(), Value: ref, Arrow: true, OnClick: func() { c.OpenURL(sourceURL(p.Version.Name)) }})
 		if !p.Updates.Enabled() {
 			return
 		}
 		st := p.Updates.Status()
 		p.checkRow(l, st)
-		l.Row(widget.Row{Title: "自动检查更新", End: func() {
+		l.Row(widget.Row{Title: locales.AboutAutoCheck(), End: func() {
 			on := p.Prefs.AutoUpdateCheck()
-			widget.Switch(c, &on).Label("自动检查更新")
+			widget.Switch(c, &on).Label(locales.AboutAutoCheck())
 			if on != p.Prefs.AutoUpdateCheck() {
 				p.Prefs.SetAutoUpdateCheck(on)
 			}
@@ -76,7 +80,7 @@ func (p *Page) aboutSection(c *ui.Context) {
 // checkRow 是检查更新一行：右边是结果，点它再查一次；正在查、已有新版本时点不了。没查成时原因写在标题下面。
 func (p *Page) checkRow(l *widget.List, st update.Status) {
 	c := l.Context()
-	row := widget.Row{Title: "检查更新", End: func() { checkResult(c, st) }}
+	row := widget.Row{Title: locales.AboutCheck(), End: func() { checkResult(c, st) }}
 	if st.Phase == update.CheckFailed {
 		row.Summary, row.SummaryColor = st.Reason, widget.Of(c).Error
 	}
@@ -93,20 +97,20 @@ func checkResult(c *ui.Context, st update.Status) {
 	switch st.Phase {
 	case update.Checking:
 		ui.Spinner(c).Size(14, 14)
-		value("正在检查…", k.Tertiary)
+		value(locales.AboutChecking(), k.Tertiary)
 	case update.UpToDate:
-		value("已是最新版本", k.Tertiary)
+		value(locales.AboutUpToDate(), k.Tertiary)
 	case update.CheckFailed:
-		value("检查失败", k.Error)
+		value(locales.AboutCheckFailed(), k.Error)
 	case update.Available:
-		value("有新版本 "+st.Manifest.VersionName, k.PrimaryText)
+		value(locales.AboutAvailable(st.Manifest.VersionName), k.PrimaryText)
 	}
 }
 
 // releaseSection 是新版本一节：版本号、大小或进度，按钮管下载和安装；下面是更新说明。
 func (p *Page) releaseSection(c *ui.Context, st update.Status) {
 	m := st.Manifest
-	widget.Group(c, "新版本", "安装时 Zeta 会关闭，完成后自动重新打开。", func(l *widget.List) {
+	widget.Group(c, locales.AboutRelease(), locales.AboutReleaseFooter(), func(l *widget.List) {
 		row := widget.Row{Title: "Zeta " + m.VersionName, Summary: releaseSummary(st), End: func() { p.releaseButton(c, st.Step) }}
 		if st.Step == update.Failed {
 			row.SummaryColor = widget.Of(c).Error
@@ -114,14 +118,14 @@ func (p *Page) releaseSection(c *ui.Context, st update.Status) {
 		l.Row(row)
 		if st.Step == update.Downloading {
 			l.Custom(func() {
-				ui.Progress(c, float64(st.Done)/float64(m.MSI.Size)).Grow(1).Label("下载进度")
+				ui.Progress(c, float64(st.Done)/float64(m.MSI.Size)).Grow(1).Label(locales.AboutDownloadProgress())
 			})
 		}
 	})
-	widget.Group(c, "更新说明", "", func(l *widget.List) {
+	widget.Group(c, locales.AboutNotes(), "", func(l *widget.List) {
 		notes := m.Notes
 		if notes == "" {
-			notes = "- 没有更新说明"
+			notes = locales.AboutNoNotes()
 		}
 		k := widget.Of(c)
 		p.notesTheme = markdown.Theme{FontSize: widget.SizeBodyL, Text: k.Text, Muted: k.Tertiary, Strong: k.Text, Link: k.PrimaryText}
@@ -133,15 +137,15 @@ func (p *Page) releaseSection(c *ui.Context, st update.Status) {
 func (p *Page) releaseButton(c *ui.Context, step update.Step) {
 	switch step {
 	case update.Ready:
-		if widget.SmallPrimaryButton(c, "更新").Clicked() {
+		if widget.SmallPrimaryButton(c, locales.AboutUpdate()).Clicked() {
 			p.Updates.Update()
 		}
 	case update.Failed:
-		if widget.SmallPrimaryButton(c, "重试").Clicked() {
+		if widget.SmallPrimaryButton(c, locales.AboutRetry()).Clicked() {
 			p.Updates.Update()
 		}
 	case update.Downloading:
-		if widget.SmallButton(c, "取消").Clicked() {
+		if widget.SmallButton(c, locales.AboutCancel()).Clicked() {
 			p.Updates.Cancel()
 		}
 	case update.Verifying, update.Installing:
@@ -154,16 +158,16 @@ func releaseSummary(st update.Status) string {
 	size := formatBytes(m.MSI.Size)
 	switch st.Step {
 	case update.Downloading:
-		return "正在下载 " + formatBytes(st.Done) + " / " + size
+		return locales.AboutDownloading(formatBytes(st.Done), size)
 	case update.Verifying:
-		return "正在校验"
+		return locales.AboutVerifying()
 	case update.Installing:
-		return "正在安装"
+		return locales.AboutInstalling()
 	case update.Failed:
 		return st.Reason
 	}
 	if len(m.PublishedAt) >= 10 {
-		return size + " · " + m.PublishedAt[:10] + " 发布"
+		return locales.AboutPublished(size, m.PublishedAt[:10])
 	}
 	return size
 }
@@ -174,17 +178,17 @@ func (p *Page) licenseSection(c *ui.Context) {
 		p.licenses, p.loadErr = licenses()
 		p.open, p.loaded = map[string]bool{}, true
 	}
-	widget.Group(c, "开源许可", "Zeta 按 GPL-3.0 授权，Copyright © 2026 dzshzx。程序里还带着下面这些第三方组件，各自按它们的许可证分发。",
+	widget.Group(c, locales.AboutLicenses(), locales.AboutLicensesFooter(),
 		func(l *widget.List) { p.license(l, "Zeta", "Zeta（GPL-3.0）", zetaLicense) })
 	if p.loadErr != nil {
 		ui.Column(c).Padding(0, 16, 16, 16).Children(func() {
-			widget.Notice(c, "读不出许可证清单："+p.loadErr.Error(), widget.Failure)
+			widget.Notice(c, locales.AboutLicensesLoadFailed(p.loadErr.Error()), widget.Failure)
 		})
 		return
 	}
 	for _, group := range []struct{ where, title string }{
-		{"app", "Windows 程序链接的"},
-		{"host", "带到主机上的 zeta-helper、claude-switch 链接的"},
+		{"app", locales.AboutLicensesApp()},
+		{"host", locales.AboutLicensesHost()},
 	} {
 		widget.Group(c, group.title, "", func(l *widget.List) {
 			for _, li := range p.licenses {
@@ -238,9 +242,9 @@ func formatBytes(n int64) string {
 
 // creditsSection 是鸣谢：桌面版参照和依靠的几个项目，点一行用浏览器打开它的主页（同手机版的「鸣谢」页，桌面版放在关于页里）。
 func creditsSection(c *ui.Context) {
-	widget.Group(c, "鸣谢", "", func(l *widget.List) {
+	widget.Group(c, locales.AboutCredits(), "", func(l *widget.List) {
 		for _, cr := range credits {
-			l.Row(widget.Row{Key: cr.name, Title: cr.name, Summary: cr.summary, Arrow: true, OnClick: func() { c.OpenURL(cr.url) }})
+			l.Row(widget.Row{Key: cr.url, Title: cr.name(), Summary: cr.summary(), Arrow: true, OnClick: func() { c.OpenURL(cr.url) }})
 		}
 	})
 }

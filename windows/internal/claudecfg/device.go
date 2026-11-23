@@ -120,11 +120,3 @@ func (d Device) AutoTitle() bool { return d.boolean(prefAutoTitle, true) }
 
 // SetAutoTitle 打开或关掉自动标题。
 func (d Device) SetAutoTitle(on bool) error { return d.store(prefAutoTitle, strconv.FormatBool(on)) }
-
-// CompactPercentLabel 是压缩时机的说法。
-func CompactPercentLabel(p int) string {
-	if p == 0 {
-		return "默认（快满时）"
-	}
-	return "用到 " + strconv.Itoa(p) + "% 时"
-}

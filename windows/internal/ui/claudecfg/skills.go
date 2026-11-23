@@ -4,6 +4,7 @@ import (
 	"context"
 
 	"github.com/dzshzx/Zeta/helper/coreapi"
+	"github.com/dzshzx/Zeta/windows/internal/locales"
 	"github.com/dzshzx/Zeta/windows/internal/ui/widget"
 	"github.com/egoist/mygo/ui"
 )
@@ -36,7 +37,7 @@ func (p *Page) reloadSkills() {
 		s, err := p.opts.Core.Skills(ctx)
 		return func() {
 			if err != nil {
-				p.failed("读取 Skills 失败", err)
+				p.failed(locales.ClaudecfgSkillsLoadFailed(), err)
 				return
 			}
 			p.skills.data = &s
@@ -53,7 +54,7 @@ func (p *Page) pickZip() {
 			return func() {
 				p.skills.importing = false
 				if err != nil {
-					p.failed("没有装上", err)
+					p.failed(locales.ClaudecfgSkillInstallFailed(), err)
 				}
 			}
 		}
@@ -66,17 +67,17 @@ func (p *Page) installed(file string, data []byte, res coreapi.SkillImport, err 
 	p.skills.importing = false
 	switch {
 	case err != nil:
-		p.failed("没有装上", err)
+		p.failed(locales.ClaudecfgSkillInstallFailed(), err)
 	case res.Exists:
 		p.skills.pending = &pendingZip{name: res.Name, existing: res.ExistingDescription, file: file, data: data, open: true}
 	default:
-		title := "已安装"
+		title := locales.ClaudecfgSkillInstalled()
 		if res.Replaced {
-			title = "已替换"
+			title = locales.ClaudecfgSkillReplaced()
 		}
-		message := "“" + res.Name + "”装好了，Claude 会按需调用它。"
+		message := locales.ClaudecfgSkillInstalledMessage(res.Name)
 		if !res.Enabled {
-			message = "“" + res.Name + "”装好了，但它被设成停用，打开开关后才能用。"
+			message = locales.ClaudecfgSkillInstalledDisabled(res.Name)
 		}
 		p.say(title, message)
 		p.reloadSkills()
@@ -88,12 +89,12 @@ func (p *Page) skillsPage(c *ui.Context) {
 	pageTitle(c, "Skills", p.back, nil)
 	body(c, "skills", func() {
 		widget.Group(c, "", "", func(l *widget.List) {
-			summary := "选一个含 SKILL.md 的 Skill 包"
+			summary := locales.ClaudecfgSkillPick()
 			if s.importing {
-				summary = "正在检查并安装…"
+				summary = locales.ClaudecfgSkillInstalling()
 			}
-			item(l, "从 ZIP 导入", summary, func() {
-				widget.SmallPrimaryButton(c, "选择文件").Disabled(s.importing).OnClick(p.pickZip)
+			item(l, locales.ClaudecfgSkillImport(), summary, func() {
+				widget.SmallPrimaryButton(c, locales.ClaudecfgSkillChooseFile()).Disabled(s.importing).OnClick(p.pickZip)
 			})
 		})
 		p.userSkills(c)
@@ -104,13 +105,13 @@ func (p *Page) skillsPage(c *ui.Context) {
 
 func (p *Page) userSkills(c *ui.Context) {
 	s := &p.skills
-	widget.Group(c, "用户安装 · "+itoa(p.userSkillCount()), "装在 ~/.claude/skills 里。关掉后文件留着，Claude 不再用它；改动对之后新开始的对话生效。", func(l *widget.List) {
+	widget.Group(c, locales.ClaudecfgSkillsUser(p.userSkillCount()), locales.ClaudecfgSkillsUserFooter(), func(l *widget.List) {
 		switch {
 		case s.data == nil:
-			loadingRow(l, "正在读取…")
+			loadingRow(l, locales.ClaudecfgLoading())
 			return
 		case len(s.data.User) == 0:
-			emptyRow(l, "还没有 Skill", "从 ZIP 导入，或让 Claude 写一个")
+			emptyRow(l, locales.ClaudecfgSkillsEmpty(), locales.ClaudecfgSkillsEmptyHint())
 		}
 		for _, sk := range s.data.User {
 			ui.Column(c.Key(sk.Name)).Children(func() { p.skillRow(l, sk) })
@@ -124,11 +125,11 @@ func (p *Page) syncedSkills(c *ui.Context) {
 	if s.data == nil || len(s.data.Synced) == 0 {
 		return
 	}
-	widget.Group(c, "账号同步 · "+itoa(len(s.data.Synced)), "在 claude.ai 上管理，这里只能看。", func(l *widget.List) {
+	widget.Group(c, locales.ClaudecfgSkillsSynced(len(s.data.Synced)), locales.ClaudecfgManagedOnClaudeAi(), func(l *widget.List) {
 		for _, sk := range s.data.Synced {
 			item(l, sk.Name, clipLine(orNone(sk.Description), 90), func() {
 				if !sk.Enabled {
-					ui.Text(c, "已停用").FontSize(widget.SizeBodyM).TextColor(widget.Of(c).Tertiary)
+					ui.Text(c, locales.ClaudecfgSkillDisabled()).FontSize(widget.SizeBodyM).TextColor(widget.Of(c).Tertiary)
 				}
 			})
 		}
@@ -144,7 +145,7 @@ func (p *Page) userSkillCount() int {
 
 func orNone(s string) string {
 	if s == "" {
-		return "无描述"
+		return locales.ClaudecfgSkillNoDescription()
 	}
 	return s
 }
@@ -153,28 +154,28 @@ func (p *Page) skillRow(l *widget.List, sk coreapi.Skill) {
 	c := l.Context()
 	title := sk.Name
 	if sk.Title != "" && sk.Title != sk.Name {
-		title = sk.Title + "（" + sk.Name + "）"
+		title = locales.ClaudecfgSkillTitle(sk.Title, sk.Name)
 	}
 	summary := clipLine(orNone(sk.Description), 90)
 	if !sk.Valid {
-		summary = "缺少 SKILL.md"
+		summary = locales.ClaudecfgSkillMissingFile()
 	}
 	item(l, title, summary, func() {
 		description := orNone(sk.Description)
 		if !sk.Valid {
-			description = "这个文件夹里没有 SKILL.md，Claude Code 不会把它当成 Skill。"
+			description = locales.ClaudecfgSkillMissingFileDetail()
 		}
-		widget.SmallButton(c, "说明").Label("说明：" + sk.Name).OnClick(func() { p.skills.showing = &notice{title: sk.Name, message: description, open: true} })
-		widget.SmallDangerButton(c, "删除").Label("删除：" + sk.Name).OnClick(func() { p.skills.deleting = &sk })
+		widget.SmallButton(c, locales.ClaudecfgSkillDetails()).Label(locales.ClaudecfgSkillDetailsOf(sk.Name)).OnClick(func() { p.skills.showing = &notice{title: sk.Name, message: description, open: true} })
+		widget.SmallDangerButton(c, locales.ClaudecfgDelete()).Label(locales.ClaudecfgDeleteItem(sk.Name)).OnClick(func() { p.skills.deleting = &sk })
 		on := sk.Enabled
-		if widget.Switch(c, &on).Label("启用：" + sk.Name).Changed() {
+		if widget.Switch(c, &on).Label(locales.ClaudecfgSkillEnableOf(sk.Name)).Changed() {
 			p.async(func(ctx context.Context) func() {
 				err := p.opts.Core.SetSkillEnabled(ctx, sk, on)
 				return func() {
 					if err != nil {
-						title := "没有停用"
+						title := locales.ClaudecfgSkillDisableFailed()
 						if on {
-							title = "没有启用"
+							title = locales.ClaudecfgSkillEnableFailed()
 						}
 						p.failed(title, err)
 					}
@@ -188,8 +189,8 @@ func (p *Page) skillRow(l *widget.List, sk coreapi.Skill) {
 func (p *Page) skillDialogs(c *ui.Context) {
 	s := &p.skills
 	if pz := s.pending; pz != nil {
-		message := "已经有一个叫“" + pz.name + "”的 Skill。替换会覆盖它当前的全部文件。"
-		if alert(c, &pz.open, "替换 Skill？", message, widget.Destructive, "取消", "替换") == 1 {
+		message := locales.ClaudecfgSkillReplaceMessage(pz.name)
+		if alert(c, &pz.open, locales.ClaudecfgSkillReplaceTitle(), message, widget.Destructive, locales.ClaudecfgCancel(), locales.ClaudecfgSkillReplace()) == 1 {
 			s.importing = true
 			p.async(func(ctx context.Context) func() {
 				res, err := p.opts.Core.ImportSkill(ctx, pz.file, pz.data, true)
@@ -202,14 +203,15 @@ func (p *Page) skillDialogs(c *ui.Context) {
 	}
 	if d := s.deleting; d != nil {
 		open := true
-		switch alert(c, &open, "删除 Skill", "删除“"+d.Name+"”的整个文件夹，之后需要重新导入才能恢复。", widget.Destructive, "取消", "删除") {
+		switch alert(c, &open, locales.ClaudecfgSkillDeleteTitle(), locales.ClaudecfgSkillDeleteMessage(d.Name), widget.Destructive,
+			locales.ClaudecfgCancel(), locales.ClaudecfgDelete()) {
 		case 1:
 			name := d.Name
 			p.async(func(ctx context.Context) func() {
 				err := p.opts.Core.DeleteSkill(ctx, name)
 				return func() {
 					if err != nil {
-						p.failed("删除失败", err)
+						p.failed(locales.ClaudecfgDeleteFailed(), err)
 					}
 					p.reloadSkills()
 				}
@@ -220,7 +222,7 @@ func (p *Page) skillDialogs(c *ui.Context) {
 		}
 	}
 	if n := s.showing; n != nil {
-		alert(c, &n.open, n.title, n.message, widget.Recommend, "关闭")
+		alert(c, &n.open, n.title, n.message, widget.Recommend, locales.ClaudecfgClose())
 		if !n.open {
 			s.showing = nil
 		}

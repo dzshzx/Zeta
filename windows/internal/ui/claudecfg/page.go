@@ -9,6 +9,7 @@ import (
 
 	"github.com/dzshzx/Zeta/helper/coreapi"
 	cfg "github.com/dzshzx/Zeta/windows/internal/claudecfg"
+	"github.com/dzshzx/Zeta/windows/internal/locales"
 	"github.com/dzshzx/Zeta/windows/internal/ui/widget"
 	"github.com/egoist/mygo/ui"
 )
@@ -185,7 +186,7 @@ func (p *Page) noticeDialog(c *ui.Context) {
 	if n == nil {
 		return
 	}
-	widget.Alert(c, &n.open, n.title, n.message, widget.Action{Label: "知道了", Style: widget.Recommend})
+	widget.Alert(c, &n.open, n.title, n.message, widget.Action{Label: locales.ClaudecfgOK(), Style: widget.Recommend})
 	if !n.open {
 		p.notice = nil
 	}
@@ -198,7 +199,7 @@ func (p *Page) noticeDialog(c *ui.Context) {
 func pageTitle(c *ui.Context, title string, back func(), actions func()) {
 	k := widget.Of(c)
 	widget.TitleRow(c).Children(func() {
-		widget.IconButton(c, widget.IconBack, "返回").OnClick(back)
+		widget.IconButton(c, widget.IconBack, locales.WidgetBack()).OnClick(back)
 		ui.Text(c, title).FontSize(widget.SizeHeadlineS).FontWeight(widget.Medium).TextColor(k.Text).SingleLine().Ellipsis("…").
 			Shrink(1)
 		ui.Spacer(c)
@@ -223,13 +224,13 @@ func valueItem(l *widget.List, label, value string) {
 	l.Row(widget.Row{Title: label, Value: value})
 }
 
-// entry 是点了进下一页的一行：右边是 value 和箭头，整行能点，读屏名字是「打开」加名字。
-func entry(l *widget.List, label, summary, value string, enabled bool, open func()) {
-	r := widget.Row{Key: label, Title: label, Summary: summary, Value: value, Arrow: true}
+// entry 是点了进下一页的一行：右边是 value 和箭头，整行能点，读屏名字是「打开」加名字。key 是不随语言变的元素名。
+func entry(l *widget.List, key, label, summary, value string, enabled bool, open func()) {
+	r := widget.Row{Key: key, Title: label, Summary: summary, Value: value, Arrow: true}
 	if enabled {
 		r.OnClick = open
 	}
-	l.Row(r).Label("打开" + label)
+	l.Row(r).Label(locales.ClaudecfgOpenEntry(label))
 }
 
 // emptyRow 是一组里没有东西时的一行。
@@ -243,15 +244,15 @@ func loadingRow(l *widget.List, text string) {
 	l.Row(widget.Row{Title: text, End: func() { ui.Spinner(c).Size(18, 18).Label(text) }})
 }
 
-// choice 是行右边的下拉（COUI 的下拉行）：labels 是给人看的，选了第 i 个交给 pick。key 是读屏名字。
-func choice(c *ui.Context, key string, labels []string, selected int, disabled bool, pick func(int)) {
+// choice 是行右边的下拉（COUI 的下拉行）：labels 是给人看的，选了第 i 个交给 pick。key 是不随语言变的元素名，name 是读屏名字。
+func choice(c *ui.Context, key, name string, labels []string, selected int, disabled bool, pick func(int)) {
 	cur := ""
 	if selected >= 0 && selected < len(labels) {
 		cur = labels[selected]
 	}
 	widget.MenuButton(c.Key(key), func(t ui.Element) {
 		widget.Dropdown(c, t, cur)
-		t.Label(key).Disabled(disabled)
+		t.Label(name).Disabled(disabled)
 	}, func(m *widget.Menu) {
 		for i, l := range labels {
 			if m.Choice(l, i == selected) && i != selected {

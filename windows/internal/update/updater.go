@@ -8,6 +8,8 @@ import (
 	"runtime"
 	"sync"
 	"time"
+
+	"github.com/dzshzx/Zeta/windows/internal/locales"
 )
 
 // Phase 是检查更新走到哪了。
@@ -203,7 +205,7 @@ func (u *Updater) check(announce bool) {
 	default:
 		if announce && u.Notify != nil && u.Prefs.UpdateNotified() != m.VersionCode {
 			u.Prefs.SetUpdateNotified(m.VersionCode)
-			u.Notify("Zeta " + m.VersionName + " 已发布，可在设置中更新")
+			u.Notify(locales.UpdateAvailableNotice(m.VersionName))
 		}
 		u.set(Status{Phase: Available, Manifest: m})
 	}
@@ -216,7 +218,7 @@ func (u *Updater) install(ctx context.Context, run int, m *Manifest) {
 	if !u.downloaded(file, m.MSI) {
 		u.clean()
 		if err := os.MkdirAll(u.Dir, 0o755); err != nil {
-			u.step(run, Failed, 0, "建不了下载目录："+err.Error())
+			u.step(run, Failed, 0, locales.UpdateMkdirFailed(err.Error()))
 			return
 		}
 		if err := u.fetch(ctx, run, m.MSI, file); err != nil {
