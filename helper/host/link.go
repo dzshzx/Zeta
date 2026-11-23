@@ -7,7 +7,6 @@ import (
 	"errors"
 	"io"
 	"os/exec"
-	"strconv"
 	"strings"
 	"sync"
 	"syscall"
@@ -24,8 +23,6 @@ type Attached struct {
 	From int
 	// Key 是接上的托管目录的标识。
 	Key string
-	// Attacher 是脚本里接着的这一方的进程号，Detach 时交回去。
-	Attacher int
 	// Joined：start 接上的是本包已在跑这个会话的进程，Key 是那个进程的、不是给的那个；
 	// StartOptions.OnJoin 已排在别的还没写的消息前面。
 	Joined bool
@@ -66,7 +63,7 @@ const stderrKeep = 4000
 // Link 是和一个托管进程之间的连接（一个 zeta_host.sh start 或 attach 进程）。
 //
 // 事件按到达顺序从 Events 出来，调用方在一个 goroutine 里收；连接自己结束时最后一个是 Exit，随后通道关上。
-// Send 的消息在接上之后按序整行写进去，接上之前的先存着。Stop、Detach 之后不再收新消息（已经排着的在接上了时照样写完）、
+// Send 的消息在接上之后按序整行写进去，接上之前的先存着。Stop、Leave 之后不再收新消息（已经排着的在接上了时照样写完）、
 // 不再交出事件，通道在连接进程退出后关上。
 type Link struct {
 	cmd    *exec.Cmd
@@ -77,16 +74,15 @@ type Link struct {
 	mu       sync.Mutex
 	wake     *sync.Cond // mu 上的：有东西要写、接上了、关了或连接结束了
 	key      string
-	attacher int
 	queue    [][]byte // 还没写的行，各带换行
 	attached bool
-	closed   bool // 调过 Stop 或 Detach
+	closed   bool // 调过 Stop 或 Leave
 	ended    bool // 连接进程的标准输出读完了
 
-	// deliverMu 管着 silenced：Stop、Detach 返回之后一定不再交出事件
+	// deliverMu 管着 silenced：Stop、Leave 返回之后一定不再交出事件
 	deliverMu sync.Mutex
 	silenced  bool
-	done      chan struct{} // Stop、Detach 时关上，正等着交出的事件随即落空
+	done      chan struct{} // Stop、Leave 时关上，正等着交出的事件随即落空
 	closeOnce sync.Once
 }
 
@@ -123,7 +119,7 @@ func (l *Link) Key() string {
 	return l.key
 }
 
-// Send 排一行消息（一个 JSON 对象，不带换行），接上后按序整行写进托管进程的输入管道。Stop、Detach 之后、连接结束后不再收。
+// Send 排一行消息（一个 JSON 对象，不带换行），接上后按序整行写进托管进程的输入管道。Stop、Leave 之后、连接结束后不再收。
 func (l *Link) Send(line []byte) {
 	l.mu.Lock()
 	defer l.mu.Unlock()
@@ -141,19 +137,8 @@ func (l *Link) Stop() <-chan struct{} {
 	return runScript("stop", l.Key())
 }
 
-// Detach 只断开这边（zeta_host.sh detach）：还有别的接着的一方时进程照常跑，没有时照 Stop 结束。返回的通道同 Stop。
-func (l *Link) Detach() <-chan struct{} {
-	l.close()
-	l.mu.Lock()
-	args := []string{"detach", l.key}
-	if l.attacher > 0 {
-		args = append(args, strconv.Itoa(l.attacher))
-	}
-	l.mu.Unlock()
-	return runScript(args...)
-}
-
-// Leave 只关掉这条连接：不跑脚本的 detach，进程照跑（交班时新核心接回去；没人接回时看门狗过这台主机设的闲置时长后收掉它，默认十分钟）。
+// Leave 只关掉这条连接，进程照跑：没有别的一方接着、又闲着时，看门狗过这台主机设的闲置时长后收掉它（默认十分钟）；
+// 这之前有人打开这个会话，start 接回同一个进程，交班时新核心也这样接回去。
 func (l *Link) Leave() { l.close() }
 
 // close 让连接不再写新消息、不再交出事件。已经排着的消息在接上了时照样写完，再关上输入，连接进程随之离开。
@@ -169,7 +154,7 @@ func (l *Link) close() {
 	l.deliverMu.Unlock()
 }
 
-// deliver 交出一个事件；Stop、Detach 之后不交，返回 false。
+// deliver 交出一个事件；Stop、Leave 之后不交，返回 false。
 func (l *Link) deliver(ev Event) bool {
 	l.deliverMu.Lock()
 	defer l.deliverMu.Unlock()
@@ -219,9 +204,8 @@ func (l *Link) nextOutgoing() ([]byte, bool) {
 
 // attachedReport 是脚本接上时打的那一行（zeta_attached）。
 type attachedReport struct {
-	From     int    `json:"from"`
-	Key      string `json:"key"`
-	Attacher int    `json:"attacher"`
+	From int    `json:"from"`
+	Key  string `json:"key"`
 }
 
 // exitReport 是脚本报结局的那一行（zeta_exit）。
@@ -290,9 +274,8 @@ func (l *Link) handleAttached(line []byte) int {
 		l.queue = append(first, l.queue...)
 		l.key = rep.Key
 	}
-	l.attacher = rep.Attacher
 	l.attached = true
-	ev := Attached{From: rep.From, Key: l.key, Attacher: rep.Attacher, Joined: joined}
+	ev := Attached{From: rep.From, Key: l.key, Joined: joined}
 	l.wake.Broadcast()
 	l.mu.Unlock()
 	l.deliver(ev)

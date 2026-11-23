@@ -92,9 +92,6 @@ class HostSharedTest {
         val key: String
             get() = attached["key"]!!.jsonPrimitive.content
 
-        val attacher: Int
-            get() = attached["attacher"]!!.jsonPrimitive.int
-
         /** 等到第一行合 [match] 的（一分钟内，只防卡死）。 */
         fun next(match: (JsonObject) -> Boolean): JsonObject {
             val deadline = System.currentTimeMillis() + 60_000
@@ -126,10 +123,6 @@ class HostSharedTest {
 
     private fun attach(key: String, env: Map<String, String> = emptyMap()) =
         Client(listOf("attach", key, "1"), env)
-
-    /** zeta_host.sh detach：除了接着的一方 [attacher] 还有别人接着时输出 ended=0，没有时结束进程、输出 ended=1。 */
-    private fun detach(key: String, attacher: Int) =
-        HostTesting.run(home, command("detach", key, "$attacher"), HostTesting.named(name)).trim()
 
     private fun pidOf(key: String) = File(hostDir(key), "pid").readText().trim().toInt()
 
@@ -229,13 +222,26 @@ class HostSharedTest {
         )
     }
 
-    /**
-     * 一个离开（应用断开、detach）只断开它自己：还有人接着时 detach 什么也不做，看门狗也不算它闲着； 最后一个离开后闲满上限，看门狗才结束它。
-     * 「不算闲着」不靠多等几秒：sleep 换成记账的替身，看门狗每轮在 rounds 里记一行它的托管目录，等轮数超过闲置上限再断言。
-     */
+    /** 一个离开（应用断开）只断开它自己：还有人接着时看门狗不算它闲着；最后一个离开后闲满上限，看门狗才结束它。 */
     @Test
     fun theProcessStaysWhileAnyoneIsAttached() {
-        val rounds = File(home, "rounds")
+        val env = mapOf("ZETA_IDLE_LIMIT" to "$IDLE_LIMIT")
+        countIdleRounds()
+        val a = start("kA", env = env)
+        val b = attach("kA", env = env)
+        val pid = pidOf("kA")
+        a.leave()
+        assertSurvivesIdleRounds("kA", pid, "还有人接着时被看门狗结束了")
+        b.leave()
+        assertTrue("最后一个离开后闲着也没结束", waitUntil { !alive(pid) })
+    }
+
+    private val rounds by lazy { File(home, "rounds") }
+
+    /**
+     * 「不算闲着」不靠多等几秒：sleep 换成记账的替身，看门狗每轮在 [rounds] 里记一行它的托管目录。要在起进程之前换：bash 第一次用 sleep 时记下它的路径，之后不再找。
+     */
+    private fun countIdleRounds() {
         File(home, "bin/sleep").apply {
             writeText(
                 "#!/bin/bash\n" +
@@ -244,27 +250,15 @@ class HostSharedTest {
             )
             setExecutable(true)
         }
-        val env = mapOf("ZETA_IDLE_LIMIT" to "$IDLE_LIMIT")
-        val a = start("kA", env = env)
-        val b = attach("kA", env = env)
-        val pid = pidOf("kA")
-        a.leave()
-        // detach 看到还有 B 接着就直接返回，不发 end_session、不起结束的那段
-        assertEquals("ended=0", detach("kA", a.attacher))
-        assertTrue("A 一走进程就没了", alive(pid))
+    }
+
+    /** 看门狗数满闲置上限再多两轮，进程 [pid] 还在（起进程之前先 [countIdleRounds]）。 */
+    private fun assertSurvivesIdleRounds(key: String, pid: Int, message: String) {
         fun seen() =
-            rounds
-                .takeIf { it.exists() }
-                ?.readLines()
-                .orEmpty()
-                .count {
-                    it == hostDir("kA").path
-                }
+            rounds.takeIf { it.exists() }?.readLines().orEmpty().count { it == hostDir(key).path }
         val before = seen()
-        waitUntil { !alive(pid) || seen() >= before + IDLE_LIMIT + 2 }
-        assertTrue("还有人接着时被看门狗结束了", alive(pid))
-        b.leave()
-        assertTrue("最后一个离开后闲着也没结束", waitUntil { !alive(pid) })
+        assertTrue("看门狗一直没数轮", waitUntil { !alive(pid) || seen() >= before + IDLE_LIMIT + 2 })
+        assertTrue(message, alive(pid))
     }
 
     /**
@@ -283,24 +277,13 @@ class HostSharedTest {
         assertTrue("按这台主机设的 2 轮，闲着没人接着却一直没结束", waitUntil { !alive(pid) })
     }
 
-    /** detach 时没有别人接着：和 stop 一样结束进程、删掉托管目录。 */
-    @Test
-    fun detachingTheLastAttacherEndsTheProcess() {
-        val a = start("kA")
-        val pid = pidOf("kA")
-        val attacher = a.attacher
-        a.leave()
-        assertEquals("ended=1", detach("kA", attacher))
-        assertTrue("没结束", waitUntil { !alive(pid) && !hostDir("kA").exists() })
-    }
-
-    /** 旧版脚本接着时只写 attach、不写 attach.d：它记的进程还在、命令行里有 zeta-host 就算还接着，detach 不结束进程； 那个进程不在了以后不算。 */
+    /** 旧版脚本接着时只写 attach、不写 attach.d：它记的进程还在、命令行里有 zeta-host 就算还接着，看门狗不算闲着；那个进程不在了以后不算。 */
     @Test
     fun aLegacyAttacherKeepsTheProcess() {
-        val a = start("kA")
+        val env = mapOf("ZETA_IDLE_LIMIT" to "$IDLE_LIMIT")
+        countIdleRounds()
+        val a = start("kA", env = env)
         val pid = pidOf("kA")
-        val attacher = a.attacher
-        a.leave()
         // 扮旧版接着的一方：命令行和旧版脚本一样是 bash -c <脚本> zeta-host attach …，一直读着输入
         val old =
             HostTesting.builder(
@@ -311,12 +294,12 @@ class HostSharedTest {
                 .start()
         try {
             File(hostDir("kA"), "attach").writeText("${old.pid()}\n")
-            assertEquals("旧版接着时被结束了", "ended=0", detach("kA", attacher))
+            a.leave()
+            assertSurvivesIdleRounds("kA", pid, "旧版接着时被看门狗结束了")
         } finally {
             old.destroyForcibly().waitFor()
         }
-        assertEquals("ended=1", detach("kA", attacher))
-        assertTrue("旧版走了以后没结束", waitUntil { !alive(pid) && !hostDir("kA").exists() })
+        assertTrue("旧版走了以后闲着也没结束", waitUntil { !alive(pid) })
     }
 
     /** 进程退出时每个接着的一方都收到正常的 zeta_exit（目录留到最后一个读完才删），之后托管目录删掉。 */

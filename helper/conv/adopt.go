@@ -6,8 +6,8 @@ import (
 )
 
 // 核心起来时接回还在干活的托管进程：上一个核心崩溃、被结束，或升级换了核心时，zeta_host.sh 托管的 Claude Code 进程还在跑。
-// 在回答、等确认、有后台任务的接上（没人拿着，跑完闲够了照常断开）；闲着的断开，没有别的一方接着时看门狗收掉它，
-// 之后有人打开那个会话发消息时 zeta_host.sh start 照常接回同一个进程。
+// 在回答、等确认、有后台任务的接上（没人拿着，跑完闲够了照常放开）；闲着的不动，看门狗按闲置超时收掉它，
+// 这之前有人打开那个会话发消息时 zeta_host.sh start 照常接回同一个进程。
 
 // Hosted 是一个托管进程（zeta-helper hosts 的一行）。
 type Hosted struct {
@@ -33,14 +33,10 @@ type Hosted struct {
 // active：在回答、等确认或有后台任务，和 Conversation.active 同一口径。这一轮结束了但后台任务还在跑的也算，否则断开会把任务一起杀掉。
 func (h Hosted) active() bool { return h.Busy || len(h.Pending) > 0 || h.Tasks > 0 }
 
-// Adopt 处理扫到的托管进程：已经接着的不动，在干活的接上，闲着的交给 release 断开。
-func (m *Manager) Adopt(hosted []Hosted, release func(key string)) {
+// Adopt 处理扫到的托管进程：已经接着的、闲着的不动，在干活的接上。
+func (m *Manager) Adopt(hosted []Hosted) {
 	for _, h := range hosted {
-		if m.attached(h.Key) {
-			continue
-		}
-		if !h.active() {
-			release(h.Key)
+		if m.attached(h.Key) || !h.active() {
 			continue
 		}
 		m.mu.Lock()

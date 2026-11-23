@@ -197,7 +197,7 @@ func expectSilentEnd(t *testing.T, l *Link) {
 	select {
 	case ev, ok := <-l.Events():
 		if ok {
-			t.Fatalf("Stop、Detach 之后还收到 %#v", ev)
+			t.Fatalf("Stop、Leave 之后还收到 %#v", ev)
 		}
 	case <-time.After(waitLimit):
 		t.Fatal("连接没有结束")
@@ -243,7 +243,7 @@ func TestStartRelaysOutputAndQueuedMessages(t *testing.T) {
 	}
 
 	a := nextAttached(t, l)
-	if a.From != 1 || a.Key != "k1" || a.Joined || a.Attacher <= 0 {
+	if a.From != 1 || a.Key != "k1" || a.Joined {
 		t.Fatalf("Attached 不对：%+v", a)
 	}
 	hello := nextLine(t, l, 1)
@@ -322,15 +322,14 @@ func TestStopReportsExitToOtherAttacher(t *testing.T) {
 	}
 }
 
-// detach：还有别的接着的一方时进程照常跑；最后一个 detach 时进程结束、目录删掉。
-func TestDetachEndsOnlyWithoutOthers(t *testing.T) {
+// Leave 只断开这边：进程照常跑，别的一方照样能用；最后一个也离开以后进程还在，留给看门狗按闲置超时收。
+func TestLeaveKeepsTheProcess(t *testing.T) {
 	home := setupHome(t)
 	a, pid := startReady(t, home, "k")
 	b := attachLink(t, "k", 2)
 	nextAttached(t, b)
 
-	<-a.Detach()
-	// a 的连接进程退出了（它的登记随之删掉）通道才关
+	a.Leave()
 	expectSilentEnd(t, a)
 	if !running(pid) {
 		t.Fatal("还有人接着，进程却结束了")
@@ -338,10 +337,10 @@ func TestDetachEndsOnlyWithoutOthers(t *testing.T) {
 	b.Send([]byte(`{"n":1}`))
 	expectEcho(t, b, 2, `{"n":1}`)
 
-	<-b.Detach()
+	b.Leave()
 	expectSilentEnd(t, b)
-	if !waitUntil(func() bool { return !running(pid) && len(hostDirs(home)) == 0 }) {
-		t.Fatal("没人接着了，进程或托管目录还在")
+	if !running(pid) || len(hostDirs(home)) != 1 {
+		t.Fatal("都离开以后进程或托管目录没了")
 	}
 }
 

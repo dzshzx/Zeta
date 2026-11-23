@@ -288,9 +288,7 @@ class SessionList constructor(private val hub: ConversationHub) {
 
     fun archive(summary: SessionSummary, archived: Boolean) = archive(listOf(summary), archived)
 
-    /**
-     * 归档或取消归档：只影响列表里显不显示，会话记录不动。归档的里面有聊天页正开着的对话时，聊天页离开它、换成空的新对话 （和点“新对话”一样：闲着的收掉进程，还在进行的留在后台跑完）。
-     */
+    /** 归档或取消归档：只影响列表里显不显示，会话记录不动。归档的里面有聊天页正开着的对话时，聊天页离开它、换成空的新对话 （和点“新对话”一样：闲着的放开，还在进行的留在后台跑完）。 */
     fun archive(summaries: List<SessionSummary>, archived: Boolean) {
         val ids = summaries.mapTo(LinkedHashSet()) { it.id }
         if (ids.isEmpty()) return

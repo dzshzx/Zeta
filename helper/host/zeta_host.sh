@@ -8,8 +8,6 @@
 #                                                     不另起，接上那一个（zeta_attached 里的 key 是它的标识）
 #   attach <标识> <从第几行开始读>                    接上一个已在运行的
 #   stop   <标识>                                     结束会话（等价于终端里的 /exit）并清理，立即返回
-#   detach <标识> [接着的一方的进程号]                只断开自己：除了这个进程号（zeta_attached 报的 attacher），
-#                                                     还有别的接着的一方时什么也不做（输出 ended=0），没有时照 stop 结束（ended=1）
 #   state  <标识>                                     看门狗眼里的样子：输出 turn=1 表示这一轮在进行，tasks=1 表示有后台任务在跑
 #
 # 目录按包分开：ZETA_NAME 是 Zeta 自己的目录名（手机正式版和桌面版都是 zeta，测试版 zeta-dev），由应用进环境时传进来。
@@ -29,7 +27,7 @@
 #              有了输出以输出里最新的 session_id 为准。
 #   attach.d/  接着的一方各一个记录：文件名是它的进程号，内容是它的启动时刻（/proc/<pid>/stat 第 22 项）。接上时写，离开时删自己的；
 #              进程已不在（或进程号被复用）的记录由看到它的人删（attachers）。看门狗据此知道还有没有应用接着；
-#              detach、stop 据此决定结不结束、删不删目录；zeta-helper（liveAttachers）的 hosts、存储页据此不删还有人接着的目录。
+#              stop 据此决定删不删目录；zeta-helper（liveAttachers）的 hosts、存储页据此不删还有人接着的目录。
 #   out.jsonl  Claude Code 的标准输出（stream-json，一行一个事件，只追加）。接着的一方从指定的行起跟读给核心（helper/host 的 Link）；
 #              看门狗看这一轮和后台任务；zeta-helper hosts 摘出行数、会话、这一轮、待批准的调用、权限模式和后台任务，
 #              核心起来时据此接回在干活的对话（helper/conversations.go 的 adoptHosts）；zeta-helper 的存储页从开头取会话号。
@@ -264,15 +262,9 @@ if [ "$mode" = state ]; then
   exit 0
 fi
 
-# detach：还有别的接着的一方时只断开自己（自己那条连接由应用关掉），什么也不做，输出 ended=0；没有时照 stop 结束，输出 ended=1。
-if [ "$mode" = detach ]; then
-  [ -n "$(attachers "$D" "${3:-}")" ] && { echo ended=0; exit 0; }
-  echo ended=1
-fi
-
 # 结束会话（end_claude），没人接着时删托管目录（还有人接着时由最后离开的那个在读到 exit 后删）。
 # 整个放在单独的会话（setsid）里，本命令立即返回，Zeta 这时被杀也照样做完。
-if [ "$mode" = stop ] || [ "$mode" = detach ]; then
+if [ "$mode" = stop ]; then
   setsid bash -c '
     eval "$1"; D=$2; P=$3
     if [ -n "$P" ]; then
@@ -404,8 +396,8 @@ stat_of $$ && mkdir -p "$D/attach.d" && echo "${STAT[19]}" > "$D/attach.d/.$$" &
 echo $$ > "$D/attach"
 # 接上了：之后标准输出的每一行都是 out.jsonl 的一行（从第 from 行起），直到 zeta_exit。
 # 接着的一方按这个数记读到了第几行（helper/host 的 Link）；之前的行是登录 shell 打的别的东西。
-# key 是接上的托管目录（start 接上本包现成的进程时不是应用给的那个），attacher 是自己的进程号（detach 时交回来）
-echo "{\"type\":\"zeta_attached\",\"from\":$from,\"key\":\"${D##*/}\",\"attacher\":$$}"
+# key 是接上的托管目录（start 接上本包现成的进程时不是应用给的那个）
+echo "{\"type\":\"zeta_attached\",\"from\":$from,\"key\":\"${D##*/}\"}"
 
 # 两头任一结束就整体退出：应用没了（输入结束）只是断开；Claude Code 没了（跟读结束）则报告退出码。
 # 只等跟读这一个进程，转输入的那段结束时顺手结束跟读。不用 wait -n：子进程恰好在它开始阻塞之前结束时 bash 会漏掉，

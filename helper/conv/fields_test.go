@@ -327,7 +327,7 @@ func TestAdoptRestoresUserModeAndAgentLabel(t *testing.T) {
 	started := json.RawMessage(`{"type":"system","subtype":"task_started","task_id":"ag1","tool_use_id":"toolu_a","task_type":"local_agent"}`)
 	pending := json.RawMessage(`{"type":"control_request","request_id":"p1","request":{"subtype":"can_use_tool","tool_name":"Bash","input":{"command":"ls"},"tool_use_id":"s1","agent_id":"ag1"}}`)
 	h.m.Adopt([]Hosted{{Key: "k1", Session: "s1", File: "/s1.jsonl", Cwd: "/w", Lines: 4, Mode: "acceptEdits", UserMode: "plan",
-		Pending: []json.RawMessage{pending}, Tasks: 1, TaskEvents: []json.RawMessage{started}}}, func(string) {})
+		Pending: []json.RawMessage{pending}, Tasks: 1, TaskEvents: []json.RawMessage{started}}})
 	h.call(1, "conv.open", map[string]any{"conv": "a", "session": "s1", "cwd": "/w"})
 	c := h.conv(1, "a")
 	deadline := time.Now().Add(5 * time.Second)

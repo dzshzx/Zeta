@@ -115,8 +115,8 @@ class ConversationHub(val platform: HubPlatform) {
 
     /**
      * 把远程主机 [id] 改成连法 [via]：地址 [target] 已经按这种连法写好（[RemoteHosts.targetFor]）、检查过能连上， 直连的 [hostKey]
-     * 是检查时记下的主机公钥。对话进程是按原来的连法接着的，所以那台上有对话在进行（[hostWorking]）时不改、 返回 false；闲着的收掉进程（内容不丢，下次发消息时用
-     * --resume 经新的连法接上）。在主线程上调用。
+     * 是检查时记下的主机公钥。对话进程是按原来的连法接着的，所以那台上有对话在进行（[hostWorking]）时不改、 返回 false；闲着的放开（进程留给那台的闲置超时，下次发消息时
+     * 经新的连法接上）。在主线程上调用。
      */
     fun changeVia(id: String, via: RemoteHost.Via, target: String, hostKey: String?): Boolean {
         val host = remoteHost(id) ?: return false
@@ -358,7 +358,7 @@ class ConversationHub(val platform: HubPlatform) {
 
     /**
      * 界面是否正在显示（可观察：胶囊据此避开正显示着同一对话的聊天页）。 按实例记：界面重建时新旧实例的 onStart/onStop 会交错，单个布尔值会被覆盖错。
-     * 切到后台时开始等当前对话闲下来再收掉进程，回到前台就不等了（[retireCurrentWhenIdle]）；会话列表和额度的订阅在后台断开、回来再接上。
+     * 切到后台时当前对话也不再有人看着，闲着就放开（[retireWhenIdle]）；会话列表和额度的订阅在后台断开、回来再接上。
      */
     var foreground: Boolean
         get() = shown
@@ -366,7 +366,7 @@ class ConversationHub(val platform: HubPlatform) {
             shown = value
             if (value) sessionList.resume() else sessionList.pause()
             quotas.values.forEach { if (value) it.resume() else it.pause() }
-            retireCurrentWhenIdle()
+            if (!value) retireWhenIdle(current)
             platform.alerts.watchChanged()
         }
 
@@ -730,7 +730,7 @@ class ConversationHub(val platform: HubPlatform) {
         stopped: Boolean = false,
         text: String = "已完成",
     ) {
-        if (conversation !== current) retireWhenIdle(conversation) else retireCurrentWhenIdle()
+        retireWhenIdle(conversation)
         if (conversation !== current && !stopped) markUnread(conversation)
         platform.alerts.turnFinished(conversation, stopped, text)
         // 侧栏列的是别的主机的话，这一轮没改到它
@@ -746,32 +746,19 @@ class ConversationHub(val platform: HubPlatform) {
     }
 
     /** 闲着的对话最后一个后台任务也结束了（这一轮早已结束）。 */
-    fun onBackgroundTasksDone(conversation: Conversation) {
-        if (conversation !== current) retireWhenIdle(conversation) else retireCurrentWhenIdle()
-    }
+    fun onBackgroundTasksDone(conversation: Conversation) = retireWhenIdle(conversation)
 
     /**
-     * Zeta 不在前台时，当前对话闲着（[Conversation.active] 为假）满 [IDLE_RETIRE_MS] 就不再接着它背后的 Claude Code 进程
-     * （[Conversation.leave]：没有别的客户端接着时进程随之结束），内容不丢，下次发消息时用 --resume
-     * 接上。不收的话，这个进程和为它常驻的前台服务（[onActivityChanged]）互相保着， 用过一次 Zeta 就一直占着几百 MB
-     * 内存和一条常驻通知。切到后台、一轮结束、后台任务做完时重新计时，回到前台就不等了。 到点时还在进行的不收，等它这一轮结束再计时。
-     */
-    private val retireCurrent = Runnable { if (!foreground && !current.active) current.leave() }
-
-    private fun retireCurrentWhenIdle() {
-        main.removeCallbacks(retireCurrent)
-        if (!foreground) main.postDelayed(retireCurrent, IDLE_RETIRE_MS)
-    }
-
-    /**
-     * 切走的对话没事了（没有进行中的一轮、没有后台任务、没有等确认的调用）就收掉进程。 稍等一下再看：后台任务跑完后 Claude Code 会紧接着自己另起一轮汇报结果（实测不到 0.2
-     * 秒）， 立刻收掉就把这一轮掐掉了；起了新的一轮的话等它结束再说。
+     * 没人看着（切走了，或 Zeta 不在前台，[isWatching]）又没事（没有进行中的一轮、没有后台任务、没有等确认的调用，[Conversation.active]）
+     * 的对话就放开（[Conversation.leave]），内容不丢，下次发消息时接上。放开以后它背后的 Claude Code 进程多久结束只看那台主机的闲置超时
+     * （docs/core.md「主机」的 system.idle），和 Zeta 在不在、被没被系统回收都无关：托管的进程不随应用退出。 稍等一下再看：后台任务跑完后 Claude Code
+     * 会紧接着自己另起一轮汇报结果（实测不到 0.2 秒），立刻放开就把这一轮掐掉了； 起了新的一轮、或这时又回来看着了的，等下一次再说。
      */
     private fun retireWhenIdle(conversation: Conversation) {
         main.postDelayed(
             {
-                if (conversation !== current && !conversation.active) {
-                    parked.remove(conversation)
+                if (!isWatching(conversation) && !conversation.active) {
+                    if (conversation !== current) parked.remove(conversation)
                     conversation.leave()
                     platform.prunePhones()
                 }
@@ -801,9 +788,7 @@ class ConversationHub(val platform: HubPlatform) {
     }
 
     companion object {
-        private const val RETIRE_DELAY_MS = 5_000L
-
-        /** 和 zeta_host.sh 的看门狗一样：没人看着、闲着的进程约十分钟后结束。 */
-        const val IDLE_RETIRE_MS = 10 * 60_000L
+        /** 没人看着又闲着的对话等多久再放开（[retireWhenIdle]）。 */
+        const val RETIRE_DELAY_MS = 5_000L
     }
 }

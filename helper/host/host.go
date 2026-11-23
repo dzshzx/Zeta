@@ -41,7 +41,7 @@ type StartOptions struct {
 // envName 是环境变量名的样子。
 var envName = regexp.MustCompile(`^[A-Za-z_][A-Za-z0-9_]*$`)
 
-// closeTimeout 是 stop、detach 命令最多跑多久；脚本自己立即返回，结束进程的等待在它另起的会话里做。
+// closeTimeout 是 stop 命令最多跑多久；脚本自己立即返回，结束进程的等待在它另起的会话里做。
 const closeTimeout = 20 * time.Second
 
 // Start 起 zeta_host.sh start：新起一个 Claude Code 进程（或接上本包已在跑同一个会话的那个），并接上它。
@@ -64,9 +64,6 @@ func Start(opts StartOptions) (*Link, error) {
 func Attach(key string, from int) (*Link, error) {
 	return open(scriptCommand(context.Background(), "attach", key, strconv.Itoa(from)), key, nil)
 }
-
-// Release 断开一个没接着的托管进程（zeta_host.sh detach）：还有别的一方接着时什么也不做，没有时结束它。返回的通道在命令跑完时关上。
-func Release(key string) <-chan struct{} { return runScript("detach", key) }
 
 // scriptCommand 是用 bash 跑脚本子命令的进程（不读登录配置）。
 func scriptCommand(ctx context.Context, args ...string) *exec.Cmd {

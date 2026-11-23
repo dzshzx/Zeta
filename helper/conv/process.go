@@ -284,7 +284,7 @@ func (c *Conversation) querySettings(p *process) {
 	})
 }
 
-// detach 这边不再接着背后的进程（别的接着的一方还在时它照常跑）；end 时真结束它（等于终端里 /exit）。
+// 这边不再接着背后的进程，进程照常跑，什么时候结束由看门狗按闲置超时定（Link.Leave）；end 时真结束它（等于终端里 /exit）。
 func (c *Conversation) closeProcess(end bool) {
 	p := c.proc
 	if p == nil {
@@ -295,7 +295,7 @@ func (c *Conversation) closeProcess(end bool) {
 	if end {
 		p.link.Stop()
 	} else {
-		p.link.Detach()
+		p.link.Leave()
 	}
 	c.endTurnState()
 }
@@ -328,8 +328,8 @@ func (c *Conversation) onExit(p *process, e Exit) {
 	}
 	c.proc = nil
 	c.abortRewind("Claude Code 进程退出了")
-	// 连接意外断开时进程可能还活着：没有别的接着的一方就一并结束，免得留下没人管的后台进程
-	p.link.Detach()
+	// 连接意外断开时进程可能还活着：照样留给看门狗按闲置超时收
+	p.link.Leave()
 	if e.Reason == reasonReleased || e.Reason == reasonHeldElsewhere {
 		c.handedAway(e.Reason == reasonReleased)
 		return

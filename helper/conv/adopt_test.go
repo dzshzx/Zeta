@@ -14,17 +14,13 @@ func TestAdoptHosts(t *testing.T) {
 {"type":"user","uuid":"u1","message":{"content":[{"type":"text","text":"跑个后台任务"}]}}
 `)
 	pending := json.RawMessage(`{"type":"control_request","request_id":"p1","request":{"subtype":"can_use_tool","tool_name":"Bash","input":{"command":"ls"}}}`)
-	var released []string
 	h.m.Adopt([]Hosted{
 		{Key: "idle", Session: "s0", Cwd: "/w"},
 		{Key: "asking", Session: "s1", Cwd: "/w", Lines: 7, Busy: true, Pending: []json.RawMessage{pending}, Mode: "acceptEdits"},
 		{Key: "tasks", Session: "s2", File: "/s2.jsonl", Cwd: "/w", Lines: 3, Tasks: 1},
-	}, func(key string) { released = append(released, key) })
+	})
 
-	if !reflect.DeepEqual(released, []string{"idle"}) {
-		t.Fatalf("断开的：%v", released)
-	}
-	// 历史载完才接：两个都接上了，各从日志的下一行读起
+	// 闲着的不接也不动（留给看门狗），历史载完才接：两个都接上了，各从日志的下一行读起
 	deadline := time.Now().Add(5 * time.Second)
 	for {
 		h.mu.Lock()
@@ -64,10 +60,10 @@ func TestAdoptHosts(t *testing.T) {
 		t.Fatalf("条目 %v，busy %v", got, h.state(1, "busy"))
 	}
 
-	// 再扫一次：已经接着的不再接、也不断开
-	h.m.Adopt([]Hosted{{Key: "asking", Session: "s1", Busy: true}}, func(key string) { released = append(released, key) })
-	if len(released) != 1 || len(h.attaches) != 2 {
-		t.Fatalf("重复处理：断开 %v，接上 %v", released, h.attaches)
+	// 再扫一次：已经接着的不再接
+	h.m.Adopt([]Hosted{{Key: "asking", Session: "s1", Busy: true}})
+	if len(h.attaches) != 2 {
+		t.Fatalf("重复处理：接上 %v", h.attaches)
 	}
 }
 

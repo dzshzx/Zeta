@@ -15,13 +15,12 @@ import (
 
 // fakeLink 是假的托管连接：记下写进去的行，测试经 events 扮 Claude Code 往回送。
 type fakeLink struct {
-	mu       sync.Mutex
-	sent     [][]byte
-	stopped  bool
-	detached bool
-	left     bool
-	key      string
-	events   Events
+	mu      sync.Mutex
+	sent    [][]byte
+	stopped bool
+	left    bool
+	key     string
+	events  Events
 }
 
 func (l *fakeLink) Send(line []byte) {
@@ -31,7 +30,6 @@ func (l *fakeLink) Send(line []byte) {
 }
 
 func (l *fakeLink) Stop()       { l.mu.Lock(); l.stopped = true; l.mu.Unlock() }
-func (l *fakeLink) Detach()     { l.mu.Lock(); l.detached = true; l.mu.Unlock() }
 func (l *fakeLink) Leave()      { l.mu.Lock(); l.left = true; l.mu.Unlock() }
 func (l *fakeLink) Key() string { return l.key }
 
@@ -462,7 +460,7 @@ func TestReleaseWhenIdle(t *testing.T) {
 	if releasable(start) || releasable(start.Add(releaseAfter-time.Second)) {
 		t.Fatal("没等够就收掉了")
 	}
-	if !releasable(start.Add(releaseAfter)) || !l.detached || l.stopped {
-		t.Fatalf("闲满了没断开：detached %v stopped %v", l.detached, l.stopped)
+	if !releasable(start.Add(releaseAfter)) || !l.left || l.stopped {
+		t.Fatalf("闲满了没断开：left %v stopped %v", l.left, l.stopped)
 	}
 }

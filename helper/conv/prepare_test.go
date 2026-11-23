@@ -55,8 +55,8 @@ func TestPreparedProcessReleasedWhenIdle(t *testing.T) {
 	if releasable(start) || releasable(start.Add(releaseAfter-time.Second)) {
 		t.Fatal("没等够就收掉了")
 	}
-	if !releasable(start.Add(releaseAfter)) || !l.detached || l.stopped {
-		t.Fatalf("闲满了没断开：detached %v stopped %v", l.detached, l.stopped)
+	if !releasable(start.Add(releaseAfter)) || !l.left || l.stopped {
+		t.Fatalf("闲满了没断开：left %v stopped %v", l.left, l.stopped)
 	}
 }
 

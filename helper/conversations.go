@@ -13,7 +13,6 @@ import (
 
 	"github.com/dzshzx/Zeta/helper/conv"
 	"github.com/dzshzx/Zeta/helper/core"
-	"github.com/dzshzx/Zeta/helper/host"
 	ctxusage "github.com/dzshzx/Zeta/helper/usage"
 )
 
@@ -85,7 +84,7 @@ func adoptHosts(e *env, m *conv.Manager) {
 		}
 		hosted = append(hosted, h)
 	}
-	m.Adopt(hosted, func(key string) { <-host.Release(key) })
+	m.Adopt(hosted)
 }
 
 func (h *conversations) Request(c *core.Client, r core.Request) (any, error) {

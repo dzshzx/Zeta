@@ -9,8 +9,7 @@ import (
 
 type hostLink struct{ *host.Link }
 
-func (l hostLink) Stop()   { l.Link.Stop() }
-func (l hostLink) Detach() { l.Link.Detach() }
+func (l hostLink) Stop() { l.Link.Stop() }
 
 func startHost(*env) func(conv.StartOptions, conv.Events) (conv.Link, error) {
 	return func(o conv.StartOptions, ev conv.Events) (conv.Link, error) {

@@ -334,12 +334,15 @@ class AndroidHubPlatform(
             .forEach { it.slot.releaseAsync() }
     }
 
-    /** 有进程活着就保持前台服务，否则系统会在切到后台后很快回收本应用，连带结束 Claude Code。 */
+    /**
+     * 有事要 Zeta 自己在场时保持前台服务：有对话在忙（回答、等确认、后台任务，[Conversation.active]）、手机的 Linux 环境在装、
+     * 外部客户端连着。不然切到后台后系统很快回收或冻结本应用，完成和确认没人提醒，手机工具、外部客户端的调用没人答。 闲着的 Claude Code
+     * 进程不用它保着：托管的进程不在本应用的进程组里，应用被回收也照样活着，多久结束由那台主机的闲置超时定。
+     */
     override fun activityChanged() {
         val working = environment.working
         val conversations = hub.liveConversations
-        // 外部客户端连着时也要前台服务：不然进程退到后台被冻结，连接那头的调用就没人答
-        val active = working || conversations.any { it.isProcessAlive } || bridge.connected > 0
+        val active = working || conversations.any { it.active } || bridge.connected > 0
         // 后台任务跑着也要持有唤醒锁，否则息屏休眠时任务会被挂起；和远程主机断了连接、正在重连的不算（那边照样在跑）
         val busy = working || conversations.any { it.active && !it.offline }
         val answering = conversations.filter { it.busy }
