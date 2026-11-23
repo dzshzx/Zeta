@@ -26,10 +26,11 @@ type layout struct {
 	searchFocus bool
 }
 
-// loadLayout 从设置读侧栏的宽度和收没收起。
+// loadLayout 从设置读侧栏的宽度和收没收起，以及界面缩放。
 func (a *App) loadLayout() {
 	s := a.hub.Settings()
 	a.layout = layout{width: s.SidebarWidth(), hidden: s.SidebarHidden()}
+	a.zoom = zoomLevel(s.Zoom())
 }
 
 // SaveLayout 存拖过的侧栏宽度（关窗口时调）。
@@ -108,6 +109,11 @@ var shortcuts = []shortcut{
 	{ui.Ctrl | ui.Shift, ui.KeyA, "Ctrl+Shift+A", "归档当前对话", needSession, func(a *App, s hostlink.Session) { a.archive(s) }},
 	{ui.Ctrl | ui.Alt, ui.KeyP, "Ctrl+Alt+P", "置顶当前对话", needSession, func(a *App, s hostlink.Session) { a.togglePin(s) }},
 	{ui.Ctrl | ui.Alt, ui.KeyR, "Ctrl+Alt+R", "重命名当前对话", needSession, func(a *App, s hostlink.Session) { a.rename(s) }},
+	// 缩放（zoom.go）：加号和等号是同一个键，按不按 Shift 都放大；小键盘的减号、0 也是这两个键，小键盘的加号 mygo 认不出
+	{ui.Cmd, ui.KeyEqual, "Ctrl++", "放大界面", 0, func(a *App, _ hostlink.Session) { a.setZoom(zoomStep(a.zoom, 1)) }},
+	{ui.Cmd | ui.Shift, ui.KeyEqual, "", "", 0, func(a *App, _ hostlink.Session) { a.setZoom(zoomStep(a.zoom, 1)) }},
+	{ui.Cmd, ui.KeyMinus, "Ctrl+-", "缩小界面", 0, func(a *App, _ hostlink.Session) { a.setZoom(zoomStep(a.zoom, -1)) }},
+	{ui.Cmd, ui.Key0, "Ctrl+0", "界面恢复 100%", 0, func(a *App, _ hostlink.Session) { a.setZoom(100) }},
 }
 
 func nth(i int) func(a *App, _ hostlink.Session) {

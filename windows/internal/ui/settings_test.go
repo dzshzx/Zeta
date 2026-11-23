@@ -198,7 +198,7 @@ func TestDevicePageShowsClaudeConfig(t *testing.T) {
 	}
 }
 
-// TestSettingsPreviews 在设了 ZETA_PREVIEW_DIR 时把设置页、设备页、账号与额度、关于（有新版本）画成 PNG（浅色、深色）。
+// TestSettingsPreviews 在设了 ZETA_PREVIEW_DIR 时把设置页、设备页、账号与额度、关于（有新版本）、界面缩放 125% 的设置页画成 PNG（浅色、深色）。
 func TestSettingsPreviews(t *testing.T) {
 	dir := os.Getenv("ZETA_PREVIEW_DIR")
 	if dir == "" {
@@ -226,6 +226,10 @@ func TestSettingsPreviews(t *testing.T) {
 		{"settings-about", 1000, func(t *testing.T, f *settingsFixture) {
 			f.click(t, "设置")
 			f.click(t, "关于")
+		}},
+		{"settings-zoom-125", 1000, func(t *testing.T, f *settingsFixture) {
+			f.app.setZoom(125) // 界面缩放 125%（zoom.go）：整窗按 1.25 倍画
+			f.click(t, "设置")
 		}},
 		{"update-notice", 860, func(_ *testing.T, f *settingsFixture) {
 			f.app.ShowUpdate("Zeta 0.9.0 已发布，可在设置中更新")
