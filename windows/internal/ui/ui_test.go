@@ -158,7 +158,7 @@ func TestSidebarGroupsAndPins(t *testing.T) {
 		{ID: "s3", Title: "归档的", Updated: at(13), Archived: true},
 	}})
 	f.tt.Frame()
-	f.see(t, "今天", "修登录页", "web", "更早", "看看日志", "logs · 别处运行中")
+	f.see(t, "今天", "修登录页", "更早", "看看日志", "别处运行中") // 目录在悬停提示里，别处运行的标在标题后面
 	f.notSee(t, "置顶", "归档的")
 	if err := f.tt.RightClick("看看日志"); err != nil {
 		t.Fatal(err)
@@ -182,7 +182,7 @@ func TestHostSwitcherListsAllDevices(t *testing.T) {
 	hosts := f.withHosts(t, "box", "lab")
 	f.devices.Push(hosts[0].ID, hostlink.SessionsUpdate{Full: true, Upsert: []hostlink.Session{{ID: "a", Title: "盒子上的", Cwd: "/w/proj", Updated: at(10)}}})
 	f.tt.Frame()
-	f.see(t, "盒子上的", "proj")
+	f.see(t, "盒子上的")
 	f.click(t, "box")
 	f.click(t, "全部设备")
 	if !f.hub.AllHosts() {
@@ -190,9 +190,9 @@ func TestHostSwitcherListsAllDevices(t *testing.T) {
 	}
 	f.devices.Push(hosts[1].ID, hostlink.SessionsUpdate{Full: true, Upsert: []hostlink.Session{{ID: "b", Title: "实验室的", Cwd: "/x/exp", Updated: at(11)}}})
 	f.tt.Frame()
-	f.see(t, "box · proj", "lab · exp", "全部设备")
+	f.see(t, "盒子上的", "实验室的", "box", "lab", "全部设备") // 列着全部设备时标题后面是设备名
 	f.click(t, "全部设备")
-	f.click(t, "lab")
+	f.clickMenuItem(t, "lab") // 菜单里那一项（会话行后面也有「lab」两个字）
 	f.see(t, "实验室的")
 	f.notSee(t, "盒子上的")
 	f.devices.Fail(hosts[1].ID, "连不上「lab」：网络不通")
@@ -376,4 +376,17 @@ func (f *fixture) clickButton(t *testing.T, name string, n int) {
 		n--
 	}
 	t.Fatalf("no button %q", name)
+}
+
+// clickMenuItem 点开着的菜单里名叫 name 的那一项（界面上别处也有同样的字时用）。
+func (f *fixture) clickMenuItem(t *testing.T, name string) {
+	t.Helper()
+	for _, a := range f.tt.AccessAll() {
+		if a.Name == name && (a.Role == ui.RoleMenuItem || a.Role == ui.RoleMenuItemRadio || a.Role == ui.RoleMenuItemCheckBox) {
+			f.tt.ClickAt(a.Bounds.X+a.Bounds.W/2, a.Bounds.Y+a.Bounds.H/2)
+			f.tt.Frame()
+			return
+		}
+	}
+	t.Fatalf("菜单里没有 %q", name)
 }

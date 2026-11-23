@@ -1,6 +1,7 @@
 package ui
 
 import (
+	"strings"
 	"testing"
 
 	"github.com/dzshzx/Zeta/client/hostlink"
@@ -108,7 +109,7 @@ func TestEndedSessionsAreDimmed(t *testing.T) {
 		if !ok {
 			t.Fatalf("no row %q in %q", c.title, f.tt.Texts())
 		}
-		if got := a.Description == "已结束"; got != c.ended {
+		if got := strings.HasSuffix(a.Description, "已结束"); got != c.ended {
 			t.Errorf("%s: description %q", c.title, a.Description)
 		}
 	}
@@ -116,10 +117,6 @@ func TestEndedSessionsAreDimmed(t *testing.T) {
 	ended, live := f.darkestInk(t, "跑完的对话"), f.darkestInk(t, "还开着的对话")
 	if live > 90 || ended < 140 {
 		t.Errorf("darkest ink: ended %d, live %d", ended, live)
-	}
-	// 小字（目录）也灰：比还开着那行的次要色再浅一档
-	if d, l := f.darkestInk(t, "done"), f.darkestInk(t, "live"); d < l+40 {
-		t.Errorf("note ink: ended %d, live %d", d, l)
 	}
 	// 进程又起来了（live 为真推来）：恢复正文色
 	f.devices.Push(f.id, hostlink.SessionsUpdate{Upsert: []hostlink.Session{

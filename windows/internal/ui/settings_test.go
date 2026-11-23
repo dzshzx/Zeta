@@ -211,7 +211,7 @@ func TestSettingsPreviews(t *testing.T) {
 	}{
 		{"settings", 1000, func(t *testing.T, f *settingsFixture) {
 			f.click(t, "设置")
-			f.until(t, "读到账号和额度", func() bool { return f.shows("已用 86%") && f.shows("a@example.com") })
+			f.until(t, "读到额度", func() bool { return f.shows("已用 86%") })
 		}},
 		{"settings-device", 1900, func(t *testing.T, f *settingsFixture) {
 			f.click(t, "设置")
@@ -220,12 +220,12 @@ func TestSettingsPreviews(t *testing.T) {
 		}},
 		{"settings-accounts", 900, func(t *testing.T, f *settingsFixture) {
 			f.click(t, "设置")
-			f.click(t, "账号与额度")
+			f.clickButton(t, "box", 1) // 「账号与额度」下面那台
 			f.until(t, "账号页读完", func() bool { return f.shows("b@example.com") && f.shows("每周 · 全部模型") })
 		}},
 		{"settings-about", 1000, func(t *testing.T, f *settingsFixture) {
 			f.click(t, "设置")
-			f.click(t, "有新版本 0.9.0")
+			f.click(t, "关于")
 		}},
 		{"update-notice", 860, func(_ *testing.T, f *settingsFixture) {
 			f.app.ShowUpdate("Zeta 0.9.0 已发布，可在设置中更新")

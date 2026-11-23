@@ -315,3 +315,26 @@ func SearchField(c *ui.Context, value *string, label string) ui.Element {
 	})
 	return in
 }
+
+// ToolPill 给菜单的触发器 trigger 设置输入栏底下那排文字胶囊的样子（照 ChatGPT、Codex 客户端输入栏下面的
+// 权限、模型按钮）：30 高、平时没有底色，悬停时淡淡一层；图标 16（可以没有）、字 13、后面一个小箭头，都是次要文字色，
+// tint 不是零值时图标和字用它（完全放行的红色这类）。label 也是读屏名字和悬停提示。
+func ToolPill(c *ui.Context, trigger ui.Element, icon *ui.SVG, label string, tint ui.Color) {
+	k := Of(c)
+	ink := k.Secondary
+	if tint != (ui.Color{}) {
+		ink = tint
+	}
+	trigger.Label(label).Tooltip(label).Height(30).Radius(999).Padding(0, 8, 0, 10).Gap(5).AlignItems(ui.Center).
+		Cursor(ui.CursorPointer).Shrink(0)
+	if trigger.Hovered() {
+		trigger.Background(k.Hover)
+	}
+	trigger.Children(func() {
+		if icon != nil {
+			ui.Icon(c, icon).Size(16, 16).TextColor(ink)
+		}
+		ui.Text(c, label).FontSize(SizeBodyS).TextColor(ink).SingleLine().Ellipsis("…").MaxWidth(200)
+		ui.Icon(c, IconChevronDown).Size(12, 12).TextColor(ink)
+	})
+}

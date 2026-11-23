@@ -179,7 +179,7 @@ func (ch *Chat) AtEnd() bool { return ch.list.AtEnd() }
 const listTop = 12
 
 // 内容最宽这么多，窗口再宽也居中，免得一行字太长。
-const contentWidth = 860
+const contentWidth = 768
 
 // View 画聊天列表，返回列表的元素，由调用方定大小（通常 Grow(1)）。
 func (ch *Chat) View(c *ui.Context) ui.Element {
