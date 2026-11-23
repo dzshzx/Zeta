@@ -1,0 +1,7 @@
+{
+  "@@locale": "zh-Hans",
+  "noticeStopped": "已停止",
+  "@noticeStopped": { "description": "对话里的灰色提示：用户停止了这一轮。" },
+  "noticeSteered": "已打断，先处理插话",
+  "@noticeSteered": { "description": "对话里的灰色提示：用户插话，Claude 停下当前这一轮先处理插的话。" }
+}

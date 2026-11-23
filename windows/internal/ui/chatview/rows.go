@@ -150,11 +150,11 @@ func triangle(p float32) float32 {
 func noticeRow(c *ui.Context, it items.Item) {
 	t := c.Theme()
 	if it.Error {
-		widget.Notice(c, it.Text, widget.Failure).MarginY(6)
+		widget.Notice(c, it.Said(c.Locale()), widget.Failure).MarginY(6)
 		return
 	}
 	ui.Row(c).FillWidth().Justify(ui.Center).PaddingY(8).Children(func() {
-		ui.Text(c, it.Text).FontSize(12.5).TextColor(t.TextMuted)
+		ui.Text(c, it.Said(c.Locale())).FontSize(12.5).TextColor(t.TextMuted)
 	})
 }
 

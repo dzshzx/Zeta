@@ -6,6 +6,7 @@ import (
 
 	"github.com/dzshzx/Zeta/client/hostlink"
 	"github.com/dzshzx/Zeta/client/sshlink"
+	"github.com/egoist/mygo/i18n"
 )
 
 // Devices 是中枢碰设备的几样事的真实现：探测、会话列表的订阅，和这台电脑的 SSH 配置。
@@ -37,6 +38,7 @@ func (d *Devices) WatchSessions(h sshlink.Host, w SessionWatch) io.Closer {
 	return hostlink.StartServe(hostlink.ServeOptions{
 		Open:          func() (*sshlink.Process, error) { return hostlink.OpenServe(shell, d.Helper) },
 		Subscriptions: []string{"sessions.watch", "conv.activity"},
+		Lang:          i18n.Locale,
 		Hello:         w.Hello,
 		Message: func(kind string, line []byte) {
 			switch kind {

@@ -18,6 +18,8 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"github.com/dzshzx/Zeta/helper/locales"
+	"github.com/egoist/mygo/i18n"
 	"net"
 	"os"
 	"strings"
@@ -77,7 +79,9 @@ type Info struct {
 // handoverMethod 是新版本的 serve 让核心交班的请求：核心答完就不再接新连接，放开托管进程，退出。
 const handoverMethod = "core.handover"
 
-// clientMethod 是客户端连上后报自己是哪台设备的请求：{"method":"core.client","device":"<客户端报的设备名>","ssh":"<SSH_CONNECTION>"}，
+// clientMethod 是客户端连上后报自己是哪台设备、界面用什么语言的请求：
+// {"method":"core.client","device":"<客户端报的设备名>","lang":"<界面的语言，如 zh-Hans、en>","ssh":"<SSH_CONNECTION>"}，
+// 换语言时再发一次；
 // ssh 由 serve 转发时按自己的环境补上（客户端经 SSH 连进来时才有，见 helper/serve.go 的 withSSHSource）。核心记在这条连接上
 // （Client.Introduced），不交给处理器；对话拿它定设备的名字、记下最近是哪台在用（别的包查别处占用时说「在哪」）。
 const clientMethod = "core.client"
@@ -95,6 +99,7 @@ type Client struct {
 	device string // core.client 报的设备名，没报过（旧客户端）时为空
 	ssh    string // core.client 里 serve 补上的 SSH_CONNECTION，不是经 SSH 连来的或没报过时为空
 	known  bool   // 报过 core.client
+	lang   string // core.client 报的界面语言（BCP 47），没报过时为空，出字用源语言
 }
 
 // ID 是这个核心里客户端的序号，从 1 起，写日志用。
@@ -108,11 +113,19 @@ func (c *Client) Introduced() (device, ssh string, ok bool) {
 	return c.device, c.ssh, c.known
 }
 
-// introduce 记下 core.client 报的设备名：空白压成一个空格、去掉控制字符，最多 deviceMax 个字。
+// Lang 是这个客户端界面的语言（core.client 报的），没报过时为空：给它的应答按这个语言出字（locales.Msg.In）。
+func (c *Client) Lang() string {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	return c.lang
+}
+
+// introduce 记下 core.client 报的设备名（空白压成一个空格、去掉控制字符，最多 deviceMax 个字）和界面语言。
 func (c *Client) introduce(raw []byte) error {
 	var p struct {
 		Device string `json:"device"`
 		SSH    string `json:"ssh"`
+		Lang   string `json:"lang"`
 	}
 	if err := json.Unmarshal(raw, &p); err != nil {
 		return err
@@ -122,7 +135,11 @@ func (c *Client) introduce(raw []byte) error {
 		name = strings.TrimSpace(string(r[:deviceMax]))
 	}
 	c.mu.Lock()
-	c.device, c.ssh, c.known = name, strings.TrimSpace(p.SSH), true
+	c.lang = i18n.Normalize(p.Lang)
+	// 只报了语言、没报设备名（会话列表、取大块数据这类连接）不算报过设备：说不准是哪台时宁可不说（conv.startedBy）
+	if name != "" {
+		c.device, c.ssh, c.known = name, strings.TrimSpace(p.SSH), true
+	}
 	c.mu.Unlock()
 	return nil
 }
@@ -190,9 +207,11 @@ type reply struct {
 	Result any             `json:"result,omitempty"`
 	Error  string          `json:"error,omitempty"`
 	Code   string          `json:"code,omitempty"`
+	Args   map[string]any  `json:"args,omitempty"`
 }
 
-// Reply 答请求 id：result 写成应答的 result，err 不为空时 ok:false（带 Code() string 的另带 code）。
+// Reply 答请求 id：result 写成应答的 result，err 不为空时 ok:false（带 Code() string 的另带 code；是 locales.Error 的
+// 按这个客户端的语言出字，另带 args）。
 // 处理器的 Request 返回了 Later 时由它做完后调这个；客户端已经走了时什么也不做。
 func (c *Client) Reply(id json.RawMessage, result any, err error) {
 	if len(id) == 0 {
@@ -204,6 +223,10 @@ func (c *Client) Reply(id json.RawMessage, result any, err error) {
 		var coded interface{ Code() string }
 		if errors.As(err, &coded) {
 			r.Code = coded.Code()
+		}
+		var said locales.Error
+		if errors.As(err, &said) {
+			r.Error, r.Args = said.In(c.Lang()), said.Args
 		}
 	}
 	line, err := encodeLine(r)

@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"github.com/dzshzx/Zeta/helper/locales"
 	"net"
 	"os"
 	"os/signal"
@@ -78,6 +79,8 @@ func (h *fakeHandler) Request(c *Client, r Request) (any, error) {
 		return r.Raw, nil
 	case "conv.fail":
 		return nil, errors.New("no conversation " + r.Conv)
+	case "conv.said":
+		return nil, fmt.Errorf("包一层：%w", locales.Err("noticeStopped"))
 	case "conv.push":
 		if err := SendAll(all, map[string]any{"type": "conv.state", "conv": r.Conv, "from": c.ID()}); err != nil {
 			return nil, err
@@ -558,5 +561,32 @@ func killHolder(p Paths) {
 	}
 	if pid, err := strconv.Atoi(strings.TrimSpace(string(data))); err == nil && pid != os.Getpid() {
 		_ = syscall.Kill(pid, syscall.SIGKILL)
+	}
+}
+
+// 客户端在 core.client 里报界面语言：给它的 locales.Error 按这个语言出字，带种类码；没报的连接用源语言；换语言再报一次就换。
+func TestReplySpeaksTheClientLanguage(t *testing.T) {
+	p := testPaths(t)
+	serve(t, p, newFakeHandler(), time.Minute)
+	a, b := dial(t, p), dial(t, p)
+	a.call(`{"id":1,"method":"core.client","device":"pc","lang":"en-US"}`)
+	if r := a.call(`{"id":2,"method":"conv.said"}`); r["ok"] != false || r["error"] != "Stopped" || r["code"] != "noticeStopped" {
+		t.Fatalf("英文的 a：%v", r)
+	}
+	if r := b.call(`{"id":3,"method":"conv.said"}`); r["error"] != "已停止" || r["code"] != "noticeStopped" {
+		t.Fatalf("没报语言的 b：%v", r)
+	}
+	if r := b.call(`{"id":6,"method":"core.client","lang":"en"}`); r["ok"] != true {
+		t.Fatalf("只报语言：%v", r)
+	}
+	if r := b.call(`{"id":7,"method":"conv.device"}`); r["result"] != "-" {
+		t.Fatalf("只报了语言的 b 不算报过设备：%v", r)
+	}
+	if r := b.call(`{"id":8,"method":"conv.said"}`); r["error"] != "Stopped" {
+		t.Fatalf("只报了语言的 b：%v", r)
+	}
+	a.call(`{"id":4,"method":"core.client","device":"pc","lang":"zh-Hans"}`)
+	if r := a.call(`{"id":5,"method":"conv.said"}`); r["error"] != "已停止" {
+		t.Fatalf("换回中文的 a：%v", r)
 	}
 }

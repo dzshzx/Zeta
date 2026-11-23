@@ -1,3 +1,5 @@
-# zeta-helper 链接的第三方模块：只有 Go 团队维护的扩展库 x/text（read 解 GB18030 用），门禁 gate_go_deps 按本清单核对，多一个都失败。
+# zeta-helper 链接的第三方模块：Go 团队维护的扩展库 x/text（read 解 GB18030 用），mygo 的 i18n 包（核心的文字表 locales，按客户端的语言出字；
+# 只链接 i18n 和它的文字数据，不带界面），门禁 gate_go_deps 按本清单核对，多一个都失败。
 # 按 go.mod 的 tool 单独编进 APK 的程序另列在 go-tools-allowlist.txt
+github.com/egoist/mygo
 golang.org/x/text

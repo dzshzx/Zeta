@@ -132,6 +132,16 @@ zeta-helper 和 claude-switch 是 Go 程序，各编成 linux 的 arm64、amd64 
 
     Copyright 2009 The Go Authors.
 
+### github.com/egoist/mygo
+
+| 版本 | 许可证 | 上游 |
+|---|---|---|
+| v0.10.0 | MIT | https://github.com/egoist/mygo |
+
+zeta-helper 只链接其中的多语言包（i18n）和它的文字数据，按客户端的界面语言出字，静态链接进 assets/zeta-helper/linux-arm64、linux-amd64。
+
+    Copyright (c) 2026 MyGo contributors
+
 ### golang.org/x/text
 
 | 版本 | 许可证 | 上游 |

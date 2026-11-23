@@ -9,5 +9,11 @@
   "icon": "installer/icon.png",
   "main": "./cmd/zeta",
   "out": "build/mygo",
-  "linux": { "webview": false }
+  "linux": {
+    "webview": false
+  },
+  "i18n": {
+    "dir": "internal/locales",
+    "source": "zh-Hans"
+  }
 }

@@ -1,0 +1,11 @@
+{
+  "@@locale": "zh-Hans",
+  "settingsLanguage": "语言",
+  "@settingsLanguage": {
+    "description": "设置「常规」里选界面语言的那一行。"
+  },
+  "settingsLanguageSystem": "跟随系统",
+  "@settingsLanguageSystem": {
+    "description": "语言选项：用 Windows 的显示语言，没有对应翻译时用简体中文。"
+  }
+}

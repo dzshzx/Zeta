@@ -2,6 +2,7 @@ package conv
 
 import (
 	"encoding/json"
+	"github.com/dzshzx/Zeta/helper/locales"
 	"slices"
 	"strconv"
 	"strings"
@@ -317,9 +318,9 @@ func (c *Conversation) handleResult(e event) bool {
 	failed := e.IsError || e.Subtype != "success"
 	switch {
 	case c.interruptRequested && c.steering:
-		c.r.AddNotice("已打断，先处理插话", false)
+		c.r.AddNoticeMsg(locales.M("noticeSteered"), false)
 	case c.interruptRequested:
-		c.r.AddNotice("已停止", false)
+		c.r.AddNoticeMsg(locales.M("noticeStopped"), false)
 	case failed:
 		c.r.AddNotice(resultFailure(e), true)
 	}

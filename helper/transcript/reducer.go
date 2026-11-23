@@ -1,6 +1,7 @@
 package transcript
 
 import (
+	"github.com/dzshzx/Zeta/helper/locales"
 	"strconv"
 	"strings"
 )
@@ -58,10 +59,17 @@ func (r *Reducer) AddUser(text string, images []Image, files []string, uuid stri
 	return it
 }
 
-// AddNotice 加一条提示。
+// AddNotice 加一条提示（原文，比如 Claude Code 给的出错，不翻译）。
 func (r *Reducer) AddNotice(text string, isError bool) *Item {
 	it := &Item{Kind: KindNotice, ID: r.nextID("n"), Text: text, Error: isError}
 	r.Items = append(r.Items, it)
+	return it
+}
+
+// AddNoticeMsg 加一条核心自己说的提示：客户端按种类码出字，Text 是源语言。
+func (r *Reducer) AddNoticeMsg(m locales.Msg, isError bool) *Item {
+	it := r.AddNotice(m.String(), isError)
+	it.Code, it.Args = m.Key, m.Args
 	return it
 }
 

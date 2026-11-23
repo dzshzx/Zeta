@@ -39,6 +39,10 @@ type Item struct {
 	Streaming bool `json:"streaming,omitempty"` // answer、thought：还在逐字送来
 	Error     bool `json:"error,omitempty"`     // notice
 
+	// notice：核心文字表里的种类码和参数（docs/i18n.md），客户端按自己的语言出字；Text 是源语言，给不认这个码的旧客户端。
+	Code string         `json:"code,omitempty"`
+	Args map[string]any `json:"args,omitempty"`
+
 	Steps []*Step `json:"steps,omitempty"` // work
 
 	rev int

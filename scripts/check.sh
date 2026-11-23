@@ -109,6 +109,22 @@ check_go_module client linux windows
 windows/scripts/assets.sh
 check_go_module windows windows
 
+# 文字表（docs/i18n.md）：mygo 的核对只把解析不了、占位对不上算错，英文缺了某句只警告、界面显示中文，这里警告也算失败；
+# 再重新生成取字代码，和文字表对不上时最后的「已跟踪文件不变」会报出来。mygo 命令是桌面版的 tool，从 windows/ 调。
+check_catalogs() {
+  local out
+  if ! out=$(cd windows && go tool mygo i18n check "../$1" 2>&1) || grep -q 'warning:' <<<"$out"; then
+    printf 'gate: %s 的文字表没过核对：\n%s\n' "$1" "$out" >&2
+    exit 1
+  fi
+  if ! out=$(cd windows && go tool mygo generate "../$1" 2>&1); then
+    printf 'gate: %s 的取字代码生成失败：\n%s\n' "$1" "$out" >&2
+    exit 1
+  fi
+}
+check_catalogs windows
+check_catalogs helper
+
 results=app/build/test-results/testDebugUnitTest
 if [[ -n $skip_gradle ]]; then
   echo "gate: 跳过 Gradle 构建与单元测试（ZETA_GATE_FULL=1 时照跑）：改动只涉及构建和测试读不到的文件：$skip_gradle"

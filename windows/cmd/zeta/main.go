@@ -10,19 +10,21 @@ import (
 	"github.com/dzshzx/Zeta/client/sshlink"
 	"github.com/dzshzx/Zeta/windows/internal/host"
 	"github.com/dzshzx/Zeta/windows/internal/hub"
+	// 界面的文字表：注册后 mygo 的语言就是简体中文（源语言）和英文，它自带的文字（菜单、输入框菜单）跟着用同一种
+	_ "github.com/dzshzx/Zeta/windows/internal/locales"
 	"github.com/dzshzx/Zeta/windows/internal/settings"
 	zui "github.com/dzshzx/Zeta/windows/internal/ui"
 	"github.com/dzshzx/Zeta/windows/internal/ui/about"
 	"github.com/dzshzx/Zeta/windows/internal/ui/widget"
 	"github.com/dzshzx/Zeta/windows/internal/update"
 	"github.com/egoist/mygo"
-	_ "github.com/egoist/mygo/locales/zh-Hans" // mygo 自带文字（选中文字的右键菜单、输入框菜单等）的简体中文
 	"github.com/egoist/mygo/ui"
 )
 
 func main() {
-	// 界面只有简体中文：mygo 自带的文字也一律用中文，不跟 Windows 的显示语言（没声明时它只认英文）
-	mygo.App.SetLanguages("zh-Hans")
+	// 换了界面语言（设置里改，或跟随的系统语言变了）：开着的连接都把新语言报给核心，核心之后的应答用它。
+	// 写连接可能卡在网络上，不占主线程
+	mygo.App.OnLocaleChanged(func(string) { go hostlink.IntroduceAll() })
 	dir, err := settings.Dir()
 	if err != nil {
 		log.Fatalf("zeta: 找不到放设置的目录：%v", err)

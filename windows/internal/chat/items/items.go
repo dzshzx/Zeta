@@ -6,6 +6,8 @@ import (
 	"encoding/json"
 	"fmt"
 	"strings"
+
+	"github.com/dzshzx/Zeta/helper/locales"
 )
 
 // Kind 是条目的种类。
@@ -42,6 +44,9 @@ type Item struct {
 	Streaming bool `json:"streaming"`
 	// Error：notice 是出错的提示。
 	Error bool `json:"error"`
+	// Code、Args：notice 的种类码和参数（核心文字表的键，docs/i18n.md），有码时按界面语言出字，Text 是给不认识码时用的源语言文字。
+	Code string         `json:"code"`
+	Args map[string]any `json:"args"`
 	// Steps：work 里的各步。
 	Steps []Step `json:"steps"`
 }
@@ -54,6 +59,14 @@ func (it Item) Running() bool {
 		}
 	}
 	return false
+}
+
+// Said 是 notice 用界面语言 locale 说出来的文字：有种类码时从核心的文字表取，没有时是 Text。
+func (it Item) Said(locale string) string {
+	if it.Code == "" {
+		return it.Text
+	}
+	return locales.Msg{Key: it.Code, Args: it.Args}.In(locale)
 }
 
 // StepKind 是工作组里一步的种类。

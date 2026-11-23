@@ -253,7 +253,8 @@ func TestServePingsAndRefusesOtherProtocols(t *testing.T) {
 	for {
 		data, _ := os.ReadFile(requests)
 		if strings.Count(string(data), `"method":"ping"`) >= 2 {
-			if !strings.HasPrefix(string(data), `{"id":1,"method":"sessions.watch"}`+"\n") {
+			// 先报 core.client（没给设备名和语言也报，核心靠它知道这条连接是新客户端），再订阅
+			if !strings.HasPrefix(string(data), `{"device":"","id":1,"method":"core.client"}`+"\n"+`{"id":2,"method":"sessions.watch"}`+"\n") {
 				t.Errorf("requests %s", data)
 			}
 			break

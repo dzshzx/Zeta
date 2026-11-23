@@ -210,6 +210,16 @@ internal object ThirdParty {
     val GO_MODULES: List<Component> =
         listOf(
             Component(
+                name = "github.com/egoist/mygo",
+                version = "v0.10.0",
+                license = "MIT",
+                url = "https://github.com/egoist/mygo",
+                copyright = listOf("Copyright (c) 2026 MyGo contributors"),
+                note =
+                    "zeta-helper 只链接其中的多语言包（i18n）和它的文字数据，按客户端的界面语言出字，" +
+                        "静态链接进 assets/zeta-helper/linux-arm64、linux-amd64。",
+            ),
+            Component(
                 name = "golang.org/x/text",
                 version = "v0.44.0",
                 license = "BSD-3-Clause",

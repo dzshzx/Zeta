@@ -11,6 +11,7 @@ import (
 
 	"github.com/dzshzx/Zeta/client/hostlink"
 	"github.com/dzshzx/Zeta/client/sshlink"
+	"github.com/egoist/mygo/i18n"
 )
 
 // OpenChat 起一条到设备 h 上 serve 的连接给对话用（和会话列表的订阅各用各的：对话开在哪台和侧栏列哪台无关）。
@@ -22,6 +23,7 @@ func (d *Devices) OpenChat(h sshlink.Host, push func(line []byte), hello func(ho
 	return hostlink.StartServe(hostlink.ServeOptions{
 		Open:   func() (*sshlink.Process, error) { return hostlink.OpenServe(shell, d.Helper) },
 		Device: ThisDevice(),
+		Lang:   i18n.Locale,
 		Hello:  hello,
 		Message: func(kind string, line []byte) {
 			if strings.HasPrefix(kind, "conv.") || kind == "sessions.match" {

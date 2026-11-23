@@ -28,9 +28,12 @@ type ServeOptions struct {
 	Open func() (*sshlink.Process, error)
 	// Subscriptions 是连上、收到招呼后各发一次的方法（重连后也再发一遍，所以先收到的总是整份）。
 	Subscriptions []string
-	// Device 是这个客户端是哪台设备（Windows 的计算机名）：不空时每次连上都先发 core.client 报给核心，核心记下最近是哪台在用哪个对话，
+	// Device 是这个客户端是哪台设备（Windows 的计算机名）：每次连上都先发 core.client 报给核心，核心记下最近是哪台在用哪个对话，
 	// 别的包看到这个对话被占着时说得出在哪台设备上（docs/core.md「协议」）。核心不比这边的 serve 旧（serve 让旧核心交班），总认得它。
 	Device string
+	// Lang 是界面现在的语言（BCP 47，如 zh-Hans、en），和 Device 一起在 core.client 里报，核心给这条连接的应答按它出字
+	// （docs/i18n.md）；换语言后调 Introduce 再报一次。可以是 nil（不报，核心用源语言）。
+	Lang func() string
 	// Hello 每次连上（收到对得上协议的 zeta_hello）时调，在读的 goroutine 上、Problem 报连上之前；可以是 nil。
 	Hello func(Hello)
 	// Message 收到推来的每一行（type 不是 zeta_reply 的），在读的 goroutine 上调用。
@@ -79,8 +82,30 @@ func StartServe(opts ServeOptions) *Serve {
 		opts.Ping = PingEvery
 	}
 	s := &Serve{opts: opts, stop: make(chan struct{}), changed: make(chan struct{}), pending: map[int64]chan reply{}}
+	live.Lock()
+	live.serves[s] = true
+	live.Unlock()
 	go s.loop()
 	return s
+}
+
+// live 是还没结束的连接，换语言时 IntroduceAll 让它们都再报一次 core.client。
+var live = struct {
+	sync.Mutex
+	serves map[*Serve]bool
+}{serves: map[*Serve]bool{}}
+
+// IntroduceAll 让所有还没结束的连接再报一次 core.client（界面换了语言时调）。
+func IntroduceAll() {
+	live.Lock()
+	all := make([]*Serve, 0, len(live.serves))
+	for s := range live.serves {
+		all = append(all, s)
+	}
+	live.Unlock()
+	for _, s := range all {
+		s.Introduce()
+	}
 }
 
 // ReconnectDelay 是第 attempt 次重连前等多久：1、2、4、8 秒，15 秒，之后 30 秒，二十几次以后一分钟（同 Kotlin 版）。
@@ -126,6 +151,9 @@ func (s *Serve) end(why string) {
 	}
 	s.ended, s.why = true, why
 	s.broadcast()
+	live.Lock()
+	delete(live.serves, s)
+	live.Unlock()
 }
 
 // broadcast 叫醒等连接的 Call。拿着 mu 时调。
@@ -330,10 +358,8 @@ func (s *Serve) read(p *sshlink.Process, done <-chan struct{}, connected *bool) 
 			s.opts.Message(head.Type, line)
 		case head.Type == "zeta_hello" && head.Protocol == Protocol:
 			*connected = true
-			if s.opts.Device != "" {
-				// 排在能 Call 之前：这条连接上的第一条消息就记在这台设备名下
-				s.write(p, "core.client", map[string]any{"device": s.opts.Device}, nil)
-			}
+			// 排在能 Call 之前：这条连接上的第一条消息就记在这台设备名下、按这个语言出字
+			s.write(p, "core.client", s.introduction(), nil)
 			for _, method := range s.opts.Subscriptions {
 				s.send(p, method)
 			}
@@ -376,6 +402,25 @@ func (s *Serve) answer(rawID json.RawMessage, ok bool, result json.RawMessage, w
 
 // send 发一个不等应答的请求（订阅、ping）。
 func (s *Serve) send(p *sshlink.Process, method string) { s.write(p, method, nil, nil) }
+
+// introduction 是 core.client 的参数：设备名和界面语言。
+func (s *Serve) introduction() map[string]any {
+	m := map[string]any{"device": s.opts.Device}
+	if s.opts.Lang != nil {
+		m["lang"] = s.opts.Lang()
+	}
+	return m
+}
+
+// Introduce 再报一次 core.client（界面换了语言时）：连着时马上发，没连着时等下次连上照常报。
+func (s *Serve) Introduce() {
+	s.mu.Lock()
+	p := s.conn
+	s.mu.Unlock()
+	if p != nil {
+		s.write(p, "core.client", s.introduction(), nil)
+	}
+}
 
 // write 发一个请求，返回它的 id；ch 不为空时应答交给它（p 已经断了时马上交 errDropped）。
 // 写不出去时不管，读那边会发现断了，到时 ch 收到 errDropped。
