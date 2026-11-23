@@ -399,7 +399,7 @@ tasks.withType<Test>().configureEach {
     // 内存耗尽时测试进程直接退出、测试算失败；不加时 OutOfMemoryError 可能只打死某个后台协程（比如 Compose 的重组），测试照样通过
     jvmArgs("-XX:+ExitOnOutOfMemoryError")
     // 合入门禁（scripts/check.sh，没设 ZETA_GATE_FULL=1 时）传 -Pzeta.gate=fast：不跑截图测试（shots 包里类名以 Shots 结尾的）。
-    // 它们占单元测试一半的时间，改由全量门禁（每晚的 CI、发版前）跑。不传时全跑。
+    // 它们占单元测试一半的时间，改由全量门禁（每晚的 CI、打开 gate 的发版）跑。不传时全跑。
     // 别的测试不往合入门禁之外挪，除非两条都成立：它慢不是在白等（连接超时、宽限期、等一个不会来的事件，是就改掉等待）；
     // 全量门禁所在的 CI 上它真的跑（钉住真 claude 命令行行为的各 ContractTest 在没有 claude 命令的机器上是跳过的，挪出去就没有地方跑）
     val gate = providers.gradleProperty("zeta.gate").orNull

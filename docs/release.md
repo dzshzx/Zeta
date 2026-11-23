@@ -12,7 +12,8 @@ Zeta 的正式版（包名 `com.dzshzx.zeta`）只经 GitHub Release 发布。�
 
 ```sh
 go -C tools/release run . ship             # 升 patch；用户说了才加 -bump minor
-go -C tools/release run . ship -preview    # 只列这次的版本、versionCode、是否已过全量门禁和发版说明，几秒
+go -C tools/release run . ship -gate      # 发版前先跑全量门禁，没过就不发布
+go -C tools/release run . ship -preview    # 只列这次的版本、versionCode 和发版说明，几秒
 ```
 
 `ship` 触发 `.github/workflows/release.yml`，同时在本机让测试版照正式版那样经 R8 构建、在模拟器上冷启动一次
@@ -22,30 +23,32 @@ go -C tools/release run . ship -preview    # 只列这次的版本、versionCode
 是这个版本，下载手机的资产照 `check-download` 核对，打印版本、APK 的 sha256 和证书。失败了修好后重跑 `ship` 能续上：
 冒烟测试已通过的提交不再跑，有 tag 没发布的照下面 version 那一步续发。
 
-用户说上线时直接 `ship`，不先 dry run：正式发版自己跑全量门禁（这个提交还没过时），发布是最后一步，前面任何一步失败都不会发出去。
+发版默认不跑全量门禁，直接构建、发布：每个提交合入时已过 `wt land` 的门禁，每晚（或手动触发）的 `ci.yml` 跑全量门禁。
+用户要时加 `-gate`，工作流先跑全量门禁，没过就不构建、不发布。
+用户说上线时直接 `ship`，不先 dry run：发布是最后一步，前面任何一步失败都不会发出去。
 只在要提前确认能走通时（上线前的准备）手动 dry run，它不发布，也不看冒烟测试：
 
 ```sh
 gh workflow run release.yml --ref master -f dry_run=true
 ```
 
-工作流的输入（`ship` 的 `-bump`、`-runner` 原样交给它）：
+工作流的输入（`ship` 的 `-bump`、`-runner` 原样交给它，`-gate` 传 `gate=true`）：
 
 - `bump`：`patch`（默认）、`minor` 或 `major`。版本长期停在 0.x.x，平常只升 patch；minor 要维护者先同意，不发 1.0。
 - `dry_run`：默认 `false`。设为 `true` 时完整构建、签名、核对、打包（任何分支都能跑，但 environment `release`
   只放 `master`，别的分支到签名就停），运行摘要列出将要发布的版本、
   源提交、各资产的 sha256 和 Release 说明，但不打 tag、不发布。资产留在这次运行的 `release` 构件里（保留 7 天）。
-- `runner`：门禁（要跑时）和构建跑在哪，`self-hosted`（默认，维护者的 runner）或 `github-hosted`（`ubuntu-latest`，
+- `gate`：默认 `false`，不跑全量门禁。设为 `true` 时先跑，没过就不往下走。
+- `runner`：门禁（打开 `gate` 时）和构建跑在哪，`self-hosted`（默认，维护者的 runner）或 `github-hosted`（`ubuntu-latest`，
   本机 runner 不在线时用）。签名、发布不受它影响，总在 GitHub 托管机上。
 
 工作流依次：
 
 1. **version**：`tools/release next-version`。正式发版（非 dry run）只在默认分支上跑。这个提交上有纯 `vX.Y.Z` tag、
    且同名 Release 已发布，就是发过版，非 dry run 直接失败；只有 tag、Release 没发布，就是上次没发完，沿用这个版本
-   续发，不再升档。否则取仓里最高的纯 `vX.Y.Z` tag 按 `bump` 升一档。同时算出 versionCode，并查这个提交是否已过全量门禁：
-   本仓里手动或定时触发的 `ci.yml`、`release.yml` 在它上面有过成功的运行。
-2. **gate**：调 `ci.yml` 跑全量门禁 `ZETA_GATE_FULL=1 bash scripts/check.sh`。合入时的门禁不含截图测试，发版前在这里
-   一个不落地跑。这个提交已过全量门禁（上一步查到了）就跳过：先 dry run 再正式发时，全量门禁只在 dry run 里跑一次。
+   续发，不再升档。否则取仓里最高的纯 `vX.Y.Z` tag 按 `bump` 升一档。同时算出 versionCode。
+2. **gate**（`gate=true` 时）：调 `ci.yml` 跑全量门禁 `ZETA_GATE_FULL=1 bash scripts/check.sh`（合入时的门禁不含截图测试，
+   这里一个不落）。没过就不构建、不发布；没打开时跳过，后面照常走。
 3. **build**：在维护者的 runner 上（`runner=github-hosted` 时在托管的 ubuntu 机上）构建 `:app:assembleRelease`，出未签名的 `Zeta-vX.Y.Z.apk`。构建前在
    这份检出里给本提交打上本地 tag，版本名因此就是干净的 `X.Y.Z`（见下节）。
 4. **sign**：在 environment `release` 里取正式发版密钥，`tools/release sign` 签名，删掉密钥库；`tools/release verify`

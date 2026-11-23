@@ -4,8 +4,8 @@ name: Release
 # zeta/r8-smoke，publish 等它通过才发布）；只想预演时手动 dry run：gh workflow run release.yml --ref master -f dry_run=true
 # 做法、签名、Secrets 与出错后怎么办见 docs/release.md。
 # version：最高的纯 vX.Y.Z tag 按 bump 升一档；这个提交已发过版就失败，有 tag 没发布就沿用那个版本续发。
-# gate：调 ci.yml 跑全量门禁（wt land 合入时的门禁不含截图测试，这里一个不落）；这个提交已经过了全量门禁就跳过：
-# dry run、每晚或手动的 CI 在它上面成功跑过。所以 dry run 之后的正式发版不再跑一遍。
+# gate：输入 gate 打开时才调 ci.yml 跑全量门禁（ship -gate），没过就不发布；默认不跑：每个提交合入时已过 wt land 的门禁，
+# 每晚或手动的 ci.yml 跑全量。
 # build：本机 runner 上构建未签名的正式版（不在线时 runner=github-hosted 改到托管机）；desktop 同时在那里打 Go 桌面版（windows/）的 MSI（不签名）。sign：在 environment release 里用正式发版密钥签名、核对、打包，
 # 构建（跑第三方的 Gradle 插件和依赖）和碰密钥分在两个 job。publish：等 R8 冒烟测试通过，建草稿、打 tag、发布，只有它能写仓库。
 # dry_run 只到 sign 为止：构建、签名、核对、写运行摘要，不打 tag、不发布。任何分支都能跑，但 environment release
@@ -23,10 +23,14 @@ on:
         type: boolean
         default: false
       runner:
-        description: 门禁（这个提交还没过全量门禁才跑）和构建跑在哪：self-hosted 是本机 runner，github-hosted 是 ubuntu-latest
+        description: 门禁（打开 gate 时）和构建跑在哪：self-hosted 是本机 runner，github-hosted 是 ubuntu-latest
         type: choice
         options: [self-hosted, github-hosted]
         default: self-hosted
+      gate:
+        description: 跑全量门禁；默认不跑，合入门禁与每晚 CI 已查过
+        type: boolean
+        default: false
 
 permissions:
   contents: read
@@ -42,12 +46,10 @@ jobs:
     timeout-minutes: 5
     permissions:
       contents: read
-      actions: read # 查这个提交上有没有成功的 ci.yml、release.yml 运行
     outputs:
       version: ${{ steps.version.outputs.version }}
       tag: ${{ steps.version.outputs.tag }}
       version_code: ${{ steps.version.outputs.version_code }}
-      gate_passed: ${{ steps.version.outputs.gate_passed }}
     steps:
       - name: 检出
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -61,7 +63,7 @@ jobs:
           go-version-file: tools/release/go.mod
           cache: false
 
-      - name: 算版本，查是否已发过版、是否已过全量门禁
+      - name: 算版本，查是否已发过版
         id: version
         env:
           GH_TOKEN: ${{ github.token }}
@@ -72,14 +74,14 @@ jobs:
 
   gate:
     needs: version
-    if: needs.version.outputs.gate_passed != 'true'
+    if: inputs.gate
     uses: ./.github/workflows/ci.yml
     with:
       gate_runner: ${{ inputs.runner }}
 
   build:
     needs: [version, gate]
-    # gate 跳过（这个提交已过全量门禁）也接着构建
+    # gate 没打开（跳过）也接着构建；打开了没过就不构建、不发布
     if: ${{ !cancelled() && needs.version.result == 'success' && (needs.gate.result == 'success' || needs.gate.result == 'skipped') }}
     # 默认在本机 runner 上构建：它的 .env 给 ANDROID_HOME 和持久的 GRADLE_USER_HOME，这个 job 不碰 Secrets。
     runs-on: ${{ inputs.runner == 'github-hosted' && 'ubuntu-latest' || fromJSON('["self-hosted","nerv"]') }}

@@ -3,7 +3,7 @@
 //
 //	next-version -bump patch|minor|major -branch <默认分支> [-dry-run]
 //	    这次发版的版本：最高的纯 vX.Y.Z tag 按 bump 升一档；这个提交已发过版就失败，有 tag 没发布就续发。
-//	    同时给出 versionCode 和这个提交是否已过全量门禁（ci.yml、release.yml 在它上面成功跑过），按 $GITHUB_OUTPUT 的格式打印
+//	    同时给出 versionCode，按 $GITHUB_OUTPUT 的格式打印
 //	sign -apk <未签名的包> -keystore <密钥库> -alias <别名> -out <签好的包>
 //	    用正式发版密钥加 release/lineage.bin 只签 APK 签名方案 v3，签完核对签名
 //	verify -apk <包> -version X.Y.Z -version-code N
@@ -14,9 +14,10 @@
 //	    删同名旧草稿、建含全部资产的草稿、经 API 在本提交上打附注 tag、发布并设为最新；失败后重跑能续上
 //	check-download -dir <目录>
 //	    核对 gh release download 下来的手机那几个资产（tools/install.sh --release 用），打印 APK 的路径
-//	ship [-bump patch|minor|major] [-preview] [-runner self-hosted|github-hosted]
+//	ship [-bump patch|minor|major] [-preview] [-runner self-hosted|github-hosted] [-gate]
 //	    发版的入口，在维护者的主 checkout 上跑：触发 release.yml，同时在本机跑 R8 冒烟测试并把结果记成提交上的
-//	    commit status（publish 等它通过才发布），发完下载资产核对。-preview 只列这次的版本、versionCode 和发版说明
+//	    commit status（publish 等它通过才发布），发完下载资产核对。-preview 只列这次的版本、versionCode 和发版说明。
+//	    默认不跑全量门禁；-gate 让 release.yml 先跑，没过就不发布
 //
 // apksigner、aapt2、zipalign 取 $ANDROID_HOME/build-tools/<app/build.gradle.kts 的 buildToolsVersion>；
 // JAVA_HOME 的 bin 放到子进程 PATH 的最前（apksigner 用 PATH 上的 java）；没设时照 tools/java-home 找。

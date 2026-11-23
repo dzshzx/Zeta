@@ -71,13 +71,28 @@ func TestSmokeOnce(t *testing.T) {
 func TestStartReleaseFindsRun(t *testing.T) {
 	noWait(t, 0)
 	fakeCommands(t, map[string]string{"gh workflow run": "https://github.com/o/r/actions/runs/45099284668"})
-	if id, err := startRelease("o/r", "c0ffee", "patch", "self-hosted"); err != nil || id != "45099284668" {
+	if id, err := startRelease("o/r", "c0ffee", "patch", "self-hosted", false); err != nil || id != "45099284668" {
 		t.Errorf("从 gh 打印的地址取：%q %v", id, err)
 	}
 	at := time.Now().UTC().Format(time.RFC3339)
 	calls := fakeSequence(t, map[string][]string{"gh run list": {"", "7\t" + at}})
-	if id, err := startRelease("o/r", "c0ffee", "patch", "self-hosted"); err != nil || id != "7" {
+	if id, err := startRelease("o/r", "c0ffee", "patch", "self-hosted", false); err != nil || id != "7" {
 		t.Errorf("没打印地址时等它出现在列表里：%q %v，calls %q", id, err, *calls)
+	}
+}
+
+// 全量门禁默认不跑：不传 gate，用 release.yml 的默认（false）；-gate 才传 gate=true。
+func TestStartReleaseGate(t *testing.T) {
+	noWait(t, 0)
+	for _, gate := range []bool{false, true} {
+		calls := fakeCommands(t, map[string]string{"gh workflow run": "https://github.com/o/r/actions/runs/1"})
+		if _, err := startRelease("o/r", "c0ffee", "patch", "self-hosted", gate); err != nil {
+			t.Fatal(err)
+		}
+		run := (*calls)[0]
+		if got := strings.Contains(run, "-f gate="); got != gate || (gate && !strings.Contains(run, "-f gate=true")) {
+			t.Errorf("gate=%t 时触发的是 %q", gate, run)
+		}
 	}
 }
 

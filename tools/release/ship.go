@@ -25,11 +25,13 @@ var runSmoke = func(root string) error {
 
 // runShip 是发版的唯一入口（在维护者的主 checkout 上跑）：同时启动 release.yml 和本机的 R8 冒烟测试，
 // 测试结果记成提交上的 commit status，publish 等它通过才发布；发完下载资产核对。-preview 只列这次会发什么。
+// 默认不跑全量门禁（每个提交合入时已过 wt land 的门禁，每晚的 CI 跑全量）；-gate 让 release.yml 先跑一遍，没过就不发布。
 func runShip(args []string) error {
 	fs := flag.NewFlagSet("ship", flag.ContinueOnError)
 	bump := fs.String("bump", "patch", "patch、minor 或 major（minor、major 要维护者先同意）")
 	preview := fs.Bool("preview", false, "只列版本、versionCode 和发版说明，不发版")
 	runner := fs.String("runner", "self-hosted", "门禁和构建跑在哪：self-hosted 或 github-hosted（本机 runner 不在线时）")
+	gate := fs.Bool("gate", false, "发版前跑全量门禁；默认不跑，合入门禁与每晚 CI 已查过")
 	if err := parse(fs, args); err != nil {
 		return err
 	}
@@ -48,8 +50,8 @@ func runShip(args []string) error {
 	if *preview {
 		return printPreview(p, sha)
 	}
-	fmt.Fprintf(os.Stderr, "发 v%s（%s；versionCode %s；这个提交%s过全量门禁），源提交 %s\n", p.version, p.note, p.versionCode, p.gateWords(), sha)
-	run, err := startRelease(repo, sha, *bump, *runner)
+	fmt.Fprintf(os.Stderr, "发 v%s（%s；versionCode %s；%s），源提交 %s\n", p.version, p.note, p.versionCode, gateWords(*gate), sha)
+	run, err := startRelease(repo, sha, *bump, *runner, *gate)
 	if err != nil {
 		return err
 	}
@@ -100,16 +102,24 @@ func printPreview(p plan, sha string) error {
 	if err != nil {
 		return err
 	}
-	fmt.Printf("v%s（%s），versionCode %s，源提交 %s，这个提交%s过全量门禁\n", p.version, p.note, p.versionCode, sha, p.gateWords())
+	fmt.Printf("v%s（%s），versionCode %s，源提交 %s\n", p.version, p.note, p.versionCode, sha)
 	fmt.Printf("发版说明：%s 以来 %d 个提交\n%s\n", previous, len(titles), formatNotes(titles))
 	return nil
 }
 
+func gateWords(gate bool) string {
+	return map[bool]string{true: "先跑全量门禁", false: "不跑全量门禁"}[gate]
+}
+
 // startRelease 触发 release.yml，返回这次运行的编号：gh 打印了运行的地址就从里面取（同 fleet-state 的 rollout），
-// 没打印时找触发之后、在这个提交上手动触发的最新一个。
-func startRelease(repo, sha, bump, runner string) (string, error) {
+// 没打印时找触发之后、在这个提交上手动触发的最新一个。gate 为真时才传 gate=true，否则用工作流的默认（不跑）。
+func startRelease(repo, sha, bump, runner string, gate bool) (string, error) {
 	since := time.Now().Add(-time.Minute).UTC()
-	out, err := gh("workflow", "run", "release.yml", "--repo", repo, "--ref", "master", "-f", "bump="+bump, "-f", "runner="+runner)
+	args := []string{"workflow", "run", "release.yml", "--repo", repo, "--ref", "master", "-f", "bump=" + bump, "-f", "runner=" + runner}
+	if gate {
+		args = append(args, "-f", "gate=true")
+	}
+	out, err := gh(args...)
 	if err != nil {
 		return "", err
 	}
