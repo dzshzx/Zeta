@@ -12,6 +12,7 @@ import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxScope
+import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
@@ -33,9 +34,11 @@ import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyListState
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.input.setTextAndPlaceCursorAtEnd
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.DisposableEffect
@@ -1116,10 +1119,16 @@ private fun EmptyState(
     var editingCwd by remember { mutableStateOf(false) }
     var cwdDraft by remember { mutableStateOf(cwd) }
     val scope = rememberCoroutineScope()
-    Box(modifier = modifier.fillMaxSize()) {
+    // 键盘弹出后地方不够时内容照原样排、能上下滚，不让 Column 把最后一排建议卡片压扁；地方够时照旧居中（底下留 56）
+    BoxWithConstraints(modifier = modifier.fillMaxSize()) {
         Column(
-            modifier = Modifier.align(Alignment.Center).padding(bottom = 56.dp),
+            modifier =
+                Modifier.fillMaxWidth()
+                    .verticalScroll(rememberScrollState())
+                    .heightIn(min = maxHeight)
+                    .padding(bottom = 56.dp),
             horizontalAlignment = Alignment.CenterHorizontally,
+            verticalArrangement = Arrangement.Center,
         ) {
             Text(
                 text = "有什么可以帮你？",
