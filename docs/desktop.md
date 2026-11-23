@@ -5,8 +5,13 @@
 ## 和手机版的约定
 
 - 只连远程主机，用 Zeta 自带的 SSH 直连（`golang.org/x/crypto/ssh`）。认证照这台电脑的 OpenSSH 配置：地址可以是 `~/.ssh/config` 里的别名，交给 `ssh -G` 算出主机、用户、端口和私钥；每台设备能另选 `~/.ssh` 里一把私钥（旁边有 `.pub` 的）。带口令的私钥、ProxyJump、ProxyCommand 不支持，遇到明说。主机指纹在加设备时记下，之后只认它。x/crypto/ssh 没有 zlib 压缩，连接不压缩。
-- 设置存在 `%APPDATA%\Zeta` 下的 JSON 文件（设置 `zeta.json`，输入草稿 `zeta_drafts.json`）：每项 `{"t":类型,"v":值}`，类型是 `s`、`i`、`l`、`f`、`b`、`set`（字符串、32 位和 64 位整数、小数、真假、字符串数组），认不得的项原样留着；键和取值同手机版的设置（`shared/…/core/Settings.kt`），格式写在 `internal/settings` 的包注释里。
-- 安装包是 MSI，在 Linux 上用 wixl 打（`installer/build.sh`，release.yml 的 desktop 任务跑它）：只装一个 `Zeta.exe`，按用户装到 `%LOCALAPPDATA%\Programs\Zeta`；`UpgradeCode` 各版本共用、不能改，带 `REINSTALLMODE=amus`，所以装新版直接替换旧版（`installer/installer_test.go` 钉着）。随正式版一起发，`update.json` 的 `msi`、`msiUrl`、`msiSize`、`msiSha256` 四项给它的自动更新读，手机不读。自动更新的做法（谁查、下载核对、PowerShell 脚本怎么起）见 `docs/release.md`「应用内更新」的桌面版一节。
+- 设置存在 `%APPDATA%\Zeta`（测试版是 `%APPDATA%\Zeta Dev`，见下面「测试版」）下的 JSON 文件（设置 `zeta.json`，输入草稿 `zeta_drafts.json`）：每项 `{"t":类型,"v":值}`，类型是 `s`、`i`、`l`、`f`、`b`、`set`（字符串、32 位和 64 位整数、小数、真假、字符串数组），认不得的项原样留着；键和取值同手机版的设置（`shared/…/core/Settings.kt`），格式写在 `internal/settings` 的包注释里。
+- 安装包是 MSI，在 Linux 上用 wixl 打（`installer/build.sh`，release.yml 的 desktop 任务跑它）：只装一个 `Zeta.exe`，按用户装到 `%LOCALAPPDATA%\Programs\Zeta`；正式版的 `UpgradeCode` 各版本共用、不能改，带 `REINSTALLMODE=amus`，所以装新版直接替换旧版（`installer/installer_test.go` 钉着）。随正式版一起发，`update.json` 的 `msi`、`msiUrl`、`msiSize`、`msiSha256` 四项给它的自动更新读，手机不读。自动更新的做法（谁查、下载核对、PowerShell 脚本怎么起）见 `docs/release.md`「应用内更新」的桌面版一节。
+- 测试版：同手机测试版（`com.dzshzx.zeta.dev`）的做法，版本名不是干净 X.Y.Z 的构建（任务分支、master 上没发版的提交）是和正式版并存的另一个应用「Zeta Dev」，橙色图标，装它不替换、不碰正式版。程序里是不是测试版只看 `update.Version.Release`，名字取 `Version.AppName`；MSI 的身份写在 `installer/Zeta.wxs` 开头，exe 的身份由 `installer/build.sh` 定（做法见它开头）。各项分开如下，正式版的都不变：
+  - MSI：自己的 `UpgradeCode`（测试版之间互相替换），装到 `%LOCALAPPDATA%\Programs\Zeta Dev\Zeta Dev.exe`，开始菜单快捷方式「Zeta Dev」，注册表键 `HKCU\Software\dzshzx\Zeta Dev`。
+  - exe 的版本资源：名字 Zeta Dev、identifier `com.dzshzx.zeta.desktop.dev`（同 mygo dev 给开发版的身份）。mygo 在 Windows 上从这里读名字和 identifier，单实例锁（两个能同时开着）、mygo 自己存窗口位置和所选语言的目录 `%APPDATA%\Zeta Dev` 都按它们分开；通知、任务栏分组跟着 exe 的路径，本来就分开。
+  - Zeta 自己：设置目录 `%APPDATA%\Zeta Dev`（第一次打开是空的，设备要重新加，或者把正式版的 `zeta.json` 拷过去），更新下载目录 `%LOCALAPPDATA%\Zeta Dev\update`（测试版不查更新），窗口标题、托盘的提示文字是 Zeta Dev、托盘图标橙色。
+  - 在主机上是 `zeta-dev` 包，见下一条。
 - 在主机上和手机版用同一个包：正式版是 `zeta`，和手机正式版同包；测试版（不是干净 X.Y.Z 的构建）是 `zeta-dev`，和手机测试版同包（见 `AppVariant.linuxName`、`internal/host` 的 `LinuxName`）。同一个包在一台主机上只有一份 zeta-helper 和一个核心，同一个会话可以电脑和手机同时接着、看到的是同一份状态。托管脚本 `zeta_host.sh`、zeta-helper、claude-switch 都是手机版那几份（构建时编进程序），按内容哈希装到主机上，和手机版装的是同一份。
 - 和 Claude Code 说话（起进程的参数、stream-json 输入、控制请求、确认的应答格式）由 serve 做，桌面版不直接碰 stream-json。
 
@@ -68,4 +73,4 @@ windows/
 
 - 逻辑层是普通的 Go 测试；SSH 对着测试里起的 x/crypto/ssh 服务器，命令在临时 HOME 里真跑 bash、zeta-helper 和托管脚本，对话用 serve 加 `tools/fake-claude`（`internal/hub` 的 `TestConversationThroughCore`，设 `ZETA_RECORD_DIR` 时顺带重录 `hubtest/recorded`）。
 - 界面用 mygo 的无窗口测试（`ui.NewTester`）配 `internal/hubtest` 的假设备，按文字找控件、点、输入、拨时钟，断言状态和布局；不做像素比对。要看样子时设 `ZETA_PREVIEW_DIR`，`internal/ui` 的 `TestPreviews` 把各场景画成 PNG 人工看（同 power-meter）。
-- 门禁在 Linux 上跑全部测试；真窗口在本机的 Windows 上装 MSI 看。
+- 门禁在 Linux 上跑全部测试；真窗口在本机的 Windows 上装测试版的 MSI 看：任务分支上 `installer/build.sh` 打出的就是测试版（「Zeta Dev」，见上面「测试版」），和用户在用的正式版并存，装、开、关、卸都不碰正式版。卸掉测试版用同一个 MSI 的 `msiexec /x <msi> /qn`，或在「设置 → 应用」里卸「Zeta Dev」。

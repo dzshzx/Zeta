@@ -1,8 +1,10 @@
 package main
 
 import (
+	"bytes"
 	"testing"
 
+	"github.com/dzshzx/Zeta/windows/internal/update"
 	"github.com/egoist/mygo"
 )
 
@@ -22,5 +24,17 @@ func TestHideOnClose(t *testing.T) {
 		if got := b.hideOnClose(); got != c.want {
 			t.Errorf("%s：hideOnClose() = %v，要 %v", c.name, got, c.want)
 		}
+	}
+}
+
+// 托盘：正式版的样子不变；测试版换橙色图标、提示文字 Zeta Dev。
+func TestTrayOptions(t *testing.T) {
+	release := trayOptions(update.Version{Code: 812, Name: "0.7.6"})
+	if release.ID != "zeta" || release.ToolTip != "Zeta" || !bytes.Equal(release.Icon, trayIcon) {
+		t.Errorf("release tray: ID %q, tool tip %q", release.ID, release.ToolTip)
+	}
+	dev := trayOptions(update.Version{Code: 815, Name: "0.7.7-dev.3+gabc1234"})
+	if dev.ToolTip != "Zeta Dev" || !bytes.Equal(dev.Icon, trayDevIcon) || bytes.Equal(trayIcon, trayDevIcon) {
+		t.Errorf("dev tray: tool tip %q", dev.ToolTip)
 	}
 }

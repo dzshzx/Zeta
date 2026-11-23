@@ -219,3 +219,27 @@ func TestAutoLoadRemoteImagesKey(t *testing.T) {
 		t.Fatal("重新读回来不对")
 	}
 }
+
+// 设置目录：正式版的不能变（%APPDATA%\Zeta，装新版照旧读得到）；测试版另一个目录，和正式版互不干扰。
+func TestDirName(t *testing.T) {
+	release, dev := update.Version{Code: 812, Name: "0.7.6"}, update.Version{Code: 815, Name: "0.7.7-dev.3+gabc1234"}
+	for _, tc := range []struct {
+		goos string
+		v    update.Version
+		want string
+	}{
+		{"windows", release, "Zeta"},
+		{"windows", dev, "Zeta Dev"},
+		{"windows", update.Version{}, "Zeta Dev"},
+		{"linux", release, "zeta-desktop"},
+		{"linux", dev, "zeta-desktop-dev"},
+	} {
+		if got := dirName(tc.goos, tc.v); got != tc.want {
+			t.Errorf("dirName(%s, %+v) = %q, want %q", tc.goos, tc.v, got, tc.want)
+		}
+	}
+	t.Setenv("XDG_CONFIG_HOME", "/cfg")
+	if dir, err := Dir(); err != nil || dir != filepath.Join("/cfg", "zeta-desktop-dev") {
+		t.Errorf("a test build's Dir() = %q, %v", dir, err)
+	}
+}

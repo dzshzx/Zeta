@@ -86,13 +86,13 @@ func main() {
 	mygo.App.WhenReady(func() {
 		// 界面画出来之前先铺 COUI 的页面底色，打开时不闪一下白。没有系统标题栏：侧栏和各页的顶栏就是标题栏，
 		// 系统自己的最小化、最大化、关闭按钮浮在右上角，和顶栏一样高（见 widget/titlebar.go）。窗口的位置、大小、
-		// 最大化记在 StateKey 下，下次打开时照旧；1280×860 只是第一次打开的大小
-		win = mygo.NewWindow(mygo.WindowOptions{Title: "Zeta", Width: 1280, Height: 860, MinWidth: 720, MinHeight: 480,
+		// 最大化记在 StateKey 下，下次打开时照旧；1280×860 只是第一次打开的大小。标题（任务栏、Alt+Tab 里的名字）测试版是 Zeta Dev
+		win = mygo.NewWindow(mygo.WindowOptions{Title: version.AppName(), Width: 1280, Height: 860, MinWidth: 720, MinHeight: 480,
 			StateKey: "main", BackgroundColor: windowBackground(prefs), TitleBarStyle: mygo.TitleBarHidden,
 			TitleBarHeight: widget.TitleBarHeight, Content: ui.View(app.View)})
 		// 关窗口只是藏到托盘，后台照旧连着、发通知；托盘右键「退出」才退出（tray.go）。藏起来或真关时，
 		// 没存的草稿马上存盘（平时输入停下约一秒才存），拖过的侧栏宽度也存上
-		bg := &background{win: win}
+		bg := &background{win: win, version: version}
 		bg.start()
 		win.OnClose(func(e *mygo.CloseEvent) {
 			app.SaveDrafts()

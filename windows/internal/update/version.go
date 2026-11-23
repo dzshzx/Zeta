@@ -36,3 +36,13 @@ func parseVersion(code, name string) Version {
 
 // Release 说这是不是正式发版打的包（版本名是干净的 X.Y.Z）：只有它检查更新，开发构建不查。
 func (v Version) Release() bool { return v.Code > 0 && releaseName.MatchString(v.Name) }
+
+// AppName 是这个构建在 Windows 上的应用名：正式版是 Zeta，别的构建（测试版、go run、测试）是 Zeta Dev。测试版是和正式版并存的另一个应用，
+// 设置目录、下载目录、窗口标题、托盘按它分开；exe 里给 mygo 的名字和 identifier（单实例锁、mygo 自己的数据目录按它们分）、MSI 的身份
+// 由 installer/build.sh、Zeta.wxs 照同一条规矩定（版本名是不是干净的 X.Y.Z），见 docs/desktop.md「测试版」。
+func (v Version) AppName() string {
+	if v.Release() {
+		return "Zeta"
+	}
+	return "Zeta Dev"
+}

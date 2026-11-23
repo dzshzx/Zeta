@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"github.com/dzshzx/Zeta/client/sshlink"
+	"github.com/dzshzx/Zeta/windows/internal/update"
 )
 
 // 设置文件里的键，同 shared 的 Settings.kt。
@@ -28,18 +29,24 @@ type Settings struct {
 	store *Store
 }
 
-// Dir 是设置所在的目录：Windows 上是 %APPDATA%\Zeta，别的系统上是 $XDG_CONFIG_HOME/zeta-desktop。
+// Dir 是设置所在的目录：Windows 上是 %APPDATA%\<应用名>（正式版 Zeta，测试版 Zeta Dev，见 update.Version.AppName；
+// 也是 mygo 自己存窗口位置、所选语言的目录），别的系统上是 $XDG_CONFIG_HOME/zeta-desktop（测试版 zeta-desktop-dev）。
 func Dir() (string, error) {
-	if runtime.GOOS == "windows" {
-		if appData := os.Getenv("APPDATA"); appData != "" {
-			return filepath.Join(appData, "Zeta"), nil
-		}
-	}
-	config, err := os.UserConfigDir()
+	config, err := os.UserConfigDir() // Windows 上是 %APPDATA%
 	if err != nil {
 		return "", err
 	}
-	return filepath.Join(config, "zeta-desktop"), nil
+	return filepath.Join(config, dirName(runtime.GOOS, update.Current())), nil
+}
+
+func dirName(goos string, v update.Version) string {
+	switch {
+	case goos == "windows":
+		return v.AppName()
+	case v.Release():
+		return "zeta-desktop"
+	}
+	return "zeta-desktop-dev"
 }
 
 // Load 打开目录 dir 里的设置文件 zeta.json。读不成时给一份空的能用的设置，同时返回原因。

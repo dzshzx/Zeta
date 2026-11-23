@@ -129,4 +129,13 @@ func TestVersion(t *testing.T) {
 	if Current() != (Version{}) {
 		t.Errorf("a test build is %+v, want a development build", Current())
 	}
+	// 正式版的名字不能变（设置目录、下载目录都按它）；别的构建都是测试版
+	if got := (Version{812, "0.7.6"}).AppName(); got != "Zeta" {
+		t.Errorf("release AppName %q", got)
+	}
+	for _, v := range []Version{{815, "0.7.7-dev.3+gabc1234"}, {}} {
+		if got := v.AppName(); got != "Zeta Dev" {
+			t.Errorf("%+v: AppName %q", v, got)
+		}
+	}
 }

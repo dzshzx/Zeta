@@ -270,4 +270,21 @@ func TestDownloadDir(t *testing.T) {
 	if got := DownloadDir("/home/u/.config/Zeta"); got != filepath.Join("/home/u/.config/Zeta", "update") {
 		t.Errorf("DownloadDir = %q", got)
 	}
+	// Windows 上在 %LOCALAPPDATA% 下：正式版的路径不变，测试版另一个目录
+	local := `C:\Users\u\AppData\Local`
+	release, dev := Version{812, "0.7.6"}, Version{815, "0.7.7-dev.3+gabc1234"}
+	for _, tc := range []struct {
+		v    Version
+		want string
+	}{
+		{release, filepath.Join(local, "Zeta", "update")},
+		{dev, filepath.Join(local, "Zeta Dev", "update")},
+	} {
+		if got := downloadDir("windows", local, `C:\x`, tc.v); got != tc.want {
+			t.Errorf("downloadDir(%+v) = %q, want %q", tc.v, got, tc.want)
+		}
+	}
+	if got := downloadDir("windows", "", "/s", release); got != filepath.Join("/s", "update") {
+		t.Errorf("without LOCALAPPDATA: %q", got)
+	}
 }

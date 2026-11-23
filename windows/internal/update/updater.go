@@ -86,10 +86,15 @@ type Updater struct {
 	wg     sync.WaitGroup
 }
 
-// DownloadDir 是下载安装包的目录：Windows 上放在 %LOCALAPPDATA%\Zeta\update（不进漫游的 %APPDATA%），别处在设置目录下。
+// DownloadDir 是下载安装包的目录：Windows 上放在 %LOCALAPPDATA%\<应用名>\update（不进漫游的 %APPDATA%；应用名见 Version.AppName，
+// 测试版不查更新，分开只为不碰正式版的目录），别处在设置目录下。
 func DownloadDir(settingsDir string) string {
-	if dir := os.Getenv("LOCALAPPDATA"); runtime.GOOS == "windows" && dir != "" {
-		return filepath.Join(dir, "Zeta", "update")
+	return downloadDir(runtime.GOOS, os.Getenv("LOCALAPPDATA"), settingsDir, Current())
+}
+
+func downloadDir(goos, localAppData, settingsDir string, v Version) string {
+	if goos == "windows" && localAppData != "" {
+		return filepath.Join(localAppData, v.AppName(), "update")
 	}
 	return filepath.Join(settingsDir, "update")
 }

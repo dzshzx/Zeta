@@ -130,7 +130,7 @@ Android SDK 取 `ANDROID_HOME`，默认 `~/Android/Sdk`。每次调用时才设�
 
 正式版自己也检查更新（设置「关于」，回到前台时每天最多一次）：读最新 Release 的 `update.json`，核对后经 root 的 `pm install -r` 或系统的安装界面装，有手机工具调用正在执行时等这一次结束（对话在回答、后台屏幕开着都不等）。只有正式发版证书签的包才查；做法和在模拟器上用测试版试的办法见 `docs/release.md`「应用内更新」。桌面版也自己检查更新（设置「关于」，启动时每天最多一次）：只有正式发版打的包（构建时写进程序的版本名是干净的 X.Y.Z）才查，读同一份 `update.json` 里的 MSI，下载核对后起一个 PowerShell 等 Zeta 退出、`msiexec` 覆盖安装、再重新打开 Zeta（`windows/internal/update`，做法见同一节的桌面版部分）。
 
-桌面版（`windows/`）：测试和看界面的做法见 `docs/desktop.md`「测试」。Windows 安装包全在 Linux 上打：先 `windows/scripts/assets.sh`，再 `windows/installer/build.sh [输出目录]` 出 `Zeta-v<版本>.msi`（默认在 `windows/build/`，最后一行打印路径；要 wixl，版本算法见脚本开头）。MSI 只装一个 `Zeta.exe`，按用户安装到 `%LOCALAPPDATA%\Programs\Zeta`，不要管理员，没做代码签名。在本机的 Windows（nerv-win）上试：把 MSI 拷到 Windows 那边，`msiexec /i <msi> /qn` 静默装，从开始菜单起 Zeta。桌面版和手机版一起发：`release.yml` 的 desktop 任务打 MSI，作为 `Zeta-vX.Y.Z.msi` 和 APK 放在同一个 Release 里；只要一个分支的 MSI 时跑那个分支的 dry run，包在运行的 desktop 构件里。
+桌面版（`windows/`）：测试和看界面的做法见 `docs/desktop.md`「测试」。Windows 安装包全在 Linux 上打：先 `windows/scripts/assets.sh`，再 `windows/installer/build.sh [输出目录]` 出 `Zeta-v<版本>.msi`（默认在 `windows/build/`，最后一行打印路径；要 wixl，测试版还要 jq；版本算法见脚本开头）。MSI 只装一个 exe，按用户安装，不要管理员，没做代码签名。版本名是干净 X.Y.Z 的是正式版 Zeta（`%LOCALAPPDATA%\Programs\Zeta`）；别的构建是测试版「Zeta Dev」，同手机测试版，是和正式版并存的另一个应用（自己的 UpgradeCode、安装目录、设置目录、identifier、橙色图标，各项见 `docs/desktop.md`「测试版」），装它不替换、不碰用户在用的正式版。在本机的 Windows（nerv-win）上试：任务分支上打出的就是测试版，把 MSI 拷到 Windows 那边，`msiexec /i <msi> /qn` 静默装，从开始菜单起「Zeta Dev」，卸掉用 `msiexec /x <msi> /qn`；正式版照常开着，不用关。桌面版和手机版一起发：`release.yml` 的 desktop 任务打 MSI，作为 `Zeta-vX.Y.Z.msi` 和 APK 放在同一个 Release 里。release.yml 的 dry run 先在检出里打上这次的 tag，打出的是正式版身份的包，装它会替换正式版，所以试分支不用它，用本机 `build.sh` 打的测试版。
 
 ## 边界
 

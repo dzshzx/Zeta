@@ -1,26 +1,51 @@
 <?xml version="1.0" encoding="utf-8"?>
-<!-- Go 桌面版的 MSI，由 msi.sh 交给 wixl。按用户安装到 %LOCALAPPDATA%\Programs\Zeta，不要管理员；MSI 里的字符串只用 ASCII，免得各语言的 Windows 上乱码。
-     UpgradeCode 是各个版本共用的，不能改：装这个包时靠它认出已装的旧版并卸掉；安装范围也要一直按用户，否则认不出。installer_test.go 钉着这几项。 -->
+<!-- Go 桌面版的 MSI，由 msi.sh 交给 wixl。按用户安装到 %LOCALAPPDATA%\Programs\<名字>，不要管理员；MSI 里的字符串只用 ASCII，免得各语言的 Windows 上乱码。
+     两个版本（msi.sh 按版本名给 Variant：干净的 X.Y.Z 是 release，别的是 dev）各是一个产品，能同时装着、互不替换：
+     正式版 Zeta 的 UpgradeCode 是各个正式版共用的，不能改：装这个包时靠它认出已装的旧版并卸掉；安装范围也要一直按用户，否则认不出。
+     测试版 Zeta Dev 有自己的 UpgradeCode（测试版之间互相替换）、安装目录、开始菜单快捷方式、注册表键和橙色图标。installer_test.go 钉着这几项。
+     名字带空格的目录、文件写成「短名|长名」：wixl 不会自己生成短名，Windows Installer 的文件名要这样写。
+     wixl 的预处理不认 elseif（两个分支的 define 都生效），所以下面套两层 if。 -->
+<?if $(var.Variant) = release ?>
+  <?define ProductName = "Zeta" ?>
+  <?define UpgradeCode = "d73fe446-ddad-4182-b6f1-fc4f8ac025fb" ?>
+  <?define DirName = "Zeta" ?>
+  <?define ExeName = "Zeta.exe" ?>
+  <?define ExeLongName = "Zeta.exe" ?>
+  <?define ShortcutGuid = "0e6f0c7a-5a43-4d1e-9a52-3f0a8f6c2b71" ?>
+  <?define IconFile = "zeta.ico" ?>
+<?else?>
+<?if $(var.Variant) = dev ?>
+  <?define ProductName = "Zeta Dev" ?>
+  <?define UpgradeCode = "b2aa700b-0f79-4508-b34a-bbf2039d05ca" ?>
+  <?define DirName = "ZETADEV|Zeta Dev" ?>
+  <?define ExeName = "ZETADEV.EXE|Zeta Dev.exe" ?>
+  <?define ExeLongName = "Zeta Dev.exe" ?>
+  <?define ShortcutGuid = "32869af5-c651-479c-8841-4b215f906f38" ?>
+  <?define IconFile = "zeta-dev.ico" ?>
+<?else?>
+  <?error Variant is release or dev ?>
+<?endif?>
+<?endif?>
 <Wix xmlns="http://schemas.microsoft.com/wix/2006/wi">
-  <Product Id="*" Name="Zeta" Language="1033" Version="$(var.Version)" Manufacturer="dzshzx"
-           UpgradeCode="d73fe446-ddad-4182-b6f1-fc4f8ac025fb">
+  <Product Id="*" Name="$(var.ProductName)" Language="1033" Version="$(var.Version)" Manufacturer="dzshzx"
+           UpgradeCode="$(var.UpgradeCode)">
     <Package InstallerVersion="500" Compressed="yes" InstallScope="perUser"
-             Description="Zeta: Claude Code on remote hosts over SSH" />
+             Description="$(var.ProductName): Claude Code on remote hosts over SSH" />
     <Media Id="1" Cabinet="zeta.cab" EmbedCab="yes" />
-    <MajorUpgrade AllowSameVersionUpgrades="yes" DowngradeErrorMessage="A newer version of Zeta is already installed." />
+    <MajorUpgrade AllowSameVersionUpgrades="yes" DowngradeErrorMessage="A newer version of $(var.ProductName) is already installed." />
     <!-- wixl 把卸旧版排在装新文件之前（不认 MajorUpgrade 的 Schedule），而装不装一个文件是卸旧版之前按版本号定的：
          版本号没变的文件会被判成「已有、不用装」，接着被卸旧版删掉。a 让每个文件都照装；只装在本程序自己的目录里，不碰共用的文件。 -->
     <Property Id="REINSTALLMODE" Value="amus" />
 
-    <Icon Id="zeta.ico" SourceFile="$(var.IconFile)" />
+    <Icon Id="zeta.ico" SourceFile="$(var.Here)/$(var.IconFile)" />
     <Property Id="ARPPRODUCTICON" Value="zeta.ico" />
 
     <Directory Id="TARGETDIR" Name="SourceDir">
       <Directory Id="LocalAppDataFolder">
         <Directory Id="ProgramsDir" Name="Programs">
-          <Directory Id="INSTALLDIR" Name="Zeta">
+          <Directory Id="INSTALLDIR" Name="$(var.DirName)">
             <Component Id="ZetaExe" Guid="*">
-              <File Id="ZetaExe" Name="Zeta.exe" Source="$(var.Exe)" KeyPath="yes" />
+              <File Id="ZetaExe" Name="$(var.ExeName)" Source="$(var.Exe)" KeyPath="yes" />
             </Component>
           </Directory>
         </Directory>
@@ -30,10 +55,10 @@
 
     <!-- 开始菜单的快捷方式：装在用户目录下的组件按 Windows Installer 的规矩（ICE38）用 HKCU 下的一个注册表值当键路径。 -->
     <DirectoryRef Id="ProgramMenuFolder">
-      <Component Id="StartMenuShortcut" Guid="0e6f0c7a-5a43-4d1e-9a52-3f0a8f6c2b71">
-        <Shortcut Id="ZetaShortcut" Name="Zeta" Description="Zeta"
-                  Target="[INSTALLDIR]Zeta.exe" WorkingDirectory="INSTALLDIR" Icon="zeta.ico" />
-        <RegistryValue Root="HKCU" Key="Software\dzshzx\Zeta" Name="installed" Type="integer" Value="1" KeyPath="yes" />
+      <Component Id="StartMenuShortcut" Guid="$(var.ShortcutGuid)">
+        <Shortcut Id="ZetaShortcut" Name="$(var.DirName)" Description="$(var.ProductName)"
+                  Target="[INSTALLDIR]$(var.ExeLongName)" WorkingDirectory="INSTALLDIR" Icon="zeta.ico" />
+        <RegistryValue Root="HKCU" Key="Software\dzshzx\$(var.ProductName)" Name="installed" Type="integer" Value="1" KeyPath="yes" />
       </Component>
     </DirectoryRef>
 
