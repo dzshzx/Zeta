@@ -168,6 +168,16 @@ abstract class GoProgramTask : DefaultTask() {
     /** 编进程序的变量（-ldflags -X），比如 zeta-helper 的构建序号 main.build。 */
     @get:Input abstract val linkVars: MapProperty<String, String>
 
+    /**
+     * 各段按多少字节对齐（-ldflags -R）；0 是照 Go 的默认（arm64 64 KB，amd64 只有 4 KB）。打进 APK 的程序要至少 16 KB： Android 15
+     * 起 16 KB 页的设备只认这样的原生库，可调试的包不满足时还会弹兼容性提示。
+     */
+    @get:Input abstract val segmentAlign: Property<Int>
+
+    init {
+        segmentAlign.convention(0)
+    }
+
     @get:Inject abstract val exec: ExecOperations
 
     @TaskAction
@@ -188,6 +198,9 @@ abstract class GoProgramTask : DefaultTask() {
                     "-buildvcs=false",
                     "-ldflags=" +
                         (listOf("-s", "-w", "-buildid=") +
+                                listOfNotNull(
+                                    segmentAlign.get().takeIf { it > 0 }?.let { "-R=$it" },
+                                ) +
                                 linkVars.get().map { (name, value) -> "-X=$name=$value" })
                             .joinToString(" "),
                     "-o",
@@ -248,6 +261,7 @@ fun GoProgramTask.configureZetaSsh(target: String, path: String, dir: String) {
     targets.put(target, path)
     outputDir.set(layout.buildDirectory.dir("generated/$dir"))
     linkVars.set(emptyMap())
+    segmentAlign.set(65536)
 }
 
 val zetaSsh =
@@ -391,6 +405,10 @@ androidComponents {
         variant.sources.jniLibs?.addGeneratedSourceDirectory(zetaSsh, GoProgramTask::outputDir)
     }
     onVariants(selector().withBuildType("debug")) { variant ->
+        // 测试版的原生库不压缩（安装时照样解出来，见 packaging）：压缩着时系统核对不了包里的库，每次冷启动都在真屏上弹
+        // 「Android 应用兼容性」（只对可调试的包），说每个库 16 KB 对齐「未知错误」。正式版照旧压缩：不弹这个提示，
+        // 不压缩的 .so 又过不了发版核对的 zipalign -P 16（AGP 解出式打包不按 16 KB 对齐包里的偏移，见 tools/release/apk.go）
+        variant.androidResources.noCompress.add("so")
         variant.sources.jniLibs?.addGeneratedSourceDirectory(
             zetaSshEmulator,
             GoProgramTask::outputDir,
