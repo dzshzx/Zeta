@@ -37,6 +37,10 @@ class EnvController constructor(private val hub: ConversationHub, assets: (Strin
         account = AccountStatus(loggedIn = true, email = email, plan = plan)
     }
 
+    override fun showLoggedOut() {
+        account = AccountStatus(loggedIn = false, email = null, plan = null)
+    }
+
     private val settings
         get() = hub.settings
 

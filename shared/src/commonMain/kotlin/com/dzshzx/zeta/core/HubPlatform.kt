@@ -101,6 +101,9 @@ interface LocalEnvironment {
     /** 账号页切换后知道了登录着的是 [email]（订阅 [plan]）：聊天页的登录提示、设备页的账号入口跟着变。 */
     fun showAccount(email: String, plan: String)
 
+    /** 账号页把在用的号存档并退出了（登录另一个号之前）：知道现在没登录，不必再起 Claude Code 去问。 */
+    fun showLoggedOut()
+
     /** 重新查一次登录着的账号。 */
     fun refreshAccount()
 }

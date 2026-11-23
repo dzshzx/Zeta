@@ -75,11 +75,25 @@ class AccountService(private val hub: ConversationHub, private val backend: Stri
         }
             .getOrElse { SwitchOutcome.Failed(it.message ?: "没有成功") }
         return when (outcome) {
-            is SwitchOutcome.Done -> null
+            is SwitchOutcome.Done -> {
+                main.post { loggedOut() }
+                null
+            }
             is SwitchOutcome.Busy -> "登录前要先把在用的账号存起来：${busyMessage(outcome)}"
             SwitchOutcome.Missing -> "登录前没能把在用的账号存起来"
             is SwitchOutcome.Failed -> "登录前没能把在用的账号存起来：${outcome.message}"
         }
+    }
+
+    /**
+     * 在用的号存档并退出以后：旧号的额度作废，账号列表重读，环境那份登录状态（登录页顶部的「当前状态」读它）直接记成未登录。 不起 `claude auth status` 去问：这时
+     * `claude auth login` 已经起来了，两个 Claude Code 同时读写 `~/.claude.json`，取消登录时杀掉的那个可能正拿着
+     * `~/.claude.json.lock`， 留下的锁会让 claude-switch 一直拒绝换号（模拟器上复现过）。登录成功后由 [switched] 再刷新。在主线程上调用。
+     */
+    private fun loggedOut() {
+        hub.quota(backend).forget()
+        refresh()
+        if (backend == Backends.LOCAL) hub.platform.local?.showLoggedOut()
     }
 
     /** 登录成功以后：新登录还没记过（claude-switch 认不出）时给它起个名字记下。阻塞，别在主线程上调用；没成功就算了。 */
