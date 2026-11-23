@@ -15,6 +15,7 @@ import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.JsonPrimitive
 import kotlinx.serialization.json.buildJsonObject
 import kotlinx.serialization.json.contentOrNull
+import kotlinx.serialization.json.int
 import kotlinx.serialization.json.jsonObject
 import kotlinx.serialization.json.jsonPrimitive
 import kotlinx.serialization.json.put
@@ -43,7 +44,8 @@ import org.junit.Test
  * - MCP 服务器的 elicitation 以 control_request 交给 Zeta（stdio + --permission-prompt-tool stdio 默认就会），交回的
  *   content 原样到服务器。
  * - bash_command（TUI 的 `!`）：直接执行，回放 <bash-input>、<bash-stdout> 两行，command_lifecycle completed
- *   收尾，不请求模型。
+ *   收尾，不请求模型；命令和输出不进下一轮的上下文（TUI 里进），所以核心把回放的两行当 shouldQuery 为假的用户消息交回去 （helper/conv 的
+ *   shellIntoContext）：这样的消息不请求模型，下一轮看得到，各出一个 num_turns 为 0 的 result。
  * - rewind_files：起进程时设了 [CODE_REWIND_ENV] 才有快照；dry_run 报改过的文件，真还原把文件改回去；换个进程 --resume 照样能还原。
  */
 class ClaudeInteractionContractTest {
@@ -60,6 +62,9 @@ class ClaudeInteractionContractTest {
     /** 主对话请求里见过的 tool_result：调用号 → 内容，按第一次见到的先后。 */
     private val seen = LinkedHashMap<String, String>()
     @Volatile private var mainRequests = 0
+
+    /** 主对话最近一次请求的 messages（JSON 文本）。 */
+    @Volatile private var lastMain = ""
 
     /** 系统提醒里给的计划文件路径（计划模式下才有）。 */
     @Volatile private var planPath: String? = null
@@ -136,6 +141,7 @@ class ClaudeInteractionContractTest {
                 else ->
                     synchronized(seen) {
                         mainRequests++
+                        lastMain = messages.toString()
                         record(messages)
                         main.poll() ?: listOf(text("done"))
                     }
@@ -627,7 +633,7 @@ class ClaudeInteractionContractTest {
         Claude().use { c ->
             c.control("""{"subtype":"initialize"}""")
             c.send(
-                """{"type":"bash_command","uuid":"33333333-3333-4333-8333-333333333333","command":"echo hi; exit 3"}""",
+                """{"type":"bash_command","uuid":"33333333-3333-4333-8333-333333333333","command":"echo ZETA-SHELL-OUT; exit 3"}""",
             )
             val events = c.until {
                 it.str("type") == "command_lifecycle" && it.str("state") == "completed"
@@ -641,10 +647,64 @@ class ClaudeInteractionContractTest {
                     .map { it.obj("message")!!.str("content")!! }
             assertTrue(events.any { it.str("state") == "started" })
             assertEquals(
-                "<bash-stdout>hi</bash-stdout><bash-stderr></bash-stderr><bash-exit-code>3</bash-exit-code>",
+                "<bash-stdout>ZETA-SHELL-OUT</bash-stdout><bash-stderr></bash-stderr><bash-exit-code>3</bash-exit-code>",
                 replays.last(),
             )
             assertEquals("不请求模型", 0, mainRequests)
+            // 变了（Claude Code 自己把它并进上下文）就删掉核心的 shellIntoContext，不然模型会看到两遍
+            c.user("接着")
+            c.turn()
+            assertFalse("命令输出不进下一轮的上下文", "ZETA-SHELL-OUT" in lastMain)
+        }
+    }
+
+    @Test
+    fun shellOutputIntoContext() {
+        assumeTrue("没有 claude 命令", claudeAvailable())
+        Claude().use { c ->
+            c.control("""{"subtype":"initialize"}""")
+            val notes =
+                listOf(
+                    "44444444-4444-4444-8444-444444444444",
+                    "55555555-5555-4555-8555-555555555555",
+                )
+            listOf(
+                    "<bash-input>echo ZETA-SHELL-OUT</bash-input>",
+                    "<bash-stdout>ZETA-SHELL-OUT</bash-stdout><bash-stderr></bash-stderr>",
+                )
+                .zip(notes)
+                .forEach { (text, uuid) ->
+                    c.send(
+                        buildJsonObject {
+                            put("type", "user")
+                            put("uuid", uuid)
+                            put("shouldQuery", false)
+                            putJsonObject("message") {
+                                put("role", "user")
+                                put("content", text)
+                            }
+                        },
+                    )
+                }
+            val results = mutableListOf<JsonObject>()
+            c.until { o ->
+                if (o.str("type") == "result") results += o
+                results.size == 2
+            }
+            for ((result, uuid) in results.zip(notes)) {
+                assertEquals("不算一轮", 0, result["num_turns"]?.jsonPrimitive?.int)
+                assertEquals(
+                    listOf(uuid),
+                    (result["user_message_uuids"] as JsonArray).map { it.jsonPrimitive.content },
+                )
+            }
+            assertEquals("不请求模型", 0, mainRequests)
+            c.user("我刚才执行了什么")
+            c.turn()
+            assertTrue(
+                "下一轮看得到命令和输出",
+                "echo ZETA-SHELL-OUT" in lastMain && "<bash-stdout>ZETA-SHELL-OUT" in lastMain,
+            )
         }
     }
 

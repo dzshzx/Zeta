@@ -314,6 +314,8 @@ func (c *Conversation) endTurnState() {
 	c.status = ""
 	c.prompts = nil
 	clear(c.shellCommands)
+	clear(c.contextNotes)
+	c.shellInput = ""
 	c.interruptRequested = false
 	c.r.FinishTurn(false)
 	c.subagentsProcessEnded()

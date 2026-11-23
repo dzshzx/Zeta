@@ -63,6 +63,8 @@ type Conversation struct {
 	recalling          map[string]bool // 撤回时要放回输入框的排队消息
 	interruptRequested bool
 	shellCommands      map[string]bool // 在跑的 ! 命令（bash_command 的 uuid）：它们没有 result
+	shellInput         string          // 回放出来、还没等到输出的 ! 命令那一行（<bash-input>…）
+	contextNotes       map[string]bool // 交回去只进上下文的 ! 命令和输出（shouldQuery 为假的用户消息的 uuid）：它们不算一轮
 	unsent             []*outgoing     // 交给了新起的进程、还没见它有任何输出的消息
 	prompts            []*prompt.Prompt
 	launchHint         string
@@ -135,7 +137,7 @@ func New(id string, spec Spec, deps Deps, send Send) *Conversation {
 	c := &Conversation{
 		ID: id, deps: deps, send: send, in: make(chan func(), 256), quit: make(chan struct{}),
 		cwd: spec.Cwd, title: spec.Title, session: spec.Session, file: spec.File, openedSession: spec.Session,
-		r: transcript.New(""), recalling: map[string]bool{}, shellCommands: map[string]bool{},
+		r: transcript.New(""), recalling: map[string]bool{}, shellCommands: map[string]bool{}, contextNotes: map[string]bool{},
 		options: map[int]Options{}, holders: map[int]string{},
 		usage: usage.New(), tasks: tasks.New(),
 	}

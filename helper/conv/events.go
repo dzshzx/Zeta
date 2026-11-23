@@ -38,9 +38,10 @@ type event struct {
 	State       string `json:"state"`
 
 	// result
-	IsError bool              `json:"is_error"`
-	Result  json.RawMessage   `json:"result"`
-	Errors  []json.RawMessage `json:"errors"`
+	UserMessageUUIDs []string          `json:"user_message_uuids"`
+	IsError          bool              `json:"is_error"`
+	Result           json.RawMessage   `json:"result"`
+	Errors           []json.RawMessage `json:"errors"`
 
 	// control_request、control_cancel_request、control_response
 	RequestID string           `json:"request_id"`
@@ -207,7 +208,11 @@ func (c *Conversation) handleUser(e event, fromSubagent bool) bool {
 	}
 	// Zeta 不让 Claude Code 回放用户消息，回放出来的只有 ! 命令和它的输出
 	if e.IsReplay {
-		return e.Message.Content.Blocks == nil && c.r.ApplyShell(e.Message.Content.Text)
+		if e.Message.Content.Blocks != nil || !c.r.ApplyShell(e.Message.Content.Text) {
+			return false
+		}
+		c.shellIntoContext(e.Message.Content.Text)
+		return true
 	}
 	c.r.ApplyUser(*e.Message, false, transcript.UserOptions{Result: e.ToolUseResult})
 	return true
@@ -216,7 +221,7 @@ func (c *Conversation) handleUser(e event, fromSubagent bool) bool {
 // handleLifecycle：排队的消息开始处理（并进当前一轮或另起一轮）或被撤回；返回聊天列表有没有变。
 func (c *Conversation) handleLifecycle(e event) bool {
 	id := e.CommandUUID
-	if id == "" {
+	if id == "" || c.contextNotes[id] {
 		return false
 	}
 	if (e.State == "completed" || e.State == "cancelled") && c.shellCommands[id] {
@@ -257,6 +262,40 @@ func (c *Conversation) handleLifecycle(e event) bool {
 	return false
 }
 
+// shellIntoContext 把 ! 命令和它的输出照终端版并进上下文：终端里两行都是会话记录里的用户消息，下一轮模型看得到；
+// stream-json 的 bash_command 只回放给客户端看，不进上下文、不写会话记录（2.1.330，ClaudeInteractionContractTest 钉住，
+// 那边改成自己并进上下文时那个用例失败，这段连同 contextNotes 一起删掉）。等到输出时把回放的两行原样交回去，
+// shouldQuery 为假：只并进上下文和会话记录，不请求模型；各出一个 num_turns 为 0 的 result，不算一轮。
+func (c *Conversation) shellIntoContext(text string) {
+	if strings.HasPrefix(strings.TrimSpace(text), "<bash-input>") {
+		c.shellInput = text
+		return
+	}
+	input := c.shellInput
+	c.shellInput = ""
+	if input == "" || c.proc == nil {
+		return
+	}
+	for _, line := range []string{input, text} {
+		id := newUUID()
+		c.contextNotes[id] = true
+		b, _ := json.Marshal(map[string]any{"type": "user", "uuid": id, "shouldQuery": false,
+			"message": map[string]any{"role": "user", "content": line}})
+		c.proc.link.Send(b)
+	}
+}
+
+// onlyContextNotes：这个 result 是不是只为交回去进上下文的 ! 命令或输出出的（是就收掉记号）。和别的消息并成一轮的不算。
+func (c *Conversation) onlyContextNotes(ids []string) bool {
+	if len(ids) == 0 || slices.ContainsFunc(ids, func(id string) bool { return !c.contextNotes[id] }) {
+		return false
+	}
+	for _, id := range ids {
+		delete(c.contextNotes, id)
+	}
+	return true
+}
+
 // finishShell：! 命令做完了。它没有 result，做完就算这一条结束。
 func (c *Conversation) finishShell() {
 	if len(c.queued) > 0 {
@@ -269,6 +308,9 @@ func (c *Conversation) finishShell() {
 
 // handleResult：一轮结束。收尾这一轮的列表，说明停止或出错；还有排队的消息时 Claude Code 会接着另起一轮。
 func (c *Conversation) handleResult(e event) bool {
+	if c.onlyContextNotes(e.UserMessageUUIDs) {
+		return false
+	}
 	c.r.FinishTurn(false)
 	failed := e.IsError || e.Subtype != "success"
 	switch {
