@@ -16,6 +16,10 @@ const allHostsLabel = "全部设备"
 // 标题栏（空白处拖动窗口）；然后是「新对话」、搜索框、设备切换，置顶/今天/更早几组会话（搜索时换成结果，看归档时换成
 // 归档的）；底下是「设置」和归档的入口。宽度能拖（App.View 里的 ui.Split）。多选时顶上一行和底下换成多选的（sessionops.go）。
 func (a *App) sidebar(c *ui.Context) {
+	if a.inSettings() {
+		a.settingsNav(c)
+		return
+	}
 	k := coui.Of(c)
 	var chosen []hostlink.Session
 	if a.ops.selecting {
@@ -60,7 +64,6 @@ func (a *App) sidebar(c *ui.Context) {
 				}
 			})
 	})
-	a.sessionDialogs(c)
 }
 
 // sidebarTop 是侧栏顶上一行：品牌和收起侧栏的按钮，同时是标题栏。

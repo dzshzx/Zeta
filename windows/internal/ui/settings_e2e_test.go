@@ -38,7 +38,9 @@ func TestSettingsThroughServe(t *testing.T) {
 	if p := r.Accounts.Problem(); p != "" {
 		t.Fatalf("账号没读成：%s", p)
 	}
-	f.see(t, "账号与额度", "未登录") // 临时家目录里没登录过
+	f.app.device = f.host.ID
+	f.app.open(pageAccounts)
+	f.until(t, "账号页", func() bool { return f.shows("还没有登录") }) // 临时家目录里没登录过
 	if _, err := os.Stat(filepath.Join(home, loadProgram(t, hostlink.ClaudeSwitch).RelativePath(host.LinuxName))); err != nil {
 		t.Fatalf("claude-switch 没装到主机上：%v", err)
 	}

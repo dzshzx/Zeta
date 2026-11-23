@@ -112,10 +112,10 @@ func TestSettingsPage(t *testing.T) {
 	f := newSettingsFixture(t)
 	f.withHosts(t, "box")
 	f.click(t, "设置")
-	f.until(t, "读到账号和额度", func() bool { return f.shows("a@example.com") && f.shows("已用 86%") })
-	f.see(t, "设备", "box", "添加远程设备", "Claude", "账号与额度", "外观", "主题模式", "跟随系统", "关于", "版本", "0.8.0",
-		unofficial)
-	f.notSee(t, "有新版本")
+	// 侧栏换成设置的分类，右边是常规；各台的额度标在分类上
+	f.until(t, "读到额度", func() bool { return f.shows("已用 86%") })
+	f.see(t, "返回应用", "常规", "设备", "box", "添加设备", "账号与额度", "关于", "外观", "主题模式", "跟随系统", "快捷键", "Ctrl+N")
+	f.notSee(t, "修登录页", "有新版本")
 
 	// 外观：选深色，存进设置，界面跟着换
 	f.click(t, "跟随系统")
@@ -125,30 +125,33 @@ func TestSettingsPage(t *testing.T) {
 	}
 	f.see(t, "深色")
 
-	// 有新版本时版本一行标出来，点进关于页能更新
+	// 有新版本时「关于」标出来，点进关于页能更新
 	f.updates.available = true
 	f.tt.Frame()
 	f.see(t, "有新版本 0.9.0")
-	f.click(t, "有新版本 0.9.0")
+	f.click(t, "关于")
 	if f.app.page != pageAbout {
 		t.Fatalf("没进关于页：%q", f.app.page)
 	}
-	f.see(t, "新版本", "Zeta 0.9.0", "设置页接上了")
+	f.see(t, "新版本", "Zeta 0.9.0", "设置页接上了", "0.8.0", unofficial)
 	f.click(t, "更新")
 	if f.updates.updated != 1 {
 		t.Fatal("点了更新没开始")
 	}
-	f.click(t, "返回")
-	if f.app.page != pageSettings {
-		t.Fatalf("返回到了 %q", f.app.page)
-	}
 
-	// 添加远程设备
-	f.click(t, "添加远程设备")
+	// 添加设备是另一类
+	f.click(t, "添加设备")
 	f.see(t, "从 SSH 配置导入", "手动添加")
-	f.click(t, "返回")
-	if f.app.page != pageSettings {
-		t.Fatalf("返回到了 %q", f.app.page)
+	// Esc 回到对话
+	f.tt.Key(0, ui.KeyEscape)
+	f.tt.Frame()
+	if f.app.page != pageHome {
+		t.Fatalf("Esc 以后在 %q", f.app.page)
+	}
+	f.click(t, "设置")
+	f.click(t, "返回应用")
+	if f.app.page != pageHome {
+		t.Fatalf("返回应用以后在 %q", f.app.page)
 	}
 }
 
@@ -156,19 +159,13 @@ func TestSettingsListsEachDevicesAccount(t *testing.T) {
 	f := newSettingsFixture(t)
 	hosts := f.withHosts(t, "box", "lab")
 	f.click(t, "设置")
-	f.until(t, "读到账号", func() bool {
-		return f.shows("box · 账号与额度") && f.shows("lab · 账号与额度") && f.shows("a@example.com")
-	})
-	f.click(t, "lab · 账号与额度")
+	// 「账号与额度」下面每台一行（设备一组里也各有一行同名的，是第二个）
+	f.clickButton(t, "lab", 1)
 	if f.app.page != pageAccounts || f.app.device != hosts[1].ID {
 		t.Fatalf("page %q, device %q", f.app.page, f.app.device)
 	}
 	f.until(t, "账号页读完", func() bool { return f.shows("b@example.com") && f.shows("每周 · 全部模型") })
-	f.see(t, "lab · 账号与额度", "订阅额度", "每周 · 全部模型", "当前", "切换")
-	f.click(t, "返回")
-	if f.app.page != pageSettings {
-		t.Fatalf("返回到了 %q", f.app.page)
-	}
+	f.see(t, "lab · 账号与额度", "订阅额度", "每周 · 全部模型", "当前", "切换", "刷新")
 }
 
 func TestDevicePageShowsClaudeConfig(t *testing.T) {
@@ -191,13 +188,12 @@ func TestDevicePageShowsClaudeConfig(t *testing.T) {
 		t.Fatalf("自动压缩没存上：%v", entries)
 	}
 
-	// 点进记忆是子页，返回回到设备页，再返回回到设置
+	// 点进记忆是设备页里的子页，返回回到设备页
 	f.click(t, "记忆")
 	f.until(t, "记忆页", func() bool { return f.shows("自动记忆") })
 	f.click(t, "返回")
 	f.see(t, "检查连接")
-	f.click(t, "返回")
-	if f.app.page != pageSettings {
+	if f.app.page != pageDevice {
 		t.Fatalf("返回到了 %q", f.app.page)
 	}
 }

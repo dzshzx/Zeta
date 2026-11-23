@@ -47,9 +47,10 @@ func (a *App) toggleSidebar() {
 }
 
 // frame 排侧栏和右边的页 main：侧栏开着时两者之间是能拖的分隔线；收起时 main 占满，左上角浮着展开侧栏和新对话两个按钮。
+// 在设置里时侧栏是设置的分类，收起了也照样显示。
 func (a *App) frame(c *ui.Context, main func()) {
 	l := &a.layout
-	if l.hidden {
+	if l.hidden && !a.inSettings() {
 		ui.Box(c).Fill().Children(func() {
 			ui.Column(c).Fill().Children(main)
 			ui.Row(c).Absolute().Top(10).Left(10).Gap(2).Children(func() {
@@ -70,33 +71,88 @@ func (a *App) frame(c *ui.Context, main func()) {
 	}
 }
 
-// shortcuts 是窗口的快捷键（键位同 ChatGPT 的 Windows 客户端）。对话框开着时都不响（OnWindowShortcut 的规矩）。
+// shortcut 是窗口的一个快捷键：键、在设置「常规」里怎么写和做什么，按下时 run。needs 是什么时候才有：
+// 0 一直有，needHosts 加过设备以后，needSession 开着一个会话时。
+type shortcut struct {
+	mods  ui.Modifiers
+	key   ui.Key
+	keys  string // 设置里写的键，同一行管几个键时写在第一个上，别的空着
+	label string
+	needs int
+	run   func(a *App, s hostlink.Session)
+}
+
+const (
+	needHosts = 1 + iota
+	needSession
+)
+
+// shortcuts 是窗口的快捷键，键位同 ChatGPT 的 Windows 客户端；聊天页自己的（查找、停止）在 chatKeys。
+var shortcuts = []shortcut{
+	{ui.Cmd, ui.KeyN, "Ctrl+N", "新对话", 0, func(a *App, _ hostlink.Session) { a.newChat() }},
+	{ui.Cmd, ui.KeyK, "Ctrl+K", "搜索对话", needHosts, func(a *App, _ hostlink.Session) { a.focusSearch() }},
+	{ui.Cmd, ui.KeyComma, "Ctrl+,", "设置", 0, func(a *App, _ hostlink.Session) { a.open(pageSettings) }},
+	{ui.Cmd, ui.KeyB, "Ctrl+B", "收起、展开侧栏", 0, func(a *App, _ hostlink.Session) { a.toggleSidebar() }},
+	{ui.Ctrl, ui.KeyTab, "Ctrl+Tab", "下一个对话", needHosts, func(a *App, _ hostlink.Session) { a.stepSession(1) }},
+	{ui.Ctrl | ui.Shift, ui.KeyTab, "Ctrl+Shift+Tab", "上一个对话", needHosts, func(a *App, _ hostlink.Session) { a.stepSession(-1) }},
+	{ui.Cmd, ui.Key1, "Ctrl+1 … 9", "侧栏里第几个对话", needHosts, nth(0)},
+	{ui.Cmd, ui.Key2, "", "", needHosts, nth(1)},
+	{ui.Cmd, ui.Key3, "", "", needHosts, nth(2)},
+	{ui.Cmd, ui.Key4, "", "", needHosts, nth(3)},
+	{ui.Cmd, ui.Key5, "", "", needHosts, nth(4)},
+	{ui.Cmd, ui.Key6, "", "", needHosts, nth(5)},
+	{ui.Cmd, ui.Key7, "", "", needHosts, nth(6)},
+	{ui.Cmd, ui.Key8, "", "", needHosts, nth(7)},
+	{ui.Cmd, ui.Key9, "", "", needHosts, nth(8)},
+	{ui.Ctrl | ui.Alt, ui.KeyA, "Ctrl+Alt+A", "下一个等你回应的对话", needHosts, func(a *App, _ hostlink.Session) { a.nextWaiting() }},
+	{ui.Ctrl | ui.Shift, ui.KeyA, "Ctrl+Shift+A", "归档当前对话", needSession, func(a *App, s hostlink.Session) { a.archive(s) }},
+	{ui.Ctrl | ui.Alt, ui.KeyP, "Ctrl+Alt+P", "置顶当前对话", needSession, func(a *App, s hostlink.Session) { a.togglePin(s) }},
+	{ui.Ctrl | ui.Alt, ui.KeyR, "Ctrl+Alt+R", "重命名当前对话", needSession, func(a *App, s hostlink.Session) { a.rename(s) }},
+}
+
+func nth(i int) func(a *App, _ hostlink.Session) {
+	return func(a *App, _ hostlink.Session) { a.openNth(i) }
+}
+
+// chatKeys 是聊天页上的键（在 chat.go、find.go 里接），只列在设置「常规」里。
+var chatKeys = []struct{ keys, label string }{
+	{"Ctrl+F", "在对话中查找"},
+	{"Enter / Shift+Enter", "查找时：下一个 / 上一个"},
+}
+
+// shortcuts 接上窗口的快捷键。对话框开着时都不响（OnWindowShortcut 的规矩）。
 func (a *App) shortcuts(c *ui.Context) {
-	c.OnWindowShortcut(ui.Cmd, ui.KeyN, a.newChat)
-	c.OnWindowShortcut(ui.Cmd, ui.KeyComma, func() { a.open(pageSettings) })
-	c.OnWindowShortcut(ui.Cmd, ui.KeyB, a.toggleSidebar)
-	if len(a.hub.Hosts()) == 0 {
-		return
-	}
-	c.OnWindowShortcut(ui.Cmd, ui.KeyK, func() {
-		if a.layout.hidden {
-			a.toggleSidebar()
-		}
-		a.layout.searchFocus = true
-	})
-	c.OnWindowShortcut(ui.Ctrl, ui.KeyTab, func() { a.stepSession(1) })
-	c.OnWindowShortcut(ui.Ctrl|ui.Shift, ui.KeyTab, func() { a.stepSession(-1) })
-	for i, key := range []ui.Key{ui.Key1, ui.Key2, ui.Key3, ui.Key4, ui.Key5, ui.Key6, ui.Key7, ui.Key8, ui.Key9} {
-		c.OnWindowShortcut(ui.Cmd, key, func() { a.openNth(i) })
-	}
-	c.OnWindowShortcut(ui.Ctrl|ui.Alt, ui.KeyA, a.nextWaiting)
+	hosts := len(a.hub.Hosts()) > 0
 	s := a.currentSession()
-	if s.ID == "" {
-		return
+	for _, sc := range shortcuts {
+		if sc.needs == needHosts && !hosts || sc.needs == needSession && s.ID == "" {
+			continue
+		}
+		c.OnWindowShortcut(sc.mods, sc.key, func() { sc.run(a, s) })
 	}
-	c.OnWindowShortcut(ui.Ctrl|ui.Shift, ui.KeyA, func() { a.archive(s) })
-	c.OnWindowShortcut(ui.Ctrl|ui.Alt, ui.KeyP, func() { a.togglePin(s) })
-	c.OnWindowShortcut(ui.Ctrl|ui.Alt, ui.KeyR, func() { a.rename(s) })
+}
+
+// focusSearch 把焦点放进侧栏的搜索框（在设置里时先回到对话，侧栏收着时先展开）。
+func (a *App) focusSearch() {
+	a.leaveSettings()
+	if a.layout.hidden {
+		a.toggleSidebar()
+	}
+	a.layout.searchFocus = true
+}
+
+// shortcutsSection 是设置「常规」里的快捷键：窗口的和聊天页的，一行一个，键在右边。
+func shortcutsSection(c *ui.Context) {
+	coui.Group(c, "快捷键", "", func(l *coui.List) {
+		for _, sc := range shortcuts {
+			if sc.keys != "" {
+				l.Row(coui.Row{Key: sc.keys, Title: sc.label, Value: sc.keys})
+			}
+		}
+		for _, k := range chatKeys {
+			l.Row(coui.Row{Key: k.keys, Title: k.label, Value: k.keys})
+		}
+	})
 }
 
 // openSession 在聊天窗格里打开会话 s。

@@ -49,7 +49,7 @@ func (a *App) devicePage(c *ui.Context) {
 		a.cfg.SubPage(c)
 		return
 	}
-	coui.Header(c, x.Name(), func() { a.open(pageSettings) })
+	coui.Header(c, x.Name(), nil)
 	coui.Body(c, "device", func() {
 		a.connectionSection(c, x)
 		coui.Group(c, "", a.edit.check, func(l *coui.List) {

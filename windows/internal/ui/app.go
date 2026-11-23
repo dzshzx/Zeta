@@ -145,6 +145,7 @@ func (a *App) View(c *ui.Context) {
 			a.updateBar(c)
 		})
 	})
+	a.sessionDialogs(c)
 	a.noticeDialog(c)
 	a.viewImages(c)
 }

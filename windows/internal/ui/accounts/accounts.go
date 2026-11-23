@@ -57,13 +57,14 @@ func (p *Page) quota(c *ui.Context) {
 				ui.Column(c).Grow(1).Padding(4, 0).Children(func() { Windows(c, s, c.Now()) })
 			})
 		}
-		row := coui.Row{Key: "refresh", Title: "刷新"}
-		if q.Refreshing() {
-			row.Title = "正在刷新"
-		} else {
-			row.OnClick = func() { q.Refresh(true) }
-		}
-		l.Row(row)
+		l.Custom(func() {
+			ui.Spacer(c)
+			label := "刷新"
+			if q.Refreshing() {
+				label = "正在刷新"
+			}
+			coui.SmallButton(c, label).Disabled(q.Refreshing()).OnClick(func() { q.Refresh(true) })
+		})
 	})
 }
 

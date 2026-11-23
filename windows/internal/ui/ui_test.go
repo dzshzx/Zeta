@@ -123,7 +123,7 @@ func TestFirstRunAddsADeviceFromTheSSHConfig(t *testing.T) {
 		t.Error("sidebar still empty")
 	}
 	f.devices.Push(x.ID, hostlink.SessionsUpdate{Full: true})
-	f.tt.Frame()
+	f.click(t, "返回应用")
 	f.see(t, "还没有对话")
 }
 

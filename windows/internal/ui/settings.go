@@ -38,97 +38,101 @@ func (a *App) startSettings() {
 	}
 }
 
-// settingsPage 是设置（照手机版的设置首页）：设备、Claude、外观、关于几组。
-func (a *App) settingsPage(c *ui.Context) {
-	coui.Header(c, "设置", nil)
-	coui.Body(c, "settings", func() {
-		a.devicesSection(c)
-		a.claudeSection(c)
-		a.appearanceSection(c)
-		a.aboutSection(c)
+// settings 是设置（布局照 ChatGPT 的 Windows 客户端）：侧栏换成设置的分类（settingsNav），右边是选中的那一类，
+// 没有返回键；侧栏顶上的「返回应用」或 Esc 回到对话。分类：常规（外观、快捷键）、各台设备、添加设备、各台的账号与额度、关于。
+
+// inSettings：在看设置的某一页（不是对话）。
+func (a *App) inSettings() bool { return a.page != pageHome }
+
+// leaveSettings 回到对话。
+func (a *App) leaveSettings() { a.page = pageHome }
+
+// settingsNav 是在设置里时的侧栏：顶上一行「返回应用」同时是标题栏，下面一类一行，选中的那类是白底。
+func (a *App) settingsNav(c *ui.Context) {
+	k := coui.Of(c)
+	c.OnWindowShortcut(0, ui.KeyEscape, a.leaveSettings)
+	ui.Column(c).Fill().Background(k.Sidebar).Children(func() {
+		ui.Row(c).Height(coui.TitleBarHeight).Padding(0, 10, 0, 10).AlignItems(ui.Center).Shrink(0).DragWindow().Children(func() {
+			coui.NavItem(c, coui.IconBack, "返回应用", "Esc", false).OnClick(a.leaveSettings).Width(0).Grow(1)
+		})
+		ui.Scroll(c.Key("settings-nav")).Grow(1).MinHeight(0).Children(func() {
+			ui.Column(c).Padding(4, 10, 12, 10).Gap(2).Children(func() { a.settingsCategories(c) })
+		})
 	})
 }
 
-// devicesSection 是各台远程设备（点进设备页）和添加远程设备。
-func (a *App) devicesSection(c *ui.Context) {
-	k := coui.Of(c)
-	coui.Group(c, "设备", "", func(l *coui.List) {
-		for _, x := range a.hub.Hosts() {
-			a.hostRow(l, x)
+// settingsCategories 是设置的各类。
+func (a *App) settingsCategories(c *ui.Context) {
+	coui.NavItem(c, coui.IconSettings, "常规", "", a.page == pageSettings).OnClick(func() { a.open(pageSettings) })
+	navTitle(c, "设备")
+	for _, x := range a.hub.Hosts() {
+		coui.NavItem(c.Key("device/"+x.ID), coui.IconServer, x.Name(), offLabel(x), a.page == pageDevice && a.device == x.ID).
+			OnClick(func() {
+				a.device = x.ID
+				a.open(pageDevice)
+			})
+	}
+	coui.NavItem(c, coui.IconAdd, "添加设备", "", a.page == pageDevices).OnClick(func() { a.open(pageDevices) })
+	if hosts := a.hub.Hosts(); len(hosts) > 0 {
+		navTitle(c, "账号与额度")
+		for _, x := range hosts {
+			a.accountsItem(c, x)
 		}
-		l.Row(coui.Row{Icon: coui.IconAdd, IconColor: k.Orange, Title: "添加远程设备", Arrow: true,
-			OnClick: func() { a.open(pageDevices) }})
+	}
+	navTitle(c, "")
+	hint := ""
+	if st := a.About.Updates.Status(); st.Phase == update.Available {
+		hint = "有新版本 " + st.Manifest.VersionName
+	}
+	coui.NavItem(c, coui.IconInfo, "关于", hint, a.page == pageAbout).OnClick(func() { a.open(pageAbout) })
+}
+
+// accountsItem 是一台设备的账号与额度：名字是设备名，右边是最要紧的额度窗口用了多少；「连接」关着的那台写已断开，点不进去。
+func (a *App) accountsItem(c *ui.Context, x sshlink.Host) {
+	r := a.hub.Remote(x.ID)
+	hint := offLabel(x)
+	if r != nil {
+		if h, ok := headline(r.Quota, c.Now()); ok {
+			hint = "已用 " + percentText(h.Percent())
+		}
+	}
+	item := coui.NavItem(c.Key("accounts/"+x.ID), coui.IconContacts, x.Name(), hint, a.page == pageAccounts && a.device == x.ID)
+	if r == nil {
+		item.Disabled(true)
+		return
+	}
+	item.OnClick(func() {
+		a.device = x.ID
+		a.open(pageAccounts)
+	})
+}
+
+// navTitle 是设置侧栏里一组的小标题（空时只留一段空白）。
+func navTitle(c *ui.Context, title string) {
+	if title == "" {
+		ui.Box(c).Height(10)
+		return
+	}
+	ui.Text(c, title).FontSize(coui.SizeBodyXS).FontWeight(coui.Medium).TextColor(coui.Of(c).Secondary).Padding(14, 10, 4, 10)
+}
+
+// settingsPage 是设置的「常规」：外观、快捷键。
+func (a *App) settingsPage(c *ui.Context) {
+	a.subPage(c, "常规", "settings", func() {
+		a.appearanceSection(c)
+		shortcutsSection(c)
 	})
 }
 
 // offNote 是「连接」关着的设备怎样（设备页的开关下面、聊天窗格的已断开说明），同手机版的 RemoteHosts.OFF_NOTE。
 const offNote = "Zeta 不连这台设备，它上面的对话在那边照样跑"
 
-// offLabel 是「连接」关着的设备在设置首页和侧栏设备菜单里注明的字；开着时是空。
+// offLabel 是「连接」关着的设备在设置侧栏和侧栏设备菜单里注明的字；开着时是空。
 func offLabel(x sshlink.Host) string {
 	if x.Off {
 		return "已断开"
 	}
 	return ""
-}
-
-// hostRow 是一台加好的设备，点开设备页。
-func (a *App) hostRow(l *coui.List, x sshlink.Host) {
-	l.Row(coui.Row{Key: x.ID, Icon: coui.IconServer, IconColor: coui.Of(l.Context()).Orange, Title: x.Name(),
-		Summary: sshlink.DisplayTarget(x.Target), Value: offLabel(x), Arrow: true, OnClick: func() {
-			a.device = x.ID
-			a.open(pageDevice)
-		}})
-}
-
-// claudeSection 是各台的账号与额度：副标题是那台在用的账号，右边是最要紧的额度窗口用了多少。几台设备时标题前写设备名。
-// 「连接」关着的那台写已断开，点不进去。
-func (a *App) claudeSection(c *ui.Context) {
-	hosts := a.hub.Hosts()
-	if len(hosts) == 0 {
-		return
-	}
-	k := coui.Of(c)
-	coui.Group(c, "Claude", "", func(l *coui.List) {
-		for _, x := range hosts {
-			r := a.hub.Remote(x.ID)
-			row := coui.Row{Key: x.ID, Icon: coui.IconContacts, IconColor: k.Blue, Title: "账号与额度", Arrow: true,
-				OnClick: func() {
-					a.device = x.ID
-					a.open(pageAccounts)
-				}}
-			if len(hosts) > 1 {
-				row.Title = x.Name() + " · 账号与额度"
-			}
-			if r == nil {
-				row.Summary, row.Arrow, row.OnClick = offLabel(x), false, nil
-				l.Row(row)
-				continue
-			}
-			row.Summary, row.SummaryColor = accountSummary(r.Accounts, k)
-			if h, ok := headline(r.Quota, c.Now()); ok {
-				row.End = func() {
-					ui.Text(c, "已用 "+percentText(h.Percent())).FontSize(coui.SizeBodyM).FontFeatures("tnum").
-						TextColor(uiacct.Color(c.Theme(), h.Severity, k.Tertiary)).SingleLine()
-				}
-			}
-			l.Row(row)
-		}
-	})
-}
-
-// accountSummary 是账号一行的副标题：在用的账号，还没读到时「正在读取」，读不了时是原因（红字）。
-func accountSummary(s *acct.Service, k *coui.Colors) (string, ui.Color) {
-	st, ok := s.State()
-	switch {
-	case !ok && s.Problem() != "":
-		return s.Problem(), k.Error
-	case !ok:
-		return "正在读取", ui.Color{}
-	case st.Current == nil:
-		return "未登录", ui.Color{}
-	}
-	return st.Current.Title(), ui.Color{}
 }
 
 // headline 是额度里最要紧的那个窗口；没有数、这种登录没有订阅额度时 ok 为 false。
@@ -197,36 +201,9 @@ func (a *App) dark(system bool) bool {
 	return system
 }
 
-// aboutSection 是关于：版本，有新版本时标出来；点进关于页（检查、下载安装更新，开源许可）。
-func (a *App) aboutSection(c *ui.Context) {
-	k := coui.Of(c)
-	coui.Group(c, "关于", unofficial, func(l *coui.List) {
-		version := a.About.Version.Name
-		if !a.About.Version.Release() {
-			version = "开发版 " + version
-		}
-		row := coui.Row{Icon: coui.IconInfo, IconColor: k.Green, Title: "版本", Value: version, Arrow: true,
-			OnClick: func() { a.open(pageAbout) }}
-		if st := a.About.Updates.Status(); st.Phase == update.Available {
-			row.Value = ""
-			row.End = func() { newVersionBadge(c, st.Manifest.VersionName) }
-		}
-		l.Row(row).Label("关于")
-	})
-}
-
-// newVersionBadge 是版本一行右边的「有新版本」：主题色的字，前面一个红点（同 COUI 的提醒点）。
-func newVersionBadge(c *ui.Context, name string) {
-	k := coui.Of(c)
-	ui.Row(c).Gap(6).AlignItems(ui.Center).Children(func() {
-		ui.Box(c).Size(6, 6).Radius(3).Background(k.Error)
-		ui.Text(c, "有新版本 "+name).FontSize(coui.SizeBodyM).TextColor(k.PrimaryText).SingleLine()
-	})
-}
-
-// subPage 是设置往下一层的页：顶上标题和返回（回到设置），下面是 fn 画的、能滚动的卡片。
+// subPage 是设置的一页：顶上标题（同时是标题栏），下面是 fn 画的、能滚动的卡片。
 func (a *App) subPage(c *ui.Context, title, key string, fn func()) {
-	coui.Header(c, title, func() { a.open(pageSettings) })
+	coui.Header(c, title, nil)
 	coui.Body(c, key, fn)
 }
 
@@ -256,7 +233,10 @@ func (a *App) accountsPage(c *ui.Context) {
 
 // aboutPage 是关于：版本、检查更新、新版本的下载安装、开源许可。
 func (a *App) aboutPage(c *ui.Context) {
-	a.subPage(c, "关于", "about", func() { a.About.View(c) })
+	a.subPage(c, "关于", "about", func() {
+		a.About.View(c)
+		ui.Text(c, unofficial).FontSize(coui.SizeBodyXS).LineHeight(1.4).TextColor(coui.Of(c).Secondary).Padding(0, 32)
+	})
 }
 
 // startDeviceConfig 打开设备页时建那台的 Claude Code 配置部分，读一遍新对话默认。
