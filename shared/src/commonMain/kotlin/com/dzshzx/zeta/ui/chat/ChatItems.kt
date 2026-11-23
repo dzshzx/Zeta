@@ -16,6 +16,7 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ColumnScope
+import androidx.compose.foundation.layout.IntrinsicSize
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -72,10 +73,12 @@ import com.dzshzx.zeta.ui.components.coui2.ZetaIcons
 import com.dzshzx.zeta.ui.components.coui2.menuItem
 import com.dzshzx.zeta.ui.markdown.EditorialLineHeightStyle
 import com.dzshzx.zeta.ui.markdown.FindableText
+import com.dzshzx.zeta.ui.markdown.LocalTextFinder
 import com.dzshzx.zeta.ui.markdown.MarkdownTone
 import com.dzshzx.zeta.ui.markdown.StaticMarkdown
 import com.dzshzx.zeta.ui.markdown.StreamingMarkdown
 import com.dzshzx.zeta.ui.markdown.StreamingMarkdownStateCache
+import com.dzshzx.zeta.ui.markdown.findOccurrences
 import com.dzshzx.zeta.ui.markdown.staticMarkdownDocumentCache
 import io.github.suqi8.coui.kmp.basic.DropdownEntry
 import io.github.suqi8.coui.kmp.basic.Icon
@@ -86,6 +89,7 @@ import io.github.suqi8.coui.kmp.icon.extended.Delete
 import io.github.suqi8.coui.kmp.icon.extended.Edit
 import io.github.suqi8.coui.kmp.icon.extended.Favorites
 import io.github.suqi8.coui.kmp.icon.extended.Forward
+import io.github.suqi8.coui.kmp.icon.extended.MindMap
 import io.github.suqi8.coui.kmp.icon.extended.SelectAll
 import io.github.suqi8.coui.kmp.menu.OverlayContextMenu
 import io.github.suqi8.coui.kmp.theme.COUITheme
@@ -97,7 +101,7 @@ val WorkCardShape = RoundedCornerShape(16.dp)
 
 /**
  * 长按菜单：复制，能改写时还有编辑和删除（照 Eta）。[editing] 时描一圈主题色边，表示正在编辑它。 菜单是 COUI 的长按菜单（在按下的位置弹出，自带长按震动），要在 COUI 2
- * 的 Scaffold 里才显示。
+ * 的 Scaffold 里才显示。另一个会话发来的消息（[UserItem.peer]）画成会话消息卡片（[PeerMessage]），编辑、删除、收藏都不挂。
  */
 @Composable
 fun UserBubble(
@@ -108,6 +112,142 @@ fun UserBubble(
     onDelete: (() -> Unit)? = null,
     /** 收藏为常用指令。 */
     onSave: (() -> Unit)? = null,
+) {
+    val peer = item.peer
+    if (peer != null) PeerMessage(item, peer, modifier)
+    else OwnUserBubble(item, modifier, editing, onEdit, onDelete, onSave)
+}
+
+/** 会话消息收着时露出正文的前几行。 */
+private const val PeerCollapsedLines = 4
+
+/**
+ * 另一个 Claude Code 会话发来的消息（会话互通）：和用户消息一样是 Claude 要回应的输入，所以靠右；但不是用户亲手写的，不用用户的气泡，用工作组那样的细边框卡片
+ * （[WorkCardShape]）：顶上一行图标和「来自会话 名字」，下面是正文。正文排出来超过 [PeerCollapsedLines] 行时默认收着，点顶上那行展开；对话内查找命中它时展开。
+ * 长按复制正文。
+ */
+@Composable
+private fun PeerMessage(item: UserItem, peer: String, modifier: Modifier) {
+    @Suppress("DEPRECATION") val clipboard = LocalClipboardManager.current
+    val text by rememberUpdatedState(item.text)
+    val menu =
+        remember(clipboard) {
+            userMenuEntries(
+                onCopy = { clipboard.setText(AnnotatedString(text)) },
+                onSave = null,
+                onEdit = null,
+                onDelete = null,
+            )
+        }
+    var expanded by rememberSaveable(item.id) { mutableStateOf(false) }
+    // 收着的那版排出来超过几行才算长、才能展开；展开后不再排收着的那版，所以记下来
+    var long by remember(item.id, item.text) { mutableStateOf(false) }
+    val query = LocalTextFinder.current?.query.orEmpty()
+    val found = remember(item.text, query) { findOccurrences(item.text, query).isNotEmpty() }
+    val open = expanded || found
+    val ink = rememberWorkInk()
+    Column(
+        modifier =
+            modifier.fillMaxWidth().padding(start = 20.dp, end = 20.dp, top = 16.dp, bottom = 6.dp),
+        horizontalAlignment = Alignment.End,
+    ) {
+        OverlayContextMenu(entries = menu) {
+            Column(
+                modifier =
+                    Modifier.widthIn(max = 316.dp)
+                        .width(IntrinsicSize.Max)
+                        .clip(WorkCardShape)
+                        .border(0.5.dp, ink.border, WorkCardShape)
+                        .animateContentSize(FoldResize),
+            ) {
+                PeerHeader(peer, ink, foldable = long, open = open) { expanded = !expanded }
+                PeerBody(item, open, onOverflow = { long = true })
+            }
+        }
+    }
+}
+
+/** 会话消息卡片的标题行：图标和「来自会话 名字」；正文长时末尾带展开箭头，点整行展开或收起。 */
+@Composable
+private fun PeerHeader(
+    peer: String,
+    ink: WorkInk,
+    foldable: Boolean,
+    open: Boolean,
+    onToggle: () -> Unit,
+) {
+    Row(
+        modifier =
+            Modifier.fillMaxWidth()
+                .heightIn(min = 38.dp)
+                .clickable(
+                    enabled = foldable,
+                    onClickLabel = if (open) "收起" else "展开",
+                    onClick = onToggle,
+                )
+                .padding(horizontal = 14.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Icon(
+            imageVector = COUIIcons.MindMap,
+            contentDescription = null,
+            modifier = Modifier.size(15.dp),
+            tint = ink.icon,
+        )
+        Spacer(Modifier.width(8.dp))
+        Text(
+            text = "来自会话 $peer",
+            style = COUITheme.textStyles.bodyM.copy(fontSize = 13.5.sp),
+            color = ink.muted,
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis,
+            modifier = Modifier.weight(1f),
+        )
+        if (foldable) Chevron(open)
+    }
+}
+
+/** 会话消息的正文：展开时是能被查找高亮的全文；收着时最多 [PeerCollapsedLines] 行，排不下时报 [onOverflow]。 */
+@Composable
+private fun PeerBody(item: UserItem, open: Boolean, onOverflow: () -> Unit) {
+    val style =
+        COUITheme.textStyles.bodyXL.copy(
+            lineHeight = 23.sp,
+            lineHeightStyle = EditorialLineHeightStyle,
+        )
+    val color = COUITheme.colorScheme.labelPrimary
+    val modifier = Modifier.padding(start = 14.dp, end = 14.dp, bottom = 10.dp)
+    if (open) {
+        FindableText(
+            text = item.text,
+            block = 0,
+            itemId = item.id,
+            style = style,
+            color = color,
+            modifier = modifier,
+        )
+    } else {
+        Text(
+            text = item.text,
+            style = style,
+            color = color,
+            maxLines = PeerCollapsedLines,
+            overflow = TextOverflow.Ellipsis,
+            onTextLayout = { if (it.hasVisualOverflow) onOverflow() },
+            modifier = modifier,
+        )
+    }
+}
+
+/** 用户自己发的消息：图片、附件和文字气泡，长按菜单见 [UserBubble]。 */
+@Composable
+private fun OwnUserBubble(
+    item: UserItem,
+    modifier: Modifier,
+    editing: Boolean,
+    onEdit: (() -> Unit)?,
+    onDelete: (() -> Unit)?,
+    onSave: (() -> Unit)?,
 ) {
     @Suppress("DEPRECATION") val clipboard = LocalClipboardManager.current
     val text by rememberUpdatedState(item.text)

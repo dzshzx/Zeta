@@ -28,6 +28,7 @@ fun chatItemJson(item: ChatItem): JsonObject =
                 put("rewindable", item.rewindable)
                 put("forkable", item.forkable)
                 put("round_last", item.roundLast)
+                put("peer", item.peer)
             }
         is AnswerItem ->
             buildJsonObject {
@@ -148,6 +149,7 @@ fun chatItemOf(o: JsonObject, conv: String = ""): ChatItem {
                 rewindable = o.bool("rewindable") == true,
                 forkable = o.bool("forkable") == true,
                 roundLast = o.str("round_last")?.ifEmpty { null },
+                peer = o.str("peer")?.ifEmpty { null },
             )
         "answer" -> AnswerItem(id, o.str("text").orEmpty(), o.bool("streaming") == true)
         "thought" -> ThoughtItem(id, o.str("text").orEmpty(), o.bool("streaming") == true)

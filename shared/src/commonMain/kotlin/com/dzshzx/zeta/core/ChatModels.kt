@@ -22,6 +22,8 @@ sealed interface ChatItem {
  *
  * 这一轮能做什么由核心算好（docs/core.md 的 conv.items）：[rewindable] 能编辑、重新生成、删除这一轮、还原代码；[forkable]
  * 能从这一轮之后分支；[roundLast] 是这一轮的操作行挂在哪一项下面，为 null 时只能从这条消息的菜单操作。真能做还要 conv.state 的 can_rewind。
+ *
+ * [peer] 不为 null 时这条是另一个 Claude Code 会话发来的（会话互通），值是发信会话的名字，[text] 是去掉外壳的正文；聊天页画成会话消息卡片，不挂用户消息的操作。
  */
 @Immutable
 data class UserItem(
@@ -33,6 +35,7 @@ data class UserItem(
     val rewindable: Boolean = false,
     val forkable: Boolean = false,
     val roundLast: String? = null,
+    val peer: String? = null,
 ) : ChatItem
 
 /** 聊天里的一张图片，显示时才载入；[key] 兼作缓存键。 */

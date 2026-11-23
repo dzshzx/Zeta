@@ -73,6 +73,33 @@ class ChatItemJsonTest {
         assertEquals(listOf(CoreImage("c3", "t:0")), tool.images)
     }
 
+    /** 另一个会话发来的消息（会话互通）：读出发信会话的名字，写回去还是同一个 peer；空串和没写都是自己发的。 */
+    @Test
+    fun peerMessagesKeepTheSender() {
+        val o =
+            Json.parseToJsonElement(
+                    """{"kind":"user","id":"u","text":"测试完了，结果在 /tmp/r.txt","peer":"home-repo-e8"}""",
+                )
+                .jsonObject
+        val item = chatItemOf(o) as UserItem
+        assertEquals("home-repo-e8", item.peer)
+        assertEquals("测试完了，结果在 /tmp/r.txt", item.text)
+        val written = chatItemJson(item)
+        assertEquals(JsonPrimitive("home-repo-e8"), written["peer"])
+        assertEquals(item, chatItemOf(written))
+        assertEquals(o, dropZero(written))
+
+        val own =
+            chatItemOf(
+                Json.parseToJsonElement("""{"kind":"user","id":"v","text":"你好","peer":""}""")
+                    .jsonObject,
+            )
+                as UserItem
+        assertEquals(null, own.peer)
+        assertEquals(JsonNull, chatItemJson(own)["peer"])
+        assertEquals(null, (chatItemOf(dropZero(chatItemJson(own)) as JsonObject) as UserItem).peer)
+    }
+
     @Test
     fun unknownKindsKeepTheirPlace() {
         val items =

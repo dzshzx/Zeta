@@ -106,6 +106,59 @@ class ChatShots : ShotTest() {
         }
     }
 
+    /** 另一个会话发来的消息（会话互通）：靠右的细边框卡片，标题是「来自会话 名字」；短的直接全露，长的收着露前几行、标题行带展开箭头。 */
+    @Test
+    fun peerMessages() {
+        val hub = Fixtures.readyHub(app)
+        hub.showChat("会话互通", peerTurns)
+        shoot("chat-peer") {
+            ChatScreen(
+                hub = hub,
+                onOpenPane = {},
+                onOpenSettings = {},
+                onOpenInstall = {},
+                onOpenLogin = {},
+            )
+        }
+    }
+
+    /** 点长会话消息的标题行：展开全文，箭头朝下。 */
+    @Test
+    fun peerMessageOpened() {
+        val hub = Fixtures.readyHub(app)
+        hub.showChat("会话互通", peerTurns)
+        shoot(
+            "chat-peer-open",
+            prepare = { onNodeWithText("来自会话 dotfiles-3c").performClick() },
+        ) {
+            ChatScreen(
+                hub = hub,
+                onOpenPane = {},
+                onOpenSettings = {},
+                onOpenInstall = {},
+                onOpenLogin = {},
+            )
+        }
+    }
+
+    private val peerTurns =
+        listOf(
+            UserItem("u1", "等 home-repo 那边跑完门禁告诉我"),
+            AnswerItem("a1", "好，我等它的消息。", streaming = false),
+            UserItem("p1", "门禁过了，可以合入。", peer = "home-repo-e8"),
+            AnswerItem("a2", "收到，开始合入。", streaming = false),
+            UserItem(
+                "p2",
+                "合入时 wt land 报了两处问题：\n" +
+                    "1. scripts/check.sh 里 gate_go_goos 多跑了一遍 windows 的 vet；\n" +
+                    "2. Zeta 的截图测试在合入门禁里被跳过了，但全量门禁会画。\n" +
+                    "第一处我已经在 toolbox 修了并用 gate-sync rollout 同步到各仓，第二处是预期行为。\n" +
+                    "你那边不用改，等我把 home-repo 合入后再继续。",
+                peer = "dotfiles-3c",
+            ),
+            AnswerItem("a3", "明白，等你合入。", streaming = false),
+        )
+
     private val readme = "/workspace/claude/zeta/README.md"
 
     private val oneTurn =
