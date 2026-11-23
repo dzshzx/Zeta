@@ -5,8 +5,10 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"strconv"
 	"strings"
 	"testing"
+	"time"
 )
 
 // lockEnv 是去掉占用者和排队号之后的环境，再加上 extra：测试自己可能就跑在设了这两个变量的会话里。
@@ -135,5 +137,36 @@ func TestInstallReleaseOnPhoneAsksPhoneLock(t *testing.T) {
 		if status, out := run(t, lockEnv(env...), "../install.sh", "--release"); status != want {
 			t.Errorf("install.sh --release on the phone with owner %q: exit %d, want exit %d\n%s", owner, status, want, out)
 		}
+	}
+}
+
+// 有 phone-run 在排队时，直接用（不在 phone-run 里）拿的租约 3 分钟没动静就让给它；没到时说清楚什么时候作废。
+func TestIdleDirectLeaseYieldsToQueue(t *testing.T) {
+	readScripts(t, "phone-lock")
+	dir := t.TempDir()
+	lease := filepath.Join(dir, "zeta-phone.lease")
+	waiting := lockEnv("XDG_RUNTIME_DIR="+dir, "ZETA_PHONE_OWNER=task", "ZETA_PHONE_TICKET="+strconv.Itoa(os.Getpid()))
+	hold := func(idle time.Duration) {
+		t.Helper()
+		if err := os.WriteFile(lease, []byte("main "+strconv.FormatInt(time.Now().Add(-idle).Unix(), 10)+" \n"), 0o644); err != nil {
+			t.Fatal(err)
+		}
+	}
+
+	hold(time.Minute)
+	if code, out := run(t, waiting, "../phone-lock", "dev"); code != 75 || !strings.Contains(out, "作废") {
+		t.Fatalf("直接用的一分钟前还在用，却让了或没说什么时候作废：%d %s", code, out)
+	}
+	hold(4 * time.Minute)
+	if code, out := run(t, waiting, "../phone-lock", "dev"); code != 0 {
+		t.Fatalf("直接用的四分钟没动静，排队的还拿不到：%d %s", code, out)
+	}
+	if got, _ := os.ReadFile(lease); !strings.HasPrefix(string(got), "task ") {
+		t.Fatalf("租约：%q", got)
+	}
+	// 没人排队时照 15 分钟：主会话自己接着用，续租
+	hold(4 * time.Minute)
+	if code, out := run(t, lockEnv("XDG_RUNTIME_DIR="+dir, "ZETA_PHONE_OWNER=main"), "../phone-lock", "dev"); code != 0 {
+		t.Fatalf("主会话续租：%d %s", code, out)
 	}
 }

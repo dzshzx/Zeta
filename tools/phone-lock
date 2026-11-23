@@ -6,7 +6,8 @@
 #   main  手机上的正式版 com.dzshzx.zeta，只有主会话在上线时用（tools/install.sh、vd 带 --release 时）
 # 已经占着的再要就续租。tools/install.sh 和 tools/vd 在工作站上每次碰设备前都调它，拿不到就以退出码 75 失败；
 # 在 phone-run 里（有 ZETA_PHONE_TICKET）vd 不调，用 phone-run 拿到的这一份，装包时 install.sh 续一次。
-# 占用者名字取 ZETA_PHONE_OWNER，没设时对测试版算主会话（main），正式版例外，见下面「谁能拿」那一段；15 分钟没动静的租约自动作废。
+# 占用者名字取 ZETA_PHONE_OWNER，没设时对测试版算主会话（main），正式版例外，见下面「谁能拿」那一段；15 分钟没动静的租约自动作废，
+# 有 phone-run 在排队时，直接用（install.sh、vd，不在 phone-run 里）拿的租约 3 分钟没动静就作废（见 ttl_waited）。
 # 测试版先来先到：phone-run 把自己的进程号放进 ZETA_PHONE_TICKET 排队，排在最前面的才拿得到，进程没了号就作废。
 # 租约记着拿到它的 phone-run，同一个占用者的另一个 phone-run 也得等它跑完。
 # 用完释放手上的全部租约：ZETA_PHONE_OWNER=<名字> tools/phone-lock --release（顺带撤掉同名的模拟器登记）。只协调工作站上的会话。
@@ -38,16 +39,22 @@ allowed() { # 占用者能不能拿种类 $1 的租约，不能就说明原因
 }
 if [[ ${1-} == --check ]]; then allowed "${2-}" || exit 2; exit 0; fi
 ttl=900
+# 有 phone-run 在等时，直接用拿的租约没动静多久就让出来。phone-run 拿的跟着它的进程走，跑完就放；直接用的没有进程可跟，
+# 只能按时间算，等的一方不该白等 15 分钟。没人排队时照 ttl，一个人连着手动调试不受影响（直接调用的相邻间隔一半在 1 分钟内）。
+ttl_waited=180
 file() { case $1 in main) echo "$dir/zeta-phone-main.lease" ;; emu) echo "$dir/zeta-emu.lease" ;; *) echo "$dir/zeta-phone.lease" ;; esac; }
 exec 9>"$dir/zeta-phone.lease.lock"
 flock 9
 now=$(date +%s)
 h='' hpid=''
-read_holder() { # 租约 $1 的有效占用者 h 和拿到它的 phone-run 进程号 hpid，没有或过期就空
-  local s=0
-  h='' hpid=''
-  [[ -f $(file "$1") ]] && read -r h s hpid <"$(file "$1")"
-  ((now - s < ttl)) || h='' hpid=''
+read_holder() { # 租约 $1 的有效占用者 h、拿到它的 phone-run 进程号 hpid，没有或过期就空；last 是最后一次续租的时刻，
+  # expires 是没动静的话什么时候作废。$2 非空：有 phone-run 在等这份租约（见 ttl_waited）
+  local limit=$ttl
+  h='' hpid='' last=0
+  [[ -f $(file "$1") ]] && read -r h last hpid <"$(file "$1")"
+  [[ -z $hpid && -n ${2-} ]] && limit=$ttl_waited
+  expires=$((last + limit))
+  ((now < expires)) || h='' hpid=''
   # 拿着它的 phone-run 已经不在了（被强行结束、没来得及释放）：马上作废，不等 15 分钟
   if [[ -n $hpid ]] && ! alive "$hpid"; then h='' hpid=''; fi
 }
@@ -66,7 +73,7 @@ case ${1-} in
     exit 0 ;;
   main | dev | emu)
     allowed "$1" || exit 2
-    read_holder "$1"
+    read_holder "$1" "$([[ -n $ticket && $1 != main ]] && echo waited || true)"
     case $1 in main) name=手机上的正式版 ;; dev) name=手机上的测试版 ;; *) name=模拟器上的测试版 ;; esac
     if [[ $h == "$owner" ]] && ! other_run; then # 自己占着：续租
       echo "$owner $now ${hpid:-$ticket}" >"$(file "$1")"
@@ -85,7 +92,12 @@ case ${1-} in
     fi
     if [[ -n $h ]]; then
       who=$([[ $h == "$owner" ]] && echo "你（$owner）的另一个 phone-run" || echo "$h")
-      echo "${name}正被${who}占用$([[ $1 != main ]] && echo "，你前面还有 $ahead 个在排队")；先做别的，稍后再试" >&2
+      if [[ -n $hpid ]]; then
+        when="它的 phone-run 跑完就放"
+      else
+        when="直接用的，最后一次动它在 $(date -d "@$last" +%H:%M:%S)，没动静的话 $(date -d "@$expires" +%H:%M:%S) 作废"
+      fi
+      echo "${name}正被${who}占用（${when}）$([[ $1 != main ]] && echo "，你前面还有 $ahead 个在排队")；先做别的，稍后再试" >&2
       exit 75
     fi
     if [[ -n $first_pid && $first_pid != "$ticket" ]]; then
