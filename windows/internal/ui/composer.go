@@ -419,9 +419,9 @@ func (a *App) usageDetails(c *ui.Context, p *chatPane) {
 	t := c.Theme()
 	contextText := "发出第一条消息后显示"
 	if u.ContextTokens != nil {
-		contextText = tokens(*u.ContextTokens)
+		contextText = usage.FormatTokens(*u.ContextTokens)
 		if u.ContextWindow != nil {
-			contextText += " / " + tokens(*u.ContextWindow)
+			contextText += " / " + usage.FormatTokens(*u.ContextWindow)
 		}
 		if u.Fraction != nil {
 			contextText += fmt.Sprintf(" · %.1f%%", *u.Fraction*100)
@@ -433,7 +433,7 @@ func (a *App) usageDetails(c *ui.Context, p *chatPane) {
 	}
 	var notes []string
 	if u.CompactAt != nil && (u.AutoCompact == nil || *u.AutoCompact) {
-		notes = append(notes, "自动压缩点 "+tokens(*u.CompactAt))
+		notes = append(notes, "自动压缩点 "+usage.FormatTokens(*u.CompactAt))
 	}
 	if u.AutoCompact != nil && !*u.AutoCompact {
 		notes = append(notes, "自动压缩已关闭，快满时手动压缩")
@@ -446,13 +446,13 @@ func (a *App) usageDetails(c *ui.Context, p *chatPane) {
 	}
 	ui.Divider(c)
 	ui.Text(c, fmt.Sprintf("本对话累计 · %d 轮", len(u.Turns))).FontSize(13).Bold()
-	statRow(c, "输入", tokens(u.Total.Input))
-	statRow(c, "缓存读取", tokens(u.Total.CacheRead))
-	statRow(c, "缓存写入", tokens(u.Total.CacheWrite))
-	statRow(c, "输出", tokens(u.Total.Output))
+	statRow(c, "输入", usage.FormatTokens(u.Total.Input))
+	statRow(c, "缓存读取", usage.FormatTokens(u.Total.CacheRead))
+	statRow(c, "缓存写入", usage.FormatTokens(u.Total.CacheWrite))
+	statRow(c, "输出", usage.FormatTokens(u.Total.Output))
 	cost := "—"
 	if u.TotalCost != nil {
-		cost = formatCost(*u.TotalCost)
+		cost = usage.FormatCost(*u.TotalCost)
 		if u.CostEstimated {
 			cost = "≈" + cost
 		}
@@ -478,36 +478,6 @@ func statRow(c *ui.Context, label, value string) {
 		ui.Spacer(c)
 		ui.Text(c, value).FontSize(13)
 	})
-}
-
-// tokens 把 token 数写短：1234 → 1.2K，123456 → 123K，1234567 → 1.23M。
-func tokens(n int64) string {
-	trim := func(s string) string {
-		if strings.Contains(s, ".") {
-			s = strings.TrimRight(strings.TrimRight(s, "0"), ".")
-		}
-		return s
-	}
-	switch {
-	case n >= 999_500:
-		return trim(fmt.Sprintf("%.2f", float64(n)/1e6)) + "M"
-	case n >= 99_950:
-		return trim(fmt.Sprintf("%.0f", float64(n)/1e3)) + "K"
-	case n >= 1000:
-		return trim(fmt.Sprintf("%.1f", float64(n)/1e3)) + "K"
-	}
-	return fmt.Sprint(max(n, 0))
-}
-
-// formatCost 是费用的写法：不到 1 美元留四位小数，再多留两位，没花钱写 $0。
-func formatCost(usd float64) string {
-	switch {
-	case usd <= 0:
-		return "$0"
-	case usd < 1:
-		return fmt.Sprintf("$%.4f", usd)
-	}
-	return fmt.Sprintf("$%.2f", usd)
 }
 
 // 输入框的行数：空着时就有 composerMinLines 行高（桌面上地方够，一行高的框看着像单行输入、长消息也不好写），

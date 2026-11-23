@@ -3,6 +3,8 @@ package conv
 import (
 	"errors"
 	"strconv"
+
+	"github.com/dzshzx/Zeta/helper/sessionproto"
 )
 
 // 长对话往上翻时载入更早的记录（conv.earlier）。打开对话时只载入最近的一段，客户端翻到顶附近时再要那之前的一页，接到列表前面。
@@ -13,7 +15,7 @@ import (
 var (
 	errNoEarlier    = errors.New("没有更早的记录了")
 	errEarlierBusy  = errors.New("正在载入更早的记录")
-	errEarlierStale = codedError{"history_changed", "会话记录在别处改过，重新打开这个对话再看更早的内容"}
+	errEarlierStale = codedError{sessionproto.CodeHistoryChanged, "会话记录在别处改过，重新打开这个对话再看更早的内容"}
 )
 
 // codedError 是带代号的出错：应答里另带 code（见 core.Client.Reply），客户端按代号认，不按原文。

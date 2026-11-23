@@ -6,7 +6,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/dzshzx/Zeta/windows/internal/chat"
+	"github.com/dzshzx/Zeta/helper/sessionproto"
 	"github.com/egoist/mygo/ui"
 )
 
@@ -113,17 +113,20 @@ func TestFindScrollsWithinALongAnswer(t *testing.T) {
 	}
 }
 
+// stale 是核心说会话记录在别处改过的那句（helper/conv 的 errEarlierStale）。
+const stale = "会话记录在别处改过，重新打开这个对话再看更早的内容"
+
 // 载不下去时只查载入了的，说明原因（和列表顶上的同一句），不反复去要。
 func TestFindSaysWhyEarlierRecordsAreMissing(t *testing.T) {
 	f := newChatFixture(t)
 	f.showTurn(t, false)
-	f.failOn("conv.earlier", chat.EarlierStale)
+	f.failWith("conv.earlier", replyErr{sessionproto.CodeHistoryChanged, stale})
 	f.push(`"earlier":120`)
 	f.tt.Key(ui.Cmd, ui.KeyF)
 	f.tt.Type("没有的词")
 	f.tt.Frame()
 	f.tt.Frame()
-	f.see(t, "无结果", "查提问和回答，不含工具步骤和思考；没读到更早的记录："+chat.EarlierStale+"，更早的 120 条没查")
+	f.see(t, "无结果", "查提问和回答，不含工具步骤和思考；没读到更早的记录："+stale+"，更早的 120 条没查")
 	if got := f.sent("conv.earlier"); len(got) != 1 {
 		t.Fatalf("要了 %d 次：%v", len(got), got)
 	}

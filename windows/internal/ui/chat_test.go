@@ -2,7 +2,6 @@ package ui
 
 import (
 	"encoding/json"
-	"errors"
 	"image/color"
 	"os"
 	"path/filepath"
@@ -11,6 +10,7 @@ import (
 	"testing"
 
 	"github.com/dzshzx/Zeta/client/hostlink"
+	"github.com/dzshzx/Zeta/helper/sessionproto"
 	"github.com/dzshzx/Zeta/windows/internal/hubtest"
 	"github.com/dzshzx/Zeta/windows/internal/settings"
 	"github.com/egoist/mygo/ui"
@@ -356,7 +356,7 @@ func TestEarlierHistory(t *testing.T) {
 	f.push(`"earlier":120`)
 	f.see(t, "载入更早的 120 条记录")
 	f.link().OnCall(func(c hubtest.Call) (json.RawMessage, error) {
-		return nil, errors.New("会话记录在别处改过，重新打开这个对话再看更早的内容")
+		return nil, replyErr{sessionproto.CodeHistoryChanged, stale}
 	})
 	f.click(t, "载入更早的 120 条记录")
 	if got := f.sent("conv.earlier"); len(got) != 1 {
@@ -366,12 +366,8 @@ func TestEarlierHistory(t *testing.T) {
 	f.notSee(t, "点按重试")
 }
 
-func TestTokens(t *testing.T) {
-	for n, want := range map[int64]string{0: "0", 999: "999", 1234: "1.2K", 26618: "26.6K", 123456: "123K", 1234567: "1.23M", 2000000: "2M"} {
-		if got := tokens(n); got != want {
-			t.Errorf("%d：%s，要 %s", n, got, want)
-		}
-	}
+// token 数的写法由 helper/usage 的 FormatTokens 管，测试在那边。
+func TestReadableModel(t *testing.T) {
 	for id, want := range map[string]string{"claude-opus-5-5": "Opus 5.5", "claude-haiku-4-5-20251001": "Haiku 4.5", "claude-opus-5-5[1m]": "Opus 5.5 (1M)", "gpt": "gpt"} {
 		if got := readableModel(id); got != want {
 			t.Errorf("%s：%s，要 %s", id, got, want)

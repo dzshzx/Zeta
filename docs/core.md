@@ -54,7 +54,7 @@ Zeta 的逻辑往 Go 写的核心里搬：核心是每台主机（手机的 Debi
 | `conv.compact` | | 压缩上下文 |
 | `conv.prepare` | | 只起好进程、不发消息（不开一轮），`commands`、`models` 随 initialize 的应答到来，输入斜杠命令、看模型清单前用。按这个客户端的 `options` 起；已有进程、会话被别处占着（`blocked`）、历史还在载入、正在剪会话时什么也不做；起不来时同发消息时一样在列表里加一条「启动失败」。起好的进程闲着，没人拿着时照常满 30 秒断开 |
 | `conv.stop_task` | `task` | 停一个后台任务 |
-| `conv.task_output` | `task`、`watch` | 不带 `watch` 时读一次后台命令的最后 8 KiB，`result` 是 `{text, total_bytes, truncated, error}`。带 `watch` 时立即应答（`result` 为 `null`）：为真时开始给这个客户端推这个任务的 `conv.task_output`，为假时停；放开对话、断开时也停。有人看着时核心每秒问一次 Claude Code，输出变了才推；任务结束后再读一次就不再问。客户端不用自己定时拉 |
+| `conv.task_output` | `task`、`watch` | 不带 `watch` 时读一次后台命令的最后 8 KiB，`result` 是 `{text, total_bytes, truncated, error}`；对话没接着进程时为 `null`。带 `watch` 时立即应答（`result` 为 `null`）：为真时开始给这个客户端推这个任务的 `conv.task_output`，为假时停；放开对话、断开时也停。有人看着时核心每秒问一次 Claude Code，输出变了才推；任务结束后再读一次就不再问。客户端不用自己定时拉 |
 | `conv.end` | | 结束进程（等于终端里 `/exit`），对话内容留着，下次发消息时 `--resume` 接上 |
 | `conv.occupant` | | Zeta 之外占着这个会话的进程（终端里的 Claude Code，或另一个包托管的）的样子：`result` 是 `{status, waiting_for, hands_over}`（`helper/sessionproto` 的 `Occupancy`），没人占着时 `status` 为 `null`。`blocked` 时核心自己盯着，推在 `conv.state` 的 `occupant` 里，「别处运行」卡片照那份画，不用轮询这个方法 |
 | `conv.handoff` | | 用户点「接管」时发：把会话从别处接过来（同 `zeta-helper handoff`：那边闲着或在等确认时让它退出，正忙时不动），要等那边退出，最多十几秒。`result` 是 `{handed, status}`（`sessionproto.Handoff`）；交出来了（没人占着也算）就解开 `blocked` 并推 `conv.state`，没交出来时 `status` 是那边的状态，发了中断还不退的是 `stuck`。那边自己退出时核心自动解开，客户端不用代发 |
@@ -133,7 +133,7 @@ Zeta 的逻辑往 Go 写的核心里搬：核心是每台主机（手机的 Debi
 |---|---|---|
 | `config.defaults.read` | | 新对话默认 `{model, permissionMode, efforts: [{model, level}], effort, compactWindow}`（settings.json 的 model、permissions.defaultMode、modelSettings.*.effortLevel、effortLevel、autoCompactWindow；没设的是空串、0） |
 | `config.defaults.setModel` | `value`（空串是删掉） | 同上 |
-| `config.defaults.setPermissionMode` | `value`（不能是 bypassPermissions） | 同上 |
+| `config.defaults.setPermissionMode` | `value`（不能是空串或 bypassPermissions，否则出错） | 同上 |
 | `config.defaults.setEffort` | `model`（完整模型 ID，空串是顶层那一档）、`value`（空串是删掉） | 同上 |
 | `config.defaults.setCompactWindow` | `value`（token 数，0 是删掉，最小 100000） | 同上 |
 | `config.memory.read` | `cwd`、`project` | 记忆页：自动记忆开关、CLAUDE.md、可选的项目（默认工作目录所在的排第一，worktree 算主仓库）、选中项目的 MEMORY.md 和每条记忆 |
@@ -152,7 +152,7 @@ Zeta 的逻辑往 Go 写的核心里搬：核心是每台主机（手机的 Debi
 | `config.permissions.setTool` | `tool`、`behavior`（allow、ask、deny，空串是去掉），和 read 的参数 | 同 read |
 | `config.permissions.add`、`config.permissions.remove` | `behavior`、`rule`，和 read 的参数 | 同 read |
 | `config.permissions.replace` | `old`、`new`（各是 `{behavior, rule}`），和 read 的参数 | 同 read；`old` 已经不在了时出错 |
-| `config.permissions.bulk` | `group`（`{tools}` 或 `{server}`）、`enable`，和 read 的参数 | 同 read |
+| `config.permissions.bulk` | `group`（`{tools}` 或 `{server}`，两样都空时出错）、`enable`，和 read 的参数 | 同 read |
 | `config.mcp.list` | `cwd` | `[{name, scope, type, url, command, args, envKeys, headerKeys, bearer, authHeader, oauth, shadowedBy}]`，密钥只说有没有 |
 | `config.mcp.status` | `cwd` | 慢。`claude mcp list` 的结果 `{servers: {"范围/名字": {state, issue}}, connectors}` |
 | `config.mcp.tools` | `cwd`、`scope`、`name` | 慢。连上服务器取工具清单 `[{name, description}]`：HTTP、SSE 从主机连，stdio 经登录 shell 起 |

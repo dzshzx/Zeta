@@ -15,6 +15,8 @@ const (
 	CodeNoSession = "no_session"
 	// CodeActive：sessions.delete 要删的会话正在进行，没删
 	CodeActive = "active"
+	// CodeHistoryChanged：conv.earlier 没读成，会话记录在别处改过；重试没用，要重新打开对话
+	CodeHistoryChanged = "history_changed"
 )
 
 // TitleMax 是会话标题最多几个字（按字符数）。

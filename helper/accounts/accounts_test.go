@@ -342,7 +342,7 @@ func TestProcessOwnersAndBlocker(t *testing.T) {
 			t.Fatalf("进程 %d 是 %q，要 %q", pid, owners[pid], w)
 		}
 	}
-	const blocker = "另一个 Zeta（测试版）开着 1 个对话，其中 1 个在进行；还有 1 个别处开着的 Claude Code（比如终端里的 claude）"
+	const blocker = "另一个 Zeta（测试版）开着 1 个对话，其中 1 个在进行，在那边结束对话或关掉它；还有 1 个别处开着的 Claude Code（比如终端里的 claude），先退出它们。"
 	if st.Blocker != blocker {
 		t.Fatalf("挡着的：%q", st.Blocker)
 	}
@@ -392,7 +392,7 @@ func TestBlockerIgnoresOwnPackage(t *testing.T) {
 		t.Fatalf("本包的进程不算：%q", got)
 	}
 	got := Blocker([]Proc{{PID: 1, Owner: "zeta", Status: "idle"}, {PID: 2, Owner: "zeta", Status: "idle"}}, "zeta-dev")
-	if got != "另一个 Zeta（正式版）开着 2 个对话" {
+	if got != "另一个 Zeta（正式版）开着 2 个对话，在那边结束对话或关掉它。" {
 		t.Fatalf("%q", got)
 	}
 	if e := (&BusyError{Own: true, Message: "x"}); e.Error() != "这里的对话进程还没退出" {

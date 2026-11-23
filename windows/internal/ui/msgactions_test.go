@@ -28,11 +28,14 @@ func openedForActions(t *testing.T) *chatFixture {
 }
 
 // failOn 让核心对 method 答出错 why，别的照常。
-func (f *chatFixture) failOn(method, why string) {
+func (f *chatFixture) failOn(method, why string) { f.failWith(method, errors.New(why)) }
+
+// failWith 同 failOn，答的出错是 err（要带 code 时用 replyErr）。
+func (f *chatFixture) failWith(method string, err error) {
 	l := f.link()
 	l.OnCall(func(c hubtest.Call) (json.RawMessage, error) {
 		if c.Method == method {
-			return nil, errors.New(why)
+			return nil, err
 		}
 		if r := f.answers[c.Method]; r != "" {
 			return json.RawMessage(r), nil
@@ -425,3 +428,9 @@ func TestSaveMessageAsPrompt(t *testing.T) {
 		t.Errorf("输入框 = %q", f.app.pane.draft)
 	}
 }
+
+// replyErr 是核心答的带 code 的出错（同 hostlink.ReplyError）。
+type replyErr struct{ code, msg string }
+
+func (e replyErr) Error() string { return e.msg }
+func (e replyErr) Code() string  { return e.code }

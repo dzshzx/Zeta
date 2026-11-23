@@ -397,7 +397,7 @@ func withNames(m map[string]bool, extra ...string) map[string]bool {
 
 // Blocker 说明别的 Claude Code 进程挡着换号；没有时为空。mine 是调用方的包：它自己的对话由它先收掉，闲着的不算阻碍；
 // 别的 Claude Code 进程哪怕闲着也不行：按账号统计用量的程序假定一个进程只属于一个账号，开着换号会把用量和额度读数分错账号（见 claude-switch 的 README「为什么是冷切换」）。
-// claude-switch 自己也会拒绝，这里只是为了说清是谁挡着。
+// claude-switch 自己也会拒绝，这里只是为了说清是谁挡着、怎么让开。
 func Blocker(procs []Proc, mine string) string {
 	var zeta, elsewhere []Proc
 	for _, p := range procs {
@@ -417,12 +417,15 @@ func Blocker(procs []Proc, mine string) string {
 				names = append(names, n)
 			}
 		}
-		reasons = append(reasons, fmt.Sprintf("另一个 Zeta（%s）开着 %d 个对话", strings.Join(names, "、"), len(zeta))+busyCount(zeta))
+		reasons = append(reasons, fmt.Sprintf("另一个 Zeta（%s）开着 %d 个对话", strings.Join(names, "、"), len(zeta))+busyCount(zeta)+"，在那边结束对话或关掉它")
 	}
 	if len(elsewhere) > 0 {
-		reasons = append(reasons, fmt.Sprintf("还有 %d 个别处开着的 Claude Code（比如终端里的 claude）", len(elsewhere))+busyCount(elsewhere))
+		reasons = append(reasons, fmt.Sprintf("还有 %d 个别处开着的 Claude Code（比如终端里的 claude）", len(elsewhere))+busyCount(elsewhere)+"，先退出它们")
 	}
-	return strings.Join(reasons, "；")
+	if len(reasons) == 0 {
+		return ""
+	}
+	return strings.Join(reasons, "；") + "。"
 }
 
 func busyCount(procs []Proc) string {

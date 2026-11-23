@@ -4,7 +4,6 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
-	"os"
 	"reflect"
 	"strings"
 	"sync"
@@ -13,6 +12,7 @@ import (
 
 	"github.com/dzshzx/Zeta/helper/coreapi"
 	"github.com/dzshzx/Zeta/helper/prompt"
+	"github.com/dzshzx/Zeta/helper/sessionproto"
 	"github.com/dzshzx/Zeta/windows/internal/chat/items"
 )
 
@@ -439,20 +439,8 @@ func TestLoadEarlier(t *testing.T) {
 	if u := conv.Take(); u.State.Earlier != 120 || !u.State.EarlierLoading || ids(t, conv.Items()) != "old,a,b" {
 		t.Fatalf("更早的一页：%+v %s", u.State, ids(t, conv.Items()))
 	}
-	if !IsEarlierStale(errors.New("会话记录在别处改过，重新打开这个对话再看更早的内容")) || IsEarlierStale(errors.New("正在读")) {
+	if !IsEarlierStale(codeErr{sessionproto.CodeHistoryChanged}) || IsEarlierStale(errors.New("会话记录在别处改过")) {
 		t.Error("认不出会话记录在别处改过")
-	}
-}
-
-// 核心没给「会话记录在别处改过」带 code，这边认原文：原文改了这里就失败，改成按 code 认。
-func TestEarlierStaleMatchesTheCore(t *testing.T) {
-	// 经 windows/testdata 里指向 helper/ 的符号链接读：模块目录外的路径 go test 的缓存不认
-	src, err := os.ReadFile("../../testdata/helper/conv/earlier.go")
-	if err != nil {
-		t.Fatal(err)
-	}
-	if !strings.Contains(string(src), `"`+EarlierStale) {
-		t.Fatalf("helper/conv/earlier.go 里没有 %q 开头的错误了", EarlierStale)
 	}
 }
 
@@ -473,3 +461,9 @@ func TestStateIncrementsDoNotTouchTakenStates(t *testing.T) {
 		t.Fatalf("新的一份：%+v", s)
 	}
 }
+
+// codeErr 是核心答的带 code 的出错（同 hostlink.ReplyError）。
+type codeErr struct{ code string }
+
+func (e codeErr) Error() string { return "出错了：" + e.code }
+func (e codeErr) Code() string  { return e.code }

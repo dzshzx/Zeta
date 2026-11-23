@@ -58,12 +58,12 @@ func turnLines(n int, turn usage.Turn) (head, cost, detail string) {
 	}
 	cost = "—"
 	if turn.CostUSD != nil {
-		cost = formatCost(*turn.CostUSD)
+		cost = usage.FormatCost(*turn.CostUSD)
 		if turn.CostEstimated {
 			cost = "≈" + cost
 		}
 	}
 	k := turn.Tokens
-	detail = "输入 " + tokens(k.Input) + " · 缓存读 " + tokens(k.CacheRead) + " · 缓存写 " + tokens(k.CacheWrite) + " · 输出 " + tokens(k.Output)
+	detail = "输入 " + usage.FormatTokens(k.Input) + " · 缓存读 " + usage.FormatTokens(k.CacheRead) + " · 缓存写 " + usage.FormatTokens(k.CacheWrite) + " · 输出 " + usage.FormatTokens(k.Output)
 	return head, cost, detail
 }

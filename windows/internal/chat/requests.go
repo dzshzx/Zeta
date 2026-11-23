@@ -8,8 +8,10 @@ import (
 	"slices"
 	"strings"
 
+	"github.com/dzshzx/Zeta/client/hostlink"
 	"github.com/dzshzx/Zeta/helper/coreapi"
 	"github.com/dzshzx/Zeta/helper/prompt"
+	"github.com/dzshzx/Zeta/helper/sessionproto"
 )
 
 // 下面是用户对一个对话的操作，各经 coreapi 的对话句柄发一个 conv.* 请求（参数见 docs/core.md「对话」）。
@@ -150,17 +152,16 @@ func (c *Conversation) do(send func(v coreapi.Conv) error) error {
 }
 
 // LoadEarlier 载入更早的一页接到最前面（rest 时载完剩下的全部）：新的一页经 conv.items 推来（从 0 起插入），读完才返回。
-// 会话记录在别处改过时返回 ErrEarlierStale 那样的错误，重试没用，要重新打开对话。
+// 会话记录在别处改过时的错误 IsEarlierStale 认得出，重试没用，要重新打开对话。
 func (c *Conversation) LoadEarlier(ctx context.Context, rest bool) error {
 	return c.do(func(v coreapi.Conv) error { return v.LoadEarlier(ctx, rest) })
 }
 
-// EarlierStale 是核心说「会话记录在别处改过」的那句（helper/conv 的 errEarlierStale）：这样的错误重试没用。
-// 核心那边没给这个错误带 code，只能认原文；TestEarlierStaleMatchesTheCore 核对它还在核心的源码里。
-const EarlierStale = "会话记录在别处改过"
-
-// IsEarlierStale：err 是 conv.earlier 因为会话记录在别处改过而没读成，重试没用。
-func IsEarlierStale(err error) bool { return err != nil && strings.Contains(err.Error(), EarlierStale) }
+// IsEarlierStale：err 是 conv.earlier 因为会话记录在别处改过而没读成（核心答的 code 是 history_changed），重试没用。
+func IsEarlierStale(err error) bool {
+	code, _ := hostlink.ReplyCode(err)
+	return code == sessionproto.CodeHistoryChanged
+}
 
 // Quota 借这个对话开着的 Claude Code 进程问一次订阅额度（conv.quota），返回 get_usage 应答的原文，交给 quota.usage 读。
 // 没有进程时核心答出错。
