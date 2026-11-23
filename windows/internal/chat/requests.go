@@ -4,68 +4,55 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
-	"fmt"
 	"maps"
 	"slices"
 	"strings"
 
+	"github.com/dzshzx/Zeta/helper/coreapi"
 	"github.com/dzshzx/Zeta/helper/prompt"
 )
 
-// 下面是用户对一个对话的操作，各发一个 conv.* 请求（参数见 docs/core.md「对话」）。
+// 下面是用户对一个对话的操作，各经 coreapi 的对话句柄发一个 conv.* 请求（参数见 docs/core.md「对话」）。
+// 这里只加客户端自己的事：连接断着时不发（errNotConnected），关掉时忘掉这个对话。
 // 返回的错误是没发成或核心拒绝的原因；成了以后的效果经推送回来。
 
-// Outgoing 是要发的一条消息。
-type Outgoing struct {
-	Text   string
-	Images []Image
-	// Files 是主机上的路径：本地的文件要先传到主机上。
-	Files []string
-}
+// Outgoing 是要发的一条消息（各项见 coreapi.Outgoing）。
+// 过渡：ui 的 composer.go 还写 chat.Outgoing，它改用 coreapi.Outgoing 以后删掉这个类型，Send、Rewrite 直接收 coreapi 的。
+type Outgoing coreapi.Outgoing
 
 // Send 发一条消息；回答进行中时核心让它排队。
 func (c *Conversation) Send(ctx context.Context, m Outgoing) error {
-	params := map[string]any{"text": m.Text}
-	if len(m.Images) > 0 {
-		params["images"] = m.Images
-	}
-	if len(m.Files) > 0 {
-		params["files"] = m.Files
-	}
-	return c.call(ctx, "conv.send", params)
+	return c.do(func(v coreapi.Conv) error { return v.Send(ctx, coreapi.Outgoing(m)) })
 }
 
 // Interrupt 停止这一轮，排队的消息撤回。
 func (c *Conversation) Interrupt(ctx context.Context) error {
-	return c.call(ctx, "conv.interrupt", nil)
+	return c.do(func(v coreapi.Conv) error { return v.Interrupt(ctx) })
 }
 
 // Steer 立即插话（终端里的 send now）：把排队的第一条马上送进这一轮。
 func (c *Conversation) Steer(ctx context.Context) error {
-	return c.call(ctx, "conv.steer", nil)
+	return c.do(func(v coreapi.Conv) error { return v.Steer(ctx) })
 }
 
 // Cancel 撤回一条排队的消息；recall 时放回输入框（State.Recalled）。
 func (c *Conversation) Cancel(ctx context.Context, uuid string, recall bool) error {
-	return c.call(ctx, "conv.cancel", map[string]any{"uuid": uuid, "recall": recall})
+	return c.do(func(v coreapi.Conv) error { return v.Cancel(ctx, uuid, recall) })
 }
 
 // TakeRecalled 取走撤回放回输入框的那条，输入框把它填进去。没有时返回 nil。
 func (c *Conversation) TakeRecalled(ctx context.Context) (*Message, error) {
-	result, err := c.callResult(ctx, "conv.take_recalled", nil)
-	if err != nil || isNull(result) {
+	if err := c.ready(); err != nil {
 		return nil, err
 	}
-	var m Message
-	if err := json.Unmarshal(result, &m); err != nil {
-		return nil, fmt.Errorf("撤回的消息解不开：%w", err)
-	}
-	return &m, nil
+	m, err := c.api.TakeRecalled(ctx)
+	return (*Message)(m), err
 }
 
 // Answer 回应一个工具确认、计划审批或提问。
 func (c *Conversation) Answer(ctx context.Context, requestID string, r prompt.Reply) error {
-	return c.call(ctx, "conv.answer", map[string]any{"request_id": requestID, "reply": r})
+	reply := coreapi.Reply{Kind: coreapi.ReplyKind(r.Kind), Feedback: r.Feedback, Mode: r.Mode, Answers: r.Answers, Notes: r.Notes}
+	return c.do(func(v coreapi.Conv) error { return v.Answer(ctx, requestID, reply) })
 }
 
 // FormError 是 MCP 表单填得不对：键 → 那一项的问题。表单留着，改了再交。
@@ -83,62 +70,52 @@ func (e FormError) Error() string {
 // Elicit 回应 MCP 表单或网址。values 是表单里填的：键 → 输入框里的字，多选是选中的各值，开关是 "true"/"false"。
 // 填得不对时返回 FormError。
 func (c *Conversation) Elicit(ctx context.Context, requestID string, action prompt.ElicitAction, values map[string][]string) error {
-	params := map[string]any{"request_id": requestID, "action": action}
-	if values != nil {
-		params["values"] = values
+	if err := c.ready(); err != nil {
+		return err
 	}
-	result, err := c.callResult(ctx, "conv.elicit", params)
-	var problems struct {
-		Errors FormError `json:"errors"`
-	}
-	if len(result) > 0 && json.Unmarshal(result, &problems) == nil && len(problems.Errors) > 0 {
-		return problems.Errors
+	problems, err := c.api.Elicit(ctx, requestID, coreapi.ElicitAction(action), values)
+	if len(problems) > 0 {
+		return FormError(problems)
 	}
 	return err
 }
 
 // SetModel、SetEffort、SetMode 只管这个对话的模型、思考强度、权限模式；nil 回到默认。
-func (c *Conversation) SetModel(ctx context.Context, v *string) error {
-	return c.call(ctx, "conv.model", map[string]any{"value": v})
+func (c *Conversation) SetModel(ctx context.Context, value *string) error {
+	return c.do(func(v coreapi.Conv) error { return v.SetModel(ctx, value) })
 }
 
 // SetEffort 见 SetModel。
-func (c *Conversation) SetEffort(ctx context.Context, v *string) error {
-	return c.call(ctx, "conv.effort", map[string]any{"value": v})
+func (c *Conversation) SetEffort(ctx context.Context, value *string) error {
+	return c.do(func(v coreapi.Conv) error { return v.SetEffort(ctx, value) })
 }
 
 // SetMode 见 SetModel。
-func (c *Conversation) SetMode(ctx context.Context, v *string) error {
-	return c.call(ctx, "conv.mode", map[string]any{"value": v})
+func (c *Conversation) SetMode(ctx context.Context, value *string) error {
+	return c.do(func(v coreapi.Conv) error { return v.SetMode(ctx, value) })
 }
 
-// SetOptions 改起进程用的设置，下次起进程时生效。
+// SetOptions 改起进程用的设置，下次起进程时生效；重连后重新打开时也用它。
 func (c *Conversation) SetOptions(ctx context.Context, o Options) error {
 	c.mu.Lock()
 	c.spec.Options = o
 	c.mu.Unlock()
-	return c.call(ctx, "conv.options", map[string]any{"options": o})
-}
-
-// Preset 给这个对话预设模型、思考强度，hint 追加进 --append-system-prompt，下次起进程时生效；空的那项照旧。
-// 定时任务这类后台起的对话用它。
-func (c *Conversation) Preset(ctx context.Context, model, effort, hint string) error {
-	return c.call(ctx, "conv.preset", map[string]any{"model": model, "effort": effort, "hint": hint})
+	return c.do(func(v coreapi.Conv) error { return v.SetOptions(ctx, coreapi.Options(o)) })
 }
 
 // Compact 压缩上下文。
 func (c *Conversation) Compact(ctx context.Context) error {
-	return c.call(ctx, "conv.compact", nil)
+	return c.do(func(v coreapi.Conv) error { return v.Compact(ctx) })
 }
 
 // StopTask 停一个后台任务。
 func (c *Conversation) StopTask(ctx context.Context, task string) error {
-	return c.call(ctx, "conv.stop_task", map[string]any{"task": task})
+	return c.do(func(v coreapi.Conv) error { return v.StopTask(ctx, task) })
 }
 
 // End 结束 Claude Code 进程（等于终端里的 /exit）；对话内容留着，下次发消息时接上。
 func (c *Conversation) End(ctx context.Context) error {
-	return c.call(ctx, "conv.end", nil)
+	return c.do(func(v coreapi.Conv) error { return v.End(ctx) })
 }
 
 // Close 放开这个对话：核心里没人拿着、又闲着时会断开进程。之后这个 Conversation 不再收到推送，重连后也不再打开。
@@ -152,45 +129,34 @@ func (c *Conversation) Close(ctx context.Context) error {
 	if !connected {
 		return nil
 	}
-	_, err := c.client.link.Call(ctx, "conv.close", map[string]any{"conv": c.name})
-	return err
+	return c.api.Close(ctx)
 }
 
 // errNotConnected：对话现在没连上（断线等重连、已关掉），请求不发。
 var errNotConnected = errors.New("和主机的连接断了，正在重连")
 
-func (c *Conversation) call(ctx context.Context, method string, params map[string]any) error {
-	_, err := c.callResult(ctx, method, params)
-	return err
-}
-
-func (c *Conversation) callResult(ctx context.Context, method string, params map[string]any) (json.RawMessage, error) {
+// ready 是对话现在能不能发请求：没连上时返回 errNotConnected。
+func (c *Conversation) ready() error {
 	c.mu.Lock()
-	connected := c.connected
-	c.mu.Unlock()
-	if !connected {
-		return nil, errNotConnected
+	defer c.mu.Unlock()
+	if !c.connected {
+		return errNotConnected
 	}
-	if params == nil {
-		params = map[string]any{}
-	}
-	params["conv"] = c.name
-	return c.client.link.Call(ctx, method, params)
+	return nil
 }
 
-func isNull(v json.RawMessage) bool {
-	s := strings.TrimSpace(string(v))
-	return s == "" || s == "null"
+// do 在连着时经对话句柄发一个请求。
+func (c *Conversation) do(send func(v coreapi.Conv) error) error {
+	if err := c.ready(); err != nil {
+		return err
+	}
+	return send(c.api)
 }
 
 // LoadEarlier 载入更早的一页接到最前面（rest 时载完剩下的全部）：新的一页经 conv.items 推来（从 0 起插入），读完才返回。
 // 会话记录在别处改过时返回 ErrEarlierStale 那样的错误，重试没用，要重新打开对话。
 func (c *Conversation) LoadEarlier(ctx context.Context, rest bool) error {
-	params := map[string]any{}
-	if rest {
-		params["rest"] = true
-	}
-	return c.call(ctx, "conv.earlier", params)
+	return c.do(func(v coreapi.Conv) error { return v.LoadEarlier(ctx, rest) })
 }
 
 // EarlierStale 是核心说「会话记录在别处改过」的那句（helper/conv 的 errEarlierStale）：这样的错误重试没用。
@@ -203,5 +169,8 @@ func IsEarlierStale(err error) bool { return err != nil && strings.Contains(err.
 // Quota 借这个对话开着的 Claude Code 进程问一次订阅额度（conv.quota），返回 get_usage 应答的原文，交给 quota.usage 读。
 // 没有进程时核心答出错。
 func (c *Conversation) Quota(ctx context.Context) (json.RawMessage, error) {
-	return c.callResult(ctx, "conv.quota", nil)
+	if err := c.ready(); err != nil {
+		return nil, err
+	}
+	return c.api.Quota(ctx)
 }

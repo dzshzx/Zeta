@@ -1,7 +1,6 @@
 package ui
 
 import (
-	"encoding/base64"
 	"log"
 	"maps"
 	"slices"
@@ -11,7 +10,7 @@ import (
 
 	"github.com/dzshzx/Zeta/client/drafts"
 	"github.com/dzshzx/Zeta/client/hostlink"
-	"github.com/dzshzx/Zeta/windows/internal/chat"
+	"github.com/dzshzx/Zeta/helper/coreapi"
 	"github.com/dzshzx/Zeta/windows/internal/settings"
 	"github.com/egoist/mygo/ui"
 )
@@ -46,10 +45,10 @@ type draftBook struct {
 	queued  *draftWrite
 }
 
-// draftWrite 是一次写盘：整份草稿，和各张图的内容（按内容编号，base64；写盘时只解要补写的）。
+// draftWrite 是一次写盘：整份草稿，和各张图的内容（按内容编号）。
 type draftWrite struct {
 	list   []drafts.Draft
-	images map[string]string
+	images map[string][]byte
 }
 
 // draftBook 取窗口的草稿，头一次用时从设置目录读出来。
@@ -144,7 +143,7 @@ func (a *App) restoreDraft(p *chatPane, r drafts.Draft) {
 				continue
 			}
 			// 编号沿用存着的，不重算
-			d := &draftImage{image: chat.Image{MediaType: im.Type, Data: base64.StdEncoding.EncodeToString(data)}, hash: im.ID}
+			d := &draftImage{image: coreapi.Image{MediaType: im.Type, Data: data}, hash: im.ID}
 			d.thumb, _ = ui.DecodeBitmap(data)
 			restored = append(restored, d)
 		}
@@ -231,7 +230,7 @@ func (a *App) SaveDrafts() {
 func (a *App) saveDrafts(wait bool) {
 	b := a.drafts
 	b.changed, b.due = false, time.Time{}
-	images := map[string]string{}
+	images := map[string][]byte{}
 	add := func(list []*draftImage) {
 		for _, d := range list {
 			images[d.contentHash()] = d.image.Data
@@ -281,17 +280,7 @@ func (b *draftBook) writeQueued() {
 }
 
 // image 是要补写的图片 id 的内容；不在这次的输入栏里的（早就写过了）是 nil。
-func (w *draftWrite) image(id string) []byte {
-	text, ok := w.images[id]
-	if !ok {
-		return nil
-	}
-	data, err := base64.StdEncoding.DecodeString(text)
-	if err != nil {
-		return nil
-	}
-	return data
-}
+func (w *draftWrite) image(id string) []byte { return w.images[id] }
 
 // signature 是输入栏的这个样子（字、图、传好了的文件），变了才存。
 func (s composerSnapshot) signature() string {
@@ -314,7 +303,7 @@ func (s composerSnapshot) record(key string, at time.Time) drafts.Draft {
 	n := drafts.UTF16Len(s.text)
 	r.Selection = [2]int{n, n}
 	for _, d := range s.att.images {
-		r.Images = append(r.Images, drafts.Image{ID: d.contentHash(), Type: d.image.MediaType, Bytes: int64(len(d.image.Data)) * 3 / 4})
+		r.Images = append(r.Images, drafts.Image{ID: d.contentHash(), Type: d.image.MediaType, Bytes: int64(len(d.image.Data))})
 	}
 	for _, f := range s.att.files {
 		if f.entry != "" {

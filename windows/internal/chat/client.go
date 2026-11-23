@@ -2,7 +2,7 @@
 // 把核心推来的状态、条目、一轮的起止整理成界面要的样子，并把用户的操作（发消息、停止、插话、回应确认等）
 // 发回去。对话的逻辑都在核心里，这里不另存一份对话状态，只照推送合并。
 //
-// 一个 Client 对应一台主机上的一条 serve 连接。连接本身（SSH 通道、ping、重连）由调用方做：它实现 Link，
+// 一个 Client 对应一台主机上的一条 serve 连接。连接本身（SSH 通道、ping、重连）由调用方做：它实现 coreapi.Caller，
 // 把收到的每一行推送交给 Client.Handle；断线时调 Disconnected，重连上以后调 Reconnected，让各对话重新打开。
 package chat
 
@@ -12,21 +12,17 @@ import (
 	"strconv"
 	"sync"
 	"time"
-)
 
-// Link 是到 serve 的连接。
-type Link interface {
-	// Call 发一个请求：params 的各项和 id、method 平级写出，等到对应的 zeta_reply。
-	// ok 时返回 result（没有时为 nil），否则返回带 serve 给的原因的错误。
-	Call(ctx context.Context, method string, params map[string]any) (json.RawMessage, error)
-}
+	"github.com/dzshzx/Zeta/helper/coreapi"
+)
 
 // OpenTimeout 是打开一个对话最多等多久（核心可能要先拉起来、载入历史）。
 const OpenTimeout = 30 * time.Second
 
 // Client 管一条 serve 连接上打开的各个对话。方法可以在任何 goroutine 里调。
 type Client struct {
-	link   Link
+	// api 是经这条连接调的核心。
+	api    *coreapi.Client
 	notify func()
 
 	mu    sync.Mutex
@@ -36,11 +32,11 @@ type Client struct {
 
 // NewClient 建一个 Client。notify 在任何对话有了变化以后调（在收推送或发请求的 goroutine 里），
 // 界面据此在主线程上 Take、重画；它不能阻塞，也不能回头调 Client 的方法等结果。
-func NewClient(link Link, notify func()) *Client {
+func NewClient(link coreapi.Caller, notify func()) *Client {
 	if notify == nil {
 		notify = func() {}
 	}
-	return &Client{link: link, notify: notify, convs: map[string]*Conversation{}}
+	return &Client{api: coreapi.New(link), notify: notify, convs: map[string]*Conversation{}}
 }
 
 // Spec 是打开对话时给核心的。
@@ -55,19 +51,9 @@ type Spec struct {
 	Options Options
 }
 
-// Options 是 conv.open、conv.options 的 options（见 docs/core.md）。
-type Options struct {
-	// Env 是只给这个 Claude Code 进程的环境变量（比如自动压缩）。
-	Env map[string]string `json:"env,omitempty"`
-	// SystemPrompt 是 --append-system-prompt。
-	SystemPrompt string `json:"system_prompt,omitempty"`
-	// AutoTitle：一轮以后请 Claude Code 起标题。
-	AutoTitle bool `json:"auto_title,omitempty"`
-	// CompactPercent 是自动压缩的百分比，用量条用；0 是没设。
-	CompactPercent int `json:"compact_percent,omitempty"`
-	// Desk：这台是远程主机。新会话拿到会话号时、之后每次起进程时，核心在那边 tmux 会话「zeta」里补开它的窗口（docs/core.md）。
-	Desk bool `json:"desk,omitempty"`
-}
+// Options 是起 Claude Code 进程用的设置（各项见 coreapi.Options）。
+// 过渡：hub/remote.go 还写 chat.Options，它改用 coreapi.Options 以后删掉这个类型，Spec.Options 直接用 coreapi 的。
+type Options coreapi.Options
 
 // Open 打开一个对话。核心里已有这个会话时拿到的就是它（别的客户端也开着时，大家看到的是同一份）。
 // 返回时第一份整份的状态和条目通常已经到了。

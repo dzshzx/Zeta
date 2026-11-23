@@ -7,6 +7,7 @@ import (
 	"slices"
 	"sync"
 
+	"github.com/dzshzx/Zeta/helper/coreapi"
 	"github.com/dzshzx/Zeta/windows/internal/chat/items"
 )
 
@@ -15,7 +16,9 @@ import (
 type Conversation struct {
 	client *Client
 	name   string
-	spec   Spec
+	// api 是发请求用的句柄，自动带上 name。
+	api  coreapi.Conv
+	spec Spec
 
 	mu sync.Mutex
 	// state 是核心推来的 conv.state 合并到现在的样子（applyState）。
@@ -73,7 +76,7 @@ const (
 )
 
 func newConversation(client *Client, name string, spec Spec) *Conversation {
-	return &Conversation{client: client, name: name, spec: spec, watched: map[Target]any{}}
+	return &Conversation{client: client, name: name, api: client.api.Conv(name), spec: spec, watched: map[Target]any{}}
 }
 
 // Name 是这个对话在这条连接上的名字（conv）。
@@ -108,13 +111,8 @@ func (c *Conversation) open(ctx context.Context) error {
 		key = c.state.Key
 	}
 	c.mu.Unlock()
-	params := map[string]any{"conv": c.name, "options": spec.Options}
-	putNonEmpty(params, "key", key)
-	putNonEmpty(params, "session", spec.Session)
-	putNonEmpty(params, "file", spec.File)
-	putNonEmpty(params, "cwd", spec.Cwd)
-	putNonEmpty(params, "title", spec.Title)
-	if _, err := c.client.link.Call(ctx, "conv.open", params); err != nil {
+	open := coreapi.OpenSpec{Session: spec.Session, File: spec.File, Key: key, Cwd: spec.Cwd, Title: spec.Title, Options: coreapi.Options(spec.Options)}
+	if err := c.api.Open(ctx, open); err != nil {
 		return err
 	}
 	c.mu.Lock()
@@ -123,12 +121,6 @@ func (c *Conversation) open(ctx context.Context) error {
 	c.rewatch(ctx)
 	c.client.notify()
 	return nil
-}
-
-func putNonEmpty(m map[string]any, key, value string) {
-	if value != "" {
-		m[key] = value
-	}
 }
 
 // disconnected 标成没连上，返回它打开成过没有（重连后要不要重新打开）。
@@ -211,7 +203,7 @@ func (c *Conversation) applyItems(line []byte) bool {
 func (c *Conversation) resync() {
 	ctx, cancel := context.WithTimeout(context.Background(), OpenTimeout)
 	defer cancel()
-	_, _ = c.client.link.Call(ctx, "conv.close", map[string]any{"conv": c.name})
+	_ = c.api.Close(ctx)
 	if err := c.open(ctx); err != nil {
 		log.Printf("chat: %s 重新打开失败：%v", c.name, err)
 		c.disconnected()

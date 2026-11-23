@@ -5,12 +5,14 @@ import (
 	"errors"
 	"reflect"
 	"testing"
+
+	"github.com/dzshzx/Zeta/helper/coreapi"
 )
 
 func TestRewindRequests(t *testing.T) {
 	link, _, conv, _ := opened(t)
 	ctx := context.Background()
-	img := []Image{{MediaType: "image/png", Data: "AAAA"}}
+	img := []coreapi.Image{{MediaType: "image/png", Data: []byte("hi")}}
 	if err := conv.Rewrite(ctx, "u1", Outgoing{Text: "改好的", Images: img, Files: []string{"/h/a.txt"}}); err != nil {
 		t.Fatal(err)
 	}
@@ -27,7 +29,7 @@ func TestRewindRequests(t *testing.T) {
 		t.Fatal(err)
 	}
 	want := []call{
-		{"conv.rewrite", `{"conv":"w1","files":["/h/a.txt"],"images":[{"media_type":"image/png","data":"AAAA"}],"target":"u1","text":"改好的"}`},
+		{"conv.rewrite", `{"conv":"w1","files":["/h/a.txt"],"images":[{"media_type":"image/png","data":"aGk="}],"target":"u1","text":"改好的"}`},
 		{"conv.drop", `{"conv":"w1","target":"u1"}`},
 		{"conv.restore_code", `{"conv":"w1","drop":true,"target":"u1"}`},
 		{"conv.rewrite", `{"conv":"w1","resend":true,"target":"u1"}`},

@@ -5,6 +5,7 @@ import (
 	"reflect"
 	"strings"
 
+	"github.com/dzshzx/Zeta/helper/coreapi"
 	"github.com/dzshzx/Zeta/helper/prompt"
 	"github.com/dzshzx/Zeta/helper/sessionproto"
 	"github.com/dzshzx/Zeta/helper/tasks"
@@ -59,19 +60,9 @@ type State struct {
 	Rewinding bool `json:"rewinding"`
 }
 
-// Message 是排队的、撤回的一条消息。
-type Message struct {
-	UUID   string   `json:"uuid"`
-	Text   string   `json:"text"`
-	Images []Image  `json:"images"`
-	Files  []string `json:"files"`
-}
-
-// Image 是随消息发的一张图：base64 的数据和它的 MIME 类型。
-type Image struct {
-	MediaType string `json:"media_type"`
-	Data      string `json:"data"`
-}
+// Message 是排队的、撤回的一条消息（各项见 coreapi.Message）。
+// 过渡：ui 的 chat.go、composer.go 还写 chat.Message，它们改用 coreapi.Message 以后删掉这个类型，State 直接用 coreapi 的。
+type Message coreapi.Message
 
 // Mode 是权限模式：User 是用户选的，Process 是进程此刻实际在用的（计划模式批准后等会变）。
 type Mode struct {

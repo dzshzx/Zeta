@@ -338,7 +338,7 @@ func TestReattach(t *testing.T) {
 		return shot, nil
 	}
 	got, lost := reattach(list, load)
-	if lost != 2 || len(got) != 2 || got[0].MediaType != "image/png" || got[1].Data != base64.StdEncoding.EncodeToString(shot) {
+	if lost != 2 || len(got) != 2 || got[0].MediaType != "image/png" || !bytes.Equal(got[1].Data, shot) {
 		t.Fatalf("取回 %d 张，丢了 %d 张", len(got), lost)
 	}
 }

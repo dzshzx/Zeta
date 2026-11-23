@@ -4,7 +4,6 @@ package attach
 
 import (
 	"bytes"
-	"encoding/base64"
 	"errors"
 	"fmt"
 	"image"
@@ -18,7 +17,7 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/dzshzx/Zeta/windows/internal/chat"
+	"github.com/dzshzx/Zeta/helper/coreapi"
 	xdraw "golang.org/x/image/draw"
 
 	_ "golang.org/x/image/bmp"
@@ -61,11 +60,11 @@ func IsImage(name string) bool {
 var ErrNotImage = errors.New("不是能读的图片")
 
 // EncodeImage 把图片文件的内容做成随消息发的一张图：长边缩到 MaxEdge 以内，透明的地方铺白，编成 JPEG（质量 85）。
-// 另返回 JPEG 的字节，输入栏的缩略图从它解。解不开时返回 ErrNotImage。
-func EncodeImage(data []byte) (chat.Image, []byte, error) {
+// Data 是 JPEG 的字节，输入栏的缩略图也从它解。解不开时返回 ErrNotImage。
+func EncodeImage(data []byte) (coreapi.Image, error) {
 	src, _, err := image.Decode(bytes.NewReader(data))
 	if err != nil {
-		return chat.Image{}, nil, ErrNotImage
+		return coreapi.Image{}, ErrNotImage
 	}
 	b := src.Bounds()
 	w, h := FitWithin(b.Dx(), b.Dy(), MaxEdge)
@@ -78,9 +77,9 @@ func EncodeImage(data []byte) (chat.Image, []byte, error) {
 	}
 	var out bytes.Buffer
 	if err := jpeg.Encode(&out, dst, &jpeg.Options{Quality: jpegQuality}); err != nil {
-		return chat.Image{}, nil, err
+		return coreapi.Image{}, err
 	}
-	return chat.Image{MediaType: "image/jpeg", Data: base64.StdEncoding.EncodeToString(out.Bytes())}, out.Bytes(), nil
+	return coreapi.Image{MediaType: "image/jpeg", Data: out.Bytes()}, nil
 }
 
 // FitWithin 把 w×h 等比缩到最长边不超过 edge，不放大；四舍五入，至少 1（同 ImageCodec.fitWithin）。

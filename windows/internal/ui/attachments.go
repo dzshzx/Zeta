@@ -3,7 +3,6 @@ package ui
 import (
 	"context"
 	"crypto/sha256"
-	"encoding/base64"
 	"encoding/hex"
 	"errors"
 	"os"
@@ -12,6 +11,7 @@ import (
 	"strings"
 
 	"github.com/dzshzx/Zeta/client/hostlink"
+	"github.com/dzshzx/Zeta/helper/coreapi"
 	"github.com/dzshzx/Zeta/windows/internal/attach"
 	"github.com/dzshzx/Zeta/windows/internal/chat"
 	"github.com/dzshzx/Zeta/windows/internal/host"
@@ -28,7 +28,7 @@ import (
 // draftImage 是输入栏里一张待发的图。
 type draftImage struct {
 	id    int
-	image chat.Image
+	image coreapi.Image
 	thumb *ui.Bitmap // 解不开时是 nil，画一块灰
 	// hash 是内容的编号（草稿里存图的文件名），见 contentHash。
 	hash string
@@ -37,7 +37,7 @@ type draftImage struct {
 // contentHash 是图的内容编号：内容的哈希，同一张图在草稿里只存一份。第一次用时算好记着；从草稿恢复的沿用存着的编号。
 func (d *draftImage) contentHash() string {
 	if d.hash == "" {
-		sum := sha256.Sum256([]byte(d.image.Data))
+		sum := sha256.Sum256(d.image.Data)
 		d.hash = hex.EncodeToString(sum[:16])
 	}
 	return d.hash
@@ -113,8 +113,8 @@ func (at *attachments) entries() []string {
 }
 
 // pictures 是要随消息发的图。
-func (at *attachments) pictures() []chat.Image {
-	var out []chat.Image
+func (at *attachments) pictures() []coreapi.Image {
+	var out []coreapi.Image
 	for _, im := range at.images {
 		out = append(out, im.image)
 	}
@@ -257,11 +257,11 @@ func (a *App) loadImage(p *chatPane, local string, size int64, onlyImages bool) 
 
 // encodeImage 把图片文件的内容做成待发的图（编码和解缩略图都耗时，在后台调用）。
 func encodeImage(data []byte) (*draftImage, error) {
-	img, jpeg, err := attach.EncodeImage(data)
+	img, err := attach.EncodeImage(data)
 	if err != nil {
 		return nil, err
 	}
-	thumb, _ := ui.DecodeBitmap(jpeg)
+	thumb, _ := ui.DecodeBitmap(img.Data)
 	return &draftImage{image: img, thumb: thumb}, nil
 }
 
@@ -370,9 +370,7 @@ func (p *chatPane) putBack(m chat.Message) {
 			break
 		}
 		im := &draftImage{id: p.att.id(), image: img}
-		if data, err := base64.StdEncoding.DecodeString(img.Data); err == nil {
-			im.thumb, _ = ui.DecodeBitmap(data)
-		}
+		im.thumb, _ = ui.DecodeBitmap(img.Data)
 		p.att.images = append(p.att.images, im)
 	}
 	for _, entry := range m.Files {

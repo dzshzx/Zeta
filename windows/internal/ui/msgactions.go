@@ -2,12 +2,12 @@ package ui
 
 import (
 	"context"
-	"encoding/base64"
 	"net/http"
 	"strconv"
 	"strings"
 	"sync"
 
+	"github.com/dzshzx/Zeta/helper/coreapi"
 	"github.com/dzshzx/Zeta/windows/internal/chat"
 	"github.com/dzshzx/Zeta/windows/internal/chat/items"
 	"github.com/dzshzx/Zeta/windows/internal/ui/chatview"
@@ -54,7 +54,7 @@ type confirm struct {
 	open  bool
 	// asked：核心答过了（changes 为 nil 是没有可还原的）；failed 是没问成的原因。
 	asked   bool
-	changes *chat.CodeChanges
+	changes *coreapi.CodeChanges
 	failed  string
 	// code：重新生成、删除时同时还原代码；drop：还原代码时同时删除这一轮。
 	code, drop bool
@@ -157,19 +157,19 @@ func (a *App) confirmed(cf *confirm) {
 }
 
 // reattach 把消息里的图还原成能再发出去的附件（几张同时取，顺序照旧），返回取回来的和取不回来的张数。阻塞，在后台调用。
-func reattach(list []items.Image, load func(file, ref string) ([]byte, error)) ([]chat.Image, int) {
-	got := make([]*chat.Image, len(list))
+func reattach(list []items.Image, load func(file, ref string) ([]byte, error)) ([]coreapi.Image, int) {
+	got := make([]*coreapi.Image, len(list))
 	var wg sync.WaitGroup
 	for i, im := range list {
 		wg.Go(func() {
 			data, err := chatview.ImageBytes(im, load)
 			if kind := http.DetectContentType(data); err == nil && strings.HasPrefix(kind, "image/") {
-				got[i] = &chat.Image{MediaType: kind, Data: base64.StdEncoding.EncodeToString(data)}
+				got[i] = &coreapi.Image{MediaType: kind, Data: data}
 			}
 		})
 	}
 	wg.Wait()
-	var out []chat.Image
+	var out []coreapi.Image
 	for _, im := range got {
 		if im != nil {
 			out = append(out, *im)
@@ -361,7 +361,7 @@ func confirmTexts(cf *confirm) (title, summary, button string) {
 }
 
 // changedFiles 列出还原代码会动到的文件（在工作目录里的写相对路径），多了只列前几个。
-func changedFiles(c *ui.Context, ch *chat.CodeChanges, cwd string) {
+func changedFiles(c *ui.Context, ch *coreapi.CodeChanges, cwd string) {
 	k := coui.Of(c)
 	const most = 6
 	ui.Column(c).FillWidth().Margin(6, 0, 0, 0).Padding(8, 12).Radius(12).Background(k.DialogBlock).Gap(2).Children(func() {

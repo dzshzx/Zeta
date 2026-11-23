@@ -1,7 +1,7 @@
 package ui
 
 import (
-	"encoding/base64"
+	"bytes"
 	"image/color"
 	"os"
 	"path/filepath"
@@ -9,8 +9,8 @@ import (
 
 	"github.com/dzshzx/Zeta/client/drafts"
 	"github.com/dzshzx/Zeta/client/hostlink"
+	"github.com/dzshzx/Zeta/helper/coreapi"
 	"github.com/dzshzx/Zeta/windows/internal/attach"
-	"github.com/dzshzx/Zeta/windows/internal/chat"
 	"github.com/dzshzx/Zeta/windows/internal/settings"
 	"github.com/egoist/mygo/ui"
 )
@@ -56,7 +56,7 @@ func TestDraftsSurviveRestart(t *testing.T) {
 	f.click(t, "消息")
 	f.tt.Type("看看这些")
 	jpeg := picture(40, 30, color.NRGBA{0x28, 0x78, 0xDC, 255}, color.NRGBA{0xFA, 0xD2, 0x78, 255})
-	f.app.pane.att.images = append(f.app.pane.att.images, &draftImage{id: f.app.pane.att.id(), image: chat.Image{MediaType: "image/png", Data: base64.StdEncoding.EncodeToString(jpeg)}})
+	f.app.pane.att.images = append(f.app.pane.att.images, &draftImage{id: f.app.pane.att.id(), image: coreapi.Image{MediaType: "image/png", Data: jpeg}})
 	for _, entry := range []string{"/home/box/.cache/zeta/files/a/报告.pdf", "/home/box/.cache/zeta/files/b/已清掉.txt", "@/home/box/web/src/"} {
 		f.app.pane.att.files = append(f.app.pane.att.files, &draftFile{id: f.app.pane.att.id(), name: attach.EntryName(entry), size: -1, entry: entry})
 	}
@@ -71,7 +71,7 @@ func TestDraftsSurviveRestart(t *testing.T) {
 	f.app.drafts = nil
 	f.click(t, "修登录页")
 	p := f.app.pane
-	if p.draft != "看看这些" || len(p.att.images) != 1 || p.att.images[0].thumb == nil || p.att.images[0].image.Data != base64.StdEncoding.EncodeToString(jpeg) {
+	if p.draft != "看看这些" || len(p.att.images) != 1 || p.att.images[0].thumb == nil || !bytes.Equal(p.att.images[0].image.Data, jpeg) {
 		t.Fatalf("恢复的：%q，图 %d 张 %v", p.draft, len(p.att.images), len(p.att.images) > 0 && p.att.images[0].thumb != nil)
 	}
 	var entries []string

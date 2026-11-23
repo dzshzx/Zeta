@@ -2,9 +2,9 @@ package chat
 
 import (
 	"context"
-	"encoding/json"
-	"fmt"
 	"strconv"
+
+	"github.com/dzshzx/Zeta/helper/coreapi"
 )
 
 // 编辑、重新生成、删除一轮、还原代码和分支（docs/core.md「对话」的 conv.rewrite、conv.drop、conv.code_changes、
@@ -14,66 +14,36 @@ import (
 
 // Rewrite 编辑：剪掉 target（那条用户消息的条目 id）和之后的内容，再发 m。
 func (c *Conversation) Rewrite(ctx context.Context, target string, m Outgoing) error {
-	return c.call(ctx, "conv.rewrite", m.params(map[string]any{"target": target}))
+	return c.do(func(v coreapi.Conv) error { return v.Rewrite(ctx, target, coreapi.Outgoing(m)) })
 }
 
 // Drop 删掉 target 开始的这一轮和之后的（只剪不发）。
 func (c *Conversation) Drop(ctx context.Context, target string) error {
-	return c.call(ctx, "conv.drop", map[string]any{"target": target})
-}
-
-// CodeChanges 是把文件改回某条消息之前会动到的：哪些文件、加减几行。
-type CodeChanges struct {
-	Files      []string `json:"files"`
-	Insertions int      `json:"insertions"`
-	Deletions  int      `json:"deletions"`
+	return c.do(func(v coreapi.Conv) error { return v.Drop(ctx, target) })
 }
 
 // CodeChanges 问还原到 target 之前会动到哪些文件（只看不改）；没有可还原的时返回 nil。
-func (c *Conversation) CodeChanges(ctx context.Context, target string) (*CodeChanges, error) {
-	result, err := c.callResult(ctx, "conv.code_changes", map[string]any{"target": target})
-	if err != nil || isNull(result) {
+func (c *Conversation) CodeChanges(ctx context.Context, target string) (*coreapi.CodeChanges, error) {
+	if err := c.ready(); err != nil {
 		return nil, err
 	}
-	var ch CodeChanges
-	if err := json.Unmarshal(result, &ch); err != nil {
-		return nil, fmt.Errorf("会改动的文件解不开：%w", err)
-	}
-	if len(ch.Files) == 0 {
-		return nil, nil
-	}
-	return &ch, nil
+	return c.api.CodeChanges(ctx, target)
 }
 
 // RestoreCode 把文件改回 target 之前；还原成了、drop 时再删这一轮。结果以列表里的提示告知。
 func (c *Conversation) RestoreCode(ctx context.Context, target string, drop bool) error {
-	params := map[string]any{"target": target}
-	if drop {
-		params["drop"] = true
-	}
-	return c.call(ctx, "conv.restore_code", params)
+	return c.do(func(v coreapi.Conv) error { return v.RestoreCode(ctx, coreapi.Restore{Target: target, Drop: drop}) })
 }
 
-// Regenerate 重新生成：剪掉 target 那条用户消息和之后的内容，再照它原样重发（resend：文字、图片和附件路径都由核心从那一项取，
+// Regenerate 重新生成：剪掉 target 那条用户消息和之后的内容，再照它原样重发（文字、图片和附件路径都由核心从那一项取，
 // 会话记录里的图由核心自己取回）。restoreCode 时先把文件改回那条消息之前（conv.restore_code），还原成了再剪、再发。
 func (c *Conversation) Regenerate(ctx context.Context, target string, restoreCode bool) error {
-	method := "conv.rewrite"
-	if restoreCode {
-		method = "conv.restore_code"
-	}
-	return c.call(ctx, method, map[string]any{"target": target, "resend": true})
-}
-
-// params 把消息的各项加进 p（文字总是带，图和文件有才带），返回 p。
-func (m Outgoing) params(p map[string]any) map[string]any {
-	p["text"] = m.Text
-	if len(m.Images) > 0 {
-		p["images"] = m.Images
-	}
-	if len(m.Files) > 0 {
-		p["files"] = m.Files
-	}
-	return p
+	return c.do(func(v coreapi.Conv) error {
+		if restoreCode {
+			return v.RestoreCode(ctx, coreapi.Restore{Target: target, Resend: true})
+		}
+		return v.Regenerate(ctx, target)
+	})
 }
 
 // Fork 从条目 last 所在那一轮之后分支：返回新的对话，由这个客户端拿着（核心推来它的整份状态和条目），原对话不动。
@@ -93,7 +63,8 @@ func (c *Conversation) Fork(ctx context.Context, last string) (*Conversation, er
 	// 先登记再发：核心在应答之前就推来新对话的整份状态
 	cl.convs[fork.name] = fork
 	cl.mu.Unlock()
-	if err := c.call(ctx, "conv.fork", map[string]any{"as": fork.name, "last": last}); err != nil {
+	// 不带 options：核心沿用这个客户端给原对话的，和 spec.Options 一样
+	if err := c.do(func(v coreapi.Conv) error { return v.Fork(ctx, coreapi.ForkSpec{As: fork.name, Last: last}) }); err != nil {
 		cl.forget(fork)
 		return nil, err
 	}

@@ -2,7 +2,6 @@ package attach
 
 import (
 	"bytes"
-	"encoding/base64"
 	"image"
 	"image/color"
 	"image/jpeg"
@@ -26,29 +25,25 @@ func pngOf(t *testing.T, w, h int, fill color.Color) []byte {
 }
 
 func TestEncodeImageScalesToMaxEdge(t *testing.T) {
-	im, raw, err := EncodeImage(pngOf(t, 3136, 1000, color.NRGBA{R: 200, A: 255}))
+	im, err := EncodeImage(pngOf(t, 3136, 1000, color.NRGBA{R: 200, A: 255}))
 	if err != nil {
 		t.Fatal(err)
 	}
 	if im.MediaType != "image/jpeg" {
 		t.Errorf("MediaType = %q", im.MediaType)
 	}
-	data, err := base64.StdEncoding.DecodeString(im.Data)
-	if err != nil || !bytes.Equal(data, raw) {
-		t.Fatalf("Data 不是返回的 JPEG 的 base64：%v", err)
-	}
-	cfg, err := jpeg.DecodeConfig(bytes.NewReader(raw))
+	cfg, err := jpeg.DecodeConfig(bytes.NewReader(im.Data))
 	if err != nil || cfg.Width != MaxEdge || cfg.Height != 500 {
 		t.Errorf("缩成了 %dx%d（%v），应是 %dx500", cfg.Width, cfg.Height, err, MaxEdge)
 	}
 }
 
 func TestEncodeImageFlattensTransparencyOnWhite(t *testing.T) {
-	_, raw, err := EncodeImage(pngOf(t, 10, 10, color.NRGBA{}))
+	im, err := EncodeImage(pngOf(t, 10, 10, color.NRGBA{}))
 	if err != nil {
 		t.Fatal(err)
 	}
-	img, err := jpeg.Decode(bytes.NewReader(raw))
+	img, err := jpeg.Decode(bytes.NewReader(im.Data))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -58,7 +53,7 @@ func TestEncodeImageFlattensTransparencyOnWhite(t *testing.T) {
 }
 
 func TestEncodeImageRejectsOtherFiles(t *testing.T) {
-	if _, _, err := EncodeImage([]byte("%PDF-1.7")); err != ErrNotImage {
+	if _, err := EncodeImage([]byte("%PDF-1.7")); err != ErrNotImage {
 		t.Errorf("err = %v, want ErrNotImage", err)
 	}
 }

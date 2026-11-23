@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"log"
 
+	"github.com/dzshzx/Zeta/helper/coreapi"
 	"github.com/dzshzx/Zeta/windows/internal/chat/items"
 )
 
@@ -101,7 +102,7 @@ func (c *Conversation) applySubagent(line []byte) bool {
 			go func() {
 				ctx, cancel := context.WithTimeout(context.Background(), OpenTimeout)
 				defer cancel()
-				_ = c.call(ctx, target.Method, target.params(true))
+				_ = c.do(func(v coreapi.Conv) error { return target.watch(ctx, v, true) })
 			}()
 			return false
 		}

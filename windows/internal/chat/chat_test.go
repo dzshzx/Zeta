@@ -11,6 +11,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/dzshzx/Zeta/helper/coreapi"
 	"github.com/dzshzx/Zeta/helper/prompt"
 	"github.com/dzshzx/Zeta/windows/internal/chat/items"
 )
@@ -286,8 +287,8 @@ func TestRequests(t *testing.T) {
 		want call
 	}{
 		{func() error {
-			return conv.Send(ctx, Outgoing{Text: "看图", Images: []Image{{MediaType: "image/png", Data: "AAA"}}, Files: []string{"/h/a.go"}})
-		}, call{"conv.send", `{"conv":"w1","files":["/h/a.go"],"images":[{"media_type":"image/png","data":"AAA"}],"text":"看图"}`}},
+			return conv.Send(ctx, Outgoing{Text: "看图", Images: []coreapi.Image{{MediaType: "image/png", Data: []byte("hi")}}, Files: []string{"/h/a.go"}})
+		}, call{"conv.send", `{"conv":"w1","files":["/h/a.go"],"images":[{"media_type":"image/png","data":"aGk="}],"text":"看图"}`}},
 		{func() error { return conv.Send(ctx, Outgoing{Text: "好"}) }, call{"conv.send", `{"conv":"w1","text":"好"}`}},
 		{func() error { return conv.Interrupt(ctx) }, call{"conv.interrupt", `{"conv":"w1"}`}},
 		{func() error { return conv.Steer(ctx) }, call{"conv.steer", `{"conv":"w1"}`}},
@@ -302,7 +303,6 @@ func TestRequests(t *testing.T) {
 		{func() error { return conv.SetMode(ctx, nil) }, call{"conv.mode", `{"conv":"w1","value":null}`}},
 		{func() error { return conv.SetEffort(ctx, nil) }, call{"conv.effort", `{"conv":"w1","value":null}`}},
 		{func() error { return conv.SetOptions(ctx, Options{AutoTitle: true}) }, call{"conv.options", `{"conv":"w1","options":{"auto_title":true}}`}},
-		{func() error { return conv.Preset(ctx, "opus", "", "按日报的格式写") }, call{"conv.preset", `{"conv":"w1","effort":"","hint":"按日报的格式写","model":"opus"}`}},
 		{func() error { return conv.Compact(ctx) }, call{"conv.compact", `{"conv":"w1"}`}},
 		{func() error { return conv.StopTask(ctx, "t1") }, call{"conv.stop_task", `{"conv":"w1","task":"t1"}`}},
 		{func() error { return conv.End(ctx) }, call{"conv.end", `{"conv":"w1"}`}},

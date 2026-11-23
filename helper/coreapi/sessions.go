@@ -107,7 +107,8 @@ func (cl *Client) SearchSessions(ctx context.Context, query string, search any) 
 	return get[SearchSummary](ctx, cl.c, "sessions.search", params{"query": query, "search": search})
 }
 
-// Image 是取回的一张图片（sessions.image、images.file）：Data 是解开 base64 后的内容。
+// Image 是一张图片：取回的（sessions.image、images.file），也是随消息发的、排队和撤回的消息里的（conv.send 等的 images）。
+// 线上是 {media_type, data}，data 是 base64；Data 是解开后的内容。
 type Image struct {
 	MediaType string `json:"media_type"`
 	Data      []byte `json:"data"`
