@@ -94,10 +94,8 @@ class ConversationEndToEndTest {
             chat.items.size == 3 && !chat.busy && chat.title == "假 Claude 起的标题"
         }
         assertEquals("你好，介绍一下自己", (chat.items[0] as UserItem).text)
-        assertEquals(
-            "想一想",
-            ((chat.items[1] as WorkItem).steps.single() as ThinkingStep).text,
-        )
+        // 带文字的思考不折进工作组，单独一条中间说明
+        assertEquals("想一想", (chat.items[1] as ThoughtItem).text)
         assertEquals("你好，我是按剧本回话的假 Claude", (chat.items[2] as AnswerItem).text)
         assertNotNull(chat.sessionId)
         assertEquals(true, chat.isProcessAlive)

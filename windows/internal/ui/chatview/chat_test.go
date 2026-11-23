@@ -548,3 +548,32 @@ func TestBubbleFollowsWidth(t *testing.T) {
 		}
 	}
 }
+
+// 中间说明（带文字的思考）不折进工作组：工作组收着时也直接看得到，排在它前后的位置；没有复制键。
+func TestThoughtShowsInline(t *testing.T) {
+	list := decodeItems(t, `[
+		{"kind":"user","id":"u1","text":"看看构建"},
+		{"kind":"thought","id":"m1:0","text":"先看一下构建脚本在哪"},
+		{"kind":"work","id":"w:t1","steps":[{"kind":"tool","id":"t1","name":"Bash","status":"success","input":{"command":"ls"},"result":"build.sh"}]},
+		{"kind":"thought","id":"m2:0","text":"找到了，接下来跑一遍"},
+		{"kind":"answer","id":"m3:0","text":"构建通过了"}]`)
+	ch := New()
+	ch.SetItems(list)
+	tt := newTester(ch, 900, 2000, false)
+	tt.Frame()
+	tt.Frame()
+	for _, s := range []string{"先看一下构建脚本在哪", "找到了，接下来跑一遍", "构建通过了"} {
+		if !tt.HasText(s) {
+			t.Errorf("没有直接显示 %q：%q", s, tt.Texts())
+		}
+	}
+	n := 0
+	for _, a := range tt.AccessAll() {
+		if a.Name == "复制" && a.Role == ui.RoleButton {
+			n++
+		}
+	}
+	if n != 1 {
+		t.Errorf("复制键 %d 个，只该在回答下面有一个", n)
+	}
+}

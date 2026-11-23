@@ -163,7 +163,7 @@ func TestStreamingTurn(t *testing.T) {
 	f.hub.NewChat()
 	f.take()
 	f.replay("turn")
-	if got := f.texts(); got != "user:你好，介绍一下自己|work:|answer:你好，我是按剧本回话的假 Claude" {
+	if got := f.texts(); got != "user:你好，介绍一下自己|thought:想一想|answer:你好，我是按剧本回话的假 Claude" {
 		t.Fatalf("条目：%s", got)
 	}
 	if f.state.Title != "假 Claude 起的标题" || f.state.Busy || f.state.Usage.Model != "claude-fake" {

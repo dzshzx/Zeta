@@ -77,6 +77,7 @@ import com.dzshzx.zeta.core.FileUpload
 import com.dzshzx.zeta.core.ModelOption
 import com.dzshzx.zeta.core.NoticeItem
 import com.dzshzx.zeta.core.RemoteHosts
+import com.dzshzx.zeta.core.ThoughtItem
 import com.dzshzx.zeta.core.UserItem
 import com.dzshzx.zeta.core.WorkItem
 import com.dzshzx.zeta.core.userTurns
@@ -706,7 +707,10 @@ private fun ConversationList(
 private fun showsWaiting(conversation: Conversation, last: ChatItem, statusText: String?): Boolean {
     if (!conversation.busy || conversation.pending != null) return false
     if (statusText != null) return true
-    val producing = (last is AnswerItem && last.streaming) || (last is WorkItem && last.running)
+    val producing =
+        (last is AnswerItem && last.streaming) ||
+            (last is ThoughtItem && last.streaming) ||
+            (last is WorkItem && last.running)
     return !producing
 }
 
@@ -740,6 +744,11 @@ private fun ChatRow(item: ChatItem, rows: ChatRows) {
                     TurnActionButtons(item.id, turns, conversation, actions)
                 },
             )
+        is ThoughtItem ->
+            Column {
+                ThoughtBlock(item, rows.markdownCache, imagesOf = rows.imagesOf)
+                TurnActionRow(item.id, turns, conversation, actions)
+            }
         is WorkItem ->
             Column {
                 WorkGroup(item, onOpenSubagent = rows.openSubagent)

@@ -14,13 +14,17 @@ const (
 	KindAnswer Kind = "answer" // 一段回答文字
 	KindNotice Kind = "notice" // Zeta 自己加的提示（出错、已停止等）
 	KindWork   Kind = "work"   // 连续的思考与工具调用折成的一组
+	// KindThought 是写给用户看的一段中间说明：带文字的思考块。Claude Code 的思考块平时只有签名、没有文字（界面上折进工作组，
+	// 显示「思考已完成」）；带文字的是 Claude 在工具调用之间说它在做什么、接下来做什么，同 ChatGPT 流式输出里的中间消息，
+	// 不折起来，单独一项排在时间线上。
+	KindThought Kind = "thought"
 )
 
 // Item 是聊天列表的一项。各种类只用到自己那几个字段。
 type Item struct {
 	Kind Kind   `json:"kind"`
 	ID   string `json:"id"`
-	Text string `json:"text,omitempty"` // user、answer、notice
+	Text string `json:"text,omitempty"` // user、answer、notice、thought
 
 	Images []Image  `json:"images,omitempty"` // user
 	Files  []string `json:"files,omitempty"`  // user：随消息附带的路径（附件行，见 SplitAttachedFiles）
@@ -31,7 +35,7 @@ type Item struct {
 	Forkable   bool   `json:"forkable,omitempty"`
 	RoundLast  string `json:"round_last,omitempty"`
 
-	Streaming bool `json:"streaming,omitempty"` // answer：还在逐字送来
+	Streaming bool `json:"streaming,omitempty"` // answer、thought：还在逐字送来
 	Error     bool `json:"error,omitempty"`     // notice
 
 	Steps []*Step `json:"steps,omitempty"` // work

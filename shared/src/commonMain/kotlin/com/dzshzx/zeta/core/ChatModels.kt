@@ -103,6 +103,13 @@ fun splitAttachedFiles(text: String): Pair<List<String>, String> {
 @Immutable
 data class AnswerItem(override val id: String, val text: String, val streaming: Boolean) : ChatItem
 
+/**
+ * 写给用户看的中间说明：带文字的思考块（Claude 在工具调用之间说它在做什么、接下来做什么），不折进工作组，同回答一样排正文， 但不带复制、朗读这些回答的操作（见
+ * helper/transcript 的 KindThought）。
+ */
+@Immutable
+data class ThoughtItem(override val id: String, val text: String, val streaming: Boolean) : ChatItem
+
 /** 连续的思考与工具调用折叠成一组，对应 Eta 的“已完成 N 个步骤”。 */
 @Immutable
 data class WorkItem(override val id: String, val steps: List<WorkStep>) : ChatItem {

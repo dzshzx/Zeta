@@ -16,13 +16,15 @@ const (
 	Answer Kind = "answer" // 一段回答
 	Notice Kind = "notice" // Zeta 自己加的提示（出错、已停止等）
 	Work   Kind = "work"   // 连续的思考与工具调用折成的一组
+	// Thought 是写给用户看的中间说明：带文字的思考块（Claude 在工具调用之间说它在做什么），不折进工作组（见 helper/transcript 的 KindThought）
+	Thought Kind = "thought"
 )
 
 // Item 是聊天列表的一项。各种类只用到其中几个字段，没用到的是零值。
 type Item struct {
 	Kind Kind   `json:"kind"`
 	ID   string `json:"id"`
-	// Text：user、answer、notice 的文字。
+	// Text：user、answer、notice、thought 的文字。
 	Text string `json:"text"`
 	// Images、Files、UUID：user 随消息带的图、附带的路径（见 Kotlin 的 AttachedPaths）、在会话记录里的 uuid。
 	Images []Image  `json:"images"`
@@ -34,7 +36,7 @@ type Item struct {
 	Rewindable bool   `json:"rewindable"`
 	Forkable   bool   `json:"forkable"`
 	RoundLast  string `json:"round_last"`
-	// Streaming：answer 还在逐字送来。
+	// Streaming：answer、thought 还在逐字送来。
 	Streaming bool `json:"streaming"`
 	// Error：notice 是出错的提示。
 	Error bool `json:"error"`

@@ -29,7 +29,7 @@ type Reducer struct {
 type liveBlock struct {
 	kind    string // text、thinking、tool_use
 	item    *Item
-	step    *Step // thinking、tool_use
+	step    *Step // thinking（还没有文字、在工作组里时）、tool_use
 	started int64 // thinking：开始的时刻（毫秒）
 }
 
@@ -109,6 +109,12 @@ func (r *Reducer) startBlock(e StreamEvent, now int64) {
 		r.Items = append(r.Items, it)
 		lb = &liveBlock{kind: b.Type, item: it}
 	case "thinking":
+		if strings.TrimSpace(b.Thinking) != "" {
+			it := &Item{Kind: KindThought, ID: at, Text: b.Thinking, Streaming: true}
+			r.Items = append(r.Items, it)
+			lb = &liveBlock{kind: b.Type, item: it}
+			break
+		}
 		s := &Step{Kind: StepThinking, ID: at, Text: b.Thinking, Running: true}
 		lb = &liveBlock{kind: b.Type, item: r.appendStep(s), step: s, started: now}
 	case "tool_use":
@@ -144,8 +150,14 @@ func (r *Reducer) deltaBlock(e StreamEvent) {
 	switch {
 	case e.Delta.Type == "text_delta" && lb.kind == "text":
 		lb.item.Text += e.Delta.Text
+	case e.Delta.Type == "thinking_delta" && lb.kind == "thinking" && lb.step == nil:
+		lb.item.Text += e.Delta.Thinking
 	case e.Delta.Type == "thinking_delta" && lb.kind == "thinking":
 		lb.step.Text += e.Delta.Thinking
+		if strings.TrimSpace(lb.step.Text) != "" {
+			r.toThought(lb)
+			return
+		}
 	default:
 		return
 	}
@@ -157,7 +169,7 @@ func (r *Reducer) stopBlock(e StreamEvent, now int64) {
 	switch {
 	case lb == nil:
 		return
-	case lb.kind == "text":
+	case lb.kind == "text", lb.kind == "thinking" && lb.step == nil:
 		lb.item.Streaming = false
 	case lb.kind == "thinking" && lb.step.Running:
 		lb.step.Running = false
@@ -221,12 +233,42 @@ func (r *Reducer) finalizeText(id string, b Block, lb *liveBlock, history bool) 
 
 func (r *Reducer) finalizeThinking(id string, b Block, lb *liveBlock) {
 	switch {
+	case lb != nil && lb.step == nil:
+		if b.Thinking != "" {
+			lb.item.Text = b.Thinking
+		}
+		lb.item.Streaming = false
+		touch(lb.item)
 	case lb != nil && b.Thinking != "":
 		lb.step.Text = b.Thinking
 		touch(lb.item)
+		if strings.TrimSpace(b.Thinking) != "" {
+			r.toThought(lb)
+			lb.item.Streaming = false
+		}
 	case lb == nil && strings.TrimSpace(b.Thinking) != "":
-		r.appendStep(&Step{Kind: StepThinking, ID: r.nextID(id), Text: b.Thinking})
+		r.Items = append(r.Items, &Item{Kind: KindThought, ID: r.nextID(id), Text: b.Thinking})
 	}
+}
+
+// toThought 把一段思考从工作组里拿出来，换成单独的中间说明（它有了文字，见 KindThought）。这一段是正在送来的那块，
+// 所在的工作组在列表末尾，说明接在它后面；组里只有它时整组去掉。之后的工具调用另开一组。
+func (r *Reducer) toThought(lb *liveBlock) {
+	group, s := lb.item, lb.step
+	for i, x := range group.Steps {
+		if x == s {
+			group.Steps = append(group.Steps[:i], group.Steps[i+1:]...)
+			break
+		}
+	}
+	if len(group.Steps) == 0 {
+		r.Remove(group)
+	} else {
+		touch(group)
+	}
+	it := &Item{Kind: KindThought, ID: s.ID, Text: s.Text, Streaming: s.Running}
+	r.Items = append(r.Items, it)
+	lb.item, lb.step = it, nil
 }
 
 func (r *Reducer) finalizeToolUse(id string, b Block, lb *liveBlock) {
@@ -347,7 +389,7 @@ func (r *Reducer) FinishTurn(keepRunningTools bool) {
 	kept := r.Items[:0]
 	for _, it := range r.Items {
 		switch {
-		case it.Kind == KindAnswer && it.Streaming:
+		case (it.Kind == KindAnswer || it.Kind == KindThought) && it.Streaming:
 			it.Streaming = false
 			touch(it)
 		case it.Kind == KindWork && it.Running():

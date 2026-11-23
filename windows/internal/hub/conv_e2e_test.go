@@ -57,7 +57,7 @@ func TestConversationThroughCore(t *testing.T) {
 	e.send(t, "你好，介绍一下自己")
 	e.until(t, "第一轮答完", func() bool { return e.finished(chat.OutcomeDone) })
 	e.until(t, "起好标题", func() bool { return e.state.Title == "假 Claude 起的标题" })
-	if got := e.texts(); !slices.Equal(got, []string{"user:你好，介绍一下自己", "work:", "answer:你好，我是按剧本回话的假 Claude"}) {
+	if got := e.texts(); !slices.Equal(got, []string{"user:你好，介绍一下自己", "thought:想一想", "answer:你好，我是按剧本回话的假 Claude"}) {
 		t.Fatalf("条目：%v", got)
 	}
 	if e.state.Busy || !e.state.Process || e.state.Session == "" || e.state.Usage.Model == "" {

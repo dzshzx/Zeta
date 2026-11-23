@@ -283,6 +283,8 @@ func (ch *Chat) item(c *ui.Context, row int) {
 		ch.userMessage(c, it, row)
 	case items.Answer:
 		ch.answerBlock(c, it, row)
+	case items.Thought:
+		ch.thoughtBlock(c, it, row)
 	case items.Notice:
 		noticeRow(c, it)
 		ch.actionRow(c, row)

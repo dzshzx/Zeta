@@ -152,7 +152,7 @@ func (ch *Chat) refind() {
 	}
 }
 
-// findable 是条目能查的文字：提问的正文，和写完了的回答；别的为 nil。
+// findable 是条目能查的文字：提问的正文，和写完了的回答、中间说明；别的为 nil。
 // 回答查的是照常排版的那部分（取出来画在下面的图的写法不算）。
 func (ch *Chat) findable(it items.Item) *findText {
 	if it.Kind == items.Answer && !it.Streaming {
@@ -160,7 +160,7 @@ func (ch *Chat) findable(it items.Item) *findText {
 	}
 	switch {
 	case it.Kind == items.User && it.Text != "":
-	case it.Kind == items.Answer && !it.Streaming && strings.TrimSpace(it.Text) != "":
+	case (it.Kind == items.Answer || it.Kind == items.Thought) && !it.Streaming && strings.TrimSpace(it.Text) != "":
 	default:
 		return nil
 	}
@@ -432,7 +432,7 @@ func (ch *Chat) findFrame() {
 	if row < 0 {
 		return
 	}
-	if ch.items[row].Kind != items.Answer {
+	if k := ch.items[row].Kind; k != items.Answer && k != items.Thought {
 		ch.list.ScrollTo(row, ui.Center)
 		return
 	}

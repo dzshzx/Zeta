@@ -1,80 +1,66 @@
 [
-    {
-        "kind": "work",
-        "id": "w:m1:0",
-        "steps": [
+  {
+    "kind": "work",
+    "id": "w:m1:0",
+    "steps": [
+      {
+        "kind": "tool",
+        "id": "m1:0",
+        "name": "NoId",
+        "input": {
+          "n": [
+            1,
+            2.50,
             {
-                "kind": "tool",
-                "id": "m1:0",
-                "name": "NoId",
-                "input": {
-                    "n": [
-                        1,
-                        2.5,
-                        {
-                            "k": null
-                        }
-                    ]
-                },
-                "status": "failed",
-                "result": "已中断",
-                "images": [],
-                "patch": null
-            },
-            {
-                "kind": "tool",
-                "id": "dup",
-                "name": "A",
-                "input": {
-                    "x": true
-                },
-                "status": "failed",
-                "result": "12",
-                "images": [],
-                "patch": null
-            },
-            {
-                "kind": "tool",
-                "id": "e-e-m-1-2",
-                "name": "B",
-                "input": null,
-                "status": "failed",
-                "result": "已中断",
-                "images": [],
-                "patch": null
+              "k": null
             }
-        ]
-    },
-    {
-        "kind": "user",
-        "id": "e-u-3",
-        "text": "<bash-input>有图时不当命令</bash-input>",
-        "images": [
-            {
-                "kind": "inline",
-                "key": "e-",
-                "data": "QUJD"
-            }
-        ],
-        "files": [],
-        "uuid": null
-    },
-    {
-        "kind": "user",
-        "id": "e-u-4",
-        "text": "[Attached file: ]\n[Attached folder: plain]\n剩下的",
-        "images": [],
-        "files": [],
-        "uuid": "u-x"
-    },
-    {
-        "kind": "user",
-        "id": "e-u-5",
-        "text": "",
-        "images": [],
-        "files": [
-            "/only"
-        ],
-        "uuid": null
-    }
+          ]
+        },
+        "status": "failed",
+        "result": "已中断"
+      },
+      {
+        "kind": "tool",
+        "id": "dup",
+        "name": "A",
+        "input": {
+          "x": true
+        },
+        "status": "failed",
+        "result": "12"
+      },
+      {
+        "kind": "tool",
+        "id": "e-e-m-1-2",
+        "name": "B",
+        "status": "failed",
+        "result": "已中断"
+      }
+    ]
+  },
+  {
+    "kind": "user",
+    "id": "e-u-3",
+    "text": "\u003cbash-input\u003e有图时不当命令\u003c/bash-input\u003e",
+    "images": [
+      {
+        "kind": "inline",
+        "key": "e-",
+        "data": "QUJD"
+      }
+    ]
+  },
+  {
+    "kind": "user",
+    "id": "e-u-4",
+    "text": "[Attached file: ]\n[Attached folder: plain]\n剩下的",
+    "uuid": "u-x"
+  },
+  {
+    "kind": "user",
+    "id": "e-u-5",
+    "files": [
+      "/only"
+    ]
+  }
 ]

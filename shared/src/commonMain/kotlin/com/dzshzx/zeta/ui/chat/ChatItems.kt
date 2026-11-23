@@ -56,6 +56,7 @@ import com.dzshzx.zeta.core.AttachedPaths
 import com.dzshzx.zeta.core.ImageRef
 import com.dzshzx.zeta.core.NoticeItem
 import com.dzshzx.zeta.core.ThinkingStep
+import com.dzshzx.zeta.core.ThoughtItem
 import com.dzshzx.zeta.core.ToolStatus
 import com.dzshzx.zeta.core.ToolStep
 import com.dzshzx.zeta.core.UserItem
@@ -223,6 +224,8 @@ fun AnswerBlock(
     actions: (@Composable () -> Unit)? = null,
     /** 左右留白：聊天页 20dp，数字助理的浮窗照 Eta 是 16dp。 */
     inset: Dp = 20.dp,
+    /** 写完后下面带复制键（和 [actions]）；中间说明不带。 */
+    copyable: Boolean = true,
 ) {
     val parts = remember(item.text) { imagesOf(item.text) }
     // 流式状态跟着消息走：结束后等逐字显现收尾，再换成可选中文本的静态排版。
@@ -266,7 +269,7 @@ fun AnswerBlock(
                 }
         }
         AnswerImageGroups(parts.groups)
-        if (!item.streaming && item.text.isNotBlank()) {
+        if (copyable && !item.streaming && item.text.isNotBlank()) {
             Row(
                 modifier = Modifier.padding(top = 6.dp),
                 verticalAlignment = Alignment.CenterVertically,
@@ -281,6 +284,25 @@ fun AnswerBlock(
             }
         }
     }
+}
+
+/** 中间说明：同回答一样排正文，不带复制键。 */
+@Composable
+fun ThoughtBlock(
+    item: ThoughtItem,
+    cache: StreamingMarkdownStateCache,
+    modifier: Modifier = Modifier,
+    imagesOf: (String) -> AnswerImages = { AnswerImages(it, emptyList()) },
+    inset: Dp = 20.dp,
+) {
+    AnswerBlock(
+        AnswerItem(item.id, item.text, item.streaming),
+        cache,
+        modifier,
+        imagesOf = imagesOf,
+        inset = inset,
+        copyable = false,
+    )
 }
 
 /** 回答正文下面的图片：单张照原样铺开，连着的几张是一个图片组。 */

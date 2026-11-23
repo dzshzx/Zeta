@@ -29,6 +29,7 @@ import com.dzshzx.zeta.core.ChatItem
 import com.dzshzx.zeta.core.ConversationHub
 import com.dzshzx.zeta.core.NoticeItem
 import com.dzshzx.zeta.core.TaskState
+import com.dzshzx.zeta.core.ThoughtItem
 import com.dzshzx.zeta.core.UserItem
 import com.dzshzx.zeta.core.WorkItem
 import com.dzshzx.zeta.core.conv.ConvSubagent
@@ -219,6 +220,7 @@ private fun SubagentStep(
     if (index == 0) Spacer(Modifier.height(10.dp))
     when (item) {
         is AnswerItem -> AnswerBlock(item, markdownCache, imagesOf = imagesOf)
+        is ThoughtItem -> ThoughtBlock(item, markdownCache, imagesOf = imagesOf)
         is WorkItem ->
             WorkGroup(
                 item,

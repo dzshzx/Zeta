@@ -36,6 +36,13 @@ fun chatItemJson(item: ChatItem): JsonObject =
                 put("text", item.text)
                 put("streaming", item.streaming)
             }
+        is ThoughtItem ->
+            buildJsonObject {
+                put("kind", "thought")
+                put("id", item.id)
+                put("text", item.text)
+                put("streaming", item.streaming)
+            }
         is NoticeItem ->
             buildJsonObject {
                 put("kind", "notice")
@@ -137,6 +144,7 @@ fun chatItemOf(o: JsonObject): ChatItem {
                 roundLast = o.str("round_last")?.ifEmpty { null },
             )
         "answer" -> AnswerItem(id, o.str("text").orEmpty(), o.bool("streaming") == true)
+        "thought" -> ThoughtItem(id, o.str("text").orEmpty(), o.bool("streaming") == true)
         "work" ->
             WorkItem(
                 id,

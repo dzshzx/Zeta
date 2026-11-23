@@ -99,6 +99,21 @@ func (ch *Chat) answerBlock(c *ui.Context, it items.Item, row int) {
 	})
 }
 
+// thoughtBlock 是一段中间说明（Claude 在工具调用之间说它在做什么）：同回答一样排正文，不带复制键和回答的操作；
+// 一轮的操作排挂在它下面时照样画（核心定的 round_last）。
+func (ch *Chat) thoughtBlock(c *ui.Context, it items.Item, row int) {
+	ui.Column(c).FillWidth().Padding(4, 0, 6, 0).Children(func() {
+		var md ui.Element
+		if it.Streaming {
+			md = markdown.Stream(c, it.Text, &ch.answer)
+		} else {
+			md = markdown.View(c, ch.answerSource(c, it), &ch.answer)
+		}
+		md.FillWidth()
+	})
+	ch.actionRow(c, row)
+}
+
 // copyButton 是回答下面的复制键：平的圆形图标按钮，30 的圆、15 的图标（同手机版 MessageActions.kt）。
 func copyButton(c *ui.Context, text string) {
 	b := widget.FlatButton(c, iconCopy, "复制", 30, 15).Margin(6, 0, 0, -8)

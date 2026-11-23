@@ -8,7 +8,7 @@ import com.dzshzx.zeta.core.DiffHunk
 import com.dzshzx.zeta.core.DiffKind
 import com.dzshzx.zeta.core.DiffLine
 import com.dzshzx.zeta.core.EditPatch
-import com.dzshzx.zeta.core.ThinkingStep
+import com.dzshzx.zeta.core.ThoughtItem
 import com.dzshzx.zeta.core.ToolStatus
 import com.dzshzx.zeta.core.ToolStep
 import com.dzshzx.zeta.core.UserItem
@@ -111,10 +111,10 @@ class ChatShots : ShotTest() {
     private val oneTurn =
         listOf(
             UserItem("u1", "README 里的构建命令还是 ./gradlew，改成 tools/gradle，顺便看看 CLAUDE.md 要不要同步"),
+            ThoughtItem("t1", "先找出两个文件里所有直接调用 gradlew 的地方。", streaming = false),
             WorkItem(
                 "w1",
                 listOf(
-                    ThinkingStep("t1", "先找出两个文件里所有直接调用 gradlew 的地方。", running = false, seconds = 3),
                     ToolStep(
                         "s1",
                         "Bash",

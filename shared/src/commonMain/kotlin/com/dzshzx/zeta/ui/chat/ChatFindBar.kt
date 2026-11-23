@@ -21,6 +21,7 @@ import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import com.dzshzx.zeta.core.AnswerItem
 import com.dzshzx.zeta.core.ChatItem
+import com.dzshzx.zeta.core.ThoughtItem
 import com.dzshzx.zeta.core.UserItem
 import com.dzshzx.zeta.ui.components.BackHandler
 import com.dzshzx.zeta.ui.components.coui2.FlatIconButton
@@ -64,10 +65,16 @@ class FindSegments(private val inline: MarkdownInlineStyle) {
         for (item in items) {
             if (item is UserItem && item.text.isNotEmpty())
                 segments += FindSegment(item.id, 0, item.text)
-            if (item is AnswerItem && !item.streaming) {
+            val written =
+                when {
+                    item is AnswerItem && !item.streaming -> item.text
+                    item is ThoughtItem && !item.streaming -> item.text
+                    else -> null
+                }
+            if (written != null) {
                 val entry =
-                    answers[item.id]?.takeIf { it.first == item.text }
-                        ?: (item.text to parse(item.id, answerText(item.text)))
+                    answers[item.id]?.takeIf { it.first == written }
+                        ?: (written to parse(item.id, answerText(written)))
                 kept[item.id] = entry
                 segments += entry.second
             }

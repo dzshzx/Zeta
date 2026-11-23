@@ -37,6 +37,7 @@ import com.dzshzx.zeta.core.AnswerItem
 import com.dzshzx.zeta.core.ChatItem
 import com.dzshzx.zeta.core.NoticeItem
 import com.dzshzx.zeta.core.ThinkingStep
+import com.dzshzx.zeta.core.ThoughtItem
 import com.dzshzx.zeta.core.ToolStatus
 import com.dzshzx.zeta.core.ToolStep
 import com.dzshzx.zeta.core.UserItem
@@ -45,6 +46,7 @@ import com.dzshzx.zeta.ui.chat.AnswerBlock
 import com.dzshzx.zeta.ui.chat.Chevron
 import com.dzshzx.zeta.ui.chat.NoticeRow
 import com.dzshzx.zeta.ui.chat.PulsingText
+import com.dzshzx.zeta.ui.chat.ThoughtBlock
 import com.dzshzx.zeta.ui.chat.WorkStepRow
 import com.dzshzx.zeta.ui.chat.presentation
 import com.dzshzx.zeta.ui.chat.rememberWorkInk
@@ -89,6 +91,12 @@ internal sealed interface ReplyEntry {
     }
 
     data class Answer(val item: AnswerItem) : ReplyEntry {
+        override val key: String
+            get() = item.id
+    }
+
+    /** 中间说明：同回答一样排正文，不算进回答。 */
+    data class Thought(val item: ThoughtItem) : ReplyEntry {
         override val key: String
             get() = item.id
     }
@@ -174,6 +182,7 @@ internal object AssistantReplies {
             is WorkItem -> item.takeIf { it.steps.isNotEmpty() }?.let(ReplyEntry::Work)
             is AnswerItem ->
                 item.takeIf { it.streaming || it.text.isNotBlank() }?.let(ReplyEntry::Answer)
+            is ThoughtItem -> ReplyEntry.Thought(item)
             is NoticeItem -> item.takeIf { it.error }?.let(ReplyEntry::Problem)
             else -> null
         }
@@ -189,7 +198,10 @@ internal object AssistantReplies {
                     active = false,
                     attention = true,
                 )
-            busy && last !is ReplyEntry.Answer && !(last is ReplyEntry.Work && last.item.running) ->
+            busy &&
+                last !is ReplyEntry.Answer &&
+                !(last is ReplyEntry.Thought && last.item.streaming) &&
+                !(last is ReplyEntry.Work && last.item.running) ->
                 ReplyEntry.Status("status", WorkSummary.ANALYZING, active = true)
             !busy && tail.none { it is ReplyEntry.Answer || it is ReplyEntry.Problem } ->
                 ReplyEntry.Status("status", "这一轮没有回答", active = false)
@@ -207,6 +219,7 @@ internal fun ReplyEntries(reply: ReplyView, cache: StreamingMarkdownStateCache) 
                 is ReplyEntry.Question -> QuestionBubble(entry)
                 is ReplyEntry.Work -> WorkRow(entry.item)
                 is ReplyEntry.Answer -> AnswerBlock(entry.item, cache, inset = 16.dp)
+                is ReplyEntry.Thought -> ThoughtBlock(entry.item, cache, inset = 16.dp)
                 is ReplyEntry.Problem -> NoticeRow(entry.item)
                 is ReplyEntry.Status -> StatusRow(entry)
             }
