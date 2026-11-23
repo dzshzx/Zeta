@@ -14,7 +14,7 @@ import (
 )
 
 // methodName 是核心请求方法的样子：前缀是核心挂处理器的那几个（helper/corehandlers.go 的 newCoreHandler）。
-var methodName = regexp.MustCompile(`^(conv|sessions|accounts|quota|system|storage|files|images|config)\.[A-Za-z_.]+$`)
+var methodName = regexp.MustCompile(`^(conv|sessions|accounts|quota|system|storage|files|images|config|diag)\.[A-Za-z_.]+$`)
 
 // docMethods 是 docs/core.md 各张方法表（表头第一格是「方法」）第一格里列的方法。
 func docMethods(t *testing.T) []string {

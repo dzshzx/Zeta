@@ -8,7 +8,8 @@ import (
 	"github.com/dzshzx/Zeta/helper/core"
 )
 
-// 核心上做完就答的方法：存储页（storage.*）、文件浏览（files.*）和按路径取图片（images.file），见 docs/core.md「存储与文件」。
+// 核心上做完就答的方法：存储页（storage.*）、文件浏览（files.*）和按路径取图片（images.file），见 docs/core.md「存储与文件」；
+// 诊断页读的日志（diag.*，见 diag.go）。
 // 每个和同名的子命令共用一份实现，子命令照旧留着（手机上看本机文件仍用它们，原因见 docs/core.md）。
 // 各在自己的 goroutine 里做（core.Mux.HandleAsync），慢的（存储统计与清理）不挡同一条连接后面的请求。
 
@@ -20,6 +21,7 @@ type oneShotParams struct {
 	Path    string   `json:"path"`
 	Bytes   int64    `json:"bytes"`
 	Minutes *int     `json:"minutes"` // system.set_idle：闲置多少分钟结束进程，0 是不自动结束
+	Redact  bool     `json:"redact"`  // diag.tail：给内容打码（见 helper/redact）
 }
 
 // oneShots 是这一组的方法。参数不合要求时整个请求出错，什么也不做（同子命令）。
@@ -35,9 +37,11 @@ var oneShots = map[string]func(e *env, p oneShotParams) (any, error){
 	"system.set_idle":      systemSetIdleMethod,
 	"system.claude":        systemClaudeMethod,
 	"system.claude_update": systemClaudeUpdateMethod,
+	"diag.files":           diagFilesMethod,
+	"diag.tail":            diagTailMethod,
 }
 
-// oneShotHandler 做 oneShots 里的方法，挂在 "storage."、"files."、"images."、"system." 上（newCoreHandler）。
+// oneShotHandler 做 oneShots 里的方法，挂在 "storage."、"files."、"images."、"system."、"diag." 上（newCoreHandler）。
 type oneShotHandler struct{ e *env }
 
 func (h oneShotHandler) Request(_ *core.Client, r core.Request) (any, error) {

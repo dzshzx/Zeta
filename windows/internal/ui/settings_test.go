@@ -62,10 +62,10 @@ func newSettingsFixture(t *testing.T) *settingsFixture {
 	return f
 }
 
-// answer 是假 serve 的应答：config.* 交给真的，账号和额度照格式编。
+// answer 是假 serve 的应答：config.*、diag.* 交给真的，账号和额度照格式编。
 func (f *settingsFixture) answer(c hubtest.Call) (json.RawMessage, error) {
 	switch {
-	case strings.HasPrefix(c.Method, "config."):
+	case strings.HasPrefix(c.Method, "config."), strings.HasPrefix(c.Method, "diag."):
 		return f.serve.Call(context.Background(), c.Method, c.Params)
 	case c.Method == "accounts.list":
 		return json.RawMessage(`{"current":{"name":"claude","email":"a@example.com","subscription":"max","current":true},` +
@@ -198,7 +198,7 @@ func TestDevicePageShowsClaudeConfig(t *testing.T) {
 	}
 }
 
-// TestSettingsPreviews 在设了 ZETA_PREVIEW_DIR 时把设置页、设备页、账号与额度、关于（有新版本）、界面缩放 125% 的设置页画成 PNG（浅色、深色）。
+// TestSettingsPreviews 在设了 ZETA_PREVIEW_DIR 时把设置页、设备页、账号与额度、诊断（清单、点开的日志）、关于（有新版本）、界面缩放 125% 的设置页画成 PNG（浅色、深色）。
 func TestSettingsPreviews(t *testing.T) {
 	dir := os.Getenv("ZETA_PREVIEW_DIR")
 	if dir == "" {
@@ -226,6 +226,12 @@ func TestSettingsPreviews(t *testing.T) {
 		{"settings-about", 1000, func(t *testing.T, f *settingsFixture) {
 			f.click(t, "设置")
 			f.click(t, "关于")
+		}},
+		{"settings-diag", 1000, showDiag},
+		{"settings-diag-file", 700, func(t *testing.T, f *settingsFixture) {
+			showDiag(t, f)
+			f.click(t, "修登录")
+			f.until(t, "读到内容", func() bool { return f.shows("MCP 连不上：Authorization: Bearer fake-token-1\nboom\n") })
 		}},
 		{"settings-zoom-125", 1000, func(t *testing.T, f *settingsFixture) {
 			f.app.setZoom(125) // 界面缩放 125%（zoom.go）：整窗按 1.25 倍画

@@ -226,6 +226,17 @@ Zeta 的逻辑往 Go 写的核心里搬：核心是每台主机（手机的 Debi
 
 算法和 Claude Code 状态栏常用的 cpu% 一样（`helper/cpu.go`）：两次读 `/proc/stat` 汇总行，忙碌占比是 1 减去空闲增量除以总增量，空闲含 iowait。上一次的读数在核心的内存里，几个客户端共用；离上一次不到 0.5 秒直接答上一次的数，没有上一次或上一次超过 5 分钟时就地采样 0.1 秒。聊天页输入栏上的负载标识（`ui/chat/HostLoad.kt`）在聊天页看得见时每 5 秒借那台主机对话用的连接问一次（对话里有了消息以后才显示、才问；还没发过消息的新对话不显示，也不为它连主机），显示的是对话所在那台主机（手机本机的 Debian 或远程主机）的负载；问不到时显示一道横线。
 
+## 诊断
+
+这台主机上 Claude Code 那边的日志，给客户端的诊断页看、打包（`helper/diag.go`，做完就答，同「存储与文件」那几个）。只读，读的位置只有三处：在跑的对话进程的标准错误（托管目录的 `err.log`）、结束的对话进程留下的那份（`zeta_host.sh` 存到 `~/.cache/<ZETA_NAME>/stderr/`）、Claude Code 自己的调试日志（`~/.claude/debug/`，开着调试时才写）。
+
+| 方法 | 参数 | 结果 |
+|---|---|---|
+| `diag.files` | 无 | `{files: [{kind, path, size, modified, title}]}`：`kind` 是 `running`（在跑的，`title` 是托管目录记的对话标题）、`finished`（结束的，最近 20 份）、`debug`（调试日志，最近 30 个），按这个顺序列，同一类里新的在前；`modified` 是毫秒。符号链接不列（`~/.claude/debug/latest`） |
+| `diag.tail` | `path`（`diag.files` 列的那几处之一）、`redact`（为真时打码） | `{text, size, truncated}`：文件的最后 64 KiB，按 UTF-8 解，开头被切开的半个字丢掉、坏字节换成替代符；`size` 是整个文件多大，`truncated` 为真是前面还有没取的。别处的路径、带 `.` 或 `..` 的、符号链接都答出错 |
+
+打码（`redact` 为真）用 `helper/redact`：token、密码、Cookie、私钥块、网址里的密码这类值换成「[已打码]」，规则和用例同手机版诊断包的 `Redact.kt`。桌面版的诊断页（设置「诊断」）看日志不打码，导出诊断包时用 `redact` 取各文件，自己的环境信息和安装记录在本地用同一个包打码。手机版的诊断页还是经 Debian 跑 `DiagScripts` 的脚本、只看手机本机；它改走这两个方法时删掉 `DiagScripts` 里列文件、取尾部的脚本和 `readable`，远程主机也就能看了。
+
 ## Android 直连（zeta-ssh）
 
 手机直连远程主机（`RemoteHost.Via.Direct`，不要 Debian 和 root）的 SSH 在 Go 程序 zeta-ssh 里（`client/cmd/zeta-ssh`，逻辑在 `client/sshbridge`，连接用和 Windows 版同一份的 `client/sshlink`、`client/hostlink`）。Kotlin 一侧是 `shared` 的 `core/ssh/SshLinks.kt`（`HubPlatform.sshLinks`，手机上由 `AndroidHubPlatform` 给出程序路径和 Keystore 里的密钥），只做协议转换和 Android 原生的三件事：用 Keystore 里的私钥签名、经系统解析域名、把远程命令当成 Java 的 `Process`。重连、闲置断开、保活、主机指纹的核对、交给那边 shell 的写法（登录 shell 与否，`hostlink.RemoteCommand`）、出错的说法都在 Go 里。

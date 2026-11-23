@@ -55,6 +55,9 @@ func main() {
 		Prefs:   prefs,
 	}
 	app.About = &about.Page{Version: version, Updates: updater, Prefs: prefs}
+	// 诊断包里带上 Windows 版本和这台电脑上的安装记录（设置目录的 diag）
+	app.DiagEnv = osLines
+	app.DiagDir = filepath.Join(dir, "diag")
 	mygo.App.WhenReady(func() {
 		// 界面画出来之前先铺 COUI 的页面底色，打开时不闪一下白。没有系统标题栏：侧栏和各页的顶栏就是标题栏，
 		// 系统自己的最小化、最大化、关闭按钮浮在右上角，和顶栏一样高（见 widget/titlebar.go）。窗口的位置、大小、

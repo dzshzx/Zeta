@@ -40,7 +40,7 @@ func (a *App) startSettings() {
 }
 
 // settings 是设置（布局照 ChatGPT 的 Windows 客户端）：侧栏换成设置的分类（settingsNav），右边是选中的那一类，
-// 没有返回键；侧栏顶上的「返回应用」或 Esc 回到对话。分类：常规（外观、快捷键）、各台设备、添加设备、各台的账号与额度、关于。
+// 没有返回键；侧栏顶上的「返回应用」或 Esc 回到对话。分类：常规（外观、快捷键）、各台设备、添加设备、各台的账号与额度、诊断、关于。
 
 // inSettings：在看设置的某一页（不是对话）。
 func (a *App) inSettings() bool { return a.page != pageHome }
@@ -48,10 +48,18 @@ func (a *App) inSettings() bool { return a.page != pageHome }
 // leaveSettings 回到对话。
 func (a *App) leaveSettings() { a.page = pageHome }
 
+// escapeSettings 是设置里按 Esc：诊断页点开着一个日志文件时先回到清单，别的时候回到对话。
+func (a *App) escapeSettings() {
+	if a.page == pageDiag && a.diag != nil && a.diag.Back() {
+		return
+	}
+	a.leaveSettings()
+}
+
 // settingsNav 是在设置里时的侧栏：顶上一行「返回应用」同时是标题栏，下面一类一行，选中的那类是白底。
 func (a *App) settingsNav(c *ui.Context) {
 	k := widget.Of(c)
-	c.OnWindowShortcut(0, ui.KeyEscape, a.leaveSettings)
+	c.OnWindowShortcut(0, ui.KeyEscape, a.escapeSettings)
 	ui.Column(c).Fill().Background(k.Sidebar).Children(func() {
 		ui.Row(c).Height(widget.TitleBarHeight).Padding(0, 10, 0, 10).AlignItems(ui.Center).Shrink(0).DragWindow().Children(func() {
 			widget.NavItem(c, widget.IconBack, "返回应用", "Esc", false).OnClick(a.leaveSettings).Width(0).Grow(1)
@@ -81,6 +89,7 @@ func (a *App) settingsCategories(c *ui.Context) {
 		}
 	}
 	navTitle(c, "")
+	widget.NavItem(c, widget.IconWrench, "诊断", "", a.page == pageDiag).OnClick(func() { a.open(pageDiag) })
 	hint := ""
 	if st := a.About.Updates.Status(); st.Phase == update.Available {
 		hint = "有新版本 " + st.Manifest.VersionName

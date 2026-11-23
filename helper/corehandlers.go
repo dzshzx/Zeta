@@ -43,6 +43,7 @@ func newCoreHandler(e *env, watch watchOptions) core.Handler {
 	m.HandleAsync("files.", ops)
 	m.HandleAsync("images.", ops)
 	m.HandleAsync("system.", ops) // 输入栏上的负载标识，见 cpu.go
+	m.HandleAsync("diag.", ops)   // 诊断页读的日志，见 diag.go
 	// 要跑 claude-switch、等进程退出，慢：各在自己的 goroutine 里做，不挡同一个客户端后面的请求
 	accounts := accountsHandler{e, quota}
 	m.HandleAsync("accounts.", accounts)
