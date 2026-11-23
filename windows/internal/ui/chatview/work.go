@@ -26,7 +26,7 @@ func inkOf(t *ui.Theme) ink {
 const collapsedCards = 3
 
 // workGroup 画一组连续的思考与工具调用：圆角细边框的卡片，默认折叠成一行摘要，点开是逐步的时间线；
-// 折叠着也直接露出改了哪些文件。
+// 折叠着也直接露出改了哪些文件。工具结果里的图（Read 打开的图片、截图）不收在卡片里，画在卡片下面（workImages）。
 func (ch *Chat) workGroup(c *ui.Context, it items.Item) {
 	t := c.Theme()
 	k := inkOf(t)
@@ -58,6 +58,27 @@ func (ch *Chat) workGroup(c *ui.Context, it items.Item) {
 		})
 		if panel.Valid() {
 			panel.FillWidth().Padding(0, 14, 8, 14)
+		}
+	})
+	ch.workImages(c, it.Steps)
+}
+
+// workImages 画一组工具结果里的全部图：卡片下面一行（放不下折行），按步骤先后；点了看大图，左右翻的是这一组的全部图。
+func (ch *Chat) workImages(c *ui.Context, steps []items.Step) {
+	var all []items.Image
+	for _, s := range steps {
+		all = append(all, s.Images...)
+	}
+	if len(all) == 0 {
+		return
+	}
+	ui.Row(c.Key("work-images")).Wrap().Gap(8).Margin(4, 0, 6, 0).MaxWidthPercent(100).Children(func() {
+		for at, im := range all {
+			if ch.waitsForTap(im) {
+				ui.Box(c.Key(at)).Children(func() { ch.remotePrompt(c, im) })
+			} else {
+				ch.opensImage(ui.Box(c.Key(at)), all, at).Children(func() { ch.picture(c, im) })
+			}
 		}
 	})
 }
@@ -135,7 +156,7 @@ func (ch *Chat) stepRow(c *ui.Context, s items.Step) {
 		b.OnClick(func() { open(s.ID) })
 		return
 	}
-	if detail == "" && len(s.Images) == 0 {
+	if detail == "" {
 		rowStyle(ui.Row(c)).Children(func() { header(0, false) })
 		return
 	}
@@ -170,24 +191,19 @@ func stepText(s items.Step) (title, detail string) {
 	return look.title, stepDetail(look, s.Result)
 }
 
-// stepDetailView 是一步展开后的样子：思考按 Markdown 排成淡色字，工具调用是等宽字的灰底块，下面是结果里的图。
+// stepDetailView 是一步展开后的样子：思考按 Markdown 排成淡色字，工具调用是等宽字的灰底块（结果里的图在卡片下面，见 workImages）。
 func (ch *Chat) stepDetailView(c *ui.Context, s items.Step, detail string) {
 	t := c.Theme()
 	if s.Kind == items.Thinking {
 		markdown.View(c, mathSource(detail), &ch.thinking).FillWidth()
 		return
 	}
-	if detail != "" {
-		bg := t.Text.Alpha(0.035)
-		if t.Dark {
-			bg = t.Text.Alpha(0.06)
-		}
-		ui.Text(c, detail).Selectable().Font(widget.Mono).FontSize(11.5).LineHeight(1.2).TextColor(t.Text.Alpha(0.78)).
-			FillWidth().Padding(8, 10).Radius(10).Background(bg)
+	bg := t.Text.Alpha(0.035)
+	if t.Dark {
+		bg = t.Text.Alpha(0.06)
 	}
-	for k, im := range s.Images {
-		ch.opensImage(ui.Box(c.Key(k)), s.Images, k).Children(func() { ch.picture(c, im) })
-	}
+	ui.Text(c, detail).Selectable().Font(widget.Mono).FontSize(11.5).LineHeight(1.2).TextColor(t.Text.Alpha(0.78)).
+		FillWidth().Padding(8, 10).Radius(10).Background(bg)
 }
 
 // statusMark 是工具调用标题行末尾的结果：绿点「已完成」或红点「失败」；思考和还在跑的没有。

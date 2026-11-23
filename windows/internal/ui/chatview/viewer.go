@@ -1,6 +1,9 @@
 package chatview
 
 import (
+	"bytes"
+	"image"
+	"image/png"
 	"net/http"
 	"slices"
 	"strconv"
@@ -10,12 +13,14 @@ import (
 
 	"github.com/dzshzx/Zeta/windows/internal/chat/items"
 	"github.com/dzshzx/Zeta/windows/internal/ui/widget"
+	"github.com/egoist/mygo/transfer"
 	"github.com/egoist/mygo/ui"
 )
 
 // 全屏看大图（同手机版 ImageViewer.kt、ImageGallery.kt）：点聊天里的图时列表发出 OpenImages，调用方建一个 Viewer、
 // 每帧画在窗口最上层。黑底铺满窗口，不管外面是浅色深色都用 COUI 的深色配色。顶上是返回和「第几张 / 共几张」，
-// 多张时两边是上一张、下一张（也可以按左右键），底下是页码圆点和保存。Esc 关上。保存交给调用方给的 Save。
+// 多张时两边是上一张、下一张（也可以按左右键），底下是页码圆点、保存和复制（Ctrl+C 也是复制）。Esc 关上。
+// 保存交给调用方给的 Save；复制把图转成 PNG 放上剪贴板（Windows 上同时给 PNG 和位图两种格式，聊天软件、画图都能粘贴）。
 
 // Viewer 是一次看大图：看的是哪一组图、第几张。图从发出 OpenImages 的那个列表的缓存里取，不再取一遍。
 type Viewer struct {
@@ -27,8 +32,8 @@ type Viewer struct {
 	// images 是这一组图，关上后为空。
 	images []items.Image
 	index  int
-	// saving 是正在保存的那次（取图、等用户选位置、写文件），done 了之后 note 是结果。
-	saving *saving
+	// task 是正在做的保存或复制（取图、等用户选位置、写文件，或转成 PNG），done 了之后 note 是结果。
+	task *task
 	// zoom 是这一张的缩放和平移（zoom.go），翻页时回到原大。
 	zoom zoom
 }
@@ -38,26 +43,43 @@ func NewViewer(from *Chat, list []items.Image, index int) *Viewer {
 	return &Viewer{from: from, images: slices.Clone(list), index: index}
 }
 
-// saving 是一次保存：在后台 goroutine 上做完，结果给界面线程读。
-type saving struct {
+// task 是一次保存或复制：在后台 goroutine 上做完，结果给界面线程读。
+type task struct {
 	mu   sync.Mutex
 	done bool
 	note string
+	// clip 是复制时转好的 PNG：剪贴板要在界面线程上写，由下一帧的 View 放上去后清掉。
+	clip []byte
 }
 
-func (s *saving) result() (bool, string) {
+func (s *task) result() (bool, string) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	return s.done, s.note
 }
 
+func (s *task) finish(note string, clip []byte) {
+	s.mu.Lock()
+	s.done, s.note, s.clip = true, note, clip
+	s.mu.Unlock()
+}
+
+// takeClip 取走做完的复制要放上剪贴板的 PNG，没有时为空。
+func (s *task) takeClip() []byte {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	clip := s.clip
+	s.clip = nil
+	return clip
+}
+
 // close 关上看大图。
-func (v *Viewer) close() { v.images, v.saving, v.zoom = nil, nil, zoom{} }
+func (v *Viewer) close() { v.images, v.task, v.zoom = nil, nil, zoom{} }
 
 // step 翻到上一张（-1）或下一张（1），到头了不动。
 func (v *Viewer) step(d int) {
 	if n := v.index + d; n >= 0 && n < len(v.images) {
-		v.index, v.saving, v.zoom = n, nil, zoom{}
+		v.index, v.task, v.zoom = n, nil, zoom{}
 	}
 }
 
@@ -78,6 +100,11 @@ func (v *Viewer) View(c *ui.Context) bool {
 		return false
 	}
 	v.index = min(max(v.index, 0), len(v.images)-1)
+	if s := v.task; s != nil {
+		if clip := s.takeClip(); clip != nil {
+			c.Services().WriteClipboardData(transfer.New(transfer.NewItem(transfer.Bytes(transfer.PNG, clip))))
+		}
+	}
 	ui.Overlay(c, func() {
 		page := ui.Themed(c, widget.Theme(true)).Absolute().Left(0).Top(0).Right(0).Bottom(0).Background(widget.For(true).Window).
 			Modal().Role(ui.RoleDialog).Label("看大图")
@@ -97,6 +124,10 @@ func (v *Viewer) View(c *ui.Context) bool {
 			v.step(-1)
 		case page.OverlayShortcut(0, ui.KeyRight):
 			v.step(1)
+		case page.OverlayShortcut(ui.Cmd, ui.KeyC):
+			if v.canAct(c) {
+				v.copy(c, v.images[v.index])
+			}
 		}
 	})
 	return len(v.images) > 0
@@ -167,8 +198,8 @@ func pageButton(c *ui.Context, icon *ui.SVG, label string, enabled, left bool) u
 	return b.Disabled(!enabled)
 }
 
-// bottom 是底栏：多张时上面一排页码圆点，下面是保存（图标在上、字在下，同手机版的 BarAction），
-// 保存过后旁边一句结果。
+// bottom 是底栏：多张时上面一排页码圆点，下面是保存和复制（图标在上、字在下，同手机版的 BarAction），
+// 做过后底下一句结果。
 func (v *Viewer) bottom(c *ui.Context) {
 	k := widget.Of(c)
 	ui.Column(c).Absolute().Left(0).Right(0).Bottom(0).Height(viewerBottom).AlignItems(ui.Center).Justify(ui.End).
@@ -184,51 +215,105 @@ func (v *Viewer) bottom(c *ui.Context) {
 				}
 			})
 		}
-		bmp, _, _ := v.bitmap(c, v.images[v.index])
-		busy, note := false, ""
-		if s := v.saving; s != nil {
-			done, n := s.result()
-			busy, note = !done, n
+		note := ""
+		if s := v.task; s != nil {
+			_, note = s.result()
 		}
-		save := ui.ButtonBase(c).Label("保存").MinWidth(88).Radius(16).Padding(8, 12).
-			Cursor(ui.CursorPointer).Disabled(v.Save == nil || bmp == nil || busy)
-		if save.Hovered() {
-			save.Background(k.Hover)
-		}
-		save.Children(func() {
-			ui.Column(c).Gap(4).AlignItems(ui.Center).Children(func() {
-				ui.Icon(c, widget.IconDownload).Size(24, 24).TextColor(k.Text)
-				ui.Text(c, "保存").FontSize(widget.SizeBodyXS).TextColor(k.Text)
-			})
+		ready := v.canAct(c)
+		ui.Row(c).Gap(8).Children(func() {
+			barAction(c, widget.IconDownload, "保存", v.Save == nil || !ready).OnClick(func() { v.save(c, v.images[v.index]) })
+			barAction(c, widget.IconCopy, "复制", !ready).OnClick(func() { v.copy(c, v.images[v.index]) })
 		})
-		save.OnClick(func() { v.save(c, v.images[v.index]) })
 		ui.Text(c, note).FontSize(widget.SizeBodyXS).TextColor(k.Secondary).Height(16).SingleLine().Ellipsis("…").MaxWidth(560)
 	})
 }
 
-// save 在后台取这张图的原始数据，交给 Save 存，结果记在看大图上。
-func (v *Viewer) save(c *ui.Context, im items.Image) {
-	s := &saving{}
-	v.saving = s
-	save, fetch, services := v.Save, v.from.imageBytes, c.Services()
+// canAct：这一张已经载入、没有在做的保存或复制，保存、复制能点。
+func (v *Viewer) canAct(c *ui.Context) bool {
+	if bmp, _, _ := v.bitmap(c, v.images[v.index]); bmp == nil {
+		return false
+	}
+	if s := v.task; s != nil {
+		if done, _ := s.result(); !done {
+			return false
+		}
+	}
+	return true
+}
+
+// barAction 是底栏的一个操作：图标在上、字在下。
+func barAction(c *ui.Context, icon *ui.SVG, label string, disabled bool) ui.Element {
+	k := widget.Of(c)
+	b := ui.ButtonBase(c.Key(label)).Label(label).MinWidth(88).Radius(16).Padding(8, 12).Cursor(ui.CursorPointer).Disabled(disabled)
+	if b.Hovered() {
+		b.Background(k.Hover)
+	}
+	b.Children(func() {
+		ui.Column(c).Gap(4).AlignItems(ui.Center).Children(func() {
+			ui.Icon(c, icon).Size(24, 24).TextColor(k.Text)
+			ui.Text(c, label).FontSize(widget.SizeBodyXS).TextColor(k.Text)
+		})
+	})
+	return b
+}
+
+// run 在后台做一次保存或复制：取这张图的原始数据交给 work，结果记在看大图上，做完让窗口重画。
+func (v *Viewer) run(c *ui.Context, im items.Image, failed string, work func(data []byte) (note string, clip []byte, err error)) {
+	s := &task{}
+	v.task = s
+	fetch, services := v.from.imageBytes, c.Services()
 	go func() {
-		note := ""
+		var note string
+		var clip []byte
 		data, err := fetch(im)
 		if err == nil {
-			var saved string
-			saved, err = save(data, imageFileName(data, time.Now()))
-			if saved != "" {
-				note = "已保存到 " + saved
-			}
+			note, clip, err = work(data)
 		}
 		if err != nil {
-			note = "保存失败：" + err.Error()
+			note = failed + err.Error()
 		}
-		s.mu.Lock()
-		s.done, s.note = true, note
-		s.mu.Unlock()
+		s.finish(note, clip)
 		services.Invalidate()
 	}()
+}
+
+// save 交给 Save 存这张图。
+func (v *Viewer) save(c *ui.Context, im items.Image) {
+	save := v.Save
+	v.run(c, im, "保存失败：", func(data []byte) (string, []byte, error) {
+		saved, err := save(data, imageFileName(data, time.Now()))
+		if saved == "" || err != nil {
+			return "", nil, err
+		}
+		return "已保存到 " + saved, nil, nil
+	})
+}
+
+// copy 把这张图转成 PNG（本来是 PNG 的原样用）放上剪贴板。
+func (v *Viewer) copy(c *ui.Context, im items.Image) {
+	v.run(c, im, "复制失败：", func(data []byte) (string, []byte, error) {
+		clip, err := pngOf(data)
+		if err != nil {
+			return "", nil, err
+		}
+		return "已复制图片", clip, nil
+	})
+}
+
+// pngOf 是图的 PNG 数据：已经是 PNG 的原样返回，别的（JPEG、GIF 的第一帧、WebP、BMP）解码后重编。
+func pngOf(data []byte) ([]byte, error) {
+	if http.DetectContentType(data) == "image/png" {
+		return data, nil
+	}
+	img, _, err := image.Decode(bytes.NewReader(data))
+	if err != nil {
+		return nil, err
+	}
+	var buf bytes.Buffer
+	if err := png.Encode(&buf, img); err != nil {
+		return nil, err
+	}
+	return buf.Bytes(), nil
 }
 
 // imageFileName 是保存时建议的文件名（同手机版 ImageExport.fileName 取不出名字时）：Zeta_年月日_时分秒，

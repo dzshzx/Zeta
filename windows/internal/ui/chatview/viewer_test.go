@@ -3,6 +3,9 @@ package chatview
 import (
 	"bytes"
 	"errors"
+	"image"
+	"image/gif"
+	"image/png"
 	"math"
 	"strings"
 	"testing"
@@ -10,6 +13,7 @@ import (
 
 	"github.com/dzshzx/Zeta/windows/internal/chat/items"
 	"github.com/dzshzx/Zeta/windows/internal/ui/widget"
+	"github.com/egoist/mygo/transfer"
 	"github.com/egoist/mygo/ui"
 )
 
@@ -38,7 +42,8 @@ func viewerTester(ch *Chat, dark bool, save func(data []byte, name string) (stri
 	return ui.NewTesterWith(view, 900, 700, ui.TesterOptions{Dark: dark, Preferences: ui.Preferences{ReduceMotion: true}}), w
 }
 
-// 点用户消息里的图打开看大图：显示第几张，左右键和两边的键翻页，到头不动；保存交给 Save；Esc、返回关上。
+// 点用户消息里的图打开看大图：显示第几张，左右键和两边的键翻页，到头不动；保存交给 Save，复制（按钮或 Ctrl+C）把 PNG 原样放上剪贴板；
+// Esc、返回关上。
 func TestImageViewer(t *testing.T) {
 	shot := testPNG(t, 300, 200)
 	ch := New()
@@ -97,6 +102,20 @@ func TestImageViewer(t *testing.T) {
 	}
 	waitText(t, tt, "已保存到 ")
 
+	if err := tt.Click("复制"); err != nil {
+		t.Fatal(err)
+	}
+	waitText(t, tt, "已复制图片")
+	if clip, err := tt.ClipboardData().Read(transfer.PNG); err != nil || !bytes.Equal(clip, shot) {
+		t.Fatalf("复制：%d 字节，%v", len(clip), err)
+	}
+	tt.SetClipboard("")
+	tt.Key(ui.Cmd, ui.KeyC)
+	waitText(t, tt, "已复制图片")
+	if clip, err := tt.ClipboardData().Read(transfer.PNG); err != nil || !bytes.Equal(clip, shot) {
+		t.Fatalf("Ctrl+C 复制：%d 字节，%v", len(clip), err)
+	}
+
 	tt.Key(0, ui.KeyEscape)
 	tt.Frame()
 	if w.v != nil {
@@ -113,7 +132,7 @@ func TestImageViewer(t *testing.T) {
 	}
 }
 
-// 工具结果里的图也能看大图；没给 Save 时保存是灰的；取不到时说一声。
+// 工具结果里的图不收在工作组卡片里，折叠着也画在卡片下面，能看大图；没给 Save 时保存是灰的；取不到时说一声，保存、复制都是灰的。
 func TestImageViewerOfToolImages(t *testing.T) {
 	ch := New()
 	ch.LoadImage = func(file, ref string) ([]byte, error) { return nil, errors.New("记录里没有这张图") }
@@ -121,13 +140,9 @@ func TestImageViewerOfToolImages(t *testing.T) {
 		"input":{"file_path":"/a.png"},"images":[{"kind":"session","file":"/s.jsonl","ref":"2.0"}]}]}]`))
 	tt, w := viewerTester(ch, true, nil)
 	settleImages(ch, tt)
-	if err := tt.Click("已完成 1 个步骤"); err != nil {
-		t.Fatal(err)
+	if tt.HasText("读取 a.png") {
+		t.Fatal("工作组该折叠着")
 	}
-	if err := tt.Click("读取 a.png"); err != nil {
-		t.Fatal(err)
-	}
-	settleImages(ch, tt)
 	if err := tt.Click("图片无法显示"); err != nil {
 		t.Fatal(err)
 	}
@@ -138,8 +153,77 @@ func TestImageViewerOfToolImages(t *testing.T) {
 	if tt.HasText("1 / 1") {
 		t.Error("只有一张时不该有页码")
 	}
-	if b, ok := tt.AccessByRole(ui.RoleButton, "保存"); !ok || !b.Disabled {
-		t.Fatalf("取不到的图，保存该是灰的：%+v", b)
+	for _, name := range []string{"保存", "复制"} {
+		if b, ok := tt.AccessByRole(ui.RoleButton, name); !ok || !b.Disabled {
+			t.Fatalf("取不到的图，%s该是灰的：%+v", name, b)
+		}
+	}
+}
+
+// 一组里几步的图按步骤先后排在卡片下面，看大图左右翻的是这一组的全部；展开那一步时图不在步骤里再画一遍。
+func TestToolImagesOfAGroup(t *testing.T) {
+	shot := testPNG(t, 60, 40)
+	ch := New()
+	ch.LoadImage = func(file, ref string) ([]byte, error) { return shot, nil }
+	ch.SetItems(decodeItems(t, `[{"kind":"work","id":"w","steps":[
+		{"kind":"tool","id":"a","name":"Read","status":"success","input":{"file_path":"/a.png"},"images":[{"kind":"session","file":"/s.jsonl","ref":"1.0"}]},
+		{"kind":"tool","id":"b","name":"Read","status":"success","input":{"file_path":"/b.png"},"images":[{"kind":"session","file":"/s.jsonl","ref":"2.0"}]}]}]`))
+	tt, w := viewerTester(ch, false, nil)
+	settleImages(ch, tt)
+	pictures := func() (n int, last ui.Rect) {
+		for _, a := range tt.AccessAll() {
+			if a.Role == ui.RoleImage && a.Name == "图片" {
+				last = a.Bounds
+				n++
+			}
+		}
+		return n, last
+	}
+	n, last := pictures()
+	if n != 2 {
+		t.Fatalf("卡片下面有 %d 张图，要 2 张", n)
+	}
+	tt.ClickAt(last.X+last.W/2, last.Y+last.H/2)
+	tt.Frame()
+	if w.v == nil || !tt.HasText("2 / 2") {
+		t.Fatalf("点第二张：%q", tt.Texts())
+	}
+	tt.Key(0, ui.KeyEscape)
+	if err := tt.Click("已完成 2 个步骤"); err != nil {
+		t.Fatal(err)
+	}
+	if err := tt.Click("读取 a.png"); err != nil {
+		t.Fatal(err)
+	}
+	tt.Frame()
+	if n, _ := pictures(); n != 2 {
+		t.Errorf("展开那一步后有 %d 张图，图不该在步骤里再画一遍", n)
+	}
+}
+
+// 复制非 PNG 的图时转成 PNG，像素不变；认不出的数据说失败。
+func TestPNGOf(t *testing.T) {
+	src := image.NewRGBA(image.Rect(0, 0, 4, 3))
+	for i := range src.Pix {
+		src.Pix[i] = 255
+	}
+	var gifData bytes.Buffer
+	if err := gif.Encode(&gifData, src, nil); err != nil {
+		t.Fatal(err)
+	}
+	out, err := pngOf(gifData.Bytes())
+	if err != nil {
+		t.Fatal(err)
+	}
+	img, err := png.Decode(bytes.NewReader(out))
+	if err != nil || img.Bounds() != src.Bounds() {
+		t.Fatalf("转出的 PNG：%v %v", img.Bounds(), err)
+	}
+	if r, g, b, _ := img.At(2, 1).RGBA(); r>>8 != 255 || g>>8 != 255 || b>>8 != 255 {
+		t.Fatalf("像素变了：%v", img.At(2, 1))
+	}
+	if _, err := pngOf([]byte("不是图")); err == nil {
+		t.Fatal("认不出的数据该失败")
 	}
 }
 
