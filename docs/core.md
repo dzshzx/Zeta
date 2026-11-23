@@ -42,7 +42,7 @@ Zeta 的逻辑往 Go 写的核心里搬：核心是每台主机（手机的 Debi
 | `conv.open` | `session`（接着已有会话时）、`file`（它的会话记录，可省：只给会话号时核心自己找）、`key`、`cwd`、`title`、`options` | 打开一个对话。带 `key`（`conv.state` 里的）时重新打开核心里的那个对话，它已经不在时：带了会话号就按会话号打开，没带就答出错，`code` 为 `conversation_gone`。有会话号且核心里已有这个会话时拿到的就是它；接着推一份整份的 `conv.state` 和 `conv.items`。历史只载入最近一段（约 800 条事件），更早的有多少记在 `earlier` |
 | `conv.close` | | 这个客户端放开它 |
 | `conv.options` | `options` | 改起进程用的设置（见下），下次起进程时生效 |
-| `conv.send` | `text`、`images`（`[{media_type, data}]`）、`files`（主机上的路径：客户端自己先把本地文件传到主机上，核心照终端版在消息前加 `@"路径"`）、`mode`、`rules` | 发一条消息；回答进行中时排队。`!` 开头的一行（没有附件时）照终端版直接执行命令（`bash_command`）；输出回放出来以后，核心把命令和输出两行原样当 `shouldQuery` 为假的用户消息交回去，和终端版一样进上下文和会话记录，下一轮模型看得到，这两条不算一轮（`helper/conv` 的 `shellIntoContext`）。`mode`、`rules` 是后台运行（定时任务、通知触发）这一条用的权限模式和叠加的规则，用户自己发的不带 |
+| `conv.send` | `text`、`images`（`[{media_type, data}]`）、`files`（主机上的路径：客户端自己先把本地文件传到主机上，核心照终端版在消息前加 `@"路径"`）、`mode`、`rules` | 发一条消息；回答进行中时排队。`!` 开头的一行（没有附件时）照终端版直接执行命令（`bash_command`）；输出回放出来以后，核心把命令和输出两行原样当 `shouldQuery` 为假的用户消息交回去，和终端版一样进上下文和会话记录，下一轮模型看得到，这两条不算一轮（`helper/conv` 的 `shellIntoContext`）。整条只是 `/exit` 或 `/quit`（Claude Code 的 exit 命令和别名，没有附件时）不发给 Claude Code（它在 stream-json 下不认），照 `conv.end` 结束进程，不进会话记录。`mode`、`rules` 是后台运行（定时任务、通知触发）这一条用的权限模式和叠加的规则，用户自己发的不带 |
 | `conv.interrupt` | | 停止这一轮，排队的消息撤回 |
 | `conv.steer` | | 立即插话，同终端的 send now：Claude Code 认 `interrupt_send_now_v1`（init 的 capabilities）时发带 `send_now` 和排队第一条 `message_uuid` 的 interrupt。应答 `delivering` 时正在跑的工具挪到后台、消息并进这一轮，这一轮不停；`stopped`、`interrupted` 时这一轮以「已打断，先处理插话」这条提示收尾、排队的消息接着开始（被打断的那一轮不单推 `conv.turn` finished，插话答完时推一次）；`nothing_waiting` 时什么也不做。不认时发普通的 interrupt |
 | `conv.cancel` | `uuid`、`recall` | 撤回一条排队的消息；`recall` 时放回输入框（`recalled`） |
@@ -108,6 +108,7 @@ Zeta 的逻辑往 Go 写的核心里搬：核心是每台主机（手机的 Debi
 | `sessions.image` | `file`（会话记录的路径，在 `~/.claude/projects` 里）、`ref`（`conv.items` 里图片的位置，`行号.块序号[.内层序号]`） | `result` 是 `{media_type, data}`（base64）。位置不对、那一块不是图时答出错 |
 | `sessions.occupant` | `session` | Zeta 之外占着这个会话的进程的样子（同 `conv.occupant`）：`{status, waiting_for, hands_over}`，没人占着时 `status` 为 `null` |
 | `sessions.handoff` | `session` | 最多十几秒。把会话从别处接过来（同 `conv.handoff`）：`{handed, status}`。核心里开着这个会话的对话时，交出来了就解开它的 `blocked` 并推 `conv.state` |
+| `sessions.end` | `session` | 最多十几秒。结束本包占着这个会话的 Claude Code 进程（等于终端里 `/exit`，对话内容留着，下次发消息时 `--resume` 接上）：核心里开着这个会话时同 `conv.end`，没开着、本包托管的进程还在时照 `zeta_host.sh` 的 `end_claude` 结束它；等进程退出再答，马上推的列表项里 `live` 已经为假。`result` 是 `{ended}`：结束了几个，没有时是 0。Zeta 之外占着的不管，那是 `sessions.end_elsewhere` |
 | `sessions.end_elsewhere` | `session` | 最多十几秒。结束 Zeta 之外占着这个会话的 Claude Code 进程（同 `zeta-helper end`：先 SIGTERM，十秒不退 SIGKILL），不管那边闲不闲；`sessions.handoff` 只接管闲着（或在等确认）的。`result` 是 `{ended}`：结束了几个，没有时是 0 |
 | `sessions.desk_open` | `session` | 在 tmux 会话 `zeta` 里给它开窗口，已经有就不动（同 `zeta-helper desk-open`）；窗口的工作目录是会话记录里的 `cwd`，还没有记录时是家目录。`result` 是 `{window}`：tmux 的窗口号，主机上没有 tmux 时为 `null` |
 | `sessions.desk_close` | `session` | 关掉它的窗口（同 `zeta-helper desk-close`），`result` 是 `{closed}`：关掉了几个 |

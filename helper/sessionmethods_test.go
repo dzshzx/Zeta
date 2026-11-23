@@ -452,3 +452,40 @@ func TestSessionWatchForcedItems(t *testing.T) {
 		t.Fatalf("force 后发的：%v", got)
 	}
 }
+
+// sessions.end：核心里开着的会话经那个对话结束进程（同 conv.end），对话推 process 为假；没进程了再结束答 0。
+func TestSessionsEndEndsTheOpenConversation(t *testing.T) {
+	e0, _ := coreEnv(t)
+	e := newEnvAt(e0.home, "zeta-dev")
+	t.Setenv("ZETA_NAME", e.name)
+	fakeClaudeIn(t, e, `{"steps":[{"text":"好"}]}`)
+	c := startServe(t, e, testIdle)
+	c.ok("conv.open", `"conv":"a","cwd":`+quote(e.home))
+	c.ok("conv.send", `"conv":"a","text":"你好"`)
+	state := c.nextWhere("conv.state", func(m obj) bool { return asString(m["session"]) != "" })
+	session := asString(state["session"])
+	c.nextWhere("conv.turn", func(m obj) bool { return m["phase"] == "finished" })
+	writeSession(t, e, session, "你好")
+
+	if got := asObj(c.ok("sessions.end", `"session":`+quote(session))); num(t, got["ended"]) != 1 {
+		t.Fatalf("结束：%v", got)
+	}
+	c.nextWhere("conv.state", func(m obj) bool { return m["process"] == false })
+	if got := asObj(c.ok("sessions.end", `"session":`+quote(session))); num(t, got["ended"]) != 0 {
+		t.Fatalf("再结束：%v", got)
+	}
+}
+
+// 核心里没开着、本包托管的进程还在时（客户端都放开了），sessions.end 直接结束它；另一个包托管的不动。
+func TestSessionsEndEndsAnOwnHostedProcess(t *testing.T) {
+	e := testEnv(t)
+	c := startSessions(t, e)
+	_, _, done := hosted(t, e, e.name, handoffID, turnDone...)
+	_, _, otherDone := hosted(t, e, "zeta-dev", handoffID, turnDone...)
+	if got := asObj(c.ok("sessions.end", `"session":"`+handoffID+`"`)); num(t, got["ended"]) != 1 || !exited(done) {
+		t.Fatalf("结束：%v", got)
+	}
+	if !stillUp(otherDone) {
+		t.Fatal("另一个包托管的进程被结束了")
+	}
+}

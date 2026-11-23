@@ -17,14 +17,14 @@ import (
 	"github.com/egoist/mygo/ui"
 )
 
-// opsFixture 是 box 上列着三个会话的侧栏：修登录页（今天）、看看日志（今天）、部署脚本（更早）。
+// opsFixture 是 box 上列着三个会话的侧栏：修登录页（今天）、看看日志（今天）、部署脚本（更早，进程已经结束）。
 func newOpsFixture(t *testing.T) *chatFixture {
 	t.Helper()
 	f := newChatFixture(t)
 	f.devices.Push(f.id, hostlink.SessionsUpdate{Full: true, Upsert: []hostlink.Session{
 		{ID: "s1", File: "/home/box/.claude/projects/-w/s1.jsonl", Title: "修登录页", Cwd: "/home/box/web", Updated: at(14)},
 		{ID: "s2", File: "/home/box/.claude/projects/-w/s2.jsonl", Title: "看看日志", Cwd: "/srv/logs", Updated: at(10)},
-		{ID: "s3", File: "/home/box/.claude/projects/-w/s3.jsonl", Title: "部署脚本", Cwd: "/srv/deploy", Updated: at(14) - 30*3600*1000},
+		{ID: "s3", File: "/home/box/.claude/projects/-w/s3.jsonl", Title: "部署脚本", Cwd: "/srv/deploy", Updated: at(14) - 30*3600*1000, Ended: true},
 	}})
 	f.tt.Frame()
 	return f
@@ -46,7 +46,7 @@ func TestSessionMenu(t *testing.T) {
 	if err := f.tt.RightClick("看看日志"); err != nil {
 		t.Fatal(err)
 	}
-	if got, want := f.tt.Menu(), []string{"置顶", "重命名", "导出", "归档", "-", "删除"}; !reflect.DeepEqual(got, want) {
+	if got, want := f.tt.Menu(), []string{"置顶", "重命名", "导出", "归档", "结束对话", "-", "删除"}; !reflect.DeepEqual(got, want) {
 		t.Errorf("菜单 %q", got)
 	}
 	f.tt.CloseMenu()
@@ -132,7 +132,7 @@ func TestMultiSelect(t *testing.T) {
 	if err := f.tt.RightClick("看看日志"); err != nil {
 		t.Fatal(err)
 	}
-	if got, want := f.tt.Menu(), []string{"归档 3 个对话", "导出 3 个对话", "-", "删除 3 个对话"}; !reflect.DeepEqual(got, want) {
+	if got, want := f.tt.Menu(), []string{"归档 3 个对话", "导出 3 个对话", "结束 2 个对话", "-", "删除 3 个对话"}; !reflect.DeepEqual(got, want) {
 		t.Errorf("菜单 %q", got)
 	}
 	// 删除：这边不筛，都交给核心；它说正在进行的（等确认的 s1）没删，说一声，其余照删
@@ -265,4 +265,100 @@ func TestSessionOpsPreviews(t *testing.T) {
 			_ = out.Close()
 		}
 	}
+}
+
+// 结束对话（同手机版的结束对话、终端里的 /exit）：还在运行的会话右键里才有；闲着的直接结束（sessions.end），
+// 还在进行的先问，别处运行的问过以后经 sessions.end_elsewhere 停掉那边；结束了的马上标成已结束。
+func TestEndConversation(t *testing.T) {
+	f := newOpsFixture(t)
+	if err := f.tt.RightClick("部署脚本"); err != nil {
+		t.Fatal(err)
+	}
+	if slices.Contains(f.tt.Menu(), "结束对话") {
+		t.Errorf("已结束的会话菜单里有结束对话：%q", f.tt.Menu())
+	}
+	f.tt.CloseMenu()
+
+	// 闲着的：不问，直接结束
+	f.menu(t, "看看日志", "结束对话")
+	if f.shows("结束这个对话？") {
+		t.Fatal("闲着的也问了")
+	}
+	if got := f.devices.SessionCalls(); len(got) != 1 || !strings.Contains(got[0], `sessions.end {"session":"s2"}`) {
+		t.Fatalf("发出 %q", got)
+	}
+	if !f.ended("s2") {
+		t.Error("结束了没标成已结束")
+	}
+
+	// 还在回答的：先问，取消了不结束
+	f.devices.PushActivity(f.id, map[string]hostlink.Activity{"s1": {State: "answering"}})
+	f.tt.Frame()
+	f.menu(t, "修登录页", "结束对话")
+	f.see(t, "结束这个对话？", "它还在进行（在回答、等你确认或有后台任务），结束会一并停掉。对话内容保留，可以从历史对话里接着聊。")
+	f.clickNamed(t, "取消", 0)
+	f.tt.Frame()
+	if got := f.devices.SessionCalls(); len(got) != 0 {
+		t.Fatalf("取消了还发 %q", got)
+	}
+	f.menu(t, "修登录页", "结束对话")
+	f.clickNamed(t, "结束", 0)
+	f.tt.Frame()
+	if got := f.devices.SessionCalls(); len(got) != 1 || !strings.Contains(got[0], `sessions.end {"session":"s1"}`) {
+		t.Fatalf("发出 %q", got)
+	}
+
+	// 别处运行的：说明换成停掉那边的进程，经 sessions.end_elsewhere
+	f.devices.Push(f.id, hostlink.SessionsUpdate{Upsert: []hostlink.Session{
+		{ID: "s4", File: "/home/box/.claude/projects/-w/s4.jsonl", Title: "终端里开着的", Cwd: "/w", Updated: at(15), External: true},
+	}})
+	f.tt.Frame()
+	f.menu(t, "终端里开着的", "结束对话")
+	f.see(t, "它正在别处运行（比如终端里开着的 Claude Code），结束会停掉那边的进程，那边在做的也一并停掉。对话内容保留，可以从历史对话里接着聊。")
+	f.clickNamed(t, "结束", 0)
+	f.tt.Frame()
+	if got := f.devices.SessionCalls(); len(got) != 1 || !strings.Contains(got[0], `sessions.end_elsewhere {"session":"s4"}`) {
+		t.Fatalf("发出 %q", got)
+	}
+}
+
+// 多选时「结束 N 个对话」只算、只结束还在运行的；其中有还在进行的先问。
+func TestEndSelectedConversations(t *testing.T) {
+	f := newOpsFixture(t)
+	f.devices.PushActivity(f.id, map[string]hostlink.Activity{"s1": {State: "waiting"}})
+	f.ctrlClick(t, "修登录页")
+	f.ctrlClick(t, "看看日志")
+	f.ctrlClick(t, "部署脚本")
+	f.menu(t, "看看日志", "结束 2 个对话")
+	f.see(t, "结束 2 个对话？", "其中有还在进行（在回答、等你确认或有后台任务）或在别处运行的，结束会一并停掉。对话内容保留，可以从历史对话里接着聊。")
+	f.clickNamed(t, "结束", 0)
+	f.tt.Frame()
+	got := f.devices.SessionCalls()
+	slices.Sort(got)
+	if len(got) != 2 || !strings.Contains(got[0], `sessions.end {"session":"s1"}`) || !strings.Contains(got[1], `sessions.end {"session":"s2"}`) {
+		t.Fatalf("发出 %q", got)
+	}
+	if len(f.app.ops.selected) != 0 {
+		t.Errorf("结束了还选着 %v", f.app.ops.selected)
+	}
+
+	// 选中的都结束了：批量菜单里不再有这一项
+	f.ctrlClick(t, "看看日志")
+	f.ctrlClick(t, "部署脚本")
+	if err := f.tt.RightClick("看看日志"); err != nil {
+		t.Fatal(err)
+	}
+	if slices.ContainsFunc(f.tt.Menu(), func(s string) bool { return strings.HasPrefix(s, "结束") }) {
+		t.Errorf("都结束了还有：%q", f.tt.Menu())
+	}
+}
+
+// ended：列表里会话 id 标成了已结束。
+func (f *chatFixture) ended(id string) bool {
+	for _, s := range f.hub.Sessions() {
+		if s.ID == id {
+			return s.Ended
+		}
+	}
+	return false
 }

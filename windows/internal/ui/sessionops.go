@@ -13,8 +13,8 @@ import (
 	"github.com/egoist/mygo/ui"
 )
 
-// 侧栏对会话的操作：右键菜单（或行尾的「…」）里置顶、重命名、导出、归档，删除单独一组。多选照 Windows 资源管理器：
-// Ctrl+点击加选或去掉一个，Shift+点击从上次点的那个选到这个；在选中的行上右键是对这几个一起归档、导出、删除，
+// 侧栏对会话的操作：右键菜单（或行尾的「…」）里置顶、重命名、导出、归档、结束对话（还在运行的），删除单独一组。多选照 Windows 资源管理器：
+// Ctrl+点击加选或去掉一个，Shift+点击从上次点的那个选到这个；在选中的行上右键是对这几个一起归档、导出、结束、删除，
 // Delete 删除选中的，Esc 或不带键地点一下别的行取消选择。归档的会话收在底部的入口里单独看。事情交给中枢，
 // 没成时弹框说原因。
 
@@ -35,6 +35,11 @@ type sessionOps struct {
 		open   bool
 	}
 	batch struct {
+		list []hostlink.Session
+		open bool
+	}
+	// ending 是结束对话的确认框：还在进行或在别处运行的先问（needsEndConfirm），别的直接结束。
+	ending struct {
 		list []hostlink.Session
 		open bool
 	}
@@ -65,6 +70,9 @@ func (a *App) sessionMenu(m *ui.Menu, s hostlink.Session) {
 	}
 	if m.Item(archive).Shortcut(ui.Ctrl|ui.Shift, ui.KeyA).Chosen() {
 		a.archive(s)
+	}
+	if !s.Ended && m.Item("结束对话").Chosen() {
+		a.end([]hostlink.Session{s})
 	}
 	m.Separator()
 	// 正在进行的也不置灰：能不能删以核心的应答为准（hub.Delete）
@@ -191,7 +199,8 @@ func (a *App) selectRange(key string) {
 	}
 }
 
-// batchMenu 是在选中的几行上右键的菜单，管选中的 chosen：归档或取消归档（选中的全是归档的才是取消归档）、导出、删除。
+// batchMenu 是在选中的几行上右键的菜单，管选中的 chosen：归档或取消归档（选中的全是归档的才是取消归档）、导出、
+// 结束（其中还在运行的，有才列）、删除。
 func (a *App) batchMenu(m *ui.Menu, chosen []hostlink.Session) {
 	n := strconv.Itoa(len(chosen)) + " 个对话"
 	archive := slices.ContainsFunc(chosen, func(s hostlink.Session) bool { return !s.Archived })
@@ -205,6 +214,10 @@ func (a *App) batchMenu(m *ui.Menu, chosen []hostlink.Session) {
 	}
 	if m.Item("导出 " + n).Chosen() {
 		a.export(chosen)
+	}
+	if running := runningOf(chosen); len(running) > 0 && m.Item("结束 "+strconv.Itoa(len(running))+" 个对话").Chosen() {
+		a.end(running)
+		a.clearSelection()
 	}
 	m.Separator()
 	if m.Item("删除 "+n).Shortcut(0, ui.KeyDelete).Danger().Chosen() {
@@ -273,6 +286,55 @@ func (a *App) sessionDialogs(c *ui.Context) {
 			a.clearSelection()
 		}
 	}
+	if e := &o.ending; e.open {
+		title := "结束 " + strconv.Itoa(len(e.list)) + " 个对话？"
+		if len(e.list) == 1 {
+			title = "结束这个对话？"
+		}
+		if coui.Alert(c, &e.open, title, endConfirmSummary(e.list),
+			coui.Action{Label: "取消"}, coui.Action{Label: "结束", Style: coui.Destructive}) == 1 {
+			h.End(e.list, a.failed("结束没成功"))
+		}
+	}
+}
+
+// runningOf 是 list 里还在运行（有活着的 Claude Code 进程）的会话。
+func runningOf(list []hostlink.Session) []hostlink.Session {
+	return slices.DeleteFunc(slices.Clone(list), func(s hostlink.Session) bool { return s.Ended })
+}
+
+// end 结束 list 里的对话（右键菜单的「结束对话」，同手机版的结束对话、终端里的 /exit）：其中有还在进行（在回答、等确认、
+// 有后台任务）或在别处运行的先弹确认框，都是闲着的直接结束。
+func (a *App) end(list []hostlink.Session) {
+	if slices.ContainsFunc(list, a.needsEndConfirm) {
+		a.ops.ending.list, a.ops.ending.open = list, true
+		return
+	}
+	a.hub.End(list, a.failed("结束没成功"))
+}
+
+// needsEndConfirm：结束 s 前要先问——它在别处运行（会停掉那边的进程），或还在进行。
+func (a *App) needsEndConfirm(s hostlink.Session) bool {
+	if s.External {
+		return true
+	}
+	switch a.rowStatus(s, a.showing(s)).Activity {
+	case hub.Waiting, hub.Answering, hub.Background:
+		return true
+	}
+	return false
+}
+
+// endConfirmSummary 是结束确认框的说明（同手机版 endConfirmSummary）：在别处运行的连那边的进程一起停掉。
+func endConfirmSummary(list []hostlink.Session) string {
+	what := "它还在进行（在回答、等你确认或有后台任务），结束会一并停掉。"
+	switch {
+	case len(list) > 1:
+		what = "其中有还在进行（在回答、等你确认或有后台任务）或在别处运行的，结束会一并停掉。"
+	case list[0].External:
+		what = "它正在别处运行（比如终端里开着的 Claude Code），结束会停掉那边的进程，那边在做的也一并停掉。"
+	}
+	return what + "对话内容保留，可以从历史对话里接着聊。"
 }
 
 // deleteName 是删除确认框里这个对话的名字：标题或首句，最多 60 字。

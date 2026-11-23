@@ -205,6 +205,28 @@ func (h *Hub) Delete(list []hostlink.Session, failed func(error)) {
 	})
 }
 
+// End 结束 list 里还在运行的会话的 Claude Code 进程（等于终端里 /exit），对话内容留着，下次发消息时 --resume 接上。
+// Zeta 自己的进程经核心的 sessions.end；别处运行的（External）经 sessions.end_elsewhere，不管那边闲不闲。没在运行的（Ended）跳过。
+// 结束了的在列表里马上标成已结束；聊天窗格开着它时照常开着，核心推的 conv.state 说进程没了。原因交给 failed。
+func (h *Hub) End(list []hostlink.Session, failed func(error)) {
+	list = slices.DeleteFunc(slices.Clone(list), func(s hostlink.Session) bool { return s.Ended || s.ID == "" })
+	if len(list) == 0 {
+		return
+	}
+	h.each(list, func(ctx context.Context, call sessionsCaller, s hostlink.Session) error {
+		method := "sessions.end"
+		if s.External {
+			method = "sessions.end_elsewhere"
+		}
+		_, err := call(ctx, method, map[string]any{"session": s.ID})
+		return err
+	}, func(s hostlink.Session, err error) {
+		if err == nil {
+			h.patch(s, func(x *hostlink.Session) { x.Ended, x.External = true, false })
+		}
+	}, failed)
+}
+
 // each 在后台对 list 里的会话各做一次 do（见 fanOut），每个的结果交给主线程上的 settle，最后把没成的说成一个错误交给 failed。
 func (h *Hub) each(list []hostlink.Session, do func(ctx context.Context, core *coreapi.Client, s hostlink.Session) error,
 	settle func(s hostlink.Session, err error), failed func(error)) {

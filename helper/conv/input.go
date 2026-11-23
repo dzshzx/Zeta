@@ -29,6 +29,11 @@ func (m Message) empty() bool {
 	return strings.TrimSpace(m.Text) == "" && len(m.Images) == 0 && len(m.Files) == 0
 }
 
+// isExitCommand：这条消息只是 /exit 或 /quit（去掉首尾空白后），不带图片和文件。
+func isExitCommand(text string, m Message) bool {
+	return (text == "/exit" || text == "/quit") && len(m.Images) == 0 && len(m.Files) == 0
+}
+
 // sendMessage 发一条消息；回答进行中时排队，Claude Code 在下一个工具边界把它并进这一轮，没有可等的就在这一轮结束后另起一轮。
 func (c *Conversation) sendMessage(client int, m Message) error {
 	text := strings.TrimSpace(m.Text)
@@ -39,6 +44,12 @@ func (c *Conversation) sendMessage(client int, m Message) error {
 		return errBlocked
 	case c.rewind != nil:
 		return errRewinding
+	}
+	// /exit（别名 /quit，同 Claude Code 2.1.330 的 exit 命令）：照终端里那样结束进程，不发给 Claude Code
+	// （它在 stream-json 下答「isn't available in this environment」），也不进会话记录。下次发消息时 --resume 接上
+	if isExitCommand(text, m) {
+		c.end()
+		return nil
 	}
 	c.starter = client
 	// ! 开头的一行：和终端版一样由 Claude Code 在会话的目录里直接执行，命令和输出记进会话，不让模型回答

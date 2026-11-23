@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"slices"
 	"sync"
 	"time"
 
@@ -51,6 +52,7 @@ var sessionMethods = map[string]sessionMethod{
 	"sessions.archive":    {run: sessionOps.archive, session: true, push: true},
 	"sessions.pin":        {run: sessionOps.pin, session: true, push: true},
 	"sessions.delete":     {run: sessionOps.deleteSession, session: true, push: true},
+	"sessions.end":        {run: sessionOps.end, session: true, push: true},
 	"sessions.export":     {run: sessionOps.export},
 	"sessions.handoff":    {run: sessionOps.handoff, session: true},
 	"sessions.desk_open":  {run: sessionOps.deskOpen, session: true},
@@ -243,6 +245,19 @@ func (h sessionOps) deleteSession(q sessionParams) (any, error) {
 		deleted = append(deleted, d)
 	}
 	return obj{"deleted": deleted, "closed": deskClose([]string{q.Session})}, nil
+}
+
+// end 结束本包占着会话 session 的 Claude Code 进程（等于终端里 /exit），等它退出再答，好让马上推的列表项里 live 已经是假。
+// 核心里开着这个会话时经那个对话（同 conv.end）；没开着、本包托管的进程还在（客户端都放开了、看门狗还没到点）时
+// 照 zeta_host.sh 的 end_claude 结束它。结果同 sessions.end_elsewhere：结束了几个。Zeta 之外占着的不管，那是 sessions.end_elsewhere。
+func (h sessionOps) end(q sessionParams) (any, error) {
+	if h.convs.EndSession(q.Session) {
+		h.e.waitOwnHostGone(q.Session, releaseGrace+6*time.Second)
+		return endedResult{Ended: 1}, nil
+	}
+	own := slices.DeleteFunc(h.e.hostedHolders(q.Session), func(r registered) bool { return !h.e.ownHost(r) })
+	endHosted(own)
+	return endedResult{Ended: len(own)}, nil
 }
 
 // activeSession：会话 session 正在进行，sessions.delete 不删它。正在进行指：核心里开着它的对话在回答、等确认或有后台任务；
