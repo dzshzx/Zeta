@@ -6,6 +6,9 @@ import (
 	"strings"
 	"testing"
 	"time"
+
+	"github.com/dzshzx/agent-usage/reading"
+	"github.com/dzshzx/claude-switch/account"
 )
 
 func storeHome(t *testing.T) (*testHost, QuotaStore) {
@@ -91,7 +94,7 @@ func TestStoreRecordsWeeklyReadingsForAgentUsage(t *testing.T) {
 	if _, _, err := s.Event(event(0.25, "allowed", "allowed"), now.Add(2*time.Second)); err != nil {
 		t.Fatal(err)
 	}
-	data, err := os.ReadFile(filepath.Join(h.home, ".local/share/agent-usage/rate-limits.jsonl"))
+	data, err := os.ReadFile(reading.LogPath(reading.Dir(h.home), "claude"))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -100,11 +103,11 @@ func TestStoreRecordsWeeklyReadingsForAgentUsage(t *testing.T) {
 		t.Errorf("读数 = %q，期望 86%% 一行、40%% 一行（第二个事件没变，不记）", lines)
 	}
 
-	h.writeBytes(".local/state/claude-switch/current", []byte("claude-b\n"), 0o644)
+	h.writeBytes(account.StateDir+"/current", []byte("claude-b\n"), 0o644)
 	if _, _, err := s.Event(event(0.25, "allowed", "allowed"), now.Add(3*time.Second)); err != nil {
 		t.Fatal(err)
 	}
-	if _, err := os.Stat(filepath.Join(h.home, ".local/share/agent-usage/rate-limits.claude-b.jsonl")); err != nil {
+	if _, err := os.Stat(reading.LogPath(reading.Dir(h.home), "claude-b")); err != nil {
 		t.Errorf("换到 claude-b 后读数要记在它名下：%v", err)
 	}
 }

@@ -141,11 +141,12 @@ func (s QuotaStore) Event(info []byte, now time.Time) (snap Snapshot, changed bo
 		}
 	}
 	snap, changed, err = ApplyEvent(prev, info, now)
-	if err == nil {
-		recordReading(s.Home, info, now)
-	}
-	if err != nil || !changed || account == "" {
+	if err != nil {
 		return snap, changed, err
+	}
+	recordReading(s.Home, info, now)
+	if !changed || account == "" {
+		return snap, changed, nil
 	}
 	return snap, true, s.save(account, snap)
 }

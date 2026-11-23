@@ -1,7 +1,7 @@
-github.com/dzshzx/agent-usage v0.0.2 h1:Xtx7x8wpwt04kEu0d7Q8g0tYZ5LIQctHLMiOylDwefk=
-github.com/dzshzx/agent-usage v0.0.2/go.mod h1:dZEgRckq7jtza/WJHNeNgtQMB++ycCD+t+ni7XY8TBU=
-github.com/dzshzx/claude-switch v0.0.3 h1:dW9bHfDPqn01oZyBgUMxx7F+sZxV4Hv/gbeAAdEa3EQ=
-github.com/dzshzx/claude-switch v0.0.3/go.mod h1:hXAr/wePFVg0OC+mzrHVSDKfhuOAqJvjSceaFjpGgjM=
+github.com/dzshzx/agent-usage v0.0.3 h1:dkYh9eVB0nUluzVQR2lQLUE+8iOBnF7KSBsWWQ+c3AY=
+github.com/dzshzx/agent-usage v0.0.3/go.mod h1:HUS6b0As55GuHbqdC55IgvfCGb4dTpLUnEwkCAoXAu0=
+github.com/dzshzx/claude-switch v0.0.4 h1:m1AF6Mj9MQ/OOaN+2+xU6v0qCV8k+fnCqeKPv65TzXw=
+github.com/dzshzx/claude-switch v0.0.4/go.mod h1:hXAr/wePFVg0OC+mzrHVSDKfhuOAqJvjSceaFjpGgjM=
 github.com/egoist/mygo v0.10.0 h1:HpLUrlh6WES+4VYbz5K0TvUSw/v8PSdjT/ttiUYrBFM=
 github.com/egoist/mygo v0.10.0/go.mod h1:Hw9sxdSQ4tHuehHw5Q6alR1qTS8kgv3oSFxEejg+7qo=
 golang.org/x/text v0.44.0 h1:YItdp/mQNGnsmrgpcdA5yQ3bnRxCfo/Tj/iByGW9GGo=

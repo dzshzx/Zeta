@@ -229,7 +229,7 @@ internal object ThirdParty {
                 ),
                 Component(
                     name = "github.com/dzshzx/claude-switch",
-                    version = "v0.0.3",
+                    version = "v0.0.4",
                     license = "MIT",
                     url = "https://github.com/dzshzx/claude-switch",
                     copyright = listOf("Copyright (c) 2026 dzshzx"),
@@ -237,7 +237,7 @@ internal object ThirdParty {
                 ),
                 Component(
                     name = "github.com/dzshzx/agent-usage",
-                    version = "v0.0.2",
+                    version = "v0.0.3",
                     license = "MIT",
                     url = "https://github.com/dzshzx/agent-usage",
                     copyright = listOf("Copyright (c) 2026 dzshzx"),
