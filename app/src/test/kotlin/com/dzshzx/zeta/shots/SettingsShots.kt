@@ -122,6 +122,26 @@ class SettingsShots : ShotTest() {
         }
     }
 
+    /** 设置 › 远程主机 ›「Claude Code」：版本从那台主机上的核心读（system.claude），点按在那台上跑 claude update。 */
+    @Test
+    fun remoteClaudeCode() {
+        val hub = hostsHub()
+        val core = FakeCore().install(hub)
+        core.respond = { call ->
+            if (call.method == "system.claude") """{"version":"2.1.330"}"""
+            else core.defaultReply(call)
+        }
+        shoot("settings-host-remote-claude", prepare = { scrollListTo("Claude Code") }) {
+            HostSettingsScreen(
+                hub = hub,
+                backend = workstation.id,
+                onBack = {},
+                onOpenLinux = {},
+                onShowChat = {},
+            )
+        }
+    }
+
     /** 设置首页最下面：手机与工具、通用、关于。 */
     @Test
     fun settingsBottom() {

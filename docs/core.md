@@ -211,6 +211,8 @@ Zeta 的逻辑往 Go 写的核心里搬：核心是每台主机（手机的 Debi
 | `system.cpu` | 无 | `{percent, cores}`：这台主机整机的 CPU 忙碌百分比（0～100 的整数，读不了 `/proc/stat` 时为 `null`）和逻辑核数。最多等 0.1 秒 |
 | `system.idle` | 无 | `{minutes}`：这台主机设的闲置超时（多久结束进程，分钟，0 是不自动结束），没设时是 10 |
 | `system.set_idle` | `minutes`（0～1440 的整数） | 写下这台主机的闲置时长，结果同 `system.idle`；不合要求时出错、不写 |
+| `system.claude` | 无 | `{version}`：这台主机上 Claude Code 的版本（`claude --version` 的版本号），没装或跑不起来时为 `null`。和对话起的是同一个 claude：登录 shell 的环境，PATH 末尾补 `~/.local/bin`（`helper/claudeupdate.go`） |
+| `system.claude_update` | 无 | 在这台主机上跑 `claude update`（最多 5 分钟），`{ok, before, version, output}`：`ok` 是它退出码为 0，`before`、`version` 是更新前后的版本（没装为 `null`），`output` 是输出的最后 8 行。同一个核心里同时只跑一次，后到的答出错。已在跑的 Claude Code 进程不受影响，之后起的用新版本。设置页每台远程主机一行「Claude Code」（`ClaudeCodeUpdateRow`）；手机本机的在 Linux 环境页，走 Debian 里的同一条命令 |
 
 闲置时长存在主机上的 `~/.config/<ZETA_NAME>/idle-minutes`（`helper/idle.go`），托管脚本的看门狗每轮（一分钟）重读（`zeta_host.sh` 的 `idle_limit`）：没有客户端接着、又闲着的 Claude Code 进程数满这么多分钟就结束，改了对已经在跑的进程马上生效；几个客户端连同一台主机看到的是同一个值。设置页每台主机一项「闲置超时」。客户端只在有人看着时拿着对话：切走的、Zeta 切到后台时的当前对话，闲着就在几秒后放开（`ConversationHub.retireWhenIdle`）；手机上的前台服务只在有对话在忙时保着 Zeta，闲着的进程不靠它（托管的进程不随应用退出），所以进程什么时候结束只看这一个时长。例外是等不了的几处：换账号、登录前（`accounts.*` 里改登录的，claude-switch 有 Claude Code 开着就不换，留着的进程以后被接回时还用着旧登录）和 `core-takeover` 换核心看新挂载时，核心先结束本包闲着的托管进程（`endIdleHosted`），在忙的不动。
 

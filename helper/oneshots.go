@@ -24,15 +24,17 @@ type oneShotParams struct {
 
 // oneShots 是这一组的方法。参数不合要求时整个请求出错，什么也不做（同子命令）。
 var oneShots = map[string]func(e *env, p oneShotParams) (any, error){
-	"storage.scan":     storageScanMethod,
-	"storage.sessions": storageSessionsMethod,
-	"storage.clean":    storageCleanMethod,
-	"files.ls":         lsMethod,
-	"files.read":       readMethod,
-	"images.file":      fileImageMethod,
-	"system.cpu":       systemCPUMethod,
-	"system.idle":      systemIdleMethod,
-	"system.set_idle":  systemSetIdleMethod,
+	"storage.scan":         storageScanMethod,
+	"storage.sessions":     storageSessionsMethod,
+	"storage.clean":        storageCleanMethod,
+	"files.ls":             lsMethod,
+	"files.read":           readMethod,
+	"images.file":          fileImageMethod,
+	"system.cpu":           systemCPUMethod,
+	"system.idle":          systemIdleMethod,
+	"system.set_idle":      systemSetIdleMethod,
+	"system.claude":        systemClaudeMethod,
+	"system.claude_update": systemClaudeUpdateMethod,
 }
 
 // oneShotHandler 做 oneShots 里的方法，挂在 "storage."、"files."、"images."、"system." 上（newCoreHandler）。

@@ -112,6 +112,7 @@ private fun LazyListScope.claudeItems(
             item { CompactTimingPreference(hub, backend) }
             item { AutoTitleSwitch(hub, backend) }
             item { IdleEndPreference(hub, backend, ready) }
+            if (backend != Backends.LOCAL) item { ClaudeCodeUpdateRow(hub, backend, ready) }
             item { ScheduleEntry(backend) { onOpen(HostPage.Schedules) } }
             item { NotifyTriggerEntry(backend) { onOpen(HostPage.NotifyTriggers) } }
         }

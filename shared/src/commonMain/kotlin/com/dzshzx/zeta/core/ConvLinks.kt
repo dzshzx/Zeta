@@ -1,5 +1,6 @@
 package com.dzshzx.zeta.core
 
+import com.dzshzx.zeta.core.conv.ClaudeUpdate
 import com.dzshzx.zeta.core.conv.ConvClient
 import com.dzshzx.zeta.core.conv.ConvListener
 import com.dzshzx.zeta.core.conv.ConvOptions
@@ -54,6 +55,12 @@ class ConvLinks(private val hub: ConversationHub) {
     /** 改主机 [backend] 的「闲置超时」，给出写下的值；没改成时抛 [ServeError]。阻塞，别在主线程上调。 */
     fun setIdleMinutes(backend: String, minutes: Int): Int =
         borrow(backend) { it.setIdleMinutes(minutes) }
+
+    /** 主机 [backend] 上 Claude Code 的版本，没装时为 null。问不成时抛 [ServeError]。阻塞，别在主线程上调。 */
+    fun claudeVersion(backend: String): String? = borrow(backend) { it.claudeVersion() }
+
+    /** 在主机 [backend] 上跑 claude update。没跑成时抛 [ServeError]。阻塞几分钟，别在主线程上调。 */
+    fun updateClaude(backend: String): ClaudeUpdate = borrow(backend) { it.updateClaude() }
 
     /** 借主机 [backend] 对话用的连接做一件和对话无关的事：没有连接就连上，用完照常空闲 [IDLE_CLOSE_MS] 后断开。 */
     private fun <T> borrow(backend: String, use: (ConvClient) -> T): T {

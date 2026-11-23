@@ -5,6 +5,7 @@ import com.dzshzx.zeta.core.PermissionReply
 import com.dzshzx.zeta.core.ServeError
 import com.dzshzx.zeta.core.ServeRequests
 import com.dzshzx.zeta.core.TaskOutput
+import com.dzshzx.zeta.core.bool
 import com.dzshzx.zeta.core.int
 import com.dzshzx.zeta.core.str
 import kotlin.concurrent.thread
@@ -42,6 +43,21 @@ interface ConvListener {
 
 /** 问主机的几个方法（[ConvClient.hostCpu]、[ConvClient.idleMinutes]）最多等多久（连上加应答）。 */
 const val HOST_CALL_TIMEOUT_MS = 10_000L
+
+/** 等主机上 claude update 跑完的上限：核心自己最多跑 5 分钟（helper/claudeupdate.go），这里多留一分钟。 */
+const val CLAUDE_UPDATE_TIMEOUT_MS = 6 * 60_000L
+
+/**
+ * 一次 claude update 的结果（docs/core.md「主机」的 system.claude_update）：[ok] 是它退出码为 0，[before]、[version]
+ * 是前后的版本。
+ */
+@Immutable
+data class ClaudeUpdate(
+    val ok: Boolean,
+    val before: String?,
+    val version: String?,
+    val output: String,
+)
 
 /** system.cpu 的结果：主机整机的 CPU 忙碌百分比（读不了时为 null）和逻辑核数。 */
 @Immutable data class HostCpu(val percent: Int?, val cores: Int)
@@ -190,6 +206,27 @@ class ConvClient(private val link: ServeRequests, internal val listener: ConvLis
                 HOST_CALL_TIMEOUT_MS,
             ),
         )
+
+    /** 这台主机上 Claude Code 的版本（system.claude），没装时为 null。问不成时抛 [ServeError]。阻塞。 */
+    fun claudeVersion(): String? =
+        (link.call("system.claude", JsonObject(emptyMap()), HOST_CALL_TIMEOUT_MS) as? JsonObject)
+            ?.str("version")
+
+    /**
+     * 在这台主机上跑 claude update（system.claude_update），最多等 [CLAUDE_UPDATE_TIMEOUT_MS]。没跑成时抛
+     * [ServeError]。阻塞。
+     */
+    fun updateClaude(): ClaudeUpdate {
+        val reply =
+            link.call("system.claude_update", JsonObject(emptyMap()), CLAUDE_UPDATE_TIMEOUT_MS)
+                as? JsonObject ?: throw ServeError("主机上的 Zeta 服务没有答更新的结果")
+        return ClaudeUpdate(
+            ok = reply.bool("ok") == true,
+            before = reply.str("before"),
+            version = reply.str("version"),
+            output = reply.str("output").orEmpty(),
+        )
+    }
 
     private fun minutesOf(reply: JsonElement?): Int =
         (reply as? JsonObject)?.int("minutes") ?: throw ServeError("主机上的 Zeta 服务没有答闲置时长")
