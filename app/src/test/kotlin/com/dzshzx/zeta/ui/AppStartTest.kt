@@ -4,6 +4,7 @@ import android.content.pm.PackageManager
 import android.os.Looper
 import android.view.ViewGroup
 import androidx.test.core.app.ApplicationProvider
+import java.time.Duration
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNotNull
@@ -14,6 +15,7 @@ import org.robolectric.Robolectric
 import org.robolectric.RobolectricTestRunner
 import org.robolectric.Shadows.shadowOf
 import org.robolectric.annotation.Config
+import org.robolectric.shadows.ShadowChoreographer
 
 /**
  * 启动检查：合入前不再上设备跑冒烟测试，「装上能不能起来」由这里在门禁里查。查的是真机上一启动就崩、单元测试却照过的那类问题：
@@ -50,12 +52,25 @@ class AppStartTest {
     fun coldStartFromLauncherDrawsTheUi() {
         val launch = app.packageManager.getLaunchIntentForPackage(app.packageName)
         assertNotNull("清单里没有桌面图标的启动入口", launch)
-        Robolectric.buildActivity(MainActivity::class.java, launch).use { controller ->
-            val activity = controller.setup().get()
-            shadowOf(Looper.getMainLooper()).idle()
-            assertFalse("启动后自己结束了", activity.isFinishing)
-            val content = activity.findViewById<ViewGroup>(android.R.id.content)
-            assertTrue("启动后什么都没画", content.childCount > 0)
+        // 帧只在下面推进的那些里跑：不暂停时 setup() 会把主线程跑到空闲为止，启动后界面上有一直转的动画（等待中的跳动圆点）
+        // 就永远等不到空闲，空转到内存耗尽。推进的 120 帧（约 2 秒）足够组合、画出第一帧、跑完启动时的 LaunchedEffect
+        ShadowChoreographer.setPaused(true)
+        // 主线程协程里没接住的异常（比如 LaunchedEffect 里抛的）在真机上让应用崩溃，Robolectric 里却只打印出来：记下来，最后核对
+        val thrown = mutableListOf<Throwable>()
+        val main = Thread.currentThread()
+        val previous = main.uncaughtExceptionHandler
+        main.setUncaughtExceptionHandler { _, e -> thrown += e }
+        try {
+            Robolectric.buildActivity(MainActivity::class.java, launch).use { controller ->
+                val activity = controller.setup().get()
+                repeat(120) { shadowOf(Looper.getMainLooper()).idleFor(Duration.ofMillis(17)) }
+                assertFalse("启动后自己结束了", activity.isFinishing)
+                val content = activity.findViewById<ViewGroup>(android.R.id.content)
+                assertTrue("启动后什么都没画", content.childCount > 0)
+            }
+        } finally {
+            main.uncaughtExceptionHandler = previous
         }
+        assertEquals("冷启动时主线程上没接住的异常", emptyList<String>(), thrown.map { it.toString() })
     }
 }
