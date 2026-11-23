@@ -215,11 +215,20 @@ class ChatPartsShots : ShotTest() {
         }
     }
 
-    /** 折叠着的工作组：摘要下面直接露出前三处文件改动（新文件、长对比、普通修改），多的提示展开。 */
+    /** 折叠着的工作组：摘要下面露出前三处文件改动，每处收成一行（文件名、改动方式、增删行数），多的提示展开。 */
     @Test
     fun workCollapsed() {
         Fixtures.readyHub(app)
         shoot("chat-parts-work") {
+            Host { WorkGroup(WorkItem("w1", fileSteps)) }
+        }
+    }
+
+    /** 同上，点了第一处的文件名：它的对比展开，别的还是一行。 */
+    @Test
+    fun workCollapsedCardOpen() {
+        Fixtures.readyHub(app)
+        shoot("chat-parts-work-open", prepare = { onNodeWithText("hello.sh").performClick() }) {
             Host { WorkGroup(WorkItem("w1", fileSteps)) }
         }
     }

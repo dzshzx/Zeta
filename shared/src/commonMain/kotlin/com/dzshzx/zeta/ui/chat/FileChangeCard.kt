@@ -84,10 +84,10 @@ fun rememberFileChange(step: ToolStep): FileChange? =
         else fileChangeOf(step.name, step.input, step.patch)
     }
 
-/** 时间线里改文件的一步：标题行带增删行数，下面直接是对比；点标题行收起或展开对比。 */
+/** 时间线里改文件的一步：标题行带增删行数，点标题行展开或收起下面的对比，默认收着。 */
 @Composable
 fun FileEditStepRow(step: ToolStep, change: FileChange) {
-    var open by rememberSaveable(step.id) { mutableStateOf(true) }
+    var open by rememberSaveable(step.id) { mutableStateOf(false) }
     val colors = COUITheme.colorScheme
     val dark = COUITheme.colorScheme.isDark
     val mutedInk = colors.labelPrimary.copy(alpha = if (dark) 0.56f else 0.52f)
@@ -179,24 +179,19 @@ private fun ChangeCounts(change: FileChange) {
     }
 }
 
-/** 一处文件改动的红绿对比：行号、增删记号、内容；长的先只露前 [PreviewLines] 行。 [header] 时顶上带文件名和增删行数（时间线里标题行已经有了，就不带）。 */
+/**
+ * 一处文件改动的红绿对比：行号、增删记号、内容；长的先只露前 [PreviewLines] 行。 [header] 时是工作组折叠时露出的卡片：顶上一行文件名和增删行数，
+ * 点它展开或收起对比，默认收成这一行；不带 [header] 的在时间线里，标题行已经管着收起展开。
+ */
 @Composable
 fun FileChangeCard(change: FileChange, header: Boolean, modifier: Modifier = Modifier) {
     val colors = COUITheme.colorScheme
     val dark = COUITheme.colorScheme.isDark
-    val palette = rememberDiffPalette()
     val shape = RoundedCornerShape(10.dp)
-    var expanded by
-        rememberSaveable(change.path, change.lineCount, change.added) { mutableStateOf(false) }
-    val long = change.lineCount > PreviewLines
-    val limit =
-        when {
-            !long -> change.lineCount
-            expanded -> MaxShownLines
-            else -> PreviewLines
+    var open by
+        rememberSaveable(change.path, change.lineCount, change.added, header) {
+            mutableStateOf(!header)
         }
-    val shown = remember(change, limit) { takeLines(change.hunks, limit) }
-    val numberWidth = remember(change) { numberWidth(change) }
     Column(
         modifier =
             modifier
@@ -210,7 +205,7 @@ fun FileChangeCard(change: FileChange, header: Boolean, modifier: Modifier = Mod
                 ),
     ) {
         if (header) {
-            FileChangeHeader(change)
+            FileChangeHeader(change, open) { open = !open }
         } else {
             kindLabel(change)?.let { label ->
                 Text(
@@ -221,19 +216,57 @@ fun FileChangeCard(change: FileChange, header: Boolean, modifier: Modifier = Mod
                 )
             }
         }
-        if (change.hunks.isEmpty()) NoLinesNote(change)
-        HunkList(shown, change.numbered, numberWidth, palette)
-        val hidden = change.lineCount - shown.sumOf { it.lines.size }
-        if (long) ExpandToggle(change.lineCount, hidden, expanded) { expanded = !expanded }
-        if (change.truncated) {
-            Text(
-                text = "内容太长，记录里只留了前一部分，对比到截断处为止",
-                style = COUITheme.textStyles.bodyXS.copy(fontSize = 11.sp),
-                color = colors.labelSecondary,
-                modifier = Modifier.padding(start = 10.dp, end = 10.dp, bottom = 7.dp),
-            )
+        AnimatedVisibility(visible = open, enter = FoldEnter, exit = FoldExit) {
+            Column {
+                if (header) CardDivider()
+                ChangeBody(change)
+            }
         }
     }
+}
+
+/** 卡片里的对比本身：长的先只露前 [PreviewLines] 行，底下带展开全部的一行。 */
+@Composable
+private fun ChangeBody(change: FileChange) {
+    val palette = rememberDiffPalette()
+    var expanded by
+        rememberSaveable(change.path, change.lineCount, change.added) { mutableStateOf(false) }
+    val long = change.lineCount > PreviewLines
+    val limit =
+        when {
+            !long -> change.lineCount
+            expanded -> MaxShownLines
+            else -> PreviewLines
+        }
+    val shown = remember(change, limit) { takeLines(change.hunks, limit) }
+    val numberWidth = remember(change) { numberWidth(change) }
+    if (change.hunks.isEmpty()) NoLinesNote(change)
+    HunkList(shown, change.numbered, numberWidth, palette)
+    val hidden = change.lineCount - shown.sumOf { it.lines.size }
+    if (long) ExpandToggle(change.lineCount, hidden, expanded) { expanded = !expanded }
+    if (change.truncated) TruncatedNote()
+}
+
+/** 记录里的内容被截断时的说明。 */
+@Composable
+private fun TruncatedNote() {
+    Text(
+        text = "内容太长，记录里只留了前一部分，对比到截断处为止",
+        style = COUITheme.textStyles.bodyXS.copy(fontSize = 11.sp),
+        color = COUITheme.colorScheme.labelSecondary,
+        modifier = Modifier.padding(start = 10.dp, end = 10.dp, bottom = 7.dp),
+    )
+}
+
+/** 卡片顶上那一行和对比之间的分隔线。 */
+@Composable
+private fun CardDivider() {
+    val colors = COUITheme.colorScheme
+    Box(
+        Modifier.fillMaxWidth()
+            .height(0.5.dp)
+            .background(colors.labelPrimary.copy(alpha = if (colors.isDark) 0.10f else 0.07f)),
+    )
 }
 
 /** 没有可对比的行时的说明：新建的是空文件，否则是没有改动。 */
@@ -263,14 +296,16 @@ private fun HunkList(
     }
 }
 
-/** 卡片顶上的一行：新建或修改的图标、文件名、改动方式和增删行数，下面一条分隔线。 */
+/** 卡片顶上的一行：新建或修改的图标、文件名、改动方式、增删行数和展开箭头，点它展开或收起对比。 */
 @Composable
-private fun FileChangeHeader(change: FileChange) {
+private fun FileChangeHeader(change: FileChange, open: Boolean, onToggle: () -> Unit) {
     val colors = COUITheme.colorScheme
     val dark = colors.isDark
     Row(
         modifier =
-            Modifier.fillMaxWidth().padding(start = 10.dp, end = 10.dp, top = 7.dp, bottom = 7.dp),
+            Modifier.fillMaxWidth()
+                .clickable(onClick = onToggle)
+                .padding(start = 10.dp, end = 10.dp, top = 7.dp, bottom = 7.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
         Icon(
@@ -309,12 +344,8 @@ private fun FileChangeHeader(change: FileChange) {
         }
         Spacer(Modifier.width(8.dp))
         ChangeCounts(change)
+        Chevron(open)
     }
-    Box(
-        Modifier.fillMaxWidth()
-            .height(0.5.dp)
-            .background(colors.labelPrimary.copy(alpha = if (dark) 0.10f else 0.07f)),
-    )
 }
 
 /** 长改动底下展开、收起的一行；展开后还有太长没显示的行时注明。 */
