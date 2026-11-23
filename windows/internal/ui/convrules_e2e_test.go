@@ -28,6 +28,8 @@ func TestTodosThroughCore(t *testing.T) {
 	if l := app.pane.state.Todos; len(l) != 3 || todoAt(l, sessionproto.TodoInProgress) != 1 || l[1].Content != "修表单校验" {
 		t.Fatalf("核心给的清单：%+v", l)
 	}
+	// 等这一轮答完再点：回答和状态行还在推来时布局会挪，算好位置的点击可能落空（偶发失败过）
+	f.until(t, "这一轮答完", func() bool { return !app.pane.state.Busy && f.shows("先列了清单") })
 	f.click(t, "展开任务清单")
 	f.see(t, "读登录页的代码", "跑测试")
 }
