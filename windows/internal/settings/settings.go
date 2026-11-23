@@ -188,3 +188,32 @@ func (s *Settings) SetDark(dark *bool) error {
 	}
 	return s.store.SetBool(keyDark, *dark)
 }
+
+// 桌面版自己的窗口布局（手机版没有这两项）。
+const (
+	keySidebarWidth  = "desktopSidebarWidth"  // 侧栏宽度（DIP，用户拖过才有）
+	keySidebarHidden = "desktopSidebarHidden" // 侧栏收起来了（Ctrl+B）
+)
+
+// DefaultSidebarWidth 是侧栏没拖过时的宽度。
+const DefaultSidebarWidth = 280
+
+// SidebarWidth 是侧栏的宽度，没拖过时是 DefaultSidebarWidth。
+func (s *Settings) SidebarWidth() float32 {
+	if v, ok := s.store.Int(keySidebarWidth); ok && v > 0 {
+		return float32(v)
+	}
+	return DefaultSidebarWidth
+}
+
+// SetSidebarWidth 存侧栏的宽度。
+func (s *Settings) SetSidebarWidth(w float32) { logSave(s.store.SetInt(keySidebarWidth, int(w+0.5))) }
+
+// SidebarHidden 是侧栏收起来了。
+func (s *Settings) SidebarHidden() bool {
+	v, _ := s.store.Bool(keySidebarHidden)
+	return v
+}
+
+// SetSidebarHidden 存侧栏收没收起来。
+func (s *Settings) SetSidebarHidden(hidden bool) { logSave(s.store.SetBool(keySidebarHidden, hidden)) }

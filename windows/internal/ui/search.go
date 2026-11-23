@@ -13,7 +13,11 @@ import (
 
 // searchField 是侧栏底下的搜索框（同 Compose 的 SearchCapsule）：框里的字一变就交给中枢去搜。
 func (a *App) searchField(c *ui.Context) {
-	in := coui.SearchField(c, &a.query, "搜索对话")
+	in := coui.SearchField(c, &a.query, "搜索对话 (Ctrl+K)")
+	if a.layout.searchFocus {
+		in.Focus()
+		a.layout.searchFocus = false
+	}
 	in.OnSubmit(func() {}) // 回车不换行、不做别的，结果已经在出了
 	if a.query != a.hub.Query() {
 		a.hub.SetQuery(a.query)

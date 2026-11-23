@@ -12,26 +12,28 @@ import (
 // allHostsLabel 是设备菜单里列全部设备那一项的名字。
 const allHostsLabel = "全部设备"
 
-// sidebarWidth 是侧栏的宽度。
-const sidebarWidth = 300
-
-// sidebar 是左边的侧栏（照手机版的 SessionPane）：灰底铺到窗口顶边，顶上一行品牌和新对话同时是标题栏（空白处拖动窗口），
-// 然后是设备切换，置顶/今天/更早几组会话（搜索时换成结果，看归档时换成归档的），
-// 底下左边是搜索框、右边是归档的入口和设置按钮。多选时顶上一行和底下换成多选的（sessionops.go）。
+// sidebar 是左边的侧栏（布局照 ChatGPT 的 Windows 客户端）：灰底铺到窗口顶边，顶上一行品牌和收起侧栏的按钮同时是
+// 标题栏（空白处拖动窗口）；然后是「新对话」、搜索框、设备切换，置顶/今天/更早几组会话（搜索时换成结果，看归档时换成
+// 归档的）；底下是「设置」和归档的入口。宽度能拖（App.View 里的 ui.Split）。多选时顶上一行和底下换成多选的（sessionops.go）。
 func (a *App) sidebar(c *ui.Context) {
 	k := coui.Of(c)
 	var chosen []hostlink.Session
 	if a.ops.selecting {
 		chosen = a.chosen()
 	}
-	ui.Column(c).Width(sidebarWidth).Shrink(0).Background(k.Sidebar).Children(func() {
+	hosts := len(a.hub.Hosts()) > 0
+	ui.Column(c).Fill().Background(k.Sidebar).Children(func() {
 		if a.ops.selecting {
 			a.selectionHeader(c, chosen)
 		} else {
 			a.sidebarTop(c)
 		}
-		if len(a.hub.Hosts()) > 0 && !a.ops.selecting {
-			ui.Row(c).Padding(0, 16, 8, 16).Shrink(0).Children(func() { a.hostSwitcher(c) })
+		if hosts && !a.ops.selecting {
+			ui.Column(c).Padding(0, 10, 8, 10).Gap(6).Shrink(0).Children(func() {
+				coui.NavItem(c, coui.IconNewChat, "新对话", "Ctrl+N", false).OnClick(a.newChat)
+				ui.Row(c).FillWidth().Children(func() { a.searchField(c) })
+				ui.Row(c).FillWidth().Padding(2, 0, 0, 0).Children(func() { a.hostSwitcher(c) })
+			})
 		}
 		ui.Scroll(c.Key("sessions")).Grow(1).MinHeight(0).Children(func() {
 			ui.Column(c).Padding(0, 0, 12, 0).Children(func() {
@@ -49,40 +51,36 @@ func (a *App) sidebar(c *ui.Context) {
 			a.selectionActions(c, chosen)
 			return
 		}
-		ui.Row(c).Padding(10, 16).Gap(8).Shrink(0).AlignItems(ui.Center).Children(func() {
-			if len(a.hub.Hosts()) > 0 {
-				a.searchField(c)
-			} else {
-				ui.Spacer(c)
-			}
-			if !a.hub.Searching() {
-				a.archiveToggle(c)
-			}
-			a.settingsButton(c)
-		})
+		ui.Row(c).Padding(8, 10).Gap(4).Shrink(0).AlignItems(ui.Center).BorderWidth(1, 0, 0, 0).BorderColor(k.Divider).
+			Children(func() {
+				coui.NavItem(c, coui.IconSettings, "设置", "Ctrl+,", false).OnClick(func() { a.open(pageSettings) }).Grow(1).
+					Width(0)
+				if hosts && !a.hub.Searching() {
+					a.archiveToggle(c)
+				}
+			})
 	})
 	a.sessionDialogs(c)
 }
 
-// sidebarTop 是侧栏顶上一行：品牌和新对话，同时是标题栏。
+// sidebarTop 是侧栏顶上一行：品牌和收起侧栏的按钮，同时是标题栏。
 func (a *App) sidebarTop(c *ui.Context) {
 	k := coui.Of(c)
-	ui.Row(c).Height(coui.TitleBarHeight).Padding(0, 12, 0, 20).Gap(10).AlignItems(ui.Center).Shrink(0).DragWindow().Children(func() {
-		brand(c, 28)
-		ui.Text(c, "Zeta").FontSize(coui.SizeHeadlineM).FontWeight(600).TextColor(k.Text)
+	ui.Row(c).Height(coui.TitleBarHeight).Padding(0, 10, 0, 16).Gap(8).AlignItems(ui.Center).Shrink(0).DragWindow().Children(func() {
+		brand(c, 22)
+		ui.Text(c, "Zeta").FontSize(coui.SizeHeadlineXS).FontWeight(600).TextColor(k.Text)
 		ui.Spacer(c)
-		if len(a.hub.Hosts()) > 0 {
-			coui.IconButton(c, coui.IconNewChat, "新对话").OnClick(func() {
-				a.page = pageHome
-				a.hub.NewChat()
-			})
-		}
+		coui.IconButton(c, coui.IconSidebar, "收起侧栏 (Ctrl+B)").OnClick(a.toggleSidebar)
 	})
 }
 
-// settingsButton 是侧栏右下角的设置按钮，进设置页。
-func (a *App) settingsButton(c *ui.Context) {
-	coui.IconButton(c, coui.IconSettings, "设置").OnClick(func() { a.open(pageSettings) })
+// newChat 开一个新对话（侧栏的「新对话」、Ctrl+N）：回到聊天窗格。还没有设备时什么也不做。
+func (a *App) newChat() {
+	if len(a.hub.Hosts()) == 0 {
+		return
+	}
+	a.page = pageHome
+	a.hub.NewChat()
 }
 
 // hostSwitcher 是换设备的胶囊和菜单：先是「全部设备」，然后是各台，最后是管理设备。
@@ -213,9 +211,7 @@ func (a *App) sessionRow(c *ui.Context, s hostlink.Session, snippet string) {
 			a.toggle(s)
 			return
 		}
-		a.page = pageHome
-		a.query = ""
-		a.hub.OpenSession(s)
+		a.openSession(s)
 	})
 	if !selecting {
 		row.PopoverMenu(func(m *ui.Menu) { a.sessionMenu(m, s) })

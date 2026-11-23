@@ -49,14 +49,11 @@ func (a *App) sessionMenu(m *ui.Menu, s hostlink.Session) {
 	if h.Pinned(s) {
 		pin = "取消置顶"
 	}
-	if m.Item(pin).Chosen() {
-		h.TogglePin(s, a.failed(pin+"没成功"))
+	if m.Item(pin).Shortcut(ui.Ctrl|ui.Alt, ui.KeyP).Chosen() {
+		a.togglePin(s)
 	}
-	if m.Item("重命名").Chosen() {
-		a.ops.renaming.target, a.ops.renaming.draft, a.ops.renaming.open = s, rowTitle(s), true
-		if s.Title == "" {
-			a.ops.renaming.draft = string([]rune(s.Preview)[:min(40, len([]rune(s.Preview)))])
-		}
+	if m.Item("重命名").Shortcut(ui.Ctrl|ui.Alt, ui.KeyR).Chosen() {
+		a.rename(s)
 	}
 	if m.Item("导出").Chosen() {
 		a.export([]hostlink.Session{s})
@@ -65,8 +62,8 @@ func (a *App) sessionMenu(m *ui.Menu, s hostlink.Session) {
 	if s.Archived {
 		archive = "取消归档"
 	}
-	if m.Item(archive).Chosen() {
-		h.SetArchived([]hostlink.Session{s}, !s.Archived, a.failed(archive+"没成功"))
+	if m.Item(archive).Shortcut(ui.Ctrl|ui.Shift, ui.KeyA).Chosen() {
+		a.archive(s)
 	}
 	m.Separator()
 	// 正在进行的也不置灰：能不能删以核心的应答为准（hub.Delete）
@@ -271,4 +268,31 @@ func (a *App) sessionDialogs(c *ui.Context) {
 func deleteName(s hostlink.Session) string {
 	name := []rune(rowTitle(s))
 	return string(name[:min(60, len(name))])
+}
+
+// togglePin 置顶或取消置顶 s（右键菜单、Ctrl+Alt+P）。
+func (a *App) togglePin(s hostlink.Session) {
+	what := "置顶"
+	if a.hub.Pinned(s) {
+		what = "取消置顶"
+	}
+	a.hub.TogglePin(s, a.failed(what+"没成功"))
+}
+
+// rename 弹出给 s 改名的对话框（右键菜单、Ctrl+Alt+R）：先填着现在的标题，没有标题时是第一句话的前 40 字。
+func (a *App) rename(s hostlink.Session) {
+	r := &a.ops.renaming
+	r.target, r.draft, r.open = s, rowTitle(s), true
+	if s.Title == "" {
+		r.draft = string([]rune(s.Preview)[:min(40, len([]rune(s.Preview)))])
+	}
+}
+
+// archive 归档或取消归档 s（右键菜单、Ctrl+Shift+A）。
+func (a *App) archive(s hostlink.Session) {
+	what := "归档"
+	if s.Archived {
+		what = "取消归档"
+	}
+	a.hub.SetArchived([]hostlink.Session{s}, !s.Archived, a.failed(what+"没成功"))
 }

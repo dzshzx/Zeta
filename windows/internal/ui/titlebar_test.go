@@ -88,7 +88,7 @@ func TestHeadersClearWindowButtons(t *testing.T) {
 	if title.X+title.W > buttons {
 		t.Fatalf("标题 %v 压到了系统按钮（从 %v 起）", title, buttons)
 	}
-	center := float32(sidebarWidth+previewWidth) / 2
+	center := (f.app.layout.width + previewWidth) / 2
 	if mid := title.X + title.W/2; mid < center-1 || mid > center+1 {
 		t.Fatalf("标题中线 %v，聊天区中线 %v", mid, center)
 	}

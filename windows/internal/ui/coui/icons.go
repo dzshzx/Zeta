@@ -87,6 +87,7 @@ var (
 	IconCheckbox    = icon("checkbox-blank")
 	IconInfo        = icon("info")    // 设置里的版本
 	IconArchive     = icon("archive") // 归档：侧栏底部看归档的入口（同 ZetaIcons.kt 的 Archive）
+	IconSidebar     = icon("sidebar") // 收起、展开侧栏（桌面版自己的）
 )
 
 // 权限模式的盾牌：里面的字母是模式的头一个字母（同手机版 Composer 的 modeIcon）。
