@@ -122,6 +122,7 @@ var chatKeys = []struct{ keys, label string }{
 
 // shortcuts 接上窗口的快捷键。对话框开着时都不响（OnWindowShortcut 的规矩）。
 func (a *App) shortcuts(c *ui.Context) {
+	a.selectionKeys(c)
 	hosts := len(a.hub.Hosts()) > 0
 	s := a.currentSession()
 	for _, sc := range shortcuts {

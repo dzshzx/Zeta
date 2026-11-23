@@ -14,6 +14,7 @@ import (
 	"github.com/dzshzx/Zeta/helper/sessionproto"
 	"github.com/dzshzx/Zeta/windows/internal/hubtest"
 	"github.com/egoist/mygo"
+	"github.com/egoist/mygo/ui"
 )
 
 // opsFixture 是 box 上列着三个会话的侧栏：修登录页（今天）、看看日志（今天）、部署脚本（更早）。
@@ -45,7 +46,7 @@ func TestSessionMenu(t *testing.T) {
 	if err := f.tt.RightClick("看看日志"); err != nil {
 		t.Fatal(err)
 	}
-	if got, want := f.tt.Menu(), []string{"选择", "置顶", "重命名", "导出", "归档", "-", "删除"}; !reflect.DeepEqual(got, want) {
+	if got, want := f.tt.Menu(), []string{"置顶", "重命名", "导出", "归档", "-", "删除"}; !reflect.DeepEqual(got, want) {
 		t.Errorf("菜单 %q", got)
 	}
 	f.tt.CloseMenu()
@@ -110,20 +111,36 @@ func TestDeleteAsksFirst(t *testing.T) {
 func TestMultiSelect(t *testing.T) {
 	f := newOpsFixture(t)
 	f.devices.PushActivity(f.id, map[string]hostlink.Activity{"s1": {State: "waiting"}})
-	f.menu(t, "看看日志", "选择")
-	f.see(t, "已选 1 个", "全选", "归档", "导出", "删除")
-	f.notSee(t, "搜索对话")
-	// 点一行是勾选，不打开
-	f.click(t, "部署脚本")
-	f.see(t, "已选 2 个")
+	// Ctrl+点击加选，不打开
+	f.ctrlClick(t, "看看日志")
+	f.ctrlClick(t, "部署脚本")
 	if f.hub.Chat() != nil {
-		t.Error("多选时点一行打开了")
+		t.Error("Ctrl+点击打开了对话")
 	}
-	f.click(t, "全选")
-	f.see(t, "已选 3 个", "全不选")
+	if n := len(f.app.chosen()); n != 2 {
+		t.Fatalf("选中 %d 个", n)
+	}
+	// Shift+点击从上次点的那个选到这个
+	if err := f.tt.ClickWith(ui.Shift, "修登录页"); err != nil {
+		t.Fatal(err)
+	}
+	f.tt.Frame()
+	if n := len(f.app.chosen()); n != 3 {
+		t.Fatalf("Shift+点击以后选中 %d 个", n)
+	}
+	// 在选中的行上右键是对这几个一起
+	if err := f.tt.RightClick("看看日志"); err != nil {
+		t.Fatal(err)
+	}
+	if got, want := f.tt.Menu(), []string{"归档 3 个对话", "导出 3 个对话", "-", "删除 3 个对话"}; !reflect.DeepEqual(got, want) {
+		t.Errorf("菜单 %q", got)
+	}
 	// 删除：这边不筛，都交给核心；它说正在进行的（等确认的 s1）没删，说一声，其余照删
 	f.devices.ErrBySession = map[string]error{"s1": hubtest.Refuse("对话正在进行，结束后再删", sessionproto.CodeActive)}
-	f.clickNamed(t, "删除", 0)
+	if err := f.tt.ChooseMenuItem("删除 3 个对话"); err != nil {
+		t.Fatal(err)
+	}
+	f.tt.Frame()
 	f.see(t, "删除 3 个对话？")
 	f.clickNamed(t, "删除", 0) // 对话框开着时只有它的按钮
 	f.tt.Frame()
@@ -134,22 +151,41 @@ func TestMultiSelect(t *testing.T) {
 	}
 	f.see(t, "这个对话正在进行", "1 个没成功：对话正在进行，结束后再删")
 	f.click(t, "好")
-	// 核心没删的照原样放回列表
-	f.see(t, "修登录页", "搜索对话")
-	f.notSee(t, "看看日志", "部署脚本", "已选")
+	// 核心没删的照原样放回列表，选择取消了
+	f.see(t, "修登录页")
+	f.notSee(t, "看看日志", "部署脚本")
+	if len(f.app.ops.selected) != 0 {
+		t.Errorf("删完还选着 %v", f.app.ops.selected)
+	}
 
 	f.devices.ErrBySession = nil
-	// 批量归档后退出多选
-	f.menu(t, "修登录页", "选择")
-	f.clickNamed(t, "删除", 0) // 选中的都在进行也不置灰
+	// Delete 键问删不删选中的；Esc 取消选择
+	f.ctrlClick(t, "修登录页")
+	f.tt.Key(0, ui.KeyDelete)
+	f.tt.Frame()
 	f.see(t, "删除 1 个对话？")
 	f.clickNamed(t, "取消", 0)
-	f.click(t, "归档")
+	f.tt.Key(0, ui.KeyEscape)
 	f.tt.Frame()
-	f.notSee(t, "修登录页", "已选")
+	if len(f.app.ops.selected) != 0 {
+		t.Errorf("Esc 以后还选着 %v", f.app.ops.selected)
+	}
+	// 只选一个时右键是这一个的菜单；归档
+	f.ctrlClick(t, "修登录页")
+	f.menu(t, "修登录页", "归档")
+	f.notSee(t, "修登录页")
 	if got := f.devices.SessionCalls(); len(got) != 1 || !strings.Contains(got[0], `sessions.archive {"archived":true,"session":"s1"}`) {
 		t.Errorf("发出 %q", got)
 	}
+}
+
+// ctrlClick 按着 Ctrl 点一行。
+func (f *chatFixture) ctrlClick(t *testing.T, row string) {
+	t.Helper()
+	if err := f.tt.ClickWith(ui.Cmd, row); err != nil {
+		t.Fatal(err)
+	}
+	f.tt.Frame()
 }
 
 func TestExportSavesWhereTheUserChose(t *testing.T) {
@@ -170,13 +206,13 @@ func TestExportSavesWhereTheUserChose(t *testing.T) {
 	if len(asked) != 1 || asked[0] != "Zeta-对话 s3-20261122-1500.md" {
 		t.Errorf("建议的文件名 %q", asked)
 	}
-	// 几个一起导出：存好后退出多选；取消保存时什么都不做
-	f.menu(t, "部署脚本", "选择")
-	f.click(t, "修登录页")
-	f.click(t, "导出")
+	// 几个一起导出：存好后取消选择；取消保存时什么都不做
+	f.ctrlClick(t, "部署脚本")
+	f.ctrlClick(t, "修登录页")
+	f.menu(t, "部署脚本", "导出 2 个对话")
 	f.tt.Frame()
-	if len(asked) != 2 || asked[1] != "Zeta-2个对话-20261122-1500.md" || f.app.ops.selecting {
-		t.Errorf("导出几个：%q，多选 %v", asked, f.app.ops.selecting)
+	if len(asked) != 2 || asked[1] != "Zeta-2个对话-20261122-1500.md" || len(f.app.ops.selected) != 0 {
+		t.Errorf("导出几个：%q，还选着 %v", asked, f.app.ops.selected)
 	}
 	f.app.saveFile = func(string, string, []mygo.FileFilter, []byte) (string, error) { return "", nil }
 	f.menu(t, "部署脚本", "导出")
@@ -197,8 +233,8 @@ func TestSessionOpsPreviews(t *testing.T) {
 		},
 		"session-select": func(t *testing.T, f *chatFixture) {
 			f.devices.PushActivity(f.id, map[string]hostlink.Activity{"s1": {State: "answering"}})
-			f.menu(t, "看看日志", "选择")
-			f.click(t, "部署脚本")
+			f.ctrlClick(t, "看看日志")
+			f.ctrlClick(t, "部署脚本")
 		},
 		"session-delete": func(t *testing.T, f *chatFixture) { f.menu(t, "部署脚本", "删除") },
 		"session-handoff": func(t *testing.T, f *chatFixture) {

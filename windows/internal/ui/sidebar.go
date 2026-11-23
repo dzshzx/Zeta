@@ -21,18 +21,10 @@ func (a *App) sidebar(c *ui.Context) {
 		return
 	}
 	k := coui.Of(c)
-	var chosen []hostlink.Session
-	if a.ops.selecting {
-		chosen = a.chosen()
-	}
 	hosts := len(a.hub.Hosts()) > 0
 	ui.Column(c).Fill().Background(k.Sidebar).Children(func() {
-		if a.ops.selecting {
-			a.selectionHeader(c, chosen)
-		} else {
-			a.sidebarTop(c)
-		}
-		if hosts && !a.ops.selecting {
+		a.sidebarTop(c)
+		if hosts {
 			ui.Column(c).Padding(0, 10, 8, 10).Gap(6).Shrink(0).Children(func() {
 				coui.NavItem(c, coui.IconNewChat, "新对话", "Ctrl+N", false).OnClick(a.newChat)
 				ui.Row(c).FillWidth().Children(func() { a.searchField(c) })
@@ -51,10 +43,6 @@ func (a *App) sidebar(c *ui.Context) {
 				}
 			})
 		})
-		if a.ops.selecting {
-			a.selectionActions(c, chosen)
-			return
-		}
 		ui.Row(c).Padding(8, 10).Gap(4).Shrink(0).AlignItems(ui.Center).BorderWidth(1, 0, 0, 0).BorderColor(k.Divider).
 			Children(func() {
 				coui.NavItem(c, coui.IconSettings, "设置", "Ctrl+,", false).OnClick(func() { a.open(pageSettings) }).Grow(1).
@@ -187,7 +175,7 @@ func (a *App) currentSession() hostlink.Session {
 // sessionRow 是一行会话（照 ChatGPT 的侧栏）：36 高、一行标题（搜索时关键词标成主题色），所在的目录（列着全部设备时
 // 前面是设备名）放在悬停提示里；搜索时标题下面多一行对话内容里命中的片段。行尾是状态（回答中、等你确认……），
 // 没有状态时置顶的标个图钉；鼠标移上去或正开着时多一个「…」，点开和右键一样是会话操作（sessionMenu）。
-// 正开着的那个是选中的底色。多选时点一行是勾选，行首是复选框，没有菜单。
+// 正开着的那个和多选选中的是选中的底色；点击带 Ctrl、Shift 是多选（clickRow）。
 func (a *App) sessionRow(c *ui.Context, s hostlink.Session, snippet string) {
 	k := coui.Of(c)
 	pinned := a.hub.Pinned(s)
@@ -206,29 +194,20 @@ func (a *App) sessionRow(c *ui.Context, s hostlink.Session, snippet string) {
 		row.Description("已结束")
 	}
 	hovered := row.Hovered()
+	chosen := a.ops.selected[hub.Key(s)]
 	switch {
-	case current:
+	case current, chosen:
 		coui.Surface{Shape: coui.ShapeRow, Fill: k.Selected}.Paint(row)
 	case hovered:
 		coui.Surface{Shape: coui.ShapeRow, Fill: k.Hover}.Paint(row)
 	default:
 		row.Radius(coui.ShapeRow.Radii[0]) // 焦点框跟着圆角
 	}
-	selecting := a.ops.selecting
-	row.OnClick(func() {
-		if selecting {
-			a.toggle(s)
-			return
-		}
-		a.openSession(s)
-	})
-	if !selecting {
-		row.PopoverMenu(func(m *ui.Menu) { a.sessionMenu(m, s) })
+	if row.Clicked() {
+		a.clickRow(s, row.ClickModifiers())
 	}
+	row.PopoverMenu(func(m *ui.Menu) { a.sessionMenu(m, s) })
 	row.Children(func() {
-		if selecting {
-			coui.MarkLook(c, coui.MarkCheck, a.ops.selected[hub.Key(s)])
-		}
 		ui.Column(c).Grow(1).MinWidth(0).Gap(2).Children(func() {
 			highlighted(c, rowTitle(s), needle, coui.SizeBodyM, 0, titleInk).SingleLine().Ellipsis("…")
 			if snippet != "" {
@@ -240,10 +219,10 @@ func (a *App) sessionRow(c *ui.Context, s hostlink.Session, snippet string) {
 		}
 		if st := a.rowStatus(s, current); st.Activity != hub.Quiet {
 			statusLabel(c, st)
-		} else if pinned && !selecting && !hovered {
+		} else if pinned && !hovered {
 			ui.Icon(c, coui.IconPin).Size(14, 14).TextColor(k.Tertiary).Shrink(0).Label("已置顶")
 		}
-		if !selecting && (hovered || current) {
+		if hovered || current || chosen {
 			more := ui.ButtonBase(c.Key("more")).PopoverMenuButton(func(m *ui.Menu) { a.sessionMenu(m, s) })
 			coui.FlatButtonOf(c, more, coui.IconMore, "会话操作", 24, 16)
 		}
