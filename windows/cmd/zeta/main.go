@@ -115,6 +115,8 @@ func main() {
 		h.Start()
 		updater.Start()
 	})
+	// 最后注册：系统结束会话时等别的退出回调都跑完再结束进程（endsession.go）
+	exitWhenSessionEnds(func(s string) { runLog.Add(runlog.Info, runlog.App, s) })
 	if err := mygo.App.Run(); err != nil {
 		log.Fatal(err)
 	}

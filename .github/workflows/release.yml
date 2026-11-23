@@ -155,9 +155,9 @@ jobs:
           go-version-file: windows/go.mod
           cache: false
 
-      - name: 托管机上装 wixl
+      - name: 托管机上装 wixl 和 msitools（msi.sh 用 msibuild 改 Tab 顺序）
         if: runner.environment == 'github-hosted'
-        run: sudo apt-get update -qq && sudo apt-get install -y -qq wixl
+        run: sudo apt-get update -qq && sudo apt-get install -y -qq wixl msitools
 
       # 同 build：本地 tag 让版本名是干净的 X.Y.Z，安装包就叫 Zeta-vX.Y.Z.msi
       - name: 在检出里打上这次的 tag

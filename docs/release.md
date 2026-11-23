@@ -266,7 +266,7 @@ android "am start --display $DISPLAY_ID -n $PKG/com.dzshzx.zeta.ui.MainActivity 
 - **下载和核对**：MSI 下到 `%LOCALAPPDATA%\Zeta\update`（别的系统上是设置目录下的 `update/`），镜像回退和手机一样，
   大小和 sha256 对不上清单就删掉、说原因。MSI 没做代码签名，最后靠 sha256 对清单把关。
 - **安装**：只在 Windows 上。在 MSI 旁写一个 `install.ps1`，它等 Zeta 的进程退出（两分钟还没退出就不装），
-  `msiexec /i <msi> /passive /norestart` 装完（记录在设置目录的 `diag/msi-install.log`），再用 Zeta 启动时的同一条
+  `msiexec /i <msi> /passive /norestart` 装完（不弹安装向导，装回原来的安装位置，见 `docs/desktop.md`；记录在设置目录的 `diag/msi-install.log`），再用 Zeta 启动时的同一条
   命令重新打开（没装上时 MSI 已回滚到旧版，照样重开）；起好后 Zeta 退出。脚本写成 UTF-8 带 BOM（Windows
   PowerShell 5.1 读不带 BOM 的文件按系统代码页解码，中文路径会乱），用
   `powershell.exe -NoProfile -ExecutionPolicy Bypass -File` 起，控制台窗口由起进程时的 `CREATE_NO_WINDOW` 免掉；

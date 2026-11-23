@@ -53,6 +53,7 @@ var literalExceptions = []literalException{
 	{"cmd/zeta/window.go", "zeta: 通知没发出去：%v", whyLog},
 	{"cmd/zeta/main.go", " 启动", whyRunlog},
 	{"cmd/zeta/main.go", "起不来：", whyRunlog},
+	{"cmd/zeta/endsession.go", "系统要求结束（注销、关机或安装程序要换文件），退出", whyRunlog},
 	{"internal/chat/items/items.go", "解码聊天条目：%w", whyInner + "（解不开的推送只记日志）"},
 	{"internal/chat/items/items.go", "聊天条目的替换越界：从 %d 起去掉 %d 项，列表只有 %d 项", whyInner + "（对不上时记日志、整份重取）"},
 	{"internal/ui/chatview/images.go", "没有取图片的办法", whyInner + "（调用方没给取这种图的函数）"},

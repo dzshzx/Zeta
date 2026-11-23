@@ -204,11 +204,23 @@ func TestFilesAndShortcut(t *testing.T) {
 				shortcuts[0]["Target"] != v.target || shortcuts[0]["WkDir"] != "INSTALLDIR" {
 				t.Errorf("shortcuts %v", shortcuts)
 			}
-			regs := table(t, m, "Registry")
-			if len(regs) != 1 || regs[0]["Root"] != "1" || regs[0]["Key"] != v.regKey || regs[0]["Component_"] != "StartMenuShortcut" {
-				t.Errorf("registry %v", regs)
-			}
+			checkRegistry(t, m, v)
 		})
+	}
+}
+
+// checkRegistry：两个值都在快捷方式组件下、HKCU 的同一个键里：installed 是键路径，InstallDir 记安装位置（TestInstallDir）。
+func checkRegistry(t *testing.T, m string, v variant) {
+	t.Helper()
+	regs := map[string]string{}
+	for _, row := range table(t, m, "Registry") {
+		if row["Root"] != "1" || row["Key"] != v.regKey || row["Component_"] != "StartMenuShortcut" {
+			t.Errorf("registry %v", row)
+		}
+		regs[row["Name"]] = row["Value"]
+	}
+	if len(regs) != 2 || regs["installed"] != "#1" || regs["InstallDir"] != "[INSTALLDIR]" {
+		t.Errorf("registry values %v", regs)
 	}
 }
 

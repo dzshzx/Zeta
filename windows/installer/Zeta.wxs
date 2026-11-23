@@ -37,6 +37,17 @@
          版本号没变的文件会被判成「已有、不用装」，接着被卸旧版删掉。a 让每个文件都照装；只装在本程序自己的目录里，不碰共用的文件。 -->
     <Property Id="REINSTALLMODE" Value="amus" />
 
+    <!-- 安装位置：向导里选的（或静默安装时 INSTALLDIR=<目录> 给的）记在快捷方式组件的注册表键里，升级、应用内更新时读回来照旧装在那里；
+         命令行给了 INSTALLDIR 时以命令行为准（AppSearch 只在属性没值时才填）。没记过时是下面 Directory 里的默认位置。 -->
+    <Property Id="INSTALLDIR">
+      <RegistrySearch Id="RememberedInstallDir" Root="HKCU" Key="Software\dzshzx\$(var.ProductName)" Name="InstallDir" Type="raw" />
+    </Property>
+    <UIRef Id="ZetaUI" />
+    <!-- 完成页勾着「启动」时打开装好的程序（ZetaUI.wxs） -->
+    <CustomAction Id="LaunchZeta" FileKey="ZetaExe" ExeCommand="" Return="asyncNoWait" Impersonate="yes" />
+    <!-- 完成页复选框的字：MSI 显示时只替换一层 [属性]，字里不能再带 [ProductName]，打包时写进产品名 -->
+    <Property Id="WIXUI_EXITDIALOGOPTIONALCHECKBOXTEXT" Value="Launch $(var.ProductName)" />
+
     <Icon Id="zeta.ico" SourceFile="$(var.Here)/$(var.IconFile)" />
     <Property Id="ARPPRODUCTICON" Value="zeta.ico" />
 
@@ -59,6 +70,7 @@
         <Shortcut Id="ZetaShortcut" Name="$(var.DirName)" Description="$(var.ProductName)"
                   Target="[INSTALLDIR]$(var.ExeLongName)" WorkingDirectory="INSTALLDIR" Icon="zeta.ico" />
         <RegistryValue Root="HKCU" Key="Software\dzshzx\$(var.ProductName)" Name="installed" Type="integer" Value="1" KeyPath="yes" />
+        <RegistryValue Root="HKCU" Key="Software\dzshzx\$(var.ProductName)" Name="InstallDir" Type="string" Value="[INSTALLDIR]" />
       </Component>
     </DirectoryRef>
 
