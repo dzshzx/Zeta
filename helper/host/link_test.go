@@ -191,7 +191,7 @@ func expectEcho(t *testing.T, l *Link, n int, msg string) {
 	}
 }
 
-// expectSilentEnd：连接（已经 Stop 或 Detach）不再交出事件，连接进程退出后通道关上。
+// expectSilentEnd：连接（已经 Stop 或 Leave）不再交出事件，连接进程退出后通道关上。
 func expectSilentEnd(t *testing.T, l *Link) {
 	t.Helper()
 	select {

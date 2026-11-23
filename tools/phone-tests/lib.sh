@@ -177,6 +177,9 @@ reap_marked() {
     rm -rf \"\$f\" \"\${f%.jsonl}\"; echo \"删掉测试会话 \$id\"; done; true"
 }
 
+# alive <进程号>：设备上这个进程还在（Android 一侧看 /proc，Debian 里的进程也看得到）
+alive() { android "[ -d /proc/$1 ]"; }
+
 # 设备 Debian 里进程名（/proc/<pid>/comm）是 $1 的进程号，空格分开（OpenSSH 改了进程标题，pidof 认不出）
 debian_pids() {
   android "for d in /proc/[0-9]*; do [ \"\$(cat \$d/comm 2>/dev/null)\" = $1 ] && [ \"\$(readlink \$d/root)\" = $ROOTFS ] && echo \${d#/proc/}; done; true" | tr -d '\r' | xargs

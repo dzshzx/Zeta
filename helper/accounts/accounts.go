@@ -88,6 +88,8 @@ type Host struct {
 	Program string
 	// Wait 是换号前等开着的 Claude Code 退出最多多久（调用方刚叫停的自己的对话要几秒）；0 是 8 秒。
 	Wait time.Duration
+	// EndIdle 在换号、存档前结束本包闲着的托管进程（它们平常留给看门狗按闲置超时收，开着时 claude-switch 不换）；可以是 nil。
+	EndIdle func()
 }
 
 // ErrNoProgram 是 claude-switch 还没装上：调用方装上（同 zeta-helper，按内容哈希装在 ~/.cache/<包>/bin）再试。
@@ -333,6 +335,9 @@ func (h *Host) Remove(ctx context.Context, name string) error {
 // change 跑一个改登录状态的 claude-switch 命令：开着的 Claude Code 都是调用方自己的（它刚叫停、几秒内会退出）时先等它们退出
 // （最多 Wait）；有别人的就不等，那些不会自己退。不管等没等到都交给 claude-switch，它自己会拒绝。
 func (h *Host) change(ctx context.Context, args ...string) error {
+	if h.EndIdle != nil {
+		h.EndIdle()
+	}
 	wait := h.Wait
 	if wait == 0 {
 		wait = 8 * time.Second

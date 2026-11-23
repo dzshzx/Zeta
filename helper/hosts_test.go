@@ -2,6 +2,7 @@ package main
 
 import (
 	"errors"
+	"io"
 	"io/fs"
 	"os"
 	"os/exec"
@@ -9,6 +10,7 @@ import (
 	"slices"
 	"strconv"
 	"strings"
+	"syscall"
 	"testing"
 	"time"
 )
@@ -213,5 +215,38 @@ func TestDefaultModeCacheRereadsWhenSettingsChange(t *testing.T) {
 	}
 	if got := c.get(); got != "" {
 		t.Fatalf("删了以后：%q", got)
+	}
+}
+
+// zeta_host.sh start 建了目录、还没写下 pid 时（这期间持着 hosts/.lock），hosts 不把它当结束了的删掉；锁放开以后照常删。
+func TestHostsLeavesADirBeingStarted(t *testing.T) {
+	e := testEnv(t)
+	dir := filepath.Join(e.hosts, "k-starting")
+	writeFile(t, filepath.Join(dir, "out.jsonl"), "")
+	lock, err := os.OpenFile(filepath.Join(e.hosts, ".lock"), os.O_CREATE|os.O_WRONLY, 0o666)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer lock.Close()
+	if err := syscall.Flock(int(lock.Fd()), syscall.LOCK_EX); err != nil {
+		t.Fatal(err)
+	}
+	hosts := func() {
+		o := newEmitter(io.Discard)
+		if err := cmdHosts(e, o); err != nil {
+			t.Fatal(err)
+		}
+		o.flush()
+	}
+	hosts()
+	if _, err := os.Stat(dir); err != nil {
+		t.Fatalf("start 还持着锁时目录被删了：%v", err)
+	}
+	if err := syscall.Flock(int(lock.Fd()), syscall.LOCK_UN); err != nil {
+		t.Fatal(err)
+	}
+	hosts()
+	if _, err := os.Stat(dir); !errors.Is(err, fs.ErrNotExist) {
+		t.Fatalf("锁放开以后没有 pid 的目录还在：%v", err)
 	}
 }

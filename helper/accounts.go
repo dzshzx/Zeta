@@ -61,7 +61,7 @@ func handleAccounts(ctx context.Context, e *env, method string, params json.RawM
 	if err != nil {
 		return nil, accountsError(err)
 	}
-	h := &accounts.Host{Home: e.home, Package: e.name, Program: program}
+	h := &accounts.Host{Home: e.home, Package: e.name, Program: program, EndIdle: func() { endIdleHosted(e) }}
 	var result any
 	switch method {
 	case "accounts.list":

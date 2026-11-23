@@ -30,13 +30,13 @@ type Hosted struct {
 	TaskEvents []json.RawMessage `json:"task_events"`
 }
 
-// active：在回答、等确认或有后台任务，和 Conversation.active 同一口径。这一轮结束了但后台任务还在跑的也算，否则断开会把任务一起杀掉。
-func (h Hosted) active() bool { return h.Busy || len(h.Pending) > 0 || h.Tasks > 0 }
+// Active：在回答、等确认或有后台任务，和 Conversation.active 同一口径。这一轮结束了但后台任务还在跑的也算，否则结束它会把任务一起杀掉。
+func (h Hosted) Active() bool { return h.Busy || len(h.Pending) > 0 || h.Tasks > 0 }
 
 // Adopt 处理扫到的托管进程：已经接着的、闲着的不动，在干活的接上。
 func (m *Manager) Adopt(hosted []Hosted) {
 	for _, h := range hosted {
-		if m.attached(h.Key) || !h.active() {
+		if m.attached(h.Key) || !h.Active() {
 			continue
 		}
 		m.mu.Lock()

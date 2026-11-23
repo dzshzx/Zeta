@@ -462,3 +462,20 @@ func TestFindProgram(t *testing.T) {
 		t.Fatalf("没有程序时：%v", err)
 	}
 }
+
+// 换号、准备登录前（claude-switch 改登录的每一处）都先叫 EndIdle：本包闲着的托管进程平常留给看门狗，开着时 claude-switch 不换。
+func TestChangesEndIdleHostedFirst(t *testing.T) {
+	h := newHost(t)
+	host := h.host()
+	h.login("uuid-a", "a@example.com", "max")
+	calls := 0
+	host.EndIdle = func() { calls++ }
+	if _, err := host.PrepareLogin(ctx(t)); err != nil || calls == 0 {
+		t.Fatalf("准备登录：%v，叫了 %d 次", err, calls)
+	}
+	h.login("uuid-b", "b@example.com", "pro")
+	before := calls
+	if err := host.Switch(ctx(t), "claude"); err != nil || calls != before+1 {
+		t.Fatalf("换号：%v，叫了 %d 次", err, calls-before)
+	}
+}

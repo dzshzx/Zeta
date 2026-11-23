@@ -36,7 +36,7 @@ switch_network() {
   android "cmd connectivity airplane-mode disable"
   for _ in $(seq 40); do
     gone=1
-    for p in $before; do android "[ -d /proc/$p ]" && gone=0; done
+    for p in $before; do alive "$p" && gone=0; done
     ((gone)) && break
     sleep 0.5
   done

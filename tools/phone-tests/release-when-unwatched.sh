@@ -14,7 +14,6 @@ trap 'drop_session $ID $DIR; android "rm -f $NEWER" >/dev/null 2>&1 || true' EXI
 
 # 测试版的前台服务在不在前台
 service_up() { android "dumpsys activity services $PKG/com.dzshzx.zeta.core.AgentService" | grep -q 'isForeground=true'; }
-alive() { android "[ -d /proc/$1 ]"; }
 # 托管目录里还接着的一方有几个
 attachers() { android "ls $dir/attach.d 2>/dev/null | wc -l" | tr -d '\r '; }
 
@@ -33,18 +32,20 @@ sleep 1
 [[ -z $(resumed) ]] || vd key KEYCODE_BACK >/dev/null
 sleep 1
 [[ -z $(resumed) ]] || { echo "按两次返回键，测试版还在前台"; exit 1; }
-sleep 8 # 放开要等几秒（ConversationHub.RETIRE_DELAY_MS）
+# 放开要等几秒（ConversationHub.RETIRE_DELAY_MS）
+for _ in $(seq 30); do service_up || break; sleep 0.5; done
 if service_up; then
-  echo "离开屏幕、没有对话在忙，前台服务却还在"
+  echo "离开屏幕 15 秒、没有对话在忙，前台服务却还在"
   exit 1
 fi
 alive "$pid" || { echo "放开以后进程没了"; exit 1; }
 echo "离开屏幕后前台服务停了，进程还在"
 for _ in $(seq 60); do
-  [[ $(attachers) == 0 ]] && break
+  left=$(attachers)
+  ((left == 0)) && break
   sleep 1
 done
-[[ $(attachers) == 0 ]] || { echo "放开一分钟后核心还接着进程"; exit 1; }
+((left == 0)) || { echo "放开一分钟后核心还接着进程"; exit 1; }
 sleep 2
 alive "$pid" || { echo "核心不再接着时把进程结束了"; exit 1; }
 echo "核心也不再接着，进程还在：从这时起由主机的闲置超时数"

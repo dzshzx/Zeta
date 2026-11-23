@@ -738,7 +738,7 @@ class ConversationHub(val platform: HubPlatform) {
     }
 
     /**
-     * 换上 [next] 作当前对话。原来那个：[end] 时结束进程；闲着时不再接着（[Conversation.leave]，没有别的客户端接着就结束，省内存）；
+     * 换上 [next] 作当前对话。原来那个：[end] 时结束进程；闲着时不再接着（[Conversation.leave]，进程留给那台主机的闲置超时）；
      * 还在进行的（包括有后台任务的）留在后台跑完。 在主线程上调用。
      */
     private fun replaceCurrent(next: Conversation, end: Boolean = false) {

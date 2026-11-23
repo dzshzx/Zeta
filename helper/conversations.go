@@ -13,6 +13,7 @@ import (
 
 	"github.com/dzshzx/Zeta/helper/conv"
 	"github.com/dzshzx/Zeta/helper/core"
+	"github.com/dzshzx/Zeta/helper/host"
 	ctxusage "github.com/dzshzx/Zeta/helper/usage"
 )
 
@@ -63,15 +64,24 @@ func newConversations(e *env, quota *quotaWatch) *conversations {
 	return h
 }
 
-// adoptHosts：核心起来时扫一遍托管进程（zeta-helper hosts，在进程里直接跑），在干活的接上，闲着的断开（见 conv.Manager.Adopt）。
+// adoptHosts：核心起来时扫一遍托管进程，在干活的接上，闲着的留给看门狗（见 conv.Manager.Adopt）。
 func adoptHosts(e *env, m *conv.Manager) {
+	hosted, err := hostedProcesses(e)
+	if err != nil {
+		log.Print("扫托管进程：", err)
+		return
+	}
+	m.Adopt(hosted)
+}
+
+// hostedProcesses 是本包的托管进程（zeta-helper hosts，在进程里直接跑）。
+func hostedProcesses(e *env) ([]conv.Hosted, error) {
 	var buf bytes.Buffer
 	o := newEmitter(&buf)
 	err := cmdHosts(e, o)
 	o.flush()
 	if err != nil {
-		log.Print("扫托管进程：", err)
-		return
+		return nil, err
 	}
 	var hosted []conv.Hosted
 	for line := range bytes.Lines(buf.Bytes()) {
@@ -84,7 +94,28 @@ func adoptHosts(e *env, m *conv.Manager) {
 		}
 		hosted = append(hosted, h)
 	}
-	m.Adopt(hosted)
+	return hosted, nil
+}
+
+// endIdleHosted 结束本包闲着的托管进程（不在回答、不在等确认、没有后台任务，同 conv.Hosted.Active），在忙的不动；
+// 返回时结束的命令都已发出，进程各自退出（见 host.Stop）。闲着的进程平常留给看门狗按闲置超时收（docs/core.md「主机」），
+// 这几处等不了：换账号、登录前（claude-switch 有 Claude Code 开着就不换，留着的进程以后被接回时还用着旧的登录），
+// 换核心看新挂载时（留着的进程看不到新挂上的共享文件夹，以后被接回也看不到）。
+func endIdleHosted(e *env) {
+	hosted, err := hostedProcesses(e)
+	if err != nil {
+		log.Print("扫托管进程：", err)
+		return
+	}
+	var stopping []<-chan struct{}
+	for _, h := range hosted {
+		if !h.Active() {
+			stopping = append(stopping, host.Stop(h.Key))
+		}
+	}
+	for _, done := range stopping {
+		<-done
+	}
 }
 
 func (h *conversations) Request(c *core.Client, r core.Request) (any, error) {

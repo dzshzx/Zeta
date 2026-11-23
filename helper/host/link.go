@@ -130,11 +130,10 @@ func (l *Link) Send(line []byte) {
 	l.wake.Signal()
 }
 
-// Stop 结束会话并清掉托管目录（zeta_host.sh stop：发 end_session，由 Claude Code 自己退出），别的接着的一方收到正常的 zeta_exit。
-// 命令在后台跑，返回的通道在它跑完时关上；脚本自己立即返回，结束进程的等待在它另起的会话里做。
+// Stop 关掉这条连接，结束它接着的会话（同包级的 Stop）。
 func (l *Link) Stop() <-chan struct{} {
 	l.close()
-	return runScript("stop", l.Key())
+	return Stop(l.Key())
 }
 
 // Leave 只关掉这条连接，进程照跑：没有别的一方接着、又闲着时，看门狗过这台主机设的闲置时长后收掉它（默认十分钟）；
@@ -256,7 +255,7 @@ func (l *Link) read(stdout io.Reader) {
 	close(l.events)
 }
 
-// handleAttached 处理 zeta_attached：记下标识和进程号，放开写输入，交出 Attached；返回接下来一行的行号。
+// handleAttached 处理 zeta_attached：记下标识，放开写输入，交出 Attached；返回接下来一行的行号。
 // 接上的是本包现成的进程（key 和给的不一样）时换成它的标识，OnJoin 排到还没写的消息前面（这时还一行没写，顺序不会乱）。
 func (l *Link) handleAttached(line []byte) int {
 	var rep attachedReport

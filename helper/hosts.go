@@ -6,6 +6,7 @@ import (
 	"os"
 	"strconv"
 	"strings"
+	"syscall"
 	"time"
 )
 
@@ -26,10 +27,8 @@ func cmdHosts(e *env, o *emitter) error {
 	sortNewestFirst(dirs)
 	for _, dir := range dirs {
 		pid, known := readPid(joinPath(dir, "pid"))
-		if _, alive := claudeArgv(pid, known); !alive || existsFollow(joinPath(dir, "exit")) {
-			if len(liveAttachers(dir)) == 0 {
-				removeTree(dir)
-			}
+		if !hostRunning(dir, pid, known) {
+			e.removeEndedHost(dir)
 			continue
 		}
 		scan, err := scanHost(dir)
@@ -104,6 +103,29 @@ func liveAttachers(dir string) []int {
 		}
 	}
 	return out
+}
+
+// hostRunning：托管目录 dir 的 Claude Code（pid 文件记的 pid，known 为假时没记）还在跑、也没留下退出码。
+func hostRunning(dir string, pid int, known bool) bool {
+	_, alive := claudeArgv(pid, known)
+	return alive && !existsFollow(joinPath(dir, "exit"))
+}
+
+// removeEndedHost 删掉结束了、也没人接着的托管目录 dir。持着托管目录旁边的 hosts/.lock 再看一遍：zeta_host.sh start 从建目录到
+// 写下 pid 一直持着它，这期间目录里还没有 pid，看着像结束了的。拿不到锁（正有 start 在建）时不删，下次扫到再说。
+func (e *env) removeEndedHost(dir string) {
+	f, err := os.OpenFile(joinPath(e.hosts, ".lock"), os.O_CREATE|os.O_APPEND|os.O_WRONLY, 0o666)
+	if err != nil {
+		return
+	}
+	defer f.Close()
+	if syscall.Flock(int(f.Fd()), syscall.LOCK_EX|syscall.LOCK_NB) != nil {
+		return
+	}
+	pid, known := readPid(joinPath(dir, "pid"))
+	if !hostRunning(dir, pid, known) && len(liveAttachers(dir)) == 0 {
+		removeTree(dir)
+	}
 }
 
 func existsFollow(p string) bool {

@@ -41,8 +41,8 @@ type StartOptions struct {
 // envName 是环境变量名的样子。
 var envName = regexp.MustCompile(`^[A-Za-z_][A-Za-z0-9_]*$`)
 
-// closeTimeout 是 stop 命令最多跑多久；脚本自己立即返回，结束进程的等待在它另起的会话里做。
-const closeTimeout = 20 * time.Second
+// stopTimeout 是 stop 命令最多跑多久；脚本自己立即返回，结束进程的等待在它另起的会话里做。
+const stopTimeout = 20 * time.Second
 
 // Start 起 zeta_host.sh start：新起一个 Claude Code 进程（或接上本包已在跑同一个会话的那个），并接上它。
 // 用登录 shell 的环境（PATH 里的 claude、代理等），PATH 再补上 ~/.local/bin（Claude Code 的安装程序放在那里）。
@@ -70,14 +70,16 @@ func scriptCommand(ctx context.Context, args ...string) *exec.Cmd {
 	return exec.CommandContext(ctx, "bash", append([]string{"-c", Script, "zeta-host"}, args...)...)
 }
 
-// runScript 在后台跑一次脚本子命令，最多 closeTimeout；返回的通道在它跑完（或超时被结束）时关上。
-func runScript(args ...string) <-chan struct{} {
+// Stop 结束托管目录 key 的会话并清掉目录（zeta_host.sh stop：发 end_session，由 Claude Code 自己退出），接着的一方收到正常的
+// zeta_exit。命令在后台跑，最多 stopTimeout，返回的通道在它跑完（或超时被结束）时关上；脚本自己立即返回，结束进程的等待在它
+// 另起的会话里做。
+func Stop(key string) <-chan struct{} {
 	done := make(chan struct{})
 	go func() {
 		defer close(done)
-		ctx, cancel := context.WithTimeout(context.Background(), closeTimeout)
+		ctx, cancel := context.WithTimeout(context.Background(), stopTimeout)
 		defer cancel()
-		cmd := scriptCommand(ctx, args...)
+		cmd := scriptCommand(ctx, "stop", key)
 		cmd.WaitDelay = time.Second
 		_ = cmd.Run()
 	}()

@@ -393,18 +393,8 @@ class HostTurnTest {
     fun watchdogEndsOnlyIdleProcesses() {
         // 假的 claude：把参数逐行写到标准输出（就是 out.jsonl），然后一直读标准输入
         HostTesting.writeClaudeStandIn(home, prelude = "printf '%s\\n' \"\$@\"")
-        // 「不动」不靠多等几秒：sleep 换成记账的替身，看门狗每轮 sleep 1 时在 rounds 里记一行它的托管目录
-        // （看门狗那段是起进程的那段的子 shell，命令行和它一样，托管目录是其中一个参数），
         // 等另外两个各自被看过的轮数超过闲置上限再断言
-        val rounds = File(home, "rounds")
-        File(home, "bin/sleep").apply {
-            writeText(
-                "#!/bin/bash\n" +
-                    "[ \"\$1\" = 1 ] && tr '\\0' '\\n' < /proc/\$PPID/cmdline | grep -m1 -x '/.*/hosts/[^/]*' >> '${rounds.path}'\n" +
-                    "PATH=\${PATH#*:} exec sleep \"\$@\"\n",
-            )
-            setExecutable(true)
-        }
+        val rounds = WatchdogRounds(home)
         val out = Out("s-dog")
         val env = mapOf("ZETA_IDLE_LIMIT" to "$IDLE_LIMIT")
         fun start(key: String, vararg lines: String) =
@@ -439,8 +429,7 @@ class HostTurnTest {
 
         assertTrue("闲着的进程没有被看门狗结束", waitUntil { File(dir("k-idle"), "exit").exists() })
         // 另外两个各自被看过的轮数超过闲置上限（多一轮：记下的是开始睡，看是在睡醒之后）还活着
-        fun seen(key: String) =
-            rounds.takeIf { it.exists() }?.readLines().orEmpty().count { it == dir(key).path }
+        fun seen(key: String) = rounds.of(dir(key))
         waitUntil {
             !HostTesting.alive(busy) ||
                 !HostTesting.alive(tasks) ||

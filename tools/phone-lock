@@ -52,7 +52,7 @@ read_holder() { # 租约 $1 的有效占用者 h、拿到它的 phone-run 进程
   local limit=$ttl
   h='' hpid='' last=0
   [[ -f $(file "$1") ]] && read -r h last hpid <"$(file "$1")"
-  [[ -z $hpid && -n ${2-} ]] && limit=$ttl_waited
+  [[ -z $hpid && -n ${2-} && $1 != main ]] && limit=$ttl_waited
   expires=$((last + limit))
   ((now < expires)) || h='' hpid=''
   # 拿着它的 phone-run 已经不在了（被强行结束、没来得及释放）：马上作废，不等 15 分钟
@@ -73,7 +73,7 @@ case ${1-} in
     exit 0 ;;
   main | dev | emu)
     allowed "$1" || exit 2
-    read_holder "$1" "$([[ -n $ticket && $1 != main ]] && echo waited || true)"
+    read_holder "$1" "${ticket:+waited}"
     case $1 in main) name=手机上的正式版 ;; dev) name=手机上的测试版 ;; *) name=模拟器上的测试版 ;; esac
     if [[ $h == "$owner" ]] && ! other_run; then # 自己占着：续租
       echo "$owner $now ${hpid:-$ticket}" >"$(file "$1")"

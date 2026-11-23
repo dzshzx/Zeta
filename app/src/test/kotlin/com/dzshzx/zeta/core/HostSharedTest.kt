@@ -225,36 +225,24 @@ class HostSharedTest {
     @Test
     fun theProcessStaysWhileAnyoneIsAttached() {
         val env = mapOf("ZETA_IDLE_LIMIT" to "$IDLE_LIMIT")
-        countIdleRounds()
+        val rounds = WatchdogRounds(home)
         val a = start("kA", env = env)
         val b = attach("kA", env = env)
         val pid = pidOf("kA")
         a.leave()
-        assertSurvivesIdleRounds("kA", pid, "还有人接着时被看门狗结束了")
+        assertSurvivesIdleRounds(rounds, "kA", pid, "还有人接着时被看门狗结束了")
         b.leave()
         assertTrue("最后一个离开后闲着也没结束", waitUntil { !alive(pid) })
     }
 
-    private val rounds by lazy { File(home, "rounds") }
-
-    /**
-     * 「不算闲着」不靠多等几秒：sleep 换成记账的替身，看门狗每轮在 [rounds] 里记一行它的托管目录。要在起进程之前换：bash 第一次用 sleep 时记下它的路径，之后不再找。
-     */
-    private fun countIdleRounds() {
-        File(home, "bin/sleep").apply {
-            writeText(
-                "#!/bin/bash\n" +
-                    "[ \"\$1\" = 1 ] && tr '\\0' '\\n' < /proc/\$PPID/cmdline | grep -m1 -x '/.*/hosts/[^/]*' >> '${rounds.path}'\n" +
-                    "PATH=\${PATH#*:} exec sleep \"\$@\"\n",
-            )
-            setExecutable(true)
-        }
-    }
-
-    /** 看门狗数满闲置上限再多两轮，进程 [pid] 还在（起进程之前先 [countIdleRounds]）。 */
-    private fun assertSurvivesIdleRounds(key: String, pid: Int, message: String) {
-        fun seen() =
-            rounds.takeIf { it.exists() }?.readLines().orEmpty().count { it == hostDir(key).path }
+    /** 看门狗数满闲置上限再多两轮，进程 [pid] 还在（[rounds] 要在起进程之前建）。 */
+    private fun assertSurvivesIdleRounds(
+        rounds: WatchdogRounds,
+        key: String,
+        pid: Int,
+        message: String,
+    ) {
+        fun seen() = rounds.of(hostDir(key))
         val before = seen()
         assertTrue("看门狗一直没数轮", waitUntil { !alive(pid) || seen() >= before + IDLE_LIMIT + 2 })
         assertTrue(message, alive(pid))
@@ -280,7 +268,7 @@ class HostSharedTest {
     @Test
     fun aLegacyAttacherKeepsTheProcess() {
         val env = mapOf("ZETA_IDLE_LIMIT" to "$IDLE_LIMIT")
-        countIdleRounds()
+        val rounds = WatchdogRounds(home)
         val a = start("kA", env = env)
         val pid = pidOf("kA")
         // 扮旧版接着的一方：命令行和旧版脚本一样是 bash -c <脚本> zeta-host attach …，一直读着输入
@@ -294,7 +282,7 @@ class HostSharedTest {
         try {
             File(hostDir("kA"), "attach").writeText("${old.pid()}\n")
             a.leave()
-            assertSurvivesIdleRounds("kA", pid, "旧版接着时被看门狗结束了")
+            assertSurvivesIdleRounds(rounds, "kA", pid, "旧版接着时被看门狗结束了")
         } finally {
             old.destroyForcibly().waitFor()
         }

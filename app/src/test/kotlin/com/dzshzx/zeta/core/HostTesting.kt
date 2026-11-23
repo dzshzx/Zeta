@@ -138,3 +138,27 @@ internal object HostTesting {
             }
         }
 }
+
+/**
+ * 看门狗数了几轮。「不动」不靠多等几秒：把 [home]/bin 里的 sleep 换成记账的替身，看门狗每轮 sleep 1 时记一行它的托管目录 （看门狗那段是起进程的那段的子
+ * shell，命令行和它一样，托管目录是其中一个参数）。要在起进程之前建：bash 第一次用 sleep 时记下它的路径，之后不再找。
+ */
+internal class WatchdogRounds(home: File) {
+    private val log = File(home, "rounds")
+
+    init {
+        File(home, "bin/sleep").apply {
+            parentFile!!.mkdirs()
+            writeText(
+                "#!/bin/bash\n" +
+                    "[ \"\$1\" = 1 ] && tr '\\0' '\\n' < /proc/\$PPID/cmdline | grep -m1 -x '/.*/hosts/[^/]*' >> '${log.path}'\n" +
+                    "PATH=\${PATH#*:} exec sleep \"\$@\"\n",
+            )
+            setExecutable(true)
+        }
+    }
+
+    /** 托管目录 [dir] 被看门狗看过几轮。 */
+    fun of(dir: File): Int =
+        log.takeIf { it.exists() }?.readLines().orEmpty().count { it == dir.path }
+}
