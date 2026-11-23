@@ -3,6 +3,7 @@ package accounts
 import (
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 	"time"
 )
@@ -72,5 +73,38 @@ func TestStoreUsageKeepsWindowsWhenAnswerIsEmpty(t *testing.T) {
 	h.writeBytes(filepath.Join(quotaDir, filepath.Base(s.path("uuid-a"))), []byte("{"), 0o600)
 	if got, err := s.Get(); err != nil || got != nil {
 		t.Fatalf("%+v %v", got, err)
+	}
+}
+
+// 收到的每周额度也记给 agent-usage：家目录下它的数据目录里按 claude-switch 的切换记录分账号，读数没变不重记。
+func TestStoreRecordsWeeklyReadingsForAgentUsage(t *testing.T) {
+	t.Setenv("AGENT_USAGE_DATA_DIR", "")
+	h, s := storeHome(t)
+	h.login("uuid-a", "a@example.com", "max")
+	if _, _, err := s.Usage([]byte(usageAnswer), now); err != nil {
+		t.Fatal(err)
+	}
+	// 事件的每周窗口（0.4，即 40%）重置得比 get_usage 那份晚：算新的周期，记一行
+	if _, _, err := s.Event(event(0.25, "allowed", "allowed"), now.Add(time.Second)); err != nil {
+		t.Fatal(err)
+	}
+	if _, _, err := s.Event(event(0.25, "allowed", "allowed"), now.Add(2*time.Second)); err != nil {
+		t.Fatal(err)
+	}
+	data, err := os.ReadFile(filepath.Join(h.home, ".local/share/agent-usage/rate-limits.jsonl"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	lines := strings.Split(strings.TrimSpace(string(data)), "\n")
+	if len(lines) != 2 || !strings.Contains(lines[0], `"used_percentage":86`) || !strings.Contains(lines[1], `"used_percentage":40`) {
+		t.Errorf("读数 = %q，期望 86%% 一行、40%% 一行（第二个事件没变，不记）", lines)
+	}
+
+	h.writeBytes(".local/state/claude-switch/current", []byte("claude-b\n"), 0o644)
+	if _, _, err := s.Event(event(0.25, "allowed", "allowed"), now.Add(3*time.Second)); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := os.Stat(filepath.Join(h.home, ".local/share/agent-usage/rate-limits.claude-b.jsonl")); err != nil {
+		t.Errorf("换到 claude-b 后读数要记在它名下：%v", err)
 	}
 }

@@ -6,11 +6,13 @@ import (
 	"encoding/json"
 	"errors"
 	"io/fs"
+	"log"
 	"os"
 	"path/filepath"
 	"time"
 
 	"github.com/dzshzx/Zeta/helper/locales"
+	"github.com/dzshzx/agent-usage/reading"
 )
 
 // QuotaStore 是一台主机上各账号最近一次的额度，存在 ~/.cache/zeta-quota/<账号>.json：登录状态本来就是这台上各个 Zeta 包、
@@ -107,6 +109,7 @@ func (s QuotaStore) Usage(raw []byte, now time.Time) (snap Snapshot, fresh bool,
 	if err != nil {
 		return Snapshot{}, false, err
 	}
+	recordReading(s.Home, raw, now)
 	account, err := s.account()
 	if err != nil || account == "" {
 		return parsed, true, err
@@ -138,8 +141,20 @@ func (s QuotaStore) Event(info []byte, now time.Time) (snap Snapshot, changed bo
 		}
 	}
 	snap, changed, err = ApplyEvent(prev, info, now)
+	if err == nil {
+		recordReading(s.Home, info, now)
+	}
 	if err != nil || !changed || account == "" {
 		return snap, changed, err
 	}
 	return snap, true, s.save(account, snap)
+}
+
+// recordReading 把这份额度也交给 agent-usage（github.com/dzshzx/agent-usage，统计各账号的用量、折算金额并估算每周额度），
+// 记进 home 下它的数据目录：Claude Code 只把额度交给调用方，Zeta 不记的话 agent-usage 就没有读数。
+// 只在每周读数有变化时追加一行，按 home 下 claude-switch 的切换记录记到对应账号。记不下只写日志，不影响额度本身。
+func recordReading(home string, raw []byte, now time.Time) {
+	if _, err := reading.Record(home, raw, now); err != nil {
+		log.Print("交给 agent-usage 的额度读数没记下：", err)
+	}
 }

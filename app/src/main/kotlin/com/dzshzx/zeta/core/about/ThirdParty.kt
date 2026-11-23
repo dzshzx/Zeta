@@ -235,6 +235,14 @@ internal object ThirdParty {
                     copyright = listOf("Copyright (c) 2026 dzshzx"),
                     note = Strings.thirdPartyClaudeSwitchNote(),
                 ),
+                Component(
+                    name = "github.com/dzshzx/agent-usage",
+                    version = "v0.0.2",
+                    license = "MIT",
+                    url = "https://github.com/dzshzx/agent-usage",
+                    copyright = listOf("Copyright (c) 2026 dzshzx"),
+                    note = Strings.thirdPartyAgentUsageNote(),
+                ),
             )
 
     /**

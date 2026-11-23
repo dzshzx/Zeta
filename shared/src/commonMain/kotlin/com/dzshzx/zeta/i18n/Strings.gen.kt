@@ -15583,11 +15583,18 @@ object Strings {
     fun thirdPartyXTextNote(): String = catalog.say("thirdPartyXTextNote")
 
     /**
-     * 「给 Claude Code 冷切换多个 Claude 账号的程序，账号页用它。按 helper/go.mod 的 tool 编成单独的程序（未修改），打进 assets/claude-switch/linux-arm64、linux-amd64，第一次用时装进 Linux 一侧。」
+     * 「给 Claude Code 冷切换多个 Claude 账号的程序，账号页用它。按 helper/go.mod 的 tool 编成单独的程序（未修改），打进 assets/claude-switch/linux-arm64、linux-amd64，第一次用时装进 Linux 一侧；其中认账号的 account 包也静态链接进 assets/zeta-helper/linux-arm64、linux-amd64。」
      *
      * 开源许可页 claude-switch 一条的说明。
      */
     fun thirdPartyClaudeSwitchNote(): String = catalog.say("thirdPartyClaudeSwitchNote")
+
+    /**
+     * 「统计 Claude Code 各账号用量、估算每周额度的工具。zeta-helper 只链接其中的 reading 包（未修改），把收到的每周额度记进 Linux 一侧 agent-usage 的数据目录，静态链接进 assets/zeta-helper/linux-arm64、linux-amd64。」
+     *
+     * 开源许可页 agent-usage 一条的说明。
+     */
+    fun thirdPartyAgentUsageNote(): String = catalog.say("thirdPartyAgentUsageNote")
 
     /**
      * 「Go 团队维护的加密库，zeta-ssh 用它的 SSH 客户端直连远程主机（密钥交换、主机签名的核对、通道），静态链接进 lib/arm64-v8a/libzeta_ssh.so。」

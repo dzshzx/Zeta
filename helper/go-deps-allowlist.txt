@@ -1,5 +1,8 @@
 # zeta-helper 链接的第三方模块：Go 团队维护的扩展库 x/text（read 解 GB18030 用），mygo 的 i18n 包（核心的文字表 locales，按客户端的语言出字；
-# 只链接 i18n 和它的文字数据，不带界面），门禁 gate_go_deps 按本清单核对，多一个都失败。
+# 只链接 i18n 和它的文字数据，不带界面），agent-usage 的 reading 包（把收到的额度记给 agent-usage）与它用的 claude-switch 的 account 包
+# （按切换记录认账号）；这两个是维护者自己的开源模块，只用标准库。门禁 gate_go_deps 按本清单核对，多一个都失败。
 # 按 go.mod 的 tool 单独编进 APK 的程序另列在 go-tools-allowlist.txt
+github.com/dzshzx/agent-usage
+github.com/dzshzx/claude-switch
 github.com/egoist/mygo
 golang.org/x/text

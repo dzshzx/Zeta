@@ -185,6 +185,8 @@ Zeta 的逻辑往 Go 写的核心里搬：核心是每台主机（手机的 Debi
 - 核心起或接上对话进程时顺便问一次 get_usage（排在 initialize 之后），成功的应答存进去（`QuotaStore.Usage`）；这台主机上 5 分钟内只问一次（`autoQuotaEvery`），Claude Code 取额度的接口会限流。
 - 客户端要马上刷新时（打开额度页、点刷新）：`conv.quota` 借开着的进程问，应答交给 `quota.usage`；没有开着的进程时客户端自己单起一个只答这个问题的 Claude Code，同样交给 `quota.usage`。
 
+三条路进来的数（`QuotaStore.Event`、`QuotaStore.Usage`）也都交给 [agent-usage](https://github.com/dzshzx/agent-usage) 的 `reading` 包，在进程内记进那台主机上它的数据目录（`~/.local/share/agent-usage`，按 claude-switch 的切换记录分账号，每周读数有变化才追加一行）：agent-usage 统计各账号的用量和折算金额，靠这些读数估算每周额度，Claude Code 不把额度写进文件，别处拿不到。记不下只写日志，不影响这边的额度。
+
 要跟着变的客户端发 `quota.watch` 订阅（不带 `watch` 或为真；`watch` 为假时退订，断开连接也退订）：先推一行 `{"type":"quota.snapshot","snapshot":…}`（同 `quota.get` 的 `snapshot`），之后这个核心存了新的数（上面三条路）或换了号时，存着的额度（连同 `updatedAt`）和上次推的不一样就再推一行。别的包的核心、终端里的 claude-switch 改的推不到，只读一次的用 `quota.get`。
 
 | 方法 | 参数 | 做什么 |
