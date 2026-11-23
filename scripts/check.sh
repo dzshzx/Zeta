@@ -131,6 +131,21 @@ else
   echo "gate: 合入门禁不跑截图测试，ZETA_GATE_FULL=1 时全跑"
   tools/gradle --console=plain :app:assembleDebug :app:testDebugUnitTest -Pzeta.gate=fast
 fi
+if [[ -z $skip_gradle ]]; then
+  # 单元测试里一个用例超过 60 秒就失败：正常时最慢的约 20 秒（拿真 claude 跑的契约测试），超过的多半在白等一个不会来的事件
+  # （等满超时后照样往下走），或者 idle() 遇上停不下来的动画、空转到内存耗尽，测试却照样通过，门禁只是变慢、没人发现
+  slow_tests=$(cat app/build/test-results/testDebugUnitTest/TEST-*.xml 2>/dev/null |
+    grep -oE '<testcase name="[^"]*" classname="[^"]*" time="[0-9.]+"' || true)
+  if [[ -z $slow_tests ]]; then
+    echo "gate: 没读到单元测试的结果（app/build/test-results/testDebugUnitTest），核对不了各用例的用时" >&2
+    exit 1
+  fi
+  slow_tests=$(awk -F'"' '$6 + 0 > 60 { printf "  %s.%s：%s 秒\n", $4, $2, $6 }' <<<"$slow_tests")
+  if [[ -n $slow_tests ]]; then
+    printf 'gate: 这些单元测试用例超过 60 秒（先查是不是在白等，见 app/build.gradle.kts 的测试任务）：\n%s\n' "$slow_tests" >&2
+    exit 1
+  fi
+fi
 
 if [[ "$(tracked_state)" != "$before" ]]; then
   echo "检查改动了已跟踪文件：" >&2

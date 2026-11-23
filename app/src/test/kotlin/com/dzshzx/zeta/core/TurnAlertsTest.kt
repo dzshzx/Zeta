@@ -35,7 +35,6 @@ class TurnAlertsTest {
 
     @Before
     fun reset() {
-        Fixtures.install(null)
         shadowOf(app).grantPermissions(Manifest.permission.POST_NOTIFICATIONS)
     }
 

@@ -92,8 +92,8 @@ object Fixtures {
         return hub
     }
 
-    /** 换掉全应用共用的 hub；每个测试开始时清空，免得拿到上一个测试（上一个 Application）留下的那个。 */
-    fun install(hub: ConversationHub?) {
+    /** 把 [hub] 装成全应用共用的那个（[ConversationHub.get] 和界面的 LocalHub 拿到的就是它）。 */
+    fun install(hub: ConversationHub) {
         AndroidHubPlatform.install(hub)
     }
 

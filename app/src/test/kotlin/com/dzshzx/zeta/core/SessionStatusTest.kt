@@ -7,7 +7,6 @@ import com.dzshzx.zeta.core.conv.SessionActivity
 import com.dzshzx.zeta.shots.Fixtures
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNull
-import org.junit.Before
 import org.junit.Test
 import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
@@ -18,8 +17,6 @@ import org.robolectric.annotation.Config
 @Config(sdk = [37])
 class SessionStatusTest {
     private val app = ApplicationProvider.getApplicationContext<Application>()
-
-    @Before fun reset() = Fixtures.install(null)
 
     private fun parked(hub: ConversationHub, id: String) =
         Conversation(hub, "/workspace/claude", sessionId = id, title = "", historyFile = null)

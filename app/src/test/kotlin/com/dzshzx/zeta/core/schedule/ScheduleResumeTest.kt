@@ -11,7 +11,6 @@ import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
-import org.junit.Before
 import org.junit.Test
 import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
@@ -36,8 +35,6 @@ class ScheduleResumeTest {
             record = change(record)
         }
     }
-
-    @Before fun reset() = Fixtures.install(null)
 
     /** 任务所在的设备已经不在清单里：不落到手机上跑，直接报原因。 */
     @Test

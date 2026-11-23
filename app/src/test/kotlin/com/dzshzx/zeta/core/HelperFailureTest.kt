@@ -6,7 +6,6 @@ import com.dzshzx.zeta.shots.Fixtures
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
-import org.junit.Before
 import org.junit.Test
 import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
@@ -21,8 +20,6 @@ import org.robolectric.shadows.ShadowToast
 @Config(sdk = [37])
 class HelperFailureTest {
     private val app = ApplicationProvider.getApplicationContext<Application>()
-
-    @Before fun reset() = Fixtures.install(null)
 
     private fun session(id: String, title: String, archived: Boolean = false) =
         SessionSummary(

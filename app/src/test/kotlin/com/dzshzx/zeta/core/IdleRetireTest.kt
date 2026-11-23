@@ -7,7 +7,6 @@ import com.dzshzx.zeta.shots.Fixtures
 import java.time.Duration
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
-import org.junit.Before
 import org.junit.Test
 import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
@@ -23,8 +22,6 @@ import org.robolectric.annotation.Config
 class IdleRetireTest {
     private val app = ApplicationProvider.getApplicationContext<Application>()
     private val limit = ConversationHub.IDLE_RETIRE_MS
-
-    @Before fun reset() = Fixtures.install(null)
 
     private fun elapse(ms: Long) = shadowOf(Looper.getMainLooper()).idleFor(Duration.ofMillis(ms))
 

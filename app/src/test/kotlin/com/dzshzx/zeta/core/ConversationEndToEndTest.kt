@@ -8,7 +8,6 @@ import java.nio.file.Files
 import org.junit.After
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNotNull
-import org.junit.Before
 import org.junit.Test
 import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
@@ -46,8 +45,6 @@ class ConversationEndToEndTest {
         }
 
     private val serves = mutableListOf<HelperServe>()
-
-    @Before fun reset() = Fixtures.install(null)
 
     @After
     fun cleanup() {

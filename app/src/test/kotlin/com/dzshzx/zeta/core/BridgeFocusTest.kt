@@ -11,7 +11,6 @@ import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertSame
-import org.junit.Before
 import org.junit.Test
 import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
@@ -26,8 +25,6 @@ import org.robolectric.annotation.Config
 @Config(sdk = [37])
 class BridgeFocusTest {
     private val app = ApplicationProvider.getApplicationContext<Application>()
-
-    @Before fun reset() = Fixtures.install(null)
 
     private fun idle(ms: Long) = shadowOf(Looper.getMainLooper()).idleFor(Duration.ofMillis(ms))
 

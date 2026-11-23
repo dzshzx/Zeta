@@ -55,7 +55,6 @@ abstract class ShotTest {
     private val setup =
         object : ExternalResource() {
             override fun before() {
-                Fixtures.install(null)
                 // View 一侧的动画（COUI 对话框和玻璃效果用的 ValueAnimator）也直接跳到终点：
                 // 它们每一帧都要在 CPU 上重画整屏的模糊，放完一个对话框的进场动画要十几秒
                 ValueAnimator::class
