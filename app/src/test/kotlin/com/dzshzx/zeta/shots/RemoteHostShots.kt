@@ -103,6 +103,38 @@ class RemoteHostShots : ShotTest() {
         }
     }
 
+    /** 「连接」关着的主机：开关关着、写着已断开，上面 Claude Code 配置一组灰着。 */
+    @Test
+    fun disconnectedHostPage() {
+        val hub = hub()
+        hub.settings.remoteHosts = hosts.map { it.copy(connected = it.id != "r-00000001") }
+        shoot("remote-host-disconnected", prepare = { toBottom() }) {
+            HostSettingsScreen(
+                hub = hub,
+                backend = "r-00000001",
+                onBack = {},
+                onOpenLinux = {},
+                onShowChat = {},
+            )
+        }
+    }
+
+    /** 当前对话所在的主机「连接」关着：聊天页说已断开，给「连接」。 */
+    @Test
+    fun disconnectedChat() {
+        val hub = hub()
+        hub.settings.remoteHosts = hosts.map { it.copy(connected = it.id != "r-00000001") }
+        shoot("remote-disconnected-chat") {
+            ChatScreen(
+                hub = hub,
+                onOpenPane = {},
+                onOpenSettings = {},
+                onOpenInstall = {},
+                onOpenLogin = {},
+            )
+        }
+    }
+
     /** 直连的主机：连接方式、主机指纹。 */
     @Test
     fun directHostPage() {

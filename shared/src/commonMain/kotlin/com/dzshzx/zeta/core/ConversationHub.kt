@@ -73,21 +73,23 @@ class ConversationHub(val platform: HubPlatform) {
         backend == Backends.LOCAL || remoteHost(backend)?.via == RemoteHost.Via.Debian
 
     /**
-     * 主机 [backend] 现在能用：要靠手机 Debian 的，等环境检查完、就绪；Zeta 直连的远程主机随时能用。删掉的主机不能用。 界面据此决定显示对话还是「去配置」，可观察。不建
-     * [shell]，重组时调用也便宜。
+     * 主机 [backend] 现在能用：要靠手机 Debian 的，等环境检查完、就绪；Zeta 直连的远程主机随时能用。删掉的、「连接」关着的 （[setConnected]）主机不能用。
+     * 界面据此决定显示对话还是「去配置」，可观察。不建 [shell]，重组时调用也便宜。
      */
     fun usable(backend: String): Boolean {
         if (backend !in backends) return false
+        if (remoteHost(backend)?.connected == false) return false
         return !needsDebian(backend) || (settings.env != null && platform.local?.ready == true)
     }
 
     /**
      * 在主机 [backend] 上跑命令的入口；没法跑时是 null，原因见 [unavailable]：手机的 Debian 还没配置（手机本机、 经 Debian
-     * 连的远程主机），远程主机已经删掉。Zeta 直连的远程主机不靠 Debian。环境还在检查时也给（定时任务等不到界面起来）， 界面上判断能不能用看 [usable]。
+     * 连的远程主机），远程主机已经删掉或「连接」关着（[setConnected]）。Zeta 直连的远程主机不靠 Debian。环境还在检查时也给 （定时任务等不到界面起来），
+     * 界面上判断能不能用看 [usable]。
      */
     fun shell(backend: String): LinuxShell? {
         if (backend == Backends.LOCAL) return settings.env?.let(::EnvShell)
-        val host = remoteHost(backend) ?: return null
+        val host = remoteHost(backend)?.takeIf { it.connected } ?: return null
         return when (host.via) {
             RemoteHost.Via.Direct -> DirectSshShell(ssh, host)
             RemoteHost.Via.Debian -> settings.env?.let { DebianSshShell(EnvShell(it), host) }
@@ -102,6 +104,7 @@ class ConversationHub(val platform: HubPlatform) {
             backend == Backends.LOCAL && platform.local == null -> "还没有添加远程设备，请到设置里添加"
             backend == Backends.LOCAL -> "还没有配置 Linux 环境，请到设置里检查"
             host == null -> "远程设备已经从设置里删掉了"
+            !host.connected -> "「${host.name}」已断开，在设置里这台设备的页面打开「连接」"
             else -> "「${host.name}」经手机的 Debian 连，Debian 环境还没就绪"
         }
     }
@@ -279,6 +282,48 @@ class ConversationHub(val platform: HubPlatform) {
     private fun onDefaultsRead(backend: String, defaults: ClaudeDefaults?) {
         readingDefaults.remove(backend)
         if (defaults != null && backend in backends) updateClaudeDefaults(backend, defaults)
+    }
+
+    /**
+     * 主机页的「连接」开关：远程主机 [id] 连不连。关掉时 Zeta 这边放开那台上的对话（进行中的在那边照样跑完，进程留给那台的闲置超时）， 断开对话和会话列表的 serve
+     * 连接、SSH 连接（直连的，经 Debian 的主连接），之后不再自动重连，[usable] 为 false、[shell] 为 null；
+     * 当前对话留在那台上，聊天页说已断开。打开时马上连回去：列着它的会话列表重新订阅，侧栏在它上面时重读默认值，
+     * 当前对话在它上面、已经有会话的重新打开（接上还在跑的进程、载入历史），后台在进行的由核心推来的忙闲打开（[openRunning]）。在主线程上调用。
+     */
+    fun setConnected(id: String, connected: Boolean) {
+        val host = remoteHost(id)?.takeIf { it.connected != connected } ?: return
+        if (!connected) {
+            val there = liveConversations.filter { it.backend == id }
+            there.forEach { it.leave() }
+            parked.removeAll(there.toSet())
+            openedFromActivity.removeAll(there.mapNotNullTo(HashSet()) { it.sessionId })
+            platform.prunePhones()
+            convLinks.reset(id)
+            quotas.remove(id)?.close()
+            if (host.via == RemoteHost.Via.Debian) closeDebianMaster(host.target)
+        }
+        updateRemoteHosts(
+            settings.remoteHosts.map { if (it.id == id) it.copy(connected = connected) else it },
+        )
+        sessionList.refresh()
+        if (!connected) return
+        if (backend == id) refreshClaudeDefaults(id)
+        val shown = current
+        val session = shown.sessionId
+        if (shown.backend == id && session != null)
+            replaceCurrent(
+                Conversation(this, shown.cwd, session, shown.title, null, backend = id),
+            )
+    }
+
+    /** 关掉手机 Debian 里到 [target] 的 ssh 主连接（[DebianSshShell.closeMasters]），在后台线程上做。 */
+    private fun closeDebianMaster(target: String) {
+        val local = shell(Backends.LOCAL)?.takeIf { usable(Backends.LOCAL) } ?: return
+        thread(name = "zeta-ssh-close", isDaemon = true) {
+            runCatching {
+                local.run(DebianSshShell.closeMasters(listOf(target)), timeoutMs = 15_000)
+            }
+        }
     }
 
     /**
@@ -522,7 +567,11 @@ class ConversationHub(val platform: HubPlatform) {
         defaultsByBackend.keys.retainAll(ids)
         settings.remoteClaude = settings.remoteClaude.filterKeys { HostKeys.hostOf(it) in ids }
         platform.hostsRemoved(ids)
-        ssh.retain(backends.filterNotTo(HashSet(), ::needsDebian))
+        ssh.retain(
+            settings.remoteHosts
+                .filter { it.connected && it.via == RemoteHost.Via.Direct }
+                .mapTo(HashSet()) { it.id },
+        )
         if (settings.backend !in ids) selectBackend(Backends.LOCAL) else renewBlank()
     }
 

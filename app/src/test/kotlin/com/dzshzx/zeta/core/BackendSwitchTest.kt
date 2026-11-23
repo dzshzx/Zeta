@@ -185,6 +185,45 @@ class BackendSwitchTest {
         assertEquals(remote, hub.remoteHost(remote.id))
     }
 
+    /**
+     * 「连接」开关：关掉后那台用不了、说已断开，正在回答的当前对话留在界面上但 Zeta 放开了它（进程在那边照样跑），开关存进设置；
+     * 打开后马上能用，当前对话按会话号重新打开（接上还在跑的进程）。
+     */
+    @Test
+    fun disconnectingAHostReleasesItsConversationsUntilReconnected() {
+        val hub = hub()
+        hub.open(
+            SessionSummary(
+                "s-remote",
+                "/home/user/.claude/projects/-w/s-remote.jsonl",
+                "/home/user/workspace/Zeta",
+                "远程会话",
+                "",
+                0L,
+                backend = remote.id,
+            ),
+        )
+        val opened = hub.current
+        opened.core { it.copy(busy = true) }
+        assertTrue(hub.hostWorking(remote.id))
+        hub.setConnected(remote.id, false)
+        assertFalse(hub.usable(remote.id))
+        assertNull(hub.shell(remote.id))
+        assertEquals("「工作站」已断开，在设置里这台设备的页面打开「连接」", hub.unavailable(remote.id))
+        assertSame(opened, hub.current)
+        assertFalse(hub.hostWorking(remote.id))
+        assertFalse(
+            RemoteHosts.decode(RemoteHosts.encode(hub.settings.remoteHosts)).single().connected,
+        )
+        hub.setConnected(remote.id, true)
+        assertTrue(hub.usable(remote.id))
+        assertTrue(hub.shell(remote.id) is DebianSshShell)
+        assertNotSame(opened, hub.current)
+        assertEquals("s-remote", hub.current.sessionId)
+        assertEquals(remote.id, hub.current.backend)
+        assertEquals(remote.id, hub.backend)
+    }
+
     /** 连上 serve 时招呼里报的主机名记到远程设备上，没起名字的设备就叫它；空的不记，手机本机不管。 */
     @Test
     fun helloHostnameNamesTheDevice() {

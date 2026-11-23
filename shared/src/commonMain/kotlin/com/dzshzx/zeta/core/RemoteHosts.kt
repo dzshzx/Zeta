@@ -19,7 +19,8 @@ import kotlinx.serialization.json.put
  * [target] 是 `用户@主机[:端口]`（[SshTarget]），[hostKey] 是加主机时记下的主机公钥（SSH 线上格式的 base64），以后只认它。 加主机时手机
  * Debian 就绪就默认经 Debian（[ConversationHub.defaultVia]），加好以后能改（[ConversationHub.changeVia]）。 [home]
  * 是连上时查到的家目录，[defaultCwd] 是在这台主机上开新对话的默认工作目录。界面上叫它 [name]：用户起的 [customName]，没起时是它自己报的主机名
- * [hostname]（`uname -n`，连上时记下），还没记下时是地址。
+ * [hostname]（`uname -n`，连上时记下），还没记下时是地址。[connected] 是主机页上的「连接」开关：关着时 Zeta 不连它
+ * （[ConversationHub.setConnected]），它上面的对话在那边照样跑。
  */
 data class RemoteHost(
     val id: String,
@@ -30,6 +31,7 @@ data class RemoteHost(
     val via: Via = Via.Debian,
     val hostKey: String? = null,
     val hostname: String? = null,
+    val connected: Boolean = true,
 ) {
     /** 界面上的名字。 */
     val name: String
@@ -70,6 +72,7 @@ object RemoteHosts {
                 put("cwd", it.defaultCwd)
                 put("via", it.via.key)
                 it.hostKey?.let { key -> put("hostKey", key) }
+                if (!it.connected) put("off", true)
             }
         }
     }
@@ -109,6 +112,7 @@ object RemoteHosts {
                     via = via,
                     hostKey = hostKey.takeIf { via == RemoteHost.Via.Direct },
                     hostname = item.str("hostname")?.trim()?.ifEmpty { null },
+                    connected = item.bool("off") != true,
                 )
         }
         return hosts

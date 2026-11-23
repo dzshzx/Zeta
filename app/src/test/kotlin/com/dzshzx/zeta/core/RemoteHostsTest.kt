@@ -33,8 +33,11 @@ class RemoteHostsTest {
                     hostname = "DEVBOX",
                 ),
                 RemoteHost("r-00000002", null, "me@example.com", "/root", "/root"),
+                RemoteHost("r-00000003", null, "laptop", "/home/me", "/home/me", connected = false),
             )
         assertEquals(hosts, RemoteHosts.decode(RemoteHosts.encode(hosts)))
+        // 「连接」开着是默认，不写出：只有关着的那台带 off
+        assertEquals(1, Regex("\"off\"").findAll(RemoteHosts.encode(hosts)).count())
         val mixed =
             """[
             {"id":"r-1","name":"","target":"a","home":"/h"},

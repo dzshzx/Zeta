@@ -216,6 +216,8 @@ fun ChatScreen(
                                 )
                             }
                         }
+                    hub.remoteHost(conversation.backend)?.connected == false ->
+                        DisconnectedMessage(hub, conversation.backend, padding)
                     else ->
                         ChatPlatform.current.Unavailable(
                             hub,
@@ -337,6 +339,22 @@ fun RemoteChoice(hub: ConversationHub, onOpenRemoteHosts: () -> Unit) {
         TextButton(text = "连接远程设备", onClick = onOpenRemoteHosts)
     } else {
         HostSwitcher(hub)
+    }
+}
+
+/** 当前对话所在的远程主机「连接」关着（[ConversationHub.setConnected]）：说一声，点「连接」马上连回去、接着看这个对话。 */
+@Composable
+private fun DisconnectedMessage(hub: ConversationHub, backend: String, padding: PaddingValues) {
+    SetupMessage(
+        padding,
+        "「${hub.backendName(backend)}」已断开",
+        "Zeta 现在不连这台设备，它上面的对话在那边照样跑。连上后接着看。",
+    ) {
+        TextButton(
+            text = "连接",
+            onClick = { hub.setConnected(backend, true) },
+            colors = ButtonDefaults.textButtonColorsPrimary(),
+        )
     }
 }
 

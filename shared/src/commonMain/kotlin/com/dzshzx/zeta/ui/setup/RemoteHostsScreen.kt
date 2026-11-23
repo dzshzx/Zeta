@@ -41,6 +41,7 @@ import io.github.suqi8.coui.kmp.basic.SegmentButton
 import io.github.suqi8.coui.kmp.basic.SegmentButtonDefaults
 import io.github.suqi8.coui.kmp.preference.ArrowPreference
 import io.github.suqi8.coui.kmp.preference.OverlayDropdownPreference
+import io.github.suqi8.coui.kmp.preference.SwitchPreference
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
@@ -63,6 +64,10 @@ private const val KeyFooter =
         "加设备时记下对方的主机指纹，以后只认它。"
 
 private const val BusyMessage = "这台设备上有对话在进行（在回答、等你确认或有后台任务），等它做完再改。"
+
+/** 断开时这台设备上有对话在进行：它们在那边接着跑。 */
+private const val DisconnectBusyMessage =
+    "这台设备上有对话在进行（在回答、等你确认或有后台任务）。断开后它们在那边接着跑完，打开连接后接着看；等你确认的要连上后才能答。"
 
 private val Vias = listOf(RemoteHost.Via.Debian, RemoteHost.Via.Direct)
 
@@ -399,8 +404,9 @@ private fun probeSummary(probe: RemoteHosts.Probe.Ok): String =
 
 /**
  * 设置 › 一台远程主机：上面是 [claude]（这台上新对话的默认值、Claude Code 自己的配置，见
- * [com.dzshzx.zeta.ui.settings.HostSettingsScreen]），
- * 下面是连接：自定义设备名、地址、连接方式（能改：先按新的连法连一次，连上了才改）、默认工作目录， 重新检查连接（直连的主机指纹变了可以改认新的），删掉。
+ * [com.dzshzx.zeta.ui.settings.HostSettingsScreen]）， 下面是连接：「连接」开关（关掉时 Zeta
+ * 不连它，[ConversationHub.setConnected]），自定义设备名、地址、 连接方式（能改：先按新的连法连一次，连上了才改）、默认工作目录，
+ * 重新检查连接（直连的主机指纹变了可以改认新的），删掉。
  */
 @Composable
 fun RemoteHostScreen(
@@ -416,6 +422,7 @@ fun RemoteHostScreen(
     var cwdEditing by remember { mutableStateOf(false) }
     var draft by remember { mutableStateOf("") }
     var removing by remember { mutableStateOf(false) }
+    var disconnecting by remember { mutableStateOf(false) }
     var checking by remember { mutableStateOf(false) }
     var check by remember { mutableStateOf<String?>(null) }
     // 正在试着改成的连法
@@ -516,6 +523,7 @@ fun RemoteHostScreen(
                 onConfirm = ::trustChangedKey,
                 onDismissRequest = { changedKey = null },
             )
+            DisconnectDialog(hub, shown, show = disconnecting) { disconnecting = false }
             ConfirmDialog(
                 show = removing,
                 title = "删掉「${shown.name}」？",
@@ -543,6 +551,7 @@ fun RemoteHostScreen(
                 host = shown,
                 switching = switching,
                 checking = checking,
+                onConnect = { on -> connectOrAsk(hub, id, on) { disconnecting = true } },
                 onRename = { renaming = true },
                 onSwitch = ::switchTo,
                 onEditCwd = {
@@ -563,6 +572,32 @@ fun RemoteHostScreen(
             PreferenceGroup { item { DangerRow("删掉这台设备") { removing = true } } }
         }
     }
+}
+
+/** 「连接」开关拨了：打开、或那台上没有对话在进行时直接照做；有对话在进行时先 [ask] 确认再断开。 */
+private fun connectOrAsk(hub: ConversationHub, id: String, on: Boolean, ask: () -> Unit) {
+    if (!on && hub.hostWorking(id)) ask() else hub.setConnected(id, on)
+}
+
+/** 断开有对话在进行的主机前的确认：它们在那边接着跑。 */
+@Composable
+private fun DisconnectDialog(
+    hub: ConversationHub,
+    host: RemoteHost,
+    show: Boolean,
+    onDismiss: () -> Unit,
+) {
+    ConfirmDialog(
+        show = show,
+        title = "断开「${host.name}」？",
+        summary = DisconnectBusyMessage,
+        confirmText = "断开",
+        onConfirm = {
+            onDismiss()
+            hub.setConnected(host.id, false)
+        },
+        onDismissRequest = onDismiss,
+    )
 }
 
 /** 改连法前先看能不能改：别名不能直连，Debian 要就绪，有对话在进行时不改。能改时为 null。 */
@@ -673,18 +708,28 @@ private fun ViaChoice(
     )
 }
 
-/** 主机页的「连接」一组：自定义设备名、地址、连接方式、主机指纹、家目录、默认工作目录。 */
+/** 主机页的「连接」一组：「连接」开关、自定义设备名、地址、连接方式、主机指纹、家目录、默认工作目录。 */
 @Composable
 private fun ConnectionGroup(
     hub: ConversationHub,
     host: RemoteHost,
     switching: RemoteHost.Via?,
     checking: Boolean,
+    onConnect: (Boolean) -> Unit,
     onRename: () -> Unit,
     onSwitch: (RemoteHost.Via) -> Unit,
     onEditCwd: () -> Unit,
 ) {
     PreferenceGroup(title = "连接") {
+        item {
+            SwitchPreference(
+                title = "连接",
+                summary =
+                    if (host.connected) "用到这台设备时连上，断了自动重连" else "已断开：Zeta 不连这台设备，它上面的对话在那边照样跑",
+                checked = host.connected,
+                onCheckedChange = onConnect,
+            )
+        }
         item { DeviceNameRow(hub, host.id) { onRename() } }
         item {
             BasicComponent(

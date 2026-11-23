@@ -222,7 +222,7 @@ private fun SettingsHome(
 /**
  * 首页的一台主机：名字，下面一行是它在哪（手机里的 Debian，或远程主机的地址和连法），右边是它新对话的默认模型和思考强度；
  * 还没读过的、能用了就读一次（每次都重读要连一遍所有远程主机，点进主机页时才重读那台）。手机的 Debian 没就绪时右边写状态 （出问题红字），经 Debian 连的远程主机写「Debian
- * 未就绪」。
+ * 未就绪」，「连接」关着的远程主机写「已断开」。
  */
 @Composable
 private fun HostEntry(hub: ConversationHub, backend: String, onOpen: () -> Unit) {
@@ -236,6 +236,7 @@ private fun HostEntry(hub: ConversationHub, backend: String, onOpen: () -> Unit)
         when {
             usable -> null
             host == null -> linuxState(hub)
+            !host.connected -> "已断开" to false
             hub.environment.setup == SetupState.Checking -> "检查中" to false
             else -> "Debian 未就绪" to true
         }

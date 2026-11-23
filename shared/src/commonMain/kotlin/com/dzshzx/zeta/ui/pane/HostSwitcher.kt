@@ -91,7 +91,7 @@ fun HostSwitcher(
     }
 }
 
-/** 设备胶囊的菜单：[forList] 时先是「全部设备」，然后是手机和各台远程主机（名字下面的小字是地址）。 */
+/** 设备胶囊的菜单：[forList] 时先是「全部设备」，然后是手机和各台远程主机（名字下面的小字是地址，「连接」关着的注明已断开）。 */
 private fun hostMenu(
     hub: ConversationHub,
     forList: Boolean,
@@ -101,7 +101,9 @@ private fun hostMenu(
     val pick: (String) -> Unit = if (forList) hub::listOnly else hub::selectBackend
     val items =
         listOf(Triple(Backends.LOCAL, hub.backendName(Backends.LOCAL), RemoteHosts.LOCAL_SUMMARY)) +
-            hub.settings.remoteHosts.map { Triple(it.id, it.name, it.target) }
+            hub.settings.remoteHosts.map {
+                Triple(it.id, it.name, it.target + if (it.connected) "" else " · 已断开")
+            }
     val hosts =
         DropdownEntry(
             items =
