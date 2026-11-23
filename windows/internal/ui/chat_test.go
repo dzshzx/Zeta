@@ -536,12 +536,16 @@ func (f *chatFixture) showTurn(t *testing.T, confirm bool) {
 type testWindow struct {
 	front   bool
 	notes   []string
+	opens   []func()
 	buttons []bool
 }
 
-func (w *testWindow) Foreground() bool          { return w.front }
-func (w *testWindow) Notify(title, body string) { w.notes = append(w.notes, title+"："+body) }
-func (w *testWindow) ButtonsOverDark(on bool)   { w.buttons = append(w.buttons, on) }
+func (w *testWindow) Foreground() bool { return w.front }
+func (w *testWindow) Notify(n Note) {
+	w.notes = append(w.notes, n.Title+"："+n.Body)
+	w.opens = append(w.opens, n.Open)
+}
+func (w *testWindow) ButtonsOverDark(on bool) { w.buttons = append(w.buttons, on) }
 
 // 输入栏上的负载标识：对话有了消息后问那台主机的 system.cpu，忙时变色，隔几秒再问。新对话还没发消息时不问。
 func TestHostLoad(t *testing.T) {

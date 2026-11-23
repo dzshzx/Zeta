@@ -9,7 +9,7 @@ Zeta（Ζ）是 root 过的 Android 手机上 Claude Code 的原生客户端：K
 用户定的，改之前先问。
 
 - 手机版界面用 COUI 2（`io.github.suqi8.coui.kmp`）：组件、配色、文字样式默认用它自带的；它没有的在 `ui/components/coui2` 补。写法照它自带的指南（COUI 2 仓库里的 `.claude/skills/coui-app/`），Zeta 的补充件、常见选法和坑见 `docs/ui.md`。不提 Web UI 方案。功能从简。
-- 桌面版（`windows/`）的界面照 ChatGPT 的 Windows 客户端（原 Codex 客户端）：配色、布局、交互和快捷键照它，尺寸按鼠标，不照搬手机版和 COUI 的交互；规矩见 `docs/desktop.md`「界面」。
+- 桌面版（`windows/`）的界面照 ChatGPT 的 Windows 客户端（原 Codex 客户端）：配色和快捷键照它，尺寸按鼠标；布局和交互是 Zeta 自己的，它做得好的地方拿来参考，不照搬手机版和 COUI 的交互；规矩见 `docs/desktop.md`「界面」。
 - Claude Code 就是 harness。Eta 里属于 harness 的部分不移植，比如终端、模型供应商。压缩上下文和起标题不自己实现，用 Claude Code 自带的；设置里的自动压缩、自动标题只是打开它们、设阈值。和 Eta 比缺什么时，只看手机与界面一侧；像 harness 的功能，先查 Claude Code 自己有没有。管理 Claude Code 自身配置的页面（记忆、Skills、MCP、Subagent）可以做，读写的是 Claude Code 的真实配置，不另造一套。
 - 默认有 root，不照搬 Eta 里兼容无 root 的部分。可选工具里 Go 排第一。
 - 版本号长期停在 0.x.x，不发 1.0。正式版的版本只在发版时升一次 patch（0.7.0 → 0.7.1），用户说了才升 minor；0.8.0 留给 Go 核心迁移全部做完（`docs/core.md`「进度」各步都做完，含撤掉 `shared/`），在那之前都发 0.7.x；合入不改版本号，测试版的版本跟着提交自动走（见「发版与上线」）。

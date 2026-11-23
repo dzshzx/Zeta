@@ -71,6 +71,7 @@ type Hub struct {
 	conns   map[string]*chatConn // 各台给对话用的 serve 连接
 	bulks   map[string]*bulkLink // 各台取大块数据的 serve 连接（bulk.go）
 	remotes map[string]*Remote   // 设置里各台的 Claude Code 配置、账号与额度（remote.go）
+	alerted func(Alert)          // 收提醒的（notify.go）
 
 	// SearchDelay 是关键词停下多久才去搜对话内容（打字时不必每个字都搜一次）；测试里设成 0。
 	SearchDelay time.Duration

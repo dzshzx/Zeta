@@ -3,6 +3,7 @@ package main
 import (
 	"log"
 
+	zui "github.com/dzshzx/Zeta/windows/internal/ui"
 	"github.com/egoist/mygo"
 )
 
@@ -11,18 +12,21 @@ type desktopWindow struct{ win *mygo.Window }
 
 func (w desktopWindow) Foreground() bool { return w.win.IsFocused() }
 
-// Notify 发系统通知，点通知回到窗口。
-func (w desktopWindow) Notify(title, body string) {
+// Notify 发系统通知：点通知回到窗口，再在主线程上做 n.Open。
+func (w desktopWindow) Notify(n zui.Note) {
 	if !mygo.NotificationsSupported() {
 		return
 	}
-	n := mygo.NewNotification(mygo.NotificationOptions{ID: "zeta-turn", Title: title, Body: body})
-	n.OnClick(func() {
+	m := mygo.NewNotification(mygo.NotificationOptions{ID: n.ID, Title: n.Title, Body: n.Body})
+	m.OnClick(func() {
 		w.win.Restore()
 		w.win.Focus()
+		if n.Open != nil {
+			w.win.Update(n.Open)
+		}
 	})
 	go func() {
-		if err := n.Show(); err != nil {
+		if err := m.Show(); err != nil {
 			log.Printf("zeta: 通知没发出去：%v", err)
 		}
 	}()

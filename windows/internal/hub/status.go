@@ -64,16 +64,23 @@ func (h *Hub) Status(s hostlink.Session, local Local) Status {
 	)
 }
 
-// activityReceived：设备 id 的核心推来了各会话的忙闲（整份）。两份里都有、最后一轮的结束时刻往后挪了的，不是正开着的话记成有新回答；
-// 第一次见的不算（不知道它是不是刚结束）。
+// activityReceived：设备 id 的核心推来了各会话的忙闲（整份）。两份里都有、不是正开着的会话：最后一轮的结束时刻往后挪了的记成有新回答，
+// 答完了一轮或刚开始等用户回应的交给界面提醒（notify.go）。第一次见的不算（不知道它是不是刚结束）。
 func (h *Hub) activityReceived(id string, sessions map[string]hostlink.Activity) {
 	before := h.activity[id]
+	h.activity[id] = sessions
 	for session, now := range sessions {
-		if was, ok := before[session]; ok && now.TurnEnd > was.TurnEnd && !h.showing(id, session) {
+		was, ok := before[session]
+		if !ok || h.showing(id, session) {
+			continue
+		}
+		if now.TurnEnd > was.TurnEnd {
 			h.unread[Key(hostlink.Session{Backend: id, ID: session})] = true
 		}
+		if alert, waiting := alertOf(was, now); alert {
+			h.alert(id, session, waiting)
+		}
 	}
-	h.activity[id] = sessions
 }
 
 // showing：聊天窗格正开着设备 backend 上的会话 session。

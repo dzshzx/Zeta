@@ -74,8 +74,8 @@ type App struct {
 type Window interface {
 	// Foreground 报告窗口在不在前台。
 	Foreground() bool
-	// Notify 发一条系统通知（回答完了而窗口不在前台时）。
-	Notify(title, body string)
+	// Notify 发一条系统通知（notify.go：回答完了、等你回应而窗口不在前台时）。
+	Notify(n Note)
 	// ButtonsOverDark 让系统的最小化、最大化、关闭按钮按深色底画（on，看大图时），或回到跟着主题。
 	ButtonsOverDark(on bool)
 }
@@ -83,9 +83,9 @@ type Window interface {
 // noWindow 是窗口起来之前的：总在前台，不发通知，系统按钮不管。
 type noWindow struct{}
 
-func (noWindow) Foreground() bool      { return true }
-func (noWindow) Notify(string, string) {}
-func (noWindow) ButtonsOverDark(bool)  {}
+func (noWindow) Foreground() bool     { return true }
+func (noWindow) Notify(Note)          {}
+func (noWindow) ButtonsOverDark(bool) {}
 
 // notice 是一次操作的结果，弹个框说一声。
 type notice struct {
@@ -97,6 +97,7 @@ type notice struct {
 func New(h *hub.Hub, run, post func(func())) *App {
 	a := &App{hub: h, run: run, post: post, now: time.Now, pick: systemPicker, saveFile: systemSaveFile, Window: noWindow{},
 		About: defaultAbout(h)}
+	h.OnAlert(a.alert)
 	a.loadLayout()
 	return a
 }

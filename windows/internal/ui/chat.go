@@ -47,6 +47,8 @@ type chatPane struct {
 	find findBar
 	// load 是输入栏上的负载标识（hostload.go）。
 	load hostLoad
+	// alerted 是发过通知的最后一个等回应的请求（notify.go）。
+	alerted string
 	// suggested：在新对话的空白页上点了建议，正等它发出去（emptychat.go）。
 	suggested bool
 	// cwd 是新对话顶栏上换工作目录的对话框。
@@ -110,11 +112,7 @@ func (a *App) syncChat() {
 	a.syncMessageActions(p)
 	p.list.Earlier = chatview.Earlier{Skipped: u.State.Earlier, Loading: p.earlier.asked || u.State.EarlierLoading,
 		Failed: p.earlier.failed, Retry: !p.earlier.stale}
-	for _, t := range u.Turns {
-		if t.Phase == chat.TurnFinished && !a.Window.Foreground() {
-			a.Window.Notify(a.chatTitle(p), t.Text)
-		}
-	}
+	a.paneAlerts(p, u.Turns)
 	// 同一条只取一次：取走以后核心推来 recalled 为空之前，这一条还挂在状态里
 	if r := u.State.Recalled; r != nil && !p.taking && r.UUID != p.took {
 		p.taking, p.took = true, r.UUID
