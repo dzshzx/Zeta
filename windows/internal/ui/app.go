@@ -72,6 +72,9 @@ type App struct {
 	viewer          *chatview.Viewer
 	buttonsOverDark bool
 
+	// waitingNotes 是正显示着「等你回应」的系统通知的编号（notify.go）：那个请求处理掉了就撤掉。
+	waitingNotes map[string]bool
+
 	// Window 是真窗口（在不在前台、通知、系统按钮）。New 给的是窗口起来之前的（总在前台、什么也不做），
 	// 窗口起来后由入口换成真的。
 	Window Window
@@ -83,6 +86,8 @@ type Window interface {
 	Foreground() bool
 	// Notify 发一条系统通知（notify.go：回答完了、等你回应而窗口不在前台时）。
 	Notify(n Note)
+	// Withdraw 撤掉编号 id 的系统通知（等的请求处理掉了）；已经没了的什么也不做。
+	Withdraw(id string)
 	// ButtonsOverDark 让系统的最小化、最大化、关闭按钮按深色底画（on，看大图时），或回到跟着主题。
 	ButtonsOverDark(on bool)
 }
@@ -92,6 +97,7 @@ type noWindow struct{}
 
 func (noWindow) Foreground() bool     { return true }
 func (noWindow) Notify(Note)          {}
+func (noWindow) Withdraw(string)      {}
 func (noWindow) ButtonsOverDark(bool) {}
 
 // notice 是一次操作的结果，弹个框说一声。

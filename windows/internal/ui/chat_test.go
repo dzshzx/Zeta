@@ -532,12 +532,13 @@ func (f *chatFixture) showTurn(t *testing.T, confirm bool) {
 	}
 }
 
-// testWindow 是测试里的窗口：前台与否由测试定，记下发出的通知和交代过的系统按钮深浅。
+// testWindow 是测试里的窗口：前台与否由测试定，记下发出的通知、撤掉的通知编号和交代过的系统按钮深浅。
 type testWindow struct {
-	front   bool
-	notes   []string
-	opens   []func()
-	buttons []bool
+	front     bool
+	notes     []string
+	opens     []func()
+	withdrawn []string
+	buttons   []bool
 }
 
 func (w *testWindow) Foreground() bool { return w.front }
@@ -545,6 +546,7 @@ func (w *testWindow) Notify(n Note) {
 	w.notes = append(w.notes, n.Title+"："+n.Body)
 	w.opens = append(w.opens, n.Open)
 }
+func (w *testWindow) Withdraw(id string)      { w.withdrawn = append(w.withdrawn, id) }
 func (w *testWindow) ButtonsOverDark(on bool) { w.buttons = append(w.buttons, on) }
 
 // 输入栏上的负载标识：对话有了消息后问那台主机的 system.cpu，忙时变色，隔几秒再问。新对话还没发消息时不问。
