@@ -50,4 +50,9 @@ licenses() { # <用在哪> <模块目录> <GOOS> <包模式...>
     done
 }
 licenses app "$root/windows" windows ./...
+# widget/icons.go 里照搬了 COUI 2 自带图标（coui-icons）的路径数据，它是 Apache-2.0：许可全文同 APK 带的那份，版本取手机版用的 COUI 2
+coui_version=$(sed -n 's/^coui2 = "\(.*\)"$/\1/p' "$root/gradle/libs.versions.toml")
+[[ -n $coui_version ]] || { echo "assets.sh: gradle/libs.versions.toml 里没有 coui2 的版本" >&2; exit 1; }
+cp "$root/app/src/main/assets/licenses/Apache-2.0.txt" "$lic/coui-icons"
+printf 'app\tgithub.com/suqi8/coui（coui-icons 图标）\t%s\tcoui-icons\n' "$coui_version" >>"$lic/index.tsv"
 licenses host "$root/helper" linux ./... tool
