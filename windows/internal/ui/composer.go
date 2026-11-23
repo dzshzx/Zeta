@@ -47,7 +47,7 @@ func (a *App) composer(c *ui.Context, p *chatPane) {
 				return true
 			})
 		insertPending(in, p)
-		slashInsert(in, p)
+		slashInsert(c, in, p)
 		ui.Row(c).Gap(6).AlignItems(ui.Center).Children(func() {
 			if ready {
 				a.attachMenu(c)

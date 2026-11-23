@@ -1,17 +1,53 @@
 package chat
 
 import (
+	"fmt"
+	"strings"
 	"testing"
 )
 
-func TestSlashQuery(t *testing.T) {
-	for typed, want := range map[string]string{"/": "", "/Com": "com", "/compact x": "-", "x/": "-", "": "-", "/a\nb": "-"} {
-		got, ok := SlashQuery(typed)
-		if !ok {
-			got = "-"
+func TestSlashAt(t *testing.T) {
+	// | 是光标；want 是「前缀 起-止」，不提示时是 -
+	for typed, want := range map[string]string{
+		"/|": " 0-1", "/Com|": "com 0-4", "/compact x|": "-", "x/|": "-", "|": "-", "/a\nb|": "-",
+		"hello /co|": "co 6-9", "你好 /co|": "co 3-6", "你好，/co|": "-", "hello/co|": "-",
+		"hello /co| world": "co 6-9", "hello /c|o world": "c 6-9", "a\n/c|": "c 2-4", "hello /copy x|": "-", "hello |": "-",
+		"/compact| foo": "compact 0-8",
+	} {
+		caret := len([]rune(typed[:strings.Index(typed, "|")]))
+		text := strings.Replace(typed, "|", "", 1)
+		got := "-"
+		if s, ok := SlashAt(text, caret); ok {
+			got = fmt.Sprintf("%s %d-%d", s.Prefix, s.Start, s.End)
 		}
 		if got != want {
-			t.Errorf("%q: %q", typed, got)
+			t.Errorf("%q: %q，要 %q", typed, got, want)
+		}
+	}
+	if _, ok := SlashAt("/x", 3); ok {
+		t.Error("光标越界也提示了")
+	}
+}
+
+func TestSlashComplete(t *testing.T) {
+	for _, c := range []struct{ text, name, want string }{
+		{"/co|", "compact", "/compact |"},
+		{"hello /co|", "copy", "hello /copy |"},
+		{"hello /co| world", "copy", "hello /copy |world"},
+		{"hello /c|o world", "copy", "hello /copy |world"},
+		{"你好 /c|x", "clear", "你好 /clear |"},
+		{"/co|\n下一行", "copy", "/copy\n|下一行"},
+	} {
+		caret := len([]rune(c.text[:strings.Index(c.text, "|")]))
+		text := strings.Replace(c.text, "|", "", 1)
+		s, ok := SlashAt(text, caret)
+		if !ok {
+			t.Fatalf("%q 没认出", c.text)
+		}
+		out, at := s.Complete(text, c.name)
+		r := []rune(out)
+		if got := string(r[:at]) + "|" + string(r[at:]); got != c.want {
+			t.Errorf("%q 选 %s：%q，要 %q", c.text, c.name, got, c.want)
 		}
 	}
 }

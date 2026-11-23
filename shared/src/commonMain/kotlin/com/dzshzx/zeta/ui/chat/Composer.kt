@@ -37,7 +37,6 @@ import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.text.input.TextFieldLineLimits
 import androidx.compose.foundation.text.input.TextFieldState
 import androidx.compose.foundation.text.input.clearText
-import androidx.compose.foundation.text.input.setTextAndPlaceCursorAtEnd
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
@@ -59,6 +58,7 @@ import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.text.TextRange
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.style.TextOverflow
@@ -171,10 +171,6 @@ fun Composer(
             animationSpec = tween(160),
             label = "talk-border",
         )
-    // 只打了“/名字”还没打空格时，提示可用的斜杠命令
-    val slash = slashQuery(state.text.toString())
-    val suggestions = remember(slash, commands) { slashSuggestions(slash, commands) }
-    LaunchedEffect(slash != null) { if (slash != null) onSlashTyped() }
     val textStyle =
         COUITheme.textStyles.bodyXL.copy(
             color = colors.labelPrimary,
@@ -198,7 +194,7 @@ fun Composer(
                 .border(1.dp, talkBorder, shape)
                 .padding(horizontal = 10.dp, vertical = 8.dp),
     ) {
-        if (suggestions.isNotEmpty()) SlashSuggestions(suggestions, state)
+        ComposerSlash(state, commands, onSlashTyped)
         if (attachments.isNotEmpty() || files.isNotEmpty()) {
             ComposerAttachments(attachments, files, onRemoveAttachment, onRemoveFile)
         }
@@ -258,10 +254,28 @@ private fun hasSomethingToSend(
         files.none { it.uploading } &&
         (text.isNotBlank() || attachments.isNotEmpty() || files.any { it.path != null })
 
-/** 输入框里只有“/名字”、还没打空格时，这是要提示的命令名前缀（小写）；否则是 null。 */
-private fun slashQuery(typed: String): String? =
-    if (typed.startsWith("/") && typed.none { it.isWhitespace() }) typed.drop(1).lowercase()
-    else null
+/** 光标前那个词是“/名字”（在开头或空白后面，见 [SlashToken]）时，输入框上方提示可用的斜杠命令；点一条只换掉那个词。 */
+@Composable
+private fun ComposerSlash(
+    state: TextFieldState,
+    commands: List<SlashCommand>,
+    onSlashTyped: () -> Unit,
+) {
+    val typed = state.text.toString()
+    val cursor = state.selection
+    val slash = if (cursor.collapsed) SlashToken.at(typed, cursor.start) else null
+    val suggestions =
+        remember(slash?.prefix, commands) { slashSuggestions(slash?.prefix, commands) }
+    LaunchedEffect(slash != null) { if (slash != null) onSlashTyped() }
+    if (slash == null || suggestions.isEmpty()) return
+    SlashSuggestions(suggestions) { name ->
+        val (text, caret) = slash.complete(typed, name)
+        state.edit {
+            replace(0, length, text)
+            selection = TextRange(caret)
+        }
+    }
+}
 
 /** 要提示的斜杠命令：名字以 [slash] 开头的排前面，名字里含有它的跟在后面；内部命令（“__”开头）不列。 */
 private fun slashSuggestions(slash: String?, commands: List<SlashCommand>): List<SlashCommand> {
@@ -273,15 +287,15 @@ private fun slashSuggestions(slash: String?, commands: List<SlashCommand>): List
         }
 }
 
-/** 输入框上方的斜杠命令提示，点一条把命令填进输入框。 */
+/** 输入框上方的斜杠命令提示，点一条把命令填进输入框（[onPick]）。 */
 @Composable
-private fun SlashSuggestions(suggestions: List<SlashCommand>, state: TextFieldState) {
+private fun SlashSuggestions(suggestions: List<SlashCommand>, onPick: (String) -> Unit) {
     val colors = COUITheme.colorScheme
     LazyColumn(
         modifier = Modifier.fillMaxWidth().heightIn(max = 232.dp).padding(bottom = 4.dp),
     ) {
         items(suggestions, key = { it.name }) { command ->
-            SlashSuggestionRow(command) { state.setTextAndPlaceCursorAtEnd("/${command.name} ") }
+            SlashSuggestionRow(command) { onPick(command.name) }
         }
     }
     HorizontalDivider(

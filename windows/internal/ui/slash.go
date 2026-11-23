@@ -8,8 +8,8 @@ import (
 	"github.com/egoist/mygo/ui"
 )
 
-// 斜杠命令（同 Composer.kt 的 SlashSuggestions）：输入框里只有「/名字」、还没打空白时，输入框上方列出 Claude Code 报的命令，
-// 按打的字过滤；上下键换选中的那条，回车、Tab 或点一下把「/命令 」填进输入框，Esc 收起（再打字又出来）。
+// 斜杠命令（同 Composer.kt 的 SlashSuggestions）：光标前那个词是「/名字」（在开头或空白后面，见 chat.SlashAt）时，输入框上方列出
+// Claude Code 报的命令，按打的字过滤；上下键换选中的那条，回车、Tab 或点一下把那个词换成「/命令 」，Esc 收起（再打字又出来）。
 // 命令是这个对话的 conv.state 报的：还没起过进程时核心给它记着的这个工作目录（或这台设备）上次那份，打开对话就有。
 
 // slashMenu 是一个对话输入栏里斜杠命令提示的状态。
@@ -17,19 +17,33 @@ type slashMenu struct {
 	// chosen 是选中第几条；dismissed 是按 Esc 收起时输入框里的字（字变了再出来）。
 	chosen    int
 	dismissed string
-	// pick 是点了的那条，下一帧建输入框时填进去。
-	pick string
+	// pick 是选了命令以后输入框里的字、pickAt 是光标，下一帧建输入框时填进去；pick 为空是没有要填的。
+	pick   string
+	pickAt int
+	// caret 是上一帧建输入框时的光标（按字符），选中了一段时为 -1；caretText 是那时输入框里的字。
+	caret   int
+	caretText string
 	// reveal：选中的换了，把它滚进视野。
 	reveal bool
 }
 
-// suggestions 是输入框里是 text 时要列的命令；不该列时为空。
-func (a *App) suggestions(p *chatPane, text string) []chat.Command {
-	prefix, ok := chat.SlashQuery(text)
+// suggestions 是输入框里是 text、光标在 caret 时正在打的斜杠命令和要列的命令；不该列时列表为空。
+func (a *App) suggestions(p *chatPane, text string, caret int) (chat.Slash, []chat.Command) {
+	s, ok := chat.SlashAt(text, caret)
 	if !ok || text == p.slash.dismissed || p.src.Conv == nil {
-		return nil
+		return s, nil
 	}
-	return chat.Suggest(p.state.Commands, prefix)
+	return s, chat.Suggest(p.state.Commands, s.Prefix)
+}
+
+// caretIn 是输入框里是 text 时的光标：上一帧记下的光标加上这之后多打（或删掉）的字数。
+// 列表在输入框上面、比它先建，按键时输入框里的字也可能比绑定的草稿新（见 ui.TextKey.Text），都只拿得到上一帧的光标；
+// 打字和删字都在光标处，这样算是准的，只挪了光标时 slashInsert 再建一帧。
+func (m *slashMenu) caretIn(text string) int {
+	if m.caret < 0 {
+		return -1
+	}
+	return m.caret + utf8.RuneCountInString(text) - utf8.RuneCountInString(m.caretText)
 }
 
 // slashKey 是输入框里按下的键先给斜杠命令提示看：列着命令时上下键换选中的、回车和 Tab 填进去、Esc 收起，返回 true 表示用掉了。
@@ -43,7 +57,7 @@ func (a *App) slashKey(p *chatPane, tk ui.TextKey) bool {
 		return false
 	}
 	text := tk.Text()
-	list := a.suggestions(p, text)
+	s, list := a.suggestions(p, text, p.slash.caretIn(text))
 	if len(list) == 0 {
 		return false
 	}
@@ -58,24 +72,30 @@ func (a *App) slashKey(p *chatPane, tk ui.TextKey) bool {
 		m.dismissed = text
 	default:
 		// 下一帧建输入框时填进去：那时才能把光标放到最后
-		m.pick, m.chosen = commandText(list[m.chosen]), 0
+		m.pick, m.pickAt = s.Complete(text, list[m.chosen].Name)
+		m.chosen = 0
 	}
 	return true
 }
 
-// commandText 是选了命令后输入框里的字：「/命令 」，接着打参数。
-func commandText(cmd chat.Command) string { return "/" + cmd.Name + " " }
-
-// slashInsert 把点了的那条命令填进输入框（换掉原来的「/…」），光标放在最后。
-func slashInsert(in ui.Element, p *chatPane) {
-	if p.slash.pick == "" {
-		return
+// slashInsert 把选了的命令填进输入框（换掉光标处的「/…」），光标放在命令后面的空格之后；再记下这一帧的光标。
+func slashInsert(c *ui.Context, in ui.Element, p *chatPane) {
+	m := &p.slash
+	if m.pick != "" {
+		in.ReplaceText(0, utf8.RuneCountInString(p.draft), m.pick)
+		in.SetTextSelection(m.pickAt, m.pickAt)
+		in.Focus() // 点了列表里的一条，接着在输入框里打参数
+		m.pick = ""
 	}
-	in.ReplaceText(0, utf8.RuneCountInString(p.draft), p.slash.pick)
-	n := utf8.RuneCountInString(p.slash.pick)
-	in.SetTextSelection(n, n)
-	in.Focus() // 点了列表里的一条，接着在输入框里打参数
-	p.slash.pick = ""
+	caret := -1
+	if start, end := in.TextSelection(); start == end {
+		caret = start
+	}
+	if m.caretIn(p.draft) != caret {
+		// 光标只挪了（方向键、点一下）：这一帧的列表是按旧的光标算的，再建一帧
+		c.Invalidate()
+	}
+	m.caret, m.caretText = caret, p.draft
 }
 
 // slashCommandHeight 是提示列表最高多少（同 Composer.kt 的 232dp），再多时在里面滚。
@@ -83,7 +103,7 @@ const slashCommandHeight = 232
 
 // slashList 是输入框上方的斜杠命令提示，下面一条分隔线；不该列时什么也不画。
 func (a *App) slashList(c *ui.Context, p *chatPane) {
-	list := a.suggestions(p, p.draft)
+	s, list := a.suggestions(p, p.draft, p.slash.caretIn(p.draft))
 	if len(list) == 0 {
 		p.slash.chosen = 0
 		return
@@ -99,7 +119,7 @@ func (a *App) slashList(c *ui.Context, p *chatPane) {
 					row.ScrollIntoView()
 					m.reveal = false
 				}
-				row.OnClick(func() { m.pick, m.chosen = commandText(cmd), 0 })
+				row.OnClick(func() { m.pick, m.pickAt = s.Complete(p.draft, cmd.Name); m.chosen = 0 })
 			}
 		})
 	})
