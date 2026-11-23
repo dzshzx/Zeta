@@ -281,7 +281,7 @@ jobs:
     needs: [version, sign]
     if: ${{ !cancelled() && !inputs.dry_run && needs.sign.result == 'success' }}
     runs-on: ubuntu-latest
-    timeout-minutes: 30 # 含等本机的 R8 冒烟测试，最多 20 分钟
+    timeout-minutes: 30 # 含等本机的 R8 冒烟测试（tools/release/smoke.go 的 smokeWait，这里留了余量）
     permissions:
       contents: write
       statuses: read # 读 ship 记下的 R8 冒烟测试结果

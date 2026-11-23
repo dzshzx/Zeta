@@ -61,9 +61,29 @@ func badging(pkg, code, name string) string {
 		"' platformBuildVersionName='17' platformBuildVersionCode='37'\nminSdkVersion:'35'\n"
 }
 
-// fakeCommands 替换掉 command：调用记成「程序名 参数…」，按最长的前缀找 answers 里的回答，没有就回空。
-// 回答以 "!" 开头时当作失败。
+// fakeCommands 替换掉 command：调用记成「程序名 参数…」，按最长的前缀找 answers 里的回答（随时读，测试中途改了也算），
+// 没有就回空。回答以 "!" 开头时当作失败。
 func fakeCommands(t *testing.T, answers map[string]string) *[]string {
+	t.Helper()
+	return fakeWith(t, func(call string) string { return answers[longestPrefix(call, answers)] })
+}
+
+// fakeSequence 同 fakeCommands，同一前缀的调用依次给 answers 里的回答，用完了一直给最后一个。
+func fakeSequence(t *testing.T, answers map[string][]string) *[]string {
+	t.Helper()
+	asked := map[string]int{}
+	return fakeWith(t, func(call string) string {
+		key := longestPrefix(call, answers)
+		list := answers[key]
+		if len(list) == 0 {
+			return ""
+		}
+		defer func() { asked[key]++ }()
+		return list[min(asked[key], len(list)-1)]
+	})
+}
+
+func fakeWith(t *testing.T, answer func(call string) string) *[]string {
 	t.Helper()
 	saved := command
 	t.Cleanup(func() { command = saved })
@@ -71,18 +91,24 @@ func fakeCommands(t *testing.T, answers map[string]string) *[]string {
 	command = func(name string, args ...string) (string, error) {
 		call := filepath.Base(name) + " " + strings.Join(args, " ")
 		calls = append(calls, call)
-		best, out := -1, ""
-		for key, answer := range answers {
-			if strings.HasPrefix(call, key) && len(key) > best {
-				best, out = len(key), answer
-			}
-		}
+		out := answer(call)
 		if msg, failed := strings.CutPrefix(out, "!"); failed {
 			return "", errors.New(msg)
 		}
 		return out, nil
 	}
 	return &calls
+}
+
+// longestPrefix 是 answers 的键里作为 call 前缀最长的那个，没有就是空串。
+func longestPrefix[V any](call string, answers map[string]V) string {
+	best := ""
+	for key := range answers {
+		if strings.HasPrefix(call, key) && len(key) > len(best) {
+			best = key
+		}
+	}
+	return best
 }
 
 // fakeRepo 在临时目录里摆一个最小的仓（tools/release/go.mod、app/build.gradle.kts、登记的证书、lineage）

@@ -8,52 +8,31 @@ import (
 	"time"
 )
 
-// noWait 让等待的循环不真的睡：每「睡」一次时钟往前拨 step（经 smokeWait 的截止判断用真时间，所以把截止压到 0）。
-func noWait(t *testing.T) {
+// noWait 让等待的循环不真的睡，publish 等冒烟测试的上限设成 wait（0 是查一次就到截止）。
+func noWait(t *testing.T, wait time.Duration) {
 	t.Helper()
 	savedSleep, savedWait := sleep, smokeWait
 	t.Cleanup(func() { sleep, smokeWait = savedSleep, savedWait })
-	sleep = func(time.Duration) {}
-}
-
-// sequence 替换掉 command：按前缀认调用，同一前缀依次给 answers 里的回答，用完了一直给最后一个。
-func sequence(t *testing.T, prefix string, answers ...string) *[]string {
-	t.Helper()
-	saved := command
-	t.Cleanup(func() { command = saved })
-	var calls []string
-	n := 0
-	command = func(name string, args ...string) (string, error) {
-		call := name + " " + strings.Join(args, " ")
-		calls = append(calls, call)
-		if !strings.HasPrefix(call, prefix) {
-			return "", nil
-		}
-		a := answers[min(n, len(answers)-1)]
-		n++
-		return a, nil
-	}
-	return &calls
+	sleep, smokeWait = func(time.Duration) {}, wait
 }
 
 func TestWaitSmoke(t *testing.T) {
-	noWait(t)
 	status := "gh api repos/o/r/commits/c0ffee/status"
-	smokeWait = time.Hour
-	sequence(t, status, "", "pending", "success")
+	noWait(t, time.Hour)
+	fakeSequence(t, map[string][]string{status: {"", "pending", "success"}})
 	if err := waitSmoke("o/r", "c0ffee"); err != nil {
 		t.Errorf("还没有、在跑、通过：%v", err)
 	}
-	sequence(t, status, "pending", "failure")
+	fakeSequence(t, map[string][]string{status: {"pending", "failure"}})
 	if err := waitSmoke("o/r", "c0ffee"); err == nil || !strings.Contains(err.Error(), "没过") {
 		t.Errorf("没过的不发布：%v", err)
 	}
-	smokeWait = 0
-	sequence(t, status, "")
+	noWait(t, 0)
+	fakeCommands(t, map[string]string{status: ""})
 	if err := waitSmoke("o/r", "c0ffee"); err == nil || !strings.Contains(err.Error(), "tools/release ship") {
 		t.Errorf("一直没有结果（没经 ship）不发布：%v", err)
 	}
-	sequence(t, status, "pending")
+	fakeCommands(t, map[string]string{status: "pending"})
 	if err := waitSmoke("o/r", "c0ffee"); err == nil || !strings.Contains(err.Error(), "还没出结果") {
 		t.Errorf("等到截止还在跑不发布：%v", err)
 	}
@@ -86,6 +65,19 @@ func TestSmokeOnce(t *testing.T) {
 	calls = fakeCommands(t, map[string]string{})
 	if err := smokeOnce("/r", "o/r", "c0ffee"); err == nil || !slices.Equal(statuses(*calls), []string{"pending", "failure"}) {
 		t.Errorf("没过的记失败并报错：err %v，记了 %v", err, statuses(*calls))
+	}
+}
+
+func TestStartReleaseFindsRun(t *testing.T) {
+	noWait(t, 0)
+	fakeCommands(t, map[string]string{"gh workflow run": "https://github.com/o/r/actions/runs/45099284668"})
+	if id, err := startRelease("o/r", "c0ffee", "patch", "self-hosted"); err != nil || id != "45099284668" {
+		t.Errorf("从 gh 打印的地址取：%q %v", id, err)
+	}
+	at := time.Now().UTC().Format(time.RFC3339)
+	calls := fakeSequence(t, map[string][]string{"gh run list": {"", "7\t" + at}})
+	if id, err := startRelease("o/r", "c0ffee", "patch", "self-hosted"); err != nil || id != "7" {
+		t.Errorf("没打印地址时等它出现在列表里：%q %v，calls %q", id, err, *calls)
 	}
 }
 
@@ -127,8 +119,7 @@ func TestShipTargetNeedsCleanCheckout(t *testing.T) {
 }
 
 func TestPublishWaitsForSmoke(t *testing.T) {
-	noWait(t)
-	smokeWait = 0
+	noWait(t, 0)
 	dir, _ := writeSample(t)
 	t.Setenv("GITHUB_SHA", "c0ffee")
 	t.Setenv("GITHUB_REPOSITORY", "o/r")

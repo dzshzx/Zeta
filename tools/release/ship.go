@@ -7,15 +7,12 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"regexp"
 	"strings"
 	"time"
 )
 
-var (
-	shipRecheck  = 20 * time.Second
-	shipRunWait  = 90 * time.Minute
-	shipFindWait = 2 * time.Minute
-)
+var runURL = regexp.MustCompile(`/actions/runs/(\d+)`)
 
 // runSmoke 在仓根跑 R8 冒烟测试（docs/release.md「发版」），输出直接给终端。测试里替换掉。
 var runSmoke = func(root string) error {
@@ -99,15 +96,7 @@ func shipTarget(root string, needCheckout bool) (repo, sha string, err error) {
 }
 
 func printPreview(p plan, sha string) error {
-	tags, err := git("tag", "--list", "v*")
-	if err != nil {
-		return err
-	}
-	previous, err := previousTag(strings.Fields(tags), p.version)
-	if err != nil {
-		return err
-	}
-	titles, err := commitTitles(previous, sha)
+	previous, titles, err := releaseNotes(p.version, sha)
 	if err != nil {
 		return err
 	}
@@ -116,27 +105,24 @@ func printPreview(p plan, sha string) error {
 	return nil
 }
 
-// startRelease 触发 release.yml，返回这次运行的编号：触发之后、在这个提交上手动触发的那一个。
+// startRelease 触发 release.yml，返回这次运行的编号：gh 打印了运行的地址就从里面取（同 fleet-state 的 rollout），
+// 没打印时找触发之后、在这个提交上手动触发的最新一个。
 func startRelease(repo, sha, bump, runner string) (string, error) {
-	since := time.Now().Add(-10 * time.Second).UTC()
-	if _, err := gh("workflow", "run", "release.yml", "--repo", repo, "--ref", "master", "-f", "bump="+bump, "-f", "runner="+runner); err != nil {
+	since := time.Now().Add(-time.Minute).UTC()
+	out, err := gh("workflow", "run", "release.yml", "--repo", repo, "--ref", "master", "-f", "bump="+bump, "-f", "runner="+runner)
+	if err != nil {
 		return "", err
 	}
-	deadline := time.Now().Add(shipFindWait)
-	for {
+	if m := runURL.FindStringSubmatch(out); m != nil {
+		return m[1], nil
+	}
+	id := ""
+	return id, poll(2*time.Minute, 5*time.Second, func() (bool, error) {
 		out, err := gh("run", "list", "--repo", repo, "--workflow", "release.yml", "--event", "workflow_dispatch",
 			"--commit", sha, "--json", "databaseId,createdAt", "--jq", `.[] | "\(.databaseId)\t\(.createdAt)"`)
-		if err != nil {
-			return "", err
-		}
-		if id := newestRun(out, since); id != "" {
-			return id, nil
-		}
-		if time.Now().After(deadline) {
-			return "", errors.New("触发了 release.yml，但没找到这次的运行")
-		}
-		sleep(shipRecheck / 4)
-	}
+		id = newestRun(out, since)
+		return id != "", err
+	}, func() error { return errors.New("触发了 release.yml，但没找到这次的运行") })
 }
 
 // newestRun 从「编号\t创建时间」各行里挑 since 之后创建的最新一个。
@@ -175,28 +161,23 @@ func smokeOnce(root, repo, sha string) error {
 
 // waitRun 等 release.yml 跑完，打印各个 job 的结果；没成功就报错。
 func waitRun(repo, run string) error {
-	deadline := time.Now().Add(shipRunWait)
-	for {
-		out, err := gh("run", "view", run, "--repo", repo, "--json", "status,conclusion", "--jq", `"\(.status)\t\(.conclusion)"`)
-		if err != nil {
-			return err
-		}
-		status, conclusion, _ := strings.Cut(out, "\t")
-		if status == "completed" {
-			jobs, err := gh("run", "view", run, "--repo", repo, "--json", "jobs", "--jq", `.jobs[] | "  \(.name)：\(.conclusion)"`)
-			if err == nil {
-				fmt.Fprintln(os.Stderr, jobs)
-			}
-			if conclusion != "success" {
-				return fmt.Errorf("release.yml 没成功（%s）：修好后重跑 ship，能续上", conclusion)
-			}
-			return nil
-		}
-		if time.Now().After(deadline) {
-			return fmt.Errorf("等了 %v，release.yml 还没跑完", shipRunWait)
-		}
-		sleep(shipRecheck)
+	var status, conclusion, jobs string
+	err := poll(90*time.Minute, 20*time.Second, func() (bool, error) {
+		out, err := gh("run", "view", run, "--repo", repo, "--json", "status,conclusion,jobs",
+			"--jq", `"\(.status)\t\(.conclusion)\t" + ([.jobs[] | "  \(.name)：\(.conclusion)"] | join("\n"))`)
+		var rest string
+		status, rest, _ = strings.Cut(out, "\t")
+		conclusion, jobs, _ = strings.Cut(rest, "\t")
+		return status == "completed", err
+	}, func() error { return fmt.Errorf("release.yml 还没跑完（%s）", status) })
+	if err != nil {
+		return err
 	}
+	fmt.Fprintln(os.Stderr, jobs)
+	if conclusion != "success" {
+		return fmt.Errorf("release.yml 没成功（%s）：修好后重跑 ship，能续上", conclusion)
+	}
+	return nil
 }
 
 // checkPublished 核对发出去的：最新的 Release 是这个版本，下载下来的手机资产照 check-download 核对，出自这个提交。
@@ -214,8 +195,11 @@ func checkPublished(repo, sha, version string) error {
 		return err
 	}
 	defer os.RemoveAll(dir)
-	if _, err := gh("release", "download", tag, "--repo", repo, "--dir", dir,
-		"--pattern", "Zeta-v*.apk", "--pattern", "Zeta-v*.apk.sha256", "--pattern", updateFile); err != nil {
+	download := []string{"release", "download", tag, "--repo", repo, "--dir", dir}
+	for _, name := range assetNames(version, false) {
+		download = append(download, "--pattern", name)
+	}
+	if _, err := gh(download...); err != nil {
 		return err
 	}
 	u, _, err := checkDownload(dir)

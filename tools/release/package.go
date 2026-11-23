@@ -65,6 +65,19 @@ func formatNotes(titles []string) string {
 	return strings.Join(lines, "\n")
 }
 
+// releaseNotes 是 version 这一版的发版说明：上一个正式版的 tag 和它之后到 commit 为止的提交标题（package 和 ship -preview 共用）。
+func releaseNotes(version, commit string) (previous string, titles []string, err error) {
+	tags, err := git("tag", "--list", "v*")
+	if err != nil {
+		return "", nil, err
+	}
+	if previous, err = previousTag(strings.Fields(tags), version); err != nil {
+		return "", nil, err
+	}
+	titles, err = commitTitles(previous, commit)
+	return previous, titles, err
+}
+
 // commitTitles 是上一个正式版的 tag 之后、到 commit 为止的提交标题，旧的在前；没有上一个 tag 时数全部历史。
 func commitTitles(previous, commit string) ([]string, error) {
 	span := commit
@@ -275,15 +288,7 @@ func runPackage(args []string) error {
 	if err := emptyDir(*out); err != nil {
 		return err
 	}
-	tags, err := git("tag", "--list", "v*")
-	if err != nil {
-		return err
-	}
-	previous, err := previousTag(strings.Fields(tags), *version)
-	if err != nil {
-		return err
-	}
-	titles, err := commitTitles(previous, *commit)
+	_, titles, err := releaseNotes(*version, *commit)
 	if err != nil {
 		return err
 	}
