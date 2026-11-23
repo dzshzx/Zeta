@@ -1,5 +1,6 @@
 package com.dzshzx.zeta.core
 
+import com.dzshzx.zeta.i18n.UiLanguage
 import java.time.OffsetDateTime
 import java.time.ZoneId
 import kotlinx.serialization.json.Json
@@ -26,9 +27,9 @@ class QuotaTest {
         obj(
             """
         {"windows":[
-           {"kind":"session","group":"session","used":0.31,"resetsAt":"2026-11-18T13:05:10Z","severity":"normal","label":"5 小时"},
+           {"kind":"session","group":"session","used":0.31,"resetsAt":"2026-11-18T13:05:10Z","severity":"normal","label":"5 小时","labelCode":"quotaSession"},
            {"kind":"weekly_all","group":"weekly","used":0.86,"resetsAt":"2026-11-21T17:00:00.685462Z","severity":"warning","active":true,"label":"每周 · 全部模型"},
-           {"kind":"weekly_scoped","group":"weekly","scope":"Fable","used":0.78,"severity":"critical","label":"每周 · Fable"}],
+           {"kind":"weekly_scoped","group":"weekly","scope":"Fable","used":0.78,"severity":"critical","label":"每周 · Fable","labelCode":"quotaWeeklyScoped"}],
          "extra":{"enabled":true,"usedMinor":1234,"limitMinor":5000,"currency":"USD","used":0.25},
          "subscription":"max","blocked":true,"blockedUntil":"2026-11-18T20:05:10+08:00",
          "updatedAt":"2026-11-18T07:00:00.123456789+08:00"}
@@ -41,6 +42,16 @@ class QuotaTest {
         assertEquals(listOf("session", "weekly_all", "weekly_scoped"), s.windows.map { it.kind })
         // 名字、紧张程度都是核心给的
         assertEquals(listOf("5 小时", "每周 · 全部模型", "每周 · Fable"), s.windows.map { it.label })
+        // 有种类码的按界面语言出字，没有的照核心给的名字
+        UiLanguage.current = UiLanguage.ENGLISH
+        try {
+            assertEquals(
+                listOf("5-hour", "每周 · 全部模型", "Weekly · Fable"),
+                s.windows.map { it.labelSaid() },
+            )
+        } finally {
+            UiLanguage.current = UiLanguage.SOURCE
+        }
         assertEquals(
             listOf(QuotaSeverity.Normal, QuotaSeverity.Warning, QuotaSeverity.Critical),
             s.windows.map { it.severity },

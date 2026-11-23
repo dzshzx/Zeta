@@ -2,6 +2,7 @@ package com.dzshzx.zeta.core
 
 import android.app.Application
 import androidx.test.core.app.ApplicationProvider
+import com.dzshzx.zeta.i18n.UiLanguage
 import com.dzshzx.zeta.shots.Fixtures
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.jsonObject
@@ -41,6 +42,25 @@ class SessionListTest {
         assertFalse(parsed(""","live":false""").live)
         assertTrue(parsed(""","live":true""").live)
         assertTrue(parsed("").live)
+    }
+
+    /** 第一句话只有图时预览是核心写的，带种类码，按界面语言出字；用户原话照原样。 */
+    @Test
+    fun imageOnlyPreviewIsSaidInTheUiLanguage() {
+        val o =
+            Json.parseToJsonElement(
+                    """{"id":"s1","file":"/f/s1.jsonl","preview":"[图片]","preview_code":"previewImage"}""",
+                )
+                .jsonObject
+        val image = sessionSummaryOf(o, Backends.LOCAL)!!
+        assertEquals("[图片]", image.shownPreview)
+        UiLanguage.current = UiLanguage.ENGLISH
+        try {
+            assertEquals("[Image]", image.shownPreview)
+            assertEquals("你好", image.copy(preview = "你好", previewCode = "").shownPreview)
+        } finally {
+            UiLanguage.current = UiLanguage.SOURCE
+        }
     }
 
     /** 自动起的标题先记着：在它写进会话记录之前读到的列表用记着的，读到写进去的以后就不再替它补。 */

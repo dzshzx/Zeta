@@ -200,8 +200,7 @@ class TurnAlerts internal constructor(private val hub: ConversationHub) : TurnEv
      */
     private fun endText(conversation: Conversation, text: String): String {
         val tasks = conversation.backgroundTasks
-        return if (tasks > 0 && (text == DONE || text == Strings.coreTurnDone()))
-            Strings.coreTurnDoneWithTasks(tasks)
+        return if (tasks > 0 && text == Strings.coreTurnDone()) Strings.coreTurnDoneWithTasks(tasks)
         else text
     }
 
@@ -314,12 +313,6 @@ class TurnAlerts internal constructor(private val hub: ConversationHub) : TurnEv
     internal class FocusCandidate(val focus: OverlayFocus, val usedAt: Long)
 
     internal companion object {
-        /**
-         * 一轮正常结束时核心给的那句（核心按源语言写）：只用来认，不显示；Conversation 自己补的是按界面语言的
-         * [Strings.coreTurnDone]。核心改发种类码后改按码认。
-         */
-        private const val DONE = "已完成"
-
         /** 几个候选里胶囊显示哪个：接管着的优先，其余取最近用手机的；没有候选时为 null。 */
         fun choose(candidates: List<FocusCandidate>): OverlayFocus? =
             candidates

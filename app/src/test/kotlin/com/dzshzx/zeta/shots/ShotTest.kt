@@ -24,6 +24,7 @@ import androidx.compose.ui.test.performScrollTo
 import androidx.compose.ui.test.performScrollToNode
 import androidx.test.core.app.ApplicationProvider
 import androidx.test.ext.junit.rules.ActivityScenarioRule
+import com.dzshzx.zeta.i18n.UiLanguage
 import com.dzshzx.zeta.ui.app.ZetaTheme
 import com.github.takahirom.roborazzi.RoborazziOptions
 import com.github.takahirom.roborazzi.RoborazziTaskType
@@ -65,6 +66,8 @@ abstract class ShotTest {
                 val app = ApplicationProvider.getApplicationContext<Application>()
                 Shadows.shadowOf(app.packageManager)
                     .addActivityIfNotPresent(ComponentName(app, ComponentActivity::class.java))
+                // tools/shots --lang：整批按这种界面语言画（Application 起来时定成了简体中文）
+                lang?.let { UiLanguage.current = it }
             }
         }
 
@@ -102,7 +105,7 @@ abstract class ShotTest {
             settle(settleMs)
             capture(
                 if (target != null) compose.onNode(target) else compose.onRoot(),
-                "$name-${if (mode) "dark" else "light"}",
+                "$name${lang?.let { "-$it" }.orEmpty()}-${if (mode) "dark" else "light"}",
             )
         }
     }
@@ -182,5 +185,9 @@ abstract class ShotTest {
 
     companion object {
         val shotsDir: File = File(System.getProperty("zeta.shots.dir") ?: "build/shots")
+
+        /** tools/shots --lang 给的界面语言（构建参数 zeta.shots.lang）；没给时为 null，用测试默认的简体中文。 */
+        val lang: String? =
+            System.getProperty("zeta.shots.lang")?.takeIf { it in UiLanguage.supported }
     }
 }

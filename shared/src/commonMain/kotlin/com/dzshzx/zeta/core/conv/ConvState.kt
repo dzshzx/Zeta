@@ -33,6 +33,8 @@ import com.dzshzx.zeta.core.modelOption
 import com.dzshzx.zeta.core.obj
 import com.dzshzx.zeta.core.parseSlashCommands
 import com.dzshzx.zeta.core.str
+import com.dzshzx.zeta.i18n.CoreMsg
+import com.dzshzx.zeta.i18n.coreSaid
 import kotlinx.serialization.json.JsonArray
 import kotlinx.serialization.json.JsonElement
 import kotlinx.serialization.json.JsonObject
@@ -58,8 +60,11 @@ data class ConvState(
     val process: Boolean = false,
     /** 在回答。 */
     val busy: Boolean = false,
-    /** 等待指示旁的一句，比如正在重试。 */
+    /** 等待指示旁的一句，比如正在重试（源语言；有 [statusCode] 时按它出字，见 [statusSaid]）。 */
     val status: String = "",
+    /** [status] 的种类码和参数（docs/i18n.md「核心种类码清单」）；没有时为空。 */
+    val statusCode: String = "",
+    val statusArgs: JsonObject? = null,
     /** 会话正被 Zeta 之外的进程占着。 */
     val blocked: Boolean = false,
     /** [blocked] 时占着会话的那个进程的样子（核心每 3 秒查一次，变了才推）；不 blocked 或还没查到时为 null。 */
@@ -102,7 +107,10 @@ data class ConvState(
     val modelFromSession: Boolean = false,
     /** 接着的托管进程的标识（托管目录 hosts/<它>），没接着进程时为 null。 */
     val hostKey: String? = null,
-)
+) {
+    /** 等待指示旁的一句用界面语言说出来；没有时是空串。 */
+    fun statusSaid(): String = coreSaid(statusCode, statusArgs, status)
+}
 
 /**
  * 权限模式（conv.state 的 mode）：[user] 是用户选的，[process] 是进程此刻实际在用的（计划模式批准后等会变），[shown] 是输入栏显示的
@@ -137,6 +145,8 @@ private val fieldReaders: Map<String, FieldReader> =
         "process" to { s, v -> s.copy(process = v.flag()) },
         "busy" to { s, v -> s.copy(busy = v.flag()) },
         "status" to { s, v -> s.copy(status = v.text().orEmpty()) },
+        "status_code" to { s, v -> s.copy(statusCode = v.text().orEmpty()) },
+        "status_args" to { s, v -> s.copy(statusArgs = v as? JsonObject) },
         "blocked" to { s, v -> s.copy(blocked = v.flag()) },
         "occupant" to { s, v -> s.copy(occupant = (v as? JsonObject)?.let(Occupant::of)) },
         "loading_history" to { s, v -> s.copy(loadingHistory = v.flag()) },
@@ -213,6 +223,7 @@ private fun todoListOf(entries: List<JsonObject>): TodoList? =
                 key = it.str("key").orEmpty(),
                 content = it.str("content").orEmpty(),
                 activeForm = it.str("active_form").orEmpty(),
+                contentCode = it.str("content_code").orEmpty(),
                 status =
                     when (it.str("status")) {
                         "in_progress" -> TodoStatus.InProgress
@@ -254,6 +265,7 @@ internal fun taskOutputOf(o: JsonObject): TaskOutput =
         totalBytes = o.long("total_bytes") ?: 0,
         truncated = o.bool("truncated") == true,
         error = o.textOrNull("error"),
+        errorCode = o.str("error_code").orEmpty(),
     )
 
 /** 用量（helper/usage/snapshot.go 的 Usage）：合计、费用、比例、提醒档位都照核心算好的读。 */
@@ -311,11 +323,18 @@ internal fun userPromptOf(o: JsonObject): UserPrompt? {
                 questions =
                     o.arr("questions").orEmpty().filterIsInstance<JsonObject>().map(::questionOf),
                 suggestionLines = o.strings("suggestion_lines"),
+                suggestionMsgs =
+                    o.arr("suggestion_msgs").orEmpty().map {
+                        (it as? JsonObject)?.let(CoreMsg::of) ?: CoreMsg("")
+                    },
                 reason = o.textOrNull("reason"),
                 agentLabel = o.textOrNull("agent_label"),
+                agentLabelCode = o.str("agent_label_code").orEmpty(),
                 toolUseId = o.textOrNull("tool_use_id"),
                 isPlan = o.bool("is_plan") == true,
                 notice = o.str("notice").orEmpty(),
+                noticeCode = o.str("notice_code").orEmpty(),
+                noticeArgs = o.obj("notice_args"),
                 asksInput = o.bool("asks_input") == true,
             )
         "elicitation" ->
@@ -327,6 +346,8 @@ internal fun userPromptOf(o: JsonObject): UserPrompt? {
                 fields =
                     o.arr("fields").orEmpty().filterIsInstance<JsonObject>().map(::elicitFieldOf),
                 notice = o.str("notice").orEmpty(),
+                noticeCode = o.str("notice_code").orEmpty(),
+                noticeArgs = o.obj("notice_args"),
                 asksInput = o.bool("asks_input") != false,
             )
         else -> null
@@ -373,7 +394,16 @@ private fun elicitFieldOf(o: JsonObject): ElicitField =
 
 /** conv.turn：一轮的起止。[outcome]、[text] 只有结束时才有。 */
 @Immutable
-data class ConvTurn(val finished: Boolean, val outcome: Outcome? = null, val text: String = "") {
+data class ConvTurn(
+    val finished: Boolean,
+    val outcome: Outcome? = null,
+    val text: String = "",
+    /** [text] 的种类码（turnDone 等，和 [outcome] 一一对应）；旧核心不带时为空。 */
+    val code: String = "",
+) {
+    /** 结局那一句用界面语言说出来。 */
+    fun said(): String = coreSaid(code, null, text)
+
     enum class Outcome {
         Done,
         Stopped,
@@ -388,6 +418,7 @@ internal fun convTurnOf(o: JsonObject): ConvTurn =
         finished = o.str("phase") == "finished",
         outcome = ConvTurn.Outcome.entries.firstOrNull { it.name.lowercase() == o.str("outcome") },
         text = o.str("text").orEmpty(),
+        code = o.str("code").orEmpty(),
     )
 
 /** conv.subagent 里的 meta：子代理记录旁 meta.json 里界面要的几项。 */

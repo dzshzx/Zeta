@@ -1,6 +1,8 @@
 package com.dzshzx.zeta.core
 
 import androidx.compose.runtime.Immutable
+import com.dzshzx.zeta.i18n.CoreMsg
+import com.dzshzx.zeta.i18n.coreSaid
 import kotlinx.serialization.json.JsonObject
 
 /*
@@ -14,11 +16,18 @@ import kotlinx.serialization.json.JsonObject
 sealed interface UserPrompt {
     val requestId: String
 
-    /** 通知里的一句：在等什么。 */
+    /** 通知里的一句：在等什么（源语言；有 [noticeCode] 时按它出字，见 [noticeSaid]）。 */
     val notice: String
+
+    /** [notice] 的种类码和参数（docs/i18n.md「核心种类码清单」）；没有时为空。 */
+    val noticeCode: String
+    val noticeArgs: JsonObject?
 
     /** 要用户回答（提问、MCP 表单），不只是点允许或拒绝。胶囊据此说“需要你回答”还是“需要你确认”。 */
     val asksInput: Boolean
+
+    /** 通知里的那一句用界面语言说出来。 */
+    fun noticeSaid(): String = coreSaid(noticeCode, noticeArgs, notice)
 }
 
 @Immutable
@@ -41,19 +50,33 @@ data class PermissionRequest(
     val toolName: String,
     val input: JsonObject,
     val questions: List<Question> = emptyList(),
-    /** “以后不再问”会做的几件事，逐条的大白话；空的时候不给这个选项。 */
+    /** “以后不再问”会做的几件事，逐条的大白话（源语言，界面用 [suggestionLinesSaid]）；空的时候不给这个选项。 */
     val suggestionLines: List<String> = emptyList(),
+    /** 同样的几句的种类码和参数（suggestion_msgs），和 [suggestionLines] 一一对应；旧核心不带时是空的。 */
+    val suggestionMsgs: List<CoreMsg> = emptyList(),
     /** Claude Code 说明为什么要问（decision_reason），没有时为 null。 */
     val reason: String? = null,
     /** 后台子代理发起的：确认框上它的叫法（核心给的 agent_label，找不到说明时是「后台子代理」）；主对话发起的为 null。 */
     val agentLabel: String? = null,
+    /** [agentLabel] 用的是兜底叫法时它的种类码；用的是 Agent 调用的说明（原文）时为空。 */
+    val agentLabelCode: String = "",
     /** 要批准的那次工具调用（tool_use_id）。 */
     val toolUseId: String? = null,
     /** 这是计划审批（ExitPlanMode）。 */
     val isPlan: Boolean = false,
     override val notice: String = "",
+    override val noticeCode: String = "",
+    override val noticeArgs: JsonObject? = null,
     override val asksInput: Boolean = false,
-) : UserPrompt
+) : UserPrompt {
+    /** “以后不再问”的几句用界面语言说出来；种类码和文字对不上条数时照文字。 */
+    fun suggestionLinesSaid(): List<String> =
+        if (suggestionMsgs.size != suggestionLines.size) suggestionLines
+        else suggestionMsgs.zip(suggestionLines) { msg, line -> msg.said(line) }
+
+    /** 后台子代理的叫法用界面语言说出来；主对话发起的为 null。 */
+    fun agentLabelSaid(): String? = agentLabel?.let { coreSaid(agentLabelCode, null, it) }
+}
 
 /** MCP 服务器的 elicitation：[url] 不为 null 时是网址模式（去网页上做），否则是表单，[fields] 是要填的各项。 */
 @Immutable
@@ -64,6 +87,8 @@ data class ElicitationRequest(
     val url: String? = null,
     val fields: List<ElicitField> = emptyList(),
     override val notice: String = "",
+    override val noticeCode: String = "",
+    override val noticeArgs: JsonObject? = null,
     override val asksInput: Boolean = true,
 ) : UserPrompt
 

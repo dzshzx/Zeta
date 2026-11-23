@@ -35,7 +35,7 @@ fun exportName(sessions: List<SessionSummary>): String =
         exportFileName(
             sessions[0]
                 .title
-                .ifBlank { sessions[0].preview.take(40) }
+                .ifBlank { sessions[0].shownPreview.take(40) }
                 .ifBlank { Strings.sidebarUntitled() },
         )
     } else {

@@ -693,7 +693,7 @@ private fun stepSummary(step: WorkStep): StepSummary =
             StepSummary(
                 presentation.icon,
                 presentation.title,
-                toolDetail(presentation.detail, step.result),
+                toolDetail(presentation.detail, step.resultSaid()),
                 step.status,
             )
         }

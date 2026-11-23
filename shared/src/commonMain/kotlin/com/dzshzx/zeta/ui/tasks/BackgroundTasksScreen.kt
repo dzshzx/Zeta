@@ -449,7 +449,7 @@ private fun outputText(output: TaskOutput?, text: String?, processAlive: Boolean
     when {
         output == null ->
             if (processAlive) Strings.tasksOutputLoading() else Strings.tasksOutputProcessGone()
-        output.error != null -> Strings.tasksOutputFailed(output.error)
+        output.error != null -> Strings.tasksOutputFailed(output.errorSaid().orEmpty())
         text.isNullOrEmpty() -> Strings.tasksOutputEmpty()
         else -> text
     }

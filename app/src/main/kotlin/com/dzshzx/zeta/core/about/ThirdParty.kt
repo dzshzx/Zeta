@@ -2,6 +2,7 @@ package com.dzshzx.zeta.core.about
 
 import android.content.Context
 import androidx.compose.runtime.Immutable
+import com.dzshzx.zeta.i18n.Strings
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.json.Json
 
@@ -40,7 +41,7 @@ internal data class Part(
  * - Maven 依赖（[maven]）：构建时 licensee 从这个变体的运行时依赖生成 assets 的 [REPORT]，许可证不在 app/build.gradle.kts
  *   的允许名单里就构建失败。POM 只写了许可证网址的，按 [LICENSE_URLS] 认成 SPDX 标识；版权行和 POM 写得不准的地方在 [MAVEN_NOTES] 补。
  * - 不在 Maven 上的（[BUNDLED]）：手写，ThirdPartyTest 核对它们和仓里的实际情况一致（go.mod、版本目录、字体、拷来的文件）。 仓根
- *   THIRD_PARTY.md 由 ThirdPartyTest 从这两部分生成，和应用里显示的是同一份。
+ *   THIRD_PARTY.md 由 ThirdPartyTest 从这两部分生成（简体中文），和应用里显示的是同一份。手写条目的名字和说明按界面语言出字，所以这几张清单每次取都现做。
  */
 internal object ThirdParty {
     const val REPORT = "licenses/artifacts.json"
@@ -162,13 +163,13 @@ internal object ThirdParty {
      * 往下数（不算只在编译时用的过程宏和只给 Windows 的），标准库的版本取自库里留下的 rustc 版本号。 几种许可证任选的，用不要求附版权行的那种（Apache-2.0）；只能用
      * MIT 的附上版权行。
      */
-    val RATEX_RUST: List<Part> =
+    val RATEX_RUST: List<Part>
+        get() =
+            listOf(Part(Strings.thirdPartyRustStd(), "1.100.0", "MIT OR Apache-2.0")) + RATEX_CRATES
+
+    /** [RATEX_RUST] 里标准库以外的 crate。 */
+    private val RATEX_CRATES: List<Part> =
         listOf(
-            Part(
-                "Rust 标准库（core、alloc、std，含 hashbrown、gimli、addr2line、miniz_oxide、rustc-demangle）",
-                "1.100.0",
-                "MIT OR Apache-2.0",
-            ),
             Part("aho-corasick", "1.1.5", "Unlicense OR MIT", "Copyright (c) 2015 Andrew Gallant"),
             Part("bit-set", "0.8.0", "Apache-2.0 OR MIT"),
             Part("bit-vec", "0.8.0", "Apache-2.0 OR MIT"),
@@ -207,122 +208,112 @@ internal object ThirdParty {
      * zeta-helper（仓根 helper/，Go）静态链接的 Go 标准库之外的模块，和 helper/go.mod 的 require 一一对应、版本相同
      * （ThirdPartyTest 核对）。按 go.mod 的 tool 编进 APK 的程序也是 require 里的模块，一样在这里列一条。
      */
-    val GO_MODULES: List<Component> =
-        listOf(
-            Component(
-                name = "github.com/egoist/mygo",
-                version = "v0.10.0",
-                license = "MIT",
-                url = "https://github.com/egoist/mygo",
-                copyright = listOf("Copyright (c) 2026 MyGo contributors"),
-                note =
-                    "zeta-helper 只链接其中的多语言包（i18n）和它的文字数据，按客户端的界面语言出字，" +
-                        "静态链接进 assets/zeta-helper/linux-arm64、linux-amd64。",
-            ),
-            Component(
-                name = "golang.org/x/text",
-                version = "v0.44.0",
-                license = "BSD-3-Clause",
-                url = "https://go.googlesource.com/text",
-                copyright = listOf("Copyright 2009 The Go Authors."),
-                note =
-                    "Go 团队维护的文字编码库，zeta-helper 读 GB18030 文本时用，静态链接进 assets/zeta-helper/linux-arm64、linux-amd64。",
-            ),
-            Component(
-                name = "github.com/dzshzx/claude-switch",
-                version = "v0.0.3",
-                license = "MIT",
-                url = "https://github.com/dzshzx/claude-switch",
-                copyright = listOf("Copyright (c) 2026 dzshzx"),
-                note =
-                    "给 Claude Code 冷切换多个 Claude 账号的程序，账号页用它。按 helper/go.mod 的 tool 编成单独的程序（未修改），" +
-                        "打进 assets/claude-switch/linux-arm64、linux-amd64，第一次用时装进 Linux 一侧。",
-            ),
-        )
+    val GO_MODULES: List<Component>
+        get() =
+            listOf(
+                Component(
+                    name = "github.com/egoist/mygo",
+                    version = "v0.10.0",
+                    license = "MIT",
+                    url = "https://github.com/egoist/mygo",
+                    copyright = listOf("Copyright (c) 2026 MyGo contributors"),
+                    note = Strings.thirdPartyMygoNote(),
+                ),
+                Component(
+                    name = "golang.org/x/text",
+                    version = "v0.44.0",
+                    license = "BSD-3-Clause",
+                    url = "https://go.googlesource.com/text",
+                    copyright = listOf("Copyright 2009 The Go Authors."),
+                    note = Strings.thirdPartyXTextNote(),
+                ),
+                Component(
+                    name = "github.com/dzshzx/claude-switch",
+                    version = "v0.0.3",
+                    license = "MIT",
+                    url = "https://github.com/dzshzx/claude-switch",
+                    copyright = listOf("Copyright (c) 2026 dzshzx"),
+                    note = Strings.thirdPartyClaudeSwitchNote(),
+                ),
+            )
 
     /**
      * zeta-ssh（仓根 client/cmd/zeta-ssh，Go）静态链接的 Go 标准库之外的模块：client/go.mod 里直接 require 的那些，版本相同
      * （ThirdPartyTest 核对；标着 indirect 的没链接进 zeta-ssh，不列）。
      */
-    val ZETA_SSH_MODULES: List<Component> =
-        listOf(
-            Component(
-                name = "golang.org/x/crypto",
-                version = "v0.57.0",
-                license = "BSD-3-Clause",
-                url = "https://go.googlesource.com/crypto",
-                copyright = listOf("Copyright 2009 The Go Authors."),
-                note =
-                    "Go 团队维护的加密库，zeta-ssh 用它的 SSH 客户端直连远程主机（密钥交换、主机签名的核对、通道），" +
-                        "静态链接进 lib/arm64-v8a/libzeta_ssh.so。",
-            ),
-        )
+    val ZETA_SSH_MODULES: List<Component>
+        get() =
+            listOf(
+                Component(
+                    name = "golang.org/x/crypto",
+                    version = "v0.57.0",
+                    license = "BSD-3-Clause",
+                    url = "https://go.googlesource.com/crypto",
+                    copyright = listOf("Copyright 2009 The Go Authors."),
+                    note = Strings.thirdPartyXCryptoNote(),
+                ),
+            )
 
     /** 不在 Maven 依赖里、手写的条目。 */
-    val BUNDLED: List<Component> =
-        listOf(
-            Component(
-                name = "Eta",
-                version = "2026-11-21",
-                license = "GPL-3.0-only",
-                url = "https://github.com/Mangi-11/Eta",
-                copyright = listOf("Copyright © 2026 蛮吉 (Mangi-11)"),
-                note =
-                    "Zeta 的 Markdown 渲染（ui/markdown）、侧栏骨架、自适应页面布局、等宽字体的定义、对话框的接口和数字助理的浮窗是从 Eta 拷来再改写的，" +
-                        "按 GPL-3.0 使用；所以 Zeta 也按 GPL-3.0 发布。",
-                files = ETA_FILES,
-            ),
-            Component(
-                name = "JetBrains Mono NL",
-                version = "2.304",
-                license = "OFL-1.1",
-                url = "https://github.com/JetBrains/JetBrainsMono",
-                copyright =
-                    listOf(
-                        "Copyright 2020 The JetBrains Mono NL Project Authors (https://github.com/JetBrains/JetBrainsMonoNL)",
-                    ),
-                note = "代码、命令和日志用的等宽字体（无连字版的 Regular、Bold），未修改。",
-                files =
-                    listOf(
-                        "app/src/main/res/font/jetbrains_mono_regular.ttf",
-                        "app/src/main/res/font/jetbrains_mono_bold.ttf",
-                    ),
-            ),
-            Component(
-                name = "KaTeX 字体",
-                version = "随 RaTeX $RATEX_VERSION",
-                license = "OFL-1.1",
-                url = "https://github.com/KaTeX/KaTeX",
-                copyright =
-                    listOf(
-                        "Copyright (c) 2009-2010, Design Science, Inc. (<www.mathjax.org>)",
-                        "Copyright (c) 2014-2018 Khan Academy (<www.khanacademy.org>),",
-                        "with Reserved Font Names KaTeX_AMS, KaTeX_Caligraphic, KaTeX_Fraktur, KaTeX_Main, KaTeX_Math, KaTeX_SansSerif, " +
-                            "KaTeX_Script, KaTeX_Size1, KaTeX_Size2, KaTeX_Size3, KaTeX_Size4, KaTeX_Typewriter.",
-                    ),
-                note =
-                    "RaTeX $RATEX_VERSION 排公式用的字体，随它的 AAR 打进 assets/fonts/（${KATEX_FONTS.size} 个 KaTeX_*.ttf），未修改。",
-            ),
-            Component(
-                name = "RaTeX 原生库里的 Rust 代码",
-                version = "随 RaTeX $RATEX_VERSION",
-                license = "Apache-2.0 AND MIT AND Unicode-3.0",
-                url = "https://github.com/erweixin/RaTeX/blob/v$RATEX_VERSION/Cargo.lock",
-                note =
-                    "RaTeX 的原生库 lib/arm64-v8a/libratex_ffi.so 静态链接的 Rust 标准库和 crate（RaTeX 自己的代码见 RaTeX Android 一条）。",
-                parts = RATEX_RUST,
-            ),
-            Component(
-                name = "Go 标准库与运行时",
-                version = "1.27.4",
-                license = "BSD-3-Clause",
-                url = "https://go.dev/",
-                copyright = listOf("Copyright 2009 The Go Authors."),
-                note =
-                    "zeta-helper 和 claude-switch 是 Go 程序，各编成 linux 的 arm64、amd64 两份打进 assets/zeta-helper/、assets/claude-switch/；" +
-                        "直连远程主机的 zeta-ssh 也是，编成 android/arm64 打进 lib/arm64-v8a/libzeta_ssh.so。都静态链接 Go 标准库和运行时。",
-            ),
-        ) + GO_MODULES + ZETA_SSH_MODULES
+    val BUNDLED: List<Component>
+        get() =
+            listOf(
+                Component(
+                    name = "Eta",
+                    version = "2026-11-21",
+                    license = "GPL-3.0-only",
+                    url = "https://github.com/Mangi-11/Eta",
+                    copyright = listOf("Copyright © 2026 蛮吉 (Mangi-11)"),
+                    note = Strings.thirdPartyEtaNote(),
+                    files = ETA_FILES,
+                ),
+                Component(
+                    name = "JetBrains Mono NL",
+                    version = "2.304",
+                    license = "OFL-1.1",
+                    url = "https://github.com/JetBrains/JetBrainsMono",
+                    copyright =
+                        listOf(
+                            "Copyright 2020 The JetBrains Mono NL Project Authors (https://github.com/JetBrains/JetBrainsMonoNL)",
+                        ),
+                    note = Strings.thirdPartyJetBrainsMonoNote(),
+                    files =
+                        listOf(
+                            "app/src/main/res/font/jetbrains_mono_regular.ttf",
+                            "app/src/main/res/font/jetbrains_mono_bold.ttf",
+                        ),
+                ),
+                Component(
+                    name = Strings.thirdPartyKatexFonts(),
+                    version = Strings.thirdPartyWithRatex(RATEX_VERSION),
+                    license = "OFL-1.1",
+                    url = "https://github.com/KaTeX/KaTeX",
+                    copyright =
+                        listOf(
+                            "Copyright (c) 2009-2010, Design Science, Inc. (<www.mathjax.org>)",
+                            "Copyright (c) 2014-2018 Khan Academy (<www.khanacademy.org>),",
+                            "with Reserved Font Names KaTeX_AMS, KaTeX_Caligraphic, KaTeX_Fraktur, KaTeX_Main, KaTeX_Math, KaTeX_SansSerif, " +
+                                "KaTeX_Script, KaTeX_Size1, KaTeX_Size2, KaTeX_Size3, KaTeX_Size4, KaTeX_Typewriter.",
+                        ),
+                    note = Strings.thirdPartyKatexNote(RATEX_VERSION, KATEX_FONTS.size),
+                ),
+                Component(
+                    name = Strings.thirdPartyRatexRust(),
+                    version = Strings.thirdPartyWithRatex(RATEX_VERSION),
+                    license = "Apache-2.0 AND MIT AND Unicode-3.0",
+                    url = "https://github.com/erweixin/RaTeX/blob/v$RATEX_VERSION/Cargo.lock",
+                    note = Strings.thirdPartyRatexRustNote(),
+                    parts = RATEX_RUST,
+                ),
+                Component(
+                    name = Strings.thirdPartyGoStd(),
+                    version = "1.27.4",
+                    license = "BSD-3-Clause",
+                    url = "https://go.dev/",
+                    copyright = listOf("Copyright 2009 The Go Authors."),
+                    note = Strings.thirdPartyGoStdNote(),
+                ),
+            ) + GO_MODULES + ZETA_SSH_MODULES
 
     private val json = Json { ignoreUnknownKeys = true }
 

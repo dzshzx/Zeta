@@ -3,6 +3,7 @@ package com.dzshzx.zeta.i18n
 import com.dzshzx.zeta.core.platformService
 import java.util.concurrent.ConcurrentHashMap
 import kotlinx.serialization.json.Json
+import kotlinx.serialization.json.JsonArray
 import kotlinx.serialization.json.JsonElement
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.JsonPrimitive
@@ -73,9 +74,53 @@ fun interface MessageFormatter {
     }
 }
 
-/** 核心推来的参数（JSON）换成出字用的值：数是 Long 或 Double，布尔是 Boolean，别的是字符串。 */
-fun jsonArgs(args: JsonObject?): Map<String, Any?> =
-    args.orEmpty().mapValues { (_, v) -> jsonArg(v) }
+/**
+ * 核心给的一句话（种类码 [code] 和参数 [args]，docs/i18n.md「核心种类码清单」）用界面语言说出来。没有码，或码、嵌着的码这边不认识时是
+ * [fallback]：核心附带的源语言文字，或 Claude Code 的原文。
+ */
+fun coreSaid(code: String?, args: JsonObject?, fallback: String): String =
+    code?.takeIf { it.isNotEmpty() }?.let { sayCore(it, args, UiLanguage.current) } ?: fallback
+
+/** 核心给的一句话（`{code, args}`），比如确认卡「以后不再询问」的每一条（suggestion_msgs）。 */
+data class CoreMsg(val code: String, val args: JsonObject? = null) {
+    /** 用界面语言说出来；不认识这个码时是 [fallback]。 */
+    fun said(fallback: String): String = coreSaid(code, args, fallback)
+
+    companion object {
+        /** `{code, args}` 读成一句话；没有 code 时是 null。 */
+        fun of(o: JsonObject): CoreMsg? =
+            (o["code"] as? JsonPrimitive)
+                ?.takeIf { it.isString && it.content.isNotEmpty() }
+                ?.let { CoreMsg(it.content, o["args"] as? JsonObject) }
+    }
+}
+
+/** 键 [code] 在语言 [lang] 里怎么说；它或参数里嵌着的哪句话的码这边不认识时是 null。 */
+private fun sayCore(code: String, args: JsonObject?, lang: String): String? {
+    val values = args.orEmpty().mapValues { (_, v) -> coreArg(v, lang) }
+    if (values.values.any { it === Unknown }) return null
+    return CoreStrings.catalog.sayOrNull(code, values, lang)
+}
+
+/** 参数里嵌着的话不认识时的记号（整句退回源语言文字）。 */
+private object Unknown
+
+/**
+ * 出字用的参数值：嵌着的一句话（带 code 的对象）先按同一种语言说出来，几句话的数组用这种语言的顿号连起来（同 helper/locales 的 Msg.argsIn）；别的是数（Long 或
+ * Double）、布尔或字符串。
+ */
+private fun coreArg(v: JsonElement, lang: String): Any? {
+    if (v is JsonObject) {
+        val msg = CoreMsg.of(v) ?: return v.toString()
+        return sayCore(msg.code, msg.args, lang) ?: Unknown
+    }
+    if (v is JsonArray && v.isNotEmpty() && v.all { it is JsonObject && CoreMsg.of(it) != null }) {
+        val parts = v.map { coreArg(it, lang) }
+        if (parts.any { it === Unknown }) return Unknown
+        return parts.joinToString(CoreStrings.catalog.say("listSeparator", lang = lang))
+    }
+    return jsonArg(v)
+}
 
 private fun jsonArg(v: JsonElement): Any? {
     val p = v as? JsonPrimitive ?: return v.toString()

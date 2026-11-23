@@ -15497,4 +15497,165 @@ object Strings {
      * 顶栏「更多」菜单按钮的无障碍朗读。
      */
     fun componentsMore(): String = catalog.say("componentsMore")
+
+    /**
+     * 「M月d日 HH:mm」
+     *
+     * 每次开新对话的后台任务，新会话标题后面带的开始时刻：java.time 的 DateTimeFormatter 模式，按界面语言的区域设置出字。不是给人看的句子，只照所在语言的习惯改。
+     */
+    fun scheduleFreshTitleTimePattern(): String = catalog.say("scheduleFreshTitleTimePattern")
+
+    /**
+     * 「代码略」
+     *
+     * 朗读回答时代替代码块的一句（跟着回答的语言，不看界面语言）。
+     */
+    fun speechCodeOmitted(): String = catalog.say("speechCodeOmitted")
+
+    /**
+     * 「表格略」
+     *
+     * 朗读回答时代替表格的一句（跟着回答的语言）。
+     */
+    fun speechTableOmitted(): String = catalog.say("speechTableOmitted")
+
+    /**
+     * 「公式略」
+     *
+     * 朗读回答时代替块级公式的一句（跟着回答的语言）。
+     */
+    fun speechFormulaOmitted(): String = catalog.say("speechFormulaOmitted")
+
+    /**
+     * 「代码」
+     *
+     * 朗读回答时代替较长的行内代码的词（跟着回答的语言）。
+     */
+    fun speechCode(): String = catalog.say("speechCode")
+
+    /**
+     * 「公式」
+     *
+     * 朗读回答时代替带命令的行内公式的词（跟着回答的语言）。
+     */
+    fun speechFormula(): String = catalog.say("speechFormula")
+
+    /**
+     * 「链接」
+     *
+     * 朗读回答时代替网址的词（跟着回答的语言）。
+     */
+    fun speechLink(): String = catalog.say("speechLink")
+
+    /**
+     * 「已完成，{item}」
+     *
+     * 朗读回答时勾上的勾选框：item 是那一项的文字（可能为空，这时只念前面的话）。
+     */
+    fun speechTodoDone(item: String): String = catalog.say("speechTodoDone", mapOf("item" to item))
+
+    /**
+     * 「未完成，{item}」
+     *
+     * 朗读回答时没勾的勾选框：item 是那一项的文字（可能为空，这时只念前面的话）。
+     */
+    fun speechTodoOpen(item: String): String = catalog.say("speechTodoOpen", mapOf("item" to item))
+
+    /**
+     * 「Rust 标准库（core、alloc、std，含 hashbrown、gimli、addr2line、miniz_oxide、rustc-demangle）」
+     *
+     * 开源许可页 › RaTeX 原生库里的 Rust 代码：Rust 标准库那一项的名字。
+     */
+    fun thirdPartyRustStd(): String = catalog.say("thirdPartyRustStd")
+
+    /**
+     * 「zeta-helper 只链接其中的多语言包（i18n）和它的文字数据，按客户端的界面语言出字，静态链接进 assets/zeta-helper/linux-arm64、linux-amd64。」
+     *
+     * 开源许可页 mygo 一条的说明：它是什么、在 APK 的哪里。
+     */
+    fun thirdPartyMygoNote(): String = catalog.say("thirdPartyMygoNote")
+
+    /**
+     * 「Go 团队维护的文字编码库，zeta-helper 读 GB18030 文本时用，静态链接进 assets/zeta-helper/linux-arm64、linux-amd64。」
+     *
+     * 开源许可页 golang.org/x/text 一条的说明。
+     */
+    fun thirdPartyXTextNote(): String = catalog.say("thirdPartyXTextNote")
+
+    /**
+     * 「给 Claude Code 冷切换多个 Claude 账号的程序，账号页用它。按 helper/go.mod 的 tool 编成单独的程序（未修改），打进 assets/claude-switch/linux-arm64、linux-amd64，第一次用时装进 Linux 一侧。」
+     *
+     * 开源许可页 claude-switch 一条的说明。
+     */
+    fun thirdPartyClaudeSwitchNote(): String = catalog.say("thirdPartyClaudeSwitchNote")
+
+    /**
+     * 「Go 团队维护的加密库，zeta-ssh 用它的 SSH 客户端直连远程主机（密钥交换、主机签名的核对、通道），静态链接进 lib/arm64-v8a/libzeta_ssh.so。」
+     *
+     * 开源许可页 golang.org/x/crypto 一条的说明。
+     */
+    fun thirdPartyXCryptoNote(): String = catalog.say("thirdPartyXCryptoNote")
+
+    /**
+     * 「Zeta 的 Markdown 渲染（ui/markdown）、侧栏骨架、自适应页面布局、等宽字体的定义、对话框的接口和数字助理的浮窗是从 Eta 拷来再改写的，按 GPL-3.0 使用；所以 Zeta 也按 GPL-3.0 发布。」
+     *
+     * 开源许可页 Eta 一条的说明。
+     */
+    fun thirdPartyEtaNote(): String = catalog.say("thirdPartyEtaNote")
+
+    /**
+     * 「代码、命令和日志用的等宽字体（无连字版的 Regular、Bold），未修改。」
+     *
+     * 开源许可页 JetBrains Mono NL 一条的说明。
+     */
+    fun thirdPartyJetBrainsMonoNote(): String = catalog.say("thirdPartyJetBrainsMonoNote")
+
+    /**
+     * 「KaTeX 字体」
+     *
+     * 开源许可页一条的名字：RaTeX 排公式用的 KaTeX 字体。
+     */
+    fun thirdPartyKatexFonts(): String = catalog.say("thirdPartyKatexFonts")
+
+    /**
+     * 「随 RaTeX {version}」
+     *
+     * 开源许可页 KaTeX 字体、RaTeX 的 Rust 代码两条的版本：跟着 RaTeX 的版本走。
+     */
+    fun thirdPartyWithRatex(version: String): String = catalog.say("thirdPartyWithRatex", mapOf("version" to version))
+
+    /**
+     * 「RaTeX {version} 排公式用的字体，随它的 AAR 打进 assets/fonts/（{count} 个 KaTeX_*.ttf），未修改。」
+     *
+     * 开源许可页 KaTeX 字体一条的说明：count 是字体文件数。
+     */
+    fun thirdPartyKatexNote(version: String, count: Int): String = catalog.say("thirdPartyKatexNote", mapOf("version" to version, "count" to count))
+
+    /**
+     * 「RaTeX 原生库里的 Rust 代码」
+     *
+     * 开源许可页一条的名字：RaTeX 原生库静态链接的 Rust 标准库和 crate。
+     */
+    fun thirdPartyRatexRust(): String = catalog.say("thirdPartyRatexRust")
+
+    /**
+     * 「RaTeX 的原生库 lib/arm64-v8a/libratex_ffi.so 静态链接的 Rust 标准库和 crate（RaTeX 自己的代码见 RaTeX Android 一条）。」
+     *
+     * 开源许可页 RaTeX 原生库里的 Rust 代码一条的说明。
+     */
+    fun thirdPartyRatexRustNote(): String = catalog.say("thirdPartyRatexRustNote")
+
+    /**
+     * 「Go 标准库与运行时」
+     *
+     * 开源许可页一条的名字：Go 程序静态链接的标准库和运行时。
+     */
+    fun thirdPartyGoStd(): String = catalog.say("thirdPartyGoStd")
+
+    /**
+     * 「zeta-helper 和 claude-switch 是 Go 程序，各编成 linux 的 arm64、amd64 两份打进 assets/zeta-helper/、assets/claude-switch/；直连远程主机的 zeta-ssh 也是，编成 android/arm64 打进 lib/arm64-v8a/libzeta_ssh.so。都静态链接 Go 标准库和运行时。」
+     *
+     * 开源许可页 Go 标准库与运行时一条的说明。
+     */
+    fun thirdPartyGoStdNote(): String = catalog.say("thirdPartyGoStdNote")
 }

@@ -1,9 +1,8 @@
 package com.dzshzx.zeta.core
 
 import androidx.compose.runtime.Immutable
-import com.dzshzx.zeta.i18n.CoreStrings
 import com.dzshzx.zeta.i18n.Strings
-import com.dzshzx.zeta.i18n.jsonArgs
+import com.dzshzx.zeta.i18n.coreSaid
 import kotlinx.serialization.json.JsonArray
 import kotlinx.serialization.json.JsonElement
 import kotlinx.serialization.json.JsonObject
@@ -146,9 +145,7 @@ data class NoticeItem(
     val args: JsonObject? = null,
 ) : ChatItem {
     /** 用界面语言说出来的文字。 */
-    fun said(): String =
-        code.takeIf { it.isNotEmpty() }?.let { CoreStrings.catalog.sayOrNull(it, jsonArgs(args)) }
-            ?: text
+    fun said(): String = coreSaid(code, args, text)
 }
 
 @Immutable
@@ -190,9 +187,7 @@ data class ToolStep(
 ) : WorkStep {
     /** 结果用界面语言说出来：核心写的按种类码出字，Claude Code 给的原样。 */
     fun resultSaid(): String? =
-        resultCode
-            .takeIf { it.isNotEmpty() }
-            ?.let { CoreStrings.catalog.sayOrNull(it, jsonArgs(resultArgs)) } ?: result
+        if (resultCode.isEmpty()) result else coreSaid(resultCode, resultArgs, result.orEmpty())
 
     override val running: Boolean
         get() = status == ToolStatus.Running
@@ -353,7 +348,13 @@ data class SessionSummary(
     val backend: String = Backends.LOCAL,
     /** 有还活着的 Claude Code 进程（Zeta 托管的、终端里的都算）；为假是已结束的会话，侧栏里灰着显示。 */
     val live: Boolean = true,
+    /** [preview] 是核心写的（第一句话只有图）时它的种类码；是用户原话时为空。 */
+    val previewCode: String = "",
 ) {
+    /** 预览用界面语言说出来：核心写的按种类码出字，用户原话照原样。 */
+    val shownPreview: String
+        get() = coreSaid(previewCode, null, preview)
+
     /** 置顶的设置里记它用的键（[pinKey]）。 */
     val pinKey: String
         get() = pinKey(backend, id)
@@ -389,6 +390,7 @@ fun sessionSummaryOf(o: JsonObject, backend: String): SessionSummary? =
         cwd = o.str("cwd").orEmpty(),
         title = o.str("title").orEmpty(),
         preview = o.str("preview").orEmpty(),
+        previewCode = o.str("preview_code").orEmpty(),
         updated = (o["updated"] as? JsonPrimitive)?.content?.toLongOrNull() ?: 0L,
         external = o.bool("external") == true,
         archived = o.bool("archived") == true,

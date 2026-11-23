@@ -82,16 +82,40 @@ class CatalogTest {
         assertEquals("Claude Code 的原文", NoticeItem("n-3", "Claude Code 的原文", error = true).said())
     }
 
+    /**
+     * 核心给的一句话按界面语言出字：数、字符串照代；参数里嵌着的话（reason 套种类码）按同一种语言先说出来，几句话的数组用这种语言的顿号连起来；
+     * 码或嵌着的码这边不认识时整句用核心附带的文字。
+     */
     @Test
-    fun jsonArgsBecomeFormattableValues() {
-        val o =
-            Json.parseToJsonElement("""{"count":3,"x":1.5,"s":"a","b":true,"z":null}""")
-                as JsonObject
+    fun coreMessagesAreSaidRecursively() {
+        fun args(json: String) = Json.parseToJsonElement(json) as JsonObject
+        val nested = args("""{"reason":{"code":"noticeStopped"}}""")
+        assertEquals("Not sent: Stopped", inEnglish { coreSaid("noticeNotSent", nested, "x") })
+        val deeper = args("""{"reason":{"code":"noticeNotSent","args":{"reason":"disk full"}}}""")
         assertEquals(
-            mapOf("count" to 3L, "x" to 1.5, "s" to "a", "b" to true, "z" to null),
-            jsonArgs(o),
+            "Not sent: Not sent: disk full",
+            inEnglish { coreSaid("noticeNotSent", deeper, "x") },
         )
-        assertEquals("nerv 上选了 3 个文件", test.say("files", jsonArgs(o) + ("host" to "nerv")))
+        val list = args("""{"reason":[{"code":"turnDone"},{"code":"noticeStopped"}]}""")
+        assertEquals("Not sent: Done, Stopped", inEnglish { coreSaid("noticeNotSent", list, "x") })
+        assertEquals("没有发出：已完成、已停止", coreSaid("noticeNotSent", list, "x"))
+        assertEquals(
+            "Request failed, retrying (attempt 2)",
+            inEnglish { coreSaid("statusRetrying", args("""{"attempt":2}"""), "x") },
+        )
+        val unknown = args("""{"reason":{"code":"noticeFromTheFuture"}}""")
+        assertEquals("源语言文字", inEnglish { coreSaid("noticeNotSent", unknown, "源语言文字") })
+        assertEquals("原文", inEnglish { coreSaid("", null, "原文") })
+        assertEquals("原文", inEnglish { CoreMsg("missing").said("原文") })
+    }
+
+    private fun <T> inEnglish(block: () -> T): T {
+        UiLanguage.current = UiLanguage.ENGLISH
+        try {
+            return block()
+        } finally {
+            UiLanguage.current = UiLanguage.SOURCE
+        }
     }
 
     @Test

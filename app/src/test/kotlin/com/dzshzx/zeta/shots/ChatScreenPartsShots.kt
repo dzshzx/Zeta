@@ -165,6 +165,7 @@ class ChatScreenPartsShots : ShotTest() {
                                 now + 3 * 3_600_000,
                                 QuotaSeverity.Normal,
                                 label = "5 小时",
+                                labelCode = "quotaSession",
                             ),
                             QuotaWindow(
                                 "weekly_all",
@@ -175,6 +176,7 @@ class ChatScreenPartsShots : ShotTest() {
                                 QuotaSeverity.Critical,
                                 active = true,
                                 label = "每周 · 全部模型",
+                                labelCode = "quotaWeeklyAll",
                             ),
                         ),
                     subscription = "max",

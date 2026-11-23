@@ -253,7 +253,7 @@ class Conversation(
 
     /** 进行中的临时状态（比如网络出错正在重试、连接断了），显示在等待指示旁边。 */
     val status: String?
-        get() = state.status.ifEmpty { null } ?: offlineText()
+        get() = state.statusSaid().ifEmpty { null } ?: offlineText()
 
     private fun offlineText(): String? {
         if (!offline) return null
@@ -797,7 +797,10 @@ class Conversation(
     }
 
     private fun turnFinished(turn: ConvTurn) {
-        val text = turn.text.ifEmpty { Strings.coreTurnDone() }
+        // 正常结束说界面自己的「已完成」：提醒按它认出这一轮是答完了（TurnAlerts.endText），不比对核心给的文字
+        val text =
+            if (turn.outcome == ConvTurn.Outcome.Done) Strings.coreTurnDone()
+            else turn.said().ifEmpty { Strings.coreTurnDone() }
         // 先于这一轮算闲下来：胶囊要据此判断结束的是不是正显示着的那个
         hub.onTurnEnding(this, text)
         turnRunning = false

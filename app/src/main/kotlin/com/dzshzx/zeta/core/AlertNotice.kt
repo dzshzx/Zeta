@@ -62,7 +62,7 @@ internal object AlertNotice {
         val request =
             prompt as? PermissionRequest
                 ?: return WaitingNotice(
-                    text = prompt.notice,
+                    text = prompt.noticeSaid(),
                     detail = (prompt as ElicitationRequest).message.clipChars(DETAIL_CHARS, "…"),
                     replies = emptyList(),
                 )

@@ -62,7 +62,7 @@ fun PromptSheet(
             when {
                 current.questions.isNotEmpty() -> QuestionSheet(visible, current, onReply)
                 current.isPlan -> PlanSheet(visible, current, onReply)
-                else -> ToolSheet(visible, current, onReply, current.agentLabel)
+                else -> ToolSheet(visible, current, onReply, current.agentLabelSaid())
             }
     }
 }
@@ -76,7 +76,7 @@ private fun ToolSheet(
     agent: String?,
 ) {
     val presentation = presentTool(request.toolName, request.input)
-    val always = request.suggestionLines
+    val always = request.suggestionLinesSaid()
     var remember by remember(request.requestId) { mutableStateOf(false) }
     var feedback by remember(request.requestId) { mutableStateOf("") }
     PageDialog(

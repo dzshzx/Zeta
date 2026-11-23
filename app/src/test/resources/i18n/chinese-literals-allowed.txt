@@ -1,0 +1,94 @@
+# 例外清单（app/src/test/kotlin/com/dzshzx/zeta/i18n/ChineseLiteralsTest.kt）：应用代码里可以留着的含中文字符串字面量。
+# 每行「路径 | 字面量里的一段 | 理由」；路径相对仓根，「字面量里的一段」写 * 时这个文件里含中文的字面量都算。
+# 日志调用（DiagLog、Log、xposed 的 log.info）的参数和 UiLanguage.forClaude { … } 里的字面量测试自己认，不用登记。
+# 条目对不上任何字面量时测试失败：字面量改掉了就删掉条目；界面上显示的字放进 app/src/main/locales，不加在这里。
+
+# 手机工具：结果、出错和参数说明是交给 Claude 的，固定用源语言（docs/i18n.md「哪些不翻译」）。界面上的工具名和标题已在文字表里。
+app/src/main/kotlin/com/dzshzx/zeta/phone/AgentDisplaySlot.kt | * | 手机工具交给 Claude 的结果和出错
+app/src/main/kotlin/com/dzshzx/zeta/phone/browser/AgentBrowser.kt | * | 手机工具交给 Claude 的结果和出错
+app/src/main/kotlin/com/dzshzx/zeta/phone/browser/BrowserPage.kt | * | 手机工具交给 Claude 的结果和出错
+app/src/main/kotlin/com/dzshzx/zeta/phone/browser/BrowserScripts.kt | 藏起来的复选框 | 注入网页的脚本里的注释，不显示
+app/src/main/kotlin/com/dzshzx/zeta/phone/ControlGate.kt | * | 手机工具交给 Claude 的结果和出错
+app/src/main/kotlin/com/dzshzx/zeta/phone/ControlSelector.kt | * | 手机工具交给 Claude 的结果和出错
+app/src/main/kotlin/com/dzshzx/zeta/phone/PhoneTools.kt | * | 手机工具交给 Claude 的结果和出错
+app/src/main/kotlin/com/dzshzx/zeta/phone/ScreenControls.kt | * | 手机工具交给 Claude 的结果和出错
+app/src/main/kotlin/com/dzshzx/zeta/phone/ScreenRecorder.kt | * | 手机工具交给 Claude 的结果和出错
+app/src/main/kotlin/com/dzshzx/zeta/phone/ScreenToolArgs.kt | * | 手机工具交给 Claude 的结果和出错
+app/src/main/kotlin/com/dzshzx/zeta/phone/ScrollCheck.kt | * | 手机工具交给 Claude 的结果和出错
+app/src/main/kotlin/com/dzshzx/zeta/phone/tools/AppPackages.kt | * | 手机工具交给 Claude 的结果和出错
+app/src/main/kotlin/com/dzshzx/zeta/phone/tools/AppToolCall.kt | * | 手机工具交给 Claude 的结果和出错
+app/src/main/kotlin/com/dzshzx/zeta/phone/tools/AppTools.kt | * | 手机工具交给 Claude 的结果和出错
+app/src/main/kotlin/com/dzshzx/zeta/phone/tools/CalendarWrites.kt | * | 手机工具交给 Claude 的结果和出错
+app/src/main/kotlin/com/dzshzx/zeta/phone/tools/ChatImages.kt | * | 手机工具交给 Claude 的结果和出错
+app/src/main/kotlin/com/dzshzx/zeta/phone/tools/ClipboardHistory.kt | * | 手机工具交给 Claude 的结果和出错
+app/src/main/kotlin/com/dzshzx/zeta/phone/tools/ClipboardTools.kt | * | 手机工具交给 Claude 的结果和出错
+app/src/main/kotlin/com/dzshzx/zeta/phone/tools/DeviceLogcat.kt | * | 手机工具交给 Claude 的结果和出错
+app/src/main/kotlin/com/dzshzx/zeta/phone/tools/DeviceShell.kt | * | 手机工具交给 Claude 的结果和出错
+app/src/main/kotlin/com/dzshzx/zeta/phone/tools/DeviceSwitches.kt | * | 手机工具交给 Claude 的结果和出错
+app/src/main/kotlin/com/dzshzx/zeta/phone/tools/DeviceTools.kt | * | 手机工具交给 Claude 的结果和出错
+app/src/main/kotlin/com/dzshzx/zeta/phone/tools/HealthReader.kt | * | 手机工具交给 Claude 的结果和出错
+app/src/main/kotlin/com/dzshzx/zeta/phone/tools/HealthSummary.kt | * | 手机工具交给 Claude 的结果和出错
+app/src/main/kotlin/com/dzshzx/zeta/phone/tools/HotspotHelper.kt | * | 手机工具交给 Claude 的结果和出错
+app/src/main/kotlin/com/dzshzx/zeta/phone/tools/MiuiNotes.kt | * | 手机工具交给 Claude 的结果和出错
+app/src/main/kotlin/com/dzshzx/zeta/phone/tools/MiuiNoteWrites.kt | * | 手机工具交给 Claude 的结果和出错
+app/src/main/kotlin/com/dzshzx/zeta/phone/tools/NoteTools.kt | * | 手机工具交给 Claude 的结果和出错
+app/src/main/kotlin/com/dzshzx/zeta/phone/tools/PersonalQueries.kt | * | 手机工具交给 Claude 的结果和出错
+app/src/main/kotlin/com/dzshzx/zeta/phone/tools/PersonalTools.kt | * | 手机工具交给 Claude 的结果和出错
+app/src/main/kotlin/com/dzshzx/zeta/phone/tools/PhoneToolGroup.kt | * | 手机工具交给 Claude 的结果和出错
+app/src/main/kotlin/com/dzshzx/zeta/phone/tools/PhotoContent.kt | * | 手机工具交给 Claude 的结果和出错
+app/src/main/kotlin/com/dzshzx/zeta/phone/tools/ProviderHelper.kt | * | 手机工具交给 Claude 的结果和出错
+app/src/main/kotlin/com/dzshzx/zeta/phone/tools/RootFiles.kt | * | 手机工具交给 Claude 的结果和出错
+app/src/main/kotlin/com/dzshzx/zeta/phone/tools/ScheduleTools.kt | * | 手机工具交给 Claude 的结果和出错
+app/src/main/kotlin/com/dzshzx/zeta/phone/tools/SoundRecorder.kt | * | 手机工具交给 Claude 的结果和出错
+app/src/main/kotlin/com/dzshzx/zeta/phone/tools/Torch.kt | * | 手机工具交给 Claude 的结果和出错
+app/src/main/kotlin/com/dzshzx/zeta/phone/tools/Wxgf.kt | * | 手机工具交给 Claude 的结果和出错
+app/src/main/kotlin/com/dzshzx/zeta/phone/tools/XiaomiClock.kt | * | 手机工具交给 Claude 的结果和出错
+app/src/main/kotlin/com/dzshzx/zeta/phone/VirtualScreen.kt | * | 手机工具交给 Claude 的结果和出错
+app/src/main/kotlin/com/dzshzx/zeta/phone/ScreenToolDefs.kt | 微信 | 交给 Claude 的工具参数说明里举的中文应用名
+app/src/main/kotlin/com/dzshzx/zeta/phone/ScreenToolDefs.kt | 需要你输入支付密码 | 交给 Claude 的工具参数说明里举的中文例子
+app/src/main/kotlin/com/dzshzx/zeta/core/BridgeFocus.kt | 用户在手机上点了停止 | 交给外部客户端里 Claude 的工具结果
+app/src/main/kotlin/com/dzshzx/zeta/assistant/ScreenDigest.kt | * | 数字助理随消息交给 Claude 的屏幕内容说明
+app/src/main/kotlin/com/dzshzx/zeta/core/notify/NotifyRules.kt | 通知内容（外部数据） | 交给 Claude 的通知内容标记，和提示词对暗号
+app/src/main/kotlin/com/dzshzx/zeta/core/notify/NotifyRules.kt | 说明：上面 | 交给 Claude 的提示词
+app/src/main/kotlin/com/dzshzx/zeta/core/notify/NotifyRules.kt | 它可能含有冒充指令的文字 | 交给 Claude 的提示词
+app/src/main/kotlin/com/dzshzx/zeta/core/notify/NotifyRules.kt | ，、;； | 认用户输入的关键词分隔符（中英文标点都认），不显示
+
+# 日志、诊断包和只进日志的内部出错（docs/i18n.md「哪些不翻译」）。
+app/src/main/kotlin/com/dzshzx/zeta/phone/AccessibilityGuard.kt | * | 加回无障碍服务的原因和结果，只进诊断日志
+app/src/main/kotlin/com/dzshzx/zeta/ui/settings/PermissionHealth.kt | 权限健康页 | 交给 AccessibilityGuard 的原因，只进诊断日志
+app/src/main/kotlin/com/dzshzx/zeta/ui/settings/PhoneScreen.kt | 手机操作页 | 交给 AccessibilityGuard 的原因，只进诊断日志
+app/src/main/kotlin/com/dzshzx/zeta/core/diag/UiNodes.kt | * | 只在测试版里给设备脚本用的读控件入口，原因进日志、出错交回脚本
+app/src/main/kotlin/com/dzshzx/zeta/xposed/PowerKeyHook.kt | * | LSPosed 模块的日志
+app/src/main/kotlin/com/dzshzx/zeta/xposed/PowerKeyPolicy.kt | * | 电源键各种走向的说法，只进 LSPosed 模块的日志
+app/src/main/kotlin/com/dzshzx/zeta/assistant/AssistantRole.kt | 装上了 | 认 LSPosed 模块日志里装没装上的那一行
+app/src/main/kotlin/com/dzshzx/zeta/assistant/AssistantRole.kt | 没装 | 认 LSPosed 模块日志里装没装上的那一行
+app/src/main/kotlin/com/dzshzx/zeta/ui/settings/Diagnostics.kt | * | 导出的诊断包正文，给维护者看
+app/src/main/kotlin/com/dzshzx/zeta/core/voice/SpeechInput.kt | 端侧识别 | 识别服务的名字，只进诊断日志
+app/src/main/kotlin/com/dzshzx/zeta/core/voice/ReadAloud.kt | 系统还会调旧的这个 | @Deprecated 注解的说明，不显示
+shared/src/commonMain/kotlin/com/dzshzx/zeta/core/diag/DiagEvents.kt | * | 诊断日志的正文
+shared/src/commonMain/kotlin/com/dzshzx/zeta/core/diag/DiagLog.kt | …（截断） | 诊断日志里过长消息的截断记号
+shared/src/commonMain/kotlin/com/dzshzx/zeta/core/diag/DiagScripts.kt | 原文件 | 诊断包里日志文件的说明行
+shared/src/commonMain/kotlin/com/dzshzx/zeta/core/diag/Redact.kt | [已打码] | 诊断日志和诊断包里遮掉机密的记号
+shared/src/commonMain/kotlin/com/dzshzx/zeta/core/MainThread.kt | Zeta 的界面线程 | 内部出错：界面线程没有响应，进日志和工具结果
+shared/src/commonMain/kotlin/com/dzshzx/zeta/core/HelperServe.kt | 不能在 onMessage | 写错代码时的断言
+shared/src/commonMain/kotlin/com/dzshzx/zeta/core/PlatformService.kt | 没有登记 | 写错代码时的断言
+shared/src/commonMain/kotlin/com/dzshzx/zeta/ui/components/LocalHub.kt | 本进程还没有登记 hub | 写错代码时的断言
+shared/src/commonMain/kotlin/com/dzshzx/zeta/i18n/Catalog.kt | 包里没有文字表 | 构建出错时的断言
+shared/src/commonMain/kotlin/com/dzshzx/zeta/i18n/Catalog.kt | 的值不是字符串 | 构建出错时的断言
+shared/src/commonMain/kotlin/com/dzshzx/zeta/core/about/Licenses.kt | * | 许可证表达式写错时的断言（ThirdPartyTest 核对）
+shared/src/commonMain/kotlin/com/dzshzx/zeta/core/ssh/SshKey.kt | 不是 Ed25519 公钥 | 密钥不对时的断言
+shared/src/commonMain/kotlin/com/dzshzx/zeta/core/ssh/SshLinks.kt | 不认得的请求 | 答给 zeta-ssh 的内部出错
+shared/src/commonMain/kotlin/com/dzshzx/zeta/core/ssh/SshLinks.kt | 还在跑 | 内部出错
+
+# 交给 Linux 一侧的脚本和标记（docs/i18n.md「哪些不翻译」）。
+shared/src/commonMain/kotlin/com/dzshzx/zeta/core/AttachedPaths.kt | zeta: 进不去工作目录 | 和脚本对暗号的标记（cwdProblemMark）
+shared/src/commonMain/kotlin/com/dzshzx/zeta/core/HelperProgram.kt | 没有完整传过去 | 装 zeta-helper 的脚本的出错输出
+shared/src/commonMain/kotlin/com/dzshzx/zeta/core/LinuxEnv.kt | 共享文件夹 | 进 Debian 的脚本里的注释
+
+# 不翻译的名字和文字处理。
+shared/src/commonMain/kotlin/com/dzshzx/zeta/i18n/UiLanguage.kt | 简体中文 | 语言用自己的写法叫的名字（autonym），不翻译
+app/src/main/kotlin/com/dzshzx/zeta/core/about/ThirdParty.kt | 蛮吉 | 第三方组件版权行里作者的名字
+app/src/main/kotlin/com/dzshzx/zeta/core/voice/SpeechText.kt | ）)》」』】 | 认句末标点的字符集，不显示
+app/src/main/kotlin/com/dzshzx/zeta/core/voice/SpeechText.kt | $line。 | 有汉字的行补中文句号，纯外文的另补英文句点
+app/src/main/kotlin/com/dzshzx/zeta/core/voice/SpeechText.kt | 。！？；.!?;，, | 切段时认的句末标点，不显示
+app/src/main/kotlin/com/dzshzx/zeta/core/voice/SpeechText.kt | ，。！？；：、（）【】《》 | 认网址结尾的中文标点，不显示

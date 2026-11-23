@@ -220,7 +220,7 @@ fun SessionPane(
             toggle = { session -> selected = selected.toggled(session.id) },
             togglePin = { session -> savePins(pins.toggled(session.pinKey)) },
             rename = { session ->
-                renameDraft = session.title.ifBlank { session.preview.take(40) }
+                renameDraft = session.title.ifBlank { session.shownPreview.take(40) }
                 renaming = session
             },
             export = exporter.save,
@@ -559,7 +559,7 @@ private fun searchResults(
         all.filter {
             it.id in hits ||
                 it.title.contains(needle, ignoreCase = true) ||
-                it.preview.contains(needle, ignoreCase = true)
+                it.shownPreview.contains(needle, ignoreCase = true)
         }
 
 /** 侧栏眼前这份列表的分组：主列表分“置顶 / 今天 / 更早”，看归档时只有一组（照常按时间排，只带个图钉）。 [archived] 是全部归档的会话，底部的入口看它。 */
@@ -905,7 +905,7 @@ private fun DeleteDialogs(
     onDismiss: () -> Unit,
 ) {
     val lastDeleting = rememberRetained(deleting)
-    val deletingName = lastDeleting?.session?.let { it.title.ifBlank { it.preview }.take(60) }
+    val deletingName = lastDeleting?.session?.let { it.title.ifBlank { it.shownPreview }.take(60) }
     NoticeDialog(
         show = deleting is DeletePrompt.Blocked,
         title = Strings.sidebarDeleteBlocked(),
@@ -1179,7 +1179,7 @@ private fun RowScope.SessionRowText(
     highlight: String,
 ) {
     val colors = COUITheme.colorScheme
-    val title = session.title.ifBlank { session.preview }.ifBlank { Strings.sidebarUntitled() }
+    val title = session.title.ifBlank { session.shownPreview }.ifBlank { Strings.sidebarUntitled() }
     // 已结束（没有活着的 Claude Code 进程）的会话灰着显示：一眼看出哪些还占着机器
     val ended = !session.live
     Column(

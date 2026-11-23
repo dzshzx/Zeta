@@ -17,6 +17,7 @@ import com.dzshzx.zeta.core.TaskState
 import com.dzshzx.zeta.core.TodoEntry
 import com.dzshzx.zeta.core.TodoList
 import com.dzshzx.zeta.core.TodoStatus
+import com.dzshzx.zeta.i18n.UiLanguage
 import java.util.concurrent.CopyOnWriteArrayList
 import java.util.concurrent.LinkedBlockingQueue
 import java.util.concurrent.TimeUnit
@@ -268,6 +269,59 @@ class ConvClientTest {
                 ),
             ),
             s.todos,
+        )
+    }
+
+    /**
+     * 核心自己说的话带种类码（docs/i18n.md「核心种类码清单」）：状态行、确认卡的通知、「以后不再询问」各条、后台子代理的兜底叫法、
+     * 任务清单的兜底标题、一轮的结局、读后台输出的出错都读出码，按界面语言出字；没有码的照核心附带的文字。
+     */
+    @Test
+    fun stateDecodesTheKindCodesAndSaysThemInTheUiLanguage() {
+        val conv = opened()
+        push(
+            """{"type":"conv.state","conv":"k1",
+            "status":"请求出错，正在重试（第 2 次）","status_code":"statusRetrying","status_args":{"attempt":2},
+            "prompts":[{"kind":"permission","request_id":"r1","tool_name":"Bash","input":{},
+              "suggestion_lines":["这个对话里自动接受改动","原文"],
+              "suggestion_msgs":[{"code":"suggestMode","args":{"mode":"acceptEdits"}},{"code":"suggestFromTheFuture"}],
+              "agent_id":"a1","agent_label":"后台子代理","agent_label_code":"promptBackgroundSubagent",
+              "notice":"Claude 想用 Bash","notice_code":"promptTool","notice_args":{"tool":"Bash"}}],
+            "todos":[{"key":"3","content":"任务 #3","active_form":"任务 #3","status":"in_progress","content_code":"todoUntitled"},
+              {"key":"4","content":"提交","active_form":"正在提交","status":"pending"}]}""",
+        )
+        push(
+            """{"type":"conv.turn","conv":"k1","phase":"finished","outcome":"done","text":"已完成","code":"turnDone"}""",
+        )
+        val s = conv.view.state
+        val permission = s.prompts.single() as PermissionRequest
+        val todos = s.todos!!.entries
+        assertEquals("请求出错，正在重试（第 2 次）", s.statusSaid())
+        UiLanguage.current = UiLanguage.ENGLISH
+        try {
+            assertEquals("Request failed, retrying (attempt 2)", s.statusSaid())
+            assertEquals("Claude wants to use Bash", permission.noticeSaid())
+            assertEquals(
+                listOf("Auto-accept edits in this conversation", "原文"),
+                permission.suggestionLinesSaid(),
+            )
+            assertEquals("Background subagent", permission.agentLabelSaid())
+            assertEquals("Task #3", todos[0].contentSaid())
+            assertEquals("Task #3", todos[0].activeFormSaid())
+            assertEquals("提交", todos[1].contentSaid())
+            assertEquals("正在提交", todos[1].activeFormSaid())
+            assertEquals("Done", events.turns.last().said())
+            assertEquals(
+                "Couldn't read the output",
+                TaskOutput("", 0, false, "没有读到输出", "taskNoOutput").errorSaid(),
+            )
+        } finally {
+            UiLanguage.current = UiLanguage.SOURCE
+        }
+        // 条数对不上时照文字
+        assertEquals(
+            listOf("a", "b", "c"),
+            permission.copy(suggestionLines = listOf("a", "b", "c")).suggestionLinesSaid(),
         )
     }
 

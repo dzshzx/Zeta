@@ -85,8 +85,10 @@ fun TodoStrip(list: TodoList?, busy: Boolean, modifier: Modifier = Modifier) {
     val summary =
         when {
             list.allDone -> Strings.chatTodoAllDone()
-            current != null -> current.activeForm
-            else -> list.next?.let { Strings.chatTodoNext(it.content) } ?: Strings.chatTodoAllDone()
+            current != null -> current.activeFormSaid()
+            else ->
+                list.next?.let { Strings.chatTodoNext(it.contentSaid()) }
+                    ?: Strings.chatTodoAllDone()
         }
 
     Column(modifier = modifier.fillMaxWidth().chatPanel(shape)) {
@@ -169,7 +171,9 @@ private fun TodoRow(entry: TodoEntry) {
         }
         Spacer(Modifier.width(9.dp))
         Text(
-            text = if (entry.status == TodoStatus.InProgress) entry.activeForm else entry.content,
+            text =
+                if (entry.status == TodoStatus.InProgress) entry.activeFormSaid()
+                else entry.contentSaid(),
             style =
                 COUITheme.textStyles.bodyS.copy(
                     fontWeight =

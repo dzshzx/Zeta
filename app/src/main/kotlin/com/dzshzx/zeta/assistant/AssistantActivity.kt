@@ -277,7 +277,7 @@ internal class AssistantChat(private val hub: ConversationHub, val capture: Assi
         val sent = screenChip?.takeIf { !it.removed }
         val c = conversation
         if (c != null) {
-            AssistantReplies.view(c.items, c.busy, c.pending?.notice, sent)
+            AssistantReplies.view(c.items, c.busy, c.pending?.noticeSaid(), sent)
         } else {
             pending?.let {
                 AssistantReplies.view(

@@ -1,5 +1,6 @@
 package com.dzshzx.zeta.core
 
+import com.dzshzx.zeta.i18n.UiLanguage
 import java.io.File
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonArray
@@ -92,6 +93,30 @@ class ChatItemJsonTest {
                 )
                 .jsonObject
         assertEquals("", (chatItemOf(unknown) as NoticeItem).code)
+    }
+
+    /** 工具步骤的结果是核心写的话时带种类码和参数：读出来、写回去不丢，按界面语言出字；工具自己的结果照原样。 */
+    @Test
+    fun toolStepsKeepTheirResultCodeAndArgs() {
+        val o =
+            Json.parseToJsonElement(
+                    """{"kind":"work","id":"w","steps":[{"kind":"tool","id":"t","name":"Bash","status":"failed",""" +
+                        """"result":"（没有输出）\n退出码 2","result_code":"stepShellNoOutputExit","result_args":{"code":2}},""" +
+                        """{"kind":"tool","id":"t2","name":"Read","status":"success","result":"内容"}]}""",
+                )
+                .jsonObject
+        val work = chatItemOf(o) as WorkItem
+        val (shell, read) = work.steps.map { it as ToolStep }
+        assertEquals("stepShellNoOutputExit", shell.resultCode)
+        assertEquals(o["steps"]!!.jsonArray[0].jsonObject["result_args"], shell.resultArgs)
+        assertEquals(dropZero(o), dropZero(chatItemJson(work)))
+        UiLanguage.current = UiLanguage.ENGLISH
+        try {
+            assertEquals("(No output)\nExit code 2", shell.resultSaid())
+            assertEquals("内容", read.resultSaid())
+        } finally {
+            UiLanguage.current = UiLanguage.SOURCE
+        }
     }
 
     /** 另一个会话发来的消息（会话互通）：读出发信会话的名字，写回去还是同一个 peer；空串和没写都是自己发的。 */

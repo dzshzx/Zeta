@@ -69,7 +69,7 @@ fun QuotaWindows(snapshot: QuotaSnapshot, now: Long, modifier: Modifier = Modifi
 @Composable
 private fun QuotaRow(window: QuotaWindow, now: Long) {
     QuotaLine(
-        window.label,
+        window.labelSaid(),
         "${window.percent}%",
         window.used,
         window.severity,

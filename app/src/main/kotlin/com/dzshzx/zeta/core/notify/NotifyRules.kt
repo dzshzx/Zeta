@@ -276,7 +276,8 @@ object NotifyRules {
     fun parseKeywords(text: String): List<String> =
         text.split(KeywordSeparators).map { it.trim() }.filter { it.isNotEmpty() }.distinct()
 
-    fun keywordsText(keywords: List<String>): String = keywords.joinToString("，")
+    fun keywordsText(keywords: List<String>): String =
+        keywords.joinToString(Strings.notifyKeywordSeparator())
 
     fun draftOf(rule: NotifyRule) =
         RuleDraft(

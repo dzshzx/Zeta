@@ -114,8 +114,34 @@ class SpeechTextTest {
 
     @Test
     fun blankInputGivesBlankOutput() {
-        assertEquals("", read("```\ncode\n```".replace("code", "")).replace("代码略。", ""))
+        assertEquals("", read("```\ncode\n```".replace("code", "")).replace("Code omitted.", ""))
         assertEquals("", read("   "))
+    }
+
+    /** 补的话跟着回答的语言：没有汉字的回答念英文的，不看界面语言。 */
+    @Test
+    fun englishAnswersGetEnglishPlaceholders() {
+        assertEquals(
+            "Run this:\nCode omitted.\nTable omitted.\nSee link.\nDone: write tests.\nNot done: ship it.",
+            read(
+                """
+                Run this:
+
+                ```
+                go test
+                ```
+
+                | a | b |
+                | --- | --- |
+                | 1 | 2 |
+
+                See https://example.com/x
+
+                - [x] write tests
+                - [ ] ship it
+                """,
+            ),
+        )
     }
 
     @Test

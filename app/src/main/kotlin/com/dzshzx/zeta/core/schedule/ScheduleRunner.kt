@@ -17,10 +17,12 @@ import com.dzshzx.zeta.core.diag.DiagTopic
 import com.dzshzx.zeta.core.get
 import com.dzshzx.zeta.core.notify.NotifyRuleStore
 import com.dzshzx.zeta.i18n.Strings
+import com.dzshzx.zeta.i18n.UiLanguage
 import com.dzshzx.zeta.phone.tools.ScheduleTools
 import java.time.Instant
 import java.time.ZoneId
 import java.time.format.DateTimeFormatter
+import java.util.Locale
 import kotlin.concurrent.thread
 
 /**
@@ -342,7 +344,7 @@ object ScheduleRunner {
                     app,
                     run.key,
                     Strings.scheduleNeedsConfirmTitle(name),
-                    Strings.scheduleNeedsConfirmText(pending.notice),
+                    Strings.scheduleNeedsConfirmText(pending.noticeSaid()),
                     conversation.openKey,
                 )
             }
@@ -418,7 +420,7 @@ object ScheduleRunner {
         if (run.newSession)
             name +
                 " · " +
-                STAMP.format(Instant.ofEpochMilli(run.startedAt).atZone(ZoneId.systemDefault()))
+                stamp().format(Instant.ofEpochMilli(run.startedAt).atZone(ZoneId.systemDefault()))
         else name
 
     // ---- 通知 ----
@@ -467,5 +469,11 @@ object ScheduleRunner {
     }
 
     private const val POLL_MS = 2_000L
-    private val STAMP: DateTimeFormatter = DateTimeFormatter.ofPattern("M月d日 HH:mm")
+
+    /** 新会话标题后面带的开始时刻，按界面语言写（存下来的标题用发起的这一端的语言，docs/i18n.md）。 */
+    private fun stamp(): DateTimeFormatter =
+        DateTimeFormatter.ofPattern(
+            Strings.scheduleFreshTitleTimePattern(),
+            Locale.forLanguageTag(UiLanguage.current),
+        )
 }

@@ -3,6 +3,7 @@ package com.dzshzx.zeta.core
 import androidx.compose.runtime.Immutable
 import com.dzshzx.zeta.i18n.Strings
 import com.dzshzx.zeta.i18n.UiLanguage
+import com.dzshzx.zeta.i18n.coreSaid
 import java.time.Instant
 import java.time.OffsetDateTime
 import java.time.ZoneId
@@ -10,6 +11,7 @@ import java.time.format.DateTimeFormatter
 import java.util.Locale
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonObject
+import kotlinx.serialization.json.JsonPrimitive
 
 enum class QuotaSeverity {
     Normal,
@@ -34,7 +36,13 @@ data class QuotaWindow(
     /** 服务器挑的“只能显示一个时显示这个”。 */
     val active: Boolean = false,
     val label: String,
+    /** [label] 是核心起的名字时它的种类码（参数 scope 就是 [scope]）；按模型分、名字是服务器原文的窗口为空。 */
+    val labelCode: String = "",
 ) {
+    /** 窗口名用界面语言说出来。 */
+    fun labelSaid(): String =
+        coreSaid(labelCode, JsonObject(mapOf("scope" to JsonPrimitive(scope.orEmpty()))), label)
+
     val percent: Int
         get() = (used * 100).toInt().coerceAtLeast(0)
 }
@@ -130,6 +138,7 @@ object Quota {
                 },
             active = w.bool("active") == true,
             label = w.str("label") ?: return null,
+            labelCode = w.str("labelCode").orEmpty(),
         )
 
     private fun extra(e: JsonObject) =

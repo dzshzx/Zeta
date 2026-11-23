@@ -573,7 +573,7 @@ private fun SessionUsageRow(
     onClick: () -> Unit,
 ) {
     val title =
-        summary?.let { it.title.ifBlank { it.preview.take(40) } }
+        summary?.let { it.title.ifBlank { it.shownPreview.take(40) } }
             ?: Strings.settingsStorageNoContent()
     val detail = sessionUsageDetail(usage, summary, dateFormat)
     if (summary != null) {

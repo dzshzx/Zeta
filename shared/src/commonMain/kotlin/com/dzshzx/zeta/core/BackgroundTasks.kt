@@ -5,6 +5,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import com.dzshzx.zeta.i18n.Strings
+import com.dzshzx.zeta.i18n.coreSaid
 
 /** 后台任务是什么：后台命令（Bash 的 run_in_background）、监视器（Monitor）、后台子代理，或别的种类。 */
 enum class TaskKind {
@@ -65,7 +66,12 @@ data class TaskOutput(
     val totalBytes: Long,
     val truncated: Boolean,
     val error: String? = null,
-)
+    /** [error] 是核心自己写的（Claude Code 没给原因）时它的种类码；是 Claude Code 的原文时为空。 */
+    val errorCode: String = "",
+) {
+    /** 没读成的原因用界面语言说出来。 */
+    fun errorSaid(): String? = error?.let { coreSaid(errorCode, null, it) }
+}
 
 /** “3 秒”“2 分 05 秒”“1 小时 03 分”。 */
 fun formatElapsed(ms: Long): String {

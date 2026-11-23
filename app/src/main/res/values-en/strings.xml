@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- 系统替 Zeta 显示的几个名字和说明（快捷设置、无障碍、数字助理、语音识别、LSPosed）的英文；界面上的字在 src/main/locales。 -->
+<resources>
+    <string name="capture_tile">Screenshot to Claude</string>
+    <string name="accessibility_description">Lets Claude read what\'s on the screen when you give it a task, and tap, swipe and type for you. Zeta uses it only while Claude is calling a phone tool.</string>
+    <string name="assistant_label">Zeta Assistant</string>
+    <string name="recognition_label">Zeta speech recognition (hands off to the system recognizer)</string>
+    <string name="xposed_description">Long-press power for Zeta: when Zeta is the default digital assistant, long-pressing the power button on HyperOS opens Zeta\'s assistant panel instead of XiaoAi. Also lets Zeta call the tools system apps offer to XiaoAi. Scope: System Framework only.</string>
+</resources>

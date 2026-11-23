@@ -11705,5 +11705,101 @@
   "componentsMore": "更多",
   "@componentsMore": {
     "description": "顶栏「更多」菜单按钮的无障碍朗读。"
+  },
+  "scheduleFreshTitleTimePattern": "M月d日 HH:mm",
+  "@scheduleFreshTitleTimePattern": {
+    "description": "每次开新对话的后台任务，新会话标题后面带的开始时刻：java.time 的 DateTimeFormatter 模式，按界面语言的区域设置出字。不是给人看的句子，只照所在语言的习惯改。"
+  },
+  "speechCodeOmitted": "代码略",
+  "@speechCodeOmitted": {
+    "description": "朗读回答时代替代码块的一句（跟着回答的语言，不看界面语言）。"
+  },
+  "speechTableOmitted": "表格略",
+  "@speechTableOmitted": {
+    "description": "朗读回答时代替表格的一句（跟着回答的语言）。"
+  },
+  "speechFormulaOmitted": "公式略",
+  "@speechFormulaOmitted": {
+    "description": "朗读回答时代替块级公式的一句（跟着回答的语言）。"
+  },
+  "speechCode": "代码",
+  "@speechCode": {
+    "description": "朗读回答时代替较长的行内代码的词（跟着回答的语言）。"
+  },
+  "speechFormula": "公式",
+  "@speechFormula": {
+    "description": "朗读回答时代替带命令的行内公式的词（跟着回答的语言）。"
+  },
+  "speechLink": "链接",
+  "@speechLink": {
+    "description": "朗读回答时代替网址的词（跟着回答的语言）。"
+  },
+  "speechTodoDone": "已完成，{item}",
+  "@speechTodoDone": {
+    "description": "朗读回答时勾上的勾选框：item 是那一项的文字（可能为空，这时只念前面的话）。",
+    "placeholders": { "item": { "type": "String" } }
+  },
+  "speechTodoOpen": "未完成，{item}",
+  "@speechTodoOpen": {
+    "description": "朗读回答时没勾的勾选框：item 是那一项的文字（可能为空，这时只念前面的话）。",
+    "placeholders": { "item": { "type": "String" } }
+  },
+  "thirdPartyRustStd": "Rust 标准库（core、alloc、std，含 hashbrown、gimli、addr2line、miniz_oxide、rustc-demangle）",
+  "@thirdPartyRustStd": {
+    "description": "开源许可页 › RaTeX 原生库里的 Rust 代码：Rust 标准库那一项的名字。"
+  },
+  "thirdPartyMygoNote": "zeta-helper 只链接其中的多语言包（i18n）和它的文字数据，按客户端的界面语言出字，静态链接进 assets/zeta-helper/linux-arm64、linux-amd64。",
+  "@thirdPartyMygoNote": {
+    "description": "开源许可页 mygo 一条的说明：它是什么、在 APK 的哪里。"
+  },
+  "thirdPartyXTextNote": "Go 团队维护的文字编码库，zeta-helper 读 GB18030 文本时用，静态链接进 assets/zeta-helper/linux-arm64、linux-amd64。",
+  "@thirdPartyXTextNote": {
+    "description": "开源许可页 golang.org/x/text 一条的说明。"
+  },
+  "thirdPartyClaudeSwitchNote": "给 Claude Code 冷切换多个 Claude 账号的程序，账号页用它。按 helper/go.mod 的 tool 编成单独的程序（未修改），打进 assets/claude-switch/linux-arm64、linux-amd64，第一次用时装进 Linux 一侧。",
+  "@thirdPartyClaudeSwitchNote": {
+    "description": "开源许可页 claude-switch 一条的说明。"
+  },
+  "thirdPartyXCryptoNote": "Go 团队维护的加密库，zeta-ssh 用它的 SSH 客户端直连远程主机（密钥交换、主机签名的核对、通道），静态链接进 lib/arm64-v8a/libzeta_ssh.so。",
+  "@thirdPartyXCryptoNote": {
+    "description": "开源许可页 golang.org/x/crypto 一条的说明。"
+  },
+  "thirdPartyEtaNote": "Zeta 的 Markdown 渲染（ui/markdown）、侧栏骨架、自适应页面布局、等宽字体的定义、对话框的接口和数字助理的浮窗是从 Eta 拷来再改写的，按 GPL-3.0 使用；所以 Zeta 也按 GPL-3.0 发布。",
+  "@thirdPartyEtaNote": {
+    "description": "开源许可页 Eta 一条的说明。"
+  },
+  "thirdPartyJetBrainsMonoNote": "代码、命令和日志用的等宽字体（无连字版的 Regular、Bold），未修改。",
+  "@thirdPartyJetBrainsMonoNote": {
+    "description": "开源许可页 JetBrains Mono NL 一条的说明。"
+  },
+  "thirdPartyKatexFonts": "KaTeX 字体",
+  "@thirdPartyKatexFonts": {
+    "description": "开源许可页一条的名字：RaTeX 排公式用的 KaTeX 字体。"
+  },
+  "thirdPartyWithRatex": "随 RaTeX {version}",
+  "@thirdPartyWithRatex": {
+    "description": "开源许可页 KaTeX 字体、RaTeX 的 Rust 代码两条的版本：跟着 RaTeX 的版本走。",
+    "placeholders": { "version": { "type": "String" } }
+  },
+  "thirdPartyKatexNote": "RaTeX {version} 排公式用的字体，随它的 AAR 打进 assets/fonts/（{count} 个 KaTeX_*.ttf），未修改。",
+  "@thirdPartyKatexNote": {
+    "description": "开源许可页 KaTeX 字体一条的说明：count 是字体文件数。",
+    "placeholders": { "version": { "type": "String" }, "count": { "type": "int" } }
+  },
+  "thirdPartyRatexRust": "RaTeX 原生库里的 Rust 代码",
+  "@thirdPartyRatexRust": {
+    "description": "开源许可页一条的名字：RaTeX 原生库静态链接的 Rust 标准库和 crate。"
+  },
+  "thirdPartyRatexRustNote": "RaTeX 的原生库 lib/arm64-v8a/libratex_ffi.so 静态链接的 Rust 标准库和 crate（RaTeX 自己的代码见 RaTeX Android 一条）。",
+  "@thirdPartyRatexRustNote": {
+    "description": "开源许可页 RaTeX 原生库里的 Rust 代码一条的说明。"
+  },
+  "thirdPartyGoStd": "Go 标准库与运行时",
+  "@thirdPartyGoStd": {
+    "description": "开源许可页一条的名字：Go 程序静态链接的标准库和运行时。"
+  },
+  "thirdPartyGoStdNote": "zeta-helper 和 claude-switch 是 Go 程序，各编成 linux 的 arm64、amd64 两份打进 assets/zeta-helper/、assets/claude-switch/；直连远程主机的 zeta-ssh 也是，编成 android/arm64 打进 lib/arm64-v8a/libzeta_ssh.so。都静态链接 Go 标准库和运行时。",
+  "@thirdPartyGoStdNote": {
+    "description": "开源许可页 Go 标准库与运行时一条的说明。"
   }
 }

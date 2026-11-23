@@ -17,26 +17,29 @@ object UiLanguage {
 
     /** 界面现在的语言，[supported] 之一；在 [forClaude] 里是源语言。 */
     var current: String
-        get() = claudeScope.get() ?: chosen
+        get() = scoped.get() ?: chosen
         set(value) {
             chosen = value
         }
 
     @Volatile private var chosen: String = SOURCE
 
-    private val claudeScope = ThreadLocal<String?>()
+    private val scoped = ThreadLocal<String?>()
 
     /**
      * 在这个线程上跑 [block] 时取字固定用源语言：交给 Claude 的文字（工具结果）不随界面语言变（docs/i18n.md「哪些不翻译」）。
      * 手机工具借用界面那边的取字结果（定时任务的规则说明、运行结果的叫法）写进工具结果时，整个调用包在这里面。
      */
-    fun <T> forClaude(block: () -> T): T {
-        val outer = claudeScope.get()
-        claudeScope.set(SOURCE)
+    fun <T> forClaude(block: () -> T): T = within(SOURCE, block)
+
+    /** 在这个线程上跑 [block] 时取字固定用语言 [lang]（[supported] 之一）：比如朗读时补的话跟着回答的语言。 */
+    fun <T> within(lang: String, block: () -> T): T {
+        val outer = scoped.get()
+        scoped.set(lang)
         try {
             return block()
         } finally {
-            claudeScope.set(outer)
+            scoped.set(outer)
         }
     }
 

@@ -686,7 +686,7 @@ class ConversationHub(val platform: HubPlatform) {
             this,
             summary.cwd.ifBlank { defaultCwd(summary.backend) },
             summary.id,
-            summary.title.ifBlank { summary.preview.take(40) },
+            summary.title.ifBlank { summary.shownPreview.take(40) },
             summary.file,
             backend = summary.backend,
         )

@@ -411,6 +411,10 @@ tasks.withType<Test>().configureEach {
     systemProperty("roborazzi.test.compare", "true")
     systemProperty("roborazzi.compare.output.dir", shotsDir)
     systemProperty("zeta.shots.dir", shotsDir)
+    // tools/shots --lang en：截图按这种界面语言画，图名后加 -<语言>（看译文挤不挤）；不传时是测试默认的简体中文
+    providers.gradleProperty("zeta.shots.lang").orNull?.let {
+        systemProperty("zeta.shots.lang", it)
+    }
     // Zeta 经 su 执行的命令在单元测试里一律失败，碰不到开发机或手机 Debian 自己的 su
     environment("PATH", noRootPath)
     // 测试结果不进构建缓存（编译结果照常进）。版本号随提交变、写进 BuildConfig 和清单，换个提交测试的输入就跟着变，

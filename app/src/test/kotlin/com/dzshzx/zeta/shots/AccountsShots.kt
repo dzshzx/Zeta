@@ -42,6 +42,7 @@ class AccountsShots : ShotTest() {
                                 now + 3 * 3_600_000 + 20 * 60_000,
                                 QuotaSeverity.Normal,
                                 label = "5 小时",
+                                labelCode = "quotaSession",
                             ),
                             QuotaWindow(
                                 "weekly_all",
@@ -52,6 +53,7 @@ class AccountsShots : ShotTest() {
                                 QuotaSeverity.Warning,
                                 active = true,
                                 label = "每周 · 全部模型",
+                                labelCode = "quotaWeeklyAll",
                             ),
                             QuotaWindow(
                                 "weekly_scoped",
@@ -61,6 +63,7 @@ class AccountsShots : ShotTest() {
                                 now + 2 * 86_400_000 + 9 * 3_600_000,
                                 QuotaSeverity.Warning,
                                 label = "每周 · Fable",
+                                labelCode = "quotaWeeklyScoped",
                             ),
                         ),
                     subscription = "max",

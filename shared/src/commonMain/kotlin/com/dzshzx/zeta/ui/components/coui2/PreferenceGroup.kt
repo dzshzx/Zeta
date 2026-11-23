@@ -6,6 +6,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.takeOrElse
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import io.github.suqi8.coui.kmp.basic.Card
 import io.github.suqi8.coui.kmp.basic.CardListGroup
@@ -56,5 +57,7 @@ fun PreferenceValue(
         style = COUITheme.textStyles.bodyM,
         color = color.takeOrElse { COUITheme.colorScheme.labelTertiary },
         maxLines = 1,
+        // 放不下时（译文比中文长）显示省略号，不在词边界上悄悄截掉后半
+        overflow = TextOverflow.Ellipsis,
     )
 }

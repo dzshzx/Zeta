@@ -1,6 +1,8 @@
 package com.dzshzx.zeta.core.voice
 
 import com.dzshzx.zeta.core.safeCut
+import com.dzshzx.zeta.i18n.Strings
+import com.dzshzx.zeta.i18n.UiLanguage
 import com.dzshzx.zeta.ui.markdown.ChatGfmFlavourDescriptor
 import com.dzshzx.zeta.ui.markdown.TexMathDelimiters
 import org.intellij.markdown.IElementType
@@ -12,7 +14,7 @@ import org.intellij.markdown.flavours.gfm.GFMTokenTypes
 import org.intellij.markdown.parser.MarkdownParser
 
 /**
- * 把回答的 Markdown 换成适合朗读的文字。纯函数，单元测试覆盖。
+ * 把回答的 Markdown 换成适合朗读的文字。纯函数，单元测试覆盖。补的话（“代码略”这些）跟着回答的语言：有汉字的用中文，否则用英文， 和朗读引擎念的那段话一致，不看界面语言。
  *
  * - 代码块、表格、块级公式不念内容，念一句“代码略”“表格略”“公式略”，听的人知道这里跳过了东西；
  * - 链接只念文字，网址（链接地址、裸网址）念成“链接”；图片、HTML、分隔线不念；
@@ -22,7 +24,14 @@ import org.intellij.markdown.parser.MarkdownParser
  * 解析用聊天页同一套 GFM 扩展（[ChatGfmFlavourDescriptor]），公式的认法和界面上一致。
  */
 object SpeechText {
-    fun readable(markdown: String): String {
+    fun readable(markdown: String): String =
+        UiLanguage.within(
+            if (HAN.containsMatchIn(markdown)) UiLanguage.SOURCE else UiLanguage.ENGLISH,
+        ) {
+            read(markdown)
+        }
+
+    private fun read(markdown: String): String {
         val source = TexMathDelimiters.normalize(markdown)
         val root =
             MarkdownParser(ChatGfmFlavourDescriptor(originalSource = markdown))
@@ -72,9 +81,9 @@ object SpeechText {
         fun blocks(node: ASTNode) {
             when (node.type) {
                 MarkdownElementTypes.CODE_FENCE,
-                MarkdownElementTypes.CODE_BLOCK -> line("代码略")
-                GFMElementTypes.TABLE -> line("表格略")
-                GFMElementTypes.BLOCK_MATH -> line("公式略")
+                MarkdownElementTypes.CODE_BLOCK -> line(Strings.speechCodeOmitted())
+                GFMElementTypes.TABLE -> line(Strings.speechTableOmitted())
+                GFMElementTypes.BLOCK_MATH -> line(Strings.speechFormulaOmitted())
                 MarkdownElementTypes.HTML_BLOCK,
                 MarkdownElementTypes.LINK_DEFINITION,
                 MarkdownTokenTypes.HORIZONTAL_RULE -> Unit
@@ -98,12 +107,16 @@ object SpeechText {
                 MarkdownElementTypes.CODE_SPAN -> {
                     val code = text(node).trim('`').trim()
                     append(
-                        if (code.length <= SHORT_CODE && !URL.containsMatchIn(code)) code else "代码",
+                        if (code.length <= SHORT_CODE && !URL.containsMatchIn(code)) code
+                        else Strings.speechCode(),
                     )
                 }
                 GFMElementTypes.INLINE_MATH -> {
                     val math = text(node).trim('$').trim()
-                    append(if (math.length <= SHORT_CODE && '\\' !in math) math else "公式")
+                    append(
+                        if (math.length <= SHORT_CODE && '\\' !in math) math
+                        else Strings.speechFormula(),
+                    )
                 }
                 MarkdownElementTypes.INLINE_LINK,
                 MarkdownElementTypes.FULL_REFERENCE_LINK,
@@ -124,10 +137,10 @@ object SpeechText {
                             .orEmpty()
                             .let(::withoutUrls)
                             .trim()
-                    append(" ").append(words.ifEmpty { "链接" }).append(" ")
+                    append(" ").append(words.ifEmpty { Strings.speechLink() }).append(" ")
                 }
                 MarkdownElementTypes.AUTOLINK,
-                GFMTokenTypes.GFM_AUTOLINK -> append(" 链接 ")
+                GFMTokenTypes.GFM_AUTOLINK -> append(" ").append(Strings.speechLink()).append(" ")
                 GFMTokenTypes.CHECK_BOX -> append(checkBox(node))
                 MarkdownTokenTypes.EOL,
                 MarkdownTokenTypes.HARD_LINE_BREAK -> append(' ')
@@ -139,7 +152,8 @@ object SpeechText {
         }
 
         private fun checkBox(node: ASTNode) =
-            if (text(node).contains('x', ignoreCase = true)) "已完成，" else "未完成，"
+            if (text(node).contains('x', ignoreCase = true)) Strings.speechTodoDone("")
+            else Strings.speechTodoOpen("")
 
         private fun text(node: ASTNode) = source.substring(node.startOffset, node.endOffset)
     }
@@ -159,7 +173,7 @@ object SpeechText {
         return if (HAN.containsMatchIn(line)) "$line。" else "$line."
     }
 
-    private fun withoutUrls(text: String): String = URL.replace(text, " 链接 ")
+    private fun withoutUrls(text: String): String = URL.replace(text, " ${Strings.speechLink()} ")
 
     private val TEXT_BLOCKS: Set<IElementType> =
         setOf(
