@@ -30,12 +30,5 @@ func (h *Hub) alert(backend, id string, waiting bool) {
 	if h.alerted == nil {
 		return
 	}
-	s := hostlink.Session{Backend: backend, ID: id}
-	for _, x := range h.sessions {
-		if x.Backend == backend && x.ID == id {
-			s = x
-			break
-		}
-	}
-	h.alerted(Alert{Session: s, Waiting: waiting})
+	h.alerted(Alert{Session: h.listed(backend, id), Waiting: waiting})
 }

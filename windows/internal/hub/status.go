@@ -111,11 +111,7 @@ func (h *Hub) BackgroundChats() []BackgroundChat {
 			if !inProgress(a) || h.showing(id, session) {
 				continue
 			}
-			s := hostlink.Session{ID: session, Backend: id}
-			if i := slices.IndexFunc(h.sessions, func(x hostlink.Session) bool { return x.Backend == id && x.ID == session }); i >= 0 {
-				s = h.sessions[i]
-			}
-			out = append(out, BackgroundChat{Session: s, Activity: a})
+			out = append(out, BackgroundChat{Session: h.listed(id, session), Activity: a})
 		}
 	}
 	slices.SortStableFunc(out, func(x, y BackgroundChat) int {
@@ -127,4 +123,12 @@ func (h *Hub) BackgroundChats() []BackgroundChat {
 // inProgress：核心报这个会话在进行（在回答、等确认，或答完了还有后台任务）；闲着的核心过一会儿自己放手，不算。
 func inProgress(a hostlink.Activity) bool {
 	return a.State == "waiting" || a.State == "answering" || a.State == "background" || a.Tasks > 0
+}
+
+// listed 是会话列表里设备 backend 上的会话 id；列表里还没有（新会话那边还没推来，或在最近 300 个之外）时只有设备和会话号。
+func (h *Hub) listed(backend, id string) hostlink.Session {
+	if i := slices.IndexFunc(h.sessions, func(x hostlink.Session) bool { return x.Backend == backend && x.ID == id }); i >= 0 {
+		return h.sessions[i]
+	}
+	return hostlink.Session{Backend: backend, ID: id}
 }
