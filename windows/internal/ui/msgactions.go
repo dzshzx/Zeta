@@ -3,13 +3,13 @@ package ui
 import (
 	"context"
 	"net/http"
-	"strconv"
 	"strings"
 	"sync"
 
 	"github.com/dzshzx/Zeta/helper/coreapi"
 	"github.com/dzshzx/Zeta/windows/internal/chat"
 	"github.com/dzshzx/Zeta/windows/internal/chat/items"
+	"github.com/dzshzx/Zeta/windows/internal/locales"
 	"github.com/dzshzx/Zeta/windows/internal/settings"
 	"github.com/dzshzx/Zeta/windows/internal/ui/chatview"
 	"github.com/dzshzx/Zeta/windows/internal/ui/widget"
@@ -83,21 +83,21 @@ func (p *chatPane) canRewind() bool {
 // userMenu 是用户消息右键菜单里「复制」后面的项：收藏为常用指令；编辑、还原代码、删除在 Claude Code 认得这条消息时才有。
 // later 是它之后还有几轮。
 func (a *App) userMenu(c *ui.Context, m *ui.Menu, p *chatPane, it items.Item, later int) {
-	if m.Item("收藏为常用指令").Chosen() {
+	if m.Item(locales.MessageSaveAsPrompt()).Chosen() {
 		c.Toast(a.saveMessage(it.Text))
 	}
 	if !it.Rewindable {
 		return
 	}
 	off := !p.canRewind()
-	if m.Item("编辑").Disabled(off).Chosen() {
+	if m.Item(locales.MessageEdit()).Disabled(off).Chosen() {
 		a.beginEdit(p, it, later)
 	}
-	if m.Item("还原代码").Disabled(off).Chosen() {
+	if m.Item(locales.MessageRestoreCode()).Disabled(off).Chosen() {
 		a.ask(p, confirmRestore, it, later)
 	}
 	m.Separator()
-	if m.Item("删除").Disabled(off).Danger().Chosen() {
+	if m.Item(locales.CommonDelete()).Disabled(off).Danger().Chosen() {
 		a.ask(p, confirmDrop, it, later)
 	}
 }
@@ -107,15 +107,15 @@ func (a *App) userMenu(c *ui.Context, m *ui.Menu, p *chatPane, it items.Item, la
 func (a *App) saveMessage(text string) string {
 	list := a.hub.Prompts()
 	if settings.HasSamePrompt(list, text) {
-		return "已经在常用指令里了"
+		return locales.MessagePromptExists()
 	}
 	if why := settings.PromptProblem(list, "", text, ""); why != "" {
 		return why
 	}
 	if err := a.hub.SetPrompts(settings.AddPrompt(list, newPromptID(), "", text)); err != nil {
-		return "常用指令没存上：" + err.Error()
+		return locales.MessagePromptSaveFailed(err.Error())
 	}
-	return "已收藏，在输入栏左下角的「+」里"
+	return locales.MessagePromptSaved()
 }
 
 // roundActions 是用户消息 user 开始的那一轮的操作键：重新生成、删除、分支（同手机版 TurnActionButtons）。
@@ -126,11 +126,11 @@ func (a *App) roundActions(c *ui.Context, p *chatPane, user items.Item, later in
 	}
 	on := p.canRewind()
 	if user.Rewindable {
-		chatview.ActionButton(c, widget.IconRefresh, "重新生成", on).OnClick(func() { a.ask(p, confirmRegenerate, user, later) })
-		chatview.ActionButton(c, widget.IconDelete, "删除这一轮", on).OnClick(func() { a.ask(p, confirmDrop, user, later) })
+		chatview.ActionButton(c, widget.IconRefresh, locales.MessageRegenerate(), on).OnClick(func() { a.ask(p, confirmRegenerate, user, later) })
+		chatview.ActionButton(c, widget.IconDelete, locales.MessageDeleteRound(), on).OnClick(func() { a.ask(p, confirmDrop, user, later) })
 	}
 	if user.Forkable {
-		chatview.ActionButton(c, widget.IconBranch, "分支", on).OnClick(func() {
+		chatview.ActionButton(c, widget.IconBranch, locales.MessageFork(), on).OnClick(func() {
 			p.failed = ""
 			a.hub.Fork(user.RoundLast, p.fail)
 		})
@@ -220,7 +220,7 @@ func (a *App) beginEdit(p *chatPane, user items.Item, later int) {
 			}
 			p.putBack(coreapi.Message{Images: images})
 			if lost > 0 {
-				p.failed = "有图片取不回来，没有放进输入框"
+				p.failed = locales.MessageImagesLost()
 			}
 		}
 	})
@@ -246,7 +246,7 @@ func (p *chatPane) cancelEdit() {
 // 不发，返回 false，字留在输入栏。
 func (a *App) submitEdit(p *chatPane, text string) bool {
 	if !p.connected || !p.state.CanRewind {
-		p.failed = "等这一轮结束再发"
+		p.failed = locales.MessageWaitRound()
 		return false
 	}
 	target := p.acts.editing.user.ID
@@ -258,7 +258,7 @@ func (a *App) submitEdit(p *chatPane, text string) bool {
 	a.hub.RunChat(func(ctx context.Context, conv *chat.Conversation) error {
 		return conv.Rewrite(ctx, target, coreapi.Outgoing{Text: m.Text, Images: m.Images, Files: m.Files})
 	}, func(err error) {
-		p.failed = "没发出去：" + err.Error()
+		p.failed = locales.MessageSendFailed(err.Error())
 		p.putBack(m)
 	})
 	return true
@@ -274,14 +274,14 @@ func (a *App) editStrip(c *ui.Context, p *chatPane) {
 	panel(c, func() {
 		ui.Row(c).Padding(0, 4, 0, 14).Gap(6).AlignItems(ui.Center).Children(func() {
 			ui.Icon(c, widget.IconEdit).Size(14, 14).TextColor(k.PrimaryText)
-			ui.Text(c, "编辑消息").FontSize(widget.SizeBodyS).FontWeight(widget.Medium).TextColor(k.PrimaryText)
-			hint := "发送后将替换这条消息和它的回复"
+			ui.Text(c, locales.MessageEditing()).FontSize(widget.SizeBodyS).FontWeight(widget.Medium).TextColor(k.PrimaryText)
+			hint := locales.MessageEditHint()
 			if r.later > 0 {
-				hint = "发送后将替换这条消息及之后的内容"
+				hint = locales.MessageEditHintLater()
 			}
 			ui.Text(c, hint).FontSize(widget.SizeBodyS).TextColor(k.Secondary).SingleLine().Ellipsis("…").Grow(1).MinWidth(0).
 				Margin(0, 0, 0, 2)
-			widget.FlatButton(c, widget.IconClose, "取消编辑", 32, 16).OnClick(p.cancelEdit)
+			widget.FlatButton(c, widget.IconClose, locales.MessageCancelEdit(), 32, 16).OnClick(p.cancelEdit)
 		})
 	})
 }
@@ -307,22 +307,22 @@ func (a *App) messageDialogs(c *ui.Context, p *chatPane) {
 		switch {
 		case cf.changes == nil:
 		case cf.kind == confirmRestore:
-			label := "同时删除这一轮"
+			label := locales.MessageAlsoDropRound()
 			if cf.later > 0 {
-				label = "同时删除这一轮及之后的"
+				label = locales.MessageAlsoDropLater()
 			}
 			widget.Choice(c, label, "", widget.MarkCheck, cf.drop).OnClick(func() { cf.drop = !cf.drop })
 		default:
-			widget.Choice(c, "同时还原代码", "", widget.MarkCheck, cf.code).OnClick(func() { cf.code = !cf.code })
+			widget.Choice(c, locales.MessageAlsoRestoreCode(), "", widget.MarkCheck, cf.code).OnClick(func() { cf.code = !cf.code })
 		}
 		widget.ButtonBar(c, func() {
 			if cf.kind == confirmRestore && cf.asked && cf.changes == nil {
-				if widget.DialogButton(c, "好", widget.Recommend).Clicked() {
+				if widget.DialogButton(c, locales.MessageOk(), widget.Recommend).Clicked() {
 					cf.open = false
 				}
 				return
 			}
-			if widget.DialogButton(c, "取消", widget.Plain).Clicked() {
+			if widget.DialogButton(c, locales.WidgetCancel(), widget.Plain).Clicked() {
 				cf.open = false
 			}
 			style := widget.Destructive
@@ -347,33 +347,32 @@ func confirmTexts(cf *confirm) (title, summary, button string) {
 	later := cf.later
 	files := ""
 	if ch := cf.changes; ch != nil {
-		files = "这条消息之后改过 " + strconv.Itoa(len(ch.Files)) + " 个文件（+" + strconv.Itoa(ch.Insertions) + " −" +
-			strconv.Itoa(ch.Deletions) + "）。"
+		files = locales.MessageFilesChanged(len(ch.Files), ch.Insertions, ch.Deletions)
 	}
 	switch cf.kind {
 	case confirmRegenerate:
-		title, button = "重新生成回复？", "重新生成"
-		summary = "这一轮的回复将换成新生成的。"
+		title, button = locales.MessageRegenerateTitle(), locales.MessageRegenerate()
+		summary = locales.MessageRegenerateSummary()
 		if later > 0 {
-			summary = "将删除之后 " + strconv.Itoa(later) + " 轮对话，并从这条消息重新生成。"
+			summary = locales.MessageRegenerateSummaryLater(later)
 		}
 	case confirmDrop:
-		title, button = "删除这一轮对话？", "删除"
-		summary = "这条消息和它的回复将被删除。"
+		title, button = locales.MessageDropTitle(), locales.CommonDelete()
+		summary = locales.MessageDropSummary()
 		if later > 0 {
-			summary = "这条消息及之后 " + strconv.Itoa(later) + " 轮对话将被删除。"
+			summary = locales.MessageDropSummaryLater(later)
 		}
 	case confirmRestore:
-		title, button = "还原代码？", "还原"
+		title, button = locales.MessageRestoreTitle(), locales.MessageRestore()
 		switch {
 		case cf.failed != "":
-			return title, "没查到改过哪些文件：" + cf.failed, button
+			return title, locales.MessageRestoreCheckFailed(cf.failed), button
 		case !cf.asked:
-			return title, "正在查这条消息之后改过哪些文件…", button
+			return title, locales.MessageRestoreChecking(), button
 		case cf.changes == nil:
-			return title, "这条消息之后没有可还原的文件改动。", button
+			return title, locales.MessageRestoreNothing(), button
 		}
-		return title, "把文件改回这条消息之前的样子，对话不动。" + files, button
+		return title, locales.MessageRestoreSummary(files), button
 	}
 	if files != "" {
 		summary += "\n" + files
@@ -388,7 +387,7 @@ func changedFiles(c *ui.Context, ch *coreapi.CodeChanges, cwd string) {
 	ui.Column(c).FillWidth().Margin(6, 0, 0, 0).Padding(8, 12).Radius(12).Background(k.DialogBlock).Gap(2).Children(func() {
 		for i, f := range ch.Files {
 			if i == most {
-				ui.Text(c, "还有 "+strconv.Itoa(len(ch.Files)-most)+" 个").FontSize(widget.SizeBodyXS).TextColor(k.Secondary)
+				ui.Text(c, locales.MessageMoreFiles(len(ch.Files)-most)).FontSize(widget.SizeBodyXS).TextColor(k.Secondary)
 				break
 			}
 			if cwd != "" && strings.HasPrefix(f, strings.TrimSuffix(cwd, "/")+"/") {

@@ -1,6 +1,7 @@
 package ui
 
 import (
+	"github.com/dzshzx/Zeta/windows/internal/locales"
 	"github.com/dzshzx/Zeta/windows/internal/ui/widget"
 	"github.com/egoist/mygo/ui"
 )
@@ -60,10 +61,10 @@ func (a *App) applyZoom(c *ui.Context) { c.SetZoom(float32(a.zoom) / 100) }
 // zoomRow 是设置「常规」外观一组里的界面缩放：下拉选一档。
 func (a *App) zoomRow(l *widget.List) {
 	c := l.Context()
-	l.Row(widget.Row{Icon: widget.IconSearch, Title: "界面缩放", End: func() {
+	l.Row(widget.Row{Icon: widget.IconSearch, Title: locales.ZoomTitle(), End: func() {
 		widget.MenuButton(c.Key("zoom"), func(t ui.Element) {
 			widget.Dropdown(c, t, percentText(a.zoom))
-			t.Label("界面缩放")
+			t.Label(locales.ZoomTitle())
 		}, func(m *widget.Menu) {
 			for _, z := range zoomLevels {
 				if m.Choice(percentText(z), z == a.zoom) {

@@ -19,11 +19,8 @@ import (
 	"github.com/egoist/mygo/ui"
 )
 
-// unofficial 是关于一组下面的说明（同 ZetaInfo.UNOFFICIAL）。
-const unofficial = "Claude 是 Anthropic 的商标。Zeta 不是 Anthropic 的产品，与 Anthropic 没有关联。"
-
-// themeLabels 是外观的三档，下标对应 themeOf 的结果。
-var themeLabels = []string{"跟随系统", "浅色", "深色"}
+// themeLabels 是外观的三档，下标对应 themeOf 的结果；按界面当前的语言取字。
+var themeLabels = []func() string{locales.SettingsThemeSystem, locales.SettingsThemeLight, locales.SettingsThemeDark}
 
 // startSettings 打开设置页：各台还没读过账号的读一遍（账号一行的副标题），额度没有时取一次存着的；「连接」关着的不读。
 func (a *App) startSettings() {
@@ -64,7 +61,7 @@ func (a *App) settingsNav(c *ui.Context) {
 	c.OnWindowShortcut(0, ui.KeyEscape, a.escapeSettings)
 	ui.Column(c).Fill().Background(k.Sidebar).Children(func() {
 		ui.Row(c).Height(widget.TitleBarHeight).Padding(0, 10, 0, 10).AlignItems(ui.Center).Shrink(0).DragWindow().Children(func() {
-			widget.NavItem(c, widget.IconBack, "返回应用", "Esc", false).OnClick(a.leaveSettings).Width(0).Grow(1)
+			widget.NavItem(c, widget.IconBack, locales.SettingsBackToApp(), "Esc", false).OnClick(a.leaveSettings).Width(0).Grow(1)
 		})
 		ui.Scroll(c.Key("settings-nav")).Grow(1).MinHeight(0).Children(func() {
 			ui.Column(c).Padding(4, 10, 12, 10).Gap(2).Children(func() { a.settingsCategories(c) })
@@ -74,8 +71,8 @@ func (a *App) settingsNav(c *ui.Context) {
 
 // settingsCategories 是设置的各类。
 func (a *App) settingsCategories(c *ui.Context) {
-	widget.NavItem(c, widget.IconSettings, "常规", "", a.page == pageSettings).OnClick(func() { a.open(pageSettings) })
-	navTitle(c, "设备")
+	widget.NavItem(c, widget.IconSettings, locales.SettingsGeneral(), "", a.page == pageSettings).OnClick(func() { a.open(pageSettings) })
+	navTitle(c, locales.SettingsDevices())
 	for _, x := range a.hub.Hosts() {
 		widget.NavItem(c.Key("device/"+x.ID), widget.IconServer, x.Name(), offLabel(x), a.page == pageDevice && a.device == x.ID).
 			OnClick(func() {
@@ -83,20 +80,20 @@ func (a *App) settingsCategories(c *ui.Context) {
 				a.open(pageDevice)
 			})
 	}
-	widget.NavItem(c, widget.IconAdd, "添加设备", "", a.page == pageDevices).OnClick(func() { a.open(pageDevices) })
+	widget.NavItem(c, widget.IconAdd, locales.SettingsAddDevice(), "", a.page == pageDevices).OnClick(func() { a.open(pageDevices) })
 	if hosts := a.hub.Hosts(); len(hosts) > 0 {
-		navTitle(c, "账号与额度")
+		navTitle(c, locales.SettingsAccounts())
 		for _, x := range hosts {
 			a.accountsItem(c, x)
 		}
 	}
 	navTitle(c, "")
-	widget.NavItem(c, widget.IconWrench, "诊断", "", a.page == pageDiag).OnClick(func() { a.open(pageDiag) })
+	widget.NavItem(c, widget.IconWrench, locales.SettingsDiagnostics(), "", a.page == pageDiag).OnClick(func() { a.open(pageDiag) })
 	hint := ""
 	if st := a.About.Updates.Status(); st.Phase == update.Available {
-		hint = "有新版本 " + st.Manifest.VersionName
+		hint = locales.SettingsUpdateHint(st.Manifest.VersionName)
 	}
-	widget.NavItem(c, widget.IconInfo, "关于", hint, a.page == pageAbout).OnClick(func() { a.open(pageAbout) })
+	widget.NavItem(c, widget.IconInfo, locales.SettingsAbout(), hint, a.page == pageAbout).OnClick(func() { a.open(pageAbout) })
 }
 
 // accountsItem 是一台设备的账号与额度：名字是设备名，右边是最要紧的额度窗口用了多少；「连接」关着的那台写已断开，点不进去。
@@ -105,7 +102,7 @@ func (a *App) accountsItem(c *ui.Context, x sshlink.Host) {
 	hint := offLabel(x)
 	if r != nil {
 		if h, ok := headline(r.Quota, c.Now()); ok {
-			hint = "已用 " + percentText(h.Percent())
+			hint = locales.SettingsQuotaUsed(h.Percent())
 		}
 	}
 	item := widget.NavItem(c.Key("accounts/"+x.ID), widget.IconContacts, x.Name(), hint, a.page == pageAccounts && a.device == x.ID)
@@ -130,20 +127,17 @@ func navTitle(c *ui.Context, title string) {
 
 // settingsPage 是设置的「常规」：外观、对话、快捷键。
 func (a *App) settingsPage(c *ui.Context) {
-	a.subPage(c, "常规", "settings", func() {
+	a.subPage(c, locales.SettingsGeneral(), "settings", func() {
 		a.appearanceSection(c)
 		a.chatSection(c)
 		shortcutsSection(c)
 	})
 }
 
-// offNote 是「连接」关着的设备怎样（设备页的开关下面、聊天窗格的已断开说明），同手机版的 RemoteHosts.OFF_NOTE。
-const offNote = "Zeta 不连这台设备，它上面的对话在那边照样跑"
-
 // offLabel 是「连接」关着的设备在设置侧栏和侧栏设备菜单里注明的字；开着时是空。
 func offLabel(x sshlink.Host) string {
 	if x.Off {
-		return "已断开"
+		return locales.SettingsOff()
 	}
 	return ""
 }
@@ -166,15 +160,15 @@ func percentText(n int) string { return strconv.Itoa(n) + "%" }
 // appearanceSection 是外观：主题（跟随系统、浅色、深色，存在设置里，键同手机版）、界面语言和界面缩放（zoom.go）。
 func (a *App) appearanceSection(c *ui.Context) {
 	s := a.hub.Settings()
-	widget.Group(c, "外观", "", func(l *widget.List) {
-		l.Row(widget.Row{Icon: widget.IconTheme, Title: "主题模式", End: func() {
+	widget.Group(c, locales.SettingsAppearance(), "", func(l *widget.List) {
+		l.Row(widget.Row{Icon: widget.IconTheme, Title: locales.SettingsTheme(), End: func() {
 			widget.MenuButton(c.Key("theme"), func(t ui.Element) {
-				widget.Dropdown(c, t, themeLabels[themeOf(s.Dark())])
-				t.Label("主题模式")
+				widget.Dropdown(c, t, themeLabels[themeOf(s.Dark())]())
+				t.Label(locales.SettingsTheme())
 			}, func(m *widget.Menu) {
 				current := themeOf(s.Dark())
 				for i, label := range themeLabels {
-					if m.Choice(label, i == current) && i != current {
+					if m.Choice(label(), i == current) && i != current {
 						a.setTheme(i)
 					}
 				}
@@ -228,7 +222,7 @@ func (a *App) setTheme(i int) {
 		dark = &v
 	}
 	if err := a.hub.Settings().SetDark(dark); err != nil {
-		a.say("没存上", err.Error())
+		a.say(locales.SettingsSaveFailed(), err.Error())
 	}
 }
 
@@ -263,18 +257,18 @@ func (a *App) accountsPage(c *ui.Context) {
 		a.open(pageSettings)
 		return
 	}
-	title := "账号与额度"
+	title := locales.SettingsAccounts()
 	if len(a.hub.Hosts()) > 1 {
-		title = x.Name() + " · " + title
+		title = locales.SettingsAccountsOnDevice(x.Name())
 	}
 	a.subPage(c, title, "accounts", func() { a.acct.View(c) })
 }
 
 // aboutPage 是关于：版本、检查更新、新版本的下载安装、开源许可。
 func (a *App) aboutPage(c *ui.Context) {
-	a.subPage(c, "关于", "about", func() {
+	a.subPage(c, locales.SettingsAbout(), "about", func() {
 		a.About.View(c)
-		ui.Text(c, unofficial).FontSize(widget.SizeBodyXS).LineHeight(1.4).TextColor(widget.Of(c).Secondary).Padding(0, 32)
+		ui.Text(c, locales.SettingsUnofficial()).FontSize(widget.SizeBodyXS).LineHeight(1.4).TextColor(widget.Of(c).Secondary).Padding(0, 32)
 	})
 }
 
@@ -321,25 +315,25 @@ func (a *App) updateBar(c *ui.Context) {
 	bar.Children(func() {
 		ui.Box(c).Size(6, 6).Radius(3).Background(k.Error).Shrink(0)
 		ui.Text(c, a.updateNote).FontSize(widget.SizeBodyM).TextColor(k.Text).Grow(1).MinWidth(0)
-		widget.SmallPrimaryButton(c, "查看").OnClick(func() {
+		widget.SmallPrimaryButton(c, locales.SettingsUpdateView()).OnClick(func() {
 			a.updateNote = ""
 			a.open(pageAbout)
 		})
-		widget.FlatButton(c, widget.IconClose, "关闭提示", 32, 18).OnClick(func() { a.updateNote = "" })
+		widget.FlatButton(c, widget.IconClose, locales.SettingsUpdateDismiss(), 32, 18).OnClick(func() { a.updateNote = "" })
 	})
 }
 
 // chatSection 是对话一组：自动加载网络图片（键同手机版设置首页的同名开关，聊天列表每帧照它）。
 func (a *App) chatSection(c *ui.Context) {
 	s := a.hub.Settings()
-	widget.Group(c, "对话", "", func(l *widget.List) {
+	widget.Group(c, locales.SettingsChat(), "", func(l *widget.List) {
 		on := s.AutoLoadRemoteImages()
-		l.Row(widget.Row{Icon: widget.IconImage, Title: "自动加载网络图片",
-			Summary: "关着时回答里的网络图片先显示「加载图片」，点了才去取：取图会把这台电脑的 IP 交给图片所在的网站",
+		l.Row(widget.Row{Icon: widget.IconImage, Title: locales.SettingsAutoLoadImages(),
+			Summary: locales.SettingsAutoLoadImagesSummary(),
 			End: func() {
-				if widget.Switch(c.Key("auto-load-images"), &on).Label("自动加载网络图片").Changed() {
+				if widget.Switch(c.Key("auto-load-images"), &on).Label(locales.SettingsAutoLoadImages()).Changed() {
 					if err := s.SetAutoLoadRemoteImages(on); err != nil {
-						a.say("没存上", err.Error())
+						a.say(locales.SettingsSaveFailed(), err.Error())
 					}
 				}
 			}})

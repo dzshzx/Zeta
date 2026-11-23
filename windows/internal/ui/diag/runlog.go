@@ -1,9 +1,9 @@
 package diag
 
 import (
-	"fmt"
 	"time"
 
+	"github.com/dzshzx/Zeta/windows/internal/locales"
 	"github.com/dzshzx/Zeta/windows/internal/runlog"
 	"github.com/dzshzx/Zeta/windows/internal/ui/widget"
 	"github.com/egoist/mygo/ui"
@@ -20,11 +20,11 @@ type logState struct {
 	clearErr error
 }
 
-// levelChoices 是「轻重」的几档：标签和最轻要到哪一档。
+// levelChoices 是「轻重」的几档：标签（按界面当前的语言取）和最轻要到哪一档。
 var levelChoices = []struct {
-	label string
+	label func() string
 	min   runlog.Level
-}{{"全部", runlog.Info}, {"警告和出错", runlog.Warn}, {"只看出错", runlog.Error}}
+}{{locales.DiagFilterAll, runlog.Info}, {locales.DiagFilterWarnings, runlog.Warn}, {locales.DiagFilterErrors, runlog.Error}}
 
 // shownLimit 是运行日志页最多列几条（新的在前），再多的看导出的诊断包。
 const shownLimit = 300
@@ -44,19 +44,19 @@ func (p *Page) runLogGroup(c *ui.Context) {
 			errors++
 		}
 	}
-	footer := fmt.Sprintf("Zeta 在这台电脑上记下的事：启动、出错和重连这类，只留最近 %d 条。", runlog.Capacity)
-	widget.Group(c, "运行日志", footer, func(l *widget.List) {
-		summary := "还没有记录"
-		if len(entries) > 0 {
-			summary = fmt.Sprintf("共 %d 条", len(entries))
-			if warnings > 0 {
-				summary += fmt.Sprintf("，%d 条警告", warnings)
-			}
+	footer := locales.DiagRunLogFooter(runlog.Capacity)
+	widget.Group(c, locales.DiagRunLog(), footer, func(l *widget.List) {
+		summary := locales.DiagNoEntries()
+		switch {
+		case warnings > 0:
+			summary = locales.DiagEntryCountWarnings(len(entries), warnings)
+		case len(entries) > 0:
+			summary = locales.DiagEntryCount(len(entries))
 		}
-		row := widget.Row{Title: "查看运行日志", Summary: summary, Arrow: true, OnClick: func() { p.log.open = true }}
+		row := widget.Row{Title: locales.DiagViewRunLog(), Summary: summary, Arrow: true, OnClick: func() { p.log.open = true }}
 		if errors > 0 {
 			row.End = func() {
-				ui.Text(c, fmt.Sprintf("%d 条出错", errors)).FontSize(widget.SizeBodyM).TextColor(widget.Of(c).Error)
+				ui.Text(c, locales.DiagErrorCount(errors)).FontSize(widget.SizeBodyM).TextColor(widget.Of(c).Error)
 			}
 		}
 		l.Row(row)
@@ -68,7 +68,7 @@ func (p *Page) envGroup(c *ui.Context) {
 	if p.o.Env == nil {
 		return
 	}
-	widget.Group(c, "环境", "", func(l *widget.List) {
+	widget.Group(c, locales.DiagEnv(), "", func(l *widget.List) {
 		for _, line := range p.o.Env() {
 			row := widget.Row{Title: line.Name, Key: line.Name}
 			if len([]rune(line.Value)) <= 24 {
@@ -87,10 +87,10 @@ func (p *Page) logView(c *ui.Context) {
 	k := widget.Of(c)
 	entries := p.o.Log.Entries()
 	widget.TitleRow(c).Children(func() {
-		widget.IconButton(c, widget.IconBack, "返回").OnClick(func() { s.open = false })
-		ui.Text(c, "运行日志").FontSize(widget.SizeHeadlineS).FontWeight(widget.Medium).TextColor(k.Text).Shrink(1)
+		widget.IconButton(c, widget.IconBack, locales.WidgetBack()).OnClick(func() { s.open = false })
+		ui.Text(c, locales.DiagRunLog()).FontSize(widget.SizeHeadlineS).FontWeight(widget.Medium).TextColor(k.Text).Shrink(1)
 		ui.Spacer(c)
-		widget.SmallDangerButton(c, "清空").Disabled(len(entries) == 0).OnClick(func() { s.clearing = true })
+		widget.SmallDangerButton(c, locales.DiagClear()).Disabled(len(entries) == 0).OnClick(func() { s.clearing = true })
 	})
 	topic := runlog.Topic("")
 	if s.topic > 0 {
@@ -104,29 +104,31 @@ func (p *Page) logView(c *ui.Context) {
 	}
 	widget.Body(c, "runlog", func() {
 		widget.Group(c, "", "", func(l *widget.List) {
-			topics := []string{"全部"}
+			topics := []string{locales.DiagFilterAll()}
 			for _, t := range runlog.Topics {
-				topics = append(topics, string(t))
+				topics = append(topics, t.Name())
 			}
-			l.Row(widget.Row{Title: "类别", End: func() { choice(c, "类别", topics, s.topic, func(i int) { s.topic = i }) }})
+			category := locales.DiagCategory()
+			l.Row(widget.Row{Title: category, End: func() { choice(c, category, topics, s.topic, func(i int) { s.topic = i }) }})
 			var levels []string
 			for _, lv := range levelChoices {
-				levels = append(levels, lv.label)
+				levels = append(levels, lv.label())
 			}
-			l.Row(widget.Row{Title: "轻重", End: func() { choice(c, "轻重", levels, s.level, func(i int) { s.level = i }) }})
+			severity := locales.DiagSeverity()
+			l.Row(widget.Row{Title: severity, End: func() { choice(c, severity, levels, s.level, func(i int) { s.level = i }) }})
 		})
 		footer := ""
 		if len(shown) == shownLimit {
-			footer = fmt.Sprintf("只列最近 %d 条，更早的在导出的诊断包里。", shownLimit)
+			footer = locales.DiagShownLimit(shownLimit)
 		}
 		if s.clearErr != nil {
-			footer = "没清干净：" + s.clearErr.Error()
+			footer = locales.DiagClearFailed(s.clearErr.Error())
 		}
 		widget.Group(c, "", footer, func(l *widget.List) {
 			if len(shown) == 0 {
-				empty := "没有符合条件的记录"
+				empty := locales.DiagNoMatches()
 				if len(entries) == 0 {
-					empty = "还没有记录"
+					empty = locales.DiagNoEntries()
 				}
 				l.Message(empty)
 			}
@@ -135,8 +137,8 @@ func (p *Page) logView(c *ui.Context) {
 			}
 		})
 	})
-	if widget.Alert(c, &s.clearing, "清空运行日志？", "这台电脑上记下的都会删掉。", widget.Action{Label: "取消"},
-		widget.Action{Label: "清空", Style: widget.Destructive}) == 1 {
+	if widget.Alert(c, &s.clearing, locales.DiagClearTitle(), locales.DiagClearMessage(), widget.Action{Label: locales.WidgetCancel()},
+		widget.Action{Label: locales.DiagClear(), Style: widget.Destructive}) == 1 {
 		s.clearErr = p.o.Log.Clear()
 	}
 }
@@ -153,8 +155,8 @@ func entryRow(c *ui.Context, e runlog.Entry, now time.Time) {
 	}
 	ui.Column(c).Grow(1).MinWidth(0).Gap(4).Padding(4, 0).Children(func() {
 		ui.Row(c).FillWidth().AlignItems(ui.Center).Children(func() {
-			ui.Text(c, clock(e.At, now)+" · "+string(e.Topic)).FontSize(widget.SizeBodyXS).TextColor(k.Secondary).Grow(1)
-			ui.Text(c, e.Level.Label()).FontSize(widget.SizeBodyXS).TextColor(color)
+			ui.Text(c, clock(e.At, now)+" · "+e.Topic.Name()).FontSize(widget.SizeBodyXS).TextColor(k.Secondary).Grow(1)
+			ui.Text(c, e.Level.Name()).FontSize(widget.SizeBodyXS).TextColor(color)
 		})
 		ui.Text(c, e.Message).FontSize(widget.SizeBodyS).LineHeight(1.45).TextColor(k.Text).Selectable()
 	})

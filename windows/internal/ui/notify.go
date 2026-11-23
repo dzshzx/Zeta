@@ -10,7 +10,9 @@ import (
 	"github.com/dzshzx/Zeta/helper/prompt"
 	"github.com/dzshzx/Zeta/windows/internal/chat"
 	"github.com/dzshzx/Zeta/windows/internal/hub"
+	"github.com/dzshzx/Zeta/windows/internal/locales"
 	"github.com/dzshzx/Zeta/windows/internal/ui/chatview"
+	"github.com/egoist/mygo/i18n"
 )
 
 // 系统通知：窗口不在前台时，对话答完了一轮或停下来等你回应就发一条（同手机版的完成提醒和确认提醒）。聊天窗格开着的对话
@@ -34,14 +36,9 @@ func noteID(backend, session string) string {
 	return "zeta-" + backend + "/" + session
 }
 
-// 别的会话的提醒只知道忙闲，不知道结局和等的是什么，说得笼统些。
-const (
-	alertFinished = "这一轮结束了"
-	alertWaiting  = "需要你回应"
-)
-
 // alert 是 hub 报来的、聊天窗格没开着的会话的提醒。答完了一轮也说明等的请求处理掉了：不发通知时（窗口在前台）撤掉等回应的那条，
 // 发了就是换掉它。
+// 别的会话的提醒只知道忙闲，不知道结局和等的是什么，说得笼统些。
 func (a *App) alert(x hub.Alert) {
 	s := x.Session
 	id := noteID(s.Backend, s.ID)
@@ -53,9 +50,9 @@ func (a *App) alert(x hub.Alert) {
 			a.withdraw(id)
 		}
 	case x.Kind == hub.AlertWaiting:
-		a.notify(Note{ID: id, Title: rowTitle(s), Body: alertWaiting, Open: func() { a.openListed(s) }}, true)
+		a.notify(Note{ID: id, Title: rowTitle(s), Body: locales.NotifyWaiting(), Open: func() { a.openListed(s) }}, true)
 	default:
-		a.notify(Note{ID: id, Title: rowTitle(s), Body: alertFinished, Open: func() { a.openListed(s) }}, false)
+		a.notify(Note{ID: id, Title: rowTitle(s), Body: locales.NotifyFinished(), Open: func() { a.openListed(s) }}, false)
 	}
 }
 
@@ -69,7 +66,7 @@ func (a *App) paneAlerts(p *chatPane, turns []chat.Turn) {
 	var bodies []string
 	for _, t := range turns {
 		if t.Phase == chat.TurnFinished {
-			bodies = append(bodies, t.Text)
+			bodies = append(bodies, t.Said(i18n.Locale()))
 		}
 	}
 	waiting := false
@@ -132,18 +129,18 @@ func (a *App) openListed(s hostlink.Session) {
 func waitingText(pr prompt.Prompt) string {
 	switch {
 	case pr.Kind == prompt.KindElicitation && pr.URL != "":
-		return pr.Server + " 请你去网页上操作"
+		return locales.NotifyElicitationUrl(pr.Server)
 	case pr.Kind == prompt.KindElicitation:
-		return pr.Server + " 需要你填写"
+		return locales.NotifyElicitation(pr.Server)
 	case len(pr.Questions) == 1 && strings.TrimSpace(pr.Questions[0].Question) != "":
-		return "需要你回答：" + strings.TrimSpace(pr.Questions[0].Question)
+		return locales.NotifyQuestion(strings.TrimSpace(pr.Questions[0].Question))
 	case len(pr.Questions) > 0:
-		return "需要你回答"
+		return locales.NotifyQuestions()
 	case pr.IsPlan:
-		return "需要你确认计划"
+		return locales.NotifyPlan()
 	}
 	var input map[string]any
 	_ = json.Unmarshal(pr.Input, &input)
 	title, _ := chatview.DescribeTool(pr.ToolName, input)
-	return "需要你确认：" + title
+	return locales.NotifyApprove(title)
 }

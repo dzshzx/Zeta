@@ -5,6 +5,7 @@ import (
 	"encoding/hex"
 	"strings"
 
+	"github.com/dzshzx/Zeta/windows/internal/locales"
 	"github.com/dzshzx/Zeta/windows/internal/settings"
 	"github.com/dzshzx/Zeta/windows/internal/ui/widget"
 	"github.com/egoist/mygo/ui"
@@ -44,17 +45,17 @@ func (a *App) promptList(c *ui.Context, p *chatPane) {
 	list := a.hub.Prompts()
 	summary := ""
 	if len(list) == 0 {
-		summary = "还没有常用指令。点「新建」写一条，或者在自己发过的消息上右键，选「收藏为常用指令」。点一条就把它填进输入框，可以改了再发。"
+		summary = locales.SavedPromptsEmpty()
 	}
-	widget.Sheet(c, "常用指令", summary, 420, func() {
+	widget.Sheet(c, locales.SavedPromptsTitle(), summary, 420, func() {
 		for i, pr := range list {
 			a.promptRow(c.Key("prompt/"+pr.ID), p, pr, i == 0, i == len(list)-1)
 		}
 	}, func() {
-		if widget.DialogButton(c, "关闭", widget.Plain).Clicked() {
+		if widget.DialogButton(c, locales.SavedPromptsClose(), widget.Plain).Clicked() {
 			u.listOpen = false
 		}
-		if widget.DialogButton(c, "新建", widget.Recommend).Disabled(len(list) >= settings.MaxPrompts).Clicked() {
+		if widget.DialogButton(c, locales.SavedPromptsNew(), widget.Recommend).Disabled(len(list) >= settings.MaxPrompts).Clicked() {
 			text := ""
 			if strings.TrimSpace(p.draft) != "" {
 				text = p.draft
@@ -91,7 +92,7 @@ func (a *App) promptRow(c *ui.Context, p *chatPane, pr settings.SavedPrompt, fir
 				}
 			})
 		})
-		widget.MenuButton(c, func(t ui.Element) { widget.FlatButtonOf(c, t, widget.IconMore, "更多操作", 36, 20) }, func(m *widget.Menu) {
+		widget.MenuButton(c, func(t ui.Element) { widget.FlatButtonOf(c, t, widget.IconMore, locales.SavedPromptsMore(), 36, 20) }, func(m *widget.Menu) {
 			a.promptActions(m, pr, first, last)
 		})
 	})
@@ -99,17 +100,17 @@ func (a *App) promptRow(c *ui.Context, p *chatPane, pr settings.SavedPrompt, fir
 
 func (a *App) promptActions(m *widget.Menu, pr settings.SavedPrompt, first, last bool) {
 	u := &a.prompts
-	if m.Add(widget.Entry{Icon: widget.IconEdit, Label: "编辑"}) {
+	if m.Add(widget.Entry{Icon: widget.IconEdit, Label: locales.SavedPromptsEdit()}) {
 		u.listOpen, u.editing = false, &promptDraft{open: true, id: pr.ID, name: pr.Name, text: pr.Text}
 	}
-	if m.Add(widget.Entry{Icon: widget.IconArrowUp, Label: "上移", Disabled: first}) {
+	if m.Add(widget.Entry{Icon: widget.IconArrowUp, Label: locales.SavedPromptsMoveUp(), Disabled: first}) {
 		a.savePrompts(settings.MovePrompt(a.hub.Prompts(), pr.ID, -1))
 	}
-	if m.Add(widget.Entry{Icon: widget.IconArrowDown, Label: "下移", Disabled: last}) {
+	if m.Add(widget.Entry{Icon: widget.IconArrowDown, Label: locales.SavedPromptsMoveDown(), Disabled: last}) {
 		a.savePrompts(settings.MovePrompt(a.hub.Prompts(), pr.ID, 1))
 	}
 	m.Separator()
-	if m.Add(widget.Entry{Icon: widget.IconDelete, Label: "删除", Danger: true}) {
+	if m.Add(widget.Entry{Icon: widget.IconDelete, Label: locales.CommonDelete(), Danger: true}) {
 		chosen := pr
 		u.listOpen, u.deleting = false, &chosen
 	}
@@ -123,25 +124,25 @@ func (a *App) promptEditor(c *ui.Context) {
 	}
 	k := widget.Of(c)
 	problem := settings.PromptProblem(a.hub.Prompts(), d.name, d.text, d.id)
-	title := "编辑常用指令"
+	title := locales.SavedPromptsEditTitle()
 	if d.id == "" {
-		title = "新建常用指令"
+		title = locales.SavedPromptsNewTitle()
 	}
 	widget.Dialog(c, &d.open, func() {
 		ui.Column(c).FillWidth().Padding(widget.DialogPadding, widget.DialogPadding, 4, widget.DialogPadding).Gap(6).Children(func() {
 			ui.Text(c, title).FontSize(widget.SizeHeadlineXS).FontWeight(600).TextColor(k.Text)
-			widget.LineInput(c.Key("name"), &d.name, 1).Placeholder("名字（可不填）").Label("名字").AutoFocus()
-			widget.LineInput(c.Key("text"), &d.text, 8).Placeholder("内容").Label("内容").MinHeight(96)
+			widget.LineInput(c.Key("name"), &d.name, 1).Placeholder(locales.SavedPromptsNamePlaceholder()).Label(locales.SavedPromptsName()).AutoFocus()
+			widget.LineInput(c.Key("text"), &d.text, 8).Placeholder(locales.SavedPromptsText()).Label(locales.SavedPromptsText()).MinHeight(96)
 			// 空着时不报错，「保存」变灰就够了
 			if problem != "" && d.text != "" {
 				ui.Text(c, problem).FontSize(widget.SizeBodyM).TextColor(k.Error).Padding(8, 0, 0, 0)
 			}
 		})
 		widget.ButtonBar(c, func() {
-			if widget.DialogButton(c, "取消", widget.Plain).Clicked() {
+			if widget.DialogButton(c, locales.WidgetCancel(), widget.Plain).Clicked() {
 				d.open = false
 			}
-			if widget.DialogButton(c, "保存", widget.Recommend).Disabled(problem != "").Clicked() {
+			if widget.DialogButton(c, locales.SavedPromptsSave(), widget.Recommend).Disabled(problem != "").Clicked() {
 				a.saveDraft(d)
 				d.open = false
 			}
@@ -169,8 +170,8 @@ func (a *App) promptDelete(c *ui.Context) {
 		return
 	}
 	open := true
-	if widget.Alert(c, &open, "删除这条常用指令？", "「"+pr.DisplayName()+"」删除后找不回来。",
-		widget.Action{Label: "取消"}, widget.Action{Label: "删除", Style: widget.Destructive}) == 1 {
+	if widget.Alert(c, &open, locales.SavedPromptsDeleteTitle(), locales.SavedPromptsDeleteMessage(pr.DisplayName()),
+		widget.Action{Label: locales.WidgetCancel()}, widget.Action{Label: locales.CommonDelete(), Style: widget.Destructive}) == 1 {
 		a.savePrompts(settings.RemovePrompt(a.hub.Prompts(), pr.ID))
 	}
 	if !open {
@@ -181,7 +182,7 @@ func (a *App) promptDelete(c *ui.Context) {
 // savePrompts 存清单，存不上时说一声。
 func (a *App) savePrompts(list []settings.SavedPrompt) {
 	if err := a.hub.SetPrompts(list); err != nil {
-		a.say("常用指令没存上", err.Error())
+		a.say(locales.SavedPromptsSaveFailed(), err.Error())
 	}
 }
 

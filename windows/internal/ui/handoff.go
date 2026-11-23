@@ -4,6 +4,7 @@ import (
 	"unicode"
 
 	"github.com/dzshzx/Zeta/helper/sessionproto"
+	"github.com/dzshzx/Zeta/windows/internal/locales"
 	"github.com/dzshzx/Zeta/windows/internal/ui/widget"
 	"github.com/egoist/mygo/ui"
 )
@@ -12,13 +13,13 @@ import (
 // 说明只说那边的状态和接管后会怎样：闲着时能接过来；在等确认时也能接，那个确认作废；正跑着一轮时等它跑完。
 // o 是那边的样子（还没查到是 nil），handing 是正在接，problem 是上次没接过来的原因。
 func handoffText(o *sessionproto.Occupancy, handing bool, problem string) (title, summary, button string, enabled bool) {
-	title = "会话正在别处运行"
+	title = locales.HandoffTitle()
 	switch {
 	case o == nil:
-		summary = "正在查询那边的状态。"
+		summary = locales.HandoffQuerying()
 	default:
 		if place := occupantPlace(o.App, o.Device, o.Local); place != "" {
-			title = spaced("会话正在", place, "运行")
+			title = spaceWide(locales.HandoffTitleAt(place))
 		}
 		summary = occupantSummary(o.App, deref(o.Status), deref(o.WaitingFor))
 	}
@@ -27,11 +28,11 @@ func handoffText(o *sessionproto.Occupancy, handing bool, problem string) (title
 	}
 	switch {
 	case handing:
-		return title, summary, "正在接管…", false
+		return title, summary, locales.HandoffTaking(), false
 	case o == nil || o.HandsOver:
-		return title, summary, "接管会话", o != nil
+		return title, summary, locales.HandoffTakeOver(), o != nil
 	}
-	return title, summary, "等待对方空闲", false
+	return title, summary, locales.HandoffWaitIdle(), false
 }
 
 // occupantPlace 是占着会话的进程在哪，接在「会话正在」「它正在」后面（同手机版的 occupantPlace，用例相同）：
@@ -41,27 +42,27 @@ func occupantPlace(app, device string, local bool) string {
 	var what string
 	switch app {
 	case sessionproto.AppTerminal:
-		what = "终端"
+		what = locales.HandoffAppTerminal()
 	case sessionproto.AppZeta:
 		what = "Zeta"
 	case sessionproto.AppZetaDev:
-		what = "Zeta 测试版"
+		what = locales.HandoffAppZetaDev()
 	case "claude-vscode":
 		what = "VS Code"
 	case "claude-desktop":
-		what = "Claude 桌面版"
+		what = locales.HandoffAppClaudeDesktop()
 	default:
 		return ""
 	}
 	switch {
 	case local && app == sessionproto.AppTerminal:
-		return "本机终端里"
+		return locales.HandoffPlaceLocalTerminal()
 	case local:
-		return spaced("本机的", what, "里")
+		return spaceWide(locales.HandoffPlaceLocal(what))
 	case device != "":
-		return spaced(device, "的", what, "里")
+		return spaceWide(locales.HandoffPlaceDevice(device, what))
 	}
-	return spaced(what, "里")
+	return spaceWide(locales.HandoffPlaceApp(what))
 }
 
 // spaced 把几段字连起来，汉字和英文字母、数字相接处加一个空格（「work-pc 的 Zeta 里」）；空的段跳过。
@@ -80,6 +81,16 @@ func spaced(parts ...string) string {
 	return string(out)
 }
 
+// spaceWide 在一句话里汉字和英文字母、数字相接处补一个空格（文字表里的「{device}的{app}里」填上 work-pc 后成「work-pc 的…」）；
+// 英文的句子里没有汉字，原样返回。
+func spaceWide(s string) string {
+	parts := make([]string, 0, len(s))
+	for _, r := range s {
+		parts = append(parts, string(r))
+	}
+	return spaced(parts...)
+}
+
 func asciiWord(r rune) bool {
 	return r < 0x80 && (unicode.IsLetter(r) || unicode.IsDigit(r) || r == ')' || r == '.')
 }
@@ -92,27 +103,26 @@ func wide(r rune) bool { return r >= 0x2E80 }
 func occupantSummary(app, status, waitingFor string) string {
 	switch status {
 	case sessionproto.StatusIdle:
-		return "当前空闲。" + takeoverEffect(app)
+		return locales.HandoffIdle(takeoverEffect(app))
 	case sessionproto.StatusWaiting:
-		summary := "正在等待确认"
 		if waitingFor != "" {
-			summary += "：" + waitingFor
+			return locales.HandoffWaitingFor(waitingFor)
 		}
-		return summary + "。接管后这个确认作废，要让 Claude 重做这一步。"
+		return locales.HandoffWaiting()
 	case sessionproto.StatusUnknown:
-		return "看不出是否空闲。接管会让它退出，进行中的操作会中断。"
+		return locales.HandoffUnknown()
 	case sessionproto.StatusShell:
-		return "正在执行 ! 命令，执行完后可以接管。"
+		return locales.HandoffShell()
 	}
-	return "正在回答，本轮结束后可以接管。"
+	return locales.HandoffBusy()
 }
 
 // takeoverEffect 是闲着时接管的后果：Zeta 托管的那边结束它的托管进程；别的（终端里的等）收到中断像 /exit 那样退出。
 func takeoverEffect(app string) string {
 	if app == sessionproto.AppZeta || app == sessionproto.AppZetaDev {
-		return "接管后那边的对话会结束，会话转到这里继续。"
+		return locales.HandoffEffectZeta()
 	}
-	return "接管后那边会退出，会话转到 Zeta 继续。"
+	return locales.HandoffEffectOther()
 }
 
 // deref 是 p 指着的字符串；p 是 nil（JSON 里的 null）时是空。

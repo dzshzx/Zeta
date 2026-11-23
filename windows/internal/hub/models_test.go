@@ -57,7 +57,7 @@ func TestRemoteModels(t *testing.T) {
 // 起不来时核心在条目里加「启动失败」：不等到超时，把它当原因交回去，照样放开对话。
 func TestRemoteModelsStartFailure(t *testing.T) {
 	f, methods := modelsFixture(t, func(conv string) string {
-		return `{"type":"conv.items","conv":"` + conv + `","full":true,"items":[{"kind":"notice","id":"n1","text":"启动失败：没有 claude"}]}`
+		return `{"type":"conv.items","conv":"` + conv + `","full":true,"items":[{"kind":"notice","id":"n1","text":"启动失败：没有 claude","code":"noticeStartFailed","args":{"reason":"没有 claude"}}]}`
 	})
 	_, err := f.hub.Remote(f.id).Models(context.Background(), "/home/box")
 	if err == nil || err.Error() != "启动失败：没有 claude" {

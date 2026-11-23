@@ -3,15 +3,10 @@ package ui
 import (
 	"github.com/dzshzx/Zeta/client/sshlink"
 	"github.com/dzshzx/Zeta/windows/internal/host"
+	"github.com/dzshzx/Zeta/windows/internal/locales"
 	"github.com/dzshzx/Zeta/windows/internal/ui/widget"
 	"github.com/egoist/mygo/ui"
 )
-
-// desktopFooter 是添加设备下面的说明。
-const desktopFooter = "使用本机的 SSH 配置和密钥连接。设备需运行 Linux（arm64 或 x86-64）并已安装 Claude Code；对话在设备上运行，关闭 Zeta 不会中断。"
-
-// autoKey 是「SSH 密钥」里照 ~/.ssh/config 的那一项。
-const autoKey = "自动选择"
 
 // adding 是添加远程设备页的状态。
 type adding struct {
@@ -46,33 +41,33 @@ func (a *App) startAdding() {
 
 // devicesPage 是添加远程设备：私钥、从 SSH 配置导入、手动添加。加好的各台列在设置页上。
 func (a *App) devicesPage(c *ui.Context) {
-	a.subPage(c, "添加远程设备", "devices", func() { a.addSection(c) })
+	a.subPage(c, locales.DevicesTitle(), "devices", func() { a.addSection(c) })
 }
 
 // addSection 是添加设备：私钥、从 SSH 配置导入、手动添加。
 func (a *App) addSection(c *ui.Context) {
 	busy := a.add.probing != ""
-	widget.Group(c, "添加设备", desktopFooter, func(l *widget.List) {
-		l.Row(widget.Row{Title: "SSH 密钥", End: func() {
+	widget.Group(c, locales.SettingsAddDevice(), locales.DevicesFooter(), func(l *widget.List) {
+		l.Row(widget.Row{Title: locales.DevicesSshKey(), End: func() {
 			keyChoice(c, a.add.keys, a.add.key, busy, func(key string) { a.add.key = key })
 		}})
 	})
-	widget.Group(c, "从 SSH 配置导入", "已添加的设备不再列出。", func(l *widget.List) {
+	widget.Group(c, locales.DevicesImport(), locales.DevicesImportFooter(), func(l *widget.List) {
 		switch {
 		case !a.add.configRead:
-			l.Message("正在读取 SSH 配置…")
+			l.Message(locales.DevicesReadingConfig())
 		case a.add.configErr != "":
-			l.Message("无法读取 SSH 配置：" + a.add.configErr)
+			l.Message(locales.DevicesConfigError(a.add.configErr))
 		case len(a.add.config) == 0:
-			l.Message("SSH 配置中没有可添加的设备")
+			l.Message(locales.DevicesConfigEmpty())
 		}
 		for _, alias := range a.add.config {
 			l.Row(widget.Row{Key: alias, Title: alias, End: func() {
 				if a.add.probing == alias {
-					ui.Text(c, "正在连接…").FontSize(widget.SizeBodyS).TextColor(widget.Of(c).Secondary)
+					ui.Text(c, locales.DevicesConnecting()).FontSize(widget.SizeBodyS).TextColor(widget.Of(c).Secondary)
 					return
 				}
-				widget.SmallButton(c.Key("add-"+alias), "添加").Disabled(busy).OnClick(func() { a.addHost(alias) })
+				widget.SmallButton(c.Key("add-"+alias), locales.DevicesAdd()).Disabled(busy).OnClick(func() { a.addHost(alias) })
 			}})
 		}
 	})
@@ -82,12 +77,12 @@ func (a *App) addSection(c *ui.Context) {
 			a.addHost(t)
 		}
 	}
-	widget.Group(c, "手动添加", sshlink.ConfigHint, func(l *widget.List) {
+	widget.Group(c, locales.DevicesManual(), sshlink.ConfigHint, func(l *widget.List) {
 		l.Custom(func() {
-			widget.Input(c.Key("draft"), &a.add.draft).Placeholder("user@host 或主机名").Label("地址").Grow(1).OnSubmit(submit)
-			label := "添加"
+			widget.Input(c.Key("draft"), &a.add.draft).Placeholder(locales.DevicesAddressPlaceholder()).Label(locales.DevicesAddress()).Grow(1).OnSubmit(submit)
+			label := locales.DevicesAdd()
 			if busy && a.add.probing == target {
-				label = "正在连接…"
+				label = locales.DevicesConnecting()
 			}
 			widget.SmallPrimaryButton(c, label).Disabled(!valid || busy).OnClick(submit)
 		})
@@ -107,17 +102,17 @@ func (a *App) addHost(target string) {
 			a.add.probing = ""
 			shown := sshlink.DisplayTarget(target)
 			if err != nil {
-				a.say("没有添加「"+shown+"」", sshlink.Describe(err))
+				a.say(locales.DevicesNotAdded(shown), sshlink.Describe(err))
 				return
 			}
 			x, err := a.hub.AddHost(target, key, f)
 			if err != nil {
-				a.say("「"+x.Name()+"」没存上", err.Error())
+				a.say(locales.DevicesNotSaved(x.Name()), err.Error())
 				return
 			}
 			a.add.draft = ""
 			a.add.config = without(a.add.config, target)
-			a.say("已添加「"+x.Name()+"」", addedSummary(f, key))
+			a.say(locales.DevicesAdded(x.Name()), addedSummary(f, key))
 		}
 	})
 }
@@ -126,10 +121,10 @@ func (a *App) addHost(target string) {
 func addedSummary(f host.Found, key string) string {
 	text := f.Summary()
 	if key != "" {
-		text += " · SSH 密钥 " + sshlink.KeyName(key)
+		text += " · " + locales.DevicesSummaryKey(sshlink.KeyName(key))
 	}
 	if fp := sshlink.Fingerprint(f.HostKey); fp != "" {
-		text += "\n主机指纹 " + fp
+		text += "\n" + locales.DevicesSummaryFingerprint(fp)
 	}
 	return text
 }
@@ -143,7 +138,7 @@ func keyChoice(c *ui.Context, keys []string, chosen string, disabled bool, onCha
 	}
 	widget.MenuButton(c.Key("key"), func(t ui.Element) {
 		widget.Dropdown(c, t, keyLabel(chosen))
-		t.Description("SSH 密钥").Disabled(disabled)
+		t.Description(locales.DevicesSshKey()).Disabled(disabled)
 	}, func(m *widget.Menu) {
 		for _, key := range options {
 			if m.Choice(keyLabel(key), key == chosen) && key != chosen {
@@ -156,7 +151,7 @@ func keyChoice(c *ui.Context, keys []string, chosen string, disabled bool, onCha
 // keyLabel 是私钥 key 给人看的名字；空是自动选择。
 func keyLabel(key string) string {
 	if key == "" {
-		return autoKey
+		return locales.DevicesAutoKey()
 	}
 	return sshlink.KeyName(key)
 }

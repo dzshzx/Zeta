@@ -1,11 +1,11 @@
 package ui
 
 import (
-	"strconv"
 	"time"
 
 	"github.com/dzshzx/Zeta/helper/tasks"
 	"github.com/dzshzx/Zeta/windows/internal/hub"
+	"github.com/dzshzx/Zeta/windows/internal/locales"
 	"github.com/dzshzx/Zeta/windows/internal/ui/widget"
 	"github.com/egoist/mygo/ui"
 )
@@ -18,9 +18,6 @@ import (
 
 // pageTasks 是主区域在看后台任务面板。
 const pageTasks = "tasks"
-
-// backgroundChatsFooter 是「后台对话」下面的说明。
-const backgroundChatsFooter = "侧栏列着的设备上，还在回答、等你确认或有后台任务的其他对话，手机上开着的也在里面。点一个切过去。"
 
 // openAllTasks 打开后台任务面板（侧栏的「后台任务」）：聊天窗格上盖着的页先关掉，面板从列表开始。
 func (a *App) openAllTasks() {
@@ -51,7 +48,7 @@ func (a *App) tasksEntry(c *ui.Context) {
 		running = p.state.RunningTasks()
 		finished = len(p.state.Tasks) - running
 	}
-	widget.NavCount(c, widget.IconTimer, "后台任务", len(chats)+running, backgroundSummary(len(chats), running, finished),
+	widget.NavCount(c, widget.IconTimer, locales.TasksTitle(), len(chats)+running, backgroundSummary(len(chats), running, finished),
 		a.page == pageTasks).OnClick(a.openAllTasks)
 }
 
@@ -62,7 +59,7 @@ func (a *App) tasksPanel(c *ui.Context) {
 		return
 	}
 	c.OnWindowShortcut(0, ui.KeyEscape, a.leaveAllTasks)
-	widget.Header(c, "后台任务", a.leaveAllTasks)
+	widget.Header(c, locales.TasksTitle(), a.leaveAllTasks)
 	running := false
 	widget.Body(c, "all-tasks", func() {
 		a.backgroundChats(c)
@@ -74,7 +71,7 @@ func (a *App) tasksPanel(c *ui.Context) {
 			noTasks(c)
 			return
 		}
-		widget.Group(c, a.chatTitle(p)+"（当前对话）", taskListFooter, func(l *widget.List) {
+		widget.Group(c, locales.TasksCurrentChat(a.chatTitle(p)), locales.TasksListFooter(), func(l *widget.List) {
 			running = a.taskRows(c, l, p, list)
 		})
 	})
@@ -86,15 +83,15 @@ func (a *App) tasksPanel(c *ui.Context) {
 // backgroundChats 是「后台对话」一组：一行一个，下面一行是它在干什么（列着全部设备时前面是设备名），点了切过去。
 func (a *App) backgroundChats(c *ui.Context) {
 	chats := a.hub.BackgroundChats()
-	widget.Group(c, "后台对话 · "+strconv.Itoa(len(chats)), backgroundChatsFooter, func(l *widget.List) {
+	widget.Group(c, locales.TasksBackgroundChats(len(chats)), locales.TasksBackgroundChatsFooter(), func(l *widget.List) {
 		if len(chats) == 0 {
-			l.Row(widget.Row{Title: "没有在后台运行的对话"})
+			l.Row(widget.Row{Title: locales.TasksNoBackgroundChats()})
 		}
 		for _, b := range chats {
 			s := b.Session
 			summary := conversationState(b.Activity.State == "waiting", b.Activity.State == "answering", b.Activity.Tasks)
 			if a.hub.AllHosts() {
-				summary = a.hub.Name(s.Backend) + " · " + summary
+				summary = locales.TasksDeviceAndState(a.hub.Name(s.Backend), summary)
 			}
 			l.Row(widget.Row{Key: hub.Key(s), Title: rowTitle(s), Summary: summary, Arrow: true, OnClick: func() { a.openSession(s) }})
 		}
@@ -103,7 +100,7 @@ func (a *App) backgroundChats(c *ui.Context) {
 
 // noTasks 是没有后台任务时的一组。
 func noTasks(c *ui.Context) {
-	widget.Group(c, "", taskListFooter, func(l *widget.List) {
-		l.Row(widget.Row{Title: "没有后台任务", Summary: "Claude 用 run_in_background 跑的命令、Monitor 和后台子代理会列在这里"})
+	widget.Group(c, "", locales.TasksListFooter(), func(l *widget.List) {
+		l.Row(widget.Row{Title: locales.TasksNone(), Summary: locales.TasksNoneSummary()})
 	})
 }

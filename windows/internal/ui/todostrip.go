@@ -6,7 +6,9 @@ import (
 
 	"github.com/dzshzx/Zeta/helper/sessionproto"
 	"github.com/dzshzx/Zeta/windows/internal/chat"
+	"github.com/dzshzx/Zeta/windows/internal/locales"
 	"github.com/dzshzx/Zeta/windows/internal/ui/widget"
+	"github.com/egoist/mygo/i18n"
 	"github.com/egoist/mygo/ui"
 )
 
@@ -31,12 +33,12 @@ func (s *todoStrip) list(state chat.State) []sessionproto.Todo {
 // todoSummary 是清单条一行里的说法：正在做的那一项，没在做的时候是下一项。
 func todoSummary(l []sessionproto.Todo) string {
 	if cur := todoAt(l, sessionproto.TodoInProgress); cur >= 0 && todosDone(l) < len(l) {
-		return l[cur].ActiveForm
+		return l[cur].ActiveFormIn(i18n.Locale())
 	}
 	if next := todoAt(l, sessionproto.TodoPending); next >= 0 {
-		return "下一项：" + l[next].Content
+		return locales.TodoNext(l[next].ContentIn(i18n.Locale()))
 	}
-	return "全部完成"
+	return locales.TodoAllDone()
 }
 
 // todoPosition 是「第几项/共几项」：做完的加上正在做的那一项。
@@ -59,13 +61,13 @@ func (a *App) todoStrip(c *ui.Context, p *chatPane) {
 	summary := todoSummary(l)
 	panel(c, func() {
 		ui.Row(c).Padding(0, 4, 0, 0).Gap(4).AlignItems(ui.Center).Children(func() {
-			label := "展开任务清单"
+			label := locales.TodoExpand()
 			if s.expanded {
-				label = "收起任务清单"
+				label = locales.TodoCollapse()
 			}
 			head := ui.ButtonBase(c).Label(label).Grow(1).MinWidth(0).Padding(8, 4, 8, 12).Gap(8).AlignItems(ui.Center).
 				Cursor(ui.CursorPointer).Expanded(s.expanded).
-				Tooltip("已完成 " + strconv.Itoa(todosDone(l)) + " 项，共 " + strconv.Itoa(len(l)) + " 项")
+				Tooltip(locales.TodoProgress(todosDone(l), len(l)))
 			head.Children(func() {
 				todoRing(c, l)
 				tone := k.PrimaryText
@@ -81,7 +83,7 @@ func (a *App) todoStrip(c *ui.Context, p *chatPane) {
 				ui.Icon(c, chevron).Size(16, 16).TextColor(k.Secondary).Shrink(0)
 			})
 			head.OnClick(func() { s.expanded = !s.expanded })
-			widget.FlatButton(c, widget.IconClose, "收掉这份任务清单", 32, 16).OnClick(func() { s.dismissed = l })
+			widget.FlatButton(c, widget.IconClose, locales.TodoDismiss(), 32, 16).OnClick(func() { s.dismissed = l })
 		})
 		if !s.expanded {
 			return
@@ -102,9 +104,9 @@ func todoRow(c *ui.Context, t sessionproto.Todo) {
 	k := widget.Of(c)
 	ui.Row(c).FillWidth().Padding(6, 14, 2, 14).Gap(9).AlignItems(ui.Start).Children(func() {
 		ui.Box(c).Size(16, 16).Margin(2, 0, 0, 0).Center().Shrink(0).Children(func() { todoMark(c, t.Status) })
-		shown := t.Content
+		shown := t.ContentIn(c.Locale())
 		if t.Status == sessionproto.TodoInProgress {
-			shown = t.ActiveForm
+			shown = t.ActiveFormIn(c.Locale())
 		}
 		text := ui.Text(c, shown).FontSize(widget.SizeBodyS).LineHeight(1.4).Grow(1).MinWidth(0)
 		switch t.Status {
@@ -123,15 +125,15 @@ func todoMark(c *ui.Context, s string) {
 	k := widget.Of(c)
 	switch s {
 	case sessionproto.TodoCompleted:
-		ui.Box(c).Size(15, 15).Radius(7.5).Background(k.Success).Center().Label("已完成").Children(func() {
+		ui.Box(c).Size(15, 15).Radius(7.5).Background(k.Success).Center().Label(locales.TodoDone()).Children(func() {
 			ui.Icon(c, widget.IconOK).Size(11, 11).TextColor(k.OnPrimary)
 		})
 	case sessionproto.TodoInProgress:
-		ui.Box(c).Size(15, 15).Radius(7.5).Border(1.5, k.Primary).Center().Label("进行中").Children(func() {
+		ui.Box(c).Size(15, 15).Radius(7.5).Border(1.5, k.Primary).Center().Label(locales.TodoInProgress()).Children(func() {
 			ui.Box(c).Size(6, 6).Radius(3).Background(k.Primary)
 		})
 	default:
-		ui.Box(c).Size(15, 15).Radius(7.5).Border(1.2, k.Tertiary).Label("待做")
+		ui.Box(c).Size(15, 15).Radius(7.5).Border(1.2, k.Tertiary).Label(locales.TodoPending())
 	}
 }
 

@@ -14,6 +14,7 @@ import (
 	"github.com/dzshzx/Zeta/windows/internal/claudecfg/cfgtest"
 	"github.com/dzshzx/Zeta/windows/internal/hub"
 	"github.com/dzshzx/Zeta/windows/internal/hubtest"
+	"github.com/dzshzx/Zeta/windows/internal/locales"
 	"github.com/dzshzx/Zeta/windows/internal/settings"
 	"github.com/dzshzx/Zeta/windows/internal/ui/about"
 	"github.com/dzshzx/Zeta/windows/internal/ui/uitest"
@@ -147,7 +148,7 @@ func TestSettingsPage(t *testing.T) {
 	if f.app.page != pageAbout {
 		t.Fatalf("没进关于页：%q", f.app.page)
 	}
-	f.see(t, "新版本", "Zeta 0.9.0", "设置页接上了", "0.8.0", unofficial)
+	f.see(t, "新版本", "Zeta 0.9.0", "设置页接上了", "0.8.0", locales.SettingsUnofficial())
 	f.click(t, "更新")
 	if f.updates.updated != 1 {
 		t.Fatal("点了更新没开始")

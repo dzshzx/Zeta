@@ -1,12 +1,13 @@
 package ui
 
 import (
-	"strconv"
 	"strings"
 
 	"github.com/dzshzx/Zeta/helper/tasks"
 	"github.com/dzshzx/Zeta/windows/internal/attach"
+	"github.com/dzshzx/Zeta/windows/internal/locales"
 	"github.com/dzshzx/Zeta/windows/internal/ui/widget"
+	"github.com/egoist/mygo/i18n"
 	"github.com/egoist/mygo/ui"
 )
 
@@ -16,25 +17,25 @@ import (
 func taskKind(t tasks.Task) string {
 	switch t.Kind {
 	case tasks.KindCommand:
-		return "后台命令"
+		return locales.TasksKindCommand()
 	case tasks.KindMonitor:
-		return "监视器"
+		return locales.TasksKindMonitor()
 	case tasks.KindAgent:
 		if t.AgentType != "" {
-			return "子代理 · " + t.AgentType
+			return locales.TasksKindAgentType(t.AgentType)
 		}
-		return "子代理"
+		return locales.TasksKindAgent()
 	}
 	if t.Type != "" {
 		return t.Type
 	}
-	return "后台任务"
+	return locales.TasksKindOther()
 }
 
 // taskPageTitle 是详情页的标题：只说种类，子代理的类型另起一行，免得被截断。
 func taskPageTitle(t tasks.Task) string {
 	if t.Kind == tasks.KindAgent {
-		return "子代理"
+		return locales.TasksKindAgent()
 	}
 	return taskKind(t)
 }
@@ -79,47 +80,47 @@ func (t tone) color(k *widget.Colors) ui.Color {
 func taskState(s tasks.State, stopping bool) (string, tone) {
 	switch {
 	case stopping:
-		return "正在停止", toneRunning
+		return locales.TasksStateStopping(), toneRunning
 	case s == tasks.StateRunning:
-		return "运行中", toneRunning
+		return locales.TasksStateRunning(), toneRunning
 	case s == tasks.StateCompleted:
-		return "已完成", toneDone
+		return locales.TasksStateCompleted(), toneDone
 	case s == tasks.StateFailed:
-		return "失败", toneFailed
+		return locales.TasksStateFailed(), toneFailed
 	case s == tasks.StateStopped:
-		return "已停止", toneQuiet
+		return locales.TasksStateStopped(), toneQuiet
 	}
-	return "已结束", toneQuiet
+	return locales.TasksStateEnded(), toneQuiet
 }
 
 // taskSummary 是列表里的说明行：「后台命令 · 已运行 2 分 05 秒」「子代理 · 已完成 · 用时 6 秒」。now 是毫秒。
 func taskSummary(t tasks.Task, now int64) string {
-	elapsed := tasks.FormatElapsed(t.ElapsedMs(now))
+	elapsed := tasks.FormatElapsedIn(i18n.Locale(), t.ElapsedMs(now))
 	switch {
 	case t.Stopping:
-		return taskKind(t) + " · 正在停止 · 已运行 " + elapsed
+		return locales.TasksSummaryStopping(taskKind(t), elapsed)
 	case t.Running():
-		return taskKind(t) + " · 已运行 " + elapsed
+		return locales.TasksSummaryRunning(taskKind(t), elapsed)
 	}
 	state, _ := taskState(t.State, false)
-	return taskKind(t) + " · " + state + " · 用时 " + elapsed
+	return locales.TasksSummaryDone(taskKind(t), state, elapsed)
 }
 
 // outputHeader 是输出上方的一句：读到多少、是不是只显示了最后一段。
 func outputHeader(o tasks.Output) string {
 	switch {
 	case o.TotalBytes <= 0:
-		return "输出"
+		return locales.TasksOutput()
 	case o.Truncated:
-		return "输出 · 共 " + attach.FormatBytes(o.TotalBytes) + "，只显示最后 8 KB"
+		return locales.TasksOutputTail(attach.FormatBytes(o.TotalBytes))
 	}
-	return "输出 · " + attach.FormatBytes(o.TotalBytes)
+	return locales.TasksOutputSize(attach.FormatBytes(o.TotalBytes))
 }
 
 // stopSummary 是停止确认框里的说明：是哪个任务；子代理停下后 Claude 会接着处理。
 func stopSummary(t tasks.Task) string {
 	if t.Kind == tasks.KindAgent {
-		return taskTitle(t) + "\n子代理停下后，Claude 会收到通知并接着处理。"
+		return locales.TasksStopAgentNote(taskTitle(t))
 	}
 	return taskTitle(t)
 }
@@ -129,13 +130,13 @@ func stopSummary(t tasks.Task) string {
 func conversationState(waiting, busy bool, tasks int) string {
 	switch {
 	case waiting:
-		return "等你确认"
+		return locales.TasksChatWaiting()
 	case busy:
-		return "正在回答"
+		return locales.TasksChatAnswering()
 	case tasks > 0:
-		return strconv.Itoa(tasks) + " 个后台任务在跑"
+		return locales.TasksChatTasks(tasks)
 	}
-	return "已结束，稍后收起"
+	return locales.TasksChatEnding()
 }
 
 // backgroundSummary 是侧栏「后台任务」入口的说明（同手机版 BackgroundTasksEntry 那一行字）：几个后台对话、几个任务在运行，
@@ -143,13 +144,13 @@ func conversationState(waiting, busy bool, tasks int) string {
 func backgroundSummary(conversations, running, finished int) string {
 	var parts []string
 	if conversations > 0 {
-		parts = append(parts, strconv.Itoa(conversations)+" 个对话")
+		parts = append(parts, locales.TasksSummaryChats(conversations))
 	}
 	if running > 0 {
-		parts = append(parts, strconv.Itoa(running)+" 个任务在运行")
+		parts = append(parts, locales.TasksSummaryRunningTasks(running))
 	}
 	if finished > 0 && running == 0 {
-		parts = append(parts, strconv.Itoa(finished)+" 个任务已结束")
+		parts = append(parts, locales.TasksSummaryFinishedTasks(finished))
 	}
 	return strings.Join(parts, " · ")
 }

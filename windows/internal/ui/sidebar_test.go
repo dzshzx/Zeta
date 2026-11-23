@@ -204,8 +204,8 @@ func TestAgo(t *testing.T) {
 		{3 * time.Hour, "3 小时前"},
 		{2 * 24 * time.Hour, "2 天前"},
 		{15 * 24 * time.Hour, "2 周前"},
-		{60 * 24 * time.Hour, "9 月 24 日"},
-		{400 * 24 * time.Hour, "2025 年 10 月 19 日"},
+		{60 * 24 * time.Hour, "9月24日"},
+		{400 * 24 * time.Hour, "2025年10月19日"},
 	} {
 		if got := ago(now.Add(-c.d), now); got != c.want {
 			t.Errorf("%v 前：%q，要 %q", c.d, got, c.want)

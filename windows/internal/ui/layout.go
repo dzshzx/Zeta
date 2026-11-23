@@ -3,6 +3,7 @@ package ui
 import (
 	"github.com/dzshzx/Zeta/client/hostlink"
 	"github.com/dzshzx/Zeta/windows/internal/hub"
+	"github.com/dzshzx/Zeta/windows/internal/locales"
 	"github.com/dzshzx/Zeta/windows/internal/settings"
 	"github.com/dzshzx/Zeta/windows/internal/ui/widget"
 	"github.com/egoist/mygo/ui"
@@ -55,9 +56,9 @@ func (a *App) frame(c *ui.Context, main func()) {
 		ui.Box(c).Fill().Children(func() {
 			ui.Column(c).Fill().Children(main)
 			ui.Row(c).Absolute().Top(10).Left(10).Gap(2).Children(func() {
-				widget.IconButton(c, widget.IconSidebar, "展开侧栏 (Ctrl+B)").OnClick(a.toggleSidebar)
+				widget.IconButton(c, widget.IconSidebar, locales.LayoutShowSidebar()).OnClick(a.toggleSidebar)
 				if len(a.hub.Hosts()) > 0 {
-					widget.IconButton(c, widget.IconNewChat, "新对话 (Ctrl+N)").OnClick(a.newChat)
+					widget.IconButton(c, widget.IconNewChat, locales.LayoutNewChat()).OnClick(a.newChat)
 				}
 			})
 		})
@@ -77,8 +78,8 @@ func (a *App) frame(c *ui.Context, main func()) {
 type shortcut struct {
 	mods  ui.Modifiers
 	key   ui.Key
-	keys  string // 设置里写的键，同一行管几个键时写在第一个上，别的空着
-	label string
+	keys  string        // 设置里写的键，同一行管几个键时写在第一个上，别的空着
+	label func() string // 按界面当前的语言取字；同一行管的别的键是 nil
 	needs int
 	run   func(a *App, s hostlink.Session)
 }
@@ -90,37 +91,37 @@ const (
 
 // shortcuts 是窗口的快捷键，键位照 ChatGPT Windows 客户端命令表里的默认键（安装包 app.asar 的 defaultKeybindings）；聊天页自己的（查找、停止）在 chatKeys。
 var shortcuts = []shortcut{
-	{ui.Cmd, ui.KeyN, "Ctrl+N / Ctrl+Shift+O", "新对话", 0, func(a *App, _ hostlink.Session) { a.newChat() }},
-	{ui.Cmd | ui.Shift, ui.KeyO, "", "", 0, func(a *App, _ hostlink.Session) { a.newChat() }},
-	{ui.Cmd, ui.KeyK, "Ctrl+K", "搜索对话", needHosts, func(a *App, _ hostlink.Session) { a.focusSearch() }},
-	{ui.Cmd, ui.KeyComma, "Ctrl+,", "设置", 0, func(a *App, _ hostlink.Session) { a.open(pageSettings) }},
-	{ui.Cmd, ui.KeyB, "Ctrl+B / Ctrl+Shift+S", "收起、展开侧栏", 0, func(a *App, _ hostlink.Session) { a.toggleSidebar() }},
-	{ui.Cmd | ui.Shift, ui.KeyS, "", "", 0, func(a *App, _ hostlink.Session) { a.toggleSidebar() }},
+	{ui.Cmd, ui.KeyN, "Ctrl+N / Ctrl+Shift+O", locales.ShortcutNewChat, 0, func(a *App, _ hostlink.Session) { a.newChat() }},
+	{ui.Cmd | ui.Shift, ui.KeyO, "", nil, 0, func(a *App, _ hostlink.Session) { a.newChat() }},
+	{ui.Cmd, ui.KeyK, "Ctrl+K", locales.ShortcutSearch, needHosts, func(a *App, _ hostlink.Session) { a.focusSearch() }},
+	{ui.Cmd, ui.KeyComma, "Ctrl+,", locales.ShortcutSettings, 0, func(a *App, _ hostlink.Session) { a.open(pageSettings) }},
+	{ui.Cmd, ui.KeyB, "Ctrl+B / Ctrl+Shift+S", locales.ShortcutToggleSidebar, 0, func(a *App, _ hostlink.Session) { a.toggleSidebar() }},
+	{ui.Cmd | ui.Shift, ui.KeyS, "", nil, 0, func(a *App, _ hostlink.Session) { a.toggleSidebar() }},
 	// ChatGPT 的上一个、下一个对话是 Ctrl+Alt+[ ] 和 Ctrl+Alt+← →，它的 Ctrl+Tab 切标签页；Zeta 没有标签页，Ctrl+Tab 也切对话
-	{ui.Ctrl | ui.Alt, ui.KeyBracketRight, "Ctrl+Alt+] / Ctrl+Alt+→ / Ctrl+Tab", "下一个对话", needHosts, step(1)},
-	{ui.Ctrl | ui.Alt, ui.KeyRight, "", "", needHosts, step(1)},
-	{ui.Ctrl, ui.KeyTab, "", "", needHosts, step(1)},
-	{ui.Ctrl | ui.Alt, ui.KeyBracketLeft, "Ctrl+Alt+[ / Ctrl+Alt+← / Ctrl+Shift+Tab", "上一个对话", needHosts, step(-1)},
-	{ui.Ctrl | ui.Alt, ui.KeyLeft, "", "", needHosts, step(-1)},
-	{ui.Ctrl | ui.Shift, ui.KeyTab, "", "", needHosts, step(-1)},
-	{ui.Cmd, ui.Key1, "Ctrl+1 … 9", "侧栏里第几个对话", needHosts, nth(0)},
-	{ui.Cmd, ui.Key2, "", "", needHosts, nth(1)},
-	{ui.Cmd, ui.Key3, "", "", needHosts, nth(2)},
-	{ui.Cmd, ui.Key4, "", "", needHosts, nth(3)},
-	{ui.Cmd, ui.Key5, "", "", needHosts, nth(4)},
-	{ui.Cmd, ui.Key6, "", "", needHosts, nth(5)},
-	{ui.Cmd, ui.Key7, "", "", needHosts, nth(6)},
-	{ui.Cmd, ui.Key8, "", "", needHosts, nth(7)},
-	{ui.Cmd, ui.Key9, "", "", needHosts, nth(8)},
-	{ui.Ctrl | ui.Alt, ui.KeyA, "Ctrl+Alt+A", "下一个等你回应的对话", needHosts, func(a *App, _ hostlink.Session) { a.nextWaiting() }},
-	{ui.Ctrl | ui.Shift, ui.KeyA, "Ctrl+Shift+A", "归档当前对话", needSession, func(a *App, s hostlink.Session) { a.archive(s) }},
-	{ui.Ctrl | ui.Alt, ui.KeyP, "Ctrl+Alt+P", "置顶当前对话", needSession, func(a *App, s hostlink.Session) { a.togglePin(s) }},
-	{ui.Ctrl | ui.Alt, ui.KeyR, "Ctrl+Alt+R", "重命名当前对话", needSession, func(a *App, s hostlink.Session) { a.rename(s) }},
+	{ui.Ctrl | ui.Alt, ui.KeyBracketRight, "Ctrl+Alt+] / Ctrl+Alt+→ / Ctrl+Tab", locales.ShortcutNextChat, needHosts, step(1)},
+	{ui.Ctrl | ui.Alt, ui.KeyRight, "", nil, needHosts, step(1)},
+	{ui.Ctrl, ui.KeyTab, "", nil, needHosts, step(1)},
+	{ui.Ctrl | ui.Alt, ui.KeyBracketLeft, "Ctrl+Alt+[ / Ctrl+Alt+← / Ctrl+Shift+Tab", locales.ShortcutPreviousChat, needHosts, step(-1)},
+	{ui.Ctrl | ui.Alt, ui.KeyLeft, "", nil, needHosts, step(-1)},
+	{ui.Ctrl | ui.Shift, ui.KeyTab, "", nil, needHosts, step(-1)},
+	{ui.Cmd, ui.Key1, "Ctrl+1 … 9", locales.ShortcutNthChat, needHosts, nth(0)},
+	{ui.Cmd, ui.Key2, "", nil, needHosts, nth(1)},
+	{ui.Cmd, ui.Key3, "", nil, needHosts, nth(2)},
+	{ui.Cmd, ui.Key4, "", nil, needHosts, nth(3)},
+	{ui.Cmd, ui.Key5, "", nil, needHosts, nth(4)},
+	{ui.Cmd, ui.Key6, "", nil, needHosts, nth(5)},
+	{ui.Cmd, ui.Key7, "", nil, needHosts, nth(6)},
+	{ui.Cmd, ui.Key8, "", nil, needHosts, nth(7)},
+	{ui.Cmd, ui.Key9, "", nil, needHosts, nth(8)},
+	{ui.Ctrl | ui.Alt, ui.KeyA, "Ctrl+Alt+A", locales.ShortcutNextWaiting, needHosts, func(a *App, _ hostlink.Session) { a.nextWaiting() }},
+	{ui.Ctrl | ui.Shift, ui.KeyA, "Ctrl+Shift+A", locales.ShortcutArchive, needSession, func(a *App, s hostlink.Session) { a.archive(s) }},
+	{ui.Ctrl | ui.Alt, ui.KeyP, "Ctrl+Alt+P", locales.ShortcutPin, needSession, func(a *App, s hostlink.Session) { a.togglePin(s) }},
+	{ui.Ctrl | ui.Alt, ui.KeyR, "Ctrl+Alt+R", locales.ShortcutRename, needSession, func(a *App, s hostlink.Session) { a.rename(s) }},
 	// 缩放（zoom.go）：加号和等号是同一个键，按不按 Shift 都放大；小键盘的减号、0 也是这两个键，小键盘的加号 mygo 认不出
-	{ui.Cmd, ui.KeyEqual, "Ctrl++", "放大界面", 0, func(a *App, _ hostlink.Session) { a.setZoom(zoomStep(a.zoom, 1)) }},
-	{ui.Cmd | ui.Shift, ui.KeyEqual, "", "", 0, func(a *App, _ hostlink.Session) { a.setZoom(zoomStep(a.zoom, 1)) }},
-	{ui.Cmd, ui.KeyMinus, "Ctrl+-", "缩小界面", 0, func(a *App, _ hostlink.Session) { a.setZoom(zoomStep(a.zoom, -1)) }},
-	{ui.Cmd, ui.Key0, "Ctrl+0", "界面恢复 100%", 0, func(a *App, _ hostlink.Session) { a.setZoom(100) }},
+	{ui.Cmd, ui.KeyEqual, "Ctrl++", locales.ShortcutZoomIn, 0, func(a *App, _ hostlink.Session) { a.setZoom(zoomStep(a.zoom, 1)) }},
+	{ui.Cmd | ui.Shift, ui.KeyEqual, "", nil, 0, func(a *App, _ hostlink.Session) { a.setZoom(zoomStep(a.zoom, 1)) }},
+	{ui.Cmd, ui.KeyMinus, "Ctrl+-", locales.ShortcutZoomOut, 0, func(a *App, _ hostlink.Session) { a.setZoom(zoomStep(a.zoom, -1)) }},
+	{ui.Cmd, ui.Key0, "Ctrl+0", locales.ShortcutZoomReset, 0, func(a *App, _ hostlink.Session) { a.setZoom(100) }},
 }
 
 func step(d int) func(a *App, _ hostlink.Session) {
@@ -133,10 +134,13 @@ func nth(i int) func(a *App, _ hostlink.Session) {
 
 // chatKeys 是只在焦点落在某处时才响的键（聊天页的在 chat.go、find.go 里接，侧栏列表的在 sidebar.go），只列在设置「常规」里。
 // 侧栏列表的 Ctrl+A 照 ChatGPT 客户端多选列表的 Mod+A（全选，焦点在输入框里时不管）。
-var chatKeys = []struct{ keys, label string }{
-	{"Ctrl+F", "在对话中查找"},
-	{"Enter / Shift+Enter", "查找时：下一个 / 上一个"},
-	{"Ctrl+A", "侧栏列表里：全选列着的对话"},
+var chatKeys = []struct {
+	keys  string
+	label func() string
+}{
+	{"Ctrl+F", locales.ShortcutFind},
+	{"Enter / Shift+Enter", locales.ShortcutFindStep},
+	{"Ctrl+A", locales.ShortcutSelectAll},
 }
 
 // shortcuts 接上窗口的快捷键。对话框开着时都不响（OnWindowShortcut 的规矩）。
@@ -163,14 +167,14 @@ func (a *App) focusSearch() {
 
 // shortcutsSection 是设置「常规」里的快捷键：窗口的和聊天页的，一行一个，键在右边。
 func shortcutsSection(c *ui.Context) {
-	widget.Group(c, "快捷键", "", func(l *widget.List) {
+	widget.Group(c, locales.ShortcutsTitle(), "", func(l *widget.List) {
 		for _, sc := range shortcuts {
 			if sc.keys != "" {
-				l.Row(widget.Row{Key: sc.keys, Title: sc.label, Value: sc.keys})
+				l.Row(widget.Row{Key: sc.keys, Title: sc.label(), Value: sc.keys})
 			}
 		}
 		for _, k := range chatKeys {
-			l.Row(widget.Row{Key: k.keys, Title: k.label, Value: k.keys})
+			l.Row(widget.Row{Key: k.keys, Title: k.label(), Value: k.keys})
 		}
 	})
 }

@@ -20,6 +20,7 @@ import (
 	"github.com/dzshzx/Zeta/client/sshlink"
 	"github.com/dzshzx/Zeta/windows/internal/accounts"
 	"github.com/dzshzx/Zeta/windows/internal/host"
+	"github.com/dzshzx/Zeta/windows/internal/locales"
 	"github.com/dzshzx/Zeta/windows/internal/settings"
 )
 
@@ -61,7 +62,7 @@ type Hub struct {
 	pins     localPins                               // 本机设置里还没迁到核心的置顶（pins.go）
 	watches  map[string]io.Closer                    // 订阅着的设备
 	sessions []hostlink.Session                      // 列着的各台的会话，合在一起，新的在前
-	problems map[string]string                       // 各台没读成会话列表的原因
+	problems map[string]func() string                // 各台没读成会话列表的原因（显示时按界面当前的语言出字）
 	activity map[string]map[string]hostlink.Activity // 各台的核心报的各会话忙闲：设备 → 会话号 → 样子
 	unread   map[string]bool                         // 不在眼前时答完了一轮、还没点开看的会话（按 Key）
 	search   search                                  // 侧栏的搜索（search.go）
@@ -82,7 +83,7 @@ type Hub struct {
 // New 建中枢：设置 s，设备 d；run 把要等设备的事放到后台，post 把一个函数交回主线程跑。还不连设备，界面起来后调 Start。
 func New(s *settings.Settings, d Devices, run, post func(func())) *Hub {
 	return &Hub{settings: s, devices: gated{d}, run: run, post: post, hosts: s.Hosts(), pins: loadPins(s),
-		watches: map[string]io.Closer{}, problems: map[string]string{}, conns: map[string]*chatConn{}, remotes: map[string]*Remote{},
+		watches: map[string]io.Closer{}, problems: map[string]func() string{}, conns: map[string]*chatConn{}, remotes: map[string]*Remote{},
 		activity: map[string]map[string]hostlink.Activity{}, unread: map[string]bool{}, SearchDelay: searchDelay,
 		bulks: map[string]*bulkLink{}, bulkIdle: bulkIdle}
 }
@@ -107,7 +108,7 @@ func (h *Hub) Name(id string) string {
 	if x, ok := h.Host(id); ok {
 		return x.Name()
 	}
-	return "已删除的设备"
+	return locales.HubDeletedDevice()
 }
 
 // Backend 是侧栏正看着的设备：存着的那台已经删了（或是手机本机）时是第一台；一台都没有时是空。
@@ -183,10 +184,10 @@ func (h *Hub) Refresh() {
 	for _, id := range listed {
 		if h.Off(id) {
 			h.unwatch(id) // 会话留着上次的，侧栏说已断开
-			h.problems[id] = offProblem
+			h.problems[id] = locales.HubOffProblem
 			continue
 		}
-		if _, live := h.watches[id]; live && h.problems[id] == "" {
+		if _, live := h.watches[id]; live && h.problems[id] == nil {
 			continue
 		}
 		h.unwatch(id)
@@ -229,7 +230,7 @@ func (h *Hub) watch(id string) {
 				if why == "" {
 					delete(h.problems, id)
 				} else {
-					h.problems[id] = "没读到会话列表：" + why
+					h.problems[id] = func() string { return locales.HubListFailed(why) }
 				}
 			})
 		},
@@ -279,9 +280,10 @@ func (h *Hub) Problem() string {
 	listed := h.Listed()
 	var lines []string
 	for _, id := range listed {
-		if why := h.problems[id]; why != "" {
+		if problem := h.problems[id]; problem != nil {
+			why := problem()
 			if len(listed) > 1 {
-				why = h.Name(id) + "：" + why
+				why = locales.HubProblemOnDevice(h.Name(id), why)
 			}
 			lines = append(lines, why)
 		}

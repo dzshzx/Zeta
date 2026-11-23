@@ -5,7 +5,6 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
-	"fmt"
 	"maps"
 	"slices"
 	"strings"
@@ -14,8 +13,9 @@ import (
 
 	"github.com/dzshzx/Zeta/client/hostlink"
 	"github.com/dzshzx/Zeta/helper/coreapi"
-	"github.com/dzshzx/Zeta/helper/locales"
+	corelocales "github.com/dzshzx/Zeta/helper/locales"
 	"github.com/dzshzx/Zeta/helper/sessionproto"
+	"github.com/dzshzx/Zeta/windows/internal/locales"
 	"github.com/egoist/mygo/i18n"
 )
 
@@ -163,8 +163,21 @@ func (h *Hub) SetArchived(list []hostlink.Session, archived bool, failed func(er
 	}, failed)
 }
 
-// ErrActive：要删的会话正在进行，核心没删（sessions.delete 答 code active）。
-var ErrActive = errors.New("对话正在进行，结束后再删")
+// ErrActive：要删的会话正在进行，核心没删（sessions.delete 答 code active）。说法按界面当前的语言出。
+var ErrActive error = activeError{}
+
+type activeError struct{}
+
+func (activeError) Error() string { return locales.HubSessionActive() }
+
+// someFailed 是几个会话一起操作时有没成的：bad 个没成，first 是第一个原因（errors.Is、As 认得它）。说法按界面当前的语言出。
+type someFailed struct {
+	bad   int
+	first error
+}
+
+func (e *someFailed) Error() string { return locales.HubSessionSomeFailed(e.bad, e.first.Error()) }
+func (e *someFailed) Unwrap() error { return e.first }
 
 // Delete 删掉 list 里的会话：会话记录连同 Claude Code 存在同名目录里的东西（核心顺手结束开着它的进程、关掉 tmux 里的窗口）。
 // 能不能删由核心定，这边不预先筛（docs/core.md「会话」的 sessions.delete）：正在进行的它不删，答 active，这边换成 ErrActive。
@@ -250,7 +263,7 @@ func (h *Hub) each(list []hostlink.Session, do func(ctx context.Context, core *c
 			case len(list) == 1:
 				failed(first)
 			default:
-				failed(fmt.Errorf("%d 个没成功：%w", bad, first))
+				failed(&someFailed{bad, first})
 			}
 		}
 	})
@@ -349,13 +362,17 @@ func (h *Hub) Export(list []hostlink.Session, now time.Time, done func(Exported)
 }
 
 // errNothingExported：几台都答了，可一个会话都没导出来（不该发生：核心一个都导不出来时自己答出错）。
-var errNothingExported = errors.New("没有导出任何对话")
+var errNothingExported error = nothingExported{}
+
+type nothingExported struct{}
+
+func (nothingExported) Error() string { return locales.HubSessionNothingExported() }
 
 // SessionLabel 是侧栏、标题栏里会话 s 的叫法，用界面语言 locale 说：有标题时是标题，没有时是第一句话；
 // 第一句话是核心写的占位（只发了图时的「[图片]」，preview_code）时按核心的文字表出字。
 func SessionLabel(s hostlink.Session, locale string) string {
 	if strings.TrimSpace(s.Title) == "" && s.PreviewCode != "" {
-		return locales.Msg{Key: s.PreviewCode}.In(locale)
+		return corelocales.Msg{Key: s.PreviewCode}.In(locale)
 	}
 	return s.Label()
 }

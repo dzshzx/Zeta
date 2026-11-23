@@ -4,6 +4,7 @@ import (
 	"context"
 
 	"github.com/dzshzx/Zeta/helper/sessionproto"
+	"github.com/dzshzx/Zeta/windows/internal/locales"
 )
 
 // Handoff 是聊天窗格的会话正被 Zeta 之外的进程（终端里的 Claude Code）占着时，「别处运行」卡片上「接管」背后的状态
@@ -44,9 +45,9 @@ func (h *Hub) HandOver() {
 			ho.Handing = false
 			switch {
 			case err != nil:
-				ho.Problem = "接管失败：" + err.Error()
+				ho.Problem = locales.HandoffFailed(err.Error())
 			case !r.Handed && r.Status != nil && *r.Status == sessionproto.StatusStuck:
-				ho.Problem = "对方的 Claude Code 没有退出，可以在终端里结束它后再试。"
+				ho.Problem = locales.HandoffStuck()
 			}
 		}
 	})

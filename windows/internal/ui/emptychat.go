@@ -5,6 +5,7 @@ import (
 
 	"github.com/dzshzx/Zeta/helper/coreapi"
 	"github.com/dzshzx/Zeta/windows/internal/chat"
+	"github.com/dzshzx/Zeta/windows/internal/locales"
 	"github.com/dzshzx/Zeta/windows/internal/ui/widget"
 	"github.com/egoist/mygo/ui"
 )
@@ -14,19 +15,20 @@ import (
 // 工作目录在顶栏第二行换（chatHeader），空白页上不重复。侧栏列着全部设备时，标题下面多一个设备胶囊（newChatHost，同手机版
 // 空白页上的 HostSwitcher）：点开换这个新对话开在哪台，不改侧栏列哪些；只列一台时设备在侧栏的设备切换里换。
 
-// suggestion 是空白页上的一张建议卡片：卡片上的字、图标，点了发出去的提问（悬停时也显示它）。
+// suggestion 是空白页上的一张建议卡片：卡片上的字、图标，点了发出去的提问（悬停时也显示它）。字按界面当前的语言出，
+// 提问也按界面的语言发出去（是替用户说的话）。
 type suggestion struct {
-	title  string
+	title  func() string
 	icon   *ui.SVG
-	prompt string
+	prompt func() string
 }
 
 // suggestions 同手机版的 Suggestions。
 var suggestions = []suggestion{
-	{"看看这个项目", widget.IconFolderOpen, "先浏览当前目录，概括这个项目是做什么的、结构如何。"},
-	{"检查 Git 状态", widget.IconBranch, "查看当前目录的 git 状态和最近的提交，告诉我有哪些未提交的改动。"},
-	{"接着上次做", widget.IconHistory, "回顾这个目录里最近的改动，告诉我上次做到哪了、接下来该做什么。"},
-	{"设备状况", widget.IconChip, "检查这台设备的内存、存储和负载情况，有异常就指出来。"},
+	{locales.EmptyChatExplore, widget.IconFolderOpen, locales.EmptyChatExplorePrompt},
+	{locales.EmptyChatGit, widget.IconBranch, locales.EmptyChatGitPrompt},
+	{locales.EmptyChatResume, widget.IconHistory, locales.EmptyChatResumePrompt},
+	{locales.EmptyChatHealth, widget.IconChip, locales.EmptyChatHealthPrompt},
 }
 
 // emptyChat：窗格里是还没有任何条目（也没有更早的记录可载入）、也没在回答的新对话，也没刚点过建议（发出去到条目推来之间
@@ -44,14 +46,14 @@ func (a *App) emptyState(c *ui.Context, p *chatPane) {
 	on := p.src.Conv != nil && p.src.CwdProblem == ""
 	ui.Column(c).Grow(1).Center().Gap(28).Padding(32).Margin(headerHeight, 0, 0, 0).Children(func() {
 		ui.Column(c).AlignItems(ui.Center).Gap(4).Children(func() {
-			ui.Text(c, "有什么可以帮你？").FontSize(emptyTitleSize).FontWeight(widget.Medium).TextColor(k.Text)
+			ui.Text(c, locales.EmptyChatTitle()).FontSize(emptyTitleSize).FontWeight(widget.Medium).TextColor(k.Text)
 			a.newChatHost(c, p)
 		})
 		ui.Column(c).FillWidth().MaxWidth(560).Gap(10).Children(func() {
 			for i := 0; i < len(suggestions); i += 2 {
 				ui.Row(c.Key(i)).FillWidth().Gap(10).Children(func() {
-					for _, s := range suggestions[i:min(i+2, len(suggestions))] {
-						a.suggestionCard(c.Key(s.title), p, s, on)
+					for j, s := range suggestions[i:min(i+2, len(suggestions))] {
+						a.suggestionCard(c.Key(i+j), p, s, on)
 					}
 				})
 			}
@@ -69,7 +71,7 @@ func (a *App) newChatHost(c *ui.Context, p *chatPane) {
 	}
 	at := p.src.Backend
 	widget.MenuButton(c, func(t ui.Element) {
-		t.Tooltip(newChatHostTip).Label(newChatHostTip + "：" + h.Name(at))
+		t.Tooltip(locales.EmptyChatHostTip()).Label(locales.EmptyChatHostLabel(h.Name(at)))
 		widget.Pill(c, t, widget.IconServer, h.Name(at))
 	}, func(m *widget.Menu) {
 		for _, x := range h.Hosts() {
@@ -84,21 +86,18 @@ func (a *App) newChatHost(c *ui.Context, p *chatPane) {
 	}).Margin(12, 0, 0, 0)
 }
 
-// newChatHostTip 是设备胶囊的悬停提示，读屏也读它。
-const newChatHostTip = "新对话开在哪台设备"
-
 // suggestionCard 是一张建议卡片：一圈细边的圆角块，左边图标、右边字，悬停变底色、提示整句提问，点了发出去。
 func (a *App) suggestionCard(c *ui.Context, p *chatPane, s suggestion, on bool) {
 	k := widget.Of(c)
-	b := ui.ButtonBase(c).Label(s.title).Tooltip(s.prompt).Grow(1).Basis(0).MinWidth(0).Padding(12, 14).Gap(10).
+	b := ui.ButtonBase(c).Label(s.title()).Tooltip(s.prompt()).Grow(1).Basis(0).MinWidth(0).Padding(12, 14).Gap(10).
 		AlignItems(ui.Center).Radius(14).Border(1, k.Edge).Cursor(ui.CursorPointer).Disabled(!on)
 	if b.Hovered() && on {
 		b.Background(k.Hover)
 	}
-	b.OnClick(func() { a.suggest(p, s.prompt) })
+	b.OnClick(func() { a.suggest(p, s.prompt()) })
 	b.Children(func() {
 		ui.Icon(c, s.icon).Size(16, 16).TextColor(k.Secondary)
-		ui.Text(c, s.title).FontSize(widget.SizeBodyM).TextColor(k.Text).SingleLine().Ellipsis("…").Shrink(1)
+		ui.Text(c, s.title()).FontSize(widget.SizeBodyM).TextColor(k.Text).SingleLine().Ellipsis("…").Shrink(1)
 	})
 }
 
@@ -112,6 +111,6 @@ func (a *App) suggest(p *chatPane, prompt string) {
 		return conv.Send(ctx, coreapi.Outgoing{Text: prompt})
 	}, func(err error) {
 		p.suggested = false
-		p.failed = "没发出去：" + err.Error()
+		p.failed = locales.ChatSendFailed(err.Error())
 	})
 }

@@ -11,6 +11,7 @@ import (
 
 	"github.com/dzshzx/Zeta/helper/prompt"
 	"github.com/dzshzx/Zeta/windows/internal/chat"
+	"github.com/dzshzx/Zeta/windows/internal/locales"
 	"github.com/dzshzx/Zeta/windows/internal/ui/chatview"
 	"github.com/dzshzx/Zeta/windows/internal/ui/widget"
 	"github.com/egoist/mygo/ui"
@@ -141,30 +142,30 @@ func (a *App) toolCard(c *ui.Context, p *chatPane, pr prompt.Prompt) {
 	title, detail := chatview.DescribeTool(pr.ToolName, input)
 	summary := []string{title}
 	if pr.AgentID != "" {
-		summary = append(summary, "来自子代理："+cmp.Or(pr.AgentLabel, "后台子代理"))
+		summary = append(summary, locales.PromptFromSubagent(cmp.Or(pr.AgentLabelIn(c.Locale()), locales.PromptBackgroundSubagent())))
 	}
 	if pr.Reason != "" {
 		summary = append(summary, pr.Reason)
 	}
 	f := &p.form
-	widget.Panel(c, "允许这次操作？", strings.Join(summary, "\n"), 460, func() {
+	widget.Panel(c, locales.PromptToolTitle(), strings.Join(summary, "\n"), 460, func() {
 		detailBlock(c, detail)
 		if len(pr.SuggestionLines) > 0 {
-			widget.Choice(c, "以后不再询问", strings.Join(pr.SuggestionLines, "\n"), widget.MarkCheck, f.remember).
+			widget.Choice(c, locales.PromptDontAskAgain(), strings.Join(pr.SuggestionLinesIn(c.Locale()), "\n"), widget.MarkCheck, f.remember).
 				OnClick(func() { f.remember = !f.remember })
 		}
 		ui.Box(c).FillWidth().Padding(0, widget.DialogPadding).Children(func() {
-			widget.LineInput(c.Key("feedback"), &f.feedback, 4).Placeholder("拒绝时告诉 Claude 换个做法（可不填）").Label("拒绝的理由")
+			widget.LineInput(c.Key("feedback"), &f.feedback, 4).Placeholder(locales.PromptDenyPlaceholder()).Label(locales.PromptDenyReason())
 		})
 	}, func() {
-		deny := "拒绝"
+		deny := locales.PromptDeny()
 		if strings.TrimSpace(f.feedback) != "" {
-			deny = "拒绝并告诉 Claude"
+			deny = locales.PromptDenyAndTell()
 		}
 		cardButton(c, deny, false, f.sending, func() {
 			a.answer(p, pr, prompt.Reply{Kind: prompt.ReplyDeny, Feedback: strings.TrimSpace(f.feedback)})
 		})
-		cardButton(c, "允许", true, f.sending, func() {
+		cardButton(c, locales.PromptAllow(), true, f.sending, func() {
 			kind := prompt.ReplyAllow
 			if f.remember && len(pr.SuggestionLines) > 0 {
 				kind = prompt.ReplyAllowAlways
@@ -198,22 +199,22 @@ func (a *App) planCard(c *ui.Context, p *chatPane, pr prompt.Prompt) {
 	}
 	_ = json.Unmarshal(pr.Input, &input)
 	f := &p.form
-	widget.Panel(c, "按这个计划执行？", "", 520, func() {
+	widget.Panel(c, locales.PromptPlanTitle(), "", 520, func() {
 		ui.Box(c).FillWidth().Padding(4, widget.DialogPadding).Children(func() {
 			stylePlan(c)
 			markdown.View(c, input.Plan, &planMarkdown).FillWidth()
 		})
-		for _, m := range []struct{ value, label string }{{"acceptEdits", "批准，自动接受改动"}, {"default", "批准，改动逐项确认"}} {
+		for _, m := range []struct{ value, label string }{{"acceptEdits", locales.PromptPlanAcceptEdits()}, {"default", locales.PromptPlanAskEach()}} {
 			widget.Choice(c.Key(m.value), m.label, "", widget.MarkRadio, f.planMode == m.value).OnClick(func() { f.planMode = m.value })
 		}
 		ui.Box(c).FillWidth().Padding(0, widget.DialogPadding).Children(func() {
-			widget.LineInput(c.Key("feedback"), &f.feedback, 4).Placeholder("不批准：告诉 Claude 要改什么").Label("要改什么")
+			widget.LineInput(c.Key("feedback"), &f.feedback, 4).Placeholder(locales.PromptPlanFeedbackPlaceholder()).Label(locales.PromptPlanFeedbackLabel())
 		})
 	}, func() {
-		cardButton(c, "继续完善", false, f.sending || strings.TrimSpace(f.feedback) == "", func() {
+		cardButton(c, locales.PromptPlanRevise(), false, f.sending || strings.TrimSpace(f.feedback) == "", func() {
 			a.answer(p, pr, prompt.Reply{Kind: prompt.ReplyDeny, Feedback: strings.TrimSpace(f.feedback)})
 		})
-		cardButton(c, "批准", true, f.sending, func() {
+		cardButton(c, locales.PromptPlanApprove(), true, f.sending, func() {
 			a.answer(p, pr, prompt.Reply{Kind: prompt.ReplyApprovePlan, Mode: f.planMode})
 		})
 	})
@@ -224,7 +225,7 @@ func (a *App) planCard(c *ui.Context, p *chatPane, pr prompt.Prompt) {
 func (a *App) questionCard(c *ui.Context, p *chatPane, pr prompt.Prompt) {
 	f := &p.form
 	k := widget.Of(c)
-	title := "需要你的选择"
+	title := locales.PromptQuestionTitle()
 	if len(pr.Questions) == 1 {
 		title = pr.Questions[0].Question
 	}
@@ -245,7 +246,7 @@ func (a *App) questionCard(c *ui.Context, p *chatPane, pr prompt.Prompt) {
 				questionOptions(c, q, qa)
 			})
 		}
-		clarify := ui.Text(c, "先不回答，和 Claude 聊聊这些问题").FontSize(widget.SizeBodyS).TextColor(k.PrimaryText).
+		clarify := ui.Text(c, locales.PromptQuestionClarify()).FontSize(widget.SizeBodyS).TextColor(k.PrimaryText).
 			Padding(12, widget.DialogPadding).Cursor(ui.CursorPointer).Role(ui.RoleButton)
 		if !f.sending {
 			clarify.OnClick(func() {
@@ -253,10 +254,10 @@ func (a *App) questionCard(c *ui.Context, p *chatPane, pr prompt.Prompt) {
 			})
 		}
 	}, func() {
-		cardButton(c, "跳过", false, f.sending, func() {
+		cardButton(c, locales.PromptQuestionSkip(), false, f.sending, func() {
 			a.answer(p, pr, prompt.Reply{Kind: prompt.ReplyDeny})
 		})
-		cardButton(c, "确定", true, f.sending || !complete, func() {
+		cardButton(c, locales.PromptQuestionSubmit(), true, f.sending || !complete, func() {
 			a.answer(p, pr, prompt.Reply{Kind: prompt.ReplyAnswer, Answers: answers, Notes: notes})
 		})
 	})
@@ -281,7 +282,7 @@ func questionOptions(c *ui.Context, q prompt.Question, qa *questionAnswer) {
 			}
 		})
 	}
-	widget.Choice(c.Key("other"), "其他", "", mark, qa.otherOn).OnClick(func() {
+	widget.Choice(c.Key("other"), locales.PromptOther(), "", mark, qa.otherOn).OnClick(func() {
 		qa.otherOn = !q.MultiSelect || !qa.otherOn
 		if !q.MultiSelect {
 			qa.chosen = nil
@@ -293,7 +294,7 @@ func questionOptions(c *ui.Context, q prompt.Question, qa *questionAnswer) {
 		})
 	}
 	if qa.otherOn {
-		field("other-text", &qa.other, "自己写", "自己写", 4)
+		field("other-text", &qa.other, locales.PromptOtherInput(), locales.PromptOtherInput(), 4)
 		return
 	}
 	if q.MultiSelect || len(qa.chosen) == 0 {
@@ -304,7 +305,7 @@ func questionOptions(c *ui.Context, q prompt.Question, qa *questionAnswer) {
 		detailBlock(c, *q.Options[i].Preview)
 	}
 	if q.TakesNotes {
-		field("notes", &qa.notes, "备注", "备注（可不填）", 3)
+		field("notes", &qa.notes, locales.PromptNotes(), locales.PromptNotesPlaceholder(), 3)
 	}
 }
 
@@ -327,9 +328,9 @@ func questionReplies(questions []prompt.Question, answers []questionAnswer) (map
 func (a *App) elicitCard(c *ui.Context, p *chatPane, pr prompt.Prompt) {
 	k := widget.Of(c)
 	f := &p.form
-	title := pr.Server + " 需要你填写"
+	title := locales.PromptElicitForm(pr.Server)
 	if pr.URL != "" {
-		title = pr.Server + " 请你去网页上操作"
+		title = locales.PromptElicitUrl(pr.Server)
 	}
 	widget.Panel(c, title, pr.Message, 520, func() {
 		if pr.URL != "" {
@@ -340,15 +341,15 @@ func (a *App) elicitCard(c *ui.Context, p *chatPane, pr prompt.Prompt) {
 			ui.Column(c.Key("field/" + field.Key)).FillWidth().Children(func() { elicitField(c, field, f) })
 		}
 	}, func() {
-		cardButton(c, "拒绝", false, f.sending, func() { a.elicit(p, pr, prompt.ElicitDecline, nil) })
+		cardButton(c, locales.PromptDecline(), false, f.sending, func() { a.elicit(p, pr, prompt.ElicitDecline, nil) })
 		if pr.URL != "" {
-			cardButton(c, "打开网页", true, f.sending, func() {
+			cardButton(c, locales.PromptOpenPage(), true, f.sending, func() {
 				c.OpenURL(pr.URL)
 				a.elicit(p, pr, prompt.ElicitAccept, nil)
 			})
 			return
 		}
-		cardButton(c, "提交", true, f.sending, func() {
+		cardButton(c, locales.PromptSubmit(), true, f.sending, func() {
 			a.elicit(p, pr, prompt.ElicitAccept, f.values)
 		})
 	})

@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"github.com/dzshzx/Zeta/helper/coreapi"
+	"github.com/dzshzx/Zeta/windows/internal/locales"
 	"github.com/dzshzx/Zeta/windows/internal/runlog"
 	"github.com/dzshzx/Zeta/windows/internal/ui/widget"
 	"github.com/egoist/mygo/ui"
@@ -165,9 +166,9 @@ func (p *Page) View(c *ui.Context) {
 	}
 	k := widget.Of(c)
 	widget.TitleRow(c).Children(func() {
-		ui.Text(c, "诊断").FontSize(widget.SizeHeadlineS).FontWeight(widget.Medium).TextColor(k.Text).Shrink(1)
+		ui.Text(c, locales.DiagTitle()).FontSize(widget.SizeHeadlineS).FontWeight(widget.Medium).TextColor(k.Text).Shrink(1)
 		ui.Spacer(c)
-		widget.SmallButton(c, "刷新").Disabled(p.busy()).OnClick(p.Load)
+		widget.SmallButton(c, locales.DiagRefresh()).Disabled(p.busy()).OnClick(p.Load)
 	})
 	devices := p.o.Devices()
 	widget.Body(c, "diag", func() {
@@ -175,7 +176,7 @@ func (p *Page) View(c *ui.Context) {
 		p.envGroup(c)
 		if len(devices) == 0 {
 			widget.Group(c, "", "", func(l *widget.List) {
-				l.Message("还没有设备。添加设备后，这里能看那台上 Claude Code 的日志。")
+				l.Message(locales.DiagNoDevices())
 			})
 		}
 		for _, d := range devices {
@@ -199,28 +200,28 @@ func (p *Page) busy() bool {
 func (p *Page) deviceGroups(c *ui.Context, d Device, named bool) {
 	title := func(s string) string {
 		if named {
-			return d.Name + " · " + s
+			return locales.DiagNamedGroup(d.Name, s)
 		}
 		return s
 	}
 	s := p.state(d.ID)
-	stderr := fmt.Sprintf("正在进行的对话和最近结束的 %d 个。", finishedLimit)
-	debug := fmt.Sprintf("Claude Code 开着调试时才写，只列最近 %d 个。", debugLimit)
+	stderr := locales.DiagStderrFooter(finishedLimit)
+	debug := locales.DiagDebugFooter(debugLimit)
 	switch {
 	case d.Core == nil:
-		widget.Group(c, title("Claude Code 日志"), "", func(l *widget.List) { l.Message("这台设备的「连接」关着，打开连接后才能看。") })
+		widget.Group(c, title(locales.DiagClaudeLogs()), "", func(l *widget.List) { l.Message(locales.DiagConnectionOff()) })
 	case !s.loaded:
-		widget.Group(c, title("Claude Code 日志"), "", func(l *widget.List) { l.Message("正在读取…") })
+		widget.Group(c, title(locales.DiagClaudeLogs()), "", func(l *widget.List) { l.Message(locales.DiagLoading()) })
 	case s.err != nil:
-		widget.Group(c, title("Claude Code 日志"), "", func(l *widget.List) {
-			l.Row(widget.Row{Title: "读不到这台设备上的日志", Summary: s.err.Error(), SummaryColor: widget.Of(c).Error})
+		widget.Group(c, title(locales.DiagClaudeLogs()), "", func(l *widget.List) {
+			l.Row(widget.Row{Title: locales.DiagDeviceLogsFailed(), Summary: s.err.Error(), SummaryColor: widget.Of(c).Error})
 		})
 	default:
-		widget.Group(c, title("对话进程的错误输出"), stderr, func(l *widget.List) {
-			p.fileRows(l, d, s.files, "对话进程没有往标准错误写过东西", coreapi.DiagRunning, coreapi.DiagFinished)
+		widget.Group(c, title(locales.DiagStderrGroup()), stderr, func(l *widget.List) {
+			p.fileRows(l, d, s.files, locales.DiagStderrEmpty(), coreapi.DiagRunning, coreapi.DiagFinished)
 		})
-		widget.Group(c, title("Claude Code 调试日志"), debug, func(l *widget.List) {
-			p.fileRows(l, d, s.files, "没有调试日志", coreapi.DiagDebug)
+		widget.Group(c, title(locales.DiagDebugGroup()), debug, func(l *widget.List) {
+			p.fileRows(l, d, s.files, locales.DiagDebugEmpty(), coreapi.DiagDebug)
 		})
 	}
 }
@@ -262,7 +263,7 @@ func fileTitle(f coreapi.DiagFile) string {
 		if f.Title != "" {
 			return f.Title
 		}
-		return "运行中的对话"
+		return locales.DiagRunningConversation()
 	}
 	return path.Base(f.Path)
 }
@@ -275,11 +276,11 @@ func fileSummary(f coreapi.DiagFile, now time.Time) string {
 func kindLabel(kind string) string {
 	switch kind {
 	case coreapi.DiagRunning:
-		return "运行中"
+		return locales.DiagKindRunning()
 	case coreapi.DiagFinished:
-		return "已结束"
+		return locales.DiagKindFinished()
 	}
-	return "调试日志"
+	return locales.DiagKindDebug()
 }
 
 // sizeText 是给人看的大小。
@@ -300,9 +301,9 @@ func when(t, now time.Time) string {
 	case t.YearDay() == now.YearDay() && t.Year() == now.Year():
 		return t.Format("15:04")
 	case t.Year() == now.Year():
-		return t.Format("1 月 2 日 15:04")
+		return t.Format(locales.DiagWhenThisYear())
 	}
-	return t.Format("2006 年 1 月 2 日")
+	return t.Format(locales.DiagWhenOlder())
 }
 
 // fileView 是点开的一个文件：顶上返回、文件名、复制、刷新；下面一行路径和大小，再下面是等宽字的内容。
@@ -310,13 +311,13 @@ func (p *Page) fileView(c *ui.Context) {
 	v := p.open
 	k := widget.Of(c)
 	widget.TitleRow(c).Children(func() {
-		widget.IconButton(c, widget.IconBack, "返回").OnClick(func() { p.open = nil })
+		widget.IconButton(c, widget.IconBack, locales.WidgetBack()).OnClick(func() { p.open = nil })
 		ui.Text(c, fileTitle(v.f)).FontSize(widget.SizeHeadlineS).FontWeight(widget.Medium).TextColor(k.Text).SingleLine().
 			Ellipsis("…").Shrink(1)
 		ui.Spacer(c)
 		ui.Row(c).Gap(8).AlignItems(ui.Center).Shrink(0).Children(func() {
-			widget.SmallButton(c, "复制").Disabled(v.loading || v.err != nil).OnClick(func() { c.Services().WriteClipboard(v.tail.Text) })
-			widget.SmallButton(c, "刷新").Disabled(v.loading).OnClick(p.reload)
+			widget.SmallButton(c, locales.DiagCopy()).Disabled(v.loading || v.err != nil).OnClick(func() { c.Services().WriteClipboard(v.tail.Text) })
+			widget.SmallButton(c, locales.DiagRefresh()).Disabled(v.loading).OnClick(p.reload)
 		})
 	})
 	ui.Column(c).Grow(1).MinHeight(0).FillWidth().MaxWidth(widget.PageWidth).AlignSelf(ui.Center).Padding(8, 16, 16, 16).Gap(8).
@@ -325,19 +326,19 @@ func (p *Page) fileView(c *ui.Context) {
 			if v.err == nil && !v.loading {
 				info += " · " + sizeText(v.tail.Size)
 				if v.tail.Truncated {
-					info += " · 只显示最后 64 KB"
+					info += " · " + locales.DiagTailTruncated()
 				}
 			}
 			ui.Text(c, info).FontSize(widget.SizeBodyXS).TextColor(k.Secondary).Padding(0, 16).Selectable()
 			switch {
 			case v.loading && v.tail.Text == "":
-				widget.Group(c, "", "", func(l *widget.List) { l.Message("正在读取…") })
+				widget.Group(c, "", "", func(l *widget.List) { l.Message(locales.DiagLoading()) })
 			case v.err != nil:
 				widget.Group(c, "", "", func(l *widget.List) {
-					l.Row(widget.Row{Title: "读不出这个文件（可能已经被删掉了）", Summary: v.err.Error(), SummaryColor: k.Error})
+					l.Row(widget.Row{Title: locales.DiagFileUnreadable(), Summary: v.err.Error(), SummaryColor: k.Error})
 				})
 			case v.tail.Text == "":
-				widget.Group(c, "", "", func(l *widget.List) { l.Message("空文件") })
+				widget.Group(c, "", "", func(l *widget.List) { l.Message(locales.DiagEmptyFile()) })
 			default:
 				box := ui.Scroll(c.Key("diag-tail/" + v.f.Path)).Grow(1).MinHeight(0).FillWidth()
 				widget.Surface{Shape: widget.ShapeCard, Fill: k.Card, Edge: k.Divider}.Paint(box)

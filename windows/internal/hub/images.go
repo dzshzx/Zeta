@@ -3,13 +3,13 @@ package hub
 import (
 	"context"
 	"errors"
-	"fmt"
 	"io"
 	"net/http"
 	"strings"
 
 	"github.com/dzshzx/Zeta/helper/coreapi"
 	"github.com/dzshzx/Zeta/windows/internal/chat"
+	"github.com/dzshzx/Zeta/windows/internal/locales"
 )
 
 // imageData 是核心取来的图（sessions.image、images.file）的内容；空的算没取到。
@@ -18,7 +18,7 @@ func imageData(im coreapi.Image, err error) ([]byte, error) {
 		return nil, err
 	}
 	if len(im.Data) == 0 {
-		return nil, errors.New("没取到图片")
+		return nil, errors.New(locales.HubImageMissing())
 	}
 	return im.Data, nil
 }
@@ -67,14 +67,14 @@ func download(ctx context.Context, url string) ([]byte, error) {
 	}
 	defer resp.Body.Close()
 	if resp.StatusCode/100 != 2 {
-		return nil, fmt.Errorf("下载图片：%s", resp.Status)
+		return nil, errors.New(locales.HubImageStatus(resp.Status))
 	}
 	data, err := io.ReadAll(io.LimitReader(resp.Body, maxDownload+1))
 	if err != nil {
 		return nil, err
 	}
 	if len(data) > maxDownload {
-		return nil, errors.New("图片太大（超过 12 MB）")
+		return nil, errors.New(locales.HubImageTooLarge())
 	}
 	return data, nil
 }

@@ -3,10 +3,10 @@ package hub
 import (
 	"context"
 	"errors"
-	"strings"
 
 	"github.com/dzshzx/Zeta/windows/internal/chat"
 	"github.com/dzshzx/Zeta/windows/internal/chat/items"
+	"github.com/egoist/mygo/i18n"
 )
 
 // Models 问这台设备上的 Claude Code 有哪些模型（设置里默认模型的下拉用，同手机版没有清单时调 conv.prepare 去取）：在工作目录
@@ -30,8 +30,8 @@ func (r *Remote) Models(ctx context.Context, cwd string) ([]chat.ModelOption, er
 	var failed string
 	err = conv.Wait(ctx, func(s chat.State, list []items.Item) bool {
 		for _, it := range list {
-			if it.Kind == items.Notice && strings.HasPrefix(it.Text, "启动失败") {
-				failed = it.Text
+			if it.Kind == items.Notice && it.Code == "noticeStartFailed" {
+				failed = it.Said(i18n.Locale())
 			}
 		}
 		return len(s.Models) > 0 || failed != ""

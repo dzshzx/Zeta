@@ -6,6 +6,8 @@ import (
 
 	"github.com/dzshzx/Zeta/helper/tasks"
 	"github.com/dzshzx/Zeta/helper/usage"
+	"github.com/dzshzx/Zeta/windows/internal/locales"
+	"github.com/egoist/mygo/i18n"
 	"github.com/egoist/mygo/ui"
 )
 
@@ -14,15 +16,15 @@ import (
 func totalsNote(u usage.Usage, earlier int) string {
 	var notes []string
 	if u.CostEstimated {
-		notes = append(notes, "带 ≈ 的是按 token 数和 API 标价估的：会话记录里没有费用，子代理的用量不在其中。")
+		notes = append(notes, locales.UsageCostEstimated())
 	}
 	if u.CostPartial {
-		notes = append(notes, "有些轮次用的模型不在价目表里，费用没有计入。")
+		notes = append(notes, locales.UsageCostPartial())
 	}
 	if earlier > 0 {
-		notes = append(notes, "更早的记录没有载入，也没有计入。")
+		notes = append(notes, locales.UsageEarlierNotCounted())
 	}
-	return strings.Join(notes, "")
+	return strings.Join(notes, locales.UsageNoteSeparator())
 }
 
 // usageTurnsShown 是各轮明细最多列几轮（同手机版）：太长的对话只列最近的。
@@ -32,7 +34,7 @@ const usageTurnsShown = 50
 // 下面一行四类 token。不单独滚动：整个弹出框的内容一起滚（usagePanelHeight）。
 func usageTurns(c *ui.Context, turns []usage.Turn) {
 	t := c.Theme()
-	ui.Text(c, "各轮").FontSize(13).Bold()
+	ui.Text(c, locales.UsageTurns()).FontSize(13).Bold()
 	ui.Column(c.Key("usage-turns")).FillWidth().Gap(8).Children(func() {
 		for i := len(turns) - 1; i >= max(0, len(turns)-usageTurnsShown); i-- {
 			head, cost, detail := turnLines(i+1, turns[i])
@@ -50,9 +52,9 @@ func usageTurns(c *ui.Context, turns []usage.Turn) {
 
 // turnLines 是第 n 轮的三段字：「第 n 轮 · 用时」、费用（估的带 ≈，算不出是 —）、四类 token。
 func turnLines(n int, turn usage.Turn) (head, cost, detail string) {
-	head = fmt.Sprintf("第 %d 轮", n)
+	head = locales.UsageTurn(n)
 	if turn.DurationMs != nil {
-		head += " · " + tasks.FormatElapsed(*turn.DurationMs)
+		head += " · " + tasks.FormatElapsedIn(i18n.Locale(), *turn.DurationMs)
 	}
 	cost = "—"
 	if turn.CostUSD != nil {
@@ -62,6 +64,6 @@ func turnLines(n int, turn usage.Turn) (head, cost, detail string) {
 		}
 	}
 	k := turn.Tokens
-	detail = "输入 " + usage.FormatTokens(k.Input) + " · 缓存读 " + usage.FormatTokens(k.CacheRead) + " · 缓存写 " + usage.FormatTokens(k.CacheWrite) + " · 输出 " + usage.FormatTokens(k.Output)
+	detail = locales.UsageTurnTokens(usage.FormatTokens(k.Input), usage.FormatTokens(k.CacheRead), usage.FormatTokens(k.CacheWrite), usage.FormatTokens(k.Output))
 	return head, cost, detail
 }

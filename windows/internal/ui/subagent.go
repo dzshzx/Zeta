@@ -3,13 +3,13 @@ package ui
 import (
 	"cmp"
 	"context"
-	"strconv"
 	"strings"
 
 	"github.com/dzshzx/Zeta/helper/sessionproto"
 	"github.com/dzshzx/Zeta/helper/tasks"
 	"github.com/dzshzx/Zeta/windows/internal/chat"
 	"github.com/dzshzx/Zeta/windows/internal/chat/items"
+	"github.com/dzshzx/Zeta/windows/internal/locales"
 	"github.com/dzshzx/Zeta/windows/internal/ui/chatview"
 	"github.com/dzshzx/Zeta/windows/internal/ui/widget"
 	"github.com/egoist/mygo/ui"
@@ -71,30 +71,30 @@ func subagentState(s chat.Subagent) (string, tone) {
 	case sessionproto.SubagentCompleted, sessionproto.SubagentFailed, sessionproto.SubagentStopped:
 		return taskState(tasks.State(s.State), false)
 	case sessionproto.SubagentReadFailed:
-		return "读取失败", toneQuiet
+		return locales.SubagentStateReadFailed(), toneQuiet
 	case sessionproto.SubagentMissing:
-		return "没有记录", toneQuiet
+		return locales.SubagentStateMissing(), toneQuiet
 	case sessionproto.SubagentLoading, "":
 		// 空串是第一次推送还没到
-		return "正在读取", toneQuiet
+		return locales.SubagentStateLoading(), toneQuiet
 	}
 	// unfinished 和认不出的值（核心以后加的）
-	return "未做完", toneQuiet
+	return locales.SubagentStateUnfinished(), toneQuiet
 }
 
 // noStepsText 是一步都还没有、又不在跑时的说明：failed 是这边没看上的原因，别的照核心给的状态说。
 func noStepsText(s chat.Subagent, failed string) string {
 	switch {
 	case failed != "":
-		return "没看上：" + failed
+		return locales.SubagentWatchFailed(failed)
 	case s.State == sessionproto.SubagentMissing:
-		return "没有找到它的记录：Claude Code 还没写出来，或者会话已经删了"
+		return locales.SubagentMissing()
 	case s.State == sessionproto.SubagentReadFailed:
 		return s.Failure
 	case s.State == sessionproto.SubagentLoading, s.State == "":
-		return "正在读取…"
+		return locales.SubagentLoading()
 	}
-	return "还没有步骤"
+	return locales.SubagentNoSteps()
 }
 
 // subagentPage 是子代理页：顶上是概要（说明、状态、类型、模型、工具调用）和交给它的指令，下面是它的步骤，
@@ -109,7 +109,7 @@ func (a *App) subagentPage(c *ui.Context, p *chatPane, v *subagentView) {
 		v.follow(s)
 	}
 	v.list.Cwd = p.list.Cwd
-	widget.Header(c, "子代理", func() { a.back(p) })
+	widget.Header(c, locales.SubagentTitle(), func() { a.back(p) })
 	// 每一帧照这一版的 s 重设
 	l := v.list
 	l.Header = func(c *ui.Context) {
@@ -132,13 +132,13 @@ func subagentHead(c *ui.Context, v *subagentView, s chat.Subagent) {
 	if m := s.Meta; m != nil {
 		description, kind, model = m.Description, m.AgentType, m.Model
 	}
-	subagentSummary(c, s, cmp.Or(description, "子代理"), kind, model)
+	subagentSummary(c, s, cmp.Or(description, locales.SubagentTitle()), kind, model)
 	if s.Prompt != "" {
 		promptBlock(c, v, s.Prompt)
 	}
-	title := "步骤"
+	title := locales.SubagentSteps()
 	if s.Skipped > 0 {
-		title += " · 更早的 " + strconv.Itoa(s.Skipped) + " 条记录未载入"
+		title = locales.SubagentStepsSkipped(s.Skipped)
 	}
 	ui.Text(c, title).FontSize(widget.SizeBodyXS).FontWeight(widget.Medium).TextColor(widget.Of(c).Secondary).Padding(8, 32, 8, 32)
 }
@@ -149,13 +149,13 @@ func subagentSummary(c *ui.Context, s chat.Subagent, description, kind, model st
 	k := widget.Of(c)
 	var facts []string
 	if kind != "" {
-		facts = append(facts, "子代理类型 "+kind)
+		facts = append(facts, locales.SubagentKind(kind))
 	}
 	if model != "" {
-		facts = append(facts, "模型 "+model)
+		facts = append(facts, locales.SubagentModel(model))
 	}
 	if s.ToolUses > 0 {
-		facts = append(facts, "工具调用 "+strconv.Itoa(s.ToolUses)+" 次")
+		facts = append(facts, locales.SubagentToolUses(s.ToolUses))
 	}
 	widget.Group(c, "", "", func(l *widget.List) {
 		l.Custom(func() {
@@ -175,7 +175,7 @@ func subagentSummary(c *ui.Context, s chat.Subagent, description, kind, model st
 func promptBlock(c *ui.Context, v *subagentView, prompt string) {
 	k := widget.Of(c)
 	long := len([]rune(prompt)) > 160 || strings.Count(prompt, "\n") > 2
-	widget.Group(c, "交给它的指令", "", func(*widget.List) {
+	widget.Group(c, locales.SubagentPrompt(), "", func(*widget.List) {
 		text := func() ui.Element {
 			return ui.Text(c, prompt).FontSize(widget.SizeBodyM).LineHeight(1.5).TextColor(k.Text).FillWidth().Padding(12, 16)
 		}
@@ -183,11 +183,11 @@ func promptBlock(c *ui.Context, v *subagentView, prompt string) {
 		case !long:
 			text().Selectable()
 		case !v.promptOpen:
-			text().MaxLines(3).Ellipsis("…").Cursor(ui.CursorPointer).Role(ui.RoleButton).Label("展开指令").
+			text().MaxLines(3).Ellipsis("…").Cursor(ui.CursorPointer).Role(ui.RoleButton).Label(locales.SubagentExpandPrompt()).
 				OnClick(func() { v.promptOpen = true })
 		default:
 			ui.Scroll(c.Key("subagent/prompt")).FillWidth().MaxHeight(240).Children(func() { text().Selectable() })
-			widget.SmallButton(c, "收起").OnClick(func() { v.promptOpen = false }).Margin(0, 16, 10, 16).AlignSelf(ui.Start)
+			widget.SmallButton(c, locales.SubagentCollapse()).OnClick(func() { v.promptOpen = false }).Margin(0, 16, 10, 16).AlignSelf(ui.Start)
 		}
 	})
 }
@@ -209,6 +209,6 @@ func noSteps(c *ui.Context, v *subagentView, s chat.Subagent) {
 func working(c *ui.Context) ui.Element {
 	return ui.Row(c).Gap(10).AlignItems(ui.Center).Children(func() {
 		ui.Spinner(c).Size(14, 14)
-		ui.Text(c, "正在工作").FontSize(widget.SizeBodyS).TextColor(widget.Of(c).Secondary)
+		ui.Text(c, locales.SubagentWorking()).FontSize(widget.SizeBodyS).TextColor(widget.Of(c).Secondary)
 	})
 }

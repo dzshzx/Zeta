@@ -10,6 +10,7 @@ import (
 	"github.com/dzshzx/Zeta/helper/coreapi"
 	"github.com/dzshzx/Zeta/helper/usage"
 	"github.com/dzshzx/Zeta/windows/internal/chat"
+	"github.com/dzshzx/Zeta/windows/internal/locales"
 	uiacct "github.com/dzshzx/Zeta/windows/internal/ui/accounts"
 	"github.com/dzshzx/Zeta/windows/internal/ui/widget"
 	"github.com/egoist/mygo/ui"
@@ -21,9 +22,9 @@ import (
 func (a *App) composer(c *ui.Context, p *chatPane) {
 	k := widget.Of(c)
 	ready := p.src.Conv != nil && p.src.CwdProblem == ""
-	hint := "交给 Claude 去完成"
+	hint := locales.ComposerHint()
 	if p.state.Busy {
-		hint = "Claude 正在工作，可以接着发"
+		hint = locales.ComposerHintBusy()
 	}
 	// 固定的 Key：上面的状态条、排队条随对话忙闲来去，输入栏不跟着它们的个数换身份，不然正在组字的输入法会被打断
 	widget.Surface{Shape: widget.ShapeComposer, Fill: k.Field, Edge: k.Edge}.Paint(ui.Column(c.Key("composer"))).FillWidth().Padding(8, 10).Gap(2).
@@ -32,7 +33,7 @@ func (a *App) composer(c *ui.Context, p *chatPane) {
 		a.composerAttachments(c, p)
 		_, winH := c.Size()
 		_, natural := c.MeasureText(0, ui.Span{Text: "M", Size: composerFontSize})
-		in := ui.TextAreaBase(c.Key("draft"), &p.draft).Placeholder(hint).PlaceholderColor(k.Tertiary).Label("消息").FillWidth().
+		in := ui.TextAreaBase(c.Key("draft"), &p.draft).Placeholder(hint).PlaceholderColor(k.Tertiary).Label(locales.ComposerMessage()).FillWidth().
 			Lines(composerMinLines, composerMaxLines(winH, natural)).Padding(5, 6).FontSize(composerFontSize).LineHeight(composerLeading).Disabled(!ready).
 			OnPaste(func(string) bool { return a.paste(c, p) }).
 			OnTextKey(func(tk ui.TextKey) bool {
@@ -64,11 +65,11 @@ func (a *App) composer(c *ui.Context, p *chatPane) {
 				a.usageButton(c, p)
 			}
 			if p.state.Busy {
-				widget.StopButton(c, "停止").OnClick(func() {
+				widget.StopButton(c, locales.ComposerStop()).OnClick(func() {
 					a.act(func(ctx context.Context, conv *chat.Conversation) error { return conv.Interrupt(ctx) })
 				})
 			}
-			widget.SendButton(c, "发送", ready && sendable(p, p.draft)).OnClick(func() {
+			widget.SendButton(c, locales.ComposerSend(), ready && sendable(p, p.draft)).OnClick(func() {
 				if a.send(p.draft) {
 					p.draft = ""
 				}
@@ -99,21 +100,21 @@ func sendable(p *chatPane, text string) bool {
 
 // attachMenu 是左下角的「+」（同 Composer.kt 的 attachMenu）：图片、文件、文件夹、输入路径一组，常用指令单独一组。
 func (a *App) attachMenu(c *ui.Context) {
-	widget.MenuButton(c.Key("attach"), func(t ui.Element) { widget.Chip(c, t, widget.IconAdd, "添加附件", ui.Color{}) }, func(m *widget.Menu) {
-		if m.Add(widget.Entry{Icon: widget.IconImage, Label: "图片"}) {
+	widget.MenuButton(c.Key("attach"), func(t ui.Element) { widget.Chip(c, t, widget.IconAdd, locales.ComposerAddAttachment(), ui.Color{}) }, func(m *widget.Menu) {
+		if m.Add(widget.Entry{Icon: widget.IconImage, Label: locales.ComposerAttachImages()}) {
 			a.pickAttachments(true, false)
 		}
-		if m.Add(widget.Entry{Icon: widget.IconPaperclip, Label: "文件"}) {
+		if m.Add(widget.Entry{Icon: widget.IconPaperclip, Label: locales.ComposerAttachFiles()}) {
 			a.pickAttachments(false, false)
 		}
-		if m.Add(widget.Entry{Icon: widget.IconFolder, Label: "文件夹"}) {
+		if m.Add(widget.Entry{Icon: widget.IconFolder, Label: locales.ComposerAttachFolder()}) {
 			a.pickAttachments(false, true)
 		}
-		if m.Add(widget.Entry{Icon: widget.IconEdit, Label: "输入路径"}) {
+		if m.Add(widget.Entry{Icon: widget.IconEdit, Label: locales.ComposerAttachPath()}) {
 			a.openPathDialog()
 		}
 		m.Separator()
-		if m.Add(widget.Entry{Icon: widget.IconFavorites, Label: "常用指令"}) {
+		if m.Add(widget.Entry{Icon: widget.IconFavorites, Label: locales.ComposerSavedPrompts()}) {
 			a.prompts.open()
 		}
 	})
@@ -162,7 +163,7 @@ func attachedFile(c *ui.Context, f *draftFile, remove func()) {
 		}
 		ui.Icon(c, icon).Size(16, 16).TextColor(color).Shrink(0)
 		ui.Text(c, f.label()).FontSize(widget.SizeBodyM).TextColor(k.Text).SingleLine().Ellipsis("…").Shrink(1).MinWidth(0)
-		widget.FlatButton(c, widget.IconClose, "移除", 28, 14).OnClick(remove)
+		widget.FlatButton(c, widget.IconClose, locales.ComposerRemove(), 28, 14).OnClick(remove)
 	})
 }
 
@@ -170,11 +171,11 @@ func attachedFile(c *ui.Context, f *draftFile, remove func()) {
 func attachedImage(c *ui.Context, im *draftImage, remove func()) {
 	k := widget.Of(c)
 	ui.Box(c).Size(64, 64).Shrink(0).Children(func() {
-		box := ui.Box(c).Size(64, 64).Radius(12).Clip().Background(k.Chip).Label("图片附件")
+		box := ui.Box(c).Size(64, 64).Radius(12).Clip().Background(k.Chip).Label(locales.ComposerImageAttachment())
 		if im.thumb != nil {
 			box.Children(func() { ui.Image(c, im.thumb).Size(64, 64).Fit(ui.Cover) })
 		}
-		x := ui.ButtonBase(c).Label("移除").Absolute().Top(3).Right(3).Size(20, 20).Radius(10).Center().Background(k.Mask).
+		x := ui.ButtonBase(c).Label(locales.ComposerRemove()).Absolute().Top(3).Right(3).Size(20, 20).Radius(10).Center().Background(k.Mask).
 			Cursor(ui.CursorPointer)
 		x.Children(func() { ui.Icon(c, widget.IconClose).Size(13, 13).TextColor(ui.Hex("#FFFFFF")) })
 		x.OnClick(remove)
@@ -198,29 +199,33 @@ func (a *App) send(text string) bool {
 	a.hub.RunChat(func(ctx context.Context, conv *chat.Conversation) error {
 		return conv.Send(ctx, coreapi.Outgoing{Text: m.Text, Images: m.Images, Files: m.Files})
 	}, func(err error) {
-		p.failed = "没发出去：" + err.Error()
+		p.failed = locales.ChatSendFailed(err.Error())
 		p.putBack(m)
 	})
 	return true
 }
 
 // permissionModes 是权限模式的选项，和手机版一样的说法。
-var permissionModes = []struct{ value, label string }{
-	{"default", "逐项确认"},
-	{"acceptEdits", "自动接受编辑"},
-	{"plan", "计划模式"},
-	{"auto", "自动判断"},
-	{"bypassPermissions", "完全放行"},
+// label 按界面当前的语言出字，所以存取字函数。
+var permissionModes = []struct {
+	value string
+	label func() string
+}{
+	{"default", locales.ClaudecfgModeDefault},
+	{"acceptEdits", locales.ClaudecfgModeAcceptEdits},
+	{"plan", locales.ClaudecfgModePlan},
+	{"auto", locales.ClaudecfgModeAuto},
+	{"bypassPermissions", locales.ComposerModeBypass},
 }
 
 func modeLabel(mode string) string {
 	for _, m := range permissionModes {
 		if m.value == mode {
-			return m.label
+			return m.label()
 		}
 	}
 	if mode == "" {
-		return "默认权限"
+		return locales.ComposerModeUnset()
 	}
 	return mode
 }
@@ -234,7 +239,7 @@ func (a *App) modeMenu(c *ui.Context, p *chatPane) {
 	icon, tint := modeIcon(widget.Of(c), current)
 	widget.MenuButton(c.Key("mode"), func(t ui.Element) { widget.ToolPill(c, t, icon, modeLabel(current), tint) }, func(m *widget.Menu) {
 		for _, mode := range permissionModes {
-			if m.Choice(mode.label, mode.value == current) {
+			if m.Choice(mode.label(), mode.value == current) {
 				value := mode.value
 				a.act(func(ctx context.Context, conv *chat.Conversation) error { return conv.SetMode(ctx, &value) })
 			}
@@ -274,7 +279,7 @@ func (a *App) modelMenu(c *ui.Context, p *chatPane) {
 	}
 	label := modelLabel(p.state, models)
 	widget.MenuButton(c.Key("model"), func(t ui.Element) { widget.ToolPill(c, t, nil, label, ui.Color{}) }, func(m *widget.Menu) {
-		if m.Choice("默认", chosen == "" || chosen == chat.DefaultModel) {
+		if m.Choice(locales.ComposerDefault(), chosen == "" || chosen == chat.DefaultModel) {
 			a.act(func(ctx context.Context, conv *chat.Conversation) error { return conv.SetModel(ctx, nil) })
 		}
 		latest, older := chat.SplitModels(models)
@@ -288,7 +293,7 @@ func (a *App) modelMenu(c *ui.Context, p *chatPane) {
 				hint = optionName(o)
 			}
 		}
-		m.Sub("更多模型", hint, func(m *widget.Menu) { a.modelChoices(m, older, chosen) })
+		m.Sub(locales.ComposerMoreModels(), hint, func(m *widget.Menu) { a.modelChoices(m, older, chosen) })
 	})
 }
 
@@ -323,9 +328,9 @@ func modelLabel(s chat.State, models []chat.ModelOption) string {
 		return readableModel(*s.Model)
 	}
 	if s.ReportedModel != "" {
-		return "默认（" + readableModel(s.ReportedModel) + "）"
+		return locales.ComposerModelDefault(readableModel(s.ReportedModel))
 	}
-	return "默认"
+	return locales.ComposerDefault()
 }
 
 var modelID = regexp.MustCompile(`^claude-([a-z]+)-(\d+(?:-\d{1,2})*)(?:-\d{8})?(\[1m\])?$`)
@@ -344,14 +349,18 @@ func readableModel(id string) string {
 }
 
 // effortLevels 是思考强度的几档（Claude Code 的 effort）。
-var effortLevels = []struct{ value, label string }{
-	{"low", "低"}, {"medium", "中"}, {"high", "高"}, {"xhigh", "超高"}, {"max", "最高"},
+var effortLevels = []struct {
+	value string
+	label func() string
+}{
+	{"low", locales.ClaudecfgEffortLow}, {"medium", locales.ClaudecfgEffortMedium}, {"high", locales.ClaudecfgEffortHigh},
+	{"xhigh", locales.ClaudecfgEffortXHigh}, {"max", locales.ClaudecfgEffortMax},
 }
 
 func effortLabel(v string) string {
 	for _, l := range effortLevels {
 		if l.value == v {
-			return l.label
+			return l.label()
 		}
 	}
 	return v
@@ -363,12 +372,12 @@ func (a *App) effortMenu(c *ui.Context, p *chatPane) {
 	if p.state.Effort != nil {
 		chosen = *p.state.Effort
 	}
-	label := "思考：默认"
+	label := locales.ComposerEffortDefault()
 	switch {
 	case chosen != "":
-		label = "思考：" + effortLabel(chosen)
+		label = locales.ComposerEffortChosen(effortLabel(chosen))
 	case p.state.Usage.AppliedEffort != "":
-		label = "思考：默认（" + effortLabel(p.state.Usage.AppliedEffort) + "）"
+		label = locales.ComposerEffortApplied(effortLabel(p.state.Usage.AppliedEffort))
 	}
 	level := effortLevel(chosen)
 	if chosen == "" {
@@ -376,11 +385,11 @@ func (a *App) effortMenu(c *ui.Context, p *chatPane) {
 	}
 	icon := widget.Gauge(level, len(effortLevels))
 	widget.MenuButton(c.Key("effort"), func(t ui.Element) { widget.ToolPill(c, t, icon, label, ui.Color{}) }, func(m *widget.Menu) {
-		if m.Choice("默认", chosen == "") {
+		if m.Choice(locales.ComposerDefault(), chosen == "") {
 			a.act(func(ctx context.Context, conv *chat.Conversation) error { return conv.SetEffort(ctx, nil) })
 		}
 		for _, l := range effortLevels {
-			if m.Choice(l.label, l.value == chosen) {
+			if m.Choice(l.label(), l.value == chosen) {
 				value := l.value
 				a.act(func(ctx context.Context, conv *chat.Conversation) error { return conv.SetEffort(ctx, &value) })
 			}
@@ -402,10 +411,10 @@ func effortLevel(v string) int {
 // 上下文、本对话累计、各轮明细（usageTurns）和压缩上下文；弹出框限高，内容多了在里面滚动。
 func (a *App) usageButton(c *ui.Context, p *chatPane) {
 	u := p.state.Usage
-	label := "上下文"
+	label := locales.ComposerContext()
 	var fraction float32
 	if u.Fraction != nil {
-		label += fmt.Sprintf(" %d%%", int(*u.Fraction*100))
+		label = locales.ComposerContextPercent(int(*u.Fraction * 100))
 		fraction = float32(*u.Fraction)
 	}
 	button := widget.Ring(c, ui.ButtonBase(c.Key("usage")), label, fraction, contextColor(widget.Of(c), u.Level)).OnClick(func() {
@@ -417,10 +426,10 @@ func (a *App) usageButton(c *ui.Context, p *chatPane) {
 	ui.Popover(c.Key("usage-panel"), button, &p.usage, func() {
 		_, winH := c.Size()
 		ui.Column(c).Width(320).Padding(4).Gap(10).Children(func() {
-			ui.Scroll(c.Key("usage-body")).FillWidth().MaxHeight(usagePanelHeight(winH)).Label("用量").Children(func() {
+			ui.Scroll(c.Key("usage-body")).FillWidth().MaxHeight(usagePanelHeight(winH)).Label(locales.ComposerUsage()).Children(func() {
 				ui.Column(c).FillWidth().Gap(10).Children(func() { a.usageDetails(c, p) })
 			})
-			widget.SmallButton(c, "压缩上下文").Disabled(!p.connected || p.state.Busy).OnClick(func() {
+			widget.SmallButton(c, locales.ComposerCompact()).Disabled(!p.connected || p.state.Busy).OnClick(func() {
 				p.usage = false
 				a.act(func(ctx context.Context, conv *chat.Conversation) error { return conv.Compact(ctx) })
 			})
@@ -463,17 +472,17 @@ func (a *App) usageDetails(c *ui.Context, p *chatPane) {
 			contextText += fmt.Sprintf(" · %.1f%%", *u.Fraction*100)
 		}
 	}
-	statRow(c, "上下文", contextText)
+	statRow(c, locales.ComposerContext(), contextText)
 	if u.Fraction != nil {
-		uiacct.UsageBar(c, min(max(*u.Fraction, 0), 1), contextColor(widget.Of(c), u.Level)).Label("上下文用量")
+		uiacct.UsageBar(c, min(max(*u.Fraction, 0), 1), contextColor(widget.Of(c), u.Level)).Label(locales.ComposerContextUsage())
 	}
 	ui.Text(c, strings.Join(contextNotes(u), "\n")).FontSize(12).TextColor(t.TextMuted)
 	ui.Divider(c)
-	ui.Text(c, fmt.Sprintf("本对话累计 · %d 轮", len(u.Turns))).FontSize(13).Bold()
-	statRow(c, "输入", usage.FormatTokens(u.Total.Input))
-	statRow(c, "缓存读取", usage.FormatTokens(u.Total.CacheRead))
-	statRow(c, "缓存写入", usage.FormatTokens(u.Total.CacheWrite))
-	statRow(c, "输出", usage.FormatTokens(u.Total.Output))
+	ui.Text(c, locales.ComposerTotals(len(u.Turns))).FontSize(13).Bold()
+	statRow(c, locales.ComposerInput(), usage.FormatTokens(u.Total.Input))
+	statRow(c, locales.ComposerCacheRead(), usage.FormatTokens(u.Total.CacheRead))
+	statRow(c, locales.ComposerCacheWrite(), usage.FormatTokens(u.Total.CacheWrite))
+	statRow(c, locales.ComposerOutput(), usage.FormatTokens(u.Total.Output))
 	cost := "—"
 	if u.TotalCost != nil {
 		cost = usage.FormatCost(*u.TotalCost)
@@ -481,7 +490,7 @@ func (a *App) usageDetails(c *ui.Context, p *chatPane) {
 			cost = "≈" + cost
 		}
 	}
-	statRow(c, "费用（按 API 标价）", cost)
+	statRow(c, locales.ComposerCost(), cost)
 	if note := totalsNote(u, p.state.Earlier); note != "" {
 		ui.Text(c, note).FontSize(12).TextColor(t.TextMuted)
 	}
@@ -507,34 +516,34 @@ func contextNotes(u usage.Usage) []string {
 	var notes []string
 	switch {
 	case u.ContextTokens == nil:
-		notes = append(notes, "发出第一条消息后显示。")
+		notes = append(notes, locales.ComposerContextNotYet())
 	case off && u.Level == usage.LevelCritical:
-		notes = append(notes, "快满了，自动压缩已关闭，请手动压缩，不然很快发不出去。")
+		notes = append(notes, locales.ComposerContextFullOff())
 	case off:
-		notes = append(notes, "自动压缩已关闭（Zeta 或 Claude Code 的设置），快满时手动压缩。")
+		notes = append(notes, locales.ComposerContextOff())
 	case u.Level == usage.LevelCritical:
-		notes = append(notes, "快满了，Claude Code 马上会自动压缩；也可以现在手动压缩。")
+		notes = append(notes, locales.ComposerContextFull())
 	case u.ContextEstimated:
-		notes = append(notes, "Claude Code 的估算，下一轮后按实测；快到上限时它会自动压缩。")
+		notes = append(notes, locales.ComposerContextEstimated())
 	default:
-		notes = append(notes, "按上一轮实测；快到上限时 Claude Code 会自动压缩。")
+		notes = append(notes, locales.ComposerContextMeasured())
 	}
 	if u.CompactAt != nil && !off {
-		at := "自动压缩点：" + usage.FormatTokens(*u.CompactAt)
+		at := locales.ComposerCompactAt(usage.FormatTokens(*u.CompactAt))
 		if u.CompactFraction != nil {
-			at += fmt.Sprintf("（窗口的 %d%%）", int(*u.CompactFraction*100))
+			at = locales.ComposerCompactAtPercent(usage.FormatTokens(*u.CompactAt), int(*u.CompactFraction*100))
 		}
-		notes = append(notes, at+"。")
+		notes = append(notes, at)
 	}
 	if u.Compactions > 0 {
-		notes = append(notes, fmt.Sprintf("已压缩 %d 次。", u.Compactions))
+		notes = append(notes, locales.ComposerCompactions(u.Compactions))
 	}
 	var meta []string
 	if u.Model != "" {
 		meta = append(meta, readableModel(u.Model))
 	}
 	if u.AppliedEffort != "" {
-		meta = append(meta, "思考 "+effortLabel(u.AppliedEffort))
+		meta = append(meta, locales.ComposerEffortMeta(effortLabel(u.AppliedEffort)))
 	}
 	if len(meta) > 0 {
 		notes = append(notes, strings.Join(meta, " · "))

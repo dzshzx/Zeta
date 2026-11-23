@@ -5,6 +5,7 @@ import (
 	"unicode/utf8"
 
 	"github.com/dzshzx/Zeta/windows/internal/chat"
+	"github.com/dzshzx/Zeta/windows/internal/locales"
 	"github.com/dzshzx/Zeta/windows/internal/ui/widget"
 	"github.com/egoist/mygo/ui"
 )
@@ -117,7 +118,7 @@ func (a *App) slashList(c *ui.Context, p *chatPane) {
 	k := widget.Of(c)
 	m := &p.slash
 	m.chosen = min(max(m.chosen, 0), len(list)-1)
-	ui.Scroll(c.Key("slash")).FillWidth().MaxHeight(slashCommandHeight).Margin(0, 0, 4, 0).Label("斜杠命令").Children(func() {
+	ui.Scroll(c.Key("slash")).FillWidth().MaxHeight(slashCommandHeight).Margin(0, 0, 4, 0).Label(locales.SlashCommands()).Children(func() {
 		ui.Column(c).FillWidth().Children(func() {
 			for i, cmd := range list {
 				row := slashRow(c.Key("slash/"+cmd.Name), cmd, i == m.chosen)

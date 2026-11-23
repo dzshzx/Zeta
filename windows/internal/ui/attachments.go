@@ -7,13 +7,13 @@ import (
 	"errors"
 	"os"
 	"path/filepath"
-	"strconv"
 	"strings"
 
 	"github.com/dzshzx/Zeta/client/hostlink"
 	"github.com/dzshzx/Zeta/helper/coreapi"
 	"github.com/dzshzx/Zeta/windows/internal/attach"
 	"github.com/dzshzx/Zeta/windows/internal/host"
+	"github.com/dzshzx/Zeta/windows/internal/locales"
 	"github.com/dzshzx/Zeta/windows/internal/ui/widget"
 	"github.com/egoist/mygo"
 	"github.com/egoist/mygo/transfer"
@@ -61,13 +61,13 @@ func (f *draftFile) label() string {
 	name := attach.Label(f.name, f.size)
 	switch {
 	case f.failed != "":
-		return "上传失败 · " + name
+		return locales.ComposerUploadFailed(name)
 	case !f.uploading():
 		return name
 	case f.size > 0:
-		return "正在上传 " + strconv.Itoa(int(min(f.sent*100/f.size, 99))) + "% · " + name
+		return locales.ComposerUploadingPercent(int(min(f.sent*100/f.size, 99)), name)
 	}
-	return "正在上传 · " + name
+	return locales.ComposerUploading(name)
 }
 
 // attachments 是一个对话输入栏里的图和文件，加上没收进来的原因。
@@ -171,7 +171,7 @@ type picker func(title string, images, folder bool) []string
 func systemPicker(title string, images, folder bool) []string {
 	opts := mygo.OpenDialogOptions{Title: title, Multiple: true, Directory: folder}
 	if images {
-		opts.Filters = []mygo.FileFilter{{Name: "图片", Extensions: attach.ImageExtensions()}}
+		opts.Filters = []mygo.FileFilter{{Name: locales.ComposerImagesFilter(), Extensions: attach.ImageExtensions()}}
 	}
 	paths, _ := mygo.Dialog.Open(opts)
 	return paths
@@ -195,9 +195,12 @@ func (a *App) pickAttachments(images, folder bool) {
 	if p == nil {
 		return
 	}
-	title := map[bool]string{true: "选择图片", false: "选择文件"}[images]
-	if folder {
-		title = "选择文件夹"
+	title := locales.ComposerPickFiles()
+	switch {
+	case folder:
+		title = locales.ComposerPickFolder()
+	case images:
+		title = locales.ComposerPickImages()
 	}
 	a.async(func() func() {
 		paths := a.pick(title, images, folder)
@@ -210,20 +213,20 @@ func (a *App) pickAttachments(images, folder bool) {
 func (a *App) addPaths(p *chatPane, paths []string, onlyImages bool) {
 	at := &p.att
 	if len(paths) > attach.MaxFiles {
-		at.report("一次最多收 "+strconv.Itoa(attach.MaxFiles)+" 个文件，另外 "+strconv.Itoa(len(paths)-attach.MaxFiles)+" 个没有加进来", false)
+		at.report(locales.ComposerTooManyFiles(attach.MaxFiles, len(paths)-attach.MaxFiles), false)
 		paths = paths[:attach.MaxFiles]
 	}
 	for _, local := range paths {
 		st, err := os.Stat(local)
 		switch {
 		case err != nil:
-			at.report("「"+filepath.Base(local)+"」读不了，没有加进来", false)
+			at.report(locales.ComposerUnreadable(filepath.Base(local)), false)
 		case st.IsDir():
 			a.uploadFolder(p, local)
 		case (onlyImages || attach.IsImage(local)) && at.roomForImages() > 0:
 			a.loadImage(p, local, st.Size(), onlyImages)
 		case onlyImages:
-			at.report("一条消息最多带 "+strconv.Itoa(attach.MaxImages)+" 张图片，「"+filepath.Base(local)+"」没有加进来", false)
+			at.report(locales.ComposerTooManyImages(attach.MaxImages, filepath.Base(local)), false)
 		default:
 			a.uploadFile(p, host.Upload{Local: local}, filepath.Base(local), st.Size())
 		}
@@ -246,7 +249,7 @@ func (a *App) loadImage(p *chatPane, local string, size int64, onlyImages bool) 
 				im.id = p.att.id()
 				p.att.images = append(p.att.images, im)
 			case onlyImages:
-				p.att.report("有一张图片读不了，没有加进来", false)
+				p.att.report(locales.ComposerImageUnreadable(), false)
 			default:
 				a.uploadFile(p, host.Upload{Local: local}, filepath.Base(local), size)
 			}
@@ -276,7 +279,7 @@ func (a *App) addImageData(p *chatPane, data []byte, name string) {
 		return func() {
 			p.att.loading--
 			if err != nil {
-				p.att.report("剪贴板里的图片读不了，没有加进来", false)
+				p.att.report(locales.ComposerClipboardUnreadable(), false)
 				return
 			}
 			im.id = p.att.id()
@@ -300,7 +303,7 @@ func (a *App) uploadFolder(p *chatPane, local string) {
 	size, err := hostlink.FolderSize(local)
 	switch {
 	case err != nil:
-		p.att.report("文件夹「"+name+"」读不了，没有加进来", false)
+		p.att.report(locales.ComposerFolderUnreadable(name), false)
 	case attach.TooLarge(size):
 		p.att.report(attach.TooLargeReason(name, size), true)
 	default:
@@ -353,7 +356,7 @@ func (a *App) paste(c *ui.Context, p *chatPane) bool {
 		return true
 	}
 	if png, err := data.Read(transfer.PNG); err == nil && len(png) > 0 {
-		a.addImageData(p, png, "粘贴的图片-"+a.now().Format("20060102-150405")+".png")
+		a.addImageData(p, png, locales.ComposerPastedImageName(a.now().Format("20060102-150405")))
 		return true
 	}
 	return false
@@ -396,10 +399,6 @@ func containsEntry(files []*draftFile, entry string) bool {
 	return false
 }
 
-// tooLargeAdvice 跟在「太大没收」的说明后面。
-const tooLargeAdvice = "太大的文件传到设备上要多占一份同样大的空间，Claude 也读不完。要让 Claude 处理它，可以先把它放到设备上，" +
-	"再从附件菜单的「输入路径」引用。"
-
 // attachProblems 告诉用户哪些没有加进来、为什么（同手机版的 IntakeProblemsDialog）。
 func (a *App) attachProblems(c *ui.Context, p *chatPane) {
 	at := &p.att
@@ -407,11 +406,15 @@ func (a *App) attachProblems(c *ui.Context, p *chatPane) {
 	if !open {
 		return
 	}
-	message := strings.Join(at.problems, "。\n") + "。"
-	if at.tooLarge {
-		message += "\n\n" + tooLargeAdvice
+	lines := make([]string, len(at.problems))
+	for i, why := range at.problems {
+		lines[i] = locales.ComposerProblem(why)
 	}
-	widget.Alert(c, &open, "有些内容没有加进来", message, widget.Action{Label: "好", Style: widget.Recommend})
+	message := strings.Join(lines, "\n")
+	if at.tooLarge {
+		message += "\n\n" + locales.ComposerTooLargeAdvice() // 跟在「太大没收」的说明后面
+	}
+	widget.Alert(c, &open, locales.ComposerProblemsTitle(), message, widget.Action{Label: locales.ComposerProblemsOk(), Style: widget.Recommend})
 	if !open {
 		at.problems, at.tooLarge = nil, false
 	}

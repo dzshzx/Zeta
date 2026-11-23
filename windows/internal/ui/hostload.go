@@ -6,6 +6,7 @@ import (
 	"time"
 
 	"github.com/dzshzx/Zeta/helper/coreapi"
+	"github.com/dzshzx/Zeta/windows/internal/locales"
 	"github.com/dzshzx/Zeta/windows/internal/ui/widget"
 	"github.com/egoist/mygo/ui"
 )
@@ -33,13 +34,12 @@ func (a *App) hostLoadChip(c *ui.Context, p *chatPane) {
 	}
 	a.pollHostLoad(c, p)
 	k := widget.Of(c)
-	text, tip := "CPU –", "设备负载：还没有读到"
+	text, tip := "CPU –", locales.HostLoadUnknown()
 	color := k.Secondary
 	if cpu := p.load.cpu; cpu != nil && cpu.Percent != nil {
 		n := *cpu.Percent
 		text = "CPU " + strconv.Itoa(n) + "%"
-		tip = a.hub.Name(p.src.Backend) + " 的 CPU 使用率 " + strconv.Itoa(n) + "%，" + strconv.Itoa(cpu.Cores) +
-			" 个核的平均（整机所有进程，同 Claude Code 状态栏的 cpu%）"
+		tip = locales.HostLoadTip(a.hub.Name(p.src.Backend), n, cpu.Cores)
 		switch {
 		case n >= cpuCritical:
 			color = k.Error
@@ -47,7 +47,7 @@ func (a *App) hostLoadChip(c *ui.Context, p *chatPane) {
 			color = k.Warning
 		}
 	} else if cpu != nil {
-		tip = "设备负载：那台主机不让读 CPU 计数（/proc/stat）"
+		tip = locales.HostLoadDenied()
 	}
 	ui.Text(c, text).FontSize(widget.SizeBodyXS).FontFeatures("tnum").TextColor(color).SingleLine().Padding(0, 4).
 		Tooltip(tip).Label(tip)

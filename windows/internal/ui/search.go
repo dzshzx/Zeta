@@ -2,18 +2,18 @@ package ui
 
 import (
 	"math"
-	"strconv"
 	"strings"
 	"time"
 
 	"github.com/dzshzx/Zeta/windows/internal/hub"
+	"github.com/dzshzx/Zeta/windows/internal/locales"
 	"github.com/dzshzx/Zeta/windows/internal/ui/widget"
 	"github.com/egoist/mygo/ui"
 )
 
 // searchField 是侧栏底下的搜索框（同 Compose 的 SearchCapsule）：框里的字一变就交给中枢去搜。
 func (a *App) searchField(c *ui.Context) {
-	in := widget.SearchField(c, &a.query, "搜索对话 (Ctrl+K)")
+	in := widget.SearchField(c, &a.query, locales.SearchPlaceholder())
 	if a.layout.searchFocus {
 		in.Focus()
 		a.layout.searchFocus = false
@@ -31,14 +31,14 @@ func (a *App) searchResults(c *ui.Context) {
 	results := h.Results(a.currentSession(), a.now())
 	progress := h.SearchProgress()
 	if len(results) == 0 {
-		text := "没有匹配的对话"
+		text := locales.SearchNoMatch()
 		if progress == hub.SearchRunning {
-			text = "正在搜索…"
+			text = locales.SearchSearching()
 		}
 		ui.Text(c, text).FontSize(widget.SizeBodyM).TextColor(widget.Of(c).Secondary).TextAlign(ui.Center).FillWidth().Padding(36, 24)
 		return
 	}
-	sectionTitle(c, "搜索结果", true)
+	sectionTitle(c, locales.SearchResults(), true)
 	for _, s := range results {
 		a.sessionRow(c, s, h.Snippet(s))
 	}
@@ -50,11 +50,11 @@ func (a *App) searchResults(c *ui.Context) {
 func searchFooter(p hub.SearchProgress) string {
 	switch p {
 	case hub.SearchRunning:
-		return "正在搜索对话内容…"
+		return locales.SearchContentRunning()
 	case hub.SearchPartial:
-		return "结果较多，只列出了一部分，换个更具体的词试试"
+		return locales.SearchPartial()
 	case hub.SearchFailed:
-		return "对话内容没搜成，只比对了标题"
+		return locales.SearchContentFailed()
 	}
 	return ""
 }
@@ -112,15 +112,15 @@ func matches(text, needle string) []textPart {
 func statusText(st hub.Status) string {
 	switch st.Activity {
 	case hub.Waiting:
-		return "等你确认"
+		return locales.SearchStatusWaiting()
 	case hub.Answering:
-		return "回答中"
+		return locales.SearchStatusAnswering()
 	case hub.Background:
-		return "后台 " + strconv.Itoa(st.Tasks)
+		return locales.SearchStatusBackground(st.Tasks)
 	case hub.Unread:
-		return "新回答"
+		return locales.SearchStatusUnread()
 	case hub.Idle:
-		return "闲置"
+		return locales.SearchStatusIdle()
 	}
 	return ""
 }

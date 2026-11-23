@@ -7,6 +7,7 @@ import (
 
 	"github.com/dzshzx/Zeta/client/sshlink"
 	"github.com/dzshzx/Zeta/windows/internal/host"
+	"github.com/dzshzx/Zeta/windows/internal/locales"
 	"github.com/dzshzx/Zeta/windows/internal/ui/widget"
 	"github.com/egoist/mygo/ui"
 )
@@ -63,9 +64,9 @@ func (a *App) devicePage(c *ui.Context) {
 	widget.Body(c, "device", func() {
 		a.connectionSection(c, x)
 		widget.Group(c, "", a.edit.check, func(l *widget.List) {
-			title := "检查连接"
+			title := locales.DeviceCheck()
 			if a.edit.checking {
-				title = "正在连接…"
+				title = locales.DevicesConnecting()
 			}
 			row := widget.Row{Title: title}
 			if !a.edit.checking && !a.edit.changing {
@@ -77,7 +78,7 @@ func (a *App) devicePage(c *ui.Context) {
 			a.cfg.Sections(c)
 		}
 		widget.Group(c, "", "", func(l *widget.List) {
-			l.Row(widget.Row{Title: "删除设备", Danger: true, OnClick: func() { a.edit.removing = true }})
+			l.Row(widget.Row{Title: locales.DeviceRemove(), Danger: true, OnClick: func() { a.edit.removing = true }})
 		})
 	})
 	a.deviceDialogs(c, x)
@@ -86,32 +87,32 @@ func (a *App) devicePage(c *ui.Context) {
 // connectionSection 是「连接」开关、名称、地址、私钥、指纹、家目录、默认工作目录。
 func (a *App) connectionSection(c *ui.Context, x sshlink.Host) {
 	k := widget.Of(c)
-	widget.Group(c, "连接", "", func(l *widget.List) {
+	widget.Group(c, locales.DeviceConnection(), "", func(l *widget.List) {
 		on := !x.Off
-		summary := "用到这台设备时连上，断了自动重连"
+		summary := locales.DeviceConnectSummary()
 		if x.Off {
-			summary = "已断开：" + offNote
+			summary = locales.DeviceOffSummary()
 		}
-		l.Row(widget.Row{Title: "连接", Summary: summary, End: func() {
-			if widget.Switch(c.Key("connect"), &on).Label("连接").Changed() {
+		l.Row(widget.Row{Title: locales.DeviceConnect(), Summary: summary, End: func() {
+			if widget.Switch(c.Key("connect"), &on).Label(locales.DeviceConnect()).Changed() {
 				a.connect(x, on)
 			}
 		}})
-		l.Row(widget.Row{Title: "自定义设备名", Value: x.Name(), Arrow: true, OnClick: func() {
+		l.Row(widget.Row{Title: locales.DeviceCustomName(), Value: x.Name(), Arrow: true, OnClick: func() {
 			a.edit.name, a.edit.naming = x.CustomName, true
 		}})
-		l.Row(widget.Row{Title: "地址", Value: sshlink.DisplayTarget(x.Target)})
-		l.Row(widget.Row{Title: "SSH 密钥", End: func() {
+		l.Row(widget.Row{Title: locales.DevicesAddress(), Value: sshlink.DisplayTarget(x.Target)})
+		l.Row(widget.Row{Title: locales.DevicesSshKey(), End: func() {
 			if a.edit.changing {
-				ui.Text(c, "正在连接…").FontSize(widget.SizeBodyS).TextColor(k.Secondary)
+				ui.Text(c, locales.DevicesConnecting()).FontSize(widget.SizeBodyS).TextColor(k.Secondary)
 			}
 			keyChoice(c, a.add.keys, x.Key, a.edit.changing || a.edit.checking, func(key string) { a.changeKey(x, key) })
 		}})
 		if fp := x.Fingerprint(); fp != "" {
-			l.Row(widget.Row{Title: "主机指纹", Summary: fp})
+			l.Row(widget.Row{Title: locales.DeviceFingerprint(), Summary: fp})
 		}
-		l.Row(widget.Row{Title: "家目录", Value: x.Home})
-		l.Row(widget.Row{Title: "默认工作目录", Summary: x.DefaultCwd, Arrow: true, OnClick: func() {
+		l.Row(widget.Row{Title: locales.DeviceHome(), Value: x.Home})
+		l.Row(widget.Row{Title: locales.DeviceDefaultCwd(), Summary: x.DefaultCwd, Arrow: true, OnClick: func() {
 			a.edit.cwd, a.edit.moving = x.DefaultCwd, true
 			a.edit.verifying, a.edit.cwdProblem = false, ""
 			a.edit.cwdRound++
@@ -131,7 +132,7 @@ func (a *App) connect(x sshlink.Host, on bool) {
 // setConnected 照做，设备页上 Claude Code 那几组跟着换（断开时没有，连上时重新读）。
 func (a *App) setConnected(id string, on bool) {
 	if err := a.hub.SetConnected(id, on); err != nil {
-		a.say("没存上", err.Error())
+		a.say(locales.SettingsSaveFailed(), err.Error())
 	}
 	if x, ok := a.hub.Host(id); ok && a.page == pageDevice && a.device == id {
 		a.startDeviceConfig(x)
@@ -161,7 +162,7 @@ func normalizeCwd(text, home string) (string, bool) {
 // save 存改过的设备，存不上时说一声。
 func (a *App) save(x sshlink.Host) {
 	if err := a.hub.UpdateHost(x); err != nil {
-		a.say("没存上", err.Error())
+		a.say(locales.SettingsSaveFailed(), err.Error())
 	}
 }
 
@@ -174,7 +175,7 @@ func (a *App) changeKey(x sshlink.Host, key string) {
 		return func() {
 			a.edit.changing = false
 			if err != nil {
-				a.say("无法改为 "+name, sshlink.Describe(err))
+				a.say(locales.DeviceKeyChangeFailed(name), sshlink.Describe(err))
 				return
 			}
 			current, ok := a.hub.Host(x.ID)
@@ -183,7 +184,7 @@ func (a *App) changeKey(x sshlink.Host, key string) {
 			}
 			current.Key = key
 			a.save(refreshed(current, f))
-			a.say("SSH 密钥已改为 "+name, f.Summary())
+			a.say(locales.DeviceKeyChanged(name), f.Summary())
 		}
 	})
 }
@@ -199,13 +200,13 @@ func (a *App) checkHost(x sshlink.Host) {
 			var changed *sshlink.HostKeyChangedError
 			switch {
 			case errors.As(err, &changed):
-				a.edit.check = "没连上：主机指纹和记下的不一样"
+				a.edit.check = locales.DeviceCheckMismatch()
 				a.edit.changedKey = changed.Seen
 				a.edit.trusting = true
 			case err != nil:
-				a.edit.check = "没连上：" + sshlink.Describe(err)
+				a.edit.check = locales.DeviceCheckFailed(sshlink.Describe(err))
 			default:
-				a.edit.check = "连上了：" + f.Summary()
+				a.edit.check = locales.DeviceCheckOk(f.Summary())
 				if current, ok := a.hub.Host(x.ID); ok && (f.Home != current.Home || f.Hostname != current.Hostname) {
 					a.save(refreshed(current, f))
 				}
@@ -231,33 +232,32 @@ func (a *App) deviceDialogs(c *ui.Context, x sshlink.Host) {
 	summary := sshlink.NameProblem(a.edit.name, a.hub.OtherNames(x.ID))
 	nameOK := summary == ""
 	if nameOK {
-		summary = "留空就用设备自己的名字「" + original(x) + "」"
+		summary = locales.DeviceNameHint(original(x))
 	}
-	if widget.InputDialog(c, &a.edit.naming, "自定义设备名", summary, &a.edit.name, original(x), "确定", nameOK) {
+	if widget.InputDialog(c, &a.edit.naming, locales.DeviceCustomName(), summary, &a.edit.name, original(x), locales.CommonOk(), nameOK) {
 		x.CustomName = strings.TrimSpace(a.edit.name)
 		a.save(x)
 	}
 	a.cwdDialogs(c, x)
-	message := "记下的：" + x.Fingerprint() + "\n现在的：" + sshlink.Fingerprint(a.edit.changedKey) +
-		"\n确认是那台设备换过密钥（比如重装过系统）再改认新的；不确定的话可能连到了别的机器上。"
-	if widget.Alert(c, &a.edit.trusting, "主机指纹变了", message, widget.Action{Label: "取消"},
-		widget.Action{Label: "改认新的", Style: widget.Recommend}) == 1 {
+	message := locales.DeviceFingerprintMessage(x.Fingerprint(), sshlink.Fingerprint(a.edit.changedKey))
+	if widget.Alert(c, &a.edit.trusting, locales.DeviceFingerprintTitle(), message, widget.Action{Label: locales.WidgetCancel()},
+		widget.Action{Label: locales.DeviceTrustNew(), Style: widget.Recommend}) == 1 {
 		x.HostKey = a.edit.changedKey
 		a.save(x)
-		a.edit.check = "已改认新的主机指纹，再检查一次连接"
+		a.edit.check = locales.DeviceTrusted()
 	}
 	if !a.edit.trusting {
 		a.edit.changedKey = ""
 	}
-	if widget.Alert(c, &a.edit.cutting, "断开「"+x.Name()+"」？",
-		"这台设备上有对话在进行（在回答、等你确认或有后台任务）。断开后它们在那边接着跑完，打开连接后接着看；等你确认的要连上后才能答。",
-		widget.Action{Label: "取消"}, widget.Action{Label: "断开", Style: widget.Recommend}) == 1 {
+	if widget.Alert(c, &a.edit.cutting, locales.DeviceDisconnectTitle(x.Name()),
+		locales.DeviceDisconnectMessage(),
+		widget.Action{Label: locales.WidgetCancel()}, widget.Action{Label: locales.DeviceDisconnect(), Style: widget.Recommend}) == 1 {
 		a.setConnected(x.ID, false)
 	}
-	if widget.Alert(c, &a.edit.removing, "删除「"+x.Name()+"」？", "只是 Zeta 不再连它。那台设备上的会话记录、Claude Code 的配置都不动。",
-		widget.Action{Label: "取消"}, widget.Action{Label: "删除", Style: widget.Destructive}) == 1 {
+	if widget.Alert(c, &a.edit.removing, locales.DeviceRemoveTitle(x.Name()), locales.DeviceRemoveMessage(),
+		widget.Action{Label: locales.WidgetCancel()}, widget.Action{Label: locales.DeviceRemoveConfirm(), Style: widget.Destructive}) == 1 {
 		if err := a.hub.RemoveHost(x.ID); err != nil {
-			a.say("没存上", err.Error())
+			a.say(locales.SettingsSaveFailed(), err.Error())
 		}
 		a.open(pageSettings)
 	}
@@ -267,20 +267,19 @@ func (a *App) deviceDialogs(c *ui.Context, x sshlink.Host) {
 func (a *App) cwdDialogs(c *ui.Context, x sshlink.Host) {
 	e := &a.edit
 	cwd, cwdOK := normalizeCwd(e.cwd, x.Home)
-	summary := "在这台设备上开新对话时的工作目录，~ 是 " + x.Home
+	summary := locales.DeviceCwdSummary(x.Home)
 	switch {
 	case e.verifying:
-		summary = "正在到「" + x.Name() + "」上看 " + e.cwdChecked + " 能不能进去…"
+		summary = locales.DeviceCwdVerifying(x.Name(), e.cwdChecked)
 	case e.cwdProblem != "" && cwd == e.cwdChecked:
-		summary = e.cwdProblem + "。换一个目录，或先在那边建好。"
+		summary = locales.DeviceCwdProblem(e.cwdProblem)
 	}
-	if widget.InputDialog(c, &e.moving, "默认工作目录", summary, &e.cwd, x.Home, "确定", cwdOK && !e.verifying) {
+	if widget.InputDialog(c, &e.moving, locales.DeviceDefaultCwd(), summary, &e.cwd, x.Home, locales.CommonOk(), cwdOK && !e.verifying) {
 		a.moveCwd(x, cwd)
 	}
-	message := "没连上「" + x.Name() + "」，不知道 " + e.pendingCwd + " 在那边能不能进去：" + e.uncheckedWhy +
-		"。仍然保存的话，进不去时开新对话会再说。"
-	if widget.Alert(c, &e.unchecked, "无法核对这个目录", message, widget.Action{Label: "取消"},
-		widget.Action{Label: "仍然保存", Style: widget.Recommend}) == 1 {
+	message := locales.DeviceCwdUncheckedMessage(x.Name(), e.pendingCwd, e.uncheckedWhy)
+	if widget.Alert(c, &e.unchecked, locales.DeviceCwdUncheckedTitle(), message, widget.Action{Label: locales.WidgetCancel()},
+		widget.Action{Label: locales.DeviceSaveAnyway(), Style: widget.Recommend}) == 1 {
 		a.setCwd(x.ID, e.pendingCwd)
 	}
 }

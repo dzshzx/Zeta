@@ -4,6 +4,8 @@ import (
 	"encoding/json"
 	"strings"
 	"unicode/utf8"
+
+	"github.com/dzshzx/Zeta/windows/internal/locales"
 )
 
 // 常用指令（用户存下来的提问），同 shared 的 SavedPrompts.kt：存在设置文件的 savedPrompts 下（JSON 数组的字符串），
@@ -101,13 +103,13 @@ func (p SavedPrompt) DisplayName() string {
 func PromptProblem(list []SavedPrompt, name, text, editing string) string {
 	switch {
 	case strings.TrimSpace(text) == "":
-		return "内容不能为空"
+		return locales.PromptCheckEmpty()
 	case utf8.RuneCountInString(text) > MaxPromptText:
-		return "内容太长了（最多 20000 个字）"
+		return locales.PromptCheckTooLong()
 	case utf8.RuneCountInString(strings.TrimSpace(name)) > MaxPromptName:
-		return "名字太长了（最多 40 个字）"
+		return locales.PromptCheckNameTooLong()
 	case editing == "" && len(list) >= MaxPrompts:
-		return "最多存 100 条，先删掉一些"
+		return locales.PromptCheckFull()
 	}
 	return ""
 }

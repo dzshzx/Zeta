@@ -12,7 +12,9 @@ import (
 	"github.com/dzshzx/Zeta/client/sshlink"
 	"github.com/dzshzx/Zeta/windows/internal/hub"
 	"github.com/dzshzx/Zeta/windows/internal/hubtest"
+	"github.com/dzshzx/Zeta/windows/internal/locales"
 	"github.com/dzshzx/Zeta/windows/internal/settings"
+	"github.com/egoist/mygo/i18n"
 	"github.com/egoist/mygo/ui"
 )
 
@@ -97,7 +99,7 @@ func TestFirstRunAddsADeviceFromTheSSHConfig(t *testing.T) {
 	f.devices.KeyList = []string{"~/.ssh/id_ed25519", "~/.ssh/work"}
 	f.see(t, "还没有设备", "添加设备")
 	f.click(t, "添加设备")
-	f.see(t, "从 SSH 配置导入", "box", "lab", "自动选择", desktopFooter)
+	f.see(t, "从 SSH 配置导入", "box", "lab", "自动选择", locales.DevicesFooter())
 	f.notSee(t, "localhost")
 	if f.shows("已添加") {
 		t.Error("added hosts listed before any was added")
@@ -301,7 +303,7 @@ func TestNormalizeCwd(t *testing.T) {
 	}
 }
 
-// TestPreviews 在设了 ZETA_PREVIEW_DIR 时把几个场景画成 PNG（浅色、深色），给人看样子；不设时不画。
+// TestPreviews 在设了 ZETA_PREVIEW_DIR 时把几个场景画成 PNG（简体中文浅色、深色，英文浅色，文件名带 -en 看译文挤不挤），给人看样子；不设时不画。
 // Context.TitleBar 照真窗口给，右上角画出系统按钮的示意（withCaptionButtons），看得出整窗的样子。
 func TestPreviews(t *testing.T) {
 	dir := os.Getenv("ZETA_PREVIEW_DIR")
@@ -329,6 +331,8 @@ func TestPreviews(t *testing.T) {
 			f.tt.Frame()
 			f.click(t, "删除设备")
 		},
+		"settings": func(_ *testing.T, f *fixture) { f.app.open(pageSettings) },
+		"diag":     func(t *testing.T, f *fixture) { f.withHosts(t, "box"); f.app.open(pageDiag) },
 	}
 	all := map[string]func(t *testing.T) *fixture{}
 	for name, setup := range scenes {
@@ -339,22 +343,33 @@ func TestPreviews(t *testing.T) {
 			all[name] = func(t *testing.T) *fixture { f := newChatFixture(t); setup(t, f); return f.fixture }
 		}
 	}
+	t.Cleanup(func() { i18n.SetLocaleFunc(nil) })
 	for name, setup := range all {
-		for _, dark := range []bool{false, true} {
-			f := setup(t)
+		for _, run := range []struct {
+			lang string
+			dark bool
+		}{{"zh-Hans", false}, {"zh-Hans", true}, {"en", false}} {
+			i18n.SetLocaleFunc(nil)
+			f := setup(t) // 场景按源语言的文字点控件，画之前再换语言
+			lang := run.lang
+			i18n.SetLocaleFunc(func() string { return lang })
+			f.tt.SetLocale(lang)
 			f.tt.SetTitleBar(windowTitleBar)
-			f.tt.SetDark(dark)
+			f.tt.SetDark(run.dark)
 			f.tt.Advance(2 * time.Second) // 列表跟到底部的动画走完
 			f.tt.Frame()
 			suffix := "light"
-			if dark {
+			if run.dark {
 				suffix = "dark"
+			}
+			if lang != "zh-Hans" {
+				suffix += "-" + lang
 			}
 			out, err := os.Create(filepath.Join(dir, name+"-"+suffix+".png"))
 			if err != nil {
 				t.Fatal(err)
 			}
-			if err := png.Encode(out, withCaptionButtons(f.tt.Image(), dark)); err != nil {
+			if err := png.Encode(out, withCaptionButtons(f.tt.Image(), run.dark)); err != nil {
 				t.Fatal(err)
 			}
 			_ = out.Close()

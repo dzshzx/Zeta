@@ -1,18 +1,16 @@
 package ui
 
 import (
-	"fmt"
 	"strings"
 	"time"
 
 	"github.com/dzshzx/Zeta/client/hostlink"
 	"github.com/dzshzx/Zeta/windows/internal/hub"
+	"github.com/dzshzx/Zeta/windows/internal/locales"
 	"github.com/dzshzx/Zeta/windows/internal/ui/widget"
+	"github.com/egoist/mygo/i18n"
 	"github.com/egoist/mygo/ui"
 )
-
-// allHostsLabel 是设备菜单里列全部设备那一项的名字。
-const allHostsLabel = "全部设备"
 
 // sidebar 是左边的侧栏（布局照 ChatGPT 的 Windows 客户端）：灰底铺到窗口顶边，顶上一行品牌和收起侧栏的按钮同时是
 // 标题栏（空白处拖动窗口）；然后是「新对话」、搜索框、设备切换，置顶/今天/更早几组会话（搜索时换成结果，看归档时换成
@@ -28,7 +26,7 @@ func (a *App) sidebar(c *ui.Context) {
 		a.sidebarTop(c)
 		if hosts {
 			ui.Column(c).Padding(0, 10, 8, 10).Gap(6).Shrink(0).Children(func() {
-				widget.NavItem(c, widget.IconNewChat, "新对话", "Ctrl+N", false).OnClick(a.newChat)
+				widget.NavItem(c, widget.IconNewChat, locales.SidebarNewChat(), "Ctrl+N", false).OnClick(a.newChat)
 				a.tasksEntry(c)
 				ui.Row(c).FillWidth().Children(func() { a.searchField(c) })
 				ui.Row(c).FillWidth().Padding(2, 0, 0, 0).Children(func() { a.hostSwitcher(c) })
@@ -49,7 +47,7 @@ func (a *App) sidebar(c *ui.Context) {
 		})
 		ui.Row(c).Padding(8, 10).Gap(4).Shrink(0).AlignItems(ui.Center).BorderWidth(1, 0, 0, 0).BorderColor(k.Divider).
 			Children(func() {
-				widget.NavItem(c, widget.IconSettings, "设置", "Ctrl+,", false).OnClick(func() { a.open(pageSettings) }).Grow(1).
+				widget.NavItem(c, widget.IconSettings, locales.SidebarSettings(), "Ctrl+,", false).OnClick(func() { a.open(pageSettings) }).Grow(1).
 					Width(0)
 				if hosts && !a.hub.Searching() {
 					a.archiveToggle(c)
@@ -65,7 +63,7 @@ func (a *App) sidebarTop(c *ui.Context) {
 		brand(c, 22)
 		ui.Text(c, "Zeta").FontSize(widget.SizeHeadlineXS).FontWeight(600).TextColor(k.Text)
 		ui.Spacer(c)
-		widget.IconButton(c, widget.IconSidebar, "收起侧栏 (Ctrl+B)").OnClick(a.toggleSidebar)
+		widget.IconButton(c, widget.IconSidebar, locales.SidebarCollapse()).OnClick(a.toggleSidebar)
 	})
 }
 
@@ -82,12 +80,12 @@ func (a *App) newChat() {
 func (a *App) hostSwitcher(c *ui.Context) {
 	h := a.hub
 	all := h.AllHosts()
-	label := allHostsLabel
+	label := locales.SidebarAllHosts()
 	if !all {
 		label = h.Name(h.Backend())
 	}
 	widget.MenuButton(c, func(t ui.Element) { widget.Pill(c, t, widget.IconServer, label) }, func(m *widget.Menu) {
-		if m.Choice(allHostsLabel, all) {
+		if m.Choice(locales.SidebarAllHosts(), all) {
 			h.ListAll()
 		}
 		m.Separator()
@@ -101,7 +99,7 @@ func (a *App) hostSwitcher(c *ui.Context) {
 			}
 		}
 		m.Separator()
-		if m.Item("管理设备") {
+		if m.Item(locales.SidebarManageDevices()) {
 			a.open(pageSettings)
 		}
 	})
@@ -111,7 +109,7 @@ func (a *App) hostSwitcher(c *ui.Context) {
 func (a *App) sessionGroups(c *ui.Context) {
 	h := a.hub
 	if len(h.Hosts()) == 0 {
-		paneMessage(c, "还没有设备")
+		paneMessage(c, locales.SidebarNoDevices())
 		return
 	}
 	if why := h.Problem(); why != "" {
@@ -120,7 +118,7 @@ func (a *App) sessionGroups(c *ui.Context) {
 	g := h.Groups(a.now(), a.currentSession())
 	if len(g.Pinned)+len(g.Today)+len(g.Earlier) == 0 {
 		if h.Problem() == "" {
-			paneMessage(c, "还没有对话")
+			paneMessage(c, locales.SidebarNoChats())
 		}
 		return
 	}
@@ -128,7 +126,7 @@ func (a *App) sessionGroups(c *ui.Context) {
 	for _, group := range []struct {
 		title string
 		list  []hostlink.Session
-	}{{"置顶", g.Pinned}, {"今天", g.Today}, {"更早", g.Earlier}} {
+	}{{locales.SidebarGroupPinned(), g.Pinned}, {locales.SidebarGroupToday(), g.Today}, {locales.SidebarGroupEarlier(), g.Earlier}} {
 		if len(group.list) == 0 {
 			continue
 		}
@@ -189,7 +187,7 @@ func (a *App) sessionRow(c *ui.Context, s hostlink.Session, snippet string) {
 	place := a.place(s, needle != "")
 	draft, hasDraft := a.rowDraft(s)
 	if hasDraft {
-		place += "\n草稿：" + draft
+		place += "\n" + locales.SidebarDraftLine(draft)
 	}
 	row := ui.Row(c.Key(s.Backend+"/"+s.ID)).Margin(0.5, 10).MinHeight(36).Padding(0, 6, 0, 10).Gap(8).AlignItems(ui.Center).
 		Focusable().Label(rowTitle(s)).Description(place).Role(ui.RoleButton).Cursor(ui.CursorPointer)
@@ -205,7 +203,7 @@ func (a *App) sessionRow(c *ui.Context, s hostlink.Session, snippet string) {
 	switch {
 	case s.Ended:
 		titleInk = k.Tertiary
-		row.Description("已结束")
+		row.Description(locales.SidebarEnded())
 	case current || chosen:
 		titleInk = k.Text
 	}
@@ -233,30 +231,30 @@ func (a *App) sessionRow(c *ui.Context, s hostlink.Session, snippet string) {
 			ui.Text(c, a.hub.Name(s.Backend)).FontSize(widget.SizeBodyXS).TextColor(k.Tertiary).SingleLine().Shrink(0)
 		}
 		if s.External {
-			ui.Icon(c, widget.IconTerminal).Size(14, 14).TextColor(k.Tertiary).Shrink(0).Label("别处运行中")
+			ui.Icon(c, widget.IconTerminal).Size(14, 14).TextColor(k.Tertiary).Shrink(0).Label(locales.SidebarRunningElsewhere())
 		}
 		// 有没发出的草稿：行尾一支笔（配色只有危险操作用红，这里用次要文字色）；草稿的开头在悬停卡片里
 		if hasDraft {
-			ui.Icon(c, widget.IconEdit).Size(14, 14).TextColor(k.Secondary).Shrink(0).Label("草稿")
+			ui.Icon(c, widget.IconEdit).Size(14, 14).TextColor(k.Secondary).Shrink(0).Label(locales.SidebarDraft())
 		}
 		if st := a.rowStatus(s, current); st.Activity != hub.Quiet {
 			statusLabel(c, st)
 		} else if pinned && !hovered {
-			ui.Icon(c, widget.IconPin).Size(14, 14).TextColor(k.Tertiary).Shrink(0).Label("已置顶")
+			ui.Icon(c, widget.IconPin).Size(14, 14).TextColor(k.Tertiary).Shrink(0).Label(locales.SidebarPinned())
 		}
 		if hovered || current || chosen {
 			more := ui.ButtonBase(c.Key("more")).PopoverMenuButton(func(m *ui.Menu) { a.sessionMenu(m, s) })
-			widget.FlatButtonOf(c, more, widget.IconMore, "会话操作", 24, 16)
+			widget.FlatButtonOf(c, more, widget.IconMore, locales.SidebarRowActions(), 24, 16)
 		}
 	})
 }
 
 // rowTitle 是一行会话的标题：没有标题时是第一句话，都没有时是「未命名对话」。
 func rowTitle(s hostlink.Session) string {
-	if t := strings.TrimSpace(s.Label()); t != "" {
+	if t := strings.TrimSpace(hub.SessionLabel(s, i18n.Locale())); t != "" {
 		return t
 	}
-	return "未命名对话"
+	return locales.SidebarUntitled()
 }
 
 // rowStatus 是会话 s 行尾的状态：开着的那个加上这边对话的样子。正看着的对话确认框就在眼前，不标等你确认，照在回答标。
@@ -300,15 +298,15 @@ func (a *App) rowCard(c *ui.Context, row ui.Element, s hostlink.Session, draft s
 				line(widget.IconServer, a.hub.Name(s.Backend), k.Secondary)
 				switch {
 				case s.External:
-					line(widget.IconTerminal, "别处运行中", k.Secondary)
+					line(widget.IconTerminal, locales.SidebarRunningElsewhere(), k.Secondary)
 				case s.Ended:
-					line(widget.IconClock, "已结束", k.Tertiary)
+					line(widget.IconClock, locales.SidebarEnded(), k.Tertiary)
 				}
 				if hasDraft {
-					line(widget.IconEdit, "草稿："+draft, k.Secondary)
+					line(widget.IconEdit, locales.SidebarDraftLine(draft), k.Secondary)
 				}
 				if searching && s.Archived {
-					line(widget.IconArchive, "已归档", k.Secondary)
+					line(widget.IconArchive, locales.SidebarArchived(), k.Secondary)
 				}
 			})
 		})
@@ -320,19 +318,19 @@ func ago(t, now time.Time) string {
 	d := now.Sub(t)
 	switch {
 	case d < time.Minute:
-		return "刚刚"
+		return locales.SidebarAgoJustNow()
 	case d < time.Hour:
-		return fmt.Sprintf("%d 分钟前", int(d/time.Minute))
+		return locales.SidebarAgoMinutes(int(d / time.Minute))
 	case d < 24*time.Hour:
-		return fmt.Sprintf("%d 小时前", int(d/time.Hour))
+		return locales.SidebarAgoHours(int(d / time.Hour))
 	case d < 7*24*time.Hour:
-		return fmt.Sprintf("%d 天前", int(d/(24*time.Hour)))
+		return locales.SidebarAgoDays(int(d / (24 * time.Hour)))
 	case d < 5*7*24*time.Hour:
-		return fmt.Sprintf("%d 周前", int(d/(7*24*time.Hour)))
+		return locales.SidebarAgoWeeks(int(d / (7 * 24 * time.Hour)))
 	case t.Year() == now.Year():
-		return t.Format("1 月 2 日")
+		return locales.SidebarAgoDate(t)
 	}
-	return t.Format("2006 年 1 月 2 日")
+	return locales.SidebarAgoDateYear(t)
 }
 
 // place 是一行会话读屏用的说明（悬停卡片里是同样这些）：工作目录的最后一级，列着全部设备时前面是设备名，别处在运行的注明；搜索时归档的也注明。
@@ -342,10 +340,10 @@ func (a *App) place(s hostlink.Session, searching bool) string {
 		place = a.hub.Name(s.Backend) + " · " + place
 	}
 	if s.External {
-		place += " · 别处运行中"
+		place = locales.SidebarPlaceRunningElsewhere(place)
 	}
 	if searching && s.Archived {
-		place += " · 已归档"
+		place = locales.SidebarPlaceArchived(place)
 	}
 	return place
 }

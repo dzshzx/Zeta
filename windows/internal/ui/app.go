@@ -7,6 +7,7 @@ import (
 
 	"github.com/dzshzx/Zeta/windows/internal/chat/items"
 	"github.com/dzshzx/Zeta/windows/internal/hub"
+	"github.com/dzshzx/Zeta/windows/internal/locales"
 	"github.com/dzshzx/Zeta/windows/internal/runlog"
 	"github.com/dzshzx/Zeta/windows/internal/ui/about"
 	uiacct "github.com/dzshzx/Zeta/windows/internal/ui/accounts"
@@ -192,7 +193,9 @@ func (a *App) View(c *ui.Context) {
 // openImages 打开看大图：从 list 的第 index 张看起，图从发出它的列表 from 里取；保存经保存对话框。
 func (a *App) openImages(from *chatview.Chat, list []items.Image, index int) {
 	v := chatview.NewViewer(from, list, index)
-	v.Save = func(data []byte, name string) (string, error) { return a.saveFile("保存图片", name, nil, data) }
+	v.Save = func(data []byte, name string) (string, error) {
+		return a.saveFile(locales.AppSaveImage(), name, nil, data)
+	}
 	a.viewer = v
 }
 
@@ -233,9 +236,9 @@ func (a *App) home(c *ui.Context) {
 		if len(a.hub.Hosts()) > 0 {
 			return
 		}
-		ui.Text(c, desktopFooter).FontSize(widget.SizeBodyS).LineHeight(1.5).TextColor(k.Secondary).MaxWidth(420).
+		ui.Text(c, locales.DevicesFooter()).FontSize(widget.SizeBodyS).LineHeight(1.5).TextColor(k.Secondary).MaxWidth(420).
 			TextAlign(ui.Center)
-		widget.PrimaryButton(c, "添加设备").OnClick(func() { a.open(pageDevices) }).Margin(8, 0, 0, 0)
+		widget.PrimaryButton(c, locales.SettingsAddDevice()).OnClick(func() { a.open(pageDevices) }).Margin(8, 0, 0, 0)
 	})
 }
 
@@ -261,7 +264,7 @@ func (a *App) noticeDialog(c *ui.Context) {
 	if n == nil {
 		return
 	}
-	widget.Alert(c, &n.open, n.title, n.message, widget.Action{Label: "好", Style: widget.Recommend})
+	widget.Alert(c, &n.open, n.title, n.message, widget.Action{Label: locales.AppNoticeOk(), Style: widget.Recommend})
 	if !n.open {
 		a.notice = nil
 	}

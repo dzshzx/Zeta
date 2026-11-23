@@ -3,6 +3,7 @@ package ui
 import (
 	"testing"
 
+	"github.com/dzshzx/Zeta/windows/internal/locales"
 	"github.com/egoist/mygo/ui"
 )
 
@@ -66,7 +67,7 @@ func TestEmptyChatInAMissingDirectory(t *testing.T) {
 }
 
 // hostPill 是空白页上设备胶囊读屏读的名字。
-func hostPill(name string) string { return newChatHostTip + "：" + name }
+func hostPill(name string) string { return locales.EmptyChatHostLabel(name) }
 
 // 侧栏列着全部设备时空白页上有设备胶囊：选另一台，新对话在那台的默认目录重开，侧栏照旧列全部；只列一台时没有。
 // 那台已断开、打不开时说明下面也有，能换回能用的一台。

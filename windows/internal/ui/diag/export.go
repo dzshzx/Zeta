@@ -15,26 +15,24 @@ import (
 
 	"github.com/dzshzx/Zeta/helper/coreapi"
 	"github.com/dzshzx/Zeta/helper/redact"
+	"github.com/dzshzx/Zeta/windows/internal/locales"
 	"github.com/dzshzx/Zeta/windows/internal/runlog"
 	"github.com/dzshzx/Zeta/windows/internal/ui/widget"
 	"github.com/egoist/mygo/ui"
 )
 
-// exportNote 是「导出诊断包」下面的说明。
-const exportNote = "把运行日志、环境和上面这些日志（各取最后 64 KB）打成一个 zip。token、密码这类值会先打码。"
-
 // exportGroup 是「导出诊断包」一行：打包时写正在打包，存好后写存到哪，没成时写原因。
 func (p *Page) exportGroup(c *ui.Context) {
 	k := widget.Of(c)
-	widget.Group(c, "", exportNote, func(l *widget.List) {
-		row := widget.Row{Title: "导出诊断包"}
+	widget.Group(c, "", locales.DiagExportNote(), func(l *widget.List) {
+		row := widget.Row{Title: locales.DiagExport()}
 		switch {
 		case p.exporting:
-			row.Summary = "正在打包…"
+			row.Summary = locales.DiagExporting()
 		case p.exportErr != nil:
-			row.Summary, row.SummaryColor = "没有导出："+p.exportErr.Error(), k.Error
+			row.Summary, row.SummaryColor = locales.DiagExportFailed(p.exportErr.Error()), k.Error
 		case p.saved != "":
-			row.Summary = "已保存到 " + p.saved
+			row.Summary = locales.DiagExportSaved(p.saved)
 		}
 		if !p.exporting {
 			row.OnClick = p.export
@@ -85,9 +83,9 @@ func Bundle(ctx context.Context, devices []Device, env []Line, dir string, now t
 		return err
 	}
 	var head strings.Builder
-	head.WriteString("Zeta 桌面版诊断包\n打包时刻：" + now.Format("2006-01-02 15:04:05 -0700") + "\n\n")
+	head.WriteString(locales.DiagBundleHeader(now.Format("2006-01-02 15:04:05 -0700")) + "\n\n")
 	for _, l := range env {
-		head.WriteString(l.Name + "：" + l.Value + "\n")
+		head.WriteString(locales.DiagBundleEnvLine(l.Name, l.Value) + "\n")
 	}
 	if err := add("环境.txt", redact.Text(head.String())); err != nil {
 		return nil, err
@@ -117,14 +115,14 @@ func addDevice(ctx context.Context, add func(name, text string) error, dir strin
 	files, err := core.DiagFiles(cctx)
 	cancel()
 	if err != nil {
-		failed = append(failed, "列日志："+err.Error())
+		failed = append(failed, locales.DiagBundleListFailed(err.Error()))
 	}
 	for _, f := range files {
 		cctx, cancel := context.WithTimeout(ctx, timeout)
 		tail, err := core.ReadDiag(cctx, f.Path, true)
 		cancel()
 		if err != nil {
-			failed = append(failed, f.Path+"："+err.Error())
+			failed = append(failed, locales.DiagBundleReadFailed(f.Path, err.Error()))
 			continue
 		}
 		name := path.Base(f.Path)
@@ -133,7 +131,7 @@ func addDevice(ctx context.Context, add func(name, text string) error, dir strin
 		}
 		text := tail.Text
 		if tail.Truncated {
-			text = "# 只取了最后 64 KB（整个文件 " + strconv.FormatInt(tail.Size, 10) + " 字节）\n" + text
+			text = locales.DiagBundleTruncated(int(tail.Size)) + "\n" + text
 		}
 		if err := add(dir+"/"+f.Kind+"/"+safeName(name), text); err != nil {
 			return err

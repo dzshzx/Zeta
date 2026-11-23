@@ -18,6 +18,7 @@ import (
 	"time"
 
 	"github.com/dzshzx/Zeta/helper/redact"
+	"github.com/dzshzx/Zeta/windows/internal/locales"
 )
 
 // Level 是一条记录的轻重。
@@ -30,12 +31,18 @@ const (
 	Error
 )
 
+// levelLabels 是写进文件的轻重（不分界面语言，读回时按它认）。
 var levelLabels = []string{"信息", "警告", "出错"}
 
-// Label 是给人看的名字。
+// Label 是写进文件的名字；给人看的用 Name。
 func (l Level) Label() string { return levelLabels[l] }
 
-// Topic 是一条记录说的是哪方面的事，诊断页按它筛。值就是给人看的名字，也原样写进文件。
+// Name 是按界面当前的语言给人看的名字。
+func (l Level) Name() string {
+	return [...]func() string{locales.RunlogLevelInfo, locales.RunlogLevelWarn, locales.RunlogLevelError}[l]()
+}
+
+// Topic 是一条记录说的是哪方面的事，诊断页按它筛。值原样写进文件、读回时照它认（不分界面语言）；给人看的用 Name。
 type Topic string
 
 // 各类别。
@@ -47,6 +54,19 @@ const (
 
 // Topics 是各类别，按诊断页上列的先后。
 var Topics = []Topic{App, Chat, Device}
+
+// Name 是按界面当前的语言给人看的名字；认不出的（别的版本写的）原样。
+func (t Topic) Name() string {
+	switch t {
+	case App:
+		return locales.RunlogTopicApp()
+	case Chat:
+		return locales.RunlogTopicChat()
+	case Device:
+		return locales.RunlogTopicDevice()
+	}
+	return string(t)
+}
 
 // prefixes 是 log.Printf 的消息开头 → 类别。
 var prefixes = map[string]Topic{"zeta": App, "chat": Chat, "host": Device}

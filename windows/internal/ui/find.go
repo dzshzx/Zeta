@@ -3,6 +3,7 @@ package ui
 import (
 	"strconv"
 
+	"github.com/dzshzx/Zeta/windows/internal/locales"
 	"github.com/dzshzx/Zeta/windows/internal/ui/widget"
 	"github.com/egoist/mygo/ui"
 )
@@ -51,7 +52,7 @@ func (a *App) findBar(c *ui.Context, p *chatPane) {
 	widget.Shadow(widget.Surface{Shape: widget.ShapePopup, Fill: k.PopupGlass, Edge: k.Divider}.Paint(box), k)
 	box.Children(func() {
 		ui.Row(c).FillWidth().Gap(2).AlignItems(ui.Center).Children(func() {
-			in := widget.SearchField(c, &f.input, "在对话中查找").OnTextKey(func(tk ui.TextKey) bool {
+			in := widget.SearchField(c, &f.input, locales.FindPlaceholder()).OnTextKey(func(tk ui.TextKey) bool {
 				switch {
 				case tk.Key == ui.KeyEnter && tk.Mods == 0:
 					p.list.FindStep(1)
@@ -76,9 +77,9 @@ func (a *App) findBar(c *ui.Context, p *chatPane) {
 				ui.Text(c, matchCount(index, count, left, p.earlier.failed)).FontSize(widget.SizeBodyS).TextColor(color).SingleLine().
 					Margin(0, 2, 0, 8).Shrink(0)
 			}
-			widget.FlatButton(c, widget.IconChevronUp, "上一个", 30, 18).Disabled(count == 0).OnClick(func() { p.list.FindStep(-1) })
-			widget.FlatButton(c, widget.IconChevronDown, "下一个", 30, 18).Disabled(count == 0).OnClick(func() { p.list.FindStep(1) })
-			widget.FlatButton(c, widget.IconClose, "关闭查找", 30, 18).OnClick(p.closeFind)
+			widget.FlatButton(c, widget.IconChevronUp, locales.FindPrevious(), 30, 18).Disabled(count == 0).OnClick(func() { p.list.FindStep(-1) })
+			widget.FlatButton(c, widget.IconChevronDown, locales.FindNext(), 30, 18).Disabled(count == 0).OnClick(func() { p.list.FindStep(1) })
+			widget.FlatButton(c, widget.IconClose, locales.FindClose(), 30, 18).OnClick(p.closeFind)
 		})
 		ui.Text(c, findScope(left, p.earlier.failed)).FontSize(widget.SizeBodyXS).TextColor(k.Secondary).Padding(0, 10)
 	})
@@ -90,19 +91,18 @@ func matchCount(index, count, left int, failed string) string {
 	case count > 0:
 		return strconv.Itoa(index+1) + "/" + strconv.Itoa(count)
 	case left > 0 && failed == "":
-		return "查找中"
+		return locales.FindSearching()
 	}
-	return "无结果"
+	return locales.FindNoResults()
 }
 
 // findScope 是查找栏下面那行说明。
 func findScope(left int, failed string) string {
-	s := "查提问和回答，不含工具步骤和思考"
 	switch {
 	case failed != "" && left > 0:
-		s += "；" + failed + "，更早的 " + strconv.Itoa(left) + " 条没查"
+		return locales.FindScopeFailed(failed, left)
 	case left > 0:
-		s += "；正在载入更早的 " + strconv.Itoa(left) + " 条…"
+		return locales.FindScopeLoading(left)
 	}
-	return s
+	return locales.FindScope()
 }

@@ -5,6 +5,7 @@ import (
 	"time"
 
 	"github.com/dzshzx/Zeta/client/hostlink"
+	"github.com/dzshzx/Zeta/windows/internal/locales"
 	"github.com/dzshzx/Zeta/windows/internal/ui/widget"
 	"github.com/egoist/mygo/ui"
 )
@@ -30,9 +31,6 @@ type pathResult struct {
 // pathCheckDelay 是输入停下来多久才查（同 Kotlin 版的 350 毫秒）；测试里是 0。
 var pathCheckDelay = 350 * time.Millisecond
 
-// pathMissing 是查不到路径时说明的开头。
-const pathMissing = "没有这个路径："
-
 func (a *App) openPathDialog() { a.path = pathAttach{open: true} }
 
 // pathDialog 画「输入路径」的对话框。
@@ -50,13 +48,13 @@ func (a *App) pathDialog(c *ui.Context, p *chatPane) {
 	widget.Dialog(c, &d.open, func() {
 		ui.Column(c).FillWidth().Padding(widget.DialogPadding, widget.DialogPadding, 4, widget.DialogPadding).Gap(6).
 			Children(func() {
-				ui.Text(c, "引用「"+name+"」上的路径").FontSize(widget.SizeHeadlineXS).FontWeight(600).TextColor(k.Text)
-				ui.Text(c, "这台设备上一个文件或文件夹的绝对路径，Claude 会直接读到它。").FontSize(widget.SizeBodyS).LineHeight(1.45).
+				ui.Text(c, locales.PathDialogTitle(name)).FontSize(widget.SizeHeadlineXS).FontWeight(600).TextColor(k.Text)
+				ui.Text(c, locales.PathDialogHint()).FontSize(widget.SizeBodyS).LineHeight(1.45).
 					TextColor(k.Secondary)
 				// 查到的结果跟在输入框末尾，边框连着它画
 				field := ui.Row(c).FillWidth().AlignItems(ui.Center).Gap(8).Padding(0, 10, 0, 0).Radius(8).Border(1, k.Divider)
 				field.Children(func() {
-					in := widget.LineInput(c.Key("path"), &d.input, 1).Placeholder(strings.TrimRight(a.chatCwd(p), "/")+"/…").Label("路径").
+					in := widget.LineInput(c.Key("path"), &d.input, 1).Placeholder(strings.TrimRight(a.chatCwd(p), "/")+"/…").Label(locales.PathDialogPath()).
 						AutoFocus().BorderWidth(0, 0, 0, 0).Grow(1).OnSubmit(func() { a.attachPath(p) })
 					if in.Focused() {
 						field.BorderColor(k.Primary)
@@ -70,10 +68,10 @@ func (a *App) pathDialog(c *ui.Context, p *chatPane) {
 				}
 			})
 		widget.ButtonBar(c, func() {
-			if widget.DialogButton(c, "取消", widget.Plain).Clicked() {
+			if widget.DialogButton(c, locales.WidgetCancel(), widget.Plain).Clicked() {
 				d.open = false
 			}
-			if widget.DialogButton(c, "引用", widget.Recommend).Disabled(r.path == "").Clicked() {
+			if widget.DialogButton(c, locales.PathDialogAttach(), widget.Recommend).Disabled(r.path == "").Clicked() {
 				a.attachPath(p)
 			}
 		})
@@ -86,13 +84,13 @@ func pathKindLabel(k *widget.Colors, r pathResult, input string) (string, ui.Col
 	case strings.TrimSpace(input) == "":
 		return "", k.Text
 	case r.checking:
-		return "正在查…", k.Secondary
+		return locales.PathDialogChecking(), k.Secondary
 	case r.path != "" && r.folder:
-		return "文件夹", k.PrimaryText
+		return locales.PathDialogFolder(), k.PrimaryText
 	case r.path != "":
-		return "文件", k.PrimaryText
+		return locales.PathDialogFile(), k.PrimaryText
 	case r.problem != "":
-		return "不可用", k.Error
+		return locales.PathDialogUnavailable(), k.Error
 	}
 	return "", k.Text
 }
@@ -109,9 +107,9 @@ func (a *App) checkPath(p *chatPane, d *pathAttach) {
 	x, _ := a.hub.Host(p.src.Backend)
 	path, ok := hostlink.NormalizePath(input, x.Home)
 	if !ok {
-		d.result.problem = "要输入以 / 开头的绝对路径"
+		d.result.problem = locales.PathDialogNotAbsolute()
 		if t := strings.TrimSpace(input); strings.HasPrefix(t, "/") || strings.HasPrefix(t, "~") {
-			d.result.problem = "路径里不能有双引号或控制字符"
+			d.result.problem = locales.PathDialogBadChars()
 		}
 		return
 	}
@@ -133,17 +131,17 @@ func resolvePath(check func(string) (hostlink.PathKind, error), path string) pat
 	kind, err := check(path)
 	switch {
 	case err != nil:
-		return pathResult{problem: "查不了：" + err.Error()}
+		return pathResult{problem: locales.PathDialogCheckError(err.Error())}
 	case kind == hostlink.PathFolder:
 		return pathResult{path: path, folder: true}
 	case kind == hostlink.PathFile:
 		return pathResult{path: path}
 	case kind == hostlink.PathMissing:
-		return pathResult{problem: pathMissing + path}
+		return pathResult{problem: locales.PathDialogMissing(path)}
 	case kind == hostlink.PathDenied:
-		return pathResult{problem: "没有权限读取 " + path}
+		return pathResult{problem: locales.PathDialogDenied(path)}
 	}
-	return pathResult{problem: "查不了这个路径"}
+	return pathResult{problem: locales.PathDialogCheckFailed()}
 }
 
 // attachPath 引用查好的路径，关上对话框；还没查好、不能引用时不动。

@@ -5,6 +5,7 @@ import (
 	"strconv"
 
 	"github.com/dzshzx/Zeta/client/sshlink"
+	"github.com/dzshzx/Zeta/windows/internal/locales"
 	"github.com/dzshzx/Zeta/windows/internal/ui/diag"
 	"github.com/egoist/mygo"
 	"github.com/egoist/mygo/ui"
@@ -19,7 +20,7 @@ func (a *App) startDiag() {
 		Run:     a.run,
 		Post:    a.post,
 		Save: func(name string, data []byte) (string, error) {
-			return a.saveFile("导出诊断包", name, []mygo.FileFilter{{Name: "ZIP", Extensions: []string{"zip"}}}, data)
+			return a.saveFile(locales.DiagExport(), name, []mygo.FileFilter{{Name: "ZIP", Extensions: []string{"zip"}}}, data)
 		},
 		Env: a.diagEnv,
 		Dir: a.DiagDir,
@@ -46,15 +47,15 @@ func (a *App) diagDevices() []diag.Device {
 func (a *App) diagEnv() []diag.Line {
 	v := a.About.Version
 	lines := []diag.Line{
-		{Name: "Zeta 版本", Value: v.Name + "（" + strconv.Itoa(v.Code) + "）"},
-		{Name: "系统", Value: runtime.GOOS + "/" + runtime.GOARCH},
+		{Name: locales.DiagEnvVersion(), Value: locales.DiagEnvVersionValue(v.Name, strconv.Itoa(v.Code))},
+		{Name: locales.DiagEnvSystem(), Value: runtime.GOOS + "/" + runtime.GOARCH},
 	}
 	if a.DiagEnv != nil {
 		lines = append(lines, a.DiagEnv()...)
 	}
-	lines = append(lines, diag.Line{Name: "界面缩放", Value: strconv.Itoa(a.zoom) + "%"})
+	lines = append(lines, diag.Line{Name: locales.DiagEnvZoom(), Value: strconv.Itoa(a.zoom) + "%"})
 	for _, x := range a.hub.Hosts() {
-		lines = append(lines, diag.Line{Name: "设备 " + x.Name(), Value: hostLine(x)})
+		lines = append(lines, diag.Line{Name: locales.DiagEnvDevice(x.Name()), Value: hostLine(x)})
 	}
 	return lines
 }
@@ -63,14 +64,13 @@ func (a *App) diagEnv() []diag.Line {
 func hostLine(x sshlink.Host) string {
 	key := x.Key
 	if key == "" {
-		key = "照 ~/.ssh/config"
+		key = locales.DiagEnvKeyFromConfig()
 	}
-	conn := "开"
+	conn := locales.DiagEnvOn()
 	if x.Off {
-		conn = "关"
+		conn = locales.DiagEnvOff()
 	}
-	return "地址 " + x.Target + " · 连法 " + x.Via + " · 私钥 " + key + " · 连接 " + conn + " · 主机名 " + x.Hostname +
-		" · 指纹 " + x.Fingerprint() + " · 默认工作目录 " + x.DefaultCwd
+	return locales.DiagEnvHost(x.Target, x.Via, key, conn, x.Hostname, x.Fingerprint(), x.DefaultCwd)
 }
 
 // diagPage 是诊断页。

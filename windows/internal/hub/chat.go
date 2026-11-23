@@ -11,6 +11,7 @@ import (
 	"github.com/dzshzx/Zeta/client/hostlink"
 	"github.com/dzshzx/Zeta/windows/internal/chat"
 	"github.com/dzshzx/Zeta/windows/internal/host"
+	"github.com/dzshzx/Zeta/windows/internal/locales"
 )
 
 // Chat 是聊天窗格里的对话：侧栏点开的会话，或新对话。界面只读它的字段；条目、状态从 Conv 的 Take 取。
@@ -136,7 +137,7 @@ func (h *Hub) open(c *Chat, spec chat.Spec, checkCwd bool) {
 			}
 			c.Opening, c.Conv, c.CwdProblem = false, conv, cwdProblem
 			if err != nil {
-				c.Problem = "打不开这个对话：" + err.Error()
+				c.Problem = locales.HubOpenFailed(err.Error())
 				h.dropDeadConn(c.Backend, conn)
 			}
 		})

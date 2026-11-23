@@ -3,12 +3,12 @@ package ui
 import (
 	"context"
 	"slices"
-	"strconv"
 	"strings"
 	"time"
 
 	"github.com/dzshzx/Zeta/helper/tasks"
 	"github.com/dzshzx/Zeta/windows/internal/chat"
+	"github.com/dzshzx/Zeta/windows/internal/locales"
 	"github.com/dzshzx/Zeta/windows/internal/ui/widget"
 	"github.com/egoist/mygo/ui"
 )
@@ -130,13 +130,13 @@ func (a *App) taskStrip(c *ui.Context, p *chatPane) {
 		}
 	}
 	panel(c, func() {
-		b := ui.ButtonBase(c).Label("查看后台任务").FillWidth().MinHeight(44).Padding(4, 8, 4, 14).Gap(8).AlignItems(ui.Center).
+		b := ui.ButtonBase(c).Label(locales.TasksView()).FillWidth().MinHeight(44).Padding(4, 8, 4, 14).Gap(8).AlignItems(ui.Center).
 			Cursor(ui.CursorPointer)
 		b.Children(func() {
 			ui.Column(c).Grow(1).MinWidth(0).Gap(2).Children(func() {
 				ui.Row(c).Gap(6).AlignItems(ui.Center).Children(func() {
 					ui.Box(c).Size(6, 6).Radius(3).Background(k.Primary)
-					ui.Text(c, "后台任务 · "+strconv.Itoa(running)+" 个在运行").FontSize(widget.SizeBodyS).FontWeight(widget.Medium).
+					ui.Text(c, locales.TasksRunningStrip(running)).FontSize(widget.SizeBodyS).FontWeight(widget.Medium).
 						TextColor(k.PrimaryText)
 				})
 				ui.Text(c, taskTitle(latest)).FontSize(widget.SizeBodyM).TextColor(k.Text).SingleLine().Ellipsis("…")
@@ -147,13 +147,11 @@ func (a *App) taskStrip(c *ui.Context, p *chatPane) {
 	})
 }
 
-// taskListFooter 是任务列表下面的说明。桌面版的列表不留清除已结束的按钮：结束了的由核心留最近 20 个。
-const taskListFooter = "Claude 在对话里放到后台跑的命令、监视器和子代理。它们跑在对话的 Claude Code 进程里：" +
-	"对话闲下来被 Zeta 收起、或进程结束时，没跑完的一起结束。结束了的留最近 20 个。"
+// 任务列表下面的说明是 locales.TasksListFooter。桌面版的列表不留清除已结束的按钮：结束了的由核心留最近 20 个。
 
 // taskListPage 是这个对话的后台任务，点一个看详情。
 func (a *App) taskListPage(c *ui.Context, p *chatPane) {
-	widget.Header(c, "后台任务", func() { a.back(p) })
+	widget.Header(c, locales.TasksTitle(), func() { a.back(p) })
 	list := p.state.Tasks // 核心给的顺序：在跑的在前，各自按开始时间新的在前
 	running := false
 	widget.Body(c, "tasks", func() {
@@ -161,7 +159,7 @@ func (a *App) taskListPage(c *ui.Context, p *chatPane) {
 			noTasks(c)
 			return
 		}
-		widget.Group(c, a.chatTitle(p), taskListFooter, func(l *widget.List) {
+		widget.Group(c, a.chatTitle(p), locales.TasksListFooter(), func(l *widget.List) {
 			running = a.taskRows(c, l, p, list)
 		})
 	})
@@ -204,9 +202,9 @@ func findTask(s chat.State, id string) (tasks.Task, bool) {
 func (a *App) taskPage(c *ui.Context, p *chatPane, v *taskView) {
 	t, ok := findTask(p.state, v.id)
 	if !ok {
-		widget.Header(c, "后台任务", func() { a.back(p) })
+		widget.Header(c, locales.TasksTitle(), func() { a.back(p) })
 		widget.Body(c, "task-gone", func() {
-			widget.Group(c, "", "", func(l *widget.List) { l.Row(widget.Row{Title: "这个任务已经不在了"}) })
+			widget.Group(c, "", "", func(l *widget.List) { l.Row(widget.Row{Title: locales.TasksGone()}) })
 		})
 		return
 	}
@@ -215,19 +213,19 @@ func (a *App) taskPage(c *ui.Context, p *chatPane, v *taskView) {
 		a.taskInfo(c, p, t)
 		agent := t.Kind == tasks.KindAgent
 		if t.Error != "" {
-			textBlock(c, "出错", t.Error, false)
+			textBlock(c, locales.TasksError(), t.Error, false)
 		}
 		if t.Command != "" {
-			title := "命令"
+			title := locales.TasksCommand()
 			if agent {
-				title = "交给它的指令"
+				title = locales.TasksPrompt()
 			}
 			textBlock(c, title, t.Command, !agent)
 		}
 		if t.Summary != "" {
-			title := "结果"
+			title := locales.TasksResult()
 			if agent {
-				title = "报告"
+				title = locales.TasksReport()
 			}
 			textBlock(c, title, t.Summary, false)
 		}
@@ -251,20 +249,20 @@ func (a *App) taskInfo(c *ui.Context, p *chatPane, t tasks.Task) {
 		}
 		l.Row(row)
 		state, tone := taskState(t.State, t.Stopping)
-		l.Row(widget.Row{Title: "状态", End: func() { ui.Text(c, state).FontSize(widget.SizeBodyM).TextColor(tone.color(k)) }})
-		elapsed := "用时"
+		l.Row(widget.Row{Title: locales.TasksState(), End: func() { ui.Text(c, state).FontSize(widget.SizeBodyM).TextColor(tone.color(k)) }})
+		elapsed := locales.TasksElapsedDone()
 		if t.Running() {
-			elapsed = "已运行"
+			elapsed = locales.TasksElapsedRunning()
 		}
-		l.Row(widget.Row{Title: elapsed, Value: tasks.FormatElapsed(t.ElapsedMs(a.now().UnixMilli()))})
+		l.Row(widget.Row{Title: elapsed, Value: tasks.FormatElapsedIn(c.Locale(), t.ElapsedMs(a.now().UnixMilli()))})
 		if t.Kind == tasks.KindAgent {
 			a.agentRows(l, p, t)
 		}
-		l.Row(widget.Row{Title: "所属对话", Value: a.chatTitle(p), Arrow: true, OnClick: func() { a.closePages(p); a.page = pageHome }})
+		l.Row(widget.Row{Title: locales.TasksOwner(), Value: a.chatTitle(p), Arrow: true, OnClick: func() { a.closePages(p); a.page = pageHome }})
 		if t.Running() {
-			label := "停止这个任务"
+			label := locales.TasksStop()
 			if t.Stopping {
-				label = "正在停止…"
+				label = locales.TasksStopping()
 			}
 			stop := widget.Row{Title: label, Danger: true}
 			if !t.Stopping && p.state.Process {
@@ -278,16 +276,16 @@ func (a *App) taskInfo(c *ui.Context, p *chatPane, t tasks.Task) {
 // agentRows 是子代理才有的几行：类型、工具调用次数、（运行中）在做什么，和进它的记录。
 func (a *App) agentRows(l *widget.List, p *chatPane, t tasks.Task) {
 	if t.AgentType != "" {
-		l.Row(widget.Row{Title: "子代理类型", Value: t.AgentType})
+		l.Row(widget.Row{Title: locales.TasksAgentType(), Value: t.AgentType})
 	}
 	if t.ToolUses != nil {
-		l.Row(widget.Row{Title: "工具调用", Value: strconv.Itoa(*t.ToolUses) + " 次"})
+		l.Row(widget.Row{Title: locales.TasksToolUses(), Value: locales.TasksToolUsesValue(*t.ToolUses)})
 	}
 	if t.Running() && t.Progress != "" {
-		l.Row(widget.Row{Title: "正在做", Summary: t.Progress})
+		l.Row(widget.Row{Title: locales.TasksProgress(), Summary: t.Progress})
 	}
 	if t.ToolUseID != "" {
-		l.Row(widget.Row{Title: "查看它的步骤", Arrow: true, OnClick: func() { a.openSubagent(p, t.ToolUseID) }})
+		l.Row(widget.Row{Title: locales.TasksViewSteps(), Arrow: true, OnClick: func() { a.openSubagent(p, t.ToolUseID) }})
 	}
 }
 
@@ -298,8 +296,8 @@ func (a *App) stopDialog(c *ui.Context, p *chatPane) {
 		return
 	}
 	t := s.task
-	if widget.Alert(c, &s.open, "停止这个任务？", stopSummary(t),
-		widget.Action{Label: "取消"}, widget.Action{Label: "停止", Style: widget.Destructive}) == 1 {
+	if widget.Alert(c, &s.open, locales.TasksStopTitle(), stopSummary(t),
+		widget.Action{Label: locales.WidgetCancel()}, widget.Action{Label: locales.TasksStopButton(), Style: widget.Destructive}) == 1 {
 		a.act(func(ctx context.Context, conv *chat.Conversation) error { return conv.StopTask(ctx, t.ID) })
 	}
 }
@@ -314,15 +312,15 @@ func (a *App) outputBlock(c *ui.Context, p *chatPane, v *taskView) {
 	text := strings.TrimRight(out.Text, " \t\r\n")
 	switch {
 	case v.failed != "":
-		textBlock(c, "输出", "没读到："+v.failed, false)
+		textBlock(c, locales.TasksOutput(), locales.TasksOutputFailed(v.failed), false)
 	case !got && !p.state.Process:
-		textBlock(c, "输出", "进程已经结束，读不到输出了", false)
+		textBlock(c, locales.TasksOutput(), locales.TasksOutputGone(), false)
 	case !got:
-		textBlock(c, "输出", "正在读取…", false)
+		textBlock(c, locales.TasksOutput(), locales.TasksOutputLoading(), false)
 	case out.Error != "":
-		textBlock(c, "输出", "没读到："+out.Error, false)
+		textBlock(c, locales.TasksOutput(), locales.TasksOutputFailed(out.ErrorIn(c.Locale())), false)
 	case text == "":
-		textBlock(c, outputHeader(out), "（还没有输出）", false)
+		textBlock(c, outputHeader(out), locales.TasksOutputEmpty(), false)
 	default:
 		textBlock(c, outputHeader(out), text, true)
 	}

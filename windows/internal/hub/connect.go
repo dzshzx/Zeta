@@ -9,10 +9,8 @@ import (
 	"github.com/dzshzx/Zeta/client/hostlink"
 	"github.com/dzshzx/Zeta/client/sshlink"
 	"github.com/dzshzx/Zeta/windows/internal/host"
+	"github.com/dzshzx/Zeta/windows/internal/locales"
 )
-
-// offProblem 是「连接」关着的设备上会话列表的说明（侧栏的问题那一行；列着几台时前面注明是哪台）。
-const offProblem = "已断开，在设备页打开「连接」"
 
 // SetConnected 是设备页的「连接」开关：设备 id 连不连（sshlink.Host.Off）。
 //
@@ -87,7 +85,7 @@ func (h *Hub) connectedIDs() []string {
 }
 
 // offline 是「连接」关着的设备 x 上要连设备的请求得到的错误。
-func offline(x sshlink.Host) error { return errors.New("「" + x.Name() + "」已断开") }
+func offline(x sshlink.Host) error { return errors.New(locales.HubOffline(x.Name())) }
 
 // gated 是中枢实际用的 Devices：「连接」关着的设备（sshlink.Host.Off）不去连，要连它的都答已断开。
 // 要连设备的入口都带着那台的 Host，在这里拦一次，中枢里取连接、传附件、查路径的地方不用各自判断。

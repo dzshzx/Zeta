@@ -11,8 +11,10 @@ import (
 	"github.com/dzshzx/Zeta/windows/internal/chat"
 	"github.com/dzshzx/Zeta/windows/internal/chat/items"
 	"github.com/dzshzx/Zeta/windows/internal/hub"
+	"github.com/dzshzx/Zeta/windows/internal/locales"
 	"github.com/dzshzx/Zeta/windows/internal/ui/chatview"
 	"github.com/dzshzx/Zeta/windows/internal/ui/widget"
+	"github.com/egoist/mygo/i18n"
 	"github.com/egoist/mygo/ui"
 )
 
@@ -160,10 +162,10 @@ func (a *App) chatTitle(p *chatPane) string {
 	switch {
 	case strings.TrimSpace(p.state.Title) != "":
 		return p.state.Title
-	case strings.TrimSpace(p.src.Session.Label()) != "":
-		return p.src.Session.Label()
+	case strings.TrimSpace(hub.SessionLabel(p.src.Session, i18n.Locale())) != "":
+		return hub.SessionLabel(p.src.Session, i18n.Locale())
 	}
-	return "新对话"
+	return locales.ChatNewTitle()
 }
 
 // disconnected 是对话所在的设备「连接」关着时聊天窗格中间的说明，点「连接」马上连回去、接着看这个对话。
@@ -171,10 +173,10 @@ func (a *App) disconnected(c *ui.Context, p *chatPane) {
 	k := widget.Of(c)
 	id := p.src.Backend
 	ui.Column(c).Grow(1).Center().Gap(10).Padding(32).Margin(headerHeight, 0, 0, 0).Children(func() {
-		ui.Text(c, "「"+a.hub.Name(id)+"」已断开").FontSize(widget.SizeHeadlineS).TextColor(k.Text)
-		ui.Text(c, offNote+"。连上后接着看。").FontSize(widget.SizeBodyM).
+		ui.Text(c, locales.ChatDisconnectedTitle(a.hub.Name(id))).FontSize(widget.SizeHeadlineS).TextColor(k.Text)
+		ui.Text(c, locales.ChatDisconnectedNote()).FontSize(widget.SizeBodyM).
 			TextColor(k.Secondary).MaxWidth(520).TextAlign(ui.Center)
-		widget.PrimaryButton(c, "连接").OnClick(func() { a.setConnected(id, true) }).Margin(12, 0, 0, 0)
+		widget.PrimaryButton(c, locales.ChatConnect()).OnClick(func() { a.setConnected(id, true) }).Margin(12, 0, 0, 0)
 		a.newChatHost(c, p) // 新对话：也能换到别的设备上开（emptychat.go）
 	})
 }
@@ -205,7 +207,7 @@ func (a *App) chatPage(c *ui.Context) {
 			case p.src.Opening:
 				ui.Row(c).Grow(1).Center().Gap(8).Margin(headerHeight, 0, 0, 0).Children(func() {
 					ui.Spinner(c).Size(16, 16)
-					ui.Text(c, "正在打开").FontSize(widget.SizeBodyM).TextColor(k.Secondary)
+					ui.Text(c, locales.ChatOpening()).FontSize(widget.SizeBodyM).TextColor(k.Secondary)
 				})
 			case p.src.Conv == nil:
 				ui.Column(c).Grow(1).Center().Padding(32).Margin(headerHeight, 0, 0, 0).Children(func() {
@@ -256,7 +258,7 @@ func backToBottom(c *ui.Context, p *chatPane) {
 		Children(func() {
 			b := widget.Surface{Shape: widget.Rounded(backToBottomSize/2, 0), Fill: k.Field, Edge: k.Edge}.
 				Paint(ui.ButtonBase(c)).Size(backToBottomSize, backToBottomSize).Justify(ui.Center).AlignItems(ui.Center).
-				Label("回到底部").Tooltip("回到底部").Cursor(ui.CursorPointer).Shadow(0, 2, 12, 0, composerShadow(k))
+				Label(locales.ChatScrollToBottom()).Tooltip(locales.ChatScrollToBottom()).Cursor(ui.CursorPointer).Shadow(0, 2, 12, 0, composerShadow(k))
 			b.Children(func() {
 				// 悬停、按下时白底上再叠一层灰（同 IconButton）
 				shade := ui.Box(c).Absolute().Left(0).Top(0).Right(0).Bottom(0).Radius(backToBottomSize / 2)
@@ -312,7 +314,7 @@ func (a *App) chatHeader(c *ui.Context, p *chatPane) {
 			return
 		}
 		// 新对话还没发消息：这一行能点，换一个工作目录重开
-		b := ui.ButtonBase(c).Label("换工作目录").Tooltip("换工作目录").Cursor(ui.CursorPointer).Radius(4).Padding(0, 3).
+		b := ui.ButtonBase(c).Label(locales.ChatChangeCwd()).Tooltip(locales.ChatChangeCwd()).Cursor(ui.CursorPointer).Radius(4).Padding(0, 3).
 			Margin(0, 0, 0, -3).MaxWidthPercent(100).AlignSelf(ui.Start) // 按钮默认居中，和上面靠左的标题对齐
 		if b.Hovered() {
 			b.Background(k.Hover)
@@ -336,8 +338,8 @@ func (a *App) cwdDialog(c *ui.Context, p *chatPane) {
 		return
 	}
 	path := strings.TrimSpace(p.cwd.value)
-	summary := "这个对话在「" + a.hub.Name(p.src.Backend) + "」上的哪个目录下进行"
-	if widget.InputDialog(c, &p.cwd.open, "工作目录", summary, &p.cwd.value, "/home/…", "确定", strings.HasPrefix(path, "/")) {
+	summary := locales.ChatCwdSummary(a.hub.Name(p.src.Backend))
+	if widget.InputDialog(c, &p.cwd.open, locales.ChatCwdTitle(), summary, &p.cwd.value, "/home/…", locales.CommonOk(), strings.HasPrefix(path, "/")) {
 		a.hub.NewChatIn(path)
 	}
 }
@@ -345,10 +347,10 @@ func (a *App) cwdDialog(c *ui.Context, p *chatPane) {
 // chatNotices 是输入栏上方的几句说明：工作目录进不去、连接断了、上次操作没成。会话在别处运行时输入栏换成卡片（handoffCard）。
 func (a *App) chatNotices(c *ui.Context, p *chatPane) {
 	if why := p.src.CwdProblem; why != "" {
-		widget.Notice(c, "Claude Code 起不来："+why+"。点上面的工作目录换一个，或在「设备」页改默认工作目录。", widget.Failure)
+		widget.Notice(c, locales.ChatCwdProblem(why), widget.Failure)
 	}
 	if why := a.hub.ChatLinkProblem(); why != "" && p.src.Conv != nil {
-		widget.Notice(c, "正在重连："+why, widget.Caution)
+		widget.Notice(c, locales.ChatReconnecting(why), widget.Caution)
 	}
 	if p.failed != "" {
 		widget.Notice(c, p.failed, widget.Failure)
@@ -365,13 +367,13 @@ func (a *App) chatStatus(c *ui.Context, p *chatPane) {
 		return
 	}
 	k := widget.Of(c)
-	status := s.Status
+	status := s.StatusIn(c.Locale())
 	if status == "" {
-		status = "正在回答"
+		status = locales.ChatAnswering()
 	}
 	if len(s.Prompts) == 0 {
 		if idle >= idleHint {
-			status += " · 已等待 " + strconv.Itoa(int(idle/time.Second)) + " 秒"
+			status = locales.ChatWaited(status, int(idle/time.Second))
 			c.After(time.Second - idle%time.Second)
 		} else {
 			c.After(idleHint - idle)
@@ -417,24 +419,24 @@ func (a *App) queueStrip(c *ui.Context, p *chatPane) {
 	panel(c, func() {
 		ui.Row(c).Padding(3, 4, 3, 12).Gap(8).AlignItems(ui.Center).Children(func() {
 			ui.Box(c).Size(6, 6).Radius(3).Background(k.Primary)
-			title := "排队中"
+			title := locales.ChatQueued()
 			switch {
 			case p.state.Steering:
-				title = "插话中"
+				title = locales.ChatSteering()
 			case len(queued) > 1:
-				title += " · " + strconv.Itoa(len(queued))
+				title = locales.ChatQueuedCount(len(queued))
 			}
 			ui.Text(c, title).FontSize(widget.SizeBodyS).TextColor(k.PrimaryText)
 			ui.Spacer(c)
 			if !p.state.Steering {
-				steer := ui.ButtonBase(c).Label("立即插话").Padding(5, 10).Radius(999).Gap(4).AlignItems(ui.Center).
+				steer := ui.ButtonBase(c).Label(locales.ChatSteerNow()).Padding(5, 10).Radius(999).Gap(4).AlignItems(ui.Center).
 					Cursor(ui.CursorPointer)
 				if steer.Hovered() {
 					steer.Background(k.Halftone)
 				}
 				steer.Children(func() {
 					ui.Icon(c, widget.IconBolt).Size(14, 14).TextColor(k.PrimaryText)
-					ui.Text(c, "立即插话").FontSize(widget.SizeBodyS).TextColor(k.PrimaryText)
+					ui.Text(c, locales.ChatSteerNow()).FontSize(widget.SizeBodyS).TextColor(k.PrimaryText)
 				})
 				steer.OnClick(func() {
 					a.act(func(ctx context.Context, conv *chat.Conversation) error { return conv.Steer(ctx) })
@@ -447,11 +449,11 @@ func (a *App) queueStrip(c *ui.Context, p *chatPane) {
 			}
 			ui.Row(c.Key("queued/"+m.UUID)).Padding(2, 4, 2, 14).Gap(8).AlignItems(ui.Center).Children(func() {
 				preview := ui.Text(c, queuedPreview(m)).FontSize(widget.SizeBodyM).TextColor(k.Text).SingleLine().Ellipsis("…").
-					Grow(1).MinWidth(0).Cursor(ui.CursorPointer).Role(ui.RoleButton).Tooltip("撤回到输入框")
+					Grow(1).MinWidth(0).Cursor(ui.CursorPointer).Role(ui.RoleButton).Tooltip(locales.ChatUnqueue())
 				preview.OnClick(func() {
 					a.act(func(ctx context.Context, conv *chat.Conversation) error { return conv.Cancel(ctx, m.UUID, true) })
 				})
-				widget.FlatButton(c, widget.IconDelete, "删除", 32, 16).OnClick(func() {
+				widget.FlatButton(c, widget.IconDelete, locales.CommonDelete(), 32, 16).OnClick(func() {
 					a.act(func(ctx context.Context, conv *chat.Conversation) error { return conv.Cancel(ctx, m.UUID, false) })
 				})
 			})
@@ -469,9 +471,9 @@ func queuedPreview(m coreapi.Message) string {
 	case line != "":
 		return line
 	case len(m.Images) > 0:
-		return "[" + strconv.Itoa(len(m.Images)) + " 张图片]"
+		return locales.ChatQueuedImages(len(m.Images))
 	}
-	return "[" + strconv.Itoa(len(m.Files)) + " 个文件]"
+	return locales.ChatQueuedFiles(len(m.Files))
 }
 
 // panel 是输入栏一带的一块面板，和输入栏一样（Composer.kt）：淡灰底、细边、24 的平滑圆角、淡淡的阴影。
@@ -501,7 +503,7 @@ func (a *App) loadEarlier(p *chatPane, rest bool) bool {
 		return func() {
 			p.earlier.asked = false
 			if err != nil {
-				p.earlier.failed = "没读到更早的记录：" + err.Error()
+				p.earlier.failed = locales.ChatEarlierFailed(err.Error())
 				p.earlier.stale = chat.IsEarlierStale(err)
 			}
 		}

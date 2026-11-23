@@ -4,14 +4,15 @@ import (
 	"cmp"
 	"errors"
 	"slices"
-	"strconv"
 	"strings"
 
 	"github.com/dzshzx/Zeta/client/hostlink"
 	"github.com/dzshzx/Zeta/helper/sessionproto"
 	"github.com/dzshzx/Zeta/windows/internal/hub"
+	"github.com/dzshzx/Zeta/windows/internal/locales"
 	"github.com/dzshzx/Zeta/windows/internal/ui/widget"
 	"github.com/egoist/mygo"
+	"github.com/egoist/mygo/i18n"
 	"github.com/egoist/mygo/ui"
 )
 
@@ -56,32 +57,32 @@ func (a *App) sessionMenu(m *ui.Menu, s hostlink.Session) {
 	if len(a.ops.selected) > 0 {
 		a.selectAllItem(m) // 多选着（哪怕只选了一个）时最上面是全选
 	}
-	pin := "置顶"
+	pin := locales.SessionPin()
 	if a.hub.Pinned(s) {
-		pin = "取消置顶"
+		pin = locales.SessionUnpin()
 	}
 	if m.Item(pin).Shortcut(ui.Ctrl|ui.Alt, ui.KeyP).Chosen() {
 		a.togglePin(s)
 	}
-	if m.Item("重命名").Shortcut(ui.Ctrl|ui.Alt, ui.KeyR).Chosen() {
+	if m.Item(locales.SessionRename()).Shortcut(ui.Ctrl|ui.Alt, ui.KeyR).Chosen() {
 		a.rename(s)
 	}
-	if m.Item("导出").Chosen() {
+	if m.Item(locales.SessionExport()).Chosen() {
 		a.export([]hostlink.Session{s})
 	}
-	archive := "归档"
+	archive := locales.SessionArchive()
 	if s.Archived {
-		archive = "取消归档"
+		archive = locales.SessionUnarchive()
 	}
 	if m.Item(archive).Shortcut(ui.Ctrl|ui.Shift, ui.KeyA).Chosen() {
 		a.archive(s)
 	}
-	if !s.Ended && m.Item("结束对话").Chosen() {
+	if !s.Ended && m.Item(locales.SessionEnd()).Chosen() {
 		a.end([]hostlink.Session{s})
 	}
 	m.Separator()
 	// 正在进行的也不置灰：能不能删以核心的应答为准（hub.Delete）
-	if m.Item("删除").Danger().Chosen() {
+	if m.Item(locales.CommonDelete()).Danger().Chosen() {
 		a.ops.deleting.target, a.ops.deleting.open = s, true
 	}
 }
@@ -93,9 +94,9 @@ func (a *App) failed(title string) func(error) {
 
 // deleteFailed 是删除没成时弹框说一声：核心答正在进行的（有一个就算）说「这个对话正在进行」。
 func (a *App) deleteFailed(err error) {
-	title := "删除没成功"
+	title := locales.SessionDeleteFailed()
 	if errors.Is(err, hub.ErrActive) {
-		title = "这个对话正在进行"
+		title = locales.SessionActive()
 	}
 	a.say(title, err.Error())
 }
@@ -108,17 +109,17 @@ func (a *App) export(list []hostlink.Session) {
 	many := len(list) > 1
 	a.hub.Export(list, a.now(), func(e hub.Exported) {
 		a.async(func() func() {
-			path, err := a.saveFile("导出对话", e.Name, []mygo.FileFilter{{Name: "Markdown", Extensions: []string{"md"}}}, []byte(e.Content))
+			path, err := a.saveFile(locales.SessionExportDialogTitle(), e.Name, []mygo.FileFilter{{Name: "Markdown", Extensions: []string{"md"}}}, []byte(e.Content))
 			return func() {
 				switch {
 				case err != nil:
-					a.say("导出没成功", err.Error())
+					a.say(locales.SessionExportFailed(), err.Error())
 				case path != "" && many:
 					a.clearSelection()
 				}
 			}
 		})
-	}, a.failed("导出没成功"))
+	}, a.failed(locales.SessionExportFailed()))
 }
 
 // clearSelection 取消多选。
@@ -225,7 +226,7 @@ func (a *App) allSelected() bool {
 
 // selectAllItem 是多选时右键菜单最上面的「全选」和一条分隔线；眼前列着的都选上了时灰着。
 func (a *App) selectAllItem(m *ui.Menu) {
-	if m.Item("全选").Shortcut(ui.Cmd, ui.KeyA).Disabled(a.allSelected()).Chosen() {
+	if m.Item(locales.SessionSelectAll()).Shortcut(ui.Cmd, ui.KeyA).Disabled(a.allSelected()).Chosen() {
 		a.selectAll()
 	}
 	m.Separator()
@@ -235,25 +236,25 @@ func (a *App) selectAllItem(m *ui.Menu) {
 // 结束（其中还在运行的，有才列）、删除。
 func (a *App) batchMenu(m *ui.Menu, chosen []hostlink.Session) {
 	a.selectAllItem(m)
-	n := strconv.Itoa(len(chosen)) + " 个对话"
+	n := len(chosen)
 	archive := slices.ContainsFunc(chosen, func(s hostlink.Session) bool { return !s.Archived })
-	label := "归档"
+	label, failed := locales.SessionBatchArchive(n), locales.SessionArchiveFailed()
 	if !archive {
-		label = "取消归档"
+		label, failed = locales.SessionBatchUnarchive(n), locales.SessionUnarchiveFailed()
 	}
-	if m.Item(label + " " + n).Chosen() {
-		a.hub.SetArchived(chosen, archive, a.failed(label+"没成功"))
+	if m.Item(label).Chosen() {
+		a.hub.SetArchived(chosen, archive, a.failed(failed))
 		a.clearSelection()
 	}
-	if m.Item("导出 " + n).Chosen() {
+	if m.Item(locales.SessionBatchExport(n)).Chosen() {
 		a.export(chosen)
 	}
-	if running := runningOf(chosen); len(running) > 0 && m.Item("结束 "+strconv.Itoa(len(running))+" 个对话").Chosen() {
+	if running := runningOf(chosen); len(running) > 0 && m.Item(locales.SessionBatchEnd(len(running))).Chosen() {
 		a.end(running)
 		a.clearSelection()
 	}
 	m.Separator()
-	if m.Item("删除 "+n).Shortcut(0, ui.KeyDelete).Danger().Chosen() {
+	if m.Item(locales.SessionBatchDelete(n)).Shortcut(0, ui.KeyDelete).Danger().Chosen() {
 		a.ops.batch.list, a.ops.batch.open = chosen, true
 	}
 }
@@ -274,11 +275,11 @@ func (a *App) selectionKeys(c *ui.Context) {
 // archiveToggle 是侧栏底部归档的入口（同手机版 ArchiveToggle）：看归档时是返回全部对话，有归档的会话时是进归档，都没有时不显示。
 func (a *App) archiveToggle(c *ui.Context) {
 	if a.ops.archived {
-		widget.IconButton(c, widget.IconBack, "返回全部对话").OnClick(func() { a.ops.archived = false })
+		widget.IconButton(c, widget.IconBack, locales.SessionBackToAll()).OnClick(func() { a.ops.archived = false })
 		return
 	}
 	if n := len(a.hub.Archived(a.now(), a.currentSession())); n > 0 {
-		widget.IconButton(c, widget.IconArchive, "已归档 · "+strconv.Itoa(n)).OnClick(func() { a.ops.archived = true })
+		widget.IconButton(c, widget.IconArchive, locales.SessionArchivedCount(n)).OnClick(func() { a.ops.archived = true })
 	}
 }
 
@@ -287,10 +288,10 @@ func (a *App) archivedGroup(c *ui.Context) {
 	list := a.hub.Archived(a.now(), a.currentSession())
 	if len(list) == 0 {
 		a.ops.archived = false // 都取消归档了：回到全部对话
-		paneMessage(c, "没有归档的对话")
+		paneMessage(c, locales.SessionNoArchived())
 		return
 	}
-	sectionTitle(c, "已归档 · "+strconv.Itoa(len(list)), true)
+	sectionTitle(c, locales.SessionArchivedCount(len(list)), true)
 	for _, s := range list {
 		a.sessionRow(c, s, "")
 	}
@@ -301,32 +302,31 @@ func (a *App) sessionDialogs(c *ui.Context) {
 	o := &a.ops
 	h := a.hub
 	if r := &o.renaming; r.open {
-		if widget.InputDialog(c, &r.open, "重命名", "", &r.draft, "对话标题", "确定", strings.TrimSpace(r.draft) != "") {
-			h.Rename(r.target, r.draft, a.failed("改名没成功"))
+		if widget.InputDialog(c, &r.open, locales.SessionRename(), "", &r.draft, locales.SessionRenamePlaceholder(), locales.CommonOk(), strings.TrimSpace(r.draft) != "") {
+			h.Rename(r.target, r.draft, a.failed(locales.SessionRenameFailed()))
 		}
 	}
 	if d := &o.deleting; d.open {
-		if widget.Alert(c, &d.open, "删除这个对话？", deleteName(d.target)+"\n会话记录文件会被一并删除，无法恢复。",
-			widget.Action{Label: "取消"}, widget.Action{Label: "删除", Style: widget.Destructive}) == 1 {
+		if widget.Alert(c, &d.open, locales.SessionDeleteTitle(), locales.SessionDeleteMessage(deleteName(d.target)),
+			widget.Action{Label: locales.WidgetCancel()}, widget.Action{Label: locales.CommonDelete(), Style: widget.Destructive}) == 1 {
 			h.Delete([]hostlink.Session{d.target}, a.deleteFailed)
 		}
 	}
 	if b := &o.batch; b.open {
-		if widget.Alert(c, &b.open, "删除 "+strconv.Itoa(len(b.list))+" 个对话？",
-			"会话记录会被删除，Claude Code 为它们存的工具结果、子代理记录等也一并删除，无法恢复。",
-			widget.Action{Label: "取消"}, widget.Action{Label: "删除", Style: widget.Destructive}) == 1 {
+		if widget.Alert(c, &b.open, locales.SessionBatchDeleteTitle(len(b.list)), locales.SessionBatchDeleteMessage(),
+			widget.Action{Label: locales.WidgetCancel()}, widget.Action{Label: locales.CommonDelete(), Style: widget.Destructive}) == 1 {
 			h.Delete(b.list, a.deleteFailed)
 			a.clearSelection()
 		}
 	}
 	if e := &o.ending; e.open {
-		title := "结束 " + strconv.Itoa(len(e.list)) + " 个对话？"
+		title := locales.SessionBatchEndTitle(len(e.list))
 		if len(e.list) == 1 {
-			title = "结束这个对话？"
+			title = locales.SessionEndTitle()
 		}
 		if widget.Alert(c, &e.open, title, endConfirmSummary(e.list, a.occupantOf(e.list[0])),
-			widget.Action{Label: "取消"}, widget.Action{Label: "结束", Style: widget.Destructive}) == 1 {
-			h.End(e.list, a.failed("结束没成功"))
+			widget.Action{Label: locales.WidgetCancel()}, widget.Action{Label: locales.SessionEndButton(), Style: widget.Destructive}) == 1 {
+			h.End(e.list, a.failed(locales.SessionEndFailed()))
 		}
 	}
 }
@@ -343,7 +343,7 @@ func (a *App) end(list []hostlink.Session) {
 		a.ops.ending.list, a.ops.ending.open = list, true
 		return
 	}
-	a.hub.End(list, a.failed("结束没成功"))
+	a.hub.End(list, a.failed(locales.SessionEndFailed()))
 }
 
 // needsEndConfirm：结束 s 前要先问——它在别处运行（会停掉那边的进程），或还在进行。
@@ -361,18 +361,18 @@ func (a *App) needsEndConfirm(s hostlink.Session) bool {
 // endConfirmSummary 是结束确认框的说明（同手机版 endConfirmSummary）：在别处运行的连那边的进程一起停掉。
 // o 是那边的样子（结束的正是开着的这个对话、核心查到了占着它的进程时），不知道时为 nil，只说「别处」。
 func endConfirmSummary(list []hostlink.Session, o *sessionproto.Occupancy) string {
-	what := "它还在进行（在回答、等你确认或有后台任务），结束会一并停掉。"
+	what := locales.SessionEndBusy()
 	switch {
 	case len(list) > 1:
-		what = "其中有还在进行（在回答、等你确认或有后台任务）或在别处运行的，结束会一并停掉。"
+		what = locales.SessionEndBusyMany()
 	case list[0].External:
-		place := "别处"
+		place := locales.SessionEndElsewhere()
 		if o != nil {
 			place = cmp.Or(occupantPlace(o.App, o.Device, o.Local), place)
 		}
-		what = spaced("它正在", place, "运行，结束会停掉那边的进程，那边在做的也一并停掉。")
+		what = cjkSpaced(locales.SessionEndExternal(place))
 	}
-	return what + "对话内容保留，可以从历史对话里接着聊。"
+	return locales.SessionEndConfirm(what)
 }
 
 // occupantOf 是占着会话 s 的进程的样子：只有 s 就是开着的对话、核心查到了占着它的进程时才知道，别的为 nil。
@@ -383,6 +383,9 @@ func (a *App) occupantOf(s hostlink.Session) *sessionproto.Occupancy {
 	return nil
 }
 
+// cjkSpaced 在 s 里汉字和英文字母、数字相接处补一个空格（见 spaced）：拼进整句的地点（「work-pc 的终端里」）两边用。
+func cjkSpaced(s string) string { return spaced(strings.Split(s, "")...) }
+
 // deleteName 是删除确认框里这个对话的名字：标题或首句，最多 60 字。
 func deleteName(s hostlink.Session) string {
 	name := []rune(rowTitle(s))
@@ -391,11 +394,11 @@ func deleteName(s hostlink.Session) string {
 
 // togglePin 置顶或取消置顶 s（右键菜单、Ctrl+Alt+P）。
 func (a *App) togglePin(s hostlink.Session) {
-	what := "置顶"
+	failed := locales.SessionPinFailed()
 	if a.hub.Pinned(s) {
-		what = "取消置顶"
+		failed = locales.SessionUnpinFailed()
 	}
-	a.hub.TogglePin(s, a.failed(what+"没成功"))
+	a.hub.TogglePin(s, a.failed(failed))
 }
 
 // rename 弹出给 s 改名的对话框（右键菜单、Ctrl+Alt+R）：先填着现在的标题，没有标题时是第一句话的前 40 字。
@@ -403,15 +406,16 @@ func (a *App) rename(s hostlink.Session) {
 	r := &a.ops.renaming
 	r.target, r.draft, r.open = s, rowTitle(s), true
 	if s.Title == "" {
-		r.draft = string([]rune(s.Preview)[:min(40, len([]rune(s.Preview)))])
+		first := []rune(hub.SessionLabel(s, i18n.Locale()))
+		r.draft = string(first[:min(40, len(first))])
 	}
 }
 
 // archive 归档或取消归档 s（右键菜单、Ctrl+Shift+A）。
 func (a *App) archive(s hostlink.Session) {
-	what := "归档"
+	failed := locales.SessionArchiveFailed()
 	if s.Archived {
-		what = "取消归档"
+		failed = locales.SessionUnarchiveFailed()
 	}
-	a.hub.SetArchived([]hostlink.Session{s}, !s.Archived, a.failed(what+"没成功"))
+	a.hub.SetArchived([]hostlink.Session{s}, !s.Archived, a.failed(failed))
 }

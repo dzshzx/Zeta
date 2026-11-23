@@ -3,7 +3,6 @@ package chat
 import (
 	"context"
 	"encoding/json"
-	"errors"
 	"maps"
 	"slices"
 	"strings"
@@ -12,6 +11,7 @@ import (
 	"github.com/dzshzx/Zeta/helper/coreapi"
 	"github.com/dzshzx/Zeta/helper/prompt"
 	"github.com/dzshzx/Zeta/helper/sessionproto"
+	"github.com/dzshzx/Zeta/windows/internal/locales"
 )
 
 // 下面是用户对一个对话的操作，各经 coreapi 的对话句柄发一个 conv.* 请求（参数见 docs/core.md「对话」）。
@@ -60,9 +60,9 @@ func (e FormError) Error() string {
 	keys := slices.Sorted(maps.Keys(e))
 	parts := make([]string, len(keys))
 	for i, k := range keys {
-		parts[i] = k + "：" + e[k]
+		parts[i] = locales.ChatFormProblem(k, e[k])
 	}
-	return "表单有几项不对：" + strings.Join(parts, "；")
+	return locales.ChatFormInvalid(strings.Join(parts, locales.ChatFormProblemSeparator()))
 }
 
 // Elicit 回应 MCP 表单或网址。values 是表单里填的：键 → 输入框里的字，多选是选中的各值，开关是 "true"/"false"。
@@ -136,8 +136,12 @@ func (c *Conversation) Close(ctx context.Context) error {
 	return c.api.Close(ctx)
 }
 
-// errNotConnected：对话现在没连上（断线等重连、已关掉），请求不发。
-var errNotConnected = errors.New("和主机的连接断了，正在重连")
+// errNotConnected：对话现在没连上（断线等重连、已关掉），请求不发。说法按显示时界面的语言出，errors.Is 照样认得。
+var errNotConnected error = notConnected{}
+
+type notConnected struct{}
+
+func (notConnected) Error() string { return locales.ChatNotConnected() }
 
 // ready 是对话现在能不能发请求：没连上时返回 errNotConnected。
 func (c *Conversation) ready() error {
