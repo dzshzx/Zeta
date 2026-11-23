@@ -57,15 +57,14 @@ class HelperStorageTest {
     @After
     fun tearDown() {
         serve?.close()
-        processes.forEach { it.destroyForcibly().waitFor(5, TimeUnit.SECONDS) }
-        for (dir in
-            listOf(
-                if (::home.isInitialized) home else null,
-                if (::outside.isInitialized) outside else null,
-                if (::tmp.isInitialized) tmp else null,
-            )) {
-            dir?.let(::removeTestDir)
-        }
+        removeTestDir(
+            *listOfNotNull(
+                    if (::home.isInitialized) home else null,
+                    if (::outside.isInitialized) outside else null,
+                    if (::tmp.isInitialized) tmp else null,
+                )
+                .toTypedArray(),
+        )
     }
 
     /**

@@ -44,7 +44,6 @@ class ClaudeCodeQuotaContractTest {
     private lateinit var server: HttpServer
     private val json = Json { ignoreUnknownKeys = true }
     private val bearers = mutableListOf<String>()
-    private val spawned = mutableListOf<Process>()
 
     @Volatile private var fiveHour = 0.25
 
@@ -67,7 +66,6 @@ class ClaudeCodeQuotaContractTest {
 
     @After
     fun tearDown() {
-        spawned.forEach { it.destroyForcibly() }
         if (::server.isInitialized) server.stop(0)
         if (::home.isInitialized) removeTestDir(home)
     }
@@ -219,7 +217,7 @@ class ClaudeCodeQuotaContractTest {
                 putAll(env)
             }
             builder.redirectError(File("/dev/null"))
-            process = builder.start().also { spawned += it }
+            process = builder.start()
             Thread { process.inputStream.bufferedReader().forEachLine { lines.put(it) } }
                 .apply {
                     isDaemon = true

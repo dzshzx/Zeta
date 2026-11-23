@@ -56,7 +56,6 @@ class HostSharedTest {
     @After
     fun tearDown() {
         if (!::home.isInitialized) return
-        clients.forEach { it.process.destroyForcibly() }
         removeTestDir(home)
     }
 

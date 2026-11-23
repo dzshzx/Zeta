@@ -156,6 +156,8 @@ func stopCore(home string, program *hostlink.Program) {
 		return
 	}
 	if pid, _ := strconv.Atoi(strings.TrimSpace(string(data))); pid > 0 {
-		_ = syscall.Kill(pid, syscall.SIGTERM)
+		if p, err := os.FindProcess(pid); err == nil {
+			_ = p.Signal(syscall.SIGTERM)
+		}
 	}
 }

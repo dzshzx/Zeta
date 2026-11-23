@@ -9,7 +9,7 @@ import org.junit.Assume.assumeTrue
 import org.junit.Before
 import org.junit.Test
 
-/** 测试收尾的 [removeTestDir]：先结束用着这个目录的进程（连同子进程）并等它们退出，再删目录；别的进程不碰。 */
+/** 测试收尾的 [removeTestDir]：先结束用着这个目录的进程（HOME、当前目录或别的环境变量在里面，连同子进程）并等它们退出，再删目录；别的进程不碰。 */
 class RemoveTestDirTest {
     private lateinit var dir: File
     private lateinit var elsewhere: File
@@ -63,6 +63,24 @@ class RemoveTestDirTest {
                 ProcessBuilder("sleep", "1000").directory(inside).apply {
                     environment()["HOME"] = elsewhere.path
                 },
+            )
+
+        removeTestDir(dir)
+
+        assertFalse(HostTesting.alive(process.pid().toInt()))
+        assertFalse(dir.exists())
+    }
+
+    @Test
+    fun aProcessWithAnotherVariablePointingInsideEndsToo() {
+        // 同核心：HOME 和当前目录在别处，ZETA_CORE_DIR 指着要删的目录
+        val process =
+            start(
+                HostTesting.builder(
+                    elsewhere,
+                    listOf("sleep", "1000"),
+                    mapOf("ZETA_CORE_DIR" to File(dir, "core").path),
+                ),
             )
 
         removeTestDir(dir)

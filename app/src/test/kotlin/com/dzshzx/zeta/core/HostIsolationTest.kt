@@ -34,8 +34,6 @@ class HostIsolationTest {
     @After
     fun tearDown() {
         if (!::home.isInitialized) return
-        runCatching { run(null, "bash", host.path, "stop", "k-release") }
-        runCatching { run(dev, "bash", host.path, "stop", "k-dev") }
         removeTestDir(home)
     }
 

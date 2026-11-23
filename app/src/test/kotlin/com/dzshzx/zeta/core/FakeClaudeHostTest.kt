@@ -34,10 +34,6 @@ class FakeClaudeHostTest {
     @After
     fun tearDown() {
         if (!::home.isInitialized) return
-        for ((name, key) in
-            listOf(dev to "k-dev", release to "k-release", null to "k-old")) runCatching {
-            run(name, "stop", key)
-        }
         removeTestDir(home)
     }
 

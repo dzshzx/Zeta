@@ -27,8 +27,7 @@ class StorageTest {
 
     @After
     fun tearDown() {
-        removeTestDir(root)
-        removeTestDir(outside)
+        removeTestDir(root, outside)
     }
 
     private fun json(text: String): JsonObject = Json.parseToJsonElement(text).jsonObject

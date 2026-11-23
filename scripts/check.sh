@@ -71,9 +71,12 @@ scripts/format.sh --lint
 # 全量（ZETA_GATE_FULL=1）不用缓存，全部重跑。
 go_test_count=()
 [[ ${ZETA_GATE_FULL:-} == 1 ]] && go_test_count=(-count=1)
-# check_go_module <目录> [系统]：系统是这个模块的程序发给哪个系统，依赖清单按它核对，默认 linux。
+# check_go_module <目录> [系统...]：系统是这个模块的程序发给哪些系统，默认 linux。vet、staticcheck、测试按本机跑；
+# 每个系统各核对一遍依赖清单（各系统链接的模块要和清单一样），linux 以外的再按它跑一遍 vet 和 staticcheck（gate_go_goos）。
 check_go_module() {
-  local dir=$1 goos=${2:-linux} go_root unformatted
+  local dir=$1 goos go_root unformatted
+  shift
+  [[ $# -gt 0 ]] || set -- linux
   gate_go_version "$dir"
   go_root=$(cd "$dir" && go env GOROOT)
   unformatted=$(cd "$dir" && "$go_root/bin/gofmt" -l .)
@@ -88,32 +91,23 @@ check_go_module() {
     # go vet 已整体跑过
     gate_test_tmpdir "$go_root/bin/go" test "${go_test_count[@]}" -vet=off ./...
     gate_go_run "$GOCOGNIT" -over "$MAX_COGNITIVE" .
-    gate_go_deps -goos "$goos" go-deps-allowlist.txt ./...
+    for goos in "$@"; do
+      [[ $goos == linux ]] || gate_go_goos "$goos"
+      gate_go_deps -goos "$goos" go-deps-allowlist.txt ./...
+    done
   )
   gate_no_marker 'gocognit:ignore' "$dir/*.go"
-}
-# check_go_windows <目录>：只在 Windows 上编译的文件（*_windows.go）在 Linux 上的 vet、staticcheck 里看不到，按 Windows
-# 再编译一遍、做一遍静态检查。测试只在 Linux 上跑（用了 syscall.Kill 这类），所以不含测试。-exec 让只有 staticcheck
-# 进程带 GOOS=windows，它本身照常编成本机程序。
-check_go_windows() {
-  (
-    cd "$1"
-    GOOS=windows go build ./...
-    gate_go_run -exec "env GOOS=windows" "$STATICCHECK" -tests=false ./...
-  )
 }
 check_go_module helper
 # helper/go.mod 的 tool：单独编进 APK 的程序（claude-switch），它们链接的模块另有一份清单，不算 zeta-helper 的依赖
 (cd helper && gate_go_deps go-tools-allowlist.txt tool)
 check_go_module tools/release
 check_go_module tools/vdisplay
-# 客户端共用的 SSH 与主机连接，桌面版链接它（windows/go.mod 的 replace），所以排在桌面版前面
-check_go_module client
-check_go_windows client
+# 客户端共用的 SSH 与主机连接，桌面版链接它（windows/go.mod 的 replace），所以排在桌面版前面；手机和 Linux 主机上的 zeta-ssh 也用它
+check_go_module client linux windows
 # 桌面版：先放好它要嵌进程序的 zeta-helper、claude-switch 和脚本（见 windows/scripts/assets.sh）
 windows/scripts/assets.sh
 check_go_module windows windows
-check_go_windows windows
 
 results=app/build/test-results/testDebugUnitTest
 if [[ -n $skip_gradle ]]; then

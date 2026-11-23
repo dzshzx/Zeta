@@ -40,12 +40,6 @@ class HostTurnTest {
     fun tearDown() {
         if (!::home.isInitialized) return
         processes.forEach { it.destroyForcibly() }
-        // 看门狗那个测试真起的托管进程（脱离出去了，要经 stop 结束）；比对的那个测试只有目录，挂的是上面那个假进程
-        File(home, ".cache/zeta/hosts")
-            .list()
-            .orEmpty()
-            .filter { it.startsWith("k-") }
-            .forEach { key -> runCatching { execute("bash", host.path, "stop", key) } }
         removeTestDir(home)
     }
 

@@ -213,7 +213,7 @@ func (s *sessionsE2E) deletes(t *testing.T) {
 	h.Delete([]hostlink.Session{s.byID(live)}, s.failed)
 	s.until(t, "进程结束、记录删掉、聊天窗格关掉", func() bool {
 		files, _ := filepath.Glob(filepath.Join(s.server.Home, ".claude/projects/*", live+".jsonl"))
-		return len(files) == 0 && syscall.Kill(pid, 0) != nil && s.byID(live).ID == "" && h.Chat() == nil
+		return len(files) == 0 && !running(pid) && s.byID(live).ID == "" && h.Chat() == nil
 	})
 }
 
@@ -257,7 +257,7 @@ func hostedPID(t *testing.T, home string) int {
 		t.Fatal(err)
 	}
 	pid, err := strconv.Atoi(strings.TrimSpace(string(data)))
-	if err != nil || syscall.Kill(pid, 0) != nil {
+	if err != nil || !running(pid) {
 		t.Fatalf("托管进程 %q 不在：%v", data, err)
 	}
 	return pid
@@ -303,4 +303,10 @@ func terminalClaude(t *testing.T, home, session string) (int, <-chan struct{}) {
 		t.Fatal(err)
 	}
 	return pid, done
+}
+
+// running 看进程 pid 还在不在（发信号 0）。
+func running(pid int) bool {
+	p, err := os.FindProcess(pid)
+	return err == nil && p.Signal(syscall.Signal(0)) == nil
 }

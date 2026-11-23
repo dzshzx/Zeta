@@ -3,13 +3,10 @@ package update
 import (
 	"bytes"
 	"os"
-	"os/exec"
 	"path/filepath"
 	"slices"
 	"strings"
 	"testing"
-
-	"github.com/dzshzx/Zeta/client/testinput"
 )
 
 func TestInstallPlan(t *testing.T) {
@@ -94,27 +91,5 @@ func TestSelf(t *testing.T) {
 	wd, _ := os.Getwd()
 	if me.exe != exe || me.dir != wd || !slices.Equal(me.args, os.Args[1:]) {
 		t.Errorf("self %+v", me)
-	}
-}
-
-// install_windows.go 只在编 Windows 版时编译，门禁在 Linux 上跑：这里照 Windows 编一遍、跑一遍 vet。
-// go vet 读的源码 go test 的缓存看不见（install_windows.go 不编进本测试程序）：先打开一遍本目录和 go.mod、go.sum。
-func TestVetForWindows(t *testing.T) {
-	gobin, err := exec.LookPath("go")
-	if err != nil {
-		t.Fatalf("要 PATH 上的 go：%v", err)
-	}
-	if err := testinput.Tree("."); err != nil {
-		t.Fatal(err)
-	}
-	for _, f := range []string{"../../go.mod", "../../go.sum"} {
-		if _, err := os.ReadFile(f); err != nil {
-			t.Fatal(err)
-		}
-	}
-	cmd := exec.Command(gobin, "vet", ".")
-	cmd.Env = append(os.Environ(), "GOOS=windows", "GOARCH=amd64")
-	if out, err := cmd.CombinedOutput(); err != nil {
-		t.Errorf("GOOS=windows go vet: %v\n%s", err, out)
 	}
 }

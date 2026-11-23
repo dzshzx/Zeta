@@ -52,17 +52,7 @@ class ConvEndToEndTest {
     @After
     fun cleanup() {
         serve?.close()
-        // 核心自成一个会话、闲 60 秒才退：照它在锁文件里写下的进程号结束它
-        coreDir
-            .listFiles { f -> f.name.endsWith(".lock") }
-            .orEmpty()
-            .forEach { lock ->
-                lock.readText().trim().toLongOrNull()?.let { pid ->
-                    ProcessHandle.of(pid).ifPresent { it.destroyForcibly() }
-                }
-            }
-        removeTestDir(home)
-        removeTestDir(coreDir)
+        removeTestDir(home, coreDir)
     }
 
     private class Events : ConvListener {
