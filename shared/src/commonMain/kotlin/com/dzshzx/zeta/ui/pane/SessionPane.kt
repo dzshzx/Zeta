@@ -25,11 +25,13 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyListScope
+import androidx.compose.foundation.lazy.LazyListState
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.SideEffect
 import androidx.compose.runtime.Stable
 import androidx.compose.runtime.compositionLocalOf
 import androidx.compose.runtime.getValue
@@ -239,6 +241,7 @@ fun SessionPane(
 
     // 存储页请侧栏定位一个会话（见 SessionReveal）：侧栏露出来以后切到它所在的列表，滚过去，高亮一会儿
     val listState = rememberLazyListState()
+    KeepAtTop(listState, if (searching) results else groups)
     var flash by remember { mutableStateOf<String?>(null) }
     val allNow by rememberUpdatedState(all)
     val groupsNow by rememberUpdatedState(groups.listed)
@@ -364,6 +367,29 @@ fun SessionPane(
         },
         onDismissRequest = { renaming = null },
     )
+}
+
+/** [KeepAtTop] 上次见到的列表内容；只在排版前比一下，不用触发重组。 */
+private class SeenContent {
+    var content: Any? = null
+}
+
+/**
+ * 列表停在最顶上时，内容一变也仍从最顶上显示，新插到上面的会话（今天的、置顶的）露出来。LazyColumn 默认按 key 盯住第一个可见项：
+ * 「全部设备」下各台主机的列表先后到，先到的那台只有较早的会话时第一项是「更早」，另一台今天的会话插到它上面后，视野还钉在「更早」上。 用户往下翻过（第一个可见项不是第 0 项，或第 0
+ * 项露了一部分）时不管，照 LazyColumn 的停在原来看的那一项。[content] 是眼前这份列表
+ * （分组或搜索结果），换了对象才算变；在新内容排版之前（同一帧）requestScrollToItem，看的是上次排版的位置。
+ */
+@Composable
+private fun KeepAtTop(listState: LazyListState, content: Any) {
+    val seen = remember(listState) { SeenContent() }
+    SideEffect {
+        val before = seen.content
+        seen.content = content
+        if (before == null || before === content) return@SideEffect
+        if (listState.firstVisibleItemIndex == 0 && listState.firstVisibleItemScrollOffset == 0)
+            listState.requestScrollToItem(0)
+    }
 }
 
 /** 在就去掉，不在就加上。 */
