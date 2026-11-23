@@ -13,12 +13,14 @@ import (
 
 	"github.com/dzshzx/Zeta/windows/internal/chat/items"
 	"github.com/dzshzx/Zeta/windows/internal/ui/widget"
+	"github.com/egoist/mygo/plugins/glass"
 	"github.com/egoist/mygo/transfer"
 	"github.com/egoist/mygo/ui"
 )
 
 // 全屏看大图（同手机版 ImageViewer.kt、ImageGallery.kt）：点聊天里的图时列表发出 OpenImages，调用方建一个 Viewer、
-// 每帧画在窗口最上层。黑底铺满窗口，不管外面是浅色深色都用 COUI 的深色配色。顶上是返回和「第几张 / 共几张」，
+// 每帧画在窗口最上层。遮罩铺满窗口，是毛玻璃（viewerGlass），不管外面是浅色深色都用 COUI 的深色配色；
+// 在遮罩上点一下（图和按钮以外、标题栏以下，按下松开之间没拖动）关上。顶上是返回和「第几张 / 共几张」，
 // 多张时两边是上一张、下一张（也可以按左右键），底下是页码圆点、保存和复制（Ctrl+C 也是复制）。Esc 关上。
 // 保存交给调用方给的 Save；复制把图转成 PNG 放上剪贴板（Windows 上同时给 PNG 和位图两种格式，聊天软件、画图都能粘贴）。
 
@@ -36,6 +38,47 @@ type Viewer struct {
 	task *task
 	// zoom 是这一张的缩放和平移（zoom.go），翻页时回到原大。
 	zoom zoom
+	// tap 认遮罩上的一次点击：图所在的框里按在图外面的，和框外面的遮罩上的。
+	tap tap
+}
+
+// tap 认一次点击：按下时在遮罩上，松开前指针没挪出 tapSlop，就算点了遮罩；挪远了是在拖（放大后平移图），不算。
+type tap struct {
+	armed  bool
+	x0, y0 float32
+}
+
+// tapSlop：按下到松开之间指针挪动不超过这么多 DIP 还算点击。
+const tapSlop = 4
+
+// handle 接一个指针事件，onBackdrop 是这一点在不在遮罩上；返回这次松开是不是点了遮罩。
+func (t *tap) handle(ev ui.InputEvent, onBackdrop bool) bool {
+	switch ev.Kind {
+	case ui.InputPointerDown:
+		t.armed, t.x0, t.y0 = ev.Button == 0 && ev.Clicks == 1 && onBackdrop, ev.X, ev.Y
+	case ui.InputPointerMove:
+		if t.armed && max(abs(ev.X-t.x0), abs(ev.Y-t.y0)) > tapSlop {
+			t.armed = false
+		}
+	case ui.InputPointerUp:
+		hit := t.armed && ev.Button == 0
+		t.armed = false
+		return hit
+	}
+	return false
+}
+
+func abs(f float32) float32 { return max(f, -f) }
+
+// pointer：主键的按下、移动、松开（遮罩自己接，不往下漏）。
+func pointer(ev ui.InputEvent) bool {
+	switch ev.Kind {
+	case ui.InputPointerDown, ui.InputPointerUp:
+		return ev.Button == 0
+	case ui.InputPointerMove:
+		return true
+	}
+	return false
 }
 
 // NewViewer 从 list 的第 index 张看起；图是列表 from 里的（OpenImages 发出来的那组）。
@@ -74,12 +117,12 @@ func (s *task) takeClip() []byte {
 }
 
 // close 关上看大图。
-func (v *Viewer) close() { v.images, v.task, v.zoom = nil, nil, zoom{} }
+func (v *Viewer) close() { v.images, v.task, v.zoom, v.tap = nil, nil, zoom{}, tap{} }
 
 // step 翻到上一张（-1）或下一张（1），到头了不动。
 func (v *Viewer) step(d int) {
 	if n := v.index + d; n >= 0 && n < len(v.images) {
-		v.index, v.task, v.zoom = n, nil, zoom{}
+		v.index, v.task, v.zoom, v.tap = n, nil, zoom{}, tap{}
 	}
 }
 
@@ -94,6 +137,10 @@ const (
 	viewerSide   = 76
 )
 
+// viewerGlass 是遮罩的材质：mygo 的毛玻璃（glass.Glass 的 Regular），底下的界面透过来、模糊，深色配色下压暗，
+// 图和按钮在它上面看得清；铺满窗口的大块玻璃按 Clarity 0.5 调得通透些。
+var viewerGlass = glass.Glass{Clarity: 0.5}
+
 // View 把看大图画在窗口最上层；返回还开着没有（关上了调用方丢掉它）。
 func (v *Viewer) View(c *ui.Context) bool {
 	if len(v.images) == 0 {
@@ -106,9 +153,13 @@ func (v *Viewer) View(c *ui.Context) bool {
 		}
 	}
 	ui.Overlay(c, func() {
-		page := ui.Themed(c, widget.Theme(true)).Absolute().Left(0).Top(0).Right(0).Bottom(0).Background(widget.For(true).Window).
-			Modal().Role(ui.RoleDialog).Label("看大图")
+		page := ui.Themed(c, widget.Theme(true)).Absolute().Left(0).Top(0).Right(0).Bottom(0)
+		page = page.Modal().Role(ui.RoleDialog).Label("看大图")
 		page.Children(func() {
+			// 毛玻璃画在深色主题里面的一层：材质按包住它的主题决定压暗还是提亮，浅色窗口下也压暗
+			ui.Box(c).Absolute().Left(0).Top(0).Right(0).Bottom(0).PassThrough().Material(viewerGlass)
+			// 标题栏以下的遮罩，在最底层：点了关上。图所在的框、按钮、两条栏画在它上面，各自接各自的点击
+			ui.Box(c.Key("backdrop")).Absolute().Left(0).Right(0).Top(widget.TitleBarHeight).Bottom(0).HandleInput(v.backdropInput)
 			v.image(c, v.images[v.index])
 			v.top(c)
 			if len(v.images) > 1 {
@@ -133,6 +184,14 @@ func (v *Viewer) View(c *ui.Context) bool {
 	return len(v.images) > 0
 }
 
+// backdropInput 接遮罩上的指针：点了关上。底栏让指针穿过它的空白处落到遮罩上（PassThrough）。
+func (v *Viewer) backdropInput(ev ui.InputEvent) bool {
+	if v.tap.handle(ev, true) {
+		v.close()
+	}
+	return pointer(ev)
+}
+
 // image 是中间的图：按原比例放进栏和翻页键之间的地方，小图最多放大到两倍，可以缩放、拖动（zoom.go）；
 // 还在取时转圈，取不到时说一声；没点过的网络图先是「加载图片」。
 func (v *Viewer) image(c *ui.Context, im items.Image) {
@@ -146,20 +205,33 @@ func (v *Viewer) image(c *ui.Context, im items.Image) {
 		return
 	}
 	bmp, done, err := v.bitmap(c, im)
+	var shown ui.Rect // 图画在框里的哪（缩放、平移之后），没有图时是空的
 	if bmp != nil {
-		// 滚轮、捏合缩放，放大后拖动，双击切换（zoom.go）；放大的图超出这块地方的部分不画，免得盖住两条栏
-		box.Clip().HandleInput(func(ev ui.InputEvent) bool { return v.zoom.handle(ev, room.W, room.H) })
-		if v.zoom.zoomed() {
-			box.Cursor(ui.CursorGrab)
+		iw, ih := bmp.Size()
+		scale := min(room.W/float32(iw), room.H/float32(ih), 2)
+		shown.W, shown.H = float32(iw)*scale, float32(ih)*scale
+	}
+	// 滚轮、捏合缩放，放大后拖动，双击切换（zoom.go）；按在图外面点一下是点了遮罩，关上。放大的图超出这块地方的部分不画，免得盖住两条栏
+	box.Clip().HandleInput(func(ev ui.InputEvent) bool {
+		took := bmp != nil && v.zoom.handle(ev, room.W, room.H)
+		z := v.zoom.factor()
+		w, h := shown.W*z, shown.H*z
+		x, y := room.W/2+v.zoom.x-w/2, room.H/2+v.zoom.y-h/2
+		onImage := ev.X >= x && ev.X < x+w && ev.Y >= y && ev.Y < y+h
+		if v.tap.handle(ev, !onImage) {
+			v.close()
+			return true
 		}
+		return took || pointer(ev)
+	})
+	if bmp != nil && v.zoom.zoomed() {
+		box.Cursor(ui.CursorGrab)
 	}
 	box.Children(func() {
 		switch {
 		case bmp != nil:
-			iw, ih := bmp.Size()
-			scale := min(room.W/float32(iw), room.H/float32(ih), 2)
 			z := v.zoom.factor()
-			ui.Image(c, bmp).Size(float32(iw)*scale, float32(ih)*scale).Fit(ui.Contain).Scale(z, z).Translate(v.zoom.x, v.zoom.y).
+			ui.Image(c, bmp).Size(shown.W, shown.H).Fit(ui.Contain).Scale(z, z).Translate(v.zoom.x, v.zoom.y).
 				Label("图片").Description(zoomText(z))
 		case done:
 			ui.Column(c).Gap(10).AlignItems(ui.Center).Tooltip(imageError(err)).Children(func() {
@@ -203,7 +275,7 @@ func pageButton(c *ui.Context, icon *ui.SVG, label string, enabled, left bool) u
 func (v *Viewer) bottom(c *ui.Context) {
 	k := widget.Of(c)
 	ui.Column(c).Absolute().Left(0).Right(0).Bottom(0).Height(viewerBottom).AlignItems(ui.Center).Justify(ui.End).
-		Padding(0, 0, 12, 0).Gap(6).Children(func() {
+		Padding(0, 0, 12, 0).Gap(6).PassThrough().Children(func() {
 		if len(v.images) > 1 {
 			ui.Row(c).Gap(6).Children(func() {
 				for i := range v.images {

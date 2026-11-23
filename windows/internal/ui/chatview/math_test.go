@@ -66,5 +66,3 @@ func TestWideMathScrolls(t *testing.T) {
 		t.Errorf("wide block math at %+v, text at %+v", r, text)
 	}
 }
-
-func abs(v float32) float32 { return max(v, -v) }

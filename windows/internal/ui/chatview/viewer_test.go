@@ -398,3 +398,46 @@ func TestZoomSnapsToFit(t *testing.T) {
 		t.Errorf("%+v", z)
 	}
 }
+
+// 在遮罩上点一下关上看大图：图旁边、两边、底栏的空白处都算；点在图上、标题栏上不关；按下后拖开了不算点。
+// 900×700 的窗里，300×200 的图放大两倍成 600×400，在标题栏（52）和底栏（128）之间、翻页键让出的两边之间居中：
+// 横着 150 到 750，竖着 112 到 512。
+func TestViewerBackdropCloses(t *testing.T) {
+	ch := New()
+	ch.LoadImage = func(file, ref string) ([]byte, error) { return testPNG(t, 300, 200), nil }
+	ch.SetItems(decodeItems(t, `[{"kind":"user","id":"u","text":"看图","images":[{"kind":"session","file":"/s.jsonl","ref":"1"}]}]`))
+	tt, w := viewerTester(ch, false, nil)
+	settleImages(ch, tt)
+	open := func() {
+		w.v = NewViewer(ch, ch.items[0].Images, 0)
+		tt.Frame()
+		tt.Advance(time.Second) // 和上一次点隔开，不算双击
+	}
+	for _, c := range []struct {
+		name   string
+		x, y   float32
+		closes bool
+	}{
+		{"图上", 450, 312, false},
+		{"标题栏", 450, 20, false},
+		{"图左边", 110, 312, true},
+		{"图下面", 450, 560, true},
+		{"窗口左边", 30, 200, true},
+		{"底栏空白处", 100, 680, true},
+	} {
+		open()
+		tt.ClickAt(c.x, c.y)
+		tt.Frame()
+		if closed := w.v == nil; closed != c.closes {
+			t.Errorf("点%s：关上了 %v，要 %v", c.name, closed, c.closes)
+		}
+	}
+	open()
+	tt.Press(110, 312)
+	tt.Move(200, 312)
+	tt.Release(200, 312)
+	tt.Frame()
+	if w.v == nil {
+		t.Error("按下后拖开了，不该关上")
+	}
+}
