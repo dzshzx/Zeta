@@ -14,10 +14,10 @@ import (
 	"github.com/dzshzx/Zeta/windows/internal/settings"
 )
 
-// Remote 是设置里一台设备上经它的 serve 做的几样：Claude Code 配置（config.*）、账号与额度（accounts.*、quota.*）。
+// Remote 是设置里一台设备上经它的 serve 做的几样：核心的请求（Claude Code 配置 config.*、闲置超时 system.* 等）、账号与额度（accounts.*、quota.*）。
 // 请求走这台给对话用的那条 serve 连接（chatConn），不另开。账号和额度的状态留在这里，换页回来还在。
 type Remote struct {
-	Config   *claudecfg.Client
+	Core     *coreapi.Client
 	Accounts *accounts.Service
 	Quota    *accounts.Quota
 
@@ -39,7 +39,7 @@ func (h *Hub) Remote(id string) *Remote {
 	loop := accounts.Loop{Run: h.run, Post: h.post}
 	q := accounts.NewQuota(core, usageSource{conn}, loop, nil)
 	r := &Remote{
-		Config:   claudecfg.New(cfgCaller{caller}, x.DefaultCwd),
+		Core:     core,
 		Accounts: accounts.NewService(core, h.devices.ClaudeSwitch(x), deviceConvs{conn, h.run}, q, loop),
 		Quota:    q,
 		conn:     conn,
@@ -61,15 +61,6 @@ func (c *remoteCaller) Call(ctx context.Context, method string, params map[strin
 		c.dead()
 	}
 	return raw, err
-}
-
-// cfgCaller 让参数还是 any 的 claudecfg.Caller 用 remoteCaller（claudecfg 给的本来就是 map）。claudecfg 改走 coreapi 后删掉，
-// 直接给 remoteCaller。
-type cfgCaller struct{ c *remoteCaller }
-
-func (c cfgCaller) Call(ctx context.Context, method string, params any) (json.RawMessage, error) {
-	m, _ := params.(map[string]any)
-	return c.c.Call(ctx, method, m)
 }
 
 // usageSource 借这台上本客户端开着进程的对话问额度（conv.quota）；都没开着进程时是 accounts.ErrNoProcess。

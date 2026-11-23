@@ -1,12 +1,13 @@
 // Package claudecfg 是设置里一台设备上和 Claude Code 有关的界面，做成能嵌进设置窗口的组件：设备页上的三组（新对话默认、
 // Claude 的自动压缩与标题、Claude Code 配置的入口），和点进去的各页（默认思考强度、记忆、Skills、MCP 服务器、Subagent、
-// 工具权限）。只画、把操作交给 internal/claudecfg（那台 serve 的 config.*），要等设备的事放到后台，结果交回主线程再改状态。
+// 工具权限）。只画、把操作经 helper/coreapi 交给那台的核心（config.*、system.idle），要等设备的事放到后台，结果交回主线程再改状态。
 package claudecfg
 
 import (
 	"context"
 	"time"
 
+	"github.com/dzshzx/Zeta/helper/coreapi"
 	cfg "github.com/dzshzx/Zeta/windows/internal/claudecfg"
 	"github.com/dzshzx/Zeta/windows/internal/ui/coui"
 	"github.com/egoist/mygo/ui"
@@ -14,10 +15,11 @@ import (
 
 // Options 是嵌进来时要给的。
 type Options struct {
-	Client *cfg.Client  // 这台设备上的 Claude Code 配置
-	Device cfg.Device   // 这台设备的自动压缩、自动标题（客户端本地存的）
-	Run    func(func()) // 在后台跑
-	Post   func(func()) // 交回主线程跑（窗口的 Update）
+	Core   *coreapi.Client // 这台设备的核心：Claude Code 配置（config.*）、闲置超时（system.idle）
+	Cwd    string          // 这台设备的默认工作目录（记忆的默认项目、MCP 的本地配置按它找），空是那边的家目录
+	Device cfg.Device      // 这台设备的自动压缩、自动标题（客户端本地存的）
+	Run    func(func())    // 在后台跑
+	Post   func(func())    // 交回主线程跑（窗口的 Update）
 	// OpenZip 让用户选一个 Skill 的 ZIP，返回文件名和内容；取消时 name 为空。nil 时用系统的文件对话框。
 	OpenZip func() (name string, data []byte, err error)
 	// Models 是默认模型下拉里的选项（Claude Code 报的模型清单）；没有时列几个常用的别名。
@@ -50,7 +52,7 @@ type Page struct {
 	opts  Options
 	stack []view // 点进去的子页，最后一个在显示
 
-	defaults    *cfg.Defaults
+	defaults    *coreapi.Defaults
 	defaultsErr string
 	working     bool // 正在改新对话默认
 	idle        *int // 这台主机的闲置超时（分钟），还没读到时是 nil
@@ -82,7 +84,7 @@ func New(opts Options) *Page {
 func (p *Page) Load() {
 	p.defaultsErr = ""
 	p.async(func(ctx context.Context) func() {
-		d, err := p.opts.Client.Defaults(ctx)
+		d, err := p.opts.Core.Defaults(ctx)
 		return func() {
 			if err != nil {
 				p.defaultsErr = err.Error()
@@ -92,7 +94,7 @@ func (p *Page) Load() {
 		}
 	})
 	p.async(func(ctx context.Context) func() {
-		m, err := p.opts.Client.IdleMinutes(ctx)
+		m, err := p.opts.Core.IdleMinutes(ctx)
 		return func() {
 			if err == nil {
 				p.idle = &m

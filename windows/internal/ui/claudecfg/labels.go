@@ -8,10 +8,11 @@ import (
 	"strconv"
 	"strings"
 
+	"github.com/dzshzx/Zeta/helper/coreapi"
 	"github.com/egoist/mygo"
 )
 
-// 界面上的说法：模型、思考强度、权限模式、token 数、文件大小。
+// 界面上的说法：模型、思考强度、权限模式、权限规则的表、闲置超时、token 数、文件大小。
 
 // fallbackModels 是还没拿到 Claude Code 的模型清单时，默认模型下拉里的几个别名。
 var fallbackModels = []Model{{"opus", "Opus"}, {"sonnet", "Sonnet"}, {"haiku", "Haiku"}, {"fable", "Fable"}}
@@ -123,3 +124,43 @@ func openZipDialog() (string, []byte, error) {
 }
 
 func itoa(n int) string { return strconv.Itoa(n) }
+
+// behaviors 是权限下拉里的三张表，按页面上的顺序。
+var behaviors = []coreapi.Behavior{coreapi.Allow, coreapi.Ask, coreapi.Deny}
+
+// behaviorLabel 是规则所在的表的叫法；空是没设。
+func behaviorLabel(b coreapi.Behavior) string {
+	switch b {
+	case coreapi.Allow:
+		return "允许"
+	case coreapi.Ask:
+		return "询问"
+	case coreapi.Deny:
+		return "拒绝"
+	}
+	return "未设置"
+}
+
+// permissionSemantics 是权限页上说的规则语义。
+const permissionSemantics = "规则按“拒绝 > 询问 > 允许”取最严的，写得再细也一样。完全放行模式下，询问和拒绝照样生效。"
+
+// idleChoices 是闲置超时可选的几档（分钟），0 是不自动结束；和手机上的设置页一样。
+var idleChoices = []int{5, 10, 30, 60, 120, 0}
+
+// idleLabel 是闲置超时的说法：「不自动结束」「30 分钟」「2 小时」。
+func idleLabel(minutes int) string {
+	switch {
+	case minutes == 0:
+		return "不自动结束"
+	case minutes%1440 == 0:
+		return strconv.Itoa(minutes/1440) + " 天"
+	case minutes%60 == 0:
+		return strconv.Itoa(minutes/60) + " 小时"
+	}
+	return strconv.Itoa(minutes) + " 分钟"
+}
+
+var mcpNamePattern = regexp.MustCompile(`^[A-Za-z0-9_-]{1,64}$`)
+
+// validMcpName：字母、数字、下划线和连字符，最长 64（添加前在表单里先查一遍，核心还会再查）。
+func validMcpName(name string) bool { return mcpNamePattern.MatchString(name) }

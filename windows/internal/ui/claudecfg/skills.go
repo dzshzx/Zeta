@@ -3,7 +3,7 @@ package claudecfg
 import (
 	"context"
 
-	cfg "github.com/dzshzx/Zeta/windows/internal/claudecfg"
+	"github.com/dzshzx/Zeta/helper/coreapi"
 	"github.com/dzshzx/Zeta/windows/internal/ui/coui"
 	"github.com/egoist/mygo/ui"
 )
@@ -12,10 +12,10 @@ import (
 // 和它的 /skills 菜单一样，文件不动。账号同步的只列出来。
 
 type skillsState struct {
-	data      *cfg.Skills
+	data      *coreapi.Skills
 	importing bool
 	pending   *pendingZip // 已经有同名的，正问着替换不替换
-	deleting  *cfg.Skill
+	deleting  *coreapi.Skill
 	showing   *notice // 看说明
 }
 
@@ -33,7 +33,7 @@ func (p *Page) openSkills() {
 
 func (p *Page) reloadSkills() {
 	p.async(func(ctx context.Context) func() {
-		s, err := p.opts.Client.Skills(ctx)
+		s, err := p.opts.Core.Skills(ctx)
 		return func() {
 			if err != nil {
 				p.failed("读取 Skills 失败", err)
@@ -57,12 +57,12 @@ func (p *Page) pickZip() {
 				}
 			}
 		}
-		res, err := p.opts.Client.ImportSkill(ctx, name, data, false)
+		res, err := p.opts.Core.ImportSkill(ctx, name, data, false)
 		return func() { p.installed(name, data, res, err) }
 	})
 }
 
-func (p *Page) installed(file string, data []byte, res cfg.SkillImport, err error) {
+func (p *Page) installed(file string, data []byte, res coreapi.SkillImport, err error) {
 	p.skills.importing = false
 	switch {
 	case err != nil:
@@ -149,7 +149,7 @@ func orNone(s string) string {
 	return s
 }
 
-func (p *Page) skillRow(l *coui.List, sk cfg.Skill) {
+func (p *Page) skillRow(l *coui.List, sk coreapi.Skill) {
 	c := l.Context()
 	title := sk.Name
 	if sk.Title != "" && sk.Title != sk.Name {
@@ -169,7 +169,7 @@ func (p *Page) skillRow(l *coui.List, sk cfg.Skill) {
 		on := sk.Enabled
 		if coui.Switch(c, &on).Label("启用：" + sk.Name).Changed() {
 			p.async(func(ctx context.Context) func() {
-				err := p.opts.Client.SetSkillEnabled(ctx, sk, on)
+				err := p.opts.Core.SetSkillEnabled(ctx, sk, on)
 				return func() {
 					if err != nil {
 						title := "没有停用"
@@ -192,7 +192,7 @@ func (p *Page) skillDialogs(c *ui.Context) {
 		if alert(c, &pz.open, "替换 Skill？", message, coui.Destructive, "取消", "替换") == 1 {
 			s.importing = true
 			p.async(func(ctx context.Context) func() {
-				res, err := p.opts.Client.ImportSkill(ctx, pz.file, pz.data, true)
+				res, err := p.opts.Core.ImportSkill(ctx, pz.file, pz.data, true)
 				return func() { p.installed(pz.file, pz.data, res, err) }
 			})
 		}
@@ -206,7 +206,7 @@ func (p *Page) skillDialogs(c *ui.Context) {
 		case 1:
 			name := d.Name
 			p.async(func(ctx context.Context) func() {
-				err := p.opts.Client.DeleteSkill(ctx, name)
+				err := p.opts.Core.DeleteSkill(ctx, name)
 				return func() {
 					if err != nil {
 						p.failed("删除失败", err)

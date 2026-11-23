@@ -4,7 +4,7 @@ import (
 	"context"
 	"strings"
 
-	cfg "github.com/dzshzx/Zeta/windows/internal/claudecfg"
+	"github.com/dzshzx/Zeta/helper/coreapi"
 	"github.com/dzshzx/Zeta/windows/internal/ui/coui"
 	"github.com/egoist/mygo/ui"
 )
@@ -13,16 +13,16 @@ import (
 // 服务器能整体设成允许、询问、拒绝；带参数的规则和认不出的写法列在“规则”里，可以改、删、加。每个状态都由那边按规则算好。
 
 type permState struct {
-	data     *cfg.Permissions
+	data     *coreapi.Permissions
 	loadErr  string
 	working  bool
 	showMore bool
 	bulk     *bulkRequest
 	edit     *ruleEdit
-	deleting *cfg.Rule
+	deleting *coreapi.Rule
 
-	server    cfg.ServerView // 点进去的那个 MCP 服务器
-	tools     []cfg.McpTool
+	server    coreapi.ServerView // 点进去的那个 MCP 服务器
+	tools     []coreapi.McpTool
 	toolsBusy bool
 	toolsErr  string
 }
@@ -30,16 +30,16 @@ type permState struct {
 // bulkRequest 是点了“全部开启”或“全部关闭”、等确认的那一组。
 type bulkRequest struct {
 	label  string
-	group  cfg.PermissionGroup
+	group  coreapi.PermissionGroup
 	enable bool
-	change cfg.BulkChange
+	change coreapi.BulkChange
 	open   bool
 }
 
 // ruleEdit 是添加或编辑规则的对话框；original 为 nil 是添加。
 type ruleEdit struct {
-	original *cfg.Rule
-	behavior cfg.Behavior
+	original *coreapi.Rule
+	behavior coreapi.Behavior
 	text     string
 	problem  string
 	saving   bool
@@ -48,11 +48,11 @@ type ruleEdit struct {
 
 // choiceLabels 是工具一行右边下拉的四项，和 choiceValues 一一对应。
 var (
-	choiceValues = append([]cfg.Behavior{""}, cfg.Behaviors...)
+	choiceValues = append([]coreapi.Behavior{""}, behaviors...)
 	choiceLabels = func() []string {
 		var out []string
 		for _, b := range choiceValues {
-			out = append(out, b.Label())
+			out = append(out, behaviorLabel(b))
 		}
 		return out
 	}()
@@ -63,31 +63,31 @@ func (p *Page) openPermissions() {
 	p.reloadPermissions()
 }
 
-// scope 是要连带算的：在一个 MCP 服务器的页上时算它的工具。
-func (p *Page) permScope() cfg.PermissionScope {
+// permView 是权限页怎么算：MCP 服务器按默认工作目录列；在一个 MCP 服务器的页上时另算它的工具。
+func (p *Page) permView() coreapi.PermissionView {
 	if p.top() != viewPermServer || p.perm.tools == nil {
-		return cfg.PermissionScope{}
+		return coreapi.PermissionView{Cwd: p.opts.Cwd}
 	}
 	names := make([]string, 0, len(p.perm.tools))
 	for _, t := range p.perm.tools {
 		names = append(names, t.Name)
 	}
-	return cfg.PermissionScope{Server: p.perm.server.Name, Tools: names}
+	return coreapi.PermissionView{Cwd: p.opts.Cwd, Server: p.perm.server.Name, Tools: names}
 }
 
 func (p *Page) reloadPermissions() {
-	p.applyPermissions(func(ctx context.Context, scope cfg.PermissionScope) (cfg.Permissions, error) {
-		return p.opts.Client.Permissions(ctx, scope)
+	p.applyPermissions(func(ctx context.Context, pv coreapi.PermissionView) (coreapi.Permissions, error) {
+		return p.opts.Core.Permissions(ctx, pv)
 	}, nil)
 }
 
 // applyPermissions 在后台改规则（或只读），拿回新的页面。done 不为 nil 时成败都交给它（失败时页面不变），为 nil 时出错弹出来。
-func (p *Page) applyPermissions(op func(context.Context, cfg.PermissionScope) (cfg.Permissions, error), done func(error)) {
+func (p *Page) applyPermissions(op func(context.Context, coreapi.PermissionView) (coreapi.Permissions, error), done func(error)) {
 	s := &p.perm
-	scope := p.permScope()
+	pv := p.permView()
 	s.working = true
 	p.async(func(ctx context.Context) func() {
-		v, err := op(ctx, scope)
+		v, err := op(ctx, pv)
 		return func() {
 			s.working = false
 			if err == nil {
@@ -116,17 +116,17 @@ func (p *Page) syncServer() {
 	}
 }
 
-func (p *Page) setTool(rule string, b cfg.Behavior) {
-	p.applyPermissions(func(ctx context.Context, scope cfg.PermissionScope) (cfg.Permissions, error) {
-		return p.opts.Client.SetToolPermission(ctx, scope, rule, b)
+func (p *Page) setTool(rule string, b coreapi.Behavior) {
+	p.applyPermissions(func(ctx context.Context, pv coreapi.PermissionView) (coreapi.Permissions, error) {
+		return p.opts.Core.SetToolPermission(ctx, pv, rule, b)
 	}, nil)
 }
 
 // toolSummary 是一行的说明：有从服务器继承来的设置、带参数的规则时写这些，没有时写 fallback。
-func toolSummary(fallback string, st cfg.ToolState, serverLabel string) string {
+func toolSummary(fallback string, st coreapi.ToolState, serverLabel string) string {
 	var parts []string
 	if st.Inherited && st.Behavior != "" {
-		parts = append(parts, "跟随"+serverLabel+"："+st.Behavior.Label())
+		parts = append(parts, "跟随"+serverLabel+"："+behaviorLabel(st.Behavior))
 	}
 	if n := len(st.Specific); n > 0 {
 		parts = append(parts, "另有 "+itoa(n)+" 条带参数的规则")
@@ -138,7 +138,7 @@ func toolSummary(fallback string, st cfg.ToolState, serverLabel string) string {
 }
 
 // toolRow 是一个工具（或整个服务器）一行，右边下拉选 未设置、允许、询问、拒绝；显示的是它自己的规则。
-func (p *Page) toolRow(l *coui.List, title, summary, rule string, own cfg.Behavior) {
+func (p *Page) toolRow(l *coui.List, title, summary, rule string, own coreapi.Behavior) {
 	c := l.Context()
 	editable := p.perm.data != nil && !p.perm.working
 	ui.Column(c.Key(rule)).Children(func() {
@@ -165,7 +165,7 @@ func (p *Page) permissionsPage(c *ui.Context) {
 		coui.SmallPrimaryButton(c, "添加规则").Disabled(s.data == nil || s.working).OnClick(func() { p.openRule(nil) })
 	})
 	body(c, "permissions", func() {
-		intro := cfg.PermissionSemantics + "改动对所有项目、之后新开始的对话生效。"
+		intro := permissionSemantics + "改动对所有项目、之后新开始的对话生效。"
 		if s.loadErr != "" {
 			intro += "\n\n读取失败：" + s.loadErr
 		}
@@ -215,9 +215,9 @@ func (p *Page) builtinSection(c *ui.Context) {
 }
 
 // bulkButtons 是一组上面的一对按钮；已经全是那个状态（没什么可加可删）时置灰。
-func (p *Page) bulkButtons(l *coui.List, label string, g cfg.PermissionGroup, pair cfg.BulkPair) {
+func (p *Page) bulkButtons(l *coui.List, label string, g coreapi.PermissionGroup, pair coreapi.BulkPair) {
 	disabled := p.perm.data == nil || p.perm.working
-	ask := func(enable bool, change cfg.BulkChange) {
+	ask := func(enable bool, change coreapi.BulkChange) {
 		p.perm.bulk = &bulkRequest{label: label, group: g, enable: enable, change: change, open: true}
 	}
 	c := l.Context()
@@ -228,10 +228,10 @@ func (p *Page) bulkButtons(l *coui.List, label string, g cfg.PermissionGroup, pa
 }
 
 // bulkMessage 是确认框里的说明：按表列出会加、会删的规则；关掉全部内置工具时另外说清后果。
-func bulkMessage(change cfg.BulkChange, warnNoTools bool) string {
+func bulkMessage(change coreapi.BulkChange, warnNoTools bool) string {
 	var b strings.Builder
-	list := func(verb string, rules []cfg.Rule, suffix string) {
-		for _, be := range cfg.Behaviors {
+	list := func(verb string, rules []coreapi.Rule, suffix string) {
+		for _, be := range behaviors {
 			var texts []string
 			for _, r := range rules {
 				if r.Behavior == be {
@@ -239,7 +239,7 @@ func bulkMessage(change cfg.BulkChange, warnNoTools bool) string {
 				}
 			}
 			if len(texts) > 0 {
-				b.WriteString(verb + be.Label() + suffix + "（" + itoa(len(texts)) + " 条）：" + strings.Join(texts, "、") + "\n")
+				b.WriteString(verb + behaviorLabel(be) + suffix + "（" + itoa(len(texts)) + " 条）：" + strings.Join(texts, "、") + "\n")
 			}
 		}
 	}
@@ -259,7 +259,7 @@ func (p *Page) serversSection(c *ui.Context) {
 		}
 		for _, sv := range d.Servers {
 			ui.Column(c.Key("server-" + sv.Name)).Children(func() {
-				entry(l, sv.Name, toolSummary(sv.Rule, sv.State, ""), sv.State.Behavior.Label(), true, func() { p.openPermServer(sv) })
+				entry(l, sv.Name, toolSummary(sv.Rule, sv.State, ""), behaviorLabel(sv.State.Behavior), true, func() { p.openPermServer(sv) })
 			})
 		}
 	})
@@ -272,7 +272,7 @@ func (p *Page) rulesSection(c *ui.Context) {
 			emptyRow(l, "还没有规则", "点右上角的“添加规则”")
 		}
 		for _, r := range s.data.Rules {
-			summary := r.Behavior.Label()
+			summary := behaviorLabel(r.Behavior)
 			if r.Malformed {
 				summary += " · 括号不配对，Claude Code 认不出这条"
 			}
@@ -286,8 +286,8 @@ func (p *Page) rulesSection(c *ui.Context) {
 	})
 }
 
-func (p *Page) openRule(r *cfg.Rule) {
-	e := &ruleEdit{original: r, behavior: cfg.Allow, open: true}
+func (p *Page) openRule(r *coreapi.Rule) {
+	e := &ruleEdit{original: r, behavior: coreapi.Allow, open: true}
 	if r != nil {
 		e.behavior, e.text = r.Behavior, r.Text
 	}
@@ -296,18 +296,18 @@ func (p *Page) openRule(r *cfg.Rule) {
 
 func (p *Page) saveRule() {
 	e := p.perm.edit
-	nw := cfg.Rule{Behavior: e.behavior, Text: strings.TrimSpace(e.text)}
+	nw := coreapi.Rule{Behavior: e.behavior, Text: strings.TrimSpace(e.text)}
 	if nw.Text == "" {
 		e.problem = "规则不能是空的"
 		return
 	}
 	original := e.original
 	e.saving, e.problem = true, ""
-	p.applyPermissions(func(ctx context.Context, scope cfg.PermissionScope) (cfg.Permissions, error) {
+	p.applyPermissions(func(ctx context.Context, pv coreapi.PermissionView) (coreapi.Permissions, error) {
 		if original == nil {
-			return p.opts.Client.AddRule(ctx, scope, nw)
+			return p.opts.Core.AddPermissionRule(ctx, pv, nw)
 		}
-		return p.opts.Client.ReplaceRule(ctx, scope, *original, nw)
+		return p.opts.Core.ReplacePermissionRule(ctx, pv, *original, nw)
 	}, func(err error) {
 		e.saving = false
 		if err != nil {
@@ -328,10 +328,10 @@ func (p *Page) permDialogs(c *ui.Context) {
 	}
 	if r := s.deleting; r != nil {
 		open := true
-		if alert(c, &open, "删除规则", "删除"+r.Behavior.Label()+"规则 "+r.Text+"？", coui.Destructive, "取消", "删除") == 1 {
+		if alert(c, &open, "删除规则", "删除"+behaviorLabel(r.Behavior)+"规则 "+r.Text+"？", coui.Destructive, "取消", "删除") == 1 {
 			rule := *r
-			p.applyPermissions(func(ctx context.Context, scope cfg.PermissionScope) (cfg.Permissions, error) {
-				return p.opts.Client.RemoveRule(ctx, scope, rule)
+			p.applyPermissions(func(ctx context.Context, pv coreapi.PermissionView) (coreapi.Permissions, error) {
+				return p.opts.Core.RemovePermissionRule(ctx, pv, rule)
 			}, nil)
 		}
 		if !open {
@@ -349,14 +349,14 @@ func (p *Page) ruleDialog(c *ui.Context, e *ruleEdit) {
 	dialog(c, &e.open, title, func() {
 		labels := []string{}
 		selected := 0
-		for i, b := range cfg.Behaviors {
-			labels = append(labels, b.Label())
+		for i, b := range behaviors {
+			labels = append(labels, behaviorLabel(b))
 			if b == e.behavior {
 				selected = i
 			}
 		}
 		labeled(c, "表", func() {
-			choice(c, "表", labels, selected, e.saving, func(i int) { e.behavior = cfg.Behaviors[i] })
+			choice(c, "表", labels, selected, e.saving, func(i int) { e.behavior = behaviors[i] })
 		})
 		coui.LineInput(c.Key("rule"), &e.text, 1).Placeholder("Bash(git push:*)").Label("规则").Disabled(e.saving).AutoFocus()
 		ui.Text(c, "写成 工具名 或 工具名(参数)。比如 Bash(npm run test:*)、Read(./.env)、Edit(src/**)、WebFetch(domain:github.com)、mcp__github（整个服务器）。").
@@ -391,8 +391,8 @@ func (p *Page) bulkDialog(c *ui.Context) {
 	}
 	if alert(c, &r.open, verb+r.label+"？", bulkMessage(r.change, warn), style, "取消", verb) == 1 {
 		g, enable := r.group, r.enable
-		p.applyPermissions(func(ctx context.Context, scope cfg.PermissionScope) (cfg.Permissions, error) {
-			return p.opts.Client.SetGroup(ctx, scope, g, enable)
+		p.applyPermissions(func(ctx context.Context, pv coreapi.PermissionView) (coreapi.Permissions, error) {
+			return p.opts.Core.SetPermissionGroup(ctx, pv, g, enable)
 		}, nil)
 	}
 	if !r.open {
@@ -402,7 +402,7 @@ func (p *Page) bulkDialog(c *ui.Context) {
 
 // ---------- 一个 MCP 服务器 ----------
 
-func (p *Page) openPermServer(sv cfg.ServerView) {
+func (p *Page) openPermServer(sv coreapi.ServerView) {
 	s := &p.perm
 	s.server, s.tools, s.toolsErr = sv, nil, ""
 	p.push(viewPermServer)
@@ -414,10 +414,10 @@ func (p *Page) openPermServer(sv cfg.ServerView) {
 
 func (p *Page) loadServerTools() {
 	s := &p.perm
-	server := cfg.McpServer{Name: s.server.Name, Scope: s.server.Scope}
+	server := coreapi.McpServer{Name: s.server.Name, Scope: s.server.Scope}
 	s.toolsBusy, s.toolsErr = true, ""
 	p.async(func(ctx context.Context) func() {
-		tools, err := p.opts.Client.McpTools(ctx, server)
+		tools, err := p.opts.Core.McpTools(ctx, p.opts.Cwd, server)
 		return func() {
 			s.toolsBusy = false
 			if err != nil {
@@ -425,7 +425,7 @@ func (p *Page) loadServerTools() {
 				return
 			}
 			if tools == nil {
-				tools = []cfg.McpTool{}
+				tools = []coreapi.McpTool{}
 			}
 			s.tools = tools
 			p.reloadPermissions() // 算这些工具的状态
@@ -434,16 +434,16 @@ func (p *Page) loadServerTools() {
 }
 
 // serverTool 是新读到的页面里这个工具的状态。
-func (p *Page) serverTool(name string) (cfg.ToolView, bool) {
+func (p *Page) serverTool(name string) (coreapi.ToolView, bool) {
 	if p.perm.data == nil {
-		return cfg.ToolView{}, false
+		return coreapi.ToolView{}, false
 	}
 	for _, t := range p.perm.data.ServerTools {
 		if t.Name == name {
 			return t, true
 		}
 	}
-	return cfg.ToolView{}, false
+	return coreapi.ToolView{}, false
 }
 
 func (p *Page) permServerPage(c *ui.Context) {
@@ -454,7 +454,7 @@ func (p *Page) permServerPage(c *ui.Context) {
 	})
 	body(c, "perm-server", func() {
 		coui.Group(c, "", "整个服务器的设置管它的每个工具；工具自己也设了的，取更严的那个。", func(l *coui.List) {
-			p.bulkButtons(l, sv.Name+" 的工具", cfg.PermissionGroup{Server: sv.Name}, sv.Bulk)
+			p.bulkButtons(l, sv.Name+" 的工具", coreapi.PermissionGroup{Server: sv.Name}, sv.Bulk)
 			p.toolRow(l, "整个服务器", sv.Rule, sv.Rule, sv.State.Behavior)
 		})
 		title := "工具"

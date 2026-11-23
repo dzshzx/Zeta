@@ -246,9 +246,9 @@ func (a *App) startDeviceConfig(x sshlink.Host) {
 		a.cfg = nil
 		return
 	}
-	r.Config.Cwd = x.DefaultCwd
 	a.cfg = claudecfg.New(claudecfg.Options{
-		Client: r.Config,
+		Core:   r.Core,
+		Cwd:    x.DefaultCwd,
 		Device: cfg.DeviceSettings(a.hub.Settings().Store(), x.ID),
 		Run:    a.run,
 		Post:   a.post,

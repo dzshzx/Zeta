@@ -6,7 +6,7 @@ import (
 	"slices"
 	"strings"
 
-	cfg "github.com/dzshzx/Zeta/windows/internal/claudecfg"
+	"github.com/dzshzx/Zeta/helper/coreapi"
 	"github.com/dzshzx/Zeta/windows/internal/ui/coui"
 	"github.com/egoist/mygo/ui"
 )
@@ -14,9 +14,9 @@ import (
 // Subagent：~/.claude/agents 下每个 .md 是一个，前言写名称、什么时候用、模型、工具，正文是系统提示词。
 
 type agentsState struct {
-	list    []cfg.Subagent
+	list    []coreapi.Subagent
 	loaded  bool
-	editing *cfg.Subagent // nil 是新建
+	editing *coreapi.Subagent // nil 是新建
 	draft   agentDraft
 	saving  bool
 	problem string // 保存没成功的原因
@@ -58,7 +58,7 @@ func isCommonTool(name string) bool {
 	return slices.ContainsFunc(commonTools, func(t struct{ name, label string }) bool { return t.name == name })
 }
 
-func draftOf(a *cfg.Subagent) agentDraft {
+func draftOf(a *coreapi.Subagent) agentDraft {
 	d := agentDraft{allTools: true, checked: map[string]bool{}}
 	if a == nil {
 		return d
@@ -114,7 +114,7 @@ func (p *Page) openAgents() {
 
 func (p *Page) reloadAgents() {
 	p.async(func(ctx context.Context) func() {
-		list, err := p.opts.Client.Agents(ctx)
+		list, err := p.opts.Core.Agents(ctx)
 		return func() {
 			if err != nil {
 				p.failed("读取 Subagent 失败", err)
@@ -153,7 +153,7 @@ func (p *Page) agentsPage(c *ui.Context) {
 	})
 }
 
-func (p *Page) openAgent(a *cfg.Subagent) {
+func (p *Page) openAgent(a *coreapi.Subagent) {
 	p.agents.editing, p.agents.draft, p.agents.problem = a, draftOf(a), ""
 	p.push(viewAgent)
 }
@@ -161,11 +161,11 @@ func (p *Page) openAgent(a *cfg.Subagent) {
 func (p *Page) saveAgent() {
 	a := &p.agents
 	d := a.draft
-	draft := cfg.SubagentDraft{Name: strings.TrimSpace(d.name), Description: strings.TrimSpace(d.description), Model: d.model, Tools: d.tools(), Prompt: d.prompt}
+	draft := coreapi.SubagentDraft{Name: strings.TrimSpace(d.name), Description: strings.TrimSpace(d.description), Model: d.model, Tools: d.tools(), Prompt: d.prompt}
 	original := a.editing
 	a.saving, a.problem = true, ""
 	p.async(func(ctx context.Context) func() {
-		_, err := p.opts.Client.SaveAgent(ctx, original, draft)
+		_, err := p.opts.Core.SaveAgent(ctx, original, draft)
 		return func() {
 			a.saving = false
 			if err != nil {
@@ -294,7 +294,7 @@ func (p *Page) agentDialogs(c *ui.Context) {
 	file, name := a.editing.File, a.editing.Name
 	if alert(c, &a.delete, "删除 Subagent", "删除“"+name+"”？删了就找不回来。", coui.Destructive, "取消", "删除") == 1 {
 		p.async(func(ctx context.Context) func() {
-			err := p.opts.Client.DeleteAgent(ctx, file)
+			err := p.opts.Core.DeleteAgent(ctx, file)
 			return func() {
 				if err != nil {
 					p.failed("删除失败", err)

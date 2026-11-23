@@ -5,7 +5,7 @@ import (
 	"regexp"
 	"strings"
 
-	cfg "github.com/dzshzx/Zeta/windows/internal/claudecfg"
+	"github.com/dzshzx/Zeta/helper/coreapi"
 	"github.com/dzshzx/Zeta/windows/internal/ui/coui"
 	"github.com/egoist/mygo/ui"
 )
@@ -14,17 +14,17 @@ import (
 // 密钥只说有没有，不显示；Token 只在改的时候输入。
 
 type mcpState struct {
-	servers   []cfg.McpServer
+	servers   []coreapi.McpServer
 	loaded    bool
-	status    *cfg.McpStatus
+	status    *coreapi.McpStatus
 	checking  bool
 	statusErr string
 
 	adding bool
 	form   serverForm
 
-	detail    cfg.McpServer // 详情页的那个
-	tools     []cfg.McpTool
+	detail    coreapi.McpServer // 详情页的那个
+	tools     []coreapi.McpTool
 	toolsBusy bool
 	toolsErr  string
 	tokenOpen bool
@@ -65,7 +65,7 @@ func scopeLabel(scope string) string {
 	return scope
 }
 
-func stateLabel(st *cfg.McpState) string {
+func stateLabel(st *coreapi.McpState) string {
 	if st == nil {
 		return "检查中…"
 	}
@@ -93,9 +93,9 @@ func stateLabel(st *cfg.McpState) string {
 }
 
 // stateOf 是列表和详情里显示的状态：被同名服务器盖住的不会被用到，不看健康检查的结果。
-func (m *mcpState) stateOf(s cfg.McpServer) *cfg.McpState {
+func (m *mcpState) stateOf(s coreapi.McpServer) *coreapi.McpState {
 	if s.ShadowedBy != "" {
-		return &cfg.McpState{State: "shadowed", Issue: "被“" + scopeLabel(s.ShadowedBy) + "”里的同名服务器盖住"}
+		return &coreapi.McpState{State: "shadowed", Issue: "被“" + scopeLabel(s.ShadowedBy) + "”里的同名服务器盖住"}
 	}
 	if m.status != nil {
 		if st, ok := m.status.Servers[s.Key()]; ok {
@@ -103,7 +103,7 @@ func (m *mcpState) stateOf(s cfg.McpServer) *cfg.McpState {
 		}
 	}
 	if m.statusErr != "" || m.status != nil {
-		return &cfg.McpState{State: "unknown"}
+		return &coreapi.McpState{State: "unknown"}
 	}
 	return nil
 }
@@ -116,7 +116,7 @@ func (p *Page) openMcp() {
 // reloadMcp 重读配置；check 时接着做一遍健康检查（慢）。
 func (p *Page) reloadMcp(check bool) {
 	p.async(func(ctx context.Context) func() {
-		list, err := p.opts.Client.McpServers(ctx)
+		list, err := p.opts.Core.McpServers(ctx, p.opts.Cwd)
 		return func() {
 			if err != nil {
 				p.failed("读取 MCP 配置失败", err)
@@ -134,7 +134,7 @@ func (p *Page) checkMcp() {
 	m := &p.mcp
 	m.checking, m.status, m.statusErr = true, nil, ""
 	p.async(func(ctx context.Context) func() {
-		st, err := p.opts.Client.McpStatus(ctx)
+		st, err := p.opts.Core.McpStatus(ctx, p.opts.Cwd)
 		return func() {
 			m.checking = false
 			if err != nil {
@@ -183,7 +183,7 @@ func (p *Page) mcpPage(c *ui.Context) {
 }
 
 // serverSummary：不是用户配置的先写范围，再是地址或命令。
-func serverSummary(s cfg.McpServer) string {
+func serverSummary(s coreapi.McpServer) string {
 	prefix := ""
 	if s.Scope != "user" {
 		prefix = scopeLabel(s.Scope) + " · "
@@ -191,7 +191,7 @@ func serverSummary(s cfg.McpServer) string {
 	return prefix + clipLine(target(s), 80)
 }
 
-func target(s cfg.McpServer) string {
+func target(s coreapi.McpServer) string {
 	if s.Type == "stdio" {
 		return strings.Join(append([]string{s.Command}, s.Args...), " ")
 	}
@@ -206,7 +206,7 @@ var (
 // formProblem 是添加服务器的表单还差什么；没问题时为空。
 func formProblem(f serverForm) string {
 	switch {
-	case !cfg.ValidMcpName(strings.TrimSpace(f.name)):
+	case !validMcpName(strings.TrimSpace(f.name)):
 		return "名称只能用字母、数字、下划线和连字符"
 	case f.typ != "stdio" && !urlForm.MatchString(strings.TrimSpace(f.url)):
 		return "地址要以 http:// 或 https:// 开头"
@@ -316,9 +316,9 @@ func (p *Page) addServer() {
 				k, v, _ := strings.Cut(l, "=")
 				env[k] = v
 			}
-			err = p.opts.Client.AddStdioServer(ctx, name, strings.TrimSpace(f.command), splitArgs(f.args), env)
+			err = p.opts.Core.AddStdioMcp(ctx, coreapi.StdioMcp{Name: name, Command: strings.TrimSpace(f.command), Args: splitArgs(f.args), Env: env})
 		} else {
-			err = p.opts.Client.AddHTTPServer(ctx, name, f.typ, strings.TrimSpace(f.url), strings.TrimSpace(f.token))
+			err = p.opts.Core.AddHTTPMcp(ctx, coreapi.HTTPMcp{Name: name, Type: f.typ, URL: strings.TrimSpace(f.url), Token: strings.TrimSpace(f.token)})
 		}
 		return func() {
 			m.form.working = false
@@ -334,7 +334,7 @@ func (p *Page) addServer() {
 
 // ---------- 一个服务器 ----------
 
-func (p *Page) openMcpServer(s cfg.McpServer) {
+func (p *Page) openMcpServer(s coreapi.McpServer) {
 	m := &p.mcp
 	m.detail, m.tools, m.toolsErr = s, nil, ""
 	p.push(viewMcpServer)
@@ -348,7 +348,7 @@ func (p *Page) loadTools() {
 	s := m.detail
 	m.toolsBusy, m.toolsErr = true, ""
 	p.async(func(ctx context.Context) func() {
-		tools, err := p.opts.Client.McpTools(ctx, s)
+		tools, err := p.opts.Core.McpTools(ctx, p.opts.Cwd, s)
 		return func() {
 			m.toolsBusy = false
 			if err != nil {
@@ -357,7 +357,7 @@ func (p *Page) loadTools() {
 			}
 			m.tools = tools
 			if tools == nil {
-				m.tools = []cfg.McpTool{}
+				m.tools = []coreapi.McpTool{}
 			}
 		}
 	})
@@ -407,14 +407,14 @@ func (p *Page) mcpServerPage(c *ui.Context) {
 	p.mcpServerDialogs(c)
 }
 
-func issueOf(st *cfg.McpState) string {
+func issueOf(st *coreapi.McpState) string {
 	if st == nil {
 		return ""
 	}
 	return st.Issue
 }
 
-func authSummary(s cfg.McpServer) string {
+func authSummary(s coreapi.McpServer) string {
 	switch {
 	case s.Bearer:
 		return "Bearer Token"
@@ -467,7 +467,7 @@ func (p *Page) mcpServerDialogs(c *ui.Context) {
 			token := m.token
 			m.tokenOpen, m.token, m.working = false, "", true
 			p.async(func(ctx context.Context) func() {
-				err := p.opts.Client.SetMcpToken(ctx, s, token)
+				err := p.opts.Core.SetMcpToken(ctx, p.opts.Cwd, s, token)
 				return func() {
 					m.working = false
 					if err != nil {
@@ -486,7 +486,7 @@ func (p *Page) mcpServerDialogs(c *ui.Context) {
 	if alert(c, &m.removing, "删除服务器", "删除 "+s.Name+"？它的地址、Token 和设置都会从配置里去掉，无法撤销。", coui.Destructive, "取消", "删除") == 1 {
 		m.working = true
 		p.async(func(ctx context.Context) func() {
-			err := p.opts.Client.RemoveMcp(ctx, s)
+			err := p.opts.Core.RemoveMcp(ctx, p.opts.Cwd, s)
 			return func() {
 				m.working = false
 				if err != nil {

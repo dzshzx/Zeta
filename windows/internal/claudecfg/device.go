@@ -1,3 +1,5 @@
+// Package claudecfg 是客户端本地存的每台设备上 Claude Code 的设置：Zeta 在那台起的对话的自动压缩、压缩时机和自动标题。
+// 存在那台主机上的 Claude Code 配置（config.*）和闲置超时（system.idle）经 helper/coreapi 读写，不在这里。
 package claudecfg
 
 import (
