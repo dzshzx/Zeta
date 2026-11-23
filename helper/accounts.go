@@ -29,6 +29,8 @@ type accountsParams struct {
 	// Response 是 quota.usage 的 get_usage 应答（control_response 的 response.response），Info 是 quota.event 的 rate_limit_info。
 	Response json.RawMessage `json:"response"`
 	Info     json.RawMessage `json:"info"`
+	// Code 是 accounts.login_code 交的授权码。
+	Code string `json:"code"`
 }
 
 // codedError 是带代号的出错：核心回 ok:false 时把代号放进 reply 的 code，客户端按它认出要做什么（比如先装 claude-switch）。
@@ -55,6 +57,10 @@ func handleAccounts(ctx context.Context, e *env, method string, params json.RawM
 	if !strings.HasPrefix(method, "accounts.") {
 		return nil, errors.New("unknown method: " + method)
 	}
+	if method == "accounts.login_cancel" { // 不用 claude-switch：这台上没装它时也要能取消
+		logins.cancel()
+		return struct{}{}, nil
+	}
 	ctx, cancel := context.WithTimeout(ctx, accountsTimeout)
 	defer cancel()
 	program, err := accounts.Find(e.home, e.name, p.Program)
@@ -77,6 +83,10 @@ func handleAccounts(ctx context.Context, e *env, method string, params json.RawM
 		var name string
 		name, err = h.PrepareLogin(ctx)
 		result = map[string]string{"name": name}
+	case "accounts.login_start":
+		result, err = logins.start(ctx, e, h)
+	case "accounts.login_code":
+		result, err = logins.submit(ctx, h, p.Code)
 	case "accounts.remove":
 		err = h.Remove(ctx, p.Name)
 		result = struct{}{}

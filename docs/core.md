@@ -25,6 +25,7 @@ Zeta 的逻辑往 Go 写的核心里搬：核心是每台主机（手机的 Debi
 - 版本：每个客户端起自己那个版本的 serve（程序按内容哈希装，见 `HelperProgram`），serve 只转发；同一个包只有一个核心，版本新的接手（见「目标」）。
 - 会话列表：`sessions.watch` 订阅，先推一行整份的 `zeta_sessions`（`full` 为真），之后会话目录有变化时只推变了的几项（`helper/watch.go`）；再发一次再给一份整份的；`sessions.unwatch` 退订，同一条连接上可以接着做别的。每一项是 `{id, file, cwd, title, preview, updated, external, archived, pinned, live}`（`live`：有还活着的 Claude Code 进程登记着这个会话，Zeta 托管的、终端里的都算；为假是已结束的会话，侧栏灰着显示。进程被杀时登记文件常常留着，所以订阅每 10 秒还核对一次登记的进程在不在，变了就推）；列的是最新的 300 个会话，加上置顶了却不在这 300 个里的（排在最后），所以置顶的总在列表里。
 - 协议里的类型和客户端也要照着做的规则（导出文件名与几份导出的合成、标题怎么清理、接管的类型与状态、错误代号、任务清单的项、子代理页的状态）在 `helper/sessionproto`：只放类型、常量和纯函数，不依赖核心的其余部分，核心和 Go 写的客户端（Windows）都导入它，不各写一份。
+- Go 写的客户端调核心经 `helper/coreapi`：下面各表里的每个请求方法在那里有一个带类型的函数（参数是 Go 参数或结构体，结果解成结构体），客户端不自己拼方法名、参数和结果类型；推送不经它，客户端自己解。加方法、改名时这里的表和 `coreapi` 一起改，`TestMethodsMatchTheDocs` 核对两边一一对上。
 
 ## 对话
 
@@ -167,8 +168,11 @@ Zeta 的逻辑往 Go 写的核心里搬：核心是每台主机（手机的 Debi
 | `accounts.list` | | `result` 是 `{current, accounts, procs, blocker}`：在用的登录（未登录为 `null`，认不出是哪个号时 `name` 为空）、要列的账号（在用的在前，每项 `{name, email, organization, displayName, subscription, refreshExpiresAt, current, parked}`）、`~/.claude/sessions` 登记的还开着的 Claude Code（`{pid, owner, status, kind}`，`owner` 是托管它的 Zeta 包，按进程身上的 `ZETA_HOST` 认）、别的包或终端里的进程挡着换号时的一句说明 |
 | `accounts.switch` | `name` | 换成存着的这个号 |
 | `accounts.save` | | 在用的登录还没记过（在终端里登录了新号）时给它起个空闲的名字记下，`result` 是 `{name}` |
-| `accounts.prepare_login` | | 登录另一个号之前：起好新号的名字，把在用的号存档并退出登录，`result` 是 `{name}`；之后的登录（`claude auth login`）由客户端做，登录后的新号由 claude-switch 记成这个名字 |
+| `accounts.prepare_login` | | 登录另一个号之前：起好新号的名字，把在用的号存档并退出登录，`result` 是 `{name}`；之后的登录（`claude auth login`）由客户端做，登录后的新号由 claude-switch 记成这个名字。客户端自己不跑登录命令时用 `accounts.login_start` |
 | `accounts.remove` | `name` | 删掉一个不在用的号在这台主机上的存档与记录（服务端仍是登录状态） |
+| `accounts.login_start` | | 在这台主机上登录一个新号：先同 `accounts.prepare_login` 把在用的号存档并退出登录，再起 `claude auth login`（登录 shell 的环境），`result` 是 `{url, name}`：授权网址和登录后新号的名字（没登录过时 `name` 为空）。客户端打开网址、让用户把授权码贴回来。核心里同时只有一个登录，再开始时结束上一个；15 分钟没交成授权码就结束它 |
+| `accounts.login_code` | `code` | 把授权码交给在等的登录命令，最多等 1 分钟。成功时记下新号（同 `accounts.save`），`result` 是 `{name}`。出错时 `code` 为 `login_incomplete`：授权码不完整（少了 `#` 和后半段），登录还在等，改了再交；`no_login`：没有在等的登录（没开始、取消了、超时），要重新开始；不带 `code` 的（码没被接受、登录命令出错）登录已经结束，也要重新开始 |
+| `accounts.login_cancel` | | 结束正在进行的登录，没有时什么也不做。在用的号已经存档，换号能换回去 |
 
 额度都是 Claude Code 给的。各账号最近一次的数存在 `~/.cache/zeta-quota/`（按 `~/.claude.json` 里的登录编号分开，同一台上各个包共用），换了号读到的就是新号的。这一组只读写小文件，快。数从三条路进来，存进同一份：
 

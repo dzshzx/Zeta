@@ -131,10 +131,13 @@ func (h accountsHandler) Request(c *core.Client, r core.Request) (any, error) {
 var changesQuota = map[string]bool{
 	"quota.usage": true, "quota.event": true,
 	"accounts.switch": true, "accounts.prepare_login": true, "accounts.save": true, "accounts.remove": true,
+	"accounts.login_start": true, "accounts.login_code": true,
 }
 
 func (h accountsHandler) Gone(c *core.Client) { h.quota.gone(c) }
-func (accountsHandler) Idle() bool            { return true }
+
+// Idle：有登录在等授权码时不算闲着，核心不因闲置退出、丢下它。
+func (accountsHandler) Idle() bool { return !logins.active() }
 
 // configHandler 做 config.*：读写这台主机上 Claude Code 自己的配置（见 docs/core.md「Claude Code 配置」、config.go）。
 type configHandler struct{ store *claudecfg.Store }
