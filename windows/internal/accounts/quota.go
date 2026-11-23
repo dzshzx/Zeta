@@ -6,6 +6,7 @@ import (
 	"time"
 
 	"github.com/dzshzx/Zeta/helper/coreapi"
+	"github.com/dzshzx/Zeta/windows/internal/locales"
 )
 
 const (
@@ -30,8 +31,10 @@ type Quota struct {
 
 	snapshot   *coreapi.QuotaSnapshot
 	refreshing bool
-	err        string
-	lastAsked  time.Time
+	// err 是上一次没取到最新的数的原因；stale：取到了，但 Claude Code 这次没拿到服务器的数，显示的还是旧的。
+	err       error
+	stale     bool
+	lastAsked time.Time
 }
 
 // NewQuota 返回一台主机的额度。source 为 nil 时只读主机上存着的数；now 为 nil 时用 time.Now。
@@ -52,9 +55,6 @@ func (q *Quota) Snapshot() (s coreapi.QuotaSnapshot, ok bool) {
 
 // Refreshing 报告是不是正在取。
 func (q *Quota) Refreshing() bool { return q.refreshing }
-
-// Err 是上一次没取到最新的数的原因；取到了就清掉。
-func (q *Quota) Err() string { return q.err }
 
 // Refresh 取一次额度。数够新、force 为 false（页面打开、小控件展开）时只读主机上存着的；数旧了或点了刷新（force）时
 // 向 Claude Code 要（两次至少隔 15 秒，没有 UsageSource 时也只读存着的）。
@@ -90,7 +90,7 @@ func (q *Quota) fetch(ctx context.Context, ask bool) (snap *coreapi.QuotaSnapsho
 		snap, err = q.core.Quota(ctx)
 		return snap, true, err
 	case errors.Is(err, context.DeadlineExceeded):
-		return nil, false, errors.New("等了太久没有结果")
+		return nil, false, errTimedOut
 	case err != nil:
 		return nil, false, err
 	}
@@ -102,44 +102,47 @@ func (q *Quota) fetch(ctx context.Context, ask bool) (snap *coreapi.QuotaSnapsho
 func (q *Quota) received(snap *coreapi.QuotaSnapshot, fresh bool, err error) {
 	q.refreshing = false
 	if err != nil {
-		q.err = "没取到最新的额度：" + err.Error()
+		q.err = err
 		return
 	}
 	if snap != nil {
 		q.snapshot = snap
 	}
-	q.err = ""
-	if !fresh && snap != nil {
-		q.err = "没取到最新的额度，显示的是" + AgeText(snap.UpdatedAt, q.now()) + "的数"
-	}
+	q.err, q.stale = nil, !fresh && snap != nil
 }
 
 // switched：换了号，上一个号的数不再显示，向 Claude Code 重要一次。
 func (q *Quota) switched() {
-	q.snapshot, q.err, q.lastAsked = nil, "", time.Time{}
+	q.snapshot, q.err, q.stale, q.lastAsked = nil, nil, false, time.Time{}
 	q.Refresh(true)
 }
 
-// Footnote 是额度的一句说明：多久以前的数、有没有在刷新、上次为什么没取到。
+// errTimedOut 是向 Claude Code 要额度等太久了。
+var errTimedOut = locales.Err(locales.AccountsQuotaTimedOut)
+
+// Footnote 是额度的一句说明：多久以前的数、有没有在刷新、上次为什么没取到。按界面现在的语言出字。
 func (q *Quota) Footnote(now time.Time) string {
 	s, ok := q.Snapshot()
 	var text string
 	switch {
 	case !ok && q.refreshing:
-		text = "正在取额度"
+		text = locales.AccountsQuotaFetching()
 	case !ok:
-		text = "还没有额度数据"
+		text = locales.AccountsQuotaNoData()
 	case s.Unavailable:
-		text = "这种登录方式没有订阅额度"
+		text = locales.AccountsQuotaUnavailable()
 	case len(s.Windows) == 0:
-		text = "Claude Code 还没拿到这个账号的额度"
+		text = locales.AccountsQuotaNotYet()
 	case q.refreshing:
-		text = AgeText(s.UpdatedAt, now) + "更新，正在刷新"
+		text = locales.AccountsQuotaUpdatedRefreshing(AgeText(s.UpdatedAt, now))
 	default:
-		text = AgeText(s.UpdatedAt, now) + "更新"
+		text = locales.AccountsQuotaUpdated(AgeText(s.UpdatedAt, now))
 	}
-	if q.err != "" {
-		text += "。" + q.err
+	switch {
+	case q.err != nil:
+		text = locales.AccountsQuotaNoteProblem(text, locales.AccountsQuotaFailed(locales.ErrorText(q.err)))
+	case q.stale && ok:
+		text = locales.AccountsQuotaNoteProblem(text, locales.AccountsQuotaStale(AgeText(s.UpdatedAt, now)))
 	}
 	return text
 }

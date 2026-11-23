@@ -308,13 +308,13 @@ func (a *App) sessionDialogs(c *ui.Context) {
 	}
 	if d := &o.deleting; d.open {
 		if widget.Alert(c, &d.open, locales.SessionDeleteTitle(), locales.SessionDeleteMessage(deleteName(d.target)),
-			widget.Action{Label: locales.WidgetCancel()}, widget.Action{Label: locales.CommonDelete(), Style: widget.Destructive}) == 1 {
+			widget.Action{Label: locales.CommonCancel()}, widget.Action{Label: locales.CommonDelete(), Style: widget.Destructive}) == 1 {
 			h.Delete([]hostlink.Session{d.target}, a.deleteFailed)
 		}
 	}
 	if b := &o.batch; b.open {
 		if widget.Alert(c, &b.open, locales.SessionBatchDeleteTitle(len(b.list)), locales.SessionBatchDeleteMessage(),
-			widget.Action{Label: locales.WidgetCancel()}, widget.Action{Label: locales.CommonDelete(), Style: widget.Destructive}) == 1 {
+			widget.Action{Label: locales.CommonCancel()}, widget.Action{Label: locales.CommonDelete(), Style: widget.Destructive}) == 1 {
 			h.Delete(b.list, a.deleteFailed)
 			a.clearSelection()
 		}
@@ -325,7 +325,7 @@ func (a *App) sessionDialogs(c *ui.Context) {
 			title = locales.SessionEndTitle()
 		}
 		if widget.Alert(c, &e.open, title, endConfirmSummary(e.list, a.occupantOf(e.list[0])),
-			widget.Action{Label: locales.WidgetCancel()}, widget.Action{Label: locales.SessionEndButton(), Style: widget.Destructive}) == 1 {
+			widget.Action{Label: locales.CommonCancel()}, widget.Action{Label: locales.SessionEndButton(), Style: widget.Destructive}) == 1 {
 			h.End(e.list, a.failed(locales.SessionEndFailed()))
 		}
 	}

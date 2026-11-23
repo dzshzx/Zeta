@@ -51,7 +51,7 @@ func licenses() ([]License, error) {
 // Title 是列表里这一项的写法：模块和版本；Go 标准库写成「Go 标准库与运行时 1.27.4」。
 func (l License) Title() string {
 	if l.Module == "Go" {
-		return "Go 标准库与运行时 " + strings.TrimPrefix(l.Version, "go")
+		return locales.AboutLicenseGoStdlib(strings.TrimPrefix(l.Version, "go"))
 	}
 	return l.Module + " " + l.Version
 }

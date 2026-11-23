@@ -343,33 +343,20 @@ func TestPreviews(t *testing.T) {
 			all[name] = func(t *testing.T) *fixture { f := newChatFixture(t); setup(t, f); return f.fixture }
 		}
 	}
-	t.Cleanup(func() { i18n.SetLocaleFunc(nil) })
 	for name, setup := range all {
-		for _, run := range []struct {
-			lang string
-			dark bool
-		}{{"zh-Hans", false}, {"zh-Hans", true}, {"en", false}} {
-			i18n.SetLocaleFunc(nil)
-			f := setup(t) // 场景按源语言的文字点控件，画之前再换语言
-			lang := run.lang
-			i18n.SetLocaleFunc(func() string { return lang })
-			f.tt.SetLocale(lang)
+		for _, look := range previewLooks {
+			i18n.SetLocaleFunc(nil) // 场景按源语言的文字点控件，画之前再换语言
+			f := setup(t)
+			look.speak(t, f.tt)
 			f.tt.SetTitleBar(windowTitleBar)
-			f.tt.SetDark(run.dark)
+			f.tt.SetDark(look.dark)
 			f.tt.Advance(2 * time.Second) // 列表跟到底部的动画走完
 			f.tt.Frame()
-			suffix := "light"
-			if run.dark {
-				suffix = "dark"
-			}
-			if lang != "zh-Hans" {
-				suffix += "-" + lang
-			}
-			out, err := os.Create(filepath.Join(dir, name+"-"+suffix+".png"))
+			out, err := os.Create(filepath.Join(dir, name+"-"+look.suffix()+".png"))
 			if err != nil {
 				t.Fatal(err)
 			}
-			if err := png.Encode(out, withCaptionButtons(f.tt.Image(), run.dark)); err != nil {
+			if err := png.Encode(out, withCaptionButtons(f.tt.Image(), look.dark)); err != nil {
 				t.Fatal(err)
 			}
 			_ = out.Close()
@@ -404,4 +391,33 @@ func (f *fixture) clickMenuItem(t *testing.T, name string) {
 		}
 	}
 	t.Fatalf("菜单里没有 %q", name)
+}
+
+// previewLook 是预览图的一种样子：语言和深浅色。
+type previewLook struct {
+	lang string
+	dark bool
+}
+
+// previewLooks 是每个场景画的几种样子：浅色、深色，和浅色的英文（看译文挤不挤、截不截断）。
+var previewLooks = []previewLook{{"zh-Hans", false}, {"zh-Hans", true}, {"en", false}}
+
+// suffix 是这种样子的文件名后缀：light、dark、light-en。
+func (l previewLook) suffix() string {
+	s := "light"
+	if l.dark {
+		s = "dark"
+	}
+	if l.lang != "zh-Hans" {
+		s += "-" + l.lang
+	}
+	return s
+}
+
+// speak 把取字函数和 tt 换成这种样子的语言。场景按源语言的文字点控件（摆场景前 i18n.SetLocaleFunc(nil)），画之前再换；
+// 测试结束时换回源语言。
+func (l previewLook) speak(t *testing.T, tt *ui.Tester) {
+	t.Cleanup(func() { i18n.SetLocaleFunc(nil) })
+	i18n.SetLocaleFunc(func() string { return l.lang })
+	tt.SetLocale(l.lang)
 }

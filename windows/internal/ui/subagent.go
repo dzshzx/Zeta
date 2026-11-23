@@ -92,7 +92,7 @@ func noStepsText(s chat.Subagent, failed string) string {
 	case s.State == sessionproto.SubagentReadFailed:
 		return s.Failure
 	case s.State == sessionproto.SubagentLoading, s.State == "":
-		return locales.SubagentLoading()
+		return locales.CommonLoading()
 	}
 	return locales.SubagentNoSteps()
 }
@@ -175,7 +175,7 @@ func subagentSummary(c *ui.Context, s chat.Subagent, description, kind, model st
 func promptBlock(c *ui.Context, v *subagentView, prompt string) {
 	k := widget.Of(c)
 	long := len([]rune(prompt)) > 160 || strings.Count(prompt, "\n") > 2
-	widget.Group(c, locales.SubagentPrompt(), "", func(*widget.List) {
+	widget.Group(c, locales.CommonPrompt(), "", func(*widget.List) {
 		text := func() ui.Element {
 			return ui.Text(c, prompt).FontSize(widget.SizeBodyM).LineHeight(1.5).TextColor(k.Text).FillWidth().Padding(12, 16)
 		}

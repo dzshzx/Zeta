@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"github.com/dzshzx/Zeta/client/hostlink"
+	"github.com/egoist/mygo/i18n"
 	"github.com/egoist/mygo/ui"
 )
 
@@ -61,15 +62,19 @@ func TestChatToolPreviews(t *testing.T) {
 		t.Skip("ZETA_PREVIEW_DIR 没设，不画预览")
 	}
 	for name, setup := range chatToolScenes {
-		for _, dark := range []bool{false, true} {
+		for _, look := range previewLooks {
+			i18n.SetLocaleFunc(nil) // 场景按源语言的文字点控件，画之前再换语言
+			dark := look.dark
 			f := newChatFixture(t)
 			setup(t, f)
 			f.tt.SetTitleBar(windowTitleBar)
 			f.tt.SetDark(dark)
 			f.tt.Advance(2 * time.Second)
 			f.tt.Frame()
-			suffix := map[bool]string{false: "light", true: "dark"}[dark]
-			out, err := os.Create(filepath.Join(dir, name+"-"+suffix+".png"))
+			look.speak(t, f.tt)
+			f.tt.Frame()
+			f.tt.Frame()
+			out, err := os.Create(filepath.Join(dir, name+"-"+look.suffix()+".png"))
 			if err != nil {
 				t.Fatal(err)
 			}

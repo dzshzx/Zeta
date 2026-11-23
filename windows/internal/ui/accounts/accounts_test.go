@@ -283,7 +283,10 @@ func TestAddAccount(t *testing.T) {
 	f.page.code = "half#"
 	tt.Frame()
 	click(t, tt, "登录")
-	f.until(t, tt, "退回", func() bool { l, _ := f.page.Accounts.Login(); return l.Notice != "" && f.page.Accounts.Working() == "" })
+	f.until(t, tt, "退回", func() bool {
+		l, _ := f.page.Accounts.Login()
+		return l.Notice != nil && f.page.Accounts.Working() == ""
+	})
 	if _, ok := f.page.Accounts.Login(); !ok {
 		t.Fatal("不完整的码退回后登录该接着等")
 	}

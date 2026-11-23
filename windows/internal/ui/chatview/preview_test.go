@@ -7,6 +7,7 @@ import (
 	"testing"
 
 	"github.com/dzshzx/Zeta/windows/internal/chat/items"
+	"github.com/egoist/mygo/i18n"
 	"github.com/egoist/mygo/ui"
 )
 
@@ -58,8 +59,14 @@ func TestPreviews(t *testing.T) {
 		t.Fatal(err)
 	}
 	shot := testPNG(t, 640, 400)
+	t.Cleanup(func() { i18n.SetLocaleFunc(nil) })
 	for _, scene := range previewScenes(t) {
-		for _, dark := range []bool{false, true} {
+		for _, look := range []struct {
+			lang string
+			dark bool
+		}{{"zh-Hans", false}, {"zh-Hans", true}, {"en", false}} {
+			i18n.SetLocaleFunc(nil) // 按源语言的文字点开，画之前再换语言
+			dark := look.dark
 			ch := New()
 			ch.LoadImage = func(file, ref string) ([]byte, error) { return shot, nil }
 			ch.LoadMarkdownImage = func(string) ([]byte, error) { return shot, nil }
@@ -73,11 +80,18 @@ func TestPreviews(t *testing.T) {
 				scene.prepare(t, tt)
 				settleImages(ch, tt)
 			}
-			look := "light"
+			suffix := "light"
 			if dark {
-				look = "dark"
+				suffix = "dark"
 			}
-			writePNG(t, filepath.Join(dir, scene.name+"-"+look+".png"), tt)
+			if look.lang != "zh-Hans" {
+				lang := look.lang
+				i18n.SetLocaleFunc(func() string { return lang })
+				tt.SetLocale(lang)
+				tt.Frame()
+				suffix += "-" + lang
+			}
+			writePNG(t, filepath.Join(dir, scene.name+"-"+suffix+".png"), tt)
 		}
 	}
 }

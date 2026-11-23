@@ -414,7 +414,7 @@ func (a *App) attachProblems(c *ui.Context, p *chatPane) {
 	if at.tooLarge {
 		message += "\n\n" + locales.ComposerTooLargeAdvice() // 跟在「太大没收」的说明后面
 	}
-	widget.Alert(c, &open, locales.ComposerProblemsTitle(), message, widget.Action{Label: locales.ComposerProblemsOk(), Style: widget.Recommend})
+	widget.Alert(c, &open, locales.ComposerProblemsTitle(), message, widget.Action{Label: locales.CommonGotIt(), Style: widget.Recommend})
 	if !open {
 		at.problems, at.tooLarge = nil, false
 	}

@@ -4,6 +4,7 @@ import (
 	"strconv"
 
 	"github.com/dzshzx/Zeta/windows/internal/chat/items"
+	"github.com/dzshzx/Zeta/windows/internal/locales"
 	"github.com/dzshzx/Zeta/windows/internal/ui/widget"
 	"github.com/egoist/mygo/ui"
 	"github.com/egoist/mygo/ui/editor"
@@ -107,7 +108,7 @@ func hunkGap(c *ui.Context, sep ui.Element, s *editor.DiffSeparator, numbered bo
 	t := c.Theme()
 	text := "⋯"
 	if n := hunkStart(s.Header); numbered && n > 0 {
-		text = "⋯  第 " + strconv.Itoa(n) + " 行"
+		text = locales.ChatHunkLine(n)
 	}
 	sep.Padding(4, 8).Children(func() {
 		ui.Row(c).Grow(1).AlignSelf(ui.Stretch).AlignItems(ui.Center).Padding(0, 10).Radius(6).
@@ -169,7 +170,7 @@ func (ch *Chat) collapsedChanges(c *ui.Context, steps []items.Step, groupOpen *b
 			ui.Column(c.Key(s.ID)).FillWidth().Children(func() { ch.changeCard(c, s.ID, ch.changeView(s), true) })
 		}
 		if count > collapsedCards {
-			more := ui.Text(c, "还有 "+strconv.Itoa(count-collapsedCards)+" 处改动，展开查看").FontSize(12.5).
+			more := ui.Text(c, locales.ChatMoreChanges(count-collapsedCards)).FontSize(12.5).
 				TextColor(c.Theme().Accent).Cursor(ui.CursorPointer).Role(ui.RoleLink).Padding(4)
 			more.OnClick(func() {
 				*groupOpen = true
@@ -232,9 +233,9 @@ func changeBody(c *ui.Context, v *changeView) {
 	t := c.Theme()
 	f := v.change
 	if v.total == 0 {
-		note := "没有改动"
+		note := locales.ChatNoChanges()
 		if f.kind == createChange {
-			note = "空文件"
+			note = locales.ChatEmptyFile()
 		}
 		ui.Text(c, note).FontSize(12).TextColor(t.TextMuted).Padding(8, 10)
 	} else {
@@ -244,7 +245,7 @@ func changeBody(c *ui.Context, v *changeView) {
 		expandToggle(c, v)
 	}
 	if f.truncated {
-		ui.Text(c, "内容太长，记录里只留了前一部分，对比到截断处为止").FontSize(11).TextColor(t.TextMuted).Padding(0, 10, 7, 10)
+		ui.Text(c, locales.ChatDiffClipped()).FontSize(11).TextColor(t.TextMuted).Padding(0, 10, 7, 10)
 	}
 }
 
@@ -273,11 +274,11 @@ func changeHeader(c *ui.Context, row ui.Element, v *changeView, progress float32
 // expandToggle 是长改动底下展开、收起的一行；展开后还有太多没画的行时注明。
 func expandToggle(c *ui.Context, v *changeView) {
 	t := c.Theme()
-	text := "展开全部改动 · 共 " + strconv.Itoa(v.total) + " 行"
+	text := locales.ChatShowAllChanges(v.total)
 	if v.expanded {
-		text = "收起"
+		text = locales.ChatCollapse()
 		if hidden := v.total - v.limit(); hidden > 0 {
-			text = "收起 · 还有 " + strconv.Itoa(hidden) + " 行太长未显示"
+			text = locales.ChatCollapseHidden(hidden)
 		}
 	}
 	progress := float32(0)

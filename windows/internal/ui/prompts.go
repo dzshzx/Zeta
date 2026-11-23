@@ -90,7 +90,7 @@ func (a *App) promptCard(c *ui.Context, p *chatPane) {
 // answer 交回对请求 pr 的回应；没成时原因显示出来，卡留着可以再点。
 func (a *App) answer(p *chatPane, pr prompt.Prompt, reply prompt.Reply) {
 	p.form.sending = true
-	p.failed = ""
+	p.failed = nil
 	id := pr.RequestID
 	a.hub.RunChat(func(ctx context.Context, conv *chat.Conversation) error {
 		return conv.Answer(ctx, id, reply)
@@ -426,7 +426,7 @@ func elicitField(c *ui.Context, field prompt.Field, f *promptForm) {
 // elicit 交回对 MCP 表单、网址的回应；表单有几项不对时把原因写到各项下面，表单留着。
 func (a *App) elicit(p *chatPane, pr prompt.Prompt, action prompt.ElicitAction, values map[string][]string) {
 	p.form.sending = true
-	p.failed = ""
+	p.failed = nil
 	id := pr.RequestID
 	values = cloneValues(values)
 	for k, text := range p.form.texts {

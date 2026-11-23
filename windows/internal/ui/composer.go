@@ -65,7 +65,7 @@ func (a *App) composer(c *ui.Context, p *chatPane) {
 				a.usageButton(c, p)
 			}
 			if p.state.Busy {
-				widget.StopButton(c, locales.ComposerStop()).OnClick(func() {
+				widget.StopButton(c, locales.CommonStop()).OnClick(func() {
 					a.act(func(ctx context.Context, conv *chat.Conversation) error { return conv.Interrupt(ctx) })
 				})
 			}
@@ -163,7 +163,7 @@ func attachedFile(c *ui.Context, f *draftFile, remove func()) {
 		}
 		ui.Icon(c, icon).Size(16, 16).TextColor(color).Shrink(0)
 		ui.Text(c, f.label()).FontSize(widget.SizeBodyM).TextColor(k.Text).SingleLine().Ellipsis("…").Shrink(1).MinWidth(0)
-		widget.FlatButton(c, widget.IconClose, locales.ComposerRemove(), 28, 14).OnClick(remove)
+		widget.FlatButton(c, widget.IconClose, locales.CommonRemove(), 28, 14).OnClick(remove)
 	})
 }
 
@@ -175,7 +175,7 @@ func attachedImage(c *ui.Context, im *draftImage, remove func()) {
 		if im.thumb != nil {
 			box.Children(func() { ui.Image(c, im.thumb).Size(64, 64).Fit(ui.Cover) })
 		}
-		x := ui.ButtonBase(c).Label(locales.ComposerRemove()).Absolute().Top(3).Right(3).Size(20, 20).Radius(10).Center().Background(k.Mask).
+		x := ui.ButtonBase(c).Label(locales.CommonRemove()).Absolute().Top(3).Right(3).Size(20, 20).Radius(10).Center().Background(k.Mask).
 			Cursor(ui.CursorPointer)
 		x.Children(func() { ui.Icon(c, widget.IconClose).Size(13, 13).TextColor(ui.Hex("#FFFFFF")) })
 		x.OnClick(remove)
@@ -195,11 +195,11 @@ func (a *App) send(text string) bool {
 	m := coreapi.Message{Text: text, Images: p.att.pictures(), Files: p.att.entries()}
 	p.att.clear()
 	p.list.ScrollToEnd()
-	p.failed = ""
+	p.failed = nil
 	a.hub.RunChat(func(ctx context.Context, conv *chat.Conversation) error {
 		return conv.Send(ctx, coreapi.Outgoing{Text: m.Text, Images: m.Images, Files: m.Files})
 	}, func(err error) {
-		p.failed = locales.ChatSendFailed(err.Error())
+		p.failed = locales.Wrap(err, locales.CommonSendFailed)
 		p.putBack(m)
 	})
 	return true
@@ -293,7 +293,7 @@ func (a *App) modelMenu(c *ui.Context, p *chatPane) {
 				hint = optionName(o)
 			}
 		}
-		m.Sub(locales.ComposerMoreModels(), hint, func(m *widget.Menu) { a.modelChoices(m, older, chosen) })
+		m.Sub(locales.CommonMoreModels(), hint, func(m *widget.Menu) { a.modelChoices(m, older, chosen) })
 	})
 }
 

@@ -8,6 +8,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/egoist/mygo/i18n"
 	"github.com/egoist/mygo/ui"
 )
 
@@ -53,7 +54,9 @@ func TestMessageActionPreviews(t *testing.T) {
 		},
 	}
 	for name, setup := range scenes {
-		for _, dark := range []bool{false, true} {
+		for _, look := range previewLooks {
+			i18n.SetLocaleFunc(nil) // 场景按源语言的文字点控件，画之前再换语言
+			dark := look.dark
 			f := openedForActions(t)
 			// 右键菜单画在窗口里，预览里看得到
 			f.tt = ui.NewTester(func(c *ui.Context) { c.SetMenuPresentation(ui.PopoverMenus); f.app.View(c) }, 1280, 860)
@@ -64,11 +67,10 @@ func TestMessageActionPreviews(t *testing.T) {
 			setup(t, f)
 			f.tt.Advance(2 * time.Second)
 			f.tt.Frame()
-			suffix := "light"
-			if dark {
-				suffix = "dark"
-			}
-			out, err := os.Create(filepath.Join(dir, name+"-"+suffix+".png"))
+			look.speak(t, f.tt)
+			f.tt.Frame()
+			f.tt.Frame()
+			out, err := os.Create(filepath.Join(dir, name+"-"+look.suffix()+".png"))
 			if err != nil {
 				t.Fatal(err)
 			}

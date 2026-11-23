@@ -24,8 +24,8 @@ type Chat struct {
 	Conv *chat.Conversation
 	// Opening：正在打开（连设备、核心载入历史）。
 	Opening bool
-	// Problem 是没打开成的原因。
-	Problem string
+	// Problem 是没打开成的原因，显示时用 locales.ErrorText 说。
+	Problem error
 	// CwdProblem：新对话的工作目录在设备上进不去，起不了 Claude Code；给人看的原因。
 	CwdProblem string
 	// Handoff 是会话正在别处运行时「接管」的状态（handoff.go）。
@@ -137,7 +137,7 @@ func (h *Hub) open(c *Chat, spec chat.Spec, checkCwd bool) {
 			}
 			c.Opening, c.Conv, c.CwdProblem = false, conv, cwdProblem
 			if err != nil {
-				c.Problem = locales.HubOpenFailed(err.Error())
+				c.Problem = locales.Wrap(err, locales.HubOpenFailed)
 				h.dropDeadConn(c.Backend, conn)
 			}
 		})

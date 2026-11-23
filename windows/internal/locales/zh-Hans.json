@@ -16,9 +16,9 @@
   "@widgetClear": {
     "description": "搜索框右边清空内容的小按钮（读屏名字和悬停提示）。"
   },
-  "widgetCancel": "取消",
-  "@widgetCancel": {
-    "description": "对话框、确认框底部放弃这次操作的取消按钮。"
+  "commonCancel": "取消",
+  "@commonCancel": {
+    "description": "放弃这次操作的取消按钮（对话框、确认框、下载更新、登录等）。"
   },
   "aboutTitle": "关于",
   "@aboutTitle": {
@@ -100,13 +100,9 @@
   "@aboutUpdate": {
     "description": "新版本一行右边的按钮：下载并安装。"
   },
-  "aboutRetry": "重试",
-  "@aboutRetry": {
-    "description": "新版本下载或安装失败后的按钮。"
-  },
-  "aboutCancel": "取消",
-  "@aboutCancel": {
-    "description": "正在下载新版本时的按钮：取消下载。"
+  "commonRetry": "重试",
+  "@commonRetry": {
+    "description": "上次没做成之后再试一次的按钮。"
   },
   "aboutDownloading": "正在下载 {done} / {total}",
   "@aboutDownloading": {
@@ -510,21 +506,13 @@
       }
     }
   },
-  "claudecfgLoading": "正在读取…",
-  "@claudecfgLoading": {
-    "description": "Claude Code 配置各页还没读到内容时的一行。"
+  "commonLoading": "正在读取…",
+  "@commonLoading": {
+    "description": "还没读到内容时的一行或说明（配置各页、诊断、后台任务输出、子代理、账号）。"
   },
-  "claudecfgConnecting": "正在连接…",
-  "@claudecfgConnecting": {
-    "description": "MCP 服务器、工具权限页正在连服务器取工具清单。"
-  },
-  "claudecfgCancel": "取消",
-  "@claudecfgCancel": {
-    "description": "Claude Code 配置各页对话框的取消按钮。"
-  },
-  "claudecfgDelete": "删除",
-  "@claudecfgDelete": {
-    "description": "Claude Code 配置各页的删除按钮。"
+  "commonConnecting": "正在连接…",
+  "@commonConnecting": {
+    "description": "正在连设备或服务器（添加设备、检查连接、MCP 服务器取工具清单）。"
   },
   "claudecfgDeleteItem": "删除：{name}",
   "@claudecfgDeleteItem": {
@@ -540,9 +528,9 @@
   "@claudecfgDeleteFailed": {
     "description": "删除没成功时弹出提示的标题。"
   },
-  "claudecfgSave": "保存",
-  "@claudecfgSave": {
-    "description": "Claude Code 配置各页的保存按钮。"
+  "commonSave": "保存",
+  "@commonSave": {
+    "description": "保存的按钮（编辑框、常用指令、看大图存图片）。"
   },
   "claudecfgSaving": "保存中",
   "@claudecfgSaving": {
@@ -556,21 +544,17 @@
   "@claudecfgDiscardTitle": {
     "description": "有改动时离开编辑页的确认框标题。"
   },
-  "claudecfgRetry": "重试",
-  "@claudecfgRetry": {
-    "description": "取工具清单失败后的按钮。"
-  },
-  "claudecfgNew": "新建",
-  "@claudecfgNew": {
-    "description": "Subagent 页右上角的新建按钮。"
+  "commonNew": "新建",
+  "@commonNew": {
+    "description": "新建一条的按钮（常用指令、Claude Code 配置各页）。"
   },
   "claudecfgChangeFailed": "没有改成",
   "@claudecfgChangeFailed": {
     "description": "改设置没成功时弹出提示的标题。"
   },
-  "claudecfgSaveFailed": "没存上",
-  "@claudecfgSaveFailed": {
-    "description": "设备上的自动压缩、自动标题没存上时弹出提示的标题。"
+  "commonSaveFailed": "没存上",
+  "@commonSaveFailed": {
+    "description": "没存上时弹框的标题；正文是原因。"
   },
   "claudecfgLoadFailed": "读取失败：{error}",
   "@claudecfgLoadFailed": {
@@ -1204,9 +1188,9 @@
   "@claudecfgConflictMessage": {
     "description": "文件已经变了确认框的说明。"
   },
-  "claudecfgSaveAnyway": "仍然保存",
-  "@claudecfgSaveAnyway": {
-    "description": "文件已经变了确认框的按钮。"
+  "commonSaveAnyway": "仍然保存",
+  "@commonSaveAnyway": {
+    "description": "核对不了（连不上设备等）时问要不要照样保存的确认按钮。"
   },
   "claudecfgMemoryDeleteTitle": "删除这条记忆",
   "@claudecfgMemoryDeleteTitle": {
@@ -1392,9 +1376,9 @@
   "@claudecfgMcpTokenOptional": {
     "description": "添加 MCP 服务器对话框的占位。"
   },
-  "claudecfgMcpAddButton": "添加",
-  "@claudecfgMcpAddButton": {
-    "description": "添加 MCP 服务器对话框的确认按钮。"
+  "commonAdd": "添加",
+  "@commonAdd": {
+    "description": "添加的按钮（添加设备、MCP 服务器、账号）。"
   },
   "claudecfgMcpAdding": "正在添加…",
   "@claudecfgMcpAdding": {
@@ -1688,9 +1672,9 @@
       }
     }
   },
-  "claudecfgPermEdit": "编辑",
-  "@claudecfgPermEdit": {
-    "description": "一条规则右边的按钮。"
+  "commonEdit": "编辑",
+  "@commonEdit": {
+    "description": "编辑的按钮或菜单项（消息、常用指令、规则、记忆文件）。"
   },
   "claudecfgPermEditRule": "编辑：{rule}",
   "@claudecfgPermEditRule": {
@@ -1936,17 +1920,17 @@
       }
     }
   },
-  "claudecfgClose": "关闭",
-  "@claudecfgClose": {
-    "description": "看 Skill 说明的弹框的按钮。"
+  "commonClose": "关闭",
+  "@commonClose": {
+    "description": "关掉对话框、编辑页的按钮。"
   },
   "claudecfgModelsPending": "正在向这台设备上的 Claude Code 要模型清单，先列出常用的几个。",
   "@claudecfgModelsPending": {
     "description": "新对话默认一组下面的说明：模型清单还没要到。"
   },
-  "claudecfgMoreModels": "更多模型",
-  "@claudecfgMoreModels": {
-    "description": "默认模型下拉最后一项：点开是旧版本模型的二级菜单。"
+  "commonMoreModels": "更多模型",
+  "@commonMoreModels": {
+    "description": "模型菜单最后一项：点开是收着旧版本模型的子菜单。"
   },
   "claudecfgDocumentMode": "预览或编辑",
   "@claudecfgDocumentMode": {
@@ -1955,10 +1939,6 @@
   "claudecfgDocumentPreview": "预览",
   "@claudecfgDocumentPreview": {
     "description": "记忆文件编辑页的切换：看排好的样子。"
-  },
-  "claudecfgDocumentEdit": "编辑",
-  "@claudecfgDocumentEdit": {
-    "description": "记忆文件编辑页的切换：改正文。"
   },
   "claudecfgDocumentEmpty": "还没有内容",
   "@claudecfgDocumentEmpty": {
@@ -2014,7 +1994,7 @@
   },
   "commonDelete": "删除",
   "@commonDelete": {
-    "description": "删除东西的按钮或菜单项（确认框的确认按钮、行上的菜单）。"
+    "description": "删除东西的按钮或菜单项（确认框的确认按钮、行上的菜单、Claude Code 配置各页）。"
   },
   "commonOk": "确定",
   "@commonOk": {
@@ -2032,9 +2012,9 @@
   "@composerMessage": {
     "description": "输入框的读屏名字。"
   },
-  "composerStop": "停止",
-  "@composerStop": {
-    "description": "输入栏右下角停止回答的按钮（读屏名字和悬停提示）。"
+  "commonStop": "停止",
+  "@commonStop": {
+    "description": "停止的按钮：输入栏右下角停止回答（读屏名字和悬停提示）、停止后台任务确认框的确认按钮。"
   },
   "composerSend": "发送",
   "@composerSend": {
@@ -2064,9 +2044,9 @@
   "@composerSavedPrompts": {
     "description": "附件菜单的一项：打开存好的常用提问。"
   },
-  "composerRemove": "移除",
-  "@composerRemove": {
-    "description": "输入栏里待发附件上的叉（读屏名字和悬停提示）。"
+  "commonRemove": "移除",
+  "@commonRemove": {
+    "description": "移除的按钮（待发附件上的叉、账号）。"
   },
   "composerImageAttachment": "图片附件",
   "@composerImageAttachment": {
@@ -2092,10 +2072,6 @@
         "type": "String"
       }
     }
-  },
-  "composerMoreModels": "更多模型",
-  "@composerMoreModels": {
-    "description": "模型菜单里收着旧版本的子菜单。"
   },
   "composerEffortDefault": "思考：默认",
   "@composerEffortDefault": {
@@ -2283,9 +2259,9 @@
       }
     }
   },
-  "chatSendFailed": "没发出去：{error}",
-  "@chatSendFailed": {
-    "description": "输入栏上方的出错说明：消息或建议没发出去，后面是原因。",
+  "commonSendFailed": "没发出去：{error}",
+  "@commonSendFailed": {
+    "description": "消息没发出去的出错说明，后面是原因（输入栏上方、编辑消息后发送）。",
     "placeholders": {
       "error": {
         "type": "String"
@@ -2692,9 +2668,9 @@
   "@composerProblemsTitle": {
     "description": "附件没加进来时弹框的标题。"
   },
-  "composerProblemsOk": "好",
-  "@composerProblemsOk": {
-    "description": "附件没加进来弹框的按钮。"
+  "commonGotIt": "好",
+  "@commonGotIt": {
+    "description": "只说一声的提示框里唯一的按钮（附件没加进来、没存上、没有可还原的改动等）。"
   },
   "composerPastedImageName": "粘贴的图片-{time}.png",
   "@composerPastedImageName": {
@@ -2732,13 +2708,13 @@
   "@sidebarAllHosts": {
     "description": "侧栏设备菜单里列出全部设备的那一项，也是选中它时胶囊上的字。"
   },
-  "sidebarNewChat": "新对话",
-  "@sidebarNewChat": {
-    "description": "侧栏顶上开新对话的一项。"
+  "commonNewChat": "新对话",
+  "@commonNewChat": {
+    "description": "开新对话：侧栏顶上的一项、快捷键一览里的一行。"
   },
-  "sidebarSettings": "设置",
-  "@sidebarSettings": {
-    "description": "侧栏底部进设置的一项。"
+  "commonSettings": "设置",
+  "@commonSettings": {
+    "description": "打开设置：侧栏底部的一项、快捷键一览里的一行。"
   },
   "sidebarCollapse": "收起侧栏 (Ctrl+B)",
   "@sidebarCollapse": {
@@ -3248,9 +3224,9 @@
   "@tasksCommand": {
     "description": "任务详情页里后台命令一块的标题。"
   },
-  "tasksPrompt": "交给它的指令",
-  "@tasksPrompt": {
-    "description": "子代理详情页里交给子代理的指令一块的标题。"
+  "commonPrompt": "交给它的指令",
+  "@commonPrompt": {
+    "description": "子代理页、后台任务详情里交给子代理的指令一块的标题。"
   },
   "tasksResult": "结果",
   "@tasksResult": {
@@ -3314,10 +3290,6 @@
   "@tasksStopTitle": {
     "description": "停止后台任务前确认框的标题。"
   },
-  "tasksStopButton": "停止",
-  "@tasksStopButton": {
-    "description": "停止后台任务确认框的确认按钮。"
-  },
   "tasksOutput": "输出",
   "@tasksOutput": {
     "description": "后台命令、监视器详情页里输出一块的标题。"
@@ -3335,10 +3307,6 @@
   "tasksOutputGone": "进程已经结束，读不到输出了",
   "@tasksOutputGone": {
     "description": "输出一块的内容：对话的进程已结束。"
-  },
-  "tasksOutputLoading": "正在读取…",
-  "@tasksOutputLoading": {
-    "description": "输出一块的内容：还没读到。"
   },
   "tasksOutputEmpty": "（还没有输出）",
   "@tasksOutputEmpty": {
@@ -3630,10 +3598,6 @@
   "@settingsTheme": {
     "description": "设置「常规」外观里的一行：浅色、深色或跟随系统（也是下拉的读屏名字）。"
   },
-  "settingsSaveFailed": "没存上",
-  "@settingsSaveFailed": {
-    "description": "改设置、存设备时写设置文件失败，弹框的标题；正文是原因。"
-  },
   "settingsUpdateView": "查看",
   "@settingsUpdateView": {
     "description": "窗口底部「有新版本」提示条上的按钮：进关于页。"
@@ -3666,17 +3630,9 @@
   "@shortcutsTitle": {
     "description": "设置「常规」里快捷键一组的标题。"
   },
-  "shortcutNewChat": "新对话",
-  "@shortcutNewChat": {
-    "description": "快捷键一览：开新对话。"
-  },
   "shortcutSearch": "搜索对话",
   "@shortcutSearch": {
     "description": "快捷键一览：焦点放进侧栏的搜索框。"
-  },
-  "shortcutSettings": "设置",
-  "@shortcutSettings": {
-    "description": "快捷键一览：打开设置。"
   },
   "shortcutToggleSidebar": "收起、展开侧栏",
   "@shortcutToggleSidebar": {
@@ -3738,10 +3694,6 @@
   "@appSaveImage": {
     "description": "看大图时保存图片的系统保存对话框的标题。"
   },
-  "appNoticeOk": "好",
-  "@appNoticeOk": {
-    "description": "说一声结果的提示框（没存上、已添加设备等）唯一的按钮。"
-  },
   "devicesFooter": "使用本机的 SSH 配置和密钥连接。设备需运行 Linux（arm64 或 x86-64）并已安装 Claude Code；对话在设备上运行，关闭 Zeta 不会中断。",
   "@devicesFooter": {
     "description": "添加设备一组下面的说明，也在还没有设备时的首页上。"
@@ -3783,14 +3735,6 @@
   "devicesConfigEmpty": "SSH 配置中没有可添加的设备",
   "@devicesConfigEmpty": {
     "description": "从 SSH 配置导入一组里：没有还没加过的主机。"
-  },
-  "devicesConnecting": "正在连接…",
-  "@devicesConnecting": {
-    "description": "添加设备、改私钥、检查连接时正在连那台设备。"
-  },
-  "devicesAdd": "添加",
-  "@devicesAdd": {
-    "description": "添加设备页一行右边的按钮：先连一次，连上了就加上。"
   },
   "devicesManual": "手动添加",
   "@devicesManual": {
@@ -4065,10 +4009,6 @@
         "example": "网络不通"
       }
     }
-  },
-  "deviceSaveAnyway": "仍然保存",
-  "@deviceSaveAnyway": {
-    "description": "无法核对这个目录的确认框里确认的按钮。"
   },
   "pathDialogTitle": "引用「{device}」上的路径",
   "@pathDialogTitle": {
@@ -4430,10 +4370,6 @@
   "@messageSaveAsPrompt": {
     "description": "自己发的消息的右键菜单项。"
   },
-  "messageEdit": "编辑",
-  "@messageEdit": {
-    "description": "自己发的消息的右键菜单项：改写这条再发。"
-  },
   "messageRestoreCode": "还原代码",
   "@messageRestoreCode": {
     "description": "自己发的消息的右键菜单项：把文件改回这条消息之前的样子。"
@@ -4476,16 +4412,6 @@
   "@messageWaitRound": {
     "description": "编辑消息后发送时的提示：这一轮还没结束。"
   },
-  "messageSendFailed": "没发出去：{error}",
-  "@messageSendFailed": {
-    "description": "编辑消息后发送失败的提示。",
-    "placeholders": {
-      "error": {
-        "type": "String",
-        "example": "连接断了"
-      }
-    }
-  },
   "messageEditing": "编辑消息",
   "@messageEditing": {
     "description": "编辑消息时输入栏上方提示条的标题。"
@@ -4513,10 +4439,6 @@
   "messageAlsoRestoreCode": "同时还原代码",
   "@messageAlsoRestoreCode": {
     "description": "重新生成、删除一轮的确认框的勾选项。"
-  },
-  "messageOk": "好",
-  "@messageOk": {
-    "description": "还原代码确认框：没有可还原的改动时唯一的按钮。"
   },
   "messageFilesChanged": "这条消息之后改过 {count} 个文件（+{insertions} −{deletions}）。",
   "@messageFilesChanged": {
@@ -4786,10 +4708,6 @@
   "@subagentMissing": {
     "description": "子代理页没有步骤时的说明。"
   },
-  "subagentLoading": "正在读取…",
-  "@subagentLoading": {
-    "description": "子代理页没有步骤时的说明：正在读。"
-  },
   "subagentNoSteps": "还没有步骤",
   "@subagentNoSteps": {
     "description": "子代理页没有步骤时的说明。"
@@ -4842,10 +4760,6 @@
       }
     }
   },
-  "subagentPrompt": "交给它的指令",
-  "@subagentPrompt": {
-    "description": "子代理页的一组标题：交给子代理的指令。"
-  },
   "subagentExpandPrompt": "展开指令",
   "@subagentExpandPrompt": {
     "description": "子代理页指令折叠时的读屏名字。"
@@ -4866,21 +4780,9 @@
   "@savedPromptsEmpty": {
     "description": "常用指令列表对话框：还没有时的说明。"
   },
-  "savedPromptsClose": "关闭",
-  "@savedPromptsClose": {
-    "description": "常用指令列表对话框的关闭按钮。"
-  },
-  "savedPromptsNew": "新建",
-  "@savedPromptsNew": {
-    "description": "常用指令列表对话框的按钮：新建一条。"
-  },
   "savedPromptsMore": "更多操作",
   "@savedPromptsMore": {
     "description": "常用指令每一行右边菜单按钮的读屏名字和悬停提示。"
-  },
-  "savedPromptsEdit": "编辑",
-  "@savedPromptsEdit": {
-    "description": "常用指令行菜单项。"
   },
   "savedPromptsMoveUp": "上移",
   "@savedPromptsMoveUp": {
@@ -4909,10 +4811,6 @@
   "savedPromptsText": "内容",
   "@savedPromptsText": {
     "description": "常用指令对话框里内容输入框的占位和读屏名字。"
-  },
-  "savedPromptsSave": "保存",
-  "@savedPromptsSave": {
-    "description": "常用指令对话框的保存按钮。"
   },
   "savedPromptsDeleteTitle": "删除这条常用指令？",
   "@savedPromptsDeleteTitle": {
@@ -4992,13 +4890,13 @@
   "@diagTitle": {
     "description": "设置「诊断」页顶栏的标题。"
   },
-  "diagRefresh": "刷新",
-  "@diagRefresh": {
-    "description": "诊断页顶栏、点开的日志文件顶栏的按钮：重新读一遍。"
+  "commonRefresh": "刷新",
+  "@commonRefresh": {
+    "description": "重新读一遍的按钮（诊断页、日志、额度）。"
   },
-  "diagCopy": "复制",
-  "@diagCopy": {
-    "description": "点开的日志文件顶栏的按钮：把显示的内容复制到剪贴板。"
+  "commonCopy": "复制",
+  "@commonCopy": {
+    "description": "复制到剪贴板的按钮或菜单项。"
   },
   "diagNoDevices": "还没有设备。添加设备后，这里能看那台上 Claude Code 的日志。",
   "@diagNoDevices": {
@@ -5025,10 +4923,6 @@
   "diagConnectionOff": "这台设备的「连接」关着，打开连接后才能看。",
   "@diagConnectionOff": {
     "description": "诊断页里设备的「连接」开关关着时，那台设备一组里的提示。"
-  },
-  "diagLoading": "正在读取…",
-  "@diagLoading": {
-    "description": "诊断页里正在读设备上的日志清单、日志文件。"
   },
   "diagDeviceLogsFailed": "读不到这台设备上的日志",
   "@diagDeviceLogsFailed": {
@@ -5393,5 +5287,789 @@
   "diagEnvOff": "关",
   "@diagEnvOff": {
     "description": "设备一行里「连接」开关的状态：关着。"
+  },
+  "chatHunkLine": "⋯  第 {line} 行",
+  "@chatHunkLine": {
+    "description": "改动对比里每段前面的分隔条：这一段从文件的第几行起。",
+    "placeholders": {
+      "line": {
+        "type": "int"
+      }
+    }
+  },
+  "chatMoreChanges": "还有 {count} 处改动，展开查看",
+  "@chatMoreChanges": {
+    "description": "一轮里改了很多文件、改动卡片收着一部分时，底下点开看其余的一行。",
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "chatNoChanges": "没有改动",
+  "@chatNoChanges": {
+    "description": "改动卡片里：这次改文件前后内容一样。"
+  },
+  "chatEmptyFile": "空文件",
+  "@chatEmptyFile": {
+    "description": "改动卡片里：新建的文件没有内容。"
+  },
+  "chatDiffClipped": "内容太长，记录里只留了前一部分，对比到截断处为止",
+  "@chatDiffClipped": {
+    "description": "改动卡片底下：会话记录里改文件的参数被截断了。"
+  },
+  "chatShowAllChanges": "展开全部改动 · 共 {lines} 行",
+  "@chatShowAllChanges": {
+    "description": "长的改动卡片底下展开全部的一行。",
+    "placeholders": {
+      "lines": {
+        "type": "int"
+      }
+    }
+  },
+  "chatCollapse": "收起",
+  "@chatCollapse": {
+    "description": "展开了的长改动底下收起的一行。"
+  },
+  "chatCollapseHidden": "收起 · 还有 {lines} 行太长未显示",
+  "@chatCollapseHidden": {
+    "description": "展开了的长改动底下收起的一行：还有太多行没画出来。",
+    "placeholders": {
+      "lines": {
+        "type": "int"
+      }
+    }
+  },
+  "chatNewFile": "新文件",
+  "@chatNewFile": {
+    "description": "改动卡片文件名后面的改动方式：新建的文件。"
+  },
+  "chatRewritten": "整份重写",
+  "@chatRewritten": {
+    "description": "改动卡片文件名后面的改动方式：整个文件重新写过。"
+  },
+  "chatReplaceAll": "全部替换",
+  "@chatReplaceAll": {
+    "description": "改动卡片文件名后面的改动方式：替换了所有出现的地方。"
+  },
+  "chatContent": "对话内容",
+  "@chatContent": {
+    "description": "聊天列表的读屏名字。"
+  },
+  "chatLoadingEarlier": "正在载入更早的记录",
+  "@chatLoadingEarlier": {
+    "description": "聊天列表顶上：正在载入更早的记录。"
+  },
+  "chatTapToRetry": "{message}，点按重试",
+  "@chatTapToRetry": {
+    "description": "聊天列表顶上没读到更早的记录时：原因后面说点一下重试。",
+    "placeholders": {
+      "message": {
+        "type": "String"
+      }
+    }
+  },
+  "chatLoadEarlier": "载入更早的 {count} 条记录",
+  "@chatLoadEarlier": {
+    "description": "聊天列表顶上：还有多少条更早的记录没载入，点了载入。",
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "chatImage": "图片",
+  "@chatImage": {
+    "description": "聊天里一张图的读屏名字。"
+  },
+  "chatImageUnavailable": "图片无法显示",
+  "@chatImageUnavailable": {
+    "description": "聊天里、看大图里一张图没取到或解不开。"
+  },
+  "chatImageUnavailableWhy": "图片无法显示：{error}",
+  "@chatImageUnavailableWhy": {
+    "description": "图片没显示出来时的悬停提示，后面是原因。",
+    "placeholders": {
+      "error": {
+        "type": "String"
+      }
+    }
+  },
+  "chatImageLoading": "正在载入图片",
+  "@chatImageLoading": {
+    "description": "一张图还在取的时候（读屏名字）。"
+  },
+  "chatLoadImage": "加载图片 · {host}",
+  "@chatLoadImage": {
+    "description": "回答里的网络图，点了才去那个网站取。",
+    "placeholders": {
+      "host": {
+        "type": "String"
+      }
+    }
+  },
+  "chatCode": "代码",
+  "@chatCode": {
+    "description": "回答里代码块的读屏名字。"
+  },
+  "chatCopyCode": "复制代码",
+  "@chatCopyCode": {
+    "description": "代码块顶栏右边的复制按钮（读屏名字和悬停提示）。"
+  },
+  "chatFromSession": "来自会话 {peer}",
+  "@chatFromSession": {
+    "description": "别的会话发来的消息卡片顶上一行。",
+    "placeholders": {
+      "peer": {
+        "type": "String"
+      }
+    }
+  },
+  "chatToggleFullText": "展开、收起全文",
+  "@chatToggleFullText": {
+    "description": "别的会话发来的长消息，顶上一行点了展开、收起（读屏说明）。"
+  },
+  "chatToolRunCommand": "执行命令",
+  "@chatToolRunCommand": {
+    "description": "工具步骤的标题：Bash 没有说明、命令也是空的。"
+  },
+  "chatToolRead": "读取 {name}",
+  "@chatToolRead": {
+    "description": "工具步骤的标题：读文件，后面是文件名。",
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "chatToolWrite": "写入 {name}",
+  "@chatToolWrite": {
+    "description": "工具步骤的标题：写文件，后面是文件名。",
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "chatToolEdit": "编辑 {name}",
+  "@chatToolEdit": {
+    "description": "工具步骤的标题：改文件，后面是文件名。",
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "chatToolGrep": "搜索 {pattern}",
+  "@chatToolGrep": {
+    "description": "工具步骤的标题：在文件内容里搜，后面是搜的内容。",
+    "placeholders": {
+      "pattern": {
+        "type": "String"
+      }
+    }
+  },
+  "chatToolGlob": "查找文件 {pattern}",
+  "@chatToolGlob": {
+    "description": "工具步骤的标题：按文件名找，后面是匹配的写法。",
+    "placeholders": {
+      "pattern": {
+        "type": "String"
+      }
+    }
+  },
+  "chatToolWebSearch": "搜索网页：{query}",
+  "@chatToolWebSearch": {
+    "description": "工具步骤的标题：网页搜索，后面是搜的词。",
+    "placeholders": {
+      "query": {
+        "type": "String"
+      }
+    }
+  },
+  "chatToolWebFetch": "读取网页 {host}",
+  "@chatToolWebFetch": {
+    "description": "工具步骤的标题：读一个网页，后面是网站。",
+    "placeholders": {
+      "host": {
+        "type": "String"
+      }
+    }
+  },
+  "chatToolAgent": "子代理：{task}",
+  "@chatToolAgent": {
+    "description": "工具步骤的标题：起子代理，后面是它的任务。",
+    "placeholders": {
+      "task": {
+        "type": "String"
+      }
+    }
+  },
+  "chatToolAsk": "向你提问",
+  "@chatToolAsk": {
+    "description": "工具步骤的标题：Claude 向你提问。"
+  },
+  "chatToolPlan": "提交计划",
+  "@chatToolPlan": {
+    "description": "工具步骤的标题：Claude 交上计划等你批准。"
+  },
+  "chatToolSkill": "技能 {name}",
+  "@chatToolSkill": {
+    "description": "工具步骤的标题：用一个技能，后面是技能名。",
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "chatToolPhoneShell": "手机 · 命令行",
+  "@chatToolPhoneShell": {
+    "description": "工具步骤的标题：手机上起的对话里在手机上跑命令。"
+  },
+  "chatToolPhone": "手机 · {tool}",
+  "@chatToolPhone": {
+    "description": "工具步骤的标题：手机上起的对话里的手机工具，后面是工具名。",
+    "placeholders": {
+      "tool": {
+        "type": "String"
+      }
+    }
+  },
+  "chatToolGeneric": "工具",
+  "@chatToolGeneric": {
+    "description": "工具步骤的标题：没有工具名时。"
+  },
+  "chatTodoCreate": "新建任务：{subject}",
+  "@chatTodoCreate": {
+    "description": "工具步骤的标题：任务清单里加一项。",
+    "placeholders": {
+      "subject": {
+        "type": "String"
+      }
+    }
+  },
+  "chatTodoStart": "开始任务 #{id}",
+  "@chatTodoStart": {
+    "description": "工具步骤的标题：任务清单里一项开始做。",
+    "placeholders": {
+      "id": {
+        "type": "String"
+      }
+    }
+  },
+  "chatTodoComplete": "完成任务 #{id}",
+  "@chatTodoComplete": {
+    "description": "工具步骤的标题：任务清单里一项做完。",
+    "placeholders": {
+      "id": {
+        "type": "String"
+      }
+    }
+  },
+  "chatTodoDelete": "删掉任务 #{id}",
+  "@chatTodoDelete": {
+    "description": "工具步骤的标题：任务清单里删掉一项。",
+    "placeholders": {
+      "id": {
+        "type": "String"
+      }
+    }
+  },
+  "chatTodoUpdate": "更新任务 #{id}",
+  "@chatTodoUpdate": {
+    "description": "工具步骤的标题：改任务清单里的一项。",
+    "placeholders": {
+      "id": {
+        "type": "String"
+      }
+    }
+  },
+  "chatTodoList": "查看任务清单",
+  "@chatTodoList": {
+    "description": "工具步骤的标题：读整个任务清单。"
+  },
+  "chatTodoGet": "查看任务 #{id}",
+  "@chatTodoGet": {
+    "description": "工具步骤的标题：读任务清单里的一项。",
+    "placeholders": {
+      "id": {
+        "type": "String"
+      }
+    }
+  },
+  "chatTodoWrite": "更新任务清单",
+  "@chatTodoWrite": {
+    "description": "工具步骤的标题：整份写任务清单。"
+  },
+  "chatTodoWriteCount": "更新任务清单（{count} 项）",
+  "@chatTodoWriteCount": {
+    "description": "工具步骤的标题：整份写任务清单，写了几项。",
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "chatViewer": "看大图",
+  "@chatViewer": {
+    "description": "看大图的读屏名字。"
+  },
+  "chatPreviousImage": "上一张",
+  "@chatPreviousImage": {
+    "description": "看大图左边的翻页键。"
+  },
+  "chatNextImage": "下一张",
+  "@chatNextImage": {
+    "description": "看大图右边的翻页键。"
+  },
+  "chatImageSaveFailed": "保存失败：{error}",
+  "@chatImageSaveFailed": {
+    "description": "看大图底下：图片没存上，后面是原因。",
+    "placeholders": {
+      "error": {
+        "type": "String"
+      }
+    }
+  },
+  "chatImageSaved": "已保存到 {path}",
+  "@chatImageSaved": {
+    "description": "看大图底下：图片存好了，后面是存到哪。",
+    "placeholders": {
+      "path": {
+        "type": "String"
+      }
+    }
+  },
+  "chatImageCopyFailed": "复制失败：{error}",
+  "@chatImageCopyFailed": {
+    "description": "看大图底下：图片没复制上，后面是原因。",
+    "placeholders": {
+      "error": {
+        "type": "String"
+      }
+    }
+  },
+  "chatImageCopied": "已复制图片",
+  "@chatImageCopied": {
+    "description": "看大图底下：图片已放上剪贴板。"
+  },
+  "chatZoomActual": "原大",
+  "@chatZoomActual": {
+    "description": "看大图里图的缩放（读屏说明）：原大。"
+  },
+  "chatZoomPercent": "放大到 {percent}%",
+  "@chatZoomPercent": {
+    "description": "看大图里图的缩放（读屏说明）：百分比。",
+    "placeholders": {
+      "percent": {
+        "type": "int"
+      }
+    }
+  },
+  "chatWorkRunningStep": "正在处理第 {step} 步 · {title}",
+  "@chatWorkRunningStep": {
+    "description": "工作组标题：正在跑第几步，后面是那一步的标题。",
+    "placeholders": {
+      "step": {
+        "type": "int"
+      },
+      "title": {
+        "type": "String"
+      }
+    }
+  },
+  "chatThinking": "正在思考",
+  "@chatThinking": {
+    "description": "工作组标题、思考步骤的标题：还在思考。"
+  },
+  "chatStepsDone": "已完成 {count} 个步骤",
+  "@chatStepsDone": {
+    "description": "工作组标题：做完了几步工具调用。",
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "chatThinkingDone": "思考已完成",
+  "@chatThinkingDone": {
+    "description": "工作组标题、思考步骤的标题：想完了。"
+  },
+  "chatThinkingDoneIn": "思考已完成 · 用时 {seconds} 秒",
+  "@chatThinkingDoneIn": {
+    "description": "思考步骤的标题：想完了，用了多久。",
+    "placeholders": {
+      "seconds": {
+        "type": "int"
+      }
+    }
+  },
+  "chatViewSubagentSteps": "查看子代理的步骤",
+  "@chatViewSubagentSteps": {
+    "description": "起子代理的步骤：点了打开子代理页（读屏说明）。"
+  },
+  "chatStepDone": "已完成",
+  "@chatStepDone": {
+    "description": "工具步骤标题行末尾的结果：成功。"
+  },
+  "chatStepFailed": "失败",
+  "@chatStepFailed": {
+    "description": "工具步骤标题行末尾的结果：出错。"
+  },
+  "accountsSwitchTitle": "切换到 {name}？",
+  "@accountsSwitchTitle": {
+    "description": "账号页：问要不要切换到这个账号的确认框标题。",
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "accountsSwitchMessage": "会先关掉这台设备上闲着的对话进程，对话内容不丢。之后这台上的新对话、额度和终端里的 claude 都用这个账号。",
+  "@accountsSwitchMessage": {
+    "description": "账号页：切换账号确认框的说明。"
+  },
+  "accountsSwitch": "切换",
+  "@accountsSwitch": {
+    "description": "账号页：一个账号右边的切换按钮，和切换确认框的确认按钮。"
+  },
+  "accountsRemoveTitle": "移除 {name}？",
+  "@accountsRemoveTitle": {
+    "description": "账号页：问要不要移除这个账号的确认框标题。",
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "accountsRemoveMessage": "只删这台设备上存着的这份登录，服务器上的登录还在。以后要用得重新登录。",
+  "@accountsRemoveMessage": {
+    "description": "账号页：移除账号确认框的说明。"
+  },
+  "accountsQuotaTitle": "订阅额度",
+  "@accountsQuotaTitle": {
+    "description": "账号页第一组、聊天页用量弹出框里额度明细的标题。"
+  },
+  "accountsRefreshing": "正在刷新",
+  "@accountsRefreshing": {
+    "description": "额度的刷新按钮正在取额度时。"
+  },
+  "accountsTitle": "账号",
+  "@accountsTitle": {
+    "description": "账号页第二组的标题。"
+  },
+  "accountsFooter": "这台设备上两个 Zeta 和终端里的 claude 共用一份登录，有对话在进行或别处开着 Claude Code 时不能切换。添加账号时在用的号先存起来，之后能切换回去。",
+  "@accountsFooter": {
+    "description": "账号页「账号」一组底下的说明。"
+  },
+  "accountsNotSignedIn": "还没有登录",
+  "@accountsNotSignedIn": {
+    "description": "账号页：这台设备上还没有登录任何账号。"
+  },
+  "accountsAdd": "添加账号",
+  "@accountsAdd": {
+    "description": "账号页「账号」一组最后一行：登录一个新账号。"
+  },
+  "accountsCurrent": "当前",
+  "@accountsCurrent": {
+    "description": "账号页：在用的账号右边写的。"
+  },
+  "accountsSave": "记下",
+  "@accountsSave": {
+    "description": "账号页：在用的登录还没记下名字时右边的按钮，记下后就能在这里切换。"
+  },
+  "accountsExpired": "登录已过期",
+  "@accountsExpired": {
+    "description": "账号页一行的说明：这个账号的登录过期了。"
+  },
+  "accountsUnnamed": "还没记下名字",
+  "@accountsUnnamed": {
+    "description": "账号页一行的说明：在用的登录还没记下名字。"
+  },
+  "accountsBlocked": "已达上限，暂时发不出请求",
+  "@accountsBlocked": {
+    "description": "额度明细最上面：额度用完了。"
+  },
+  "accountsBlockedUntil": "已达上限，暂时发不出请求，{reset}",
+  "@accountsBlockedUntil": {
+    "description": "额度明细最上面：额度用完了，后面是什么时候重置。",
+    "placeholders": {
+      "reset": {
+        "type": "String"
+      }
+    }
+  },
+  "accountsExtraOn": "已开启",
+  "@accountsExtraOn": {
+    "description": "额度明细的额外用量一行：开着，但不知道金额。"
+  },
+  "accountsExtraUsage": "额外用量（本月）",
+  "@accountsExtraUsage": {
+    "description": "额度明细的最后一行：超出订阅额度后按量付费的用量。"
+  },
+  "accountsLoginTitle": "登录新账号",
+  "@accountsLoginTitle": {
+    "description": "账号页：添加账号进行中的一组标题。"
+  },
+  "accountsLoginFooter": "在浏览器里打开授权网页，登录要添加的 Claude 账号，再把网页给的授权码贴到这里。",
+  "@accountsLoginFooter": {
+    "description": "账号页：添加账号进行中的一组底下的说明。"
+  },
+  "accountsOpenAuthPage": "打开授权网页",
+  "@accountsOpenAuthPage": {
+    "description": "账号页添加账号：在浏览器里打开授权网页的按钮。"
+  },
+  "accountsCopyUrl": "复制网址",
+  "@accountsCopyUrl": {
+    "description": "账号页添加账号：把授权网址复制到剪贴板，到别处打开。"
+  },
+  "accountsCode": "授权码",
+  "@accountsCode": {
+    "description": "账号页添加账号：贴授权码的输入框（占位字和读屏名字）。"
+  },
+  "accountsSignIn": "登录",
+  "@accountsSignIn": {
+    "description": "账号页添加账号：交上授权码的按钮。"
+  },
+  "accountsOwnBusy": "这里还有对话在进行",
+  "@accountsOwnBusy": {
+    "description": "账号页的出错：本窗口在这台设备上还有对话在进行，不能动登录状态。"
+  },
+  "accountsInstallFailed": "装不上 claude-switch：{error}",
+  "@accountsInstallFailed": {
+    "description": "账号页的出错：往设备上装换号程序没成，后面是原因。",
+    "placeholders": {
+      "error": {
+        "type": "String"
+      }
+    }
+  },
+  "accountsReadFailed": "读不了账号：{error}",
+  "@accountsReadFailed": {
+    "description": "账号页的出错：没读到这台设备上的账号，后面是原因。",
+    "placeholders": {
+      "error": {
+        "type": "String"
+      }
+    }
+  },
+  "accountsSwitching": "正在切换到 {name}",
+  "@accountsSwitching": {
+    "description": "账号页：正在换成这个账号。",
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "accountsSaving": "正在记下",
+  "@accountsSaving": {
+    "description": "账号页：正在记下在用的登录。"
+  },
+  "accountsBusy": "上一件事还没做完",
+  "@accountsBusy": {
+    "description": "账号页的出错：上一次切换、记下、移除还在做。"
+  },
+  "accountsRemoving": "正在移除 {name}",
+  "@accountsRemoving": {
+    "description": "账号页：正在移除这个账号。",
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "accountsRemoveFailed": "没有移除：{error}",
+  "@accountsRemoveFailed": {
+    "description": "账号页的出错：账号没移除，后面是原因。",
+    "placeholders": {
+      "error": {
+        "type": "String"
+      }
+    }
+  },
+  "accountsCodeIncomplete": "授权码不完整：要连中间的 # 和它后面的部分一起复制",
+  "@accountsCodeIncomplete": {
+    "description": "账号页添加账号：贴的授权码少了 # 和后半段。"
+  },
+  "accountsPreparingLogin": "正在准备登录",
+  "@accountsPreparingLogin": {
+    "description": "账号页：点了添加账号，正在设备上起登录命令。"
+  },
+  "accountsLoggingIn": "正在登录",
+  "@accountsLoggingIn": {
+    "description": "账号页：交上授权码，正在登录。"
+  },
+  "accountsLoginFailed": "没有登录成功：{error}",
+  "@accountsLoginFailed": {
+    "description": "账号页的出错：登录没成，后面是原因。",
+    "placeholders": {
+      "error": {
+        "type": "String"
+      }
+    }
+  },
+  "accountsQuotaTimedOut": "等了太久没有结果",
+  "@accountsQuotaTimedOut": {
+    "description": "额度没取到的原因：问 Claude Code 等太久了。"
+  },
+  "accountsQuotaFailed": "没取到最新的额度：{error}",
+  "@accountsQuotaFailed": {
+    "description": "额度说明后面：这次没取到最新的额度，后面是原因。",
+    "placeholders": {
+      "error": {
+        "type": "String"
+      }
+    }
+  },
+  "accountsQuotaStale": "没取到最新的额度，显示的是{age}的数",
+  "@accountsQuotaStale": {
+    "description": "额度说明后面：Claude Code 这次没取到服务器的数，显示的是多久以前的。",
+    "placeholders": {
+      "age": {
+        "type": "String"
+      }
+    }
+  },
+  "accountsQuotaFetching": "正在取额度",
+  "@accountsQuotaFetching": {
+    "description": "额度说明：还没有数，正在取。"
+  },
+  "accountsQuotaNoData": "还没有额度数据",
+  "@accountsQuotaNoData": {
+    "description": "额度说明：还没有数。"
+  },
+  "accountsQuotaUnavailable": "这种登录方式没有订阅额度",
+  "@accountsQuotaUnavailable": {
+    "description": "额度说明：用 API key 等方式登录的没有订阅额度。"
+  },
+  "accountsQuotaNotYet": "Claude Code 还没拿到这个账号的额度",
+  "@accountsQuotaNotYet": {
+    "description": "额度说明：Claude Code 还没给出额度窗口。"
+  },
+  "accountsQuotaUpdated": "{age}更新",
+  "@accountsQuotaUpdated": {
+    "description": "额度说明：多久以前的数。",
+    "placeholders": {
+      "age": {
+        "type": "String"
+      }
+    }
+  },
+  "accountsQuotaUpdatedRefreshing": "{age}更新，正在刷新",
+  "@accountsQuotaUpdatedRefreshing": {
+    "description": "额度说明：多久以前的数，正在取新的。",
+    "placeholders": {
+      "age": {
+        "type": "String"
+      }
+    }
+  },
+  "accountsQuotaNoteProblem": "{note}。{problem}",
+  "@accountsQuotaNoteProblem": {
+    "description": "额度说明后面接上一次没取到的原因。",
+    "placeholders": {
+      "note": {
+        "type": "String"
+      },
+      "problem": {
+        "type": "String"
+      }
+    }
+  },
+  "accountsResetDone": "已重置",
+  "@accountsResetDone": {
+    "description": "额度窗口：重置的时刻已经过了。"
+  },
+  "accountsResetInMinutes": "{minutes} 分钟后重置",
+  "@accountsResetInMinutes": {
+    "description": "额度窗口：多少分钟后重置。",
+    "placeholders": {
+      "minutes": {
+        "type": "int"
+      }
+    }
+  },
+  "accountsResetInHours": "{hours} 小时后重置",
+  "@accountsResetInHours": {
+    "description": "额度窗口：多少小时后重置（整点）。",
+    "placeholders": {
+      "hours": {
+        "type": "int"
+      }
+    }
+  },
+  "accountsResetInHoursMinutes": "{hours} 小时 {minutes} 分钟后重置",
+  "@accountsResetInHoursMinutes": {
+    "description": "额度窗口：多少小时多少分钟后重置。",
+    "placeholders": {
+      "hours": {
+        "type": "int"
+      },
+      "minutes": {
+        "type": "int"
+      }
+    }
+  },
+  "accountsResetAt": "{time, date, ::EEE} {time, date, ::HHmm} 重置",
+  "@accountsResetAt": {
+    "description": "额度窗口：一天以后重置的，写星期几和时刻。",
+    "placeholders": {
+      "time": {
+        "type": "DateTime"
+      }
+    }
+  },
+  "accountsResetAtFar": "{time, date, ::EEE} {time, date, ::HHmm} 重置（{days} 天后）",
+  "@accountsResetAtFar": {
+    "description": "额度窗口：一周以后才重置的，写星期几、时刻和几天后。",
+    "placeholders": {
+      "time": {
+        "type": "DateTime"
+      },
+      "days": {
+        "type": "int"
+      }
+    }
+  },
+  "accountsAgeJustNow": "刚刚",
+  "@accountsAgeJustNow": {
+    "description": "额度是多久以前的数：不到一分钟。"
+  },
+  "accountsAgeMinutes": "{minutes} 分钟前",
+  "@accountsAgeMinutes": {
+    "description": "额度是多久以前的数：几分钟前。",
+    "placeholders": {
+      "minutes": {
+        "type": "int"
+      }
+    }
+  },
+  "accountsAgeHours": "{hours} 小时前",
+  "@accountsAgeHours": {
+    "description": "额度是多久以前的数：几小时前。",
+    "placeholders": {
+      "hours": {
+        "type": "int"
+      }
+    }
+  },
+  "accountsAgeDays": "{days} 天前",
+  "@accountsAgeDays": {
+    "description": "额度是多久以前的数：几天前。",
+    "placeholders": {
+      "days": {
+        "type": "int"
+      }
+    }
+  },
+  "aboutLicenseGoStdlib": "Go 标准库与运行时 {version}",
+  "@aboutLicenseGoStdlib": {
+    "description": "关于页开源许可列表里 Go 标准库那一项，后面是 Go 的版本。",
+    "placeholders": {
+      "version": {
+        "type": "String"
+      }
+    }
   }
 }

@@ -6,6 +6,7 @@ import (
 	"time"
 
 	"github.com/dzshzx/Zeta/windows/internal/chat/items"
+	"github.com/dzshzx/Zeta/windows/internal/locales"
 	"github.com/dzshzx/Zeta/windows/internal/ui/widget"
 	"github.com/egoist/mygo/ui"
 	"github.com/egoist/mygo/ui/markdown"
@@ -38,7 +39,7 @@ func (ch *Chat) userMessage(c *ui.Context, it items.Item, row int) {
 		bubble := widget.Surface{Shape: widget.ShapeBubble, Fill: k.Bubble, Edge: ch.editingEdge(c, it)}
 		bubble.Paint(ch.bubbleText(c, it)).Selectable().FontSize(widget.SizeBodyXL).LineHeight(1.44).TextColor(k.Text).MaxWidthPercent(bubbleWidthPercent).
 			Padding(10.5, 16).ContextMenu(func(m *ui.Menu) {
-			if m.Item("复制").Chosen() {
+			if m.Item(locales.CommonCopy()).Chosen() {
 				c.Services().WriteClipboard(text)
 			}
 			if ch.UserMenu != nil {
@@ -116,7 +117,7 @@ func (ch *Chat) thoughtBlock(c *ui.Context, it items.Item, row int) {
 
 // copyButton 是回答下面的复制键：平的圆形图标按钮，30 的圆、15 的图标（同手机版 MessageActions.kt）。
 func copyButton(c *ui.Context, text string) {
-	b := widget.FlatButton(c, iconCopy, "复制", 30, 15).Margin(6, 0, 0, -8)
+	b := widget.FlatButton(c, iconCopy, locales.CommonCopy(), 30, 15).Margin(6, 0, 0, -8)
 	if b.Clicked() {
 		c.Services().WriteClipboard(text)
 	}
@@ -125,7 +126,7 @@ func copyButton(c *ui.Context, text string) {
 // typingDots 是回答还没送来字时的三个跳动的点。
 func typingDots(c *ui.Context) {
 	t := c.Theme()
-	row := ui.Row(c).Gap(4).Padding(8, 0).Label("正在回答")
+	row := ui.Row(c).Gap(4).Padding(8, 0).Label(locales.ChatAnswering())
 	phase := row.Loop("typing", 1200*time.Millisecond, ui.Linear)
 	row.Children(func() {
 		for k := range 3 {

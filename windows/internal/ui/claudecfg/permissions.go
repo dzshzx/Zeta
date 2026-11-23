@@ -176,7 +176,7 @@ func (p *Page) permissionsPage(c *ui.Context) {
 		muted(c, intro)
 		if s.data == nil {
 			if s.loadErr == "" {
-				widget.Group(c, "", "", func(l *widget.List) { loadingRow(l, locales.ClaudecfgLoading()) })
+				widget.Group(c, "", "", func(l *widget.List) { loadingRow(l, locales.CommonLoading()) })
 			}
 			return
 		}
@@ -295,8 +295,8 @@ func (p *Page) rulesSection(c *ui.Context) {
 			}
 			ui.Column(c.Key(string(r.Behavior) + "/" + r.Text)).Children(func() {
 				item(l, r.Text, summary, func() {
-					widget.SmallButton(c, locales.ClaudecfgPermEdit()).Label(locales.ClaudecfgPermEditRule(r.Text)).Disabled(s.working).OnClick(func() { p.openRule(&r.Rule) })
-					widget.SmallDangerButton(c, locales.ClaudecfgDelete()).Label(locales.ClaudecfgDeleteItem(r.Text)).Disabled(s.working).OnClick(func() { s.deleting = &r.Rule })
+					widget.SmallButton(c, locales.CommonEdit()).Label(locales.ClaudecfgPermEditRule(r.Text)).Disabled(s.working).OnClick(func() { p.openRule(&r.Rule) })
+					widget.SmallDangerButton(c, locales.CommonDelete()).Label(locales.ClaudecfgDeleteItem(r.Text)).Disabled(s.working).OnClick(func() { s.deleting = &r.Rule })
 				})
 			})
 		}
@@ -346,7 +346,7 @@ func (p *Page) permDialogs(c *ui.Context) {
 	if r := s.deleting; r != nil {
 		open := true
 		if alert(c, &open, locales.ClaudecfgPermDeleteRule(), locales.ClaudecfgPermDeleteRuleMessage(behaviorLabel(r.Behavior), r.Text),
-			widget.Destructive, locales.ClaudecfgCancel(), locales.ClaudecfgDelete()) == 1 {
+			widget.Destructive, locales.CommonCancel(), locales.CommonDelete()) == 1 {
 			rule := *r
 			p.applyPermissions(func(ctx context.Context, pv coreapi.PermissionView) (coreapi.Permissions, error) {
 				return p.opts.Core.RemovePermissionRule(ctx, pv, rule)
@@ -383,8 +383,8 @@ func (p *Page) ruleDialog(c *ui.Context, e *ruleEdit) {
 			problemText(c, e.problem)
 		}
 	}, func() {
-		widget.DialogButton(c, locales.ClaudecfgCancel(), widget.Plain).Disabled(e.saving).OnClick(func() { e.open = false })
-		label := locales.ClaudecfgSave()
+		widget.DialogButton(c, locales.CommonCancel(), widget.Plain).Disabled(e.saving).OnClick(func() { e.open = false })
+		label := locales.CommonSave()
 		if e.saving {
 			label = locales.ClaudecfgPermSaving()
 		}
@@ -408,7 +408,7 @@ func (p *Page) bulkDialog(c *ui.Context) {
 		style = widget.Destructive
 	}
 	if alert(c, &r.open, locales.ClaudecfgConfirmQuestion(bulkLabel(r.group, r.enable)), bulkMessage(r.change, warn), style,
-		locales.ClaudecfgCancel(), verb) == 1 {
+		locales.CommonCancel(), verb) == 1 {
 		g, enable := r.group, r.enable
 		p.applyPermissions(func(ctx context.Context, pv coreapi.PermissionView) (coreapi.Permissions, error) {
 			return p.opts.Core.SetPermissionGroup(ctx, pv, g, enable)
@@ -494,9 +494,9 @@ func (p *Page) serverToolRows(l *widget.List) {
 	s := &p.perm
 	switch {
 	case s.toolsBusy:
-		loadingRow(l, locales.ClaudecfgConnecting())
+		loadingRow(l, locales.CommonConnecting())
 	case s.toolsErr != "":
-		item(l, locales.ClaudecfgToolsListFailed(), s.toolsErr, func() { widget.SmallButton(c, locales.ClaudecfgRetry()).OnClick(p.loadServerTools) })
+		item(l, locales.ClaudecfgToolsListFailed(), s.toolsErr, func() { widget.SmallButton(c, locales.CommonRetry()).OnClick(p.loadServerTools) })
 	case s.tools == nil:
 		summary := locales.ClaudecfgToolsConnectHint()
 		if s.server.OAuth {

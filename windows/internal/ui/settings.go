@@ -222,7 +222,7 @@ func (a *App) setTheme(i int) {
 		dark = &v
 	}
 	if err := a.hub.Settings().SetDark(dark); err != nil {
-		a.say(locales.SettingsSaveFailed(), err.Error())
+		a.say(locales.CommonSaveFailed(), err.Error())
 	}
 }
 
@@ -300,12 +300,12 @@ func defaultAbout(h *hub.Hub) *about.Page {
 	return &about.Page{Version: v, Updates: &update.Updater{Version: v, Prefs: h.Settings()}, Prefs: h.Settings()}
 }
 
-// ShowUpdate 在窗口底部提示一句（自动检查查到了新版本），点「查看」进关于页。主线程上调用。
-func (a *App) ShowUpdate(text string) { a.updateNote = text }
+// ShowUpdate 在窗口底部提示一句：自动检查查到了新版本 version（版本名），点「查看」进关于页。主线程上调用。
+func (a *App) ShowUpdate(version string) { a.updateVersion = version }
 
 // updateBar 是窗口底部的提示条：一句话、查看、关掉。
 func (a *App) updateBar(c *ui.Context) {
-	if a.updateNote == "" {
+	if a.updateVersion == "" {
 		return
 	}
 	k := widget.Of(c)
@@ -314,12 +314,12 @@ func (a *App) updateBar(c *ui.Context) {
 	widget.Shadow(widget.Surface{Shape: widget.ShapeCard, Fill: k.Card}.Paint(bar), k)
 	bar.Children(func() {
 		ui.Box(c).Size(6, 6).Radius(3).Background(k.Error).Shrink(0)
-		ui.Text(c, a.updateNote).FontSize(widget.SizeBodyM).TextColor(k.Text).Grow(1).MinWidth(0)
+		ui.Text(c, locales.UpdateAvailableNotice(a.updateVersion)).FontSize(widget.SizeBodyM).TextColor(k.Text).Grow(1).MinWidth(0)
 		widget.SmallPrimaryButton(c, locales.SettingsUpdateView()).OnClick(func() {
-			a.updateNote = ""
+			a.updateVersion = ""
 			a.open(pageAbout)
 		})
-		widget.FlatButton(c, widget.IconClose, locales.SettingsUpdateDismiss(), 32, 18).OnClick(func() { a.updateNote = "" })
+		widget.FlatButton(c, widget.IconClose, locales.SettingsUpdateDismiss(), 32, 18).OnClick(func() { a.updateVersion = "" })
 	})
 }
 
@@ -333,7 +333,7 @@ func (a *App) chatSection(c *ui.Context) {
 			End: func() {
 				if widget.Switch(c.Key("auto-load-images"), &on).Label(locales.SettingsAutoLoadImages()).Changed() {
 					if err := s.SetAutoLoadRemoteImages(on); err != nil {
-						a.say(locales.SettingsSaveFailed(), err.Error())
+						a.say(locales.CommonSaveFailed(), err.Error())
 					}
 				}
 			}})

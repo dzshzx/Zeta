@@ -48,7 +48,7 @@ func TestConversationThroughCore(t *testing.T) {
 	h.NewChat()
 	e.until(t, "打开新对话", func() bool { c := h.Chat(); return c != nil && !c.Opening })
 	c := h.Chat()
-	if c.Conv == nil || c.Problem != "" || c.CwdProblem != "" {
+	if c.Conv == nil || c.Problem != nil || c.CwdProblem != "" {
 		t.Fatalf("打开：%+v", c)
 	}
 	e.record("open")

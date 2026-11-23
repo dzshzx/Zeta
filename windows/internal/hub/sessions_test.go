@@ -12,6 +12,7 @@ import (
 	"github.com/dzshzx/Zeta/client/hostlink"
 	"github.com/dzshzx/Zeta/helper/sessionproto"
 	"github.com/dzshzx/Zeta/windows/internal/hubtest"
+	"github.com/dzshzx/Zeta/windows/internal/locales"
 	"github.com/dzshzx/Zeta/windows/internal/settings"
 )
 
@@ -339,18 +340,18 @@ func TestHandOver(t *testing.T) {
 	f.devices.Handoffs = map[string]string{"s1": `{"handed":false,"status":"busy"}`}
 	ho := &f.hub.Chat().Handoff
 	f.hub.HandOver()
-	if ho.Problem != "" || ho.Handing {
+	if ho.Problem != nil || ho.Handing {
 		t.Errorf("正忙：%+v", ho)
 	}
 	f.devices.Handoffs["s1"] = `{"handed":false,"status":"stuck"}`
 	f.hub.HandOver()
-	if !strings.Contains(ho.Problem, "没有退出") {
-		t.Errorf("没退：%q", ho.Problem)
+	if !strings.Contains(locales.ErrorText(ho.Problem), "没有退出") {
+		t.Errorf("没退：%q", locales.ErrorText(ho.Problem))
 	}
 	f.devices.Handoffs = nil
 	f.hub.HandOver()
 	want := []string{f.id + ` sessions.handoff {"session":"s1"}`, f.id + ` sessions.handoff {"session":"s1"}`, f.id + ` sessions.handoff {"session":"s1"}`}
-	if got := f.devices.SessionCalls(); !reflect.DeepEqual(got, want) || ho.Problem != "" {
+	if got := f.devices.SessionCalls(); !reflect.DeepEqual(got, want) || ho.Problem != nil {
 		t.Errorf("发出 %q，%+v", got, ho)
 	}
 }

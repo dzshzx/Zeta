@@ -52,10 +52,10 @@ func (a *App) promptList(c *ui.Context, p *chatPane) {
 			a.promptRow(c.Key("prompt/"+pr.ID), p, pr, i == 0, i == len(list)-1)
 		}
 	}, func() {
-		if widget.DialogButton(c, locales.SavedPromptsClose(), widget.Plain).Clicked() {
+		if widget.DialogButton(c, locales.CommonClose(), widget.Plain).Clicked() {
 			u.listOpen = false
 		}
-		if widget.DialogButton(c, locales.SavedPromptsNew(), widget.Recommend).Disabled(len(list) >= settings.MaxPrompts).Clicked() {
+		if widget.DialogButton(c, locales.CommonNew(), widget.Recommend).Disabled(len(list) >= settings.MaxPrompts).Clicked() {
 			text := ""
 			if strings.TrimSpace(p.draft) != "" {
 				text = p.draft
@@ -100,7 +100,7 @@ func (a *App) promptRow(c *ui.Context, p *chatPane, pr settings.SavedPrompt, fir
 
 func (a *App) promptActions(m *widget.Menu, pr settings.SavedPrompt, first, last bool) {
 	u := &a.prompts
-	if m.Add(widget.Entry{Icon: widget.IconEdit, Label: locales.SavedPromptsEdit()}) {
+	if m.Add(widget.Entry{Icon: widget.IconEdit, Label: locales.CommonEdit()}) {
 		u.listOpen, u.editing = false, &promptDraft{open: true, id: pr.ID, name: pr.Name, text: pr.Text}
 	}
 	if m.Add(widget.Entry{Icon: widget.IconArrowUp, Label: locales.SavedPromptsMoveUp(), Disabled: first}) {
@@ -139,10 +139,10 @@ func (a *App) promptEditor(c *ui.Context) {
 			}
 		})
 		widget.ButtonBar(c, func() {
-			if widget.DialogButton(c, locales.WidgetCancel(), widget.Plain).Clicked() {
+			if widget.DialogButton(c, locales.CommonCancel(), widget.Plain).Clicked() {
 				d.open = false
 			}
-			if widget.DialogButton(c, locales.SavedPromptsSave(), widget.Recommend).Disabled(problem != "").Clicked() {
+			if widget.DialogButton(c, locales.CommonSave(), widget.Recommend).Disabled(problem != "").Clicked() {
 				a.saveDraft(d)
 				d.open = false
 			}
@@ -171,7 +171,7 @@ func (a *App) promptDelete(c *ui.Context) {
 	}
 	open := true
 	if widget.Alert(c, &open, locales.SavedPromptsDeleteTitle(), locales.SavedPromptsDeleteMessage(pr.DisplayName()),
-		widget.Action{Label: locales.WidgetCancel()}, widget.Action{Label: locales.CommonDelete(), Style: widget.Destructive}) == 1 {
+		widget.Action{Label: locales.CommonCancel()}, widget.Action{Label: locales.CommonDelete(), Style: widget.Destructive}) == 1 {
 		a.savePrompts(settings.RemovePrompt(a.hub.Prompts(), pr.ID))
 	}
 	if !open {

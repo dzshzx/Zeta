@@ -34,8 +34,8 @@ func TestEditResendThroughCore(t *testing.T) {
 	f.until(t, "改写以后答完", func() bool {
 		return rounds(app) == "user:改过的问题 | answer:改过以后的回答" && !app.pane.state.Busy && !app.pane.state.Rewinding
 	})
-	if app.pane.failed != "" {
-		t.Fatalf("出错：%s", app.pane.failed)
+	if app.pane.failed != nil {
+		t.Fatalf("出错：%v", app.pane.failed)
 	}
 }
 

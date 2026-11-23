@@ -3,6 +3,7 @@ package accounts
 import (
 	"github.com/dzshzx/Zeta/helper/coreapi"
 	acct "github.com/dzshzx/Zeta/windows/internal/accounts"
+	"github.com/dzshzx/Zeta/windows/internal/locales"
 	"github.com/dzshzx/Zeta/windows/internal/ui/widget"
 	"github.com/egoist/mygo/ui"
 )
@@ -12,7 +13,7 @@ func QuotaDetails(c *ui.Context, q *acct.Quota) {
 	k := widget.Of(c)
 	s, ok := q.Snapshot()
 	ui.Row(c).AlignItems(ui.Center).Children(func() {
-		ui.Text(c, "订阅额度").FontSize(widget.SizeHeadlineXS).FontWeight(widget.Medium).TextColor(k.Text).Grow(1)
+		ui.Text(c, locales.AccountsQuotaTitle()).FontSize(widget.SizeHeadlineXS).FontWeight(widget.Medium).TextColor(k.Text).Grow(1)
 		if ok && s.Subscription != "" {
 			ui.Text(c, coreapi.PlanName(s.Subscription)).FontSize(widget.SizeBodyM).TextColor(k.Tertiary)
 		}
@@ -21,9 +22,9 @@ func QuotaDetails(c *ui.Context, q *acct.Quota) {
 		Windows(c, s, c.Now())
 	}
 	note(c, q.Footnote(c.Now()))
-	label := "刷新"
+	label := locales.CommonRefresh()
 	if q.Refreshing() {
-		label = "正在刷新"
+		label = locales.AccountsRefreshing()
 	}
 	widget.SmallButton(c.Key("quota-refresh"), label).Disabled(q.Refreshing()).AlignSelf(ui.Start).
 		OnClick(func() { q.Refresh(true) })

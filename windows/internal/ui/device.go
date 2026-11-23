@@ -14,17 +14,17 @@ import (
 
 // editing 是一台设备的页面上的状态。
 type editing struct {
-	name       string // 名称输入框
-	cwd        string // 默认工作目录输入框
-	checking   bool   // 正在检查连接
-	check      string // 上次检查的结果
-	changing   bool   // 正在试着改用另一把私钥
-	changedKey string // 检查时发现对方现在的主机公钥（和记下的不一样），等用户决定认不认
-	trusting   bool   // 正问着认不认新的指纹
-	removing   bool   // 正问着删不删
-	cutting    bool   // 正问着断不断开（那台上有对话在进行）
-	naming     bool   // 正在改名（对话框开着）
-	moving     bool   // 正在改默认工作目录（对话框开着）
+	name       string        // 名称输入框
+	cwd        string        // 默认工作目录输入框
+	checking   bool          // 正在检查连接
+	check      func() string // 上次检查的结果（显示时出字），没有时为 nil
+	changing   bool          // 正在试着改用另一把私钥
+	changedKey string        // 检查时发现对方现在的主机公钥（和记下的不一样），等用户决定认不认
+	trusting   bool          // 正问着认不认新的指纹
+	removing   bool          // 正问着删不删
+	cutting    bool          // 正问着断不断开（那台上有对话在进行）
+	naming     bool          // 正在改名（对话框开着）
+	moving     bool          // 正在改默认工作目录（对话框开着）
 	// 改默认工作目录时先到设备上核对（moveCwd）：verifying 是正在核对，cwdProblem 是 cwdChecked 那个目录进不去的原因；
 	// 核对不了（连不上）时 unchecked 问用户仍然保存 pendingCwd 吗，uncheckedWhy 是连不上的原因。cwdRound 每开一次对话框、
 	// 每核对一次加一，对不上的结果是过时的，不用。
@@ -63,10 +63,10 @@ func (a *App) devicePage(c *ui.Context) {
 	widget.Header(c, x.Name(), nil)
 	widget.Body(c, "device", func() {
 		a.connectionSection(c, x)
-		widget.Group(c, "", a.edit.check, func(l *widget.List) {
+		widget.Group(c, "", locales.Now(a.edit.check), func(l *widget.List) {
 			title := locales.DeviceCheck()
 			if a.edit.checking {
-				title = locales.DevicesConnecting()
+				title = locales.CommonConnecting()
 			}
 			row := widget.Row{Title: title}
 			if !a.edit.checking && !a.edit.changing {
@@ -104,7 +104,7 @@ func (a *App) connectionSection(c *ui.Context, x sshlink.Host) {
 		l.Row(widget.Row{Title: locales.DevicesAddress(), Value: sshlink.DisplayTarget(x.Target)})
 		l.Row(widget.Row{Title: locales.DevicesSshKey(), End: func() {
 			if a.edit.changing {
-				ui.Text(c, locales.DevicesConnecting()).FontSize(widget.SizeBodyS).TextColor(k.Secondary)
+				ui.Text(c, locales.CommonConnecting()).FontSize(widget.SizeBodyS).TextColor(k.Secondary)
 			}
 			keyChoice(c, a.add.keys, x.Key, a.edit.changing || a.edit.checking, func(key string) { a.changeKey(x, key) })
 		}})
@@ -132,7 +132,7 @@ func (a *App) connect(x sshlink.Host, on bool) {
 // setConnected 照做，设备页上 Claude Code 那几组跟着换（断开时没有，连上时重新读）。
 func (a *App) setConnected(id string, on bool) {
 	if err := a.hub.SetConnected(id, on); err != nil {
-		a.say(locales.SettingsSaveFailed(), err.Error())
+		a.say(locales.CommonSaveFailed(), err.Error())
 	}
 	if x, ok := a.hub.Host(id); ok && a.page == pageDevice && a.device == id {
 		a.startDeviceConfig(x)
@@ -162,7 +162,7 @@ func normalizeCwd(text, home string) (string, bool) {
 // save 存改过的设备，存不上时说一声。
 func (a *App) save(x sshlink.Host) {
 	if err := a.hub.UpdateHost(x); err != nil {
-		a.say(locales.SettingsSaveFailed(), err.Error())
+		a.say(locales.CommonSaveFailed(), err.Error())
 	}
 }
 
@@ -192,7 +192,7 @@ func (a *App) changeKey(x sshlink.Host, key string) {
 // checkHost 照记下的指纹和私钥连一次，结果写在按钮下面。指纹变了的问用户认不认；家目录、主机名变了的跟着改。
 func (a *App) checkHost(x sshlink.Host) {
 	a.edit.checking = true
-	a.edit.check = ""
+	a.edit.check = nil
 	a.async(func() func() {
 		f, err := a.hub.Probe(x.Target, x.HostKey, x.Key)
 		return func() {
@@ -200,13 +200,13 @@ func (a *App) checkHost(x sshlink.Host) {
 			var changed *sshlink.HostKeyChangedError
 			switch {
 			case errors.As(err, &changed):
-				a.edit.check = locales.DeviceCheckMismatch()
+				a.edit.check = locales.DeviceCheckMismatch
 				a.edit.changedKey = changed.Seen
 				a.edit.trusting = true
 			case err != nil:
-				a.edit.check = locales.DeviceCheckFailed(sshlink.Describe(err))
+				a.edit.check = func() string { return locales.DeviceCheckFailed(sshlink.Describe(err)) }
 			default:
-				a.edit.check = locales.DeviceCheckOk(f.Summary())
+				a.edit.check = func() string { return locales.DeviceCheckOk(f.Summary()) }
 				if current, ok := a.hub.Host(x.ID); ok && (f.Home != current.Home || f.Hostname != current.Hostname) {
 					a.save(refreshed(current, f))
 				}
@@ -240,24 +240,24 @@ func (a *App) deviceDialogs(c *ui.Context, x sshlink.Host) {
 	}
 	a.cwdDialogs(c, x)
 	message := locales.DeviceFingerprintMessage(x.Fingerprint(), sshlink.Fingerprint(a.edit.changedKey))
-	if widget.Alert(c, &a.edit.trusting, locales.DeviceFingerprintTitle(), message, widget.Action{Label: locales.WidgetCancel()},
+	if widget.Alert(c, &a.edit.trusting, locales.DeviceFingerprintTitle(), message, widget.Action{Label: locales.CommonCancel()},
 		widget.Action{Label: locales.DeviceTrustNew(), Style: widget.Recommend}) == 1 {
 		x.HostKey = a.edit.changedKey
 		a.save(x)
-		a.edit.check = locales.DeviceTrusted()
+		a.edit.check = locales.DeviceTrusted
 	}
 	if !a.edit.trusting {
 		a.edit.changedKey = ""
 	}
 	if widget.Alert(c, &a.edit.cutting, locales.DeviceDisconnectTitle(x.Name()),
 		locales.DeviceDisconnectMessage(),
-		widget.Action{Label: locales.WidgetCancel()}, widget.Action{Label: locales.DeviceDisconnect(), Style: widget.Recommend}) == 1 {
+		widget.Action{Label: locales.CommonCancel()}, widget.Action{Label: locales.DeviceDisconnect(), Style: widget.Recommend}) == 1 {
 		a.setConnected(x.ID, false)
 	}
 	if widget.Alert(c, &a.edit.removing, locales.DeviceRemoveTitle(x.Name()), locales.DeviceRemoveMessage(),
-		widget.Action{Label: locales.WidgetCancel()}, widget.Action{Label: locales.DeviceRemoveConfirm(), Style: widget.Destructive}) == 1 {
+		widget.Action{Label: locales.CommonCancel()}, widget.Action{Label: locales.DeviceRemoveConfirm(), Style: widget.Destructive}) == 1 {
 		if err := a.hub.RemoveHost(x.ID); err != nil {
-			a.say(locales.SettingsSaveFailed(), err.Error())
+			a.say(locales.CommonSaveFailed(), err.Error())
 		}
 		a.open(pageSettings)
 	}
@@ -278,8 +278,8 @@ func (a *App) cwdDialogs(c *ui.Context, x sshlink.Host) {
 		a.moveCwd(x, cwd)
 	}
 	message := locales.DeviceCwdUncheckedMessage(x.Name(), e.pendingCwd, e.uncheckedWhy)
-	if widget.Alert(c, &e.unchecked, locales.DeviceCwdUncheckedTitle(), message, widget.Action{Label: locales.WidgetCancel()},
-		widget.Action{Label: locales.DeviceSaveAnyway(), Style: widget.Recommend}) == 1 {
+	if widget.Alert(c, &e.unchecked, locales.DeviceCwdUncheckedTitle(), message, widget.Action{Label: locales.CommonCancel()},
+		widget.Action{Label: locales.CommonSaveAnyway(), Style: widget.Recommend}) == 1 {
 		a.setCwd(x.ID, e.pendingCwd)
 	}
 }

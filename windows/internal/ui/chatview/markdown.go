@@ -1,6 +1,7 @@
 package chatview
 
 import (
+	"github.com/dzshzx/Zeta/windows/internal/locales"
 	"github.com/dzshzx/Zeta/windows/internal/ui/widget"
 	"github.com/egoist/mygo/ui"
 	"github.com/egoist/mygo/ui/markdown"
@@ -27,12 +28,12 @@ func styleMarkdown(c *ui.Context, answer, thinking *markdown.Theme) {
 func codeBlock(c *ui.Context, b *markdown.CodeBlockView) {
 	k := widget.Of(c)
 	box := widget.Surface{Shape: widget.ShapeBlock, Fill: k.CodeBody, Edge: k.CodeEdge}.Paint(ui.Column(c)).AlignSelf(ui.Stretch).Clip().MarginY(2)
-	box.Role(ui.RoleGroup).Label("代码")
+	box.Role(ui.RoleGroup).Label(locales.ChatCode())
 	box.Children(func() {
 		ui.Row(c).MinHeight(34).Padding(0, 4, 0, 14).AlignItems(ui.Center).Background(k.CodeHeader).Children(func() {
 			ui.Text(c, b.Language).Font(widget.Mono).FontSize(11.5).FontWeight(widget.Medium).TextColor(k.Secondary).Unselectable()
 			ui.Spacer(c)
-			if widget.FlatButton(c, widget.IconCopy, "复制代码", 32, 14).Disabled(b.Open).Clicked() {
+			if widget.FlatButton(c, widget.IconCopy, locales.ChatCopyCode(), 32, 14).Disabled(b.Open).Clicked() {
 				c.Services().WriteClipboard(b.Code())
 			}
 		})

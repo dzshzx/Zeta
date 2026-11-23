@@ -8,6 +8,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/egoist/mygo/i18n"
 	"github.com/egoist/mygo/ui"
 )
 
@@ -119,7 +120,9 @@ func TestDeviceCwdPreviews(t *testing.T) {
 		t.Skip("ZETA_PREVIEW_DIR 没设，不画预览")
 	}
 	for name, off := range map[string]bool{"device-cwd-problem": false, "device-cwd-unchecked": true} {
-		for _, dark := range []bool{false, true} {
+		for _, look := range previewLooks {
+			i18n.SetLocaleFunc(nil) // 场景按源语言的文字点控件，画之前再换语言
+			dark := look.dark
 			f := newFixture(t)
 			f.devices.DirProblems = map[string]string{"/srv/gone": "「box」上没有 /srv/gone 这个目录"}
 			x := f.withHosts(t, "box")[0]
@@ -138,11 +141,10 @@ func TestDeviceCwdPreviews(t *testing.T) {
 			f.tt.Move(1275, 5)
 			f.tt.Advance(time.Second)
 			f.tt.Frame()
-			look := "light"
-			if dark {
-				look = "dark"
-			}
-			out, err := os.Create(filepath.Join(dir, name+"-"+look+".png"))
+			look.speak(t, f.tt)
+			f.tt.Frame()
+			f.tt.Frame()
+			out, err := os.Create(filepath.Join(dir, name+"-"+look.suffix()+".png"))
 			if err != nil {
 				t.Fatal(err)
 			}

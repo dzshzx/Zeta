@@ -135,14 +135,14 @@ func (p *Page) reloadAgents() {
 func (p *Page) agentsPage(c *ui.Context) {
 	a := &p.agents
 	pageTitle(c, locales.ClaudecfgSubagents(), p.back, func() {
-		widget.SmallPrimaryButton(c, locales.ClaudecfgNew()).Label(locales.ClaudecfgAgentNew()).OnClick(func() { p.openAgent(nil) })
+		widget.SmallPrimaryButton(c, locales.CommonNew()).Label(locales.ClaudecfgAgentNew()).OnClick(func() { p.openAgent(nil) })
 	})
 	body(c, "agents", func() {
 		footer := locales.ClaudecfgAgentsFooter()
 		widget.Group(c, locales.ClaudecfgAgentsCount(len(a.list)), footer, func(l *widget.List) {
 			switch {
 			case !a.loaded:
-				loadingRow(l, locales.ClaudecfgLoading())
+				loadingRow(l, locales.CommonLoading())
 			case len(a.list) == 0:
 				emptyRow(l, locales.ClaudecfgAgentsEmpty(), locales.ClaudecfgAgentsEmptyHint())
 			}
@@ -203,9 +203,9 @@ func (p *Page) agentPage(c *ui.Context) {
 	}
 	pageTitle(c, title, leave, func() {
 		if a.editing != nil {
-			widget.SmallDangerButton(c, locales.ClaudecfgDelete()).Disabled(a.saving).OnClick(func() { a.delete = true })
+			widget.SmallDangerButton(c, locales.CommonDelete()).Disabled(a.saving).OnClick(func() { a.delete = true })
 		}
-		label := locales.ClaudecfgSave()
+		label := locales.CommonSave()
 		if a.saving {
 			label = locales.ClaudecfgSaving()
 		}
@@ -292,7 +292,7 @@ func (p *Page) agentToolsSection(c *ui.Context) {
 
 func (p *Page) agentDialogs(c *ui.Context) {
 	a := &p.agents
-	if alert(c, &a.leaving, locales.ClaudecfgDiscardTitle(), "", widget.Destructive, locales.ClaudecfgCancel(), locales.ClaudecfgDiscard()) == 1 {
+	if alert(c, &a.leaving, locales.ClaudecfgDiscardTitle(), "", widget.Destructive, locales.CommonCancel(), locales.ClaudecfgDiscard()) == 1 {
 		p.back()
 	}
 	if a.editing == nil {
@@ -300,7 +300,7 @@ func (p *Page) agentDialogs(c *ui.Context) {
 	}
 	file, name := a.editing.File, a.editing.Name
 	if alert(c, &a.delete, locales.ClaudecfgAgentDeleteTitle(), locales.ClaudecfgAgentDeleteMessage(name), widget.Destructive,
-		locales.ClaudecfgCancel(), locales.ClaudecfgDelete()) == 1 {
+		locales.CommonCancel(), locales.CommonDelete()) == 1 {
 		p.async(func(ctx context.Context) func() {
 			err := p.opts.Core.DeleteAgent(ctx, file)
 			return func() {

@@ -74,14 +74,14 @@ func (a *App) findBar(c *ui.Context, p *chatPane) {
 				if count == 0 {
 					color = k.Tertiary
 				}
-				ui.Text(c, matchCount(index, count, left, p.earlier.failed)).FontSize(widget.SizeBodyS).TextColor(color).SingleLine().
+				ui.Text(c, matchCount(index, count, left, locales.ErrorText(p.earlier.failed))).FontSize(widget.SizeBodyS).TextColor(color).SingleLine().
 					Margin(0, 2, 0, 8).Shrink(0)
 			}
 			widget.FlatButton(c, widget.IconChevronUp, locales.FindPrevious(), 30, 18).Disabled(count == 0).OnClick(func() { p.list.FindStep(-1) })
 			widget.FlatButton(c, widget.IconChevronDown, locales.FindNext(), 30, 18).Disabled(count == 0).OnClick(func() { p.list.FindStep(1) })
 			widget.FlatButton(c, widget.IconClose, locales.FindClose(), 30, 18).OnClick(p.closeFind)
 		})
-		ui.Text(c, findScope(left, p.earlier.failed)).FontSize(widget.SizeBodyXS).TextColor(k.Secondary).Padding(0, 10)
+		ui.Text(c, findScope(left, locales.ErrorText(p.earlier.failed))).FontSize(widget.SizeBodyXS).TextColor(k.Secondary).Padding(0, 10)
 	})
 }
 

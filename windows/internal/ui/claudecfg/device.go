@@ -131,7 +131,7 @@ func (p *Page) modelChoice(c *ui.Context, d coreapi.Defaults, disabled bool) {
 		}
 		choices(m, top)
 		if len(older) > 0 {
-			m.Sub(locales.ClaudecfgMoreModels(), olderHint, func(m *widget.Menu) { choices(m, older) })
+			m.Sub(locales.CommonMoreModels(), olderHint, func(m *widget.Menu) { choices(m, older) })
 		}
 	})
 }
@@ -274,7 +274,7 @@ func (p *Page) idleRow(l *widget.List) {
 
 func (p *Page) saveDevice(err error) {
 	if err != nil {
-		p.failed(locales.ClaudecfgSaveFailed(), err)
+		p.failed(locales.CommonSaveFailed(), err)
 	}
 }
 

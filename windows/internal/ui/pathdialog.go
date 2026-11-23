@@ -68,7 +68,7 @@ func (a *App) pathDialog(c *ui.Context, p *chatPane) {
 				}
 			})
 		widget.ButtonBar(c, func() {
-			if widget.DialogButton(c, locales.WidgetCancel(), widget.Plain).Clicked() {
+			if widget.DialogButton(c, locales.CommonCancel(), widget.Plain).Clicked() {
 				d.open = false
 			}
 			if widget.DialogButton(c, locales.PathDialogAttach(), widget.Recommend).Disabled(r.path == "").Clicked() {

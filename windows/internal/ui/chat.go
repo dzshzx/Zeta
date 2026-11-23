@@ -28,8 +28,8 @@ type chatPane struct {
 	connected bool
 
 	draft string
-	// failed 是上次操作没成的原因，下次操作成了或换了对话时清掉。
-	failed string
+	// failed 是上次操作没成的原因（显示时用 locales.ErrorText 说），下次操作成了或换了对话时清掉。
+	failed error
 	// taking：正在取撤回放回输入框的那条；took 是取过的最后一条（uuid）。
 	taking bool
 	took   string
@@ -64,7 +64,7 @@ type chatPane struct {
 	// earlier 是载入更早记录的情况：这边发出了请求、上次没读成的原因、那个原因能不能重试。
 	earlier struct {
 		asked  bool
-		failed string
+		failed error
 		stale  bool
 	}
 }
@@ -117,7 +117,7 @@ func (a *App) syncChat() {
 	}
 	a.syncMessageActions(p)
 	p.list.Earlier = chatview.Earlier{Skipped: u.State.Earlier, Loading: p.earlier.asked || u.State.EarlierLoading,
-		Failed: p.earlier.failed, Retry: !p.earlier.stale}
+		Failed: locales.ErrorText(p.earlier.failed), Retry: !p.earlier.stale}
 	a.paneAlerts(p, u.Turns)
 	// 同一条只取一次：取走以后核心推来 recalled 为空之前，这一条还挂在状态里
 	if r := u.State.Recalled; r != nil && !p.taking && r.UUID != p.took {
@@ -145,7 +145,7 @@ func (p *chatPane) recall(text string) {
 	p.draft = text
 }
 
-func (p *chatPane) fail(err error) { p.failed = err.Error() }
+func (p *chatPane) fail(err error) { p.failed = err }
 
 // act 在后台对对话做一件事；没成时原因显示在输入栏上方。
 func (a *App) act(do func(ctx context.Context, conv *chat.Conversation) error) {
@@ -153,7 +153,7 @@ func (a *App) act(do func(ctx context.Context, conv *chat.Conversation) error) {
 	if p == nil {
 		return
 	}
-	p.failed = ""
+	p.failed = nil
 	a.hub.RunChat(do, p.fail)
 }
 
@@ -211,7 +211,7 @@ func (a *App) chatPage(c *ui.Context) {
 				})
 			case p.src.Conv == nil:
 				ui.Column(c).Grow(1).Center().Padding(32).Margin(headerHeight, 0, 0, 0).Children(func() {
-					ui.Text(c, p.src.Problem).FontSize(widget.SizeBodyM).TextColor(k.Secondary).MaxWidth(520).TextAlign(ui.Center)
+					ui.Text(c, locales.ErrorText(p.src.Problem)).FontSize(widget.SizeBodyM).TextColor(k.Secondary).MaxWidth(520).TextAlign(ui.Center)
 					a.newChatHost(c, p) // 新对话：也能换到别的设备上开（emptychat.go）
 				})
 			case emptyChat(p):
@@ -352,8 +352,8 @@ func (a *App) chatNotices(c *ui.Context, p *chatPane) {
 	if why := a.hub.ChatLinkProblem(); why != "" && p.src.Conv != nil {
 		widget.Notice(c, locales.ChatReconnecting(why), widget.Caution)
 	}
-	if p.failed != "" {
-		widget.Notice(c, p.failed, widget.Failure)
+	if p.failed != nil {
+		widget.Notice(c, locales.ErrorText(p.failed), widget.Failure)
 	}
 }
 
@@ -497,13 +497,13 @@ func (a *App) loadEarlier(p *chatPane, rest bool) bool {
 	if p.earlier.asked || p.earlier.stale {
 		return false
 	}
-	p.earlier.asked, p.earlier.failed = true, ""
+	p.earlier.asked, p.earlier.failed = true, nil
 	a.hub.RunChatThen(func(ctx context.Context, conv *chat.Conversation) func() {
 		err := conv.LoadEarlier(ctx, rest)
 		return func() {
 			p.earlier.asked = false
 			if err != nil {
-				p.earlier.failed = locales.ChatEarlierFailed(err.Error())
+				p.earlier.failed = locales.Wrap(err, locales.ChatEarlierFailed)
 				p.earlier.stale = chat.IsEarlierStale(err)
 			}
 		}

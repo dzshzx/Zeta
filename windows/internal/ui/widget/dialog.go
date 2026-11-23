@@ -125,7 +125,7 @@ func InputDialog(c *ui.Context, open *bool, title, summary string, value *string
 			})
 		})
 		ButtonBar(c, func() {
-			if DialogButton(c, locales.WidgetCancel(), Plain).Clicked() {
+			if DialogButton(c, locales.CommonCancel(), Plain).Clicked() {
 				*open = false
 			}
 			if DialogButton(c, confirm, Recommend).Disabled(!ok).Clicked() {

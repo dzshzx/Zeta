@@ -106,11 +106,11 @@ func (a *App) suggest(p *chatPane, prompt string) {
 	if p.src.Conv == nil || p.src.CwdProblem != "" {
 		return
 	}
-	p.suggested, p.failed = true, ""
+	p.suggested, p.failed = true, nil
 	a.hub.RunChat(func(ctx context.Context, conv *chat.Conversation) error {
 		return conv.Send(ctx, coreapi.Outgoing{Text: prompt})
 	}, func(err error) {
 		p.suggested = false
-		p.failed = locales.ChatSendFailed(err.Error())
+		p.failed = locales.Wrap(err, locales.CommonSendFailed)
 	})
 }

@@ -250,14 +250,14 @@ func TestSwitchRefused(t *testing.T) {
 	f.serve.installed = true
 	f.convs.busy = true
 	f.svc.Switch(coreapi.Account{Name: "claude-b"})
-	if f.svc.Problem() != ownBusy || f.svc.Working() != "" {
+	if f.svc.Problem() != errOwnBusy.Error() || f.svc.Working() != "" {
 		t.Fatalf("本客户端有对话在进行：%q", f.svc.Problem())
 	}
 
 	f.convs.busy, f.convs.refuse = false, true
 	f.svc.Switch(coreapi.Account{Name: "claude-b"})
 	f.loop.until(t, "做完", func() bool { return f.svc.Working() == "" })
-	if f.svc.Problem() != ownBusy || f.serve.called("accounts.switch claude-b") {
+	if f.svc.Problem() != errOwnBusy.Error() || f.serve.called("accounts.switch claude-b") {
 		t.Fatalf("查进程时有对话开始了：%q", f.svc.Problem())
 	}
 
@@ -339,8 +339,8 @@ func TestQuotaRefreshRules(t *testing.T) {
 	f.src.err = errors.New("Claude Code 起不来")
 	q.Refresh(true)
 	f.loop.until(t, "问完", func() bool { return !q.Refreshing() })
-	if f.src.asked.Load() != 2 || q.Err() != "没取到最新的额度：Claude Code 起不来" {
-		t.Fatalf("%d %q", f.src.asked.Load(), q.Err())
+	if f.src.asked.Load() != 2 || q.Footnote(clock) != "刚刚更新。没取到最新的额度：Claude Code 起不来" {
+		t.Fatalf("%d %q", f.src.asked.Load(), q.Footnote(clock))
 	}
 	if _, ok := q.Snapshot(); !ok {
 		t.Fatal("没取到时留着已有的")

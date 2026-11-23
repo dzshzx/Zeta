@@ -64,10 +64,10 @@ func (a *App) addSection(c *ui.Context) {
 		for _, alias := range a.add.config {
 			l.Row(widget.Row{Key: alias, Title: alias, End: func() {
 				if a.add.probing == alias {
-					ui.Text(c, locales.DevicesConnecting()).FontSize(widget.SizeBodyS).TextColor(widget.Of(c).Secondary)
+					ui.Text(c, locales.CommonConnecting()).FontSize(widget.SizeBodyS).TextColor(widget.Of(c).Secondary)
 					return
 				}
-				widget.SmallButton(c.Key("add-"+alias), locales.DevicesAdd()).Disabled(busy).OnClick(func() { a.addHost(alias) })
+				widget.SmallButton(c.Key("add-"+alias), locales.CommonAdd()).Disabled(busy).OnClick(func() { a.addHost(alias) })
 			}})
 		}
 	})
@@ -80,9 +80,9 @@ func (a *App) addSection(c *ui.Context) {
 	widget.Group(c, locales.DevicesManual(), sshlink.ConfigHint, func(l *widget.List) {
 		l.Custom(func() {
 			widget.Input(c.Key("draft"), &a.add.draft).Placeholder(locales.DevicesAddressPlaceholder()).Label(locales.DevicesAddress()).Grow(1).OnSubmit(submit)
-			label := locales.DevicesAdd()
+			label := locales.CommonAdd()
 			if busy && a.add.probing == target {
-				label = locales.DevicesConnecting()
+				label = locales.CommonConnecting()
 			}
 			widget.SmallPrimaryButton(c, label).Disabled(!valid || busy).OnClick(submit)
 		})

@@ -8,6 +8,7 @@ import (
 
 	"github.com/dzshzx/Zeta/helper/coreapi"
 	"github.com/dzshzx/Zeta/windows/internal/ui/widget"
+	"github.com/egoist/mygo/i18n"
 	"github.com/egoist/mygo/ui"
 )
 
@@ -17,13 +18,25 @@ func TestPreviews(t *testing.T) {
 	if dir == "" {
 		t.Skip("ZETA_PREVIEW_DIR 没设：不画预览")
 	}
-	for _, dark := range []bool{false, true} {
+	t.Cleanup(func() { i18n.SetLocaleFunc(nil) })
+	for _, run := range []struct {
+		lang string
+		dark bool
+	}{{"zh-Hans", false}, {"zh-Hans", true}, {"en", false}} {
+		dark := run.dark
 		look := "light"
 		if dark {
 			look = "dark"
 		}
+		if run.lang != "zh-Hans" {
+			look += "-" + run.lang
+		}
+		// shot 换成这一轮的语言画（场景按源语言的文字点控件），画完换回源语言
 		shot := func(name string, tt *ui.Tester) {
 			t.Helper()
+			i18n.SetLocaleFunc(func() string { return run.lang })
+			tt.SetLocale(run.lang)
+			defer func() { i18n.SetLocaleFunc(nil); tt.SetLocale("zh-Hans"); tt.Frame() }()
 			tt.Frame()
 			f, err := os.Create(filepath.Join(dir, "accounts-"+name+"-"+look+".png"))
 			if err != nil {

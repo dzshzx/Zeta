@@ -115,7 +115,7 @@ func TestStartChecksOncePerDay(t *testing.T) {
 	if st.Phase != Available || st.Manifest.VersionCode != 812 || st.Step != Ready {
 		t.Errorf("status %+v", st)
 	}
-	if len(f.notes) != 1 || f.notes[0] != "Zeta 0.7.6 已发布，可在设置中更新" || f.prefs.notified != 812 {
+	if len(f.notes) != 1 || f.notes[0] != "0.7.6" || f.prefs.notified != 812 {
 		t.Errorf("notes %q, notified %d", f.notes, f.prefs.notified)
 	}
 	if !f.prefs.checkedAt.Equal(noon) {

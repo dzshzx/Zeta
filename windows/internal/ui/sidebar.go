@@ -26,7 +26,7 @@ func (a *App) sidebar(c *ui.Context) {
 		a.sidebarTop(c)
 		if hosts {
 			ui.Column(c).Padding(0, 10, 8, 10).Gap(6).Shrink(0).Children(func() {
-				widget.NavItem(c, widget.IconNewChat, locales.SidebarNewChat(), "Ctrl+N", false).OnClick(a.newChat)
+				widget.NavItem(c, widget.IconNewChat, locales.CommonNewChat(), "Ctrl+N", false).OnClick(a.newChat)
 				a.tasksEntry(c)
 				ui.Row(c).FillWidth().Children(func() { a.searchField(c) })
 				ui.Row(c).FillWidth().Padding(2, 0, 0, 0).Children(func() { a.hostSwitcher(c) })
@@ -47,7 +47,7 @@ func (a *App) sidebar(c *ui.Context) {
 		})
 		ui.Row(c).Padding(8, 10).Gap(4).Shrink(0).AlignItems(ui.Center).BorderWidth(1, 0, 0, 0).BorderColor(k.Divider).
 			Children(func() {
-				widget.NavItem(c, widget.IconSettings, locales.SidebarSettings(), "Ctrl+,", false).OnClick(func() { a.open(pageSettings) }).Grow(1).
+				widget.NavItem(c, widget.IconSettings, locales.CommonSettings(), "Ctrl+,", false).OnClick(func() { a.open(pageSettings) }).Grow(1).
 					Width(0)
 				if hosts && !a.hub.Searching() {
 					a.archiveToggle(c)

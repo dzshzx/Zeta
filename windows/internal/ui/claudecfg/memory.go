@@ -61,7 +61,7 @@ func (p *Page) memoryPage(c *ui.Context) {
 	body(c, "memory", func() {
 		widget.Group(c, locales.ClaudecfgMemoryInstructions(), locales.ClaudecfgMemoryInstructionsFooter(), func(l *widget.List) {
 			if m == nil {
-				loadingRow(l, locales.ClaudecfgLoading())
+				loadingRow(l, locales.CommonLoading())
 				return
 			}
 			summary := locales.ClaudecfgMemoryInstructionsMissing()
@@ -75,7 +75,7 @@ func (p *Page) memoryPage(c *ui.Context) {
 		})
 		widget.Group(c, locales.ClaudecfgAutoMemory(), locales.ClaudecfgAutoMemoryFooter(), func(l *widget.List) {
 			if m == nil {
-				loadingRow(l, locales.ClaudecfgLoading())
+				loadingRow(l, locales.CommonLoading())
 				return
 			}
 			p.autoMemoryRows(l, *m)
@@ -247,7 +247,7 @@ func (p *Page) documentPage(c *ui.Context) {
 	}
 	pageTitle(c, s.doc.title, leave, func() {
 		if s.doc.deletable {
-			widget.SmallDangerButton(c, locales.ClaudecfgDelete()).Disabled(s.loading || s.saving).OnClick(func() { s.deleting = true })
+			widget.SmallDangerButton(c, locales.CommonDelete()).Disabled(s.loading || s.saving).OnClick(func() { s.deleting = true })
 		}
 	})
 	ui.Column(c).Grow(1).MinHeight(0).FillWidth().MaxWidth(widget.PageWidth).AlignSelf(ui.Center).Padding(8, 16, 16, 16).Gap(8).
@@ -266,13 +266,13 @@ func (p *Page) documentPage(c *ui.Context) {
 						mode = 0
 					}
 					if widget.Segmented(c, "document-mode", locales.ClaudecfgDocumentMode(), &mode, locales.ClaudecfgDocumentPreview(),
-						locales.ClaudecfgDocumentEdit()) {
+						locales.CommonEdit()) {
 						s.preview = mode == 0
 					}
 				}
 			})
 			if s.loading {
-				widget.Group(c, "", "", func(l *widget.List) { loadingRow(l, locales.ClaudecfgLoading()) })
+				widget.Group(c, "", "", func(l *widget.List) { loadingRow(l, locales.CommonLoading()) })
 				return
 			}
 			if s.preview {
@@ -328,7 +328,7 @@ func (p *Page) saveBar(c *ui.Context, over bool) {
 		ui.Text(c, hint).FontSize(widget.SizeBodyXS).TextColor(color)
 		ui.Spacer(c)
 		widget.SmallButton(c, locales.ClaudecfgDiscard()).Disabled(s.saving).OnClick(func() { s.draft = s.saved })
-		label := locales.ClaudecfgSave()
+		label := locales.CommonSave()
 		if s.saving {
 			label = locales.ClaudecfgSaving()
 		}
@@ -357,14 +357,14 @@ func stripFrontmatter(text string) string {
 func (p *Page) documentDialogs(c *ui.Context) {
 	s := &p.doc
 	if alert(c, &s.conflict, locales.ClaudecfgConflictTitle(), locales.ClaudecfgConflictMessage(),
-		widget.Destructive, locales.ClaudecfgCancel(), locales.ClaudecfgSaveAnyway()) == 1 {
+		widget.Destructive, locales.CommonCancel(), locales.CommonSaveAnyway()) == 1 {
 		p.saveDocument(true)
 	}
-	if alert(c, &s.leaving, locales.ClaudecfgDiscardTitle(), "", widget.Destructive, locales.ClaudecfgCancel(), locales.ClaudecfgDiscard()) == 1 {
+	if alert(c, &s.leaving, locales.ClaudecfgDiscardTitle(), "", widget.Destructive, locales.CommonCancel(), locales.ClaudecfgDiscard()) == 1 {
 		p.back()
 	}
 	message := locales.ClaudecfgMemoryDeleteMessage(s.doc.file)
-	if alert(c, &s.deleting, locales.ClaudecfgMemoryDeleteTitle(), message, widget.Destructive, locales.ClaudecfgCancel(), locales.ClaudecfgDelete()) == 1 {
+	if alert(c, &s.deleting, locales.ClaudecfgMemoryDeleteTitle(), message, widget.Destructive, locales.CommonCancel(), locales.CommonDelete()) == 1 {
 		path := s.doc.path
 		p.async(func(ctx context.Context) func() {
 			err := p.opts.Core.DeleteMemory(ctx, path)

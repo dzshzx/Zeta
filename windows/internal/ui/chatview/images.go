@@ -8,6 +8,7 @@ import (
 	"sync"
 
 	"github.com/dzshzx/Zeta/windows/internal/chat/items"
+	"github.com/dzshzx/Zeta/windows/internal/locales"
 	"github.com/egoist/mygo/ui"
 )
 
@@ -106,13 +107,13 @@ func (ch *Chat) thumbnail(c *ui.Context, im items.Image, size float32) {
 	box := ui.Box(c).Size(size, size).Radius(12).Clip().Background(c.Theme().Text.Alpha(0.06))
 	switch {
 	case bmp != nil:
-		box.Children(func() { ui.Image(c, bmp).Size(size, size).Fit(ui.Cover).Label("图片") })
+		box.Children(func() { ui.Image(c, bmp).Size(size, size).Fit(ui.Cover).Label(locales.ChatImage()) })
 	case done:
 		box.Center().Tooltip(imageError(err)).Children(func() {
-			ui.Icon(c, iconImage).FontSize(22).TextColor(c.Theme().TextMuted).Label("图片无法显示")
+			ui.Icon(c, iconImage).FontSize(22).TextColor(c.Theme().TextMuted).Label(locales.ChatImageUnavailable())
 		})
 	default:
-		box.Label("正在载入图片")
+		box.Label(locales.ChatImageLoading())
 	}
 }
 
@@ -133,15 +134,15 @@ func (ch *Chat) picture(c *ui.Context, im items.Image) {
 	switch {
 	case bmp != nil:
 		w, h := fitSize(bmp)
-		ui.Image(c, bmp).Size(w, h).Fit(ui.Contain).Radius(12).Label("图片")
+		ui.Image(c, bmp).Size(w, h).Fit(ui.Contain).Radius(12).Label(locales.ChatImage())
 	case done:
 		ui.Row(c).Gap(6).AlignItems(ui.Center).Padding(6, 11).Radius(10).Background(t.Text.Alpha(0.05)).
 			Tooltip(imageError(err)).Children(func() {
 			ui.Icon(c, iconImage).FontSize(14).TextColor(t.TextMuted)
-			ui.Text(c, "图片无法显示").FontSize(12).TextColor(t.TextMuted)
+			ui.Text(c, locales.ChatImageUnavailable()).FontSize(12).TextColor(t.TextMuted)
 		})
 	default:
-		ui.Box(c).Size(imageMaxWidth/2, 120).Radius(12).Background(t.Text.Alpha(0.05)).Label("正在载入图片")
+		ui.Box(c).Size(imageMaxWidth/2, 120).Radius(12).Background(t.Text.Alpha(0.05)).Label(locales.ChatImageLoading())
 	}
 }
 
@@ -163,9 +164,9 @@ func fitSize(bmp *ui.Bitmap) (w, h float32) {
 
 func imageError(err error) string {
 	if err == nil {
-		return "图片无法显示"
+		return locales.ChatImageUnavailable()
 	}
-	return "图片无法显示：" + err.Error()
+	return locales.ChatImageUnavailableWhy(err.Error())
 }
 
 // waitsForTap：网络图还没经用户点过（同手机版的 waitsForTap，访问图片地址会把这台电脑的 IP 交给对方的服务器）。
@@ -185,7 +186,7 @@ func (ch *Chat) remotePrompt(c *ui.Context, im items.Image) {
 	if i := strings.IndexByte(site, '/'); i >= 0 {
 		site = site[:i]
 	}
-	b := ui.ButtonBase(c).Label("加载图片 · "+site).Tooltip(im.URL).Cursor(ui.CursorPointer).Radius(16).Padding(7, 11)
+	b := ui.ButtonBase(c).Label(locales.ChatLoadImage(site)).Tooltip(im.URL).Cursor(ui.CursorPointer).Radius(16).Padding(7, 11)
 	b.Background(t.Text.Alpha(0.05))
 	if b.Hovered() {
 		b.Background(t.Text.Alpha(0.09))
@@ -193,7 +194,7 @@ func (ch *Chat) remotePrompt(c *ui.Context, im items.Image) {
 	b.Children(func() {
 		ui.Row(c).Gap(6).AlignItems(ui.Center).Children(func() {
 			ui.Icon(c, iconImage).FontSize(15).TextColor(t.Accent)
-			ui.Text(c, "加载图片 · "+site).FontSize(12.5).TextColor(t.TextMuted).SingleLine().Ellipsis("…").Shrink(1)
+			ui.Text(c, locales.ChatLoadImage(site)).FontSize(12.5).TextColor(t.TextMuted).SingleLine().Ellipsis("…").Shrink(1)
 		})
 	})
 	b.OnClick(func() { ch.allowed[im.CacheKey()] = true })

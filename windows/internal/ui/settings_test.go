@@ -19,6 +19,7 @@ import (
 	"github.com/dzshzx/Zeta/windows/internal/ui/about"
 	"github.com/dzshzx/Zeta/windows/internal/ui/uitest"
 	"github.com/dzshzx/Zeta/windows/internal/update"
+	"github.com/egoist/mygo/i18n"
 	"github.com/egoist/mygo/ui"
 )
 
@@ -269,7 +270,7 @@ func TestSettingsPreviews(t *testing.T) {
 			f.click(t, "设置")
 		}},
 		{"update-notice", 860, func(_ *testing.T, f *settingsFixture) {
-			f.app.ShowUpdate("Zeta 0.9.0 已发布，可在设置中更新")
+			f.app.ShowUpdate("0.9.0")
 		}},
 		{"chat-quota", 900, func(t *testing.T, f *settingsFixture) {
 			f.click(t, "新对话")
@@ -283,7 +284,9 @@ func TestSettingsPreviews(t *testing.T) {
 		}},
 	}
 	for _, s := range scenes {
-		for _, dark := range []bool{false, true} {
+		for _, look := range previewLooks {
+			i18n.SetLocaleFunc(nil) // 场景按源语言的文字点控件，画之前再换语言
+			dark := look.dark
 			f := newSettingsFixture(t)
 			f.serve.Write(t, ".claude/settings.json", `{"model":"sonnet","permissions":{"defaultMode":"acceptEdits"}}`)
 			f.updates.available = true
@@ -294,11 +297,10 @@ func TestSettingsPreviews(t *testing.T) {
 			f.tt.Move(1275, 5) // 指针挪开，不留悬停的底色
 			f.tt.Advance(2 * time.Second)
 			f.tt.Frame()
-			look := "light"
-			if dark {
-				look = "dark"
-			}
-			out, err := os.Create(filepath.Join(dir, s.name+"-"+look+".png"))
+			look.speak(t, f.tt)
+			f.tt.Frame()
+			f.tt.Frame()
+			out, err := os.Create(filepath.Join(dir, s.name+"-"+look.suffix()+".png"))
 			if err != nil {
 				t.Fatal(err)
 			}
@@ -350,7 +352,7 @@ func TestUsagePopoverShowsQuota(t *testing.T) {
 func TestUpdateNotice(t *testing.T) {
 	f := newSettingsFixture(t)
 	f.updates.available = true
-	f.app.ShowUpdate("Zeta 0.9.0 已发布，可在设置中更新")
+	f.app.ShowUpdate("0.9.0")
 	f.tt.Frame()
 	f.see(t, "Zeta 0.9.0 已发布，可在设置中更新", "查看")
 	f.click(t, "查看")
@@ -358,7 +360,7 @@ func TestUpdateNotice(t *testing.T) {
 		t.Fatalf("没进关于页：%q", f.app.page)
 	}
 	f.notSee(t, "Zeta 0.9.0 已发布，可在设置中更新")
-	f.app.ShowUpdate("Zeta 0.9.0 已发布，可在设置中更新")
+	f.app.ShowUpdate("0.9.0")
 	f.tt.Frame()
 	f.clickButton(t, "关闭提示", 0)
 	f.tt.Frame()

@@ -7,6 +7,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/egoist/mygo/i18n"
 	"github.com/egoist/mygo/ui"
 )
 
@@ -23,7 +24,9 @@ func TestHandoffPreviews(t *testing.T) {
 		"handoff-local-waiting": `"blocked":true,"occupant":{"status":"waiting","waiting_for":"Bash","hands_over":true,"app":"terminal","local":true}`,
 	}
 	for name, state := range scenes {
-		for _, dark := range []bool{false, true} {
+		for _, look := range previewLooks {
+			i18n.SetLocaleFunc(nil) // 场景按源语言的文字点控件，画之前再换语言
+			dark := look.dark
 			f := newChatFixture(t)
 			f.tt = ui.NewTester(f.app.View, 1280, 860)
 			f.tt.SetTitleBar(windowTitleBar)
@@ -32,11 +35,10 @@ func TestHandoffPreviews(t *testing.T) {
 			f.push(state)
 			f.tt.Advance(2 * time.Second)
 			f.tt.Frame()
-			suffix := "light"
-			if dark {
-				suffix = "dark"
-			}
-			out, err := os.Create(filepath.Join(dir, name+"-"+suffix+".png"))
+			look.speak(t, f.tt)
+			f.tt.Frame()
+			f.tt.Frame()
+			out, err := os.Create(filepath.Join(dir, name+"-"+look.suffix()+".png"))
 			if err != nil {
 				t.Fatal(err)
 			}

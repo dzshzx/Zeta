@@ -13,8 +13,8 @@ import (
 type Handoff struct {
 	// Handing：正在接过来。
 	Handing bool
-	// Problem 是上次没接过来的原因，再接时清掉。
-	Problem string
+	// Problem 是上次没接过来的原因（显示时用 locales.ErrorText 说），再接时清掉。
+	Problem error
 }
 
 // chatSession 是聊天窗格里对话的会话号；没有对话或还没有会话号时是空。
@@ -37,7 +37,7 @@ func (h *Hub) HandOver() {
 		return
 	}
 	ho := &c.Handoff
-	ho.Handing, ho.Problem = true, ""
+	ho.Handing, ho.Problem = true, nil
 	core := h.sessionsCall(c.Backend)
 	h.background(sessionsTimeout, func(ctx context.Context) func() {
 		r, err := core.HandOffSession(ctx, session)
@@ -45,10 +45,13 @@ func (h *Hub) HandOver() {
 			ho.Handing = false
 			switch {
 			case err != nil:
-				ho.Problem = locales.HandoffFailed(err.Error())
+				ho.Problem = locales.Wrap(err, locales.HandoffFailed)
 			case !r.Handed && r.Status != nil && *r.Status == sessionproto.StatusStuck:
-				ho.Problem = locales.HandoffStuck()
+				ho.Problem = errHandoffStuck
 			}
 		}
 	})
 }
+
+// errHandoffStuck 是那边卡住了、没有退出，接不过来。
+var errHandoffStuck = locales.Err(locales.HandoffStuck)

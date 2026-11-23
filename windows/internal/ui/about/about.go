@@ -141,11 +141,11 @@ func (p *Page) releaseButton(c *ui.Context, step update.Step) {
 			p.Updates.Update()
 		}
 	case update.Failed:
-		if widget.SmallPrimaryButton(c, locales.AboutRetry()).Clicked() {
+		if widget.SmallPrimaryButton(c, locales.CommonRetry()).Clicked() {
 			p.Updates.Update()
 		}
 	case update.Downloading:
-		if widget.SmallButton(c, locales.AboutCancel()).Clicked() {
+		if widget.SmallButton(c, locales.CommonCancel()).Clicked() {
 			p.Updates.Cancel()
 		}
 	case update.Verifying, update.Installing:

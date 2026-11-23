@@ -161,7 +161,7 @@ func (p *Page) mcpPage(c *ui.Context) {
 		widget.Group(c, locales.ClaudecfgMcpServersCount(len(m.servers)), footer, func(l *widget.List) {
 			switch {
 			case !m.loaded:
-				loadingRow(l, locales.ClaudecfgLoading())
+				loadingRow(l, locales.CommonLoading())
 			case len(m.servers) == 0:
 				emptyRow(l, locales.ClaudecfgMcpEmpty(), locales.ClaudecfgMcpEmptyHint())
 			}
@@ -292,8 +292,8 @@ func (p *Page) addServerDialog(c *ui.Context) {
 			problemText(c, f.problem)
 		}
 	}, func() {
-		widget.DialogButton(c, locales.ClaudecfgCancel(), widget.Plain).Disabled(f.working).OnClick(func() { m.adding = false })
-		label := locales.ClaudecfgMcpAddButton()
+		widget.DialogButton(c, locales.CommonCancel(), widget.Plain).Disabled(f.working).OnClick(func() { m.adding = false })
+		label := locales.CommonAdd()
 		if f.working {
 			label = locales.ClaudecfgMcpAdding()
 		}
@@ -402,7 +402,7 @@ func (p *Page) mcpServerPage(c *ui.Context) {
 		if s.Scope != "project" {
 			widget.Group(c, "", "", func(l *widget.List) {
 				item(l, locales.ClaudecfgMcpDelete(), locales.ClaudecfgMcpDeleteSummary(), func() {
-					widget.SmallDangerButton(c, locales.ClaudecfgDelete()).Disabled(m.working).OnClick(func() { m.removing = true })
+					widget.SmallDangerButton(c, locales.CommonDelete()).Disabled(m.working).OnClick(func() { m.removing = true })
 				})
 			})
 		}
@@ -438,9 +438,9 @@ func (p *Page) toolsSection(c *ui.Context) {
 	widget.Group(c, title, "", func(l *widget.List) {
 		switch {
 		case m.toolsBusy:
-			loadingRow(l, locales.ClaudecfgConnecting())
+			loadingRow(l, locales.CommonConnecting())
 		case m.toolsErr != "":
-			item(l, locales.ClaudecfgToolsListFailed(), m.toolsErr, func() { widget.SmallButton(c, locales.ClaudecfgRetry()).OnClick(p.loadTools) })
+			item(l, locales.ClaudecfgToolsListFailed(), m.toolsErr, func() { widget.SmallButton(c, locales.CommonRetry()).OnClick(p.loadTools) })
 		case m.tools == nil:
 			summary := locales.ClaudecfgToolsConnectHint()
 			if m.detail.OAuth {
@@ -467,8 +467,8 @@ func (p *Page) mcpServerDialogs(c *ui.Context) {
 			TextColor(widget.Of(c).Secondary).TextAlign(ui.Center).FillWidth()
 		widget.LineInput(c.Key("token"), &m.token, 1).Placeholder("Bearer Token").Label("Bearer Token").Password().AutoFocus()
 	}, func() {
-		widget.DialogButton(c, locales.ClaudecfgCancel(), widget.Plain).OnClick(func() { m.tokenOpen, m.token = false, "" })
-		widget.DialogButton(c, locales.ClaudecfgSave(), widget.Recommend).OnClick(func() {
+		widget.DialogButton(c, locales.CommonCancel(), widget.Plain).OnClick(func() { m.tokenOpen, m.token = false, "" })
+		widget.DialogButton(c, locales.CommonSave(), widget.Recommend).OnClick(func() {
 			token := m.token
 			m.tokenOpen, m.token, m.working = false, "", true
 			p.async(func(ctx context.Context) func() {
@@ -489,7 +489,7 @@ func (p *Page) mcpServerDialogs(c *ui.Context) {
 		m.token = ""
 	}
 	if alert(c, &m.removing, locales.ClaudecfgMcpDelete(), locales.ClaudecfgMcpDeleteMessage(s.Name), widget.Destructive,
-		locales.ClaudecfgCancel(), locales.ClaudecfgDelete()) == 1 {
+		locales.CommonCancel(), locales.CommonDelete()) == 1 {
 		m.working = true
 		p.async(func(ctx context.Context) func() {
 			err := p.opts.Core.RemoveMcp(ctx, p.opts.Cwd, s)

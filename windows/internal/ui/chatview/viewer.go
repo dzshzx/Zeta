@@ -12,6 +12,7 @@ import (
 	"time"
 
 	"github.com/dzshzx/Zeta/windows/internal/chat/items"
+	"github.com/dzshzx/Zeta/windows/internal/locales"
 	"github.com/dzshzx/Zeta/windows/internal/ui/widget"
 	"github.com/egoist/mygo/plugins/glass"
 	"github.com/egoist/mygo/transfer"
@@ -154,7 +155,7 @@ func (v *Viewer) View(c *ui.Context) bool {
 	}
 	ui.Overlay(c, func() {
 		page := ui.Themed(c, widget.Theme(true)).Absolute().Left(0).Top(0).Right(0).Bottom(0)
-		page = page.Modal().Role(ui.RoleDialog).Label("看大图")
+		page = page.Modal().Role(ui.RoleDialog).Label(locales.ChatViewer())
 		page.Children(func() {
 			// 毛玻璃画在深色主题里面的一层：材质按包住它的主题决定压暗还是提亮，浅色窗口下也压暗
 			ui.Box(c).Absolute().Left(0).Top(0).Right(0).Bottom(0).PassThrough().Material(viewerGlass)
@@ -163,8 +164,8 @@ func (v *Viewer) View(c *ui.Context) bool {
 			v.image(c, v.images[v.index])
 			v.top(c)
 			if len(v.images) > 1 {
-				pageButton(c, widget.IconChevronBack, "上一张", v.index > 0, true).OnClick(func() { v.step(-1) })
-				pageButton(c, widget.IconForward, "下一张", v.index < len(v.images)-1, false).OnClick(func() { v.step(1) })
+				pageButton(c, widget.IconChevronBack, locales.ChatPreviousImage(), v.index > 0, true).OnClick(func() { v.step(-1) })
+				pageButton(c, widget.IconForward, locales.ChatNextImage(), v.index < len(v.images)-1, false).OnClick(func() { v.step(1) })
 			}
 			v.bottom(c)
 		})
@@ -232,14 +233,14 @@ func (v *Viewer) image(c *ui.Context, im items.Image) {
 		case bmp != nil:
 			z := v.zoom.factor()
 			ui.Image(c, bmp).Size(shown.W, shown.H).Fit(ui.Contain).Scale(z, z).Translate(v.zoom.x, v.zoom.y).
-				Label("图片").Description(zoomText(z))
+				Label(locales.ChatImage()).Description(zoomText(z))
 		case done:
 			ui.Column(c).Gap(10).AlignItems(ui.Center).Tooltip(imageError(err)).Children(func() {
 				ui.Icon(c, iconImage).Size(40, 40).TextColor(k.Secondary)
-				ui.Text(c, "图片无法显示").FontSize(widget.SizeBodyM).TextColor(k.Secondary)
+				ui.Text(c, locales.ChatImageUnavailable()).FontSize(widget.SizeBodyM).TextColor(k.Secondary)
 			})
 		default:
-			ui.Spinner(c).Size(24, 24).Label("正在载入图片")
+			ui.Spinner(c).Size(24, 24).Label(locales.ChatImageLoading())
 		}
 	})
 }
@@ -254,7 +255,7 @@ func (v *Viewer) top(c *ui.Context) {
 				TextColor(k.Text)
 		}
 	})
-	widget.IconButton(c, widget.IconBack, "返回").Absolute().Left(16).Top((widget.TitleBarHeight - 40) / 2).
+	widget.IconButton(c, widget.IconBack, locales.WidgetBack()).Absolute().Left(16).Top((widget.TitleBarHeight - 40) / 2).
 		OnClick(v.close)
 }
 
@@ -293,8 +294,8 @@ func (v *Viewer) bottom(c *ui.Context) {
 		}
 		ready := v.canAct(c)
 		ui.Row(c).Gap(8).Children(func() {
-			barAction(c, widget.IconDownload, "保存", v.Save == nil || !ready).OnClick(func() { v.save(c, v.images[v.index]) })
-			barAction(c, widget.IconCopy, "复制", !ready).OnClick(func() { v.copy(c, v.images[v.index]) })
+			barAction(c, widget.IconDownload, locales.CommonSave(), v.Save == nil || !ready).OnClick(func() { v.save(c, v.images[v.index]) })
+			barAction(c, widget.IconCopy, locales.CommonCopy(), !ready).OnClick(func() { v.copy(c, v.images[v.index]) })
 		})
 		ui.Text(c, note).FontSize(widget.SizeBodyXS).TextColor(k.Secondary).Height(16).SingleLine().Ellipsis("…").MaxWidth(560)
 	})
@@ -330,7 +331,7 @@ func barAction(c *ui.Context, icon *ui.SVG, label string, disabled bool) ui.Elem
 }
 
 // run 在后台做一次保存或复制：取这张图的原始数据交给 work，结果记在看大图上，做完让窗口重画。
-func (v *Viewer) run(c *ui.Context, im items.Image, failed string, work func(data []byte) (note string, clip []byte, err error)) {
+func (v *Viewer) run(c *ui.Context, im items.Image, failed func(error string) string, work func(data []byte) (note string, clip []byte, err error)) {
 	s := &task{}
 	v.task = s
 	fetch, services := v.from.imageBytes, c.Services()
@@ -342,7 +343,7 @@ func (v *Viewer) run(c *ui.Context, im items.Image, failed string, work func(dat
 			note, clip, err = work(data)
 		}
 		if err != nil {
-			note = failed + err.Error()
+			note = failed(err.Error())
 		}
 		s.finish(note, clip)
 		services.Invalidate()
@@ -352,23 +353,23 @@ func (v *Viewer) run(c *ui.Context, im items.Image, failed string, work func(dat
 // save 交给 Save 存这张图。
 func (v *Viewer) save(c *ui.Context, im items.Image) {
 	save := v.Save
-	v.run(c, im, "保存失败：", func(data []byte) (string, []byte, error) {
+	v.run(c, im, locales.ChatImageSaveFailed, func(data []byte) (string, []byte, error) {
 		saved, err := save(data, imageFileName(data, time.Now()))
 		if saved == "" || err != nil {
 			return "", nil, err
 		}
-		return "已保存到 " + saved, nil, nil
+		return locales.ChatImageSaved(saved), nil, nil
 	})
 }
 
 // copy 把这张图转成 PNG（本来是 PNG 的原样用）放上剪贴板。
 func (v *Viewer) copy(c *ui.Context, im items.Image) {
-	v.run(c, im, "复制失败：", func(data []byte) (string, []byte, error) {
+	v.run(c, im, locales.ChatImageCopyFailed, func(data []byte) (string, []byte, error) {
 		clip, err := pngOf(data)
 		if err != nil {
 			return "", nil, err
 		}
-		return "已复制图片", clip, nil
+		return locales.ChatImageCopied(), clip, nil
 	})
 }
 
@@ -407,7 +408,7 @@ func imageFileName(data []byte, now time.Time) string {
 // zoomText 是给读屏的缩放倍数（同手机版的 zoomText）：原大时是「原大」，别的是百分比。
 func zoomText(z float32) string {
 	if z == 1 {
-		return "原大"
+		return locales.ChatZoomActual()
 	}
-	return "放大到 " + strconv.Itoa(int(z*100+0.5)) + "%"
+	return locales.ChatZoomPercent(int(z*100 + 0.5))
 }

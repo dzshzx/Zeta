@@ -4,6 +4,7 @@ import (
 	"strings"
 
 	"github.com/dzshzx/Zeta/windows/internal/chat/items"
+	"github.com/dzshzx/Zeta/windows/internal/locales"
 	"github.com/dzshzx/Zeta/windows/internal/ui/widget"
 	"github.com/egoist/mygo/ui"
 )
@@ -26,10 +27,10 @@ func (ch *Chat) peerMessage(c *ui.Context, it items.Item) {
 	ui.Column(c).FillWidth().AlignItems(ui.End).Padding(16, 0, 6, 0).Children(func() {
 		card := widget.Surface{Shape: widget.ShapeRow, Edge: k.border}.Paint(ui.Column(c)).MaxWidthPercent(bubbleWidthPercent).Clip()
 		card.Children(func() {
-			title := "来自会话 " + it.Peer
+			title := locales.ChatFromSession(it.Peer)
 			var head ui.Element
 			if long {
-				head = ui.ButtonBase(c).Label(title).Description("展开、收起全文").Cursor(ui.CursorPointer)
+				head = ui.ButtonBase(c).Label(title).Description(locales.ChatToggleFullText()).Cursor(ui.CursorPointer)
 				head.OnClick(func() {
 					*open = !*open
 					ch.list.HoldPlace()
@@ -50,7 +51,7 @@ func (ch *Chat) peerMessage(c *ui.Context, it items.Item) {
 			})
 			body := ch.bubbleText(c, it).Selectable().FontSize(widget.SizeBodyL).LineHeight(1.44).TextColor(t.Text).
 				Padding(0, 14, 10, 14).ContextMenu(func(m *ui.Menu) {
-				if m.Item("复制").Chosen() {
+				if m.Item(locales.CommonCopy()).Chosen() {
 					c.Services().WriteClipboard(text)
 				}
 			})

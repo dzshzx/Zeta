@@ -57,7 +57,7 @@ func TestRegenerateThroughCore(t *testing.T) {
 	f.until(t, "重新生成以后答完", func() bool {
 		return rounds(app) == "user:第一个问题 | answer:重新生成的回答" && !app.pane.state.Busy && !app.pane.state.Rewinding
 	})
-	if app.pane.failed != "" || app.pane.draft != "" {
-		t.Fatalf("出错 %q，输入栏 %q", app.pane.failed, app.pane.draft)
+	if app.pane.failed != nil || app.pane.draft != "" {
+		t.Fatalf("出错 %v，输入栏 %q", app.pane.failed, app.pane.draft)
 	}
 }

@@ -53,8 +53,8 @@ type App struct {
 	RunLog *runlog.Log
 	// About 是关于页（版本、自动更新）。New 给的不查更新，窗口起来前由入口换成接了 update.Updater 的。
 	About *about.Page
-	// updateNote 是窗口底部的提示（自动查到了新版本），空是没有。
-	updateNote string
+	// updateVersion 是窗口底部提示的新版本（自动查到的版本名），空是没有提示。
+	updateVersion string
 
 	notice *notice // 弹出的结果
 	add    adding
@@ -264,7 +264,7 @@ func (a *App) noticeDialog(c *ui.Context) {
 	if n == nil {
 		return
 	}
-	widget.Alert(c, &n.open, n.title, n.message, widget.Action{Label: locales.AppNoticeOk(), Style: widget.Recommend})
+	widget.Alert(c, &n.open, n.title, n.message, widget.Action{Label: locales.CommonGotIt(), Style: widget.Recommend})
 	if !n.open {
 		a.notice = nil
 	}

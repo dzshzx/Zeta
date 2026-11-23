@@ -5,9 +5,9 @@ package chatview
 
 import (
 	"math"
-	"strconv"
 
 	"github.com/dzshzx/Zeta/windows/internal/chat/items"
+	"github.com/dzshzx/Zeta/windows/internal/locales"
 	"github.com/egoist/mygo/ui"
 	"github.com/egoist/mygo/ui/markdown"
 )
@@ -224,7 +224,7 @@ func (ch *Chat) View(c *ui.Context) ui.Element {
 	first, last := ch.list.Visible()
 	ch.scrolled = last >= first && (first > 0 || top < list.Bounds().Y+listTop+ch.Top-0.5)
 	// 照 Compose 从顶上往下排；内容多了跟到底部靠 FollowEnd
-	return list.Padding(listTop+ch.Top, 24, 20, 24).Label("对话内容")
+	return list.Padding(listTop+ch.Top, 24, 20, 24).Label(locales.ChatContent())
 }
 
 // paging 认出用户往上翻到了列表顶上附近，好自动载入更早的记录。列表只建看得见的行（和上下几行），所以比较相邻两帧
@@ -268,15 +268,15 @@ func (ch *Chat) earlierRow(c *ui.Context) {
 		switch {
 		case e.Loading:
 			ui.Spinner(c).Size(16, 16)
-			ui.Text(c, "正在载入更早的记录").FontSize(12.5).TextColor(t.TextMuted)
+			ui.Text(c, locales.ChatLoadingEarlier()).FontSize(12.5).TextColor(t.TextMuted)
 		case e.Failed != "":
 			text := e.Failed
 			if e.Retry {
-				text += "，点按重试"
+				text = locales.ChatTapToRetry(text)
 			}
 			ui.Text(c, text).FontSize(12.5).TextColor(t.TextMuted).MaxLines(2).TextAlign(ui.Center)
 		default:
-			ui.Text(c, "载入更早的 "+strconv.Itoa(e.Skipped)+" 条记录").FontSize(12.5).TextColor(t.Accent)
+			ui.Text(c, locales.ChatLoadEarlier(e.Skipped)).FontSize(12.5).TextColor(t.Accent)
 		}
 	})
 	if e.idle() && ch.LoadEarlier != nil {

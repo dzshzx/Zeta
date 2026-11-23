@@ -170,9 +170,11 @@ type reply struct {
 
 // ReplyError 是 serve 答了 ok 为假时 Call 返回的错误（用 errors.As 取）：Error() 是应答里的 error（给人看的原因，没有时是
 // 默认的一句），Code() 是应答里的 code，认得出的出错才带（比如 conv.earlier 的 history_changed、账号的 claude_switch_missing，
-// 见 docs/core.md），没带时是空。
+// 见 docs/core.md），没带时是空。Args 是应答里的 args：code 是核心文字表的键时，它和 code 一起能按客户端现在的语言重新出字
+// （见 docs/i18n.md「核心」）。
 type ReplyError struct {
 	Message string
+	Args    map[string]any
 	code    string
 }
 
@@ -339,6 +341,7 @@ func (s *Serve) read(p *sshlink.Process, done <-chan struct{}, connected *bool) 
 			OK       *bool           `json:"ok"`
 			Error    string          `json:"error"`
 			Code     string          `json:"code"`
+			Args     map[string]any  `json:"args"`
 			Result   json.RawMessage `json:"result"`
 			Hello                    // zeta_hello 里客户端要用的，招呼行只解这一次
 		}
@@ -347,7 +350,7 @@ func (s *Serve) read(p *sshlink.Process, done <-chan struct{}, connected *bool) 
 		}
 		switch {
 		case *connected && head.Type == "zeta_reply":
-			if s.answer(head.ID, head.OK != nil && *head.OK, head.Result, head.Error, head.Code) {
+			if s.answer(head.ID, head.OK != nil && *head.OK, head.Result, &ReplyError{Message: head.Error, Args: head.Args, code: head.Code}) {
 				continue
 			}
 			// 订阅、ping 不等应答：答 false 是那边不认这个方法，两边的版本对不上
@@ -376,8 +379,8 @@ func (s *Serve) read(p *sshlink.Process, done <-chan struct{}, connected *bool) 
 	return ""
 }
 
-// answer 把应答交给等着它的 Call；不是 Call 发的（订阅、ping）返回 false。
-func (s *Serve) answer(rawID json.RawMessage, ok bool, result json.RawMessage, why, code string) bool {
+// answer 把应答交给等着它的 Call：ok 时是 result，否则是 refusal（原因空着时补上默认的一句）。不是 Call 发的（订阅、ping）返回 false。
+func (s *Serve) answer(rawID json.RawMessage, ok bool, result json.RawMessage, refusal *ReplyError) bool {
 	id, err := strconv.ParseInt(string(rawID), 10, 64)
 	if err != nil {
 		return false
@@ -390,7 +393,8 @@ func (s *Serve) answer(rawID json.RawMessage, ok bool, result json.RawMessage, w
 		return false
 	}
 	if !ok {
-		ch <- reply{err: &ReplyError{Message: orDefault(why, "zeta-helper serve 拒绝了请求"), code: code}}
+		refusal.Message = orDefault(refusal.Message, "zeta-helper serve 拒绝了请求")
+		ch <- reply{err: refusal}
 		return true
 	}
 	if string(result) == "null" {
@@ -444,7 +448,7 @@ func (s *Serve) write(p *sshlink.Process, method string, params map[string]any, 
 	msg["id"], msg["method"] = id, method
 	line, err := json.Marshal(msg)
 	if err != nil {
-		s.answer(json.RawMessage(strconv.FormatInt(id, 10)), false, nil, "请求写不成 JSON："+err.Error(), "")
+		s.answer(json.RawMessage(strconv.FormatInt(id, 10)), false, nil, &ReplyError{Message: "请求写不成 JSON：" + err.Error()})
 		return id
 	}
 	_, _ = p.Stdin.Write(append(line, '\n'))

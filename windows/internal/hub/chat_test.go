@@ -103,7 +103,7 @@ func TestOpeningASessionAndSwitching(t *testing.T) {
 	s := hostlink.Session{ID: "s1", File: "/home/zeta/.claude/projects/-w/s1.jsonl", Cwd: "/w", Title: "修 bug", Backend: f.id}
 	f.hub.OpenSession(s)
 	c := f.hub.Chat()
-	if c == nil || c.Opening || c.Conv == nil || c.Problem != "" {
+	if c == nil || c.Opening || c.Conv == nil || c.Problem != nil {
 		t.Fatalf("打开：%+v", c)
 	}
 	calls := f.link().Took()
@@ -322,7 +322,7 @@ func TestOpenFailsWhenTheDeviceIsUnreachable(t *testing.T) {
 	h, _ := newHub(t, d)
 	x, _ := h.AddHost("box", "", d.Found("box"))
 	h.OpenSession(hostlink.Session{ID: "s1", Backend: x.ID})
-	if c := h.Chat(); c.Opening || c.Conv != nil || c.Problem != "打不开这个对话：连不上「box」：connection refused" {
+	if c := h.Chat(); c.Opening || c.Conv != nil || c.Problem == nil || c.Problem.Error() != "打不开这个对话：连不上「box」：connection refused" {
 		t.Fatalf("打不开：%+v", c)
 	}
 	first := d.Chat(x.ID)

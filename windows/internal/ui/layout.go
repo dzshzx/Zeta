@@ -91,10 +91,10 @@ const (
 
 // shortcuts 是窗口的快捷键，键位照 ChatGPT Windows 客户端命令表里的默认键（安装包 app.asar 的 defaultKeybindings）；聊天页自己的（查找、停止）在 chatKeys。
 var shortcuts = []shortcut{
-	{ui.Cmd, ui.KeyN, "Ctrl+N / Ctrl+Shift+O", locales.ShortcutNewChat, 0, func(a *App, _ hostlink.Session) { a.newChat() }},
+	{ui.Cmd, ui.KeyN, "Ctrl+N / Ctrl+Shift+O", locales.CommonNewChat, 0, func(a *App, _ hostlink.Session) { a.newChat() }},
 	{ui.Cmd | ui.Shift, ui.KeyO, "", nil, 0, func(a *App, _ hostlink.Session) { a.newChat() }},
 	{ui.Cmd, ui.KeyK, "Ctrl+K", locales.ShortcutSearch, needHosts, func(a *App, _ hostlink.Session) { a.focusSearch() }},
-	{ui.Cmd, ui.KeyComma, "Ctrl+,", locales.ShortcutSettings, 0, func(a *App, _ hostlink.Session) { a.open(pageSettings) }},
+	{ui.Cmd, ui.KeyComma, "Ctrl+,", locales.CommonSettings, 0, func(a *App, _ hostlink.Session) { a.open(pageSettings) }},
 	{ui.Cmd, ui.KeyB, "Ctrl+B / Ctrl+Shift+S", locales.ShortcutToggleSidebar, 0, func(a *App, _ hostlink.Session) { a.toggleSidebar() }},
 	{ui.Cmd | ui.Shift, ui.KeyS, "", nil, 0, func(a *App, _ hostlink.Session) { a.toggleSidebar() }},
 	// ChatGPT 的上一个、下一个对话是 Ctrl+Alt+[ ] 和 Ctrl+Alt+← →，它的 Ctrl+Tab 切标签页；Zeta 没有标签页，Ctrl+Tab 也切对话

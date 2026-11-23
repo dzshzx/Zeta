@@ -90,7 +90,7 @@ func (a *App) userMenu(c *ui.Context, m *ui.Menu, p *chatPane, it items.Item, la
 		return
 	}
 	off := !p.canRewind()
-	if m.Item(locales.MessageEdit()).Disabled(off).Chosen() {
+	if m.Item(locales.CommonEdit()).Disabled(off).Chosen() {
 		a.beginEdit(p, it, later)
 	}
 	if m.Item(locales.MessageRestoreCode()).Disabled(off).Chosen() {
@@ -131,7 +131,7 @@ func (a *App) roundActions(c *ui.Context, p *chatPane, user items.Item, later in
 	}
 	if user.Forkable {
 		chatview.ActionButton(c, widget.IconBranch, locales.MessageFork(), on).OnClick(func() {
-			p.failed = ""
+			p.failed = nil
 			a.hub.Fork(user.RoundLast, p.fail)
 		})
 	}
@@ -220,7 +220,7 @@ func (a *App) beginEdit(p *chatPane, user items.Item, later int) {
 			}
 			p.putBack(coreapi.Message{Images: images})
 			if lost > 0 {
-				p.failed = locales.MessageImagesLost()
+				p.failed = locales.Err(locales.MessageImagesLost)
 			}
 		}
 	})
@@ -246,7 +246,7 @@ func (p *chatPane) cancelEdit() {
 // 不发，返回 false，字留在输入栏。
 func (a *App) submitEdit(p *chatPane, text string) bool {
 	if !p.connected || !p.state.CanRewind {
-		p.failed = locales.MessageWaitRound()
+		p.failed = locales.Err(locales.MessageWaitRound)
 		return false
 	}
 	target := p.acts.editing.user.ID
@@ -254,11 +254,11 @@ func (a *App) submitEdit(p *chatPane, text string) bool {
 	p.att.clear()
 	p.acts.editing = nil
 	p.list.ScrollToEnd()
-	p.failed = ""
+	p.failed = nil
 	a.hub.RunChat(func(ctx context.Context, conv *chat.Conversation) error {
 		return conv.Rewrite(ctx, target, coreapi.Outgoing{Text: m.Text, Images: m.Images, Files: m.Files})
 	}, func(err error) {
-		p.failed = locales.MessageSendFailed(err.Error())
+		p.failed = locales.Wrap(err, locales.CommonSendFailed)
 		p.putBack(m)
 	})
 	return true
@@ -317,12 +317,12 @@ func (a *App) messageDialogs(c *ui.Context, p *chatPane) {
 		}
 		widget.ButtonBar(c, func() {
 			if cf.kind == confirmRestore && cf.asked && cf.changes == nil {
-				if widget.DialogButton(c, locales.MessageOk(), widget.Recommend).Clicked() {
+				if widget.DialogButton(c, locales.CommonGotIt(), widget.Recommend).Clicked() {
 					cf.open = false
 				}
 				return
 			}
-			if widget.DialogButton(c, locales.WidgetCancel(), widget.Plain).Clicked() {
+			if widget.DialogButton(c, locales.CommonCancel(), widget.Plain).Clicked() {
 				cf.open = false
 			}
 			style := widget.Destructive

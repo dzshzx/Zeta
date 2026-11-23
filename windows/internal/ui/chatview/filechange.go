@@ -6,6 +6,7 @@ import (
 	"unicode/utf8"
 
 	"github.com/dzshzx/Zeta/windows/internal/chat/items"
+	"github.com/dzshzx/Zeta/windows/internal/locales"
 	"github.com/egoist/mygo/ui/editor"
 )
 
@@ -51,11 +52,11 @@ func (f *fileChange) counts() (added, removed, total int) {
 func (f *fileChange) label() string {
 	switch {
 	case f.kind == createChange:
-		return "新文件"
+		return locales.ChatNewFile()
 	case f.kind == overwriteChange:
-		return "整份重写"
+		return locales.ChatRewritten()
 	case f.replaceAll:
-		return "全部替换"
+		return locales.ChatReplaceAll()
 	}
 	return ""
 }

@@ -2,11 +2,11 @@ package chatview
 
 import (
 	"encoding/json"
-	"strconv"
 	"strings"
 	"unicode/utf8"
 
 	"github.com/dzshzx/Zeta/windows/internal/chat/items"
+	"github.com/dzshzx/Zeta/windows/internal/locales"
 	"github.com/egoist/mygo/ui"
 )
 
@@ -26,33 +26,33 @@ func lookOf(s items.Step) toolLook {
 	case "Bash":
 		title := s.Str("description")
 		if strings.TrimSpace(title) == "" {
-			title = orDefault(firstLine(s.Str("command"), 80), "执行命令")
+			title = orDefault(firstLine(s.Str("command"), 80), locales.ChatToolRunCommand())
 		}
 		return toolLook{iconTerminal, title, s.Str("command")}
 	case "Read":
-		return toolLook{iconFile, "读取 " + baseName(s.Str("file_path")), s.Str("file_path")}
+		return toolLook{iconFile, locales.ChatToolRead(baseName(s.Str("file_path"))), s.Str("file_path")}
 	case "Write":
-		return toolLook{iconEdit, "写入 " + baseName(s.Str("file_path")), s.Str("file_path") + "\n\n" + s.Str("content")}
+		return toolLook{iconEdit, locales.ChatToolWrite(baseName(s.Str("file_path"))), s.Str("file_path") + "\n\n" + s.Str("content")}
 	case "Edit", "MultiEdit", "NotebookEdit":
 		return editLook(s)
 	case "Grep":
-		return toolLook{iconSearch, "搜索 " + firstLine(s.Str("pattern"), 40), inputJSON(s)}
+		return toolLook{iconSearch, locales.ChatToolGrep(firstLine(s.Str("pattern"), 40)), inputJSON(s)}
 	case "Glob":
-		return toolLook{iconSearch, "查找文件 " + firstLine(s.Str("pattern"), 40), inputJSON(s)}
+		return toolLook{iconSearch, locales.ChatToolGlob(firstLine(s.Str("pattern"), 40)), inputJSON(s)}
 	case "WebSearch":
-		return toolLook{iconGlobe, "搜索网页：" + firstLine(s.Str("query"), 50), s.Str("query")}
+		return toolLook{iconGlobe, locales.ChatToolWebSearch(firstLine(s.Str("query"), 50)), s.Str("query")}
 	case "WebFetch":
-		return toolLook{iconGlobe, "读取网页 " + hostOf(s.Str("url")), s.Str("url") + "\n\n" + s.Str("prompt")}
+		return toolLook{iconGlobe, locales.ChatToolWebFetch(hostOf(s.Str("url"))), s.Str("url") + "\n\n" + s.Str("prompt")}
 	case "Task", "Agent":
-		return toolLook{iconAgent, "子代理：" + firstLine(orDefault(s.Str("description"), s.Str("prompt")), 50), s.Str("prompt")}
+		return toolLook{iconAgent, locales.ChatToolAgent(firstLine(orDefault(s.Str("description"), s.Str("prompt")), 50)), s.Str("prompt")}
 	case "TodoWrite", "TaskCreate", "TaskUpdate", "TaskList", "TaskGet":
 		return toolLook{iconChecklist, todoTitle(s), inputJSON(s)}
 	case "AskUserQuestion":
-		return toolLook{iconQuestion, "向你提问", inputJSON(s)}
+		return toolLook{iconQuestion, locales.ChatToolAsk(), inputJSON(s)}
 	case "ExitPlanMode":
-		return toolLook{iconChecklist, "提交计划", orDefault(s.Str("plan"), inputJSON(s))}
+		return toolLook{iconChecklist, locales.ChatToolPlan(), orDefault(s.Str("plan"), inputJSON(s))}
 	case "Skill":
-		return toolLook{iconSparkle, "技能 " + orDefault(s.Str("skill"), s.Str("command")), inputJSON(s)}
+		return toolLook{iconSparkle, locales.ChatToolSkill(orDefault(s.Str("skill"), s.Str("command"))), inputJSON(s)}
 	}
 	return mcpLook(s)
 }
@@ -63,7 +63,7 @@ func editLook(s items.Step) toolLook {
 	if old, ok := s.Input["old_string"].(string); ok {
 		detail += "\n\n- " + old + "\n+ " + s.Str("new_string")
 	}
-	return toolLook{iconEdit, "编辑 " + baseName(path), detail}
+	return toolLook{iconEdit, locales.ChatToolEdit(baseName(path)), detail}
 }
 
 // mcpLook：MCP 服务器的工具写成「服务器 · 工具」，手机工具（mcp__phone__…，手机上起的对话里会有）写成「手机 · 工具」，
@@ -71,34 +71,41 @@ func editLook(s items.Step) toolLook {
 func mcpLook(s items.Step) toolLook {
 	if tool, ok := strings.CutPrefix(s.Name, "mcp__phone__"); ok {
 		if tool == "shell" {
-			return toolLook{iconTerminal, "手机 · 命令行", s.Str("command")}
+			return toolLook{iconTerminal, locales.ChatToolPhoneShell(), s.Str("command")}
 		}
-		return toolLook{iconPhone, "手机 · " + tool, inputJSON(s)}
+		return toolLook{iconPhone, locales.ChatToolPhone(tool), inputJSON(s)}
 	}
 	if rest, ok := strings.CutPrefix(s.Name, "mcp__"); ok {
 		return toolLook{iconPlug, strings.Join(strings.SplitN(rest, "__", 2), " · "), inputJSON(s)}
 	}
-	return toolLook{iconWrench, orDefault(s.Name, "工具"), inputJSON(s)}
+	return toolLook{iconWrench, orDefault(s.Name, locales.ChatToolGeneric()), inputJSON(s)}
 }
 
 // todoTitle：任务清单类工具的标题。
 func todoTitle(s items.Step) string {
-	id := "#" + orDefault(s.Str("taskId"), s.Str("task_id"))
+	id := orDefault(s.Str("taskId"), s.Str("task_id"))
 	switch s.Name {
 	case "TaskCreate":
-		return "新建任务：" + orDefault(s.Str("subject"), s.Str("title"))
+		return locales.ChatTodoCreate(orDefault(s.Str("subject"), s.Str("title")))
 	case "TaskUpdate":
-		verb := map[string]string{"in_progress": "开始任务 ", "completed": "完成任务 ", "deleted": "删掉任务 "}[s.Str("status")]
-		return orDefault(verb, "更新任务 ") + id
+		switch s.Str("status") {
+		case "in_progress":
+			return locales.ChatTodoStart(id)
+		case "completed":
+			return locales.ChatTodoComplete(id)
+		case "deleted":
+			return locales.ChatTodoDelete(id)
+		}
+		return locales.ChatTodoUpdate(id)
 	case "TaskList":
-		return "查看任务清单"
+		return locales.ChatTodoList()
 	case "TaskGet":
-		return "查看任务 " + id
+		return locales.ChatTodoGet(id)
 	}
 	if todos, ok := s.Input["todos"].([]any); ok {
-		return "更新任务清单（" + strconv.Itoa(len(todos)) + " 项）"
+		return locales.ChatTodoWriteCount(len(todos))
 	}
-	return "更新任务清单"
+	return locales.ChatTodoWrite()
 }
 
 // stepDetail 是一步工具调用展开后的文字：参数说明，空一行接结果（太长的截掉）。

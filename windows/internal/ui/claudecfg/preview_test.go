@@ -79,7 +79,7 @@ func TestPreviews(t *testing.T) {
 		shot("document")
 		f.press(locales.ClaudecfgDocumentPreview())
 		shot("document-preview")
-		f.click(locales.ClaudecfgSave())
+		f.click(locales.CommonSave())
 		f.press(locales.WidgetBack())
 		f.press(locales.WidgetBack())
 
@@ -92,7 +92,7 @@ func TestPreviews(t *testing.T) {
 		shot("mcp-add")
 		f.typeInto(locales.ClaudecfgName(), "docs")
 		f.typeInto(locales.ClaudecfgMcpURL(), "https://mcp.invalid/mcp")
-		f.click(locales.ClaudecfgMcpAddButton())
+		f.click(locales.CommonAdd())
 		shot("mcp")
 		f.press(locales.ClaudecfgOpenEntry("docs"))
 		shot("mcp-server")

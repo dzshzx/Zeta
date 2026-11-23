@@ -7,13 +7,17 @@ import (
 
 	"github.com/dzshzx/Zeta/client/hostlink"
 	"github.com/dzshzx/Zeta/helper/coreapi"
+	"github.com/dzshzx/Zeta/windows/internal/locales"
 )
 
 // opTimeout 是一件事（读账号、换号、记下、移除）最多等多久：换号前主机那边还要等进程退出（约 8 秒）。
 const opTimeout = 2 * time.Minute
 
-// ownBusy 是本客户端还有对话在进行、不能动登录状态。
-const ownBusy = "这里还有对话在进行"
+// errOwnBusy 是本客户端还有对话在进行、不能动登录状态。
+var errOwnBusy = locales.Err(locales.AccountsOwnBusy)
+
+// errBusy 是上一件事还没做完。
+var errBusy = locales.Err(locales.AccountsBusy)
 
 // client 调核心的 accounts.*：带上 claude-switch 的路径；主机上还没装时装上再试一次。
 type client struct {
@@ -30,7 +34,7 @@ func (cl client) do(ctx context.Context, op func(ctx context.Context, program st
 	err := op(ctx, path)
 	if code, _ := hostlink.ReplyCode(err); code == coreapi.CodeClaudeSwitchMissing && cl.program != nil {
 		if err := cl.program.Install(ctx); err != nil {
-			return errors.New("装不上 claude-switch：" + err.Error())
+			return locales.Wrap(err, locales.AccountsInstallFailed)
 		}
 		err = op(ctx, path)
 	}
@@ -56,10 +60,11 @@ type Service struct {
 	quota *Quota
 	loop  Loop
 
-	state   *coreapi.AccountList
-	login   *Login // 正在进行的登录，见 login.go
-	working string
-	problem string
+	state *coreapi.AccountList
+	login *Login // 正在进行的登录，见 login.go
+	// working 是正在做的事怎么说，没有时为 nil；problem 是上一件事为什么没做成。都在显示时按界面的语言出字。
+	working func() string
+	problem error
 }
 
 // NewService 返回一台主机的账号状态。convs 是本客户端在那台上的对话；quota 是那台的额度（换号后重取，可以为 nil）；
@@ -77,13 +82,23 @@ func (s *Service) State() (st coreapi.AccountList, ok bool) {
 }
 
 // Working 是正在做的事（「正在切换到 …」），没有时为空。
-func (s *Service) Working() string { return s.working }
+func (s *Service) Working() string {
+	if s.working == nil {
+		return ""
+	}
+	return s.working()
+}
 
 // Problem 是上一件事为什么没做成，没有时为空。
-func (s *Service) Problem() string { return s.problem }
+func (s *Service) Problem() string {
+	if s.problem == nil {
+		return ""
+	}
+	return locales.ErrorText(s.problem)
+}
 
 // DismissProblem 清掉 Problem（离开页面时）。
-func (s *Service) DismissProblem() { s.problem = "" }
+func (s *Service) DismissProblem() { s.problem = nil }
 
 // Refresh 重读一遍账号。
 func (s *Service) Refresh() {
@@ -94,8 +109,8 @@ func (s *Service) Refresh() {
 		s.loop.Post(func() {
 			if err == nil {
 				s.state = &st
-			} else if s.working == "" {
-				s.problem = "读不了账号：" + err.Error()
+			} else if s.working == nil {
+				s.problem = locales.Wrap(err, locales.AccountsReadFailed)
 			}
 		})
 	})
@@ -103,14 +118,14 @@ func (s *Service) Refresh() {
 
 // Switch 换成存着的 target：先看有没有别的 Claude Code 进程开着，再收掉本客户端闲着的对话进程，然后在主机上换。
 func (s *Service) Switch(target coreapi.Account) {
-	s.change("正在切换到 "+target.Title(), func(ctx context.Context, program string) error {
+	s.change(func() string { return locales.AccountsSwitching(target.Title()) }, func(ctx context.Context, program string) error {
 		return s.cl.core.SwitchAccount(ctx, program, target.Name)
 	})
 }
 
 // Save 给还没记过的在用登录起个名字记下（在终端里 /login 了一个新号之后），之后就能在这里切换。
 func (s *Service) Save() {
-	s.change("正在记下", func(ctx context.Context, program string) error {
+	s.change(locales.AccountsSaving, func(ctx context.Context, program string) error {
 		_, err := s.cl.core.SaveAccount(ctx, program)
 		return err
 	})
@@ -118,11 +133,11 @@ func (s *Service) Save() {
 
 // Remove 删掉一个不在用的号的存档与记录（只删这台主机上的一份，那个账号在服务端仍是登录状态）。
 func (s *Service) Remove(target coreapi.Account) {
-	if s.working != "" {
-		s.problem = "上一件事还没做完"
+	if s.working != nil {
+		s.problem = errBusy
 		return
 	}
-	s.problem, s.working = "", "正在移除 "+target.Title()
+	s.problem, s.working = nil, func() string { return locales.AccountsRemoving(target.Title()) }
 	s.loop.Run(func() {
 		ctx, cancel := context.WithTimeout(context.Background(), opTimeout)
 		defer cancel()
@@ -130,7 +145,7 @@ func (s *Service) Remove(target coreapi.Account) {
 			return s.cl.core.RemoveAccount(ctx, program, target.Name)
 		})
 		if err != nil {
-			err = errors.New("没有移除：" + err.Error())
+			err = locales.Wrap(err, locales.AccountsRemoveFailed)
 		}
 		s.finish(ctx, err)
 	})
@@ -138,25 +153,25 @@ func (s *Service) Remove(target coreapi.Account) {
 
 // change 做一件改登录状态的事：本客户端有对话在进行、别的 Claude Code 开着时不做，说清原因；能做时先收掉本客户端闲着的
 // 对话进程，再请主机去做。做成了账号和额度都重读。
-func (s *Service) change(working string, op func(ctx context.Context, program string) error) {
+func (s *Service) change(working func() string, op func(ctx context.Context, program string) error) {
 	switch {
-	case s.working != "":
-		s.problem = "上一件事还没做完"
+	case s.working != nil:
+		s.problem = errBusy
 		return
 	case s.convs.Busy():
-		s.problem = ownBusy
+		s.problem = errOwnBusy
 		return
 	}
-	s.problem, s.working = "", working
+	s.problem, s.working = nil, working
 	s.loop.Run(func() {
 		ctx, cancel := context.WithTimeout(context.Background(), opTimeout)
 		st, err := s.cl.list(ctx)
 		cancel()
 		switch {
 		case err != nil:
-			s.loop.Post(func() { s.working, s.problem = "", "读不了账号："+err.Error() })
+			s.loop.Post(func() { s.working, s.problem = nil, locales.Wrap(err, locales.AccountsReadFailed) })
 		case st.Blocker != "":
-			s.loop.Post(func() { s.working, s.problem, s.state = "", st.Blocker, &st })
+			s.loop.Post(func() { s.working, s.problem, s.state = nil, errors.New(st.Blocker), &st })
 		default:
 			s.loop.Post(func() { s.closeAndChange(op) })
 		}
@@ -167,7 +182,7 @@ func (s *Service) change(working string, op func(ctx context.Context, program st
 func (s *Service) closeAndChange(op func(ctx context.Context, program string) error) {
 	// 这一刻再看一次：查进程的这会儿可能有对话开始了
 	if !s.convs.CloseIdle() {
-		s.working, s.problem = "", ownBusy
+		s.working, s.problem = nil, errOwnBusy
 		return
 	}
 	s.loop.Run(func() {
@@ -185,13 +200,10 @@ func (s *Service) closeAndChange(op func(ctx context.Context, program string) er
 func (s *Service) finish(ctx context.Context, err error) {
 	st, listErr := s.cl.list(ctx)
 	s.loop.Post(func() {
-		s.working = ""
+		s.working = nil
 		if listErr == nil {
 			s.state = &st
 		}
-		s.problem = ""
-		if err != nil {
-			s.problem = err.Error()
-		}
+		s.problem = err
 	})
 }

@@ -108,7 +108,7 @@ func main() {
 		app.Language = mygoLanguage{}
 		// 更新的状态在后台变：重画；查到新版本时窗口底部提示；安装程序起好后退出
 		updater.Changed = func() { win.Update(func() {}) }
-		updater.Notify = func(text string) { win.Update(func() { app.ShowUpdate(text) }) }
+		updater.Notify = func(version string) { win.Update(func() { app.ShowUpdate(version) }) }
 		updater.Exit = func() { win.Update(mygo.App.Quit) }
 		// 运行日志记了新的一条：诊断页开着时跟着重画
 		runLog.OnChange(func() { win.Update(func() {}) })

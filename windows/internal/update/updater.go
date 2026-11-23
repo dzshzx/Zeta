@@ -73,10 +73,10 @@ type Updater struct {
 	Source  Source                 // 取清单、下载
 	Install func(msi string) error // 起安装程序，见 Installer
 	Prefs   Prefs
-	Notify  func(text string) // 自动查到新版本时提示一句，在后台 goroutine 上调；nil 时不提示
-	Exit    func()            // 安装程序起好后退出本程序，在后台 goroutine 上调
-	Changed func()            // 状态变了；nil 时不通知
-	Now     func() time.Time  // nil 时是 time.Now
+	Notify  func(version string) // 自动查到新版本时提示一句（version 是新版本的版本名，界面显示时出字），在后台 goroutine 上调；nil 时不提示
+	Exit    func()               // 安装程序起好后退出本程序，在后台 goroutine 上调
+	Changed func()               // 状态变了；nil 时不通知
+	Now     func() time.Time     // nil 时是 time.Now
 
 	mu     sync.Mutex
 	status Status
@@ -210,7 +210,7 @@ func (u *Updater) check(announce bool) {
 	default:
 		if announce && u.Notify != nil && u.Prefs.UpdateNotified() != m.VersionCode {
 			u.Prefs.SetUpdateNotified(m.VersionCode)
-			u.Notify(locales.UpdateAvailableNotice(m.VersionName))
+			u.Notify(m.VersionName)
 		}
 		u.set(Status{Phase: Available, Manifest: m})
 	}

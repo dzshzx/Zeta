@@ -137,7 +137,7 @@ func (p *Page) logView(c *ui.Context) {
 			}
 		})
 	})
-	if widget.Alert(c, &s.clearing, locales.DiagClearTitle(), locales.DiagClearMessage(), widget.Action{Label: locales.WidgetCancel()},
+	if widget.Alert(c, &s.clearing, locales.DiagClearTitle(), locales.DiagClearMessage(), widget.Action{Label: locales.CommonCancel()},
 		widget.Action{Label: locales.DiagClear(), Style: widget.Destructive}) == 1 {
 		s.clearErr = p.o.Log.Clear()
 	}

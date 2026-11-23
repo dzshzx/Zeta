@@ -108,7 +108,7 @@ func (p *Page) userSkills(c *ui.Context) {
 	widget.Group(c, locales.ClaudecfgSkillsUser(p.userSkillCount()), locales.ClaudecfgSkillsUserFooter(), func(l *widget.List) {
 		switch {
 		case s.data == nil:
-			loadingRow(l, locales.ClaudecfgLoading())
+			loadingRow(l, locales.CommonLoading())
 			return
 		case len(s.data.User) == 0:
 			emptyRow(l, locales.ClaudecfgSkillsEmpty(), locales.ClaudecfgSkillsEmptyHint())
@@ -166,7 +166,7 @@ func (p *Page) skillRow(l *widget.List, sk coreapi.Skill) {
 			description = locales.ClaudecfgSkillMissingFileDetail()
 		}
 		widget.SmallButton(c, locales.ClaudecfgSkillDetails()).Label(locales.ClaudecfgSkillDetailsOf(sk.Name)).OnClick(func() { p.skills.showing = &notice{title: sk.Name, message: description, open: true} })
-		widget.SmallDangerButton(c, locales.ClaudecfgDelete()).Label(locales.ClaudecfgDeleteItem(sk.Name)).OnClick(func() { p.skills.deleting = &sk })
+		widget.SmallDangerButton(c, locales.CommonDelete()).Label(locales.ClaudecfgDeleteItem(sk.Name)).OnClick(func() { p.skills.deleting = &sk })
 		on := sk.Enabled
 		if widget.Switch(c, &on).Label(locales.ClaudecfgSkillEnableOf(sk.Name)).Changed() {
 			p.async(func(ctx context.Context) func() {
@@ -190,7 +190,7 @@ func (p *Page) skillDialogs(c *ui.Context) {
 	s := &p.skills
 	if pz := s.pending; pz != nil {
 		message := locales.ClaudecfgSkillReplaceMessage(pz.name)
-		if alert(c, &pz.open, locales.ClaudecfgSkillReplaceTitle(), message, widget.Destructive, locales.ClaudecfgCancel(), locales.ClaudecfgSkillReplace()) == 1 {
+		if alert(c, &pz.open, locales.ClaudecfgSkillReplaceTitle(), message, widget.Destructive, locales.CommonCancel(), locales.ClaudecfgSkillReplace()) == 1 {
 			s.importing = true
 			p.async(func(ctx context.Context) func() {
 				res, err := p.opts.Core.ImportSkill(ctx, pz.file, pz.data, true)
@@ -204,7 +204,7 @@ func (p *Page) skillDialogs(c *ui.Context) {
 	if d := s.deleting; d != nil {
 		open := true
 		switch alert(c, &open, locales.ClaudecfgSkillDeleteTitle(), locales.ClaudecfgSkillDeleteMessage(d.Name), widget.Destructive,
-			locales.ClaudecfgCancel(), locales.ClaudecfgDelete()) {
+			locales.CommonCancel(), locales.CommonDelete()) {
 		case 1:
 			name := d.Name
 			p.async(func(ctx context.Context) func() {
@@ -222,7 +222,7 @@ func (p *Page) skillDialogs(c *ui.Context) {
 		}
 	}
 	if n := s.showing; n != nil {
-		alert(c, &n.open, n.title, n.message, widget.Recommend, locales.ClaudecfgClose())
+		alert(c, &n.open, n.title, n.message, widget.Recommend, locales.CommonClose())
 		if !n.open {
 			s.showing = nil
 		}

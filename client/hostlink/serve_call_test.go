@@ -12,7 +12,7 @@ import (
 	"github.com/dzshzx/Zeta/client/sshlink"
 )
 
-// fakeServe 是假的 serve：打招呼，good 答 ok 带 result，bad 答出错，stale 答出错带 code，nameless 答出错不带原因，hang 不答直接退出（连接断了）。
+// fakeServe 是假的 serve：打招呼，good 答 ok 带 result，bad 答出错，stale 答出错带 code，said 答出错带 code 和 args，nameless 答出错不带原因，hang 不答直接退出（连接断了）。
 const fakeServe = `echo '{"type":"zeta_hello","protocol":1,"build":7,"version":"0.7.2","hostname":"box"}'
 while IFS= read -r l; do
   id=$(printf '%s' "$l" | sed -n 's/.*"id":\([0-9]*\).*/\1/p')
@@ -21,6 +21,7 @@ while IFS= read -r l; do
     *'"method":"empty"'*) echo "{\"type\":\"zeta_reply\",\"id\":$id,\"ok\":true}" ;;
     *'"method":"bad"'*) echo "{\"type\":\"zeta_reply\",\"id\":$id,\"ok\":false,\"error\":\"不认识的方法\"}" ;;
     *'"method":"stale"'*) echo "{\"type\":\"zeta_reply\",\"id\":$id,\"ok\":false,\"error\":\"会话记录变了\",\"code\":\"history_changed\"}" ;;
+    *'"method":"said"'*) echo "{\"type\":\"zeta_reply\",\"id\":$id,\"ok\":false,\"error\":\"没找到 a\",\"code\":\"noSession\",\"args\":{\"id\":\"a\"}}" ;;
     *'"method":"nameless"'*) echo "{\"type\":\"zeta_reply\",\"id\":$id,\"ok\":false,\"code\":\"busy\"}" ;;
     *'"method":"hang"'*) exit 3 ;;
   esac
@@ -81,12 +82,16 @@ func TestServeCallKeepsTheReplyCode(t *testing.T) {
 	for method, want := range map[string][2]string{
 		"stale":    {"会话记录变了", "history_changed"},
 		"nameless": {"zeta-helper serve 拒绝了请求", "busy"},
+		"said":     {"没找到 a", "noSession"},
 		"bad":      {"不认识的方法", ""},
 	} {
 		_, err := s.Call(ctx, method, nil)
 		var replyErr *ReplyError
 		if !errors.As(err, &replyErr) || err.Error() != want[0] || replyErr.Code() != want[1] {
 			t.Errorf("%s：%v（%T），要 %q、code %q", method, err, err, want[0], want[1])
+		}
+		if method == "stale" && replyErr != nil && replyErr.Args != nil {
+			t.Errorf("stale 没带 args，却有 %v", replyErr.Args)
 		}
 		// 包了一层也认得
 		if code, ok := ReplyCode(fmt.Errorf("包着：%w", err)); !ok || code != want[1] {
@@ -187,5 +192,23 @@ done`
 		if p != "" {
 			t.Errorf("报了问题：%q", p)
 		}
+	}
+}
+
+// 出错的应答带 args 时，ReplyError 留着它，客户端能按种类码和参数重新出字。
+func TestServeCallKeepsTheReplyArgs(t *testing.T) {
+	b := newBox(t)
+	s := StartServe(ServeOptions{
+		Open:    func() (*sshlink.Process, error) { return b.shell.StartPlain(fakeServe) },
+		Message: func(string, []byte) {},
+		Problem: func(string) {},
+	})
+	defer s.Close()
+	ctx, cancel := context.WithTimeout(context.Background(), 20*time.Second)
+	defer cancel()
+	_, err := s.Call(ctx, "said", nil)
+	var replyErr *ReplyError
+	if !errors.As(err, &replyErr) || replyErr.Args["id"] != "a" {
+		t.Fatalf("%v（%T）：args %v", err, err, replyErr)
 	}
 }

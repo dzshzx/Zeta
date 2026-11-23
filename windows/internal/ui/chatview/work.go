@@ -1,10 +1,10 @@
 package chatview
 
 import (
-	"strconv"
 	"time"
 
 	"github.com/dzshzx/Zeta/windows/internal/chat/items"
+	"github.com/dzshzx/Zeta/windows/internal/locales"
 	"github.com/dzshzx/Zeta/windows/internal/ui/widget"
 	"github.com/egoist/mygo/ui"
 	"github.com/egoist/mygo/ui/markdown"
@@ -93,13 +93,13 @@ func workTitle(steps []items.Step, running *items.Step) string {
 	}
 	switch {
 	case running != nil && running.Kind == items.Tool:
-		return "正在处理第 " + strconv.Itoa(tools) + " 步 · " + lookOf(*running).title
+		return locales.ChatWorkRunningStep(tools, lookOf(*running).title)
 	case running != nil:
-		return "正在思考"
+		return locales.ChatThinking()
 	case tools > 0:
-		return "已完成 " + strconv.Itoa(tools) + " 个步骤"
+		return locales.ChatStepsDone(tools)
 	}
-	return "思考已完成"
+	return locales.ChatThinkingDone()
 }
 
 // lastRunning 是组里最后一个还在进行的步骤，没有时为 nil。
@@ -148,7 +148,7 @@ func (ch *Chat) stepRow(c *ui.Context, s items.Step) {
 	}
 	if isSubagent(s.Name) && ch.OpenSubagent != nil {
 		open := ch.OpenSubagent
-		b := rowStyle(ui.ButtonBase(c)).Label(title).Description("查看子代理的步骤").Cursor(ui.CursorPointer)
+		b := rowStyle(ui.ButtonBase(c)).Label(title).Description(locales.ChatViewSubagentSteps()).Cursor(ui.CursorPointer)
 		b.Children(func() {
 			header(0, false)
 			ui.Icon(c, iconForward).FontSize(16).TextColor(t.Accent)
@@ -179,11 +179,11 @@ func stepText(s items.Step, locale string) (title, detail string) {
 	if s.Kind == items.Thinking {
 		switch {
 		case s.Thinking:
-			title = "正在思考"
+			title = locales.ChatThinking()
 		case s.Seconds != nil:
-			title = "思考已完成 · 用时 " + strconv.Itoa(*s.Seconds) + " 秒"
+			title = locales.ChatThinkingDoneIn(*s.Seconds)
 		default:
-			title = "思考已完成"
+			title = locales.ChatThinkingDone()
 		}
 		return title, s.Text
 	}
@@ -215,9 +215,9 @@ func statusMark(c *ui.Context, s items.Step) {
 	case s.Kind != items.Tool:
 		return
 	case s.Status == items.ToolSuccess:
-		dot, label = t.Success, "已完成"
+		dot, label = t.Success, locales.ChatStepDone()
 	case s.Status == items.ToolFailed:
-		dot, label = t.Danger, "失败"
+		dot, label = t.Danger, locales.ChatStepFailed()
 	default:
 		return
 	}

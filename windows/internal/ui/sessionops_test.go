@@ -14,6 +14,7 @@ import (
 	"github.com/dzshzx/Zeta/helper/sessionproto"
 	"github.com/dzshzx/Zeta/windows/internal/hubtest"
 	"github.com/egoist/mygo"
+	"github.com/egoist/mygo/i18n"
 	"github.com/egoist/mygo/ui"
 )
 
@@ -312,18 +313,19 @@ func TestSessionOpsPreviews(t *testing.T) {
 		},
 	}
 	for name, setup := range scenes {
-		for _, dark := range []bool{false, true} {
+		for _, look := range previewLooks {
+			i18n.SetLocaleFunc(nil) // 场景按源语言的文字点控件，画之前再换语言
+			dark := look.dark
 			f := newOpsFixture(t)
 			f.tt.SetTitleBar(windowTitleBar)
 			f.tt.SetDark(dark)
 			setup(t, f)
 			f.tt.Advance(2 * time.Second)
 			f.tt.Frame()
-			suffix := "light"
-			if dark {
-				suffix = "dark"
-			}
-			out, err := os.Create(filepath.Join(dir, name+"-"+suffix+".png"))
+			look.speak(t, f.tt)
+			f.tt.Frame()
+			f.tt.Frame()
+			out, err := os.Create(filepath.Join(dir, name+"-"+look.suffix()+".png"))
 			if err != nil {
 				t.Fatal(err)
 			}

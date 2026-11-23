@@ -218,7 +218,7 @@ func (a *App) taskPage(c *ui.Context, p *chatPane, v *taskView) {
 		if t.Command != "" {
 			title := locales.TasksCommand()
 			if agent {
-				title = locales.TasksPrompt()
+				title = locales.CommonPrompt()
 			}
 			textBlock(c, title, t.Command, !agent)
 		}
@@ -297,7 +297,7 @@ func (a *App) stopDialog(c *ui.Context, p *chatPane) {
 	}
 	t := s.task
 	if widget.Alert(c, &s.open, locales.TasksStopTitle(), stopSummary(t),
-		widget.Action{Label: locales.WidgetCancel()}, widget.Action{Label: locales.TasksStopButton(), Style: widget.Destructive}) == 1 {
+		widget.Action{Label: locales.CommonCancel()}, widget.Action{Label: locales.CommonStop(), Style: widget.Destructive}) == 1 {
 		a.act(func(ctx context.Context, conv *chat.Conversation) error { return conv.StopTask(ctx, t.ID) })
 	}
 }
@@ -316,7 +316,7 @@ func (a *App) outputBlock(c *ui.Context, p *chatPane, v *taskView) {
 	case !got && !p.state.Process:
 		textBlock(c, locales.TasksOutput(), locales.TasksOutputGone(), false)
 	case !got:
-		textBlock(c, locales.TasksOutput(), locales.TasksOutputLoading(), false)
+		textBlock(c, locales.TasksOutput(), locales.CommonLoading(), false)
 	case out.Error != "":
 		textBlock(c, locales.TasksOutput(), locales.TasksOutputFailed(out.ErrorIn(c.Locale())), false)
 	case text == "":

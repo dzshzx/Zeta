@@ -168,7 +168,7 @@ func (p *Page) View(c *ui.Context) {
 	widget.TitleRow(c).Children(func() {
 		ui.Text(c, locales.DiagTitle()).FontSize(widget.SizeHeadlineS).FontWeight(widget.Medium).TextColor(k.Text).Shrink(1)
 		ui.Spacer(c)
-		widget.SmallButton(c, locales.DiagRefresh()).Disabled(p.busy()).OnClick(p.Load)
+		widget.SmallButton(c, locales.CommonRefresh()).Disabled(p.busy()).OnClick(p.Load)
 	})
 	devices := p.o.Devices()
 	widget.Body(c, "diag", func() {
@@ -211,7 +211,7 @@ func (p *Page) deviceGroups(c *ui.Context, d Device, named bool) {
 	case d.Core == nil:
 		widget.Group(c, title(locales.DiagClaudeLogs()), "", func(l *widget.List) { l.Message(locales.DiagConnectionOff()) })
 	case !s.loaded:
-		widget.Group(c, title(locales.DiagClaudeLogs()), "", func(l *widget.List) { l.Message(locales.DiagLoading()) })
+		widget.Group(c, title(locales.DiagClaudeLogs()), "", func(l *widget.List) { l.Message(locales.CommonLoading()) })
 	case s.err != nil:
 		widget.Group(c, title(locales.DiagClaudeLogs()), "", func(l *widget.List) {
 			l.Row(widget.Row{Title: locales.DiagDeviceLogsFailed(), Summary: s.err.Error(), SummaryColor: widget.Of(c).Error})
@@ -316,8 +316,8 @@ func (p *Page) fileView(c *ui.Context) {
 			Ellipsis("…").Shrink(1)
 		ui.Spacer(c)
 		ui.Row(c).Gap(8).AlignItems(ui.Center).Shrink(0).Children(func() {
-			widget.SmallButton(c, locales.DiagCopy()).Disabled(v.loading || v.err != nil).OnClick(func() { c.Services().WriteClipboard(v.tail.Text) })
-			widget.SmallButton(c, locales.DiagRefresh()).Disabled(v.loading).OnClick(p.reload)
+			widget.SmallButton(c, locales.CommonCopy()).Disabled(v.loading || v.err != nil).OnClick(func() { c.Services().WriteClipboard(v.tail.Text) })
+			widget.SmallButton(c, locales.CommonRefresh()).Disabled(v.loading).OnClick(p.reload)
 		})
 	})
 	ui.Column(c).Grow(1).MinHeight(0).FillWidth().MaxWidth(widget.PageWidth).AlignSelf(ui.Center).Padding(8, 16, 16, 16).Gap(8).
@@ -332,7 +332,7 @@ func (p *Page) fileView(c *ui.Context) {
 			ui.Text(c, info).FontSize(widget.SizeBodyXS).TextColor(k.Secondary).Padding(0, 16).Selectable()
 			switch {
 			case v.loading && v.tail.Text == "":
-				widget.Group(c, "", "", func(l *widget.List) { l.Message(locales.DiagLoading()) })
+				widget.Group(c, "", "", func(l *widget.List) { l.Message(locales.CommonLoading()) })
 			case v.err != nil:
 				widget.Group(c, "", "", func(l *widget.List) {
 					l.Row(widget.Row{Title: locales.DiagFileUnreadable(), Summary: v.err.Error(), SummaryColor: k.Error})

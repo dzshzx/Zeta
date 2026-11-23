@@ -9,6 +9,7 @@ import (
 
 	"github.com/dzshzx/Zeta/helper/coreapi"
 	acct "github.com/dzshzx/Zeta/windows/internal/accounts"
+	"github.com/dzshzx/Zeta/windows/internal/locales"
 	"github.com/dzshzx/Zeta/windows/internal/ui/widget"
 	"github.com/egoist/mygo/ui"
 )
@@ -40,21 +41,19 @@ func (p *Page) View(c *ui.Context) {
 		p.quota(c)
 		p.accounts(c)
 	})
-	if widget.Alert(c, &p.askSwitch, "切换到 "+p.switching.Title()+"？",
-		"会先关掉这台设备上闲着的对话进程，对话内容不丢。之后这台上的新对话、额度和终端里的 claude 都用这个账号。",
-		widget.Action{Label: "取消"}, widget.Action{Label: "切换", Style: widget.Recommend}) == 1 {
+	if widget.Alert(c, &p.askSwitch, locales.AccountsSwitchTitle(p.switching.Title()), locales.AccountsSwitchMessage(),
+		widget.Action{Label: locales.CommonCancel()}, widget.Action{Label: locales.AccountsSwitch(), Style: widget.Recommend}) == 1 {
 		p.Accounts.Switch(p.switching)
 	}
-	if widget.Alert(c, &p.askRemove, "移除 "+p.removing.Title()+"？",
-		"只删这台设备上存着的这份登录，服务器上的登录还在。以后要用得重新登录。",
-		widget.Action{Label: "取消"}, widget.Action{Label: "移除", Style: widget.Destructive}) == 1 {
+	if widget.Alert(c, &p.askRemove, locales.AccountsRemoveTitle(p.removing.Title()), locales.AccountsRemoveMessage(),
+		widget.Action{Label: locales.CommonCancel()}, widget.Action{Label: locales.CommonRemove(), Style: widget.Destructive}) == 1 {
 		p.Accounts.Remove(p.removing)
 	}
 }
 
 func (p *Page) quota(c *ui.Context) {
 	q := p.Quota
-	widget.Group(c, "订阅额度", q.Footnote(c.Now()), func(l *widget.List) {
+	widget.Group(c, locales.AccountsQuotaTitle(), q.Footnote(c.Now()), func(l *widget.List) {
 		if s, ok := q.Snapshot(); ok && !s.Unavailable && len(s.Windows) > 0 {
 			l.Custom(func() {
 				ui.Column(c).Grow(1).Padding(4, 0).Children(func() { Windows(c, s, c.Now()) })
@@ -62,9 +61,9 @@ func (p *Page) quota(c *ui.Context) {
 		}
 		l.Custom(func() {
 			ui.Spacer(c)
-			label := "刷新"
+			label := locales.CommonRefresh()
 			if q.Refreshing() {
-				label = "正在刷新"
+				label = locales.AccountsRefreshing()
 			}
 			widget.SmallButton(c, label).Disabled(q.Refreshing()).OnClick(func() { q.Refresh(true) })
 		})
@@ -74,21 +73,20 @@ func (p *Page) quota(c *ui.Context) {
 func (p *Page) accounts(c *ui.Context) {
 	svc := p.Accounts
 	st, loaded := svc.State()
-	widget.Group(c, "账号", "这台设备上两个 Zeta 和终端里的 claude 共用一份登录，有对话在进行或别处开着 Claude Code 时不能切换。"+
-		"添加账号时在用的号先存起来，之后能切换回去。", func(l *widget.List) {
+	widget.Group(c, locales.AccountsTitle(), locales.AccountsFooter(), func(l *widget.List) {
 		switch {
 		case !loaded:
-			l.Message("正在读取")
+			l.Message(locales.CommonLoading())
 		case st.Current == nil && len(st.Accounts) == 0:
-			l.Message("还没有登录")
+			l.Message(locales.AccountsNotSignedIn())
 		}
 		for _, a := range st.Accounts {
 			p.row(l, a, st.IsCurrent(a), c.Now())
 		}
 		if _, logging := svc.Login(); loaded && !logging {
 			l.Custom(func() {
-				ui.Text(c, "添加账号").FontSize(widget.SizeHeadlineXS).TextColor(widget.Of(c).Text).Grow(1)
-				widget.SmallButton(c, "添加").Disabled(svc.Working() != "").OnClick(func() {
+				ui.Text(c, locales.AccountsAdd()).FontSize(widget.SizeHeadlineXS).TextColor(widget.Of(c).Text).Grow(1)
+				widget.SmallButton(c, locales.CommonAdd()).Disabled(svc.Working() != "").OnClick(func() {
 					p.code = ""
 					svc.StartLogin()
 				})
@@ -115,14 +113,14 @@ func (p *Page) row(l *widget.List, a coreapi.Account, current bool, now time.Tim
 	idle := p.Accounts.Working() == ""
 	row := widget.Row{Key: "account:" + a.Name, Title: a.Title(), Summary: summary(a, now)}
 	if current {
-		row.Value = "当前"
+		row.Value = locales.AccountsCurrent()
 		if a.Name == "" {
-			row.End = func() { widget.SmallPrimaryButton(c, "记下").Disabled(!idle).OnClick(p.Accounts.Save) }
+			row.End = func() { widget.SmallPrimaryButton(c, locales.AccountsSave()).Disabled(!idle).OnClick(p.Accounts.Save) }
 		}
 	} else {
 		row.End = func() {
-			widget.SmallButton(c, "切换").Disabled(!idle).OnClick(func() { p.switching, p.askSwitch = a, true })
-			widget.SmallDangerButton(c, "移除").Disabled(!idle).OnClick(func() { p.removing, p.askRemove = a, true })
+			widget.SmallButton(c, locales.AccountsSwitch()).Disabled(!idle).OnClick(func() { p.switching, p.askSwitch = a, true })
+			widget.SmallDangerButton(c, locales.CommonRemove()).Disabled(!idle).OnClick(func() { p.removing, p.askRemove = a, true })
 		}
 	}
 	l.Row(row)
@@ -137,10 +135,10 @@ func summary(a coreapi.Account, now time.Time) string {
 		}
 	}
 	if a.Expired(now) {
-		parts = append(parts, "登录已过期")
+		parts = append(parts, locales.AccountsExpired())
 	}
 	if a.Name == "" {
-		parts = append(parts, "还没记下名字")
+		parts = append(parts, locales.AccountsUnnamed())
 	}
 	return strings.Join(parts, " · ")
 }
@@ -157,9 +155,9 @@ func Windows(c *ui.Context, s coreapi.QuotaSnapshot, now time.Time) {
 	k := widget.Of(c)
 	ui.Column(c).FillWidth().Gap(12).Children(func() {
 		if s.Blocked {
-			text := "已达上限，暂时发不出请求"
+			text := locales.AccountsBlocked()
 			if r := acct.ResetText(s.BlockedUntil, now); r != "" {
-				text += "，" + r
+				text = locales.AccountsBlockedUntil(r)
 			}
 			note(c, text).TextColor(k.Error)
 		}
@@ -175,9 +173,9 @@ func Windows(c *ui.Context, s coreapi.QuotaSnapshot, now time.Time) {
 			}
 			value := strings.Join(amounts, " / ")
 			if value == "" {
-				value = "已开启"
+				value = locales.AccountsExtraOn()
 			}
-			line(c, "额外用量（本月）", value, e.Used, coreapi.SeverityNormal, "")
+			line(c, locales.AccountsExtraUsage(), value, e.Used, coreapi.SeverityNormal, "")
 		}
 	})
 }
