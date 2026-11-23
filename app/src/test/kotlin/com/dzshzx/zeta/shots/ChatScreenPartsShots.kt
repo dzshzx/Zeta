@@ -445,7 +445,7 @@ class ChatScreenPartsShots : ShotTest() {
     fun externalWaiting() =
         external(
             "chat-external-waiting",
-            Occupant(Occupant.WAITING, "Bash: rm -rf build", app = Occupant.TERMINAL),
+            Occupant(Occupant.WAITING, "Bash: rm -rf build", app = Occupant.TERMINAL, local = true),
         )
 
     private fun external(name: String, occupant: Occupant?) {

@@ -52,30 +52,40 @@ class SessionHandoffTest {
             ),
         )
         assertEquals(
-            Occupant("idle", app = "terminal"),
-            occupant("""{"status":"idle","hands_over":true,"app":"terminal","device":""}"""),
+            Occupant("idle", app = "terminal", local = true),
+            occupant(
+                """{"status":"idle","hands_over":true,"app":"terminal","device":"","local":true}""",
+            ),
         )
     }
 
     /** 用例同桌面版 handoff_test.go 的 TestOccupantPlace。 */
     @Test
     fun occupantPlaceCases() {
+        data class Case(
+            val app: String?,
+            val device: String?,
+            val local: Boolean,
+            val want: String?,
+        )
         listOf(
-                Triple("terminal", null, "本机终端里"),
-                Triple("terminal", "work-pc", "work-pc 的终端里"),
-                Triple("terminal", "100.64.0.9", "100.64.0.9 的终端里"),
-                Triple("zeta", null, "Zeta 里"),
-                Triple("zeta", "DESKTOP-7", "DESKTOP-7 的 Zeta 里"),
-                Triple("zeta-dev", "Xiaomi 17", "Xiaomi 17 的 Zeta 测试版里"),
-                Triple("claude-vscode", null, "VS Code 里"),
-                Triple("claude-vscode", "work-pc", "work-pc 的 VS Code 里"),
-                Triple("claude-vscode", "小米 17", "小米 17 的 VS Code 里"),
-                Triple("claude-desktop", null, "Claude 桌面版里"),
-                Triple("sdk-ts", "work-pc", null),
-                Triple(null, null, null),
+                Case("terminal", null, true, "本机终端里"),
+                Case("terminal", "work-pc", false, "work-pc 的终端里"),
+                Case("terminal", "100.64.0.9", false, "100.64.0.9 的终端里"),
+                Case("terminal", null, false, "终端里"),
+                Case("zeta", null, true, "本机的 Zeta 里"),
+                Case("zeta", "DESKTOP-7", false, "DESKTOP-7 的 Zeta 里"),
+                Case("zeta-dev", "work-pc", false, "work-pc 的 Zeta 测试版里"),
+                Case("zeta-dev", null, true, "本机的 Zeta 测试版里"),
+                Case("zeta-dev", null, false, "Zeta 测试版里"),
+                Case("claude-vscode", null, false, "VS Code 里"),
+                Case("claude-vscode", "小米 17", false, "小米 17 的 VS Code 里"),
+                Case("claude-desktop", null, true, "本机的 Claude 桌面版里"),
+                Case("sdk-ts", "work-pc", false, null),
+                Case(null, null, true, null),
             )
-            .forEach { (app, device, want) ->
-                assertEquals("$app $device", want, occupantPlace(app, device))
+            .forEach {
+                assertEquals(it.toString(), it.want, occupantPlace(it.app, it.device, it.local))
             }
     }
 
@@ -84,6 +94,10 @@ class SessionHandoffTest {
         assertTrue(
             endConfirmSummary(true, Occupant("idle", app = "terminal", device = "work-pc"))
                 .startsWith("它正在 work-pc 的终端里运行，结束会停掉那边的进程"),
+        )
+        assertTrue(
+            endConfirmSummary(true, Occupant("idle", app = "zeta", local = true))
+                .startsWith("它正在本机的 Zeta 里运行，"),
         )
         assertTrue(endConfirmSummary(true, null).startsWith("它正在别处运行，"))
         assertTrue(endConfirmSummary(true, Occupant("idle", app = "sdk-py")).startsWith("它正在别处运行，"))
@@ -190,6 +204,16 @@ class SessionHandoffTest {
             }
         assertEquals(
             "会话正在本机终端里运行",
+            externalNoticeText(Occupant(Occupant.IDLE, app = "terminal", local = true), false, null)
+                .title,
+        )
+        assertEquals(
+            "会话正在本机的 Zeta 测试版里运行",
+            externalNoticeText(Occupant(Occupant.IDLE, app = "zeta-dev", local = true), false, null)
+                .title,
+        )
+        assertEquals(
+            "会话正在终端里运行",
             externalNoticeText(Occupant(Occupant.IDLE, app = "terminal"), false, null).title,
         )
         externalNoticeText(

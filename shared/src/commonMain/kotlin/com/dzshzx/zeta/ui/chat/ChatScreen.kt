@@ -138,7 +138,7 @@ fun endConfirmSummary(external: Boolean, occupant: Occupant?): String =
     (if (external)
         spaced(
             "它正在",
-            occupant?.let { occupantPlace(it.app, it.device) } ?: "别处",
+            occupant?.let { occupantPlace(it.app, it.device, it.local) } ?: "别处",
             "运行，结束会停掉那边的进程，那边在做的也一并停掉。",
         )
     else "它还在进行（在回答、等你确认或有后台任务），结束会一并停掉。") + "对话内容保留，可以从历史对话里接着聊。"

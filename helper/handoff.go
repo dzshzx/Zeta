@@ -85,8 +85,9 @@ func (e *env) occupancy(id string) sessionproto.Occupancy {
 		return sessionproto.Occupancy{HandsOver: true}
 	}
 	status := statusOf(top)
+	where := e.deviceOf(top)
 	result := sessionproto.Occupancy{Status: &status, HandsOver: sessionproto.HandsOver(status),
-		App: appOf(top), Device: e.deviceOf(top)}
+		App: appOf(top), Device: where.Name, Local: where.Local}
 	if status == sessionproto.StatusWaiting && top.waiting != "" {
 		waiting := top.waiting
 		result.WaitingFor = &waiting

@@ -3,6 +3,7 @@ package conv
 import (
 	"encoding/json"
 	"errors"
+	"fmt"
 	"io/fs"
 	"reflect"
 	"slices"
@@ -367,14 +368,16 @@ func TestKeepDeviceOfTheLastSender(t *testing.T) {
 	var mu sync.Mutex
 	var kept []string
 	missing := true
-	h.m.deps.ClientDevice = func(client int) string { return map[int]string{1: "Xiaomi 17", 2: "DESKTOP-7"}[client] }
-	h.m.deps.KeepDevice = func(key, device string) error {
+	h.m.deps.ClientDevice = func(client int) Device {
+		return map[int]Device{1: {Name: "phone"}, 2: {Local: true}}[client]
+	}
+	h.m.deps.KeepDevice = func(key string, d Device) error {
 		mu.Lock()
 		defer mu.Unlock()
 		if missing {
 			return fs.ErrNotExist
 		}
-		kept = append(kept, key+"="+device)
+		kept = append(kept, fmt.Sprintf("%s=%s/%v", key, d.Name, d.Local))
 		return nil
 	}
 	h.call(1, "conv.open", map[string]any{"conv": "a", "cwd": "/w"})
@@ -395,7 +398,7 @@ func TestKeepDeviceOfTheLastSender(t *testing.T) {
 	h.settle(c)
 	mu.Lock()
 	defer mu.Unlock()
-	if want := []string{l.key + "=Xiaomi 17", l.key + "=DESKTOP-7", l.key + "="}; !reflect.DeepEqual(kept, want) {
+	if want := []string{l.key + "=phone/false", l.key + "=/true", l.key + "=/false"}; !reflect.DeepEqual(kept, want) {
 		t.Fatalf("记下的：%v", kept)
 	}
 }

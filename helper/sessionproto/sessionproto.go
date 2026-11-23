@@ -76,9 +76,11 @@ type Occupancy struct {
 	// App：占着会话的是什么应用（几个占着时取 Status 那个）：AppTerminal、AppZeta、AppZetaDev（Zeta 托管的给托管它的包名），
 	// 别的给 Claude Code 登记的 entrypoint 原样（比如 claude-vscode、claude-desktop、sdk-ts）；登记里没有时省掉
 	App string `json:"app,omitempty"`
-	// Device：用户在哪台设备上用它：终端里的是经 SSH 连进来的那台（tailscale 里的机器名，对不上时是 IP），
-	// 本机终端里开的省掉；Zeta 托管的是最近一次在这个对话里发消息的客户端报的设备名（core.client），不知道时省掉
+	// Device、Local：用户在哪台设备上用它。Local 为真是这台主机本机（终端是在本机开的，Zeta 是不经 SSH 或从回环地址连来的），
+	// 这时 Device 省掉；不是本机时 Device 是那台的名字：连进来的 SSH 来源地址在 tailscale 里对得上的用 tailscale 的机器名，
+	// 对不上时 Zeta 用它的客户端自己报的设备名（core.client），终端用地址。都省掉是不知道（旧客户端没报过）
 	Device string `json:"device,omitempty"`
+	Local  bool   `json:"local,omitempty"`
 }
 
 // Occupancy.App 的取值里 Zeta 自己认的几个。

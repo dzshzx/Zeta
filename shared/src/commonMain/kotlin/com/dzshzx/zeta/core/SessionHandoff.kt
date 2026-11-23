@@ -26,8 +26,12 @@ data class Occupant(
      * entrypoint 原样（比如 claude-vscode）；核心没给时为 null。
      */
     val app: String? = null,
-    /** 用户在哪台设备上用它：终端里的是经 SSH 连进来的那台，Zeta 的是最近在那个对话里发消息的设备；本机终端、不知道时为 null。 */
+    /**
+     * 用户在哪台设备上用它（终端里的是经 SSH 连进来的那台，Zeta 的是最近在那个对话里发消息的那台）：[local] 为真是这台主机本机；不是本机时 [device]
+     * 是那台的名字，不知道时为 null。
+     */
     val device: String? = null,
+    val local: Boolean = false,
 ) {
     companion object {
         const val IDLE = "idle"
@@ -47,13 +51,17 @@ data class Occupant(
             if (o["status"] is JsonNull) return null
             val app = o.str("app")?.ifEmpty { null }
             val device = o.str("device")?.ifEmpty { null }
-            val status = o.str("status") ?: return Occupant(UNKNOWN, app = app, device = device)
+            val local = o.bool("local") == true
+            val status =
+                o.str("status")
+                    ?: return Occupant(UNKNOWN, app = app, device = device, local = local)
             return Occupant(
                 status,
                 o.str("waiting_for"),
                 handsOver = o.bool("hands_over") != false,
                 app = app,
                 device = device,
+                local = local,
             )
         }
     }

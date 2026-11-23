@@ -137,15 +137,15 @@ func (h *conversations) Request(c *core.Client, r core.Request) (any, error) {
 	return v, err
 }
 
-// device 是客户端 client 报的设备名（core.client）；连接已经走了或没报过时为空。
-func (h *conversations) device(client int) string {
+// device 是客户端 client 是哪台设备（clientDevice）；连接已经走了时不知道。
+func (h *conversations) device(client int) conv.Device {
 	h.mu.Lock()
 	c := h.clients[client]
 	h.mu.Unlock()
 	if c == nil {
-		return ""
+		return conv.Device{}
 	}
-	return c.Device()
+	return clientDevice(c)
 }
 
 func (h *conversations) Gone(c *core.Client) {

@@ -35,8 +35,9 @@ fun externalNoticeText(
     problem: String?,
 ): ExternalNoticeText {
     val title =
-        occupant?.let { occupantPlace(it.app, it.device) }?.let { spaced("会话正在", it, "运行") }
-            ?: "会话正在别处运行"
+        occupant
+            ?.let { occupantPlace(it.app, it.device, it.local) }
+            ?.let { spaced("会话正在", it, "运行") } ?: "会话正在别处运行"
     val summary =
         when {
             problem != null -> problem
@@ -59,20 +60,26 @@ fun externalNoticeText(
 }
 
 /**
- * 占着会话的进程在哪，接在「会话正在」「它正在」后面（同桌面版的 occupantPlace，用例相同）：[app]、[device] 是核心推来的 occupant 的 app、device。
- * 终端里的说是哪台的终端，没有设备的是本机终端；Zeta 的说是哪台设备上的哪个包；VS Code、Claude 桌面版说应用。说不出是什么应用时为 null，调用方说「别处」。
+ * 占着会话的进程在哪，接在「会话正在」「它正在」后面（同桌面版的 occupantPlace，用例相同）：[app]、[device]、[local] 是核心推来的 occupant 的
+ * app、device、 local。本机的是「本机终端里」「本机的 Zeta 测试版里」，有名字的是「work-pc 的终端里」，在哪不知道时只说应用（「终端里」）；VS Code、Claude
+ * 桌面版同样。 说不出是什么应用时为 null，调用方说「别处」。
  */
-fun occupantPlace(app: String?, device: String?): String? {
+fun occupantPlace(app: String?, device: String?, local: Boolean): String? {
     val what =
         when (app) {
-            Occupant.TERMINAL -> if (device.isNullOrEmpty()) return "本机终端里" else "终端"
+            Occupant.TERMINAL -> "终端"
             Occupant.ZETA -> "Zeta"
             Occupant.ZETA_DEV -> "Zeta 测试版"
             "claude-vscode" -> "VS Code"
             "claude-desktop" -> "Claude 桌面版"
             else -> return null
         }
-    return if (device.isNullOrEmpty()) spaced(what, "里") else spaced(device, "的", what, "里")
+    return when {
+        local && app == Occupant.TERMINAL -> "本机终端里"
+        local -> spaced("本机的", what, "里")
+        !device.isNullOrEmpty() -> spaced(device, "的", what, "里")
+        else -> spaced(what, "里")
+    }
 }
 
 /** 闲着时接管的后果：Zeta 托管的那边结束它的托管进程；别的（终端里的等）收到中断像 /exit 那样退出。 */

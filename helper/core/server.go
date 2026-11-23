@@ -7,7 +7,7 @@
 // 请求：{"id":<任意 JSON 值>,"method":"<方法>","conv":"<对话>",<其余参数平级>}。
 // 应答：每个请求一行 {"type":"zeta_reply","id":<原样>,"ok":true,"result":<结果，可省>}，
 // 出错时 {"type":"zeta_reply","id":<原样>,"ok":false,"error":"<原因>"}。推送由 Handler 经 Client.Send、SendAll 随时发。
-// 核心自己答的请求有两个，不交给 Handler：core.handover（交班，见 Server.Serve）和 core.client（客户端报自己是哪台设备，见 Client.Device）。
+// 核心自己答的请求有两个，不交给 Handler：core.handover（交班，见 Server.Serve）和 core.client（客户端报自己是哪台设备，见 Client.Introduced）。
 // 连上时核心先发一行 {"type":"core_hello","build":<构建序号>,"version":"<版本>"}（Info），serve 据此决定用它还是让它交班，
 // 这一行不转给客户端；之后核心发来的每一行都原样转给客户端。
 package core
@@ -77,8 +77,9 @@ type Info struct {
 // handoverMethod 是新版本的 serve 让核心交班的请求：核心答完就不再接新连接，放开托管进程，退出。
 const handoverMethod = "core.handover"
 
-// clientMethod 是客户端连上后报自己是哪台设备的请求：{"method":"core.client","device":"<设备名>"}。核心记在这条连接上（Client.Device），
-// 不交给处理器；对话拿它记下最近是哪台设备在用（别的包查别处占用时说「在哪」，见 sessionproto.Occupancy 的 device）。
+// clientMethod 是客户端连上后报自己是哪台设备的请求：{"method":"core.client","device":"<客户端报的设备名>","ssh":"<SSH_CONNECTION>"}，
+// ssh 由 serve 转发时按自己的环境补上（客户端经 SSH 连进来时才有，见 helper/serve.go 的 withSSHSource）。核心记在这条连接上
+// （Client.Introduced），不交给处理器；对话拿它定设备的名字、记下最近是哪台在用（别的包查别处占用时说「在哪」）。
 const clientMethod = "core.client"
 
 // deviceMax 是 core.client 报的设备名最多几个字（按字符数），多的截掉。
@@ -92,22 +93,26 @@ type Client struct {
 	mu     sync.Mutex
 	closed bool
 	device string // core.client 报的设备名，没报过（旧客户端）时为空
+	ssh    string // core.client 里 serve 补上的 SSH_CONNECTION，不是经 SSH 连来的或没报过时为空
+	known  bool   // 报过 core.client
 }
 
 // ID 是这个核心里客户端的序号，从 1 起，写日志用。
 func (c *Client) ID() uint64 { return c.id }
 
-// Device 是这个客户端用 core.client 报的设备名（手机是系统设置里的设备名，桌面版是 Windows 的计算机名）；没报过时为空。
-func (c *Client) Device() string {
+// Introduced 是这个客户端用 core.client 报的：device 是它自己说的设备名（手机是系统设置里的设备名，桌面版是 Windows 的计算机名），
+// ssh 是它连进来的那条 SSH 连接（SSH_CONNECTION，不经 SSH 时为空）。ok 为假是没报过（旧客户端）。
+func (c *Client) Introduced() (device, ssh string, ok bool) {
 	c.mu.Lock()
 	defer c.mu.Unlock()
-	return c.device
+	return c.device, c.ssh, c.known
 }
 
 // introduce 记下 core.client 报的设备名：空白压成一个空格、去掉控制字符，最多 deviceMax 个字。
 func (c *Client) introduce(raw []byte) error {
 	var p struct {
 		Device string `json:"device"`
+		SSH    string `json:"ssh"`
 	}
 	if err := json.Unmarshal(raw, &p); err != nil {
 		return err
@@ -117,7 +122,7 @@ func (c *Client) introduce(raw []byte) error {
 		name = strings.TrimSpace(string(r[:deviceMax]))
 	}
 	c.mu.Lock()
-	c.device = name
+	c.device, c.ssh, c.known = name, strings.TrimSpace(p.SSH), true
 	c.mu.Unlock()
 	return nil
 }

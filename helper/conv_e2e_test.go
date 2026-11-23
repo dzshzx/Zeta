@@ -27,6 +27,8 @@ func TestConversationThroughCore(t *testing.T) {
 	}
 	fakeClaudeIn(t, e, `{"title":"假 Claude 起的标题","steps":[{"thinking":"想一想"},{"text":"你好，我是按剧本回话的假 Claude","chunk":4,"delay":5}]}`)
 
+	// 客户端经 SSH 连来（来源是文档用的保留地址，tailscale 里对不上）：serve 给 core.client 补上它，核心用客户端报的名字
+	t.Setenv("SSH_CONNECTION", "192.0.2.7 51234 192.0.2.1 22")
 	c := startServe(t, e, testIdle)
 	view := &convView{}
 	c.send(`{"id":0,"method":"core.client","device":"Xiaomi 17"}`)
@@ -48,7 +50,7 @@ func TestConversationThroughCore(t *testing.T) {
 	}
 	// 发消息的客户端报的设备名记在托管目录里，另一个包查别处占用时说得出在哪台设备上
 	key, _ := view.state["host_key"].(string)
-	if got := readText(filepath.Join(e.hosts, key, hostClientFile)); key == "" || got != "Xiaomi 17" {
+	if got := readText(filepath.Join(e.hosts, key, hostClientFile)); key == "" || got != `{"name":"Xiaomi 17"}` {
 		t.Fatalf("托管目录 %q 里记的设备：%q", key, got)
 	}
 

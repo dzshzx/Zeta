@@ -180,7 +180,30 @@ func (s *serveSession) handle(line []byte) bool {
 		s.o.reply(req.ID, nil)
 		return true
 	}
+	if req.Method == "core.client" {
+		line = withSSHSource(line, os.Getenv("SSH_CONNECTION"))
+	}
 	return s.forward(req.ID, line)
+}
+
+// withSSHSource 给 core.client 补上这个客户端是从哪连进来的：ssh 是本进程环境里的 SSH_CONNECTION（客户端经 SSH 起的 serve 才有；
+// 每个客户端一条 serve，所以它就是这个客户端的），核心按它定设备的名字（helper/occupantwhere.go 的 placeOf）。
+// 客户端自己写的 ssh 一律换掉；本进程没有时去掉这一项。改写不成时原样转发。
+func withSSHSource(line []byte, ssh string) []byte {
+	var m map[string]json.RawMessage
+	if json.Unmarshal(line, &m) != nil || m == nil {
+		return line
+	}
+	delete(m, "ssh")
+	if ssh != "" {
+		v, _ := json.Marshal(ssh)
+		m["ssh"] = v
+	}
+	out, err := json.Marshal(m)
+	if err != nil {
+		return line
+	}
+	return out
 }
 
 // forward 把一行原样转给核心，还没连就先连上（必要时拉起它、让旧的交班）。连不上时答出错；写不进去说明核心没了，返回 false。

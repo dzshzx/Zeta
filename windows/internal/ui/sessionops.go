@@ -337,7 +337,7 @@ func endConfirmSummary(list []hostlink.Session, o *sessionproto.Occupancy) strin
 	case list[0].External:
 		place := "别处"
 		if o != nil {
-			place = cmp.Or(occupantPlace(o.App, o.Device), place)
+			place = cmp.Or(occupantPlace(o.App, o.Device, o.Local), place)
 		}
 		what = spaced("它正在", place, "运行，结束会停掉那边的进程，那边在做的也一并停掉。")
 	}

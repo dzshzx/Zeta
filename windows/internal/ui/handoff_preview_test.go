@@ -20,7 +20,7 @@ func TestHandoffPreviews(t *testing.T) {
 	scenes := map[string]string{
 		"handoff-terminal-busy": `"blocked":true,"occupant":{"status":"busy","waiting_for":null,"hands_over":false,"app":"terminal","device":"work-pc"}`,
 		"handoff-zeta-idle":     `"blocked":true,"occupant":{"status":"idle","waiting_for":null,"hands_over":true,"app":"zeta-dev","device":"Xiaomi 17"}`,
-		"handoff-unknown":       `"blocked":true,"occupant":{"status":"waiting","waiting_for":"Bash","hands_over":true}`,
+		"handoff-local-waiting": `"blocked":true,"occupant":{"status":"waiting","waiting_for":"Bash","hands_over":true,"app":"terminal","local":true}`,
 	}
 	for name, state := range scenes {
 		for _, dark := range []bool{false, true} {

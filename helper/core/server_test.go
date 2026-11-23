@@ -86,7 +86,11 @@ func (h *fakeHandler) Request(c *Client, r Request) (any, error) {
 	case "conv.bad":
 		return func() {}, nil
 	case "conv.device":
-		return c.Device(), nil
+		device, ssh, ok := c.Introduced()
+		if !ok {
+			return "-", nil
+		}
+		return device + "|" + ssh, nil
 	}
 	return nil, errors.New("unknown method: " + r.Method)
 }
@@ -292,14 +296,14 @@ func TestCoreClientRemembersTheDeviceOfThatConnection(t *testing.T) {
 	if r := a.call(`{"id":1,"method":"core.client","device":"  Xiaomi\t 17\u0007 "}`); r["ok"] != true {
 		t.Fatalf("core.client %v", r)
 	}
-	if r := a.call(`{"id":2,"method":"conv.device"}`); r["result"] != "Xiaomi 17" {
+	if r := a.call(`{"id":2,"method":"conv.device"}`); r["result"] != "Xiaomi 17|" {
 		t.Fatalf("a 的设备 %v", r)
 	}
-	if r := b.call(`{"id":3,"method":"conv.device"}`); r["result"] != "" {
+	if r := b.call(`{"id":3,"method":"conv.device"}`); r["result"] != "-" {
 		t.Fatalf("没报过的 b：%v", r)
 	}
-	b.call(`{"id":4,"method":"core.client","device":"` + strings.Repeat("长", deviceMax+5) + `"}`)
-	if r := b.call(`{"id":5,"method":"conv.device"}`); r["result"] != strings.Repeat("长", deviceMax) {
+	b.call(`{"id":4,"method":"core.client","device":"` + strings.Repeat("长", deviceMax+5) + `","ssh":"100.64.0.4 1 100.64.0.2 22"}`)
+	if r := b.call(`{"id":5,"method":"conv.device"}`); r["result"] != strings.Repeat("长", deviceMax)+"|100.64.0.4 1 100.64.0.2 22" {
 		t.Fatalf("太长的设备名 %v", r)
 	}
 	if r := a.call(`{"id":6,"method":"core.client","device":3}`); r["ok"] != false {

@@ -17,7 +17,7 @@ func handoffText(o *sessionproto.Occupancy, handing bool, problem string) (title
 	case o == nil:
 		summary = "正在查询那边的状态。"
 	default:
-		if place := occupantPlace(o.App, o.Device); place != "" {
+		if place := occupantPlace(o.App, o.Device, o.Local); place != "" {
 			title = spaced("会话正在", place, "运行")
 		}
 		summary = occupantSummary(o.App, deref(o.Status), deref(o.WaitingFor))
@@ -35,15 +35,12 @@ func handoffText(o *sessionproto.Occupancy, handing bool, problem string) (title
 }
 
 // occupantPlace 是占着会话的进程在哪，接在「会话正在」「它正在」后面（同手机版的 occupantPlace，用例相同）：
-// app、device 是 conv.state 里 occupant 的 app、device。终端里的说是哪台的终端，没有设备的是本机终端；Zeta 的说是哪台设备上的哪个包；
-// VS Code、Claude 桌面版说应用。说不出是什么应用时为空，调用方说「别处」。
-func occupantPlace(app, device string) string {
+// app、device、local 是 conv.state 里 occupant 的 app、device、local。本机的是「本机终端里」「本机的 Zeta 测试版里」，
+// 有名字的是「work-pc 的终端里」，在哪不知道时只说应用（「终端里」）；VS Code、Claude 桌面版同样。说不出是什么应用时为空，调用方说「别处」。
+func occupantPlace(app, device string, local bool) string {
 	var what string
 	switch app {
 	case sessionproto.AppTerminal:
-		if device == "" {
-			return "本机终端里"
-		}
 		what = "终端"
 	case sessionproto.AppZeta:
 		what = "Zeta"
@@ -56,7 +53,12 @@ func occupantPlace(app, device string) string {
 	default:
 		return ""
 	}
-	if device != "" {
+	switch {
+	case local && app == sessionproto.AppTerminal:
+		return "本机终端里"
+	case local:
+		return spaced("本机的", what, "里")
+	case device != "":
 		return spaced(device, "的", what, "里")
 	}
 	return spaced(what, "里")
