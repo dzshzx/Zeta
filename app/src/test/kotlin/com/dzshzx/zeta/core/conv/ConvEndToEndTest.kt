@@ -6,8 +6,8 @@ import com.dzshzx.zeta.core.HelperProgram
 import com.dzshzx.zeta.core.HelperServe
 import com.dzshzx.zeta.core.LinuxShell
 import com.dzshzx.zeta.core.TestHelper
+import com.dzshzx.zeta.core.ThoughtItem
 import com.dzshzx.zeta.core.UserItem
-import com.dzshzx.zeta.core.WorkItem
 import com.dzshzx.zeta.core.removeTestDir
 import java.io.File
 import java.nio.file.Files
@@ -118,14 +118,7 @@ class ConvEndToEndTest {
         val items = conv.view.items
         assertEquals(3, items.size)
         assertEquals("你好，介绍一下自己", (items[0] as UserItem).text)
-        assertEquals(
-            "想一想",
-            (items[1] as WorkItem)
-                .steps
-                .single()
-                .let { it as com.dzshzx.zeta.core.ThinkingStep }
-                .text,
-        )
+        assertEquals("想一想", (items[1] as ThoughtItem).text)
         assertEquals(AnswerItem(items[2].id, "你好，我是按剧本回话的假 Claude", false), items[2])
         val state = conv.view.state
         assertFalse(state.busy)
