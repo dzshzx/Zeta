@@ -199,22 +199,25 @@ func (a *App) chatPage(c *ui.Context) {
 				p.list.View(c).Grow(1).MinHeight(0)
 			}
 			a.chatHeader(c, p)
+			if p.find.open && p.src.Conv != nil {
+				a.findBar(c, p) // 浮在右上角
+			}
 		})
 		ui.Column(c).FillWidth().MaxWidth(chatWidth).AlignSelf(ui.Center).Padding(4, 12, 12, 12).Gap(6).Children(func() {
 			a.chatNotices(c, p)
 			if p.src.Conv != nil {
-				a.promptCard(c, p)
 				a.taskStrip(c, p)
 				a.todoStrip(c, p)
 				a.queueStrip(c, p)
 				a.editStrip(c, p)
 				a.chatStatus(c, p)
 			}
-			if p.find.open {
-				a.findBar(c, p) // 查找时顶替输入栏
-			} else if p.state.Blocked && p.src.Conv != nil {
+			switch {
+			case p.src.Conv != nil && len(p.state.Prompts) > 0:
+				a.promptCard(c, p) // 等你回应：卡片顶替输入栏（prompts.go）
+			case p.state.Blocked && p.src.Conv != nil:
 				a.handoffCard(c, p) // 别处运行：输入栏换成接管的卡片（handoff.go）
-			} else {
+			default:
 				a.composer(c, p)
 			}
 		})
@@ -222,15 +225,15 @@ func (a *App) chatPage(c *ui.Context) {
 }
 
 // chatWidth 是输入栏一带最宽多少，和聊天列表的内容一样宽。
-const chatWidth = 860 + 24
+const chatWidth = 768 + 24
 
 // headerHeight 是聊天页顶栏的高度：它同时是标题栏。
 const headerHeight = coui.TitleBarHeight
 
-// chatHeader 是顶上的标题（同手机版聊天页的小顶栏）：居中的对话标题，下面一行小字是设备和工作目录，
-// 后面是模型，点开换模型。它浮在聊天列表上面，是一层毛玻璃（CouiBlur.kt 的 TopAppBarGlow）：底色是窗口的颜色，
+// chatHeader 是顶上的标题（照 Codex 客户端）：左上角的对话标题，下面一行小字是设备和工作目录（模型在输入栏右下）。
+// 它浮在聊天列表上面，是一层毛玻璃（CouiBlur.kt 的 TopAppBarGlow）：底色是窗口的颜色，
 // 列表没翻动时是透明的，内容滚到它底下时才透出模糊的一层。它同时是标题栏：空白处拖动窗口，系统按钮浮在右边的毛玻璃上；
-// 两边空一样宽（右边让出按钮），标题按聊天区居中，窄了截断。
+// 右边让出按钮，窄了截断。
 func (a *App) chatHeader(c *ui.Context, p *chatPane) {
 	k := coui.Of(c)
 	cwd := p.state.Cwd
@@ -241,18 +244,16 @@ func (a *App) chatHeader(c *ui.Context, p *chatPane) {
 	if p.list.Scrolled() {
 		coui.Surface{Fill: k.Window.Alpha(0.8), Blur: coui.BlurBar}.Paint(bar)
 	}
-	side := coui.EndInset(c, 72)
-	bar.Absolute().Top(0).Left(0).Right(0).Height(headerHeight).Padding(0, side).Justify(ui.Center).AlignItems(ui.Center).Gap(1).
-		DragWindow().Children(func() {
-		ui.Text(c, a.chatTitle(p)).FontSize(coui.SizeHeadlineXS).FontWeight(600).TextColor(k.Text).SingleLine().Ellipsis("…")
-		ui.Row(c).Gap(4).AlignItems(ui.Center).MaxWidth(720).Children(func() {
-			ui.Text(c, a.hub.Name(p.src.Backend)+" · "+cwd).FontSize(coui.SizeBodyXS).TextColor(k.Secondary).SingleLine().
-				Ellipsis("…").Shrink(1)
-			if p.src.Conv != nil {
-				ui.Text(c, "·").FontSize(coui.SizeBodyXS).TextColor(k.Secondary)
-				a.modelMenu(c, p)
-			}
-		})
+	start := float32(20)
+	if a.layout.hidden {
+		start = 96 // 让出左上角浮着的展开侧栏、新对话两个按钮
+	}
+	bar.Absolute().Top(0).Left(0).Right(0).Height(headerHeight).Padding(0, coui.EndInset(c, 20), 0, start).Justify(ui.Center).
+		Gap(1).DragWindow().Children(func() {
+		ui.Text(c, a.chatTitle(p)).FontSize(coui.SizeBodyM).FontWeight(600).TextColor(k.Text).SingleLine().Ellipsis("…").
+			MaxWidthPercent(100)
+		ui.Text(c, a.hub.Name(p.src.Backend)+" · "+cwd).FontSize(coui.SizeBodyXS).TextColor(k.Secondary).SingleLine().
+			Ellipsis("…").MaxWidthPercent(100)
 	})
 }
 

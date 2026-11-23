@@ -280,12 +280,12 @@ func (f *finder) current() (Match, bool) {
 	return f.matches[f.index], true
 }
 
-// findColors 是命中处的底色：其余几处淡淡的主题色，当前那一处深一些（同 TextFind.kt 的 findColors）。
+// findColors 是命中处的底色：其余几处淡黄，当前那一处深一些（同浏览器的查找）。
 func findColors(k *coui.Colors) (soft, strong ui.Color) {
 	if k.Dark {
-		return k.Primary.Alpha(0.3), k.Primary.Alpha(0.62)
+		return k.Yellow.Alpha(0.2), k.Yellow.Alpha(0.45)
 	}
-	return k.Primary.Alpha(0.2), k.Primary.Alpha(0.42)
+	return k.Yellow.Alpha(0.3), k.Yellow.Alpha(0.75)
 }
 
 // matchesIn 是条目 id 里的命中，和当前那一处是其中第几个（不在其中是 -1）。

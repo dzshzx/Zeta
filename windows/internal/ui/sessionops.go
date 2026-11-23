@@ -13,15 +13,16 @@ import (
 	"github.com/egoist/mygo/ui"
 )
 
-// 侧栏对会话的操作（同手机版 SessionPane、SessionSelection.kt）：右键菜单里选择、置顶、重命名、导出、归档，删除单独一组；
-// 多选时顶上换成「已选 N 个」和全选，底下换成归档、导出、删除；归档的会话收在底部的入口里单独看。事情交给中枢，
+// 侧栏对会话的操作：右键菜单（或行尾的「…」）里置顶、重命名、导出、归档，删除单独一组。多选照 Windows 资源管理器：
+// Ctrl+点击加选或去掉一个，Shift+点击从上次点的那个选到这个；在选中的行上右键是对这几个一起归档、导出、删除，
+// Delete 删除选中的，Esc 或不带键地点一下别的行取消选择。归档的会话收在底部的入口里单独看。事情交给中枢，
 // 没成时弹框说原因。
 
 // sessionOps 是侧栏这些操作的界面状态。
 type sessionOps struct {
-	selecting bool
-	selected  map[string]bool // 选中的（hub.Key）
-	archived  bool            // 侧栏在看归档
+	selected map[string]bool // 多选选中的（hub.Key）
+	anchor   string          // 上次不带 Shift 点的那个（hub.Key），Shift+点击从它选起
+	archived bool            // 侧栏在看归档
 
 	renaming struct {
 		target hostlink.Session
@@ -41,12 +42,12 @@ type sessionOps struct {
 
 // sessionMenu 是一行会话的右键菜单。
 func (a *App) sessionMenu(m *ui.Menu, s hostlink.Session) {
-	h := a.hub
-	if m.Item("选择").Chosen() {
-		a.ops.selecting, a.ops.selected = true, map[string]bool{hub.Key(s): true}
+	if chosen := a.chosen(); len(chosen) > 1 && a.ops.selected[hub.Key(s)] {
+		a.batchMenu(m, chosen)
+		return
 	}
 	pin := "置顶"
-	if h.Pinned(s) {
+	if a.hub.Pinned(s) {
 		pin = "取消置顶"
 	}
 	if m.Item(pin).Shortcut(ui.Ctrl|ui.Alt, ui.KeyP).Chosen() {
@@ -100,16 +101,17 @@ func (a *App) export(list []hostlink.Session) {
 				case err != nil:
 					a.say("导出没成功", err.Error())
 				case path != "" && many:
-					a.exitSelection()
+					a.clearSelection()
 				}
 			}
 		})
 	}, a.failed("导出没成功"))
 }
 
-func (a *App) exitSelection() { a.ops.selecting, a.ops.selected = false, nil }
+// clearSelection 取消多选。
+func (a *App) clearSelection() { a.ops.selected = nil }
 
-// visible 是侧栏眼前这份列表（搜索结果、归档或置顶/今天/更早），全选管的是它。
+// visible 是侧栏眼前这份列表（搜索结果、归档或置顶/今天/更早），按显示的先后。
 func (a *App) visible() []hostlink.Session {
 	h := a.hub
 	switch {
@@ -139,79 +141,88 @@ func (a *App) chosen() []hostlink.Session {
 	return out
 }
 
-// toggle 勾上或去掉会话 s。
-func (a *App) toggle(s hostlink.Session) {
+// clickRow 是点了会话 s 的那一行：Ctrl 加选或去掉它（头一回加选时先把开着的那个算进去），Shift 从 anchor 选到它，
+// 不带键是取消多选、打开它。
+func (a *App) clickRow(s hostlink.Session, mods ui.Modifiers) {
+	o := &a.ops
 	key := hub.Key(s)
-	if a.ops.selected == nil {
-		a.ops.selected = map[string]bool{}
-	}
-	if a.ops.selected[key] {
-		delete(a.ops.selected, key)
-	} else {
-		a.ops.selected[key] = true
-	}
-}
-
-// allSelected：眼前这份都选上了。
-func (a *App) allSelected(scope []hostlink.Session) bool {
-	return len(scope) > 0 && !slices.ContainsFunc(scope, func(s hostlink.Session) bool {
-		return !a.ops.selected[hub.Key(s)]
-	})
-}
-
-// selectionHeader 是多选时侧栏的顶上一行（同时是标题栏）：退出多选、已选几个（chosen）、全选或全不选（别处选中的不动）。
-func (a *App) selectionHeader(c *ui.Context, chosen []hostlink.Session) {
-	k := coui.Of(c)
-	scope := a.visible()
-	all := a.allSelected(scope)
-	ui.Row(c).Height(coui.TitleBarHeight).Padding(0, 12, 0, 16).Gap(10).AlignItems(ui.Center).Shrink(0).DragWindow().Children(func() {
-		coui.IconButton(c, coui.IconClose, "退出多选").OnClick(a.exitSelection)
-		title := "选择对话"
-		if n := len(chosen); n > 0 {
-			title = "已选 " + strconv.Itoa(n) + " 个"
-		}
-		ui.Text(c, title).FontSize(coui.SizeHeadlineS).FontWeight(600).TextColor(k.Text).Grow(1).SingleLine()
-		label := "全选"
-		if all {
-			label = "全不选"
-		}
-		b := ui.ButtonBase(c).Label(label).Padding(8, 10).Radius(999).Cursor(ui.CursorPointer).Disabled(len(scope) == 0)
-		if b.Hovered() {
-			b.Background(k.Hover)
-		}
-		b.Children(func() { ui.Text(c, label).FontSize(coui.SizeBodyL).FontWeight(coui.Medium).TextColor(k.PrimaryText) })
-		b.OnClick(func() {
-			for _, s := range scope {
-				key := hub.Key(s)
-				if all {
-					delete(a.ops.selected, key)
-				} else {
-					a.ops.selected[key] = true
-				}
+	switch {
+	case mods&ui.Cmd != 0:
+		if len(o.selected) == 0 {
+			o.selected = map[string]bool{}
+			if cur := a.currentSession(); cur.ID != "" {
+				o.selected[hub.Key(cur)] = true
 			}
-		})
-	})
+		}
+		if o.selected[key] {
+			delete(o.selected, key)
+		} else {
+			o.selected[key] = true
+		}
+		o.anchor = key
+	case mods&ui.Shift != 0:
+		a.selectRange(key)
+	default:
+		a.clearSelection()
+		o.anchor = key
+		a.openSession(s)
+	}
 }
 
-// selectionActions 是多选时侧栏底下一排，管选中的 chosen：归档或取消归档（选中的全是归档的才是取消归档）、导出、删除（红字）。
-// 没选中时都点不了。
-func (a *App) selectionActions(c *ui.Context, chosen []hostlink.Session) {
-	archive := len(chosen) == 0 || slices.ContainsFunc(chosen, func(s hostlink.Session) bool { return !s.Archived })
+// selectRange 选上侧栏列表里从 anchor（没有时是开着的那个，再没有时是第一个）到 key 的那一段，别的去掉。
+func (a *App) selectRange(key string) {
+	list := a.visible()
+	index := func(k string) int {
+		return slices.IndexFunc(list, func(s hostlink.Session) bool { return hub.Key(s) == k })
+	}
+	from, to := index(a.ops.anchor), index(key)
+	if from < 0 {
+		from = index(hub.Key(a.currentSession()))
+	}
+	if from < 0 || to < 0 {
+		from = max(to, 0)
+	}
+	if from > to {
+		from, to = to, from
+	}
+	a.ops.selected = map[string]bool{}
+	for _, s := range list[from : to+1] {
+		a.ops.selected[hub.Key(s)] = true
+	}
+}
+
+// batchMenu 是在选中的几行上右键的菜单，管选中的 chosen：归档或取消归档（选中的全是归档的才是取消归档）、导出、删除。
+func (a *App) batchMenu(m *ui.Menu, chosen []hostlink.Session) {
+	n := strconv.Itoa(len(chosen)) + " 个对话"
+	archive := slices.ContainsFunc(chosen, func(s hostlink.Session) bool { return !s.Archived })
 	label := "归档"
 	if !archive {
 		label = "取消归档"
 	}
-	none := len(chosen) == 0
-	ui.Row(c).Padding(10, 16).Gap(8).Shrink(0).Children(func() {
-		coui.SmallButton(c, label).Grow(1).Basis(0).Disabled(none).OnClick(func() {
-			a.hub.SetArchived(chosen, archive, a.failed(label+"没成功"))
-			a.exitSelection()
-		})
-		coui.SmallButton(c, "导出").Grow(1).Basis(0).Disabled(none).OnClick(func() { a.export(chosen) })
-		coui.SmallDangerButton(c, "删除").Grow(1).Basis(0).Disabled(none).OnClick(func() {
+	if m.Item(label + " " + n).Chosen() {
+		a.hub.SetArchived(chosen, archive, a.failed(label+"没成功"))
+		a.clearSelection()
+	}
+	if m.Item("导出 " + n).Chosen() {
+		a.export(chosen)
+	}
+	m.Separator()
+	if m.Item("删除 "+n).Shortcut(0, ui.KeyDelete).Danger().Chosen() {
+		a.ops.batch.list, a.ops.batch.open = chosen, true
+	}
+}
+
+// selectionKeys 是有选中的会话时的键：Delete 问删不删选中的，Esc 取消选择。
+func (a *App) selectionKeys(c *ui.Context) {
+	if len(a.ops.selected) == 0 {
+		return
+	}
+	c.OnWindowShortcut(0, ui.KeyDelete, func() {
+		if chosen := a.chosen(); len(chosen) > 0 {
 			a.ops.batch.list, a.ops.batch.open = chosen, true
-		})
+		}
 	})
+	c.OnWindowShortcut(0, ui.KeyEscape, a.clearSelection)
 }
 
 // archiveToggle 是侧栏底部归档的入口（同手机版 ArchiveToggle）：看归档时是返回全部对话，有归档的会话时是进归档，都没有时不显示。
@@ -259,7 +270,7 @@ func (a *App) sessionDialogs(c *ui.Context) {
 			"会话记录会被删除，Claude Code 为它们存的工具结果、子代理记录等也一并删除，无法恢复。",
 			coui.Action{Label: "取消"}, coui.Action{Label: "删除", Style: coui.Destructive}) == 1 {
 			h.Delete(b.list, a.deleteFailed)
-			a.exitSelection()
+			a.clearSelection()
 		}
 	}
 }

@@ -22,7 +22,7 @@ func MenuButton(c *ui.Context, trigger func(t ui.Element), build func(m *Menu)) 
 		parts.Popup(func(panel ui.Element) {
 			k := Of(c)
 			// 阴影照 ListPopup：浅色是很淡、很散的一圈
-			Surface{Shape: ShapePopup, Fill: k.PopupGlass, Blur: BlurPopup}.Paint(panel).MinWidth(180).MaxWidth(280).Padding(4, 0).
+			Surface{Shape: ShapePopup, Fill: k.PopupGlass, Edge: k.Divider}.Paint(panel).MinWidth(180).MaxWidth(280).Padding(4, 0).
 				Margin(6, 0, 0, 0).Shadow(0, 6, 24, 0, popupShadow(k))
 			build(&Menu{c: c, parts: parts})
 		})

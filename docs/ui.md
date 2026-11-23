@@ -1,6 +1,6 @@
 # 界面写法
 
-界面用 COUI 2（`io.github.suqi8.coui.kmp`，ColorOS 17 风格，Miuix 的分支）。
+手机版的界面用 COUI 2（`io.github.suqi8.coui.kmp`，ColorOS 17 风格，Miuix 的分支）。桌面版不照这里，见 `docs/desktop.md`「界面」。
 
 ## 照什么写
 

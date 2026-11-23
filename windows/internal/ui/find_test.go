@@ -16,7 +16,7 @@ func TestFindInConversation(t *testing.T) {
 	f.tt.Key(ui.Cmd, ui.KeyF)
 	f.tt.Frame()
 	f.see(t, "查提问和回答，不含工具步骤和思考")
-	f.notSee(t, "发送") // 查找栏顶替输入栏
+	f.see(t, "发送") // 查找栏浮在右上角，输入栏照旧
 	// 焦点已经在查找框里：提问里两处（gradlew、tools/gradle），回答里的行内代码一处；代码块不查。从最新的一处开始
 	f.tt.Type("GRADLE")
 	f.tt.Frame()

@@ -2,7 +2,7 @@ package coui
 
 import "github.com/egoist/mygo/ui"
 
-// 按钮是胶囊：主按钮蓝底白字，次按钮灰底黑字（配色同 COUI）。尺寸是桌面的：大的最少 32 高、字 14 Medium，
+// 按钮是胶囊（照 ChatGPT）：主按钮黑底白字（深色里白底黑字），次按钮透明底一圈细边，危险操作红底白字。尺寸是桌面的：大的最少 32 高、字 14 Medium，
 // 小的最少 28 高、字 13 Medium；鼠标点，不按手指的触控尺寸放大。不能点时整个变淡。
 
 // PrimaryButton 是大号主按钮（对话框、确认卡的推荐操作）。
@@ -13,7 +13,7 @@ func PrimaryButton(c *ui.Context, label string) ui.Element {
 // Button 是大号次按钮。
 func Button(c *ui.Context, label string) ui.Element { return button(c, label, kindPlain, true) }
 
-// DangerButton 是大号的危险操作按钮：灰底红字。
+// DangerButton 是大号的危险操作按钮：红底白字。
 func DangerButton(c *ui.Context, label string) ui.Element { return button(c, label, kindDanger, true) }
 
 // SmallPrimaryButton 是小号主按钮（行里的「添加」「保存」这类）。
@@ -24,7 +24,7 @@ func SmallPrimaryButton(c *ui.Context, label string) ui.Element {
 // SmallButton 是小号次按钮。
 func SmallButton(c *ui.Context, label string) ui.Element { return button(c, label, kindPlain, false) }
 
-// SmallDangerButton 是小号的危险操作按钮。
+// SmallDangerButton 是小号的危险操作按钮：红字细边。
 func SmallDangerButton(c *ui.Context, label string) ui.Element {
 	return button(c, label, kindDanger, false)
 }
@@ -39,7 +39,7 @@ const (
 	kindDialogDanger // 对话框里的危险操作
 )
 
-// DialogButton 是对话框底下的按钮：Recommend 是主按钮，Destructive 是灰底红字，Plain 是灰底黑字。
+// DialogButton 是对话框底下的按钮：Recommend 是主按钮，Destructive 是红底白字，Plain 是细边的次按钮。
 func DialogButton(c *ui.Context, label string, style Style) ui.Element {
 	switch style {
 	case Recommend:
@@ -62,13 +62,14 @@ func button(c *ui.Context, label string, kind buttonKind, large bool) ui.Element
 	} else {
 		b.MinWidth(48).MinHeight(28).Padding(4, 12)
 	}
-	fill, text := k.Button, k.Text
-	switch kind {
-	case kindPrimary:
-		fill, text = k.Primary, k.OnPrimary
-	case kindDanger:
-		text = k.Error
-	case kindDialogDanger:
+	// 照 ChatGPT：主按钮实心（浅色黑底、深色白底），危险操作红底白字，别的透明底、一圈细边（危险的小按钮是红字细边）
+	fill, text, edge := k.Button, k.Text, k.Divider
+	switch {
+	case kind == kindPrimary:
+		fill, text, edge = k.Primary, k.OnPrimary, ui.Color{}
+	case kind == kindDialogDanger, kind == kindDanger && large:
+		fill, text, edge = k.Error, ui.RGB(255, 255, 255), ui.Color{}
+	case kind == kindDanger:
 		text = k.Error
 	}
 	switch {
@@ -78,6 +79,9 @@ func button(c *ui.Context, label string, kind buttonKind, large bool) ui.Element
 		fill = fill.Mix(k.Text, 0.06)
 	}
 	b.Background(fill)
+	if edge.A > 0 {
+		b.Border(1, edge)
+	}
 	b.Children(func() { ui.Text(c, label).FontSize(size).FontWeight(Medium).TextColor(text).SingleLine() })
 	return b
 }
@@ -156,29 +160,29 @@ func FlatButtonOf(c *ui.Context, b ui.Element, icon *ui.SVG, label string, size,
 	return b
 }
 
-// SendButton 是输入栏右下的发送键（Composer.kt）：32 的圆，能发时蓝底白箭头，不能发时淡灰底、淡箭头。
+// SendButton 是输入栏右下的发送键（照 ChatGPT）：36 的圆，能发时黑底白箭头（深色里白底黑箭头），不能发时浅灰底。
 func SendButton(c *ui.Context, label string, ready bool) ui.Element {
 	k := Of(c)
 	fill, ink := k.Primary, k.OnPrimary
 	if !ready {
-		fill, ink = k.Chip, k.Tertiary
+		fill = k.Quaternary
 	}
-	b := ui.ButtonBase(c).Size(32, 32).Radius(16).Justify(ui.Center).AlignItems(ui.Center).Label(label).Tooltip(label).
+	b := ui.ButtonBase(c).Size(36, 36).Radius(18).Justify(ui.Center).AlignItems(ui.Center).Label(label).Tooltip(label).
 		Cursor(ui.CursorPointer).Shrink(0).Disabled(!ready).DimDisabled(false)
 	if ready && b.Hovered() {
 		fill = fill.Mix(k.OnPrimary, 0.12)
 	}
 	b.Background(fill)
-	b.Children(func() { ui.Icon(c, IconArrowUp).Size(17, 17).TextColor(ink) })
+	b.Children(func() { ui.Icon(c, IconArrowUp).Size(18, 18).TextColor(ink) })
 	return b
 }
 
-// StopButton 是回答中的停止键：32 的圆，正文色底，里面一个背景色的小方块。
+// StopButton 是回答中的停止键：36 的圆，主按钮色底，里面一个小方块（同 ChatGPT）。
 func StopButton(c *ui.Context, label string) ui.Element {
 	k := Of(c)
-	b := ui.ButtonBase(c).Size(32, 32).Radius(16).Justify(ui.Center).AlignItems(ui.Center).Label(label).Tooltip(label).
-		Cursor(ui.CursorPointer).Shrink(0).Background(k.Text)
-	b.Children(func() { ui.Icon(c, IconStop).Size(12, 12).TextColor(k.Window) })
+	b := ui.ButtonBase(c).Size(36, 36).Radius(18).Justify(ui.Center).AlignItems(ui.Center).Label(label).Tooltip(label).
+		Cursor(ui.CursorPointer).Shrink(0).Background(k.Primary)
+	b.Children(func() { ui.Icon(c, IconStop).Size(12, 12).TextColor(k.OnPrimary) })
 	return b
 }
 
@@ -310,4 +314,27 @@ func SearchField(c *ui.Context, value *string, label string) ui.Element {
 		}
 	})
 	return in
+}
+
+// ToolPill 给菜单的触发器 trigger 设置输入栏底下那排文字胶囊的样子（照 ChatGPT、Codex 客户端输入栏下面的
+// 权限、模型按钮）：30 高、平时没有底色，悬停时淡淡一层；图标 16（可以没有）、字 13、后面一个小箭头，都是次要文字色，
+// tint 不是零值时图标和字用它（完全放行的红色这类）。label 也是读屏名字和悬停提示。
+func ToolPill(c *ui.Context, trigger ui.Element, icon *ui.SVG, label string, tint ui.Color) {
+	k := Of(c)
+	ink := k.Secondary
+	if tint != (ui.Color{}) {
+		ink = tint
+	}
+	trigger.Label(label).Tooltip(label).Height(30).Radius(999).Padding(0, 8, 0, 10).Gap(5).AlignItems(ui.Center).
+		Cursor(ui.CursorPointer).Shrink(0)
+	if trigger.Hovered() {
+		trigger.Background(k.Hover)
+	}
+	trigger.Children(func() {
+		if icon != nil {
+			ui.Icon(c, icon).Size(16, 16).TextColor(ink)
+		}
+		ui.Text(c, label).FontSize(SizeBodyS).TextColor(ink).SingleLine().Ellipsis("…").MaxWidth(200)
+		ui.Icon(c, IconChevronDown).Size(12, 12).TextColor(ink)
+	})
 }

@@ -135,3 +135,21 @@ func InputDialog(c *ui.Context, open *bool, title, summary string, value *string
 	}
 	return done
 }
+
+// Panel 是嵌在页面里的卡片（输入栏位置上的确认、提问，照 ChatGPT 客户端，不遮住对话）：样子同输入栏，标题和说明左对齐；
+// body 超过 maxBody 高（也不超过窗口高的四成半）时滚动；buttons 是底下靠右的一排（用 DialogButton）。
+func Panel(c *ui.Context, title, summary string, maxBody float32, body, buttons func()) {
+	k := Of(c)
+	_, winH := c.Size()
+	if limit := winH * 0.45; winH > 0 && limit < maxBody {
+		maxBody = limit
+	}
+	Surface{Shape: ShapeComposer, Fill: k.Field, Edge: k.Edge}.Paint(ui.Column(c)).FillWidth().Clip().
+		Shadow(0, 2, 16, 0, k.Shadow).Children(func() {
+		DialogTitle(c, title, summary)
+		ui.Scroll(c.Key("body")).FillWidth().MaxHeight(maxBody).Shrink(1).Children(func() {
+			ui.Column(c).FillWidth().Gap(4).Children(body)
+		})
+		ButtonBar(c, buttons)
+	})
+}

@@ -21,17 +21,16 @@ func Rounded(radius, weight float32) Shape {
 	return Shape{Radii: [4]float32{radius, radius, radius, radius}, Weight: weight}
 }
 
-// COUI 各组件用的形状（COUIRoundCorner 的 Normal 档平滑权重 2.5、Large 档 3）。胶囊按钮、圆按钮在 COUI 里是
-// 权重 1 的「软胶囊」，这里画成普通的半圆头（权重 2），两者只差在直边接半圆的那一小段。
+// 各组件的形状：圆角照 ChatGPT 客户端，平滑权重沿用 COUI 的 2.5。
 var (
 	ShapeCard     = Rounded(12, 2.5) // 设置里的卡片
-	ShapeDialog   = Rounded(16, 2.5) // 对话框
-	ShapePopup    = Rounded(12, 2.5) // 弹出菜单
-	ShapeComposer = Rounded(24, 2.5) // 输入栏、排队条（Composer.kt）
+	ShapeDialog   = Rounded(20, 2.5) // 对话框
+	ShapePopup    = Rounded(16, 2.5) // 弹出菜单
+	ShapeComposer = Rounded(28, 2.5) // 输入栏、排队条
 	ShapeRow      = Rounded(10, 2.5) // 侧栏的会话行、聊天里的步骤卡
-	ShapeBlock    = Rounded(12, 2.5) // 代码块、命令块（MarkdownContent、DetailBlock）
+	ShapeBlock    = Rounded(16, 2.5) // 代码块、命令块
 	ShapeField    = Rounded(8, 2.5)  // 输入框
-	ShapeBubble   = Shape{Radii: [4]float32{22, 22, 4, 22}, Weight: 2.5}
+	ShapeBubble   = Rounded(18, 2.5) // 用户消息的气泡，四角一样（同 ChatGPT，没有小尾巴）
 )
 
 // shapeKey 是缓存路径用的键：形状和尺寸。
@@ -143,8 +142,5 @@ func (s Surface) Paint(e ui.Element) ui.Element {
 // Shadow 是 COUI 浮起元素的阴影（COUIMaterialEffect）：往下偏 3.2、模糊 16，黑色约 12% 的不透明度。
 func Shadow(e ui.Element, k *Colors) ui.Element { return e.Shadow(0, 3.2, 16, 0, k.Shadow) }
 
-// BlurPopup、BlurBar 是毛玻璃的模糊程度（DIP）：菜单、聊天页的顶栏。
-const (
-	BlurPopup = 24
-	BlurBar   = 20
-)
+// BlurBar 是聊天页顶栏毛玻璃的模糊程度（DIP）。
+const BlurBar = 20

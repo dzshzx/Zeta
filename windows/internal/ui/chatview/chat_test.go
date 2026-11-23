@@ -107,7 +107,7 @@ func TestRunningGroupAndSubagent(t *testing.T) {
 	}
 }
 
-// 改文件的一步：时间线里默认展开对比，标题带增删行数；点标题收起。
+// 改文件的一步：时间线里标题带增删行数，对比默认收着；点标题展开，再点收起。
 func TestEditStepShowsDiff(t *testing.T) {
 	ch := New()
 	ch.SetItems(demoItems(t))
@@ -117,13 +117,48 @@ func TestEditStepShowsDiff(t *testing.T) {
 	if !tt.HasText("编辑 config.go") || !tt.HasText("+5") || !tt.HasText("−1") {
 		t.Fatalf("改文件那一步没有增删行数：%q", tt.Texts())
 	}
-	added, ok := tt.Access("\treturn c.overrideFromEnv(), nil")
+	const line = "\treturn c.overrideFromEnv(), nil"
+	if _, ok := tt.Access(line); ok {
+		t.Error("对比默认该收着")
+	}
+	mustClick(t, tt, "编辑 config.go")
+	added, ok := tt.Access(line)
 	if !ok || added.Role != ui.RoleInsertion {
-		t.Errorf("对比里没有加上的行：%+v %v", added, ok)
+		t.Errorf("展开后对比里没有加上的行：%+v %v", added, ok)
 	}
 	mustClick(t, tt, "编辑 config.go")
 	if *ch.open["edit:t3"] {
-		t.Error("点了标题没收起")
+		t.Error("再点标题没收起")
+	}
+}
+
+// 工作组折叠时露出的改动卡片默认只有文件名那一行，点它展开对比、再点收起。
+func TestCollapsedChangeCardFolds(t *testing.T) {
+	ch := New()
+	ch.SetItems(manyEdits(t, 1))
+	tt := newTester(ch, 900, 3000, false)
+	tt.Frame()
+	if !tt.HasText("file0.go") {
+		t.Fatalf("卡片没有文件名那一行：%q", tt.Texts())
+	}
+	diffShown := func() bool {
+		for _, a := range tt.AccessAll() {
+			if a.Role == ui.RoleInsertion {
+				return true
+			}
+		}
+		return false
+	}
+	if diffShown() {
+		t.Error("卡片默认该收成一行")
+	}
+	mustClick(t, tt, "file0.go")
+	if !diffShown() {
+		t.Errorf("点了文件名没展开：%q", tt.Texts())
+	}
+	mustClick(t, tt, "file0.go")
+	if diffShown() {
+		t.Error("再点没收起")
 	}
 }
 
@@ -166,6 +201,10 @@ func TestLongChangeExpands(t *testing.T) {
 		a, ok := tt.Access(line)
 		return ok && a.Role == ui.RoleInsertion
 	}
+	if shows("line A") {
+		t.Error("卡片默认该收成一行")
+	}
+	mustClick(t, tt, "big.txt")
 	if !shows("line L") || shows("line M") {
 		t.Errorf("预览该只露前 %d 行", previewLines)
 	}

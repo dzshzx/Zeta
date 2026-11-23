@@ -14,9 +14,9 @@ import (
 	"github.com/egoist/mygo/ui"
 )
 
-// composer 是输入栏（同手机版 Composer.kt）：淡灰底的圆角面板，上面一排待发的附件，再是多行输入框（Enter 发送，
-// Shift+Enter 换行；回答中发的进排队条；粘贴图片、文件收成附件），下面一排小圆钮：添加附件、权限模式、思考强度，
-// 右边是上下文用量的圆环、停止和发送。
+// composer 是输入栏（照 ChatGPT、Codex 客户端）：一圈细边的大圆角面板，上面一排待发的附件，再是多行输入框（Enter 发送，
+// Shift+Enter 换行；回答中发的进排队条；粘贴图片、文件收成附件），下面一排：左边添加附件和权限模式，右边模型、
+// 思考强度、上下文用量的圆环、停止和发送。权限、模型、思考强度是写着当前值的文字胶囊。
 func (a *App) composer(c *ui.Context, p *chatPane) {
 	k := coui.Of(c)
 	ready := p.src.Conv != nil && p.src.CwdProblem == ""
@@ -53,10 +53,11 @@ func (a *App) composer(c *ui.Context, p *chatPane) {
 			}
 			if p.src.Conv != nil {
 				a.modeMenu(c, p)
-				a.effortMenu(c, p)
 			}
 			ui.Spacer(c)
 			if p.src.Conv != nil {
+				a.modelMenu(c, p)
+				a.effortMenu(c, p)
 				a.usageButton(c, p)
 			}
 			if p.state.Busy {
@@ -228,7 +229,7 @@ func (a *App) modeMenu(c *ui.Context, p *chatPane) {
 		current = p.state.Mode.Process
 	}
 	icon, tint := modeIcon(coui.Of(c), current)
-	coui.MenuButton(c.Key("mode"), func(t ui.Element) { coui.Chip(c, t, icon, modeLabel(current), tint) }, func(m *coui.Menu) {
+	coui.MenuButton(c.Key("mode"), func(t ui.Element) { coui.ToolPill(c, t, icon, modeLabel(current), tint) }, func(m *coui.Menu) {
 		for _, mode := range permissionModes {
 			if m.Choice(mode.label, mode.value == current) {
 				value := mode.value
@@ -268,7 +269,7 @@ func (a *App) modelMenu(c *ui.Context, p *chatPane) {
 		chosen = *p.state.Model
 	}
 	label := modelLabel(p.state, models)
-	coui.MenuButton(c.Key("model"), func(t ui.Element) { modelTrigger(c, t, label) }, func(m *coui.Menu) {
+	coui.MenuButton(c.Key("model"), func(t ui.Element) { coui.ToolPill(c, t, nil, label, ui.Color{}) }, func(m *coui.Menu) {
 		if m.Choice("默认", chosen == "" || chosen == chat.DefaultModel) {
 			a.act(func(ctx context.Context, conv *chat.Conversation) error { return conv.SetModel(ctx, nil) })
 		}
@@ -281,19 +282,6 @@ func (a *App) modelMenu(c *ui.Context, p *chatPane) {
 				a.act(func(ctx context.Context, conv *chat.Conversation) error { return conv.SetModel(ctx, &value) })
 			}
 		}
-	})
-}
-
-// modelTrigger 是顶栏小字里的模型（同手机版顶栏副标题「设备 · 模型」）：12 的次要文字色，后面一个小箭头。
-func modelTrigger(c *ui.Context, t ui.Element, label string) {
-	k := coui.Of(c)
-	t.Label(label).Gap(2).AlignItems(ui.Center).Padding(1, 4).Radius(8).Cursor(ui.CursorPointer)
-	if t.Hovered() {
-		t.Background(k.Hover)
-	}
-	t.Children(func() {
-		ui.Text(c, label).FontSize(coui.SizeBodyXS).TextColor(k.Secondary).SingleLine()
-		ui.Icon(c, coui.IconChevronDown).Size(12, 12).TextColor(k.Tertiary)
 	})
 }
 
@@ -367,7 +355,7 @@ func (a *App) effortMenu(c *ui.Context, p *chatPane) {
 		level = effortLevel(p.state.Usage.AppliedEffort)
 	}
 	icon := coui.Gauge(level, len(effortLevels))
-	coui.MenuButton(c.Key("effort"), func(t ui.Element) { coui.Chip(c, t, icon, label, ui.Color{}) }, func(m *coui.Menu) {
+	coui.MenuButton(c.Key("effort"), func(t ui.Element) { coui.ToolPill(c, t, icon, label, ui.Color{}) }, func(m *coui.Menu) {
 		if m.Choice("默认", chosen == "") {
 			a.act(func(ctx context.Context, conv *chat.Conversation) error { return conv.SetEffort(ctx, nil) })
 		}

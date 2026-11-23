@@ -153,10 +153,9 @@ func percentText(n int) string { return strconv.Itoa(n) + "%" }
 
 // appearanceSection 是外观：跟随系统、浅色、深色，存在设置里（键同手机版）。
 func (a *App) appearanceSection(c *ui.Context) {
-	k := coui.Of(c)
 	s := a.hub.Settings()
 	coui.Group(c, "外观", "", func(l *coui.List) {
-		l.Row(coui.Row{Icon: coui.IconTheme, IconColor: k.Green, Title: "主题模式", End: func() {
+		l.Row(coui.Row{Icon: coui.IconTheme, Title: "主题模式", End: func() {
 			coui.MenuButton(c.Key("theme"), func(t ui.Element) {
 				coui.Dropdown(c, t, themeLabels[themeOf(s.Dark())])
 				t.Label("主题模式")

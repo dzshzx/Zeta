@@ -84,7 +84,7 @@ Zeta 是 root 过的 Android 手机上 [Claude Code](https://github.com/anthropi
 
 ## Windows 桌面版
 
-桌面版是 Windows 上的原生窗口程序（Go 写的），只经 SSH 用远程 Linux 主机上的 Claude Code：左边是会话列表，右边是聊天，手机一侧的功能（Linux 环境、手机工具、语音）都不带。会话、确认、子代理和后台任务的显示和手机上一样。
+桌面版是 Windows 上的原生窗口程序（Go 写的），只经 SSH 用远程 Linux 主机上的 Claude Code：左边是会话列表，右边是聊天，手机一侧的功能（Linux 环境、手机工具、语音）都不带。会话、确认、子代理和后台任务能看到的和手机上一样，界面照 ChatGPT 的 Windows 客户端：能拖宽、能收起的侧栏，右键菜单和 Ctrl、Shift 多选，一套快捷键（设置「常规」里列着）。
 
 - 安装：从 Releases 下载 `Zeta-vX.Y.Z.msi`，双击安装。它装在你自己的用户目录下（`%LOCALAPPDATA%\Programs\Zeta`），不要管理员，也不用另装运行时。安装包没做代码签名，第一次运行时 Windows 的 SmartScreen 会提示。
 - 更新：设置 › 关于里检查更新，有新版本时点「更新」，Zeta 下载安装包、核对校验值后退出，装好自动重新打开；也可以打开自动检查，每天第一次启动时查一次。

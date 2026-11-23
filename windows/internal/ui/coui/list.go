@@ -35,7 +35,7 @@ func Group(c *ui.Context, title, footer string, rows func(l *List)) {
 			ui.Text(c, title).FontSize(SizeBodyXS).FontWeight(Medium).TextColor(k.Secondary).Padding(8, 32, 8, 32)
 		}
 		l := &List{c: c}
-		card := Surface{Shape: ShapeCard, Fill: k.Card}.Paint(ui.Column(c)).Margin(0, 16).Clip().Padding(2, 0)
+		card := Surface{Shape: ShapeCard, Fill: k.Card, Edge: k.Divider}.Paint(ui.Column(c)).Margin(0, 16).Clip().Padding(2, 0)
 		card.Children(func() { rows(l) })
 		if footer != "" {
 			ui.Text(c, footer).FontSize(SizeBodyXS).LineHeight(1.4).TextColor(k.Secondary).Padding(8, 32, 0, 32)
@@ -60,9 +60,8 @@ func (l *List) divider(start float32) {
 
 // Row 是一行设置（COUI 的 BasicComponent 和 ArrowPreference）的内容。
 type Row struct {
-	// Icon 是行首的图标（20，颜色 IconColor），没有就不画。
-	Icon      *ui.SVG
-	IconColor ui.Color
+	// Icon 是行首的图标（20，次要文字色，同 ChatGPT 的单色图标），没有就不画。
+	Icon *ui.SVG
 	// Title 是标题（14），Summary 是下面一行小字（13，次要文字色；SummaryColor 不是零值时用它，像出错原因用 Error）。
 	Title, Summary string
 	SummaryColor   ui.Color
@@ -108,7 +107,7 @@ func (l *List) Row(r Row) ui.Element {
 	row.FillWidth().MinHeight(44).Padding(8, 16).Gap(12).AlignItems(ui.Center)
 	row.Children(func() {
 		if r.Icon != nil {
-			ui.Icon(c, r.Icon).Size(20, 20).TextColor(r.IconColor).Shrink(0)
+			ui.Icon(c, r.Icon).Size(20, 20).TextColor(k.Secondary).Shrink(0)
 		}
 		r.texts(c, k)
 		if r.Value != "" || r.End != nil || r.Arrow {

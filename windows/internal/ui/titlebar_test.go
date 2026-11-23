@@ -70,7 +70,7 @@ func withCaptionButtons(src *image.RGBA, dark bool) *image.RGBA {
 // previewWidth 是测试窗口的宽（newFixture）。
 const previewWidth = 1280
 
-// TestHeadersClearWindowButtons：系统按钮占着右上角时，聊天页的标题仍按聊天区居中、不压到按钮，窗口窄了截断；
+// TestHeadersClearWindowButtons：系统按钮占着右上角时，聊天页的标题在聊天区左上角、不压到按钮，窗口窄了截断；
 // 整页的顶栏也让出按钮。
 func TestHeadersClearWindowButtons(t *testing.T) {
 	f := newChatFixture(t)
@@ -88,9 +88,9 @@ func TestHeadersClearWindowButtons(t *testing.T) {
 	if title.X+title.W > buttons {
 		t.Fatalf("标题 %v 压到了系统按钮（从 %v 起）", title, buttons)
 	}
-	center := (f.app.layout.width + previewWidth) / 2
-	if mid := title.X + title.W/2; mid < center-1 || mid > center+1 {
-		t.Fatalf("标题中线 %v，聊天区中线 %v", mid, center)
+	// 标题在聊天区左上角（照 Codex 客户端）
+	if left := f.app.layout.width + 20; title.X < left-2 || title.X > left+2 {
+		t.Fatalf("标题从 %v 起，要从聊天区左边 %v 起", title.X, left)
 	}
 
 	long := strings.Repeat("把构建命令换成仓里的脚本", 6)

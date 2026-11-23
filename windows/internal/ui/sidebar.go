@@ -21,18 +21,10 @@ func (a *App) sidebar(c *ui.Context) {
 		return
 	}
 	k := coui.Of(c)
-	var chosen []hostlink.Session
-	if a.ops.selecting {
-		chosen = a.chosen()
-	}
 	hosts := len(a.hub.Hosts()) > 0
 	ui.Column(c).Fill().Background(k.Sidebar).Children(func() {
-		if a.ops.selecting {
-			a.selectionHeader(c, chosen)
-		} else {
-			a.sidebarTop(c)
-		}
-		if hosts && !a.ops.selecting {
+		a.sidebarTop(c)
+		if hosts {
 			ui.Column(c).Padding(0, 10, 8, 10).Gap(6).Shrink(0).Children(func() {
 				coui.NavItem(c, coui.IconNewChat, "新对话", "Ctrl+N", false).OnClick(a.newChat)
 				ui.Row(c).FillWidth().Children(func() { a.searchField(c) })
@@ -51,10 +43,6 @@ func (a *App) sidebar(c *ui.Context) {
 				}
 			})
 		})
-		if a.ops.selecting {
-			a.selectionActions(c, chosen)
-			return
-		}
 		ui.Row(c).Padding(8, 10).Gap(4).Shrink(0).AlignItems(ui.Center).BorderWidth(1, 0, 0, 0).BorderColor(k.Divider).
 			Children(func() {
 				coui.NavItem(c, coui.IconSettings, "设置", "Ctrl+,", false).OnClick(func() { a.open(pageSettings) }).Grow(1).
@@ -153,13 +141,13 @@ func paneMessage(c *ui.Context, text string) {
 	ui.Text(c, text).FontSize(coui.SizeBodyM).TextColor(coui.Of(c).Secondary).TextAlign(ui.Center).FillWidth().Padding(24, 24, 8, 24)
 }
 
-// sectionTitle 是一组会话的小标题（第一组离上面 8，别的 20）。
+// sectionTitle 是一组会话的小标题（第一组离上面 6，别的 16）。
 func sectionTitle(c *ui.Context, title string, first bool) {
-	top := float32(20)
+	top := float32(16)
 	if first {
-		top = 8
+		top = 6
 	}
-	ui.Text(c, title).FontSize(coui.SizeBodyXS).FontWeight(coui.Medium).TextColor(coui.Of(c).Secondary).Padding(top, 32, 6, 32)
+	ui.Text(c, title).FontSize(coui.SizeBodyXS).FontWeight(coui.Medium).TextColor(coui.Of(c).Tertiary).Padding(top, 20, 4, 20)
 }
 
 // currentSession 是聊天窗格里开着的会话；新对话有了会话号以后也算，标题用核心报的。还没有会话号时是零值。
@@ -184,61 +172,59 @@ func (a *App) currentSession() hostlink.Session {
 	return s
 }
 
-// sessionRow 是一行会话：标题（搜索时关键词标成主题色），下面是对话内容里命中的片段，或所在的目录（列着全部设备时前面是设备名）；
-// 行尾是状态（回答中、等你确认……），没有状态时置顶的标个图钉。正开着的那个是白底圆角卡片。右键菜单是会话操作（sessionMenu）；
-// 多选时点一行是勾选，行尾是复选框，没有右键菜单。
+// sessionRow 是一行会话（照 ChatGPT 的侧栏）：36 高、一行标题（搜索时关键词标成主题色），所在的目录（列着全部设备时
+// 前面是设备名）放在悬停提示里；搜索时标题下面多一行对话内容里命中的片段。行尾是状态（回答中、等你确认……），
+// 没有状态时置顶的标个图钉；鼠标移上去或正开着时多一个「…」，点开和右键一样是会话操作（sessionMenu）。
+// 正开着的那个和多选选中的是选中的底色；点击带 Ctrl、Shift 是多选（clickRow）。
 func (a *App) sessionRow(c *ui.Context, s hostlink.Session, snippet string) {
 	k := coui.Of(c)
 	pinned := a.hub.Pinned(s)
 	current := a.showing(s)
 	needle := strings.TrimSpace(a.hub.Query())
-	row := ui.Row(c.Key(s.Backend+"/"+s.ID)).Margin(1.5, 16).MinHeight(44).Padding(10, 16).Gap(8).AlignItems(ui.Center).
-		Focusable().Label(rowTitle(s)).Role(ui.RoleButton).Cursor(ui.CursorPointer)
-	// 已结束（没有活着的 Claude Code 进程）的会话标题和小字都灰着：一眼看出哪些还占着机器（同手机版）
-	titleInk, noteInk := k.Text, k.Secondary
+	place := a.place(s, needle != "")
+	row := ui.Row(c.Key(s.Backend+"/"+s.ID)).Margin(0.5, 10).MinHeight(36).Padding(0, 6, 0, 10).Gap(8).AlignItems(ui.Center).
+		Focusable().Label(rowTitle(s)).Tooltip(place).Role(ui.RoleButton).Cursor(ui.CursorPointer)
+	if snippet != "" {
+		row.Padding(6, 6, 6, 10)
+	}
+	// 已结束（没有活着的 Claude Code 进程）的会话标题灰着：一眼看出哪些还占着机器（同手机版）
+	titleInk := k.Text
 	if s.Ended {
-		titleInk, noteInk = k.Tertiary, k.Tertiary
+		titleInk = k.Tertiary
 		row.Description("已结束")
 	}
+	hovered := row.Hovered()
+	chosen := a.ops.selected[hub.Key(s)]
 	switch {
-	case current:
+	case current, chosen:
 		coui.Surface{Shape: coui.ShapeRow, Fill: k.Selected}.Paint(row)
-	case row.Hovered():
+	case hovered:
 		coui.Surface{Shape: coui.ShapeRow, Fill: k.Hover}.Paint(row)
 	default:
 		row.Radius(coui.ShapeRow.Radii[0]) // 焦点框跟着圆角
 	}
-	selecting := a.ops.selecting
-	row.OnClick(func() {
-		if selecting {
-			a.toggle(s)
-			return
-		}
-		a.openSession(s)
-	})
-	if !selecting {
-		row.PopoverMenu(func(m *ui.Menu) { a.sessionMenu(m, s) })
+	if row.Clicked() {
+		a.clickRow(s, row.ClickModifiers())
 	}
+	row.PopoverMenu(func(m *ui.Menu) { a.sessionMenu(m, s) })
 	row.Children(func() {
-		ui.Column(c).Grow(1).MinWidth(0).Gap(1).Children(func() {
-			weight := 0
-			if current {
-				weight = coui.Medium
-			}
-			highlighted(c, rowTitle(s), needle, coui.SizeBodyL, weight, titleInk).SingleLine().Ellipsis("…")
+		ui.Column(c).Grow(1).MinWidth(0).Gap(2).Children(func() {
+			highlighted(c, rowTitle(s), needle, coui.SizeBodyM, 0, titleInk).SingleLine().Ellipsis("…")
 			if snippet != "" {
-				highlighted(c, snippet, needle, coui.SizeBodyXS, 0, noteInk).MaxLines(2).Ellipsis("…")
-			} else {
-				ui.Text(c, a.place(s, needle != "")).FontSize(coui.SizeBodyXS).TextColor(noteInk).SingleLine().Ellipsis("…")
+				highlighted(c, snippet, needle, coui.SizeBodyXS, 0, k.Secondary).MaxLines(2).Ellipsis("…")
 			}
 		})
+		if tag := a.rowTag(s); tag != "" {
+			ui.Text(c, tag).FontSize(coui.SizeBodyXS).TextColor(k.Tertiary).SingleLine().Shrink(0)
+		}
 		if st := a.rowStatus(s, current); st.Activity != hub.Quiet {
 			statusLabel(c, st)
-		} else if pinned && !selecting {
-			ui.Icon(c, coui.IconPin).Size(16, 16).TextColor(k.Tertiary).Shrink(0).Label("已置顶")
+		} else if pinned && !hovered {
+			ui.Icon(c, coui.IconPin).Size(14, 14).TextColor(k.Tertiary).Shrink(0).Label("已置顶")
 		}
-		if selecting {
-			coui.MarkLook(c, coui.MarkCheck, a.ops.selected[hub.Key(s)])
+		if hovered || current || chosen {
+			more := ui.ButtonBase(c.Key("more")).PopoverMenuButton(func(m *ui.Menu) { a.sessionMenu(m, s) })
+			coui.FlatButtonOf(c, more, coui.IconMore, "会话操作", 24, 16)
 		}
 	})
 }
@@ -264,7 +250,19 @@ func (a *App) rowStatus(s hostlink.Session, current bool) hub.Status {
 	return st
 }
 
-// place 是一行会话的小字：工作目录的最后一级，列着全部设备时前面是设备名，别处在运行的注明；搜索时归档的也注明。
+// rowTag 是一行会话标题后面的小字：列着全部设备时是设备名，别处在运行的注明（目录只在悬停提示里）。
+func (a *App) rowTag(s hostlink.Session) string {
+	var tags []string
+	if a.hub.AllHosts() {
+		tags = append(tags, a.hub.Name(s.Backend))
+	}
+	if s.External {
+		tags = append(tags, "别处运行中")
+	}
+	return strings.Join(tags, " · ")
+}
+
+// place 是一行会话的悬停提示：工作目录的最后一级，列着全部设备时前面是设备名，别处在运行的注明；搜索时归档的也注明。
 func (a *App) place(s hostlink.Session, searching bool) string {
 	place := s.Place()
 	if a.hub.AllHosts() {

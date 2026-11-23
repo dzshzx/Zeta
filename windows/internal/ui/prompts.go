@@ -57,8 +57,8 @@ func (qa *questionAnswer) text(q prompt.Question) string {
 	return strings.Join(parts, ", ")
 }
 
-// promptCard 是 Claude Code 在等的第一个请求（工具确认、计划审批、提问、MCP 表单或网址）：照手机版（PromptSheet、
-// ElicitationSheet）弹在窗口中间的 COUI 对话框，不点按钮关不掉。
+// promptCard 是 Claude Code 在等的第一个请求（工具确认、计划审批、提问、MCP 表单或网址）：照 ChatGPT 客户端，是输入栏
+// 位置上的一张卡片（coui.Panel），等你回应时输入栏先收起，上面的对话照样能翻；只有点按钮（或 Enter、Esc）才算回应。
 func (a *App) promptCard(c *ui.Context, p *chatPane) {
 	if len(p.state.Prompts) == 0 {
 		return
@@ -115,13 +115,21 @@ func detailBlock(c *ui.Context, text string) {
 	})
 }
 
-// dialogButton 是对话框按钮栏里的一个按钮，和别的一样宽。
-func dialogButton(c *ui.Context, label string, primary bool) ui.Element {
-	style := coui.Plain
+// cardButton 是确认卡片底下的一个按钮，点了做 do。能点时接上键（同 ChatGPT 客户端）：主按钮是 Enter，别的是 Esc；
+// 卡片出来时焦点在主按钮上（原先在侧栏按钮上时 Enter 会点到那边）；焦点在卡片里的输入框时 Enter 归输入框（换行、
+// 提交那一项）。
+func cardButton(c *ui.Context, label string, primary, disabled bool, do func()) {
+	style, key := coui.Plain, ui.KeyEscape
 	if primary {
-		style = coui.Recommend
+		style, key = coui.Recommend, ui.KeyEnter
 	}
-	return coui.DialogButton(c, label, style)
+	b := coui.DialogButton(c, label, style).Disabled(disabled).OnClick(do)
+	if primary {
+		b.AutoFocus()
+	}
+	if !disabled {
+		c.OnWindowShortcut(0, key, do)
+	}
 }
 
 // toolCard 是工具确认（ToolSheet）：命令或参数；Claude Code 给了「以后不再问」的建议时可以勾「以后不再询问」；
@@ -138,7 +146,7 @@ func (a *App) toolCard(c *ui.Context, p *chatPane, pr prompt.Prompt) {
 		summary = append(summary, pr.Reason)
 	}
 	f := &p.form
-	coui.Sheet(c, "允许这次操作？", strings.Join(summary, "\n"), 460, func() {
+	coui.Panel(c, "允许这次操作？", strings.Join(summary, "\n"), 460, func() {
 		detailBlock(c, detail)
 		if len(pr.SuggestionLines) > 0 {
 			coui.Choice(c, "以后不再询问", strings.Join(pr.SuggestionLines, "\n"), coui.MarkCheck, f.remember).
@@ -152,10 +160,10 @@ func (a *App) toolCard(c *ui.Context, p *chatPane, pr prompt.Prompt) {
 		if strings.TrimSpace(f.feedback) != "" {
 			deny = "拒绝并告诉 Claude"
 		}
-		dialogButton(c, deny, false).Disabled(f.sending).OnClick(func() {
+		cardButton(c, deny, false, f.sending, func() {
 			a.answer(p, pr, prompt.Reply{Kind: prompt.ReplyDeny, Feedback: strings.TrimSpace(f.feedback)})
 		})
-		dialogButton(c, "允许", true).Disabled(f.sending).OnClick(func() {
+		cardButton(c, "允许", true, f.sending, func() {
 			kind := prompt.ReplyAllow
 			if f.remember && len(pr.SuggestionLines) > 0 {
 				kind = prompt.ReplyAllowAlways
@@ -189,7 +197,7 @@ func (a *App) planCard(c *ui.Context, p *chatPane, pr prompt.Prompt) {
 	}
 	_ = json.Unmarshal(pr.Input, &input)
 	f := &p.form
-	coui.Sheet(c, "按这个计划执行？", "", 520, func() {
+	coui.Panel(c, "按这个计划执行？", "", 520, func() {
 		ui.Box(c).FillWidth().Padding(4, coui.DialogPadding).Children(func() {
 			stylePlan(c)
 			markdown.View(c, input.Plan, &planMarkdown).FillWidth()
@@ -201,10 +209,10 @@ func (a *App) planCard(c *ui.Context, p *chatPane, pr prompt.Prompt) {
 			coui.LineInput(c.Key("feedback"), &f.feedback, 4).Placeholder("不批准：告诉 Claude 要改什么").Label("要改什么")
 		})
 	}, func() {
-		dialogButton(c, "继续完善", false).Disabled(f.sending || strings.TrimSpace(f.feedback) == "").OnClick(func() {
+		cardButton(c, "继续完善", false, f.sending || strings.TrimSpace(f.feedback) == "", func() {
 			a.answer(p, pr, prompt.Reply{Kind: prompt.ReplyDeny, Feedback: strings.TrimSpace(f.feedback)})
 		})
-		dialogButton(c, "批准", true).Disabled(f.sending).OnClick(func() {
+		cardButton(c, "批准", true, f.sending, func() {
 			a.answer(p, pr, prompt.Reply{Kind: prompt.ReplyApprovePlan, Mode: f.planMode})
 		})
 	})
@@ -226,7 +234,7 @@ func (a *App) questionCard(c *ui.Context, p *chatPane, pr prompt.Prompt) {
 		}
 	}
 	answers, notes := questionReplies(pr.Questions, f.answers)
-	coui.Sheet(c, title, "", 520, func() {
+	coui.Panel(c, title, "", 520, func() {
 		for i, q := range pr.Questions {
 			qa := &f.answers[i]
 			ui.Column(c.Key("question/" + strconv.Itoa(i))).FillWidth().Children(func() {
@@ -244,10 +252,10 @@ func (a *App) questionCard(c *ui.Context, p *chatPane, pr prompt.Prompt) {
 			})
 		}
 	}, func() {
-		dialogButton(c, "跳过", false).Disabled(f.sending).OnClick(func() {
+		cardButton(c, "跳过", false, f.sending, func() {
 			a.answer(p, pr, prompt.Reply{Kind: prompt.ReplyDeny})
 		})
-		dialogButton(c, "确定", true).Disabled(f.sending || !complete).OnClick(func() {
+		cardButton(c, "确定", true, f.sending || !complete, func() {
 			a.answer(p, pr, prompt.Reply{Kind: prompt.ReplyAnswer, Answers: answers, Notes: notes})
 		})
 	})
@@ -322,7 +330,7 @@ func (a *App) elicitCard(c *ui.Context, p *chatPane, pr prompt.Prompt) {
 	if pr.URL != "" {
 		title = pr.Server + " 请你去网页上操作"
 	}
-	coui.Sheet(c, title, pr.Message, 520, func() {
+	coui.Panel(c, title, pr.Message, 520, func() {
 		if pr.URL != "" {
 			ui.Text(c, pr.URL).FontSize(coui.SizeBodyS).TextColor(k.PrimaryText).Selectable().TextAlign(ui.Center).FillWidth().
 				Padding(0, coui.DialogPadding)
@@ -331,15 +339,15 @@ func (a *App) elicitCard(c *ui.Context, p *chatPane, pr prompt.Prompt) {
 			ui.Column(c.Key("field/" + field.Key)).FillWidth().Children(func() { elicitField(c, field, f) })
 		}
 	}, func() {
-		dialogButton(c, "拒绝", false).Disabled(f.sending).OnClick(func() { a.elicit(p, pr, prompt.ElicitDecline, nil) })
+		cardButton(c, "拒绝", false, f.sending, func() { a.elicit(p, pr, prompt.ElicitDecline, nil) })
 		if pr.URL != "" {
-			dialogButton(c, "打开网页", true).Disabled(f.sending).OnClick(func() {
+			cardButton(c, "打开网页", true, f.sending, func() {
 				c.OpenURL(pr.URL)
 				a.elicit(p, pr, prompt.ElicitAccept, nil)
 			})
 			return
 		}
-		dialogButton(c, "提交", true).Disabled(f.sending).OnClick(func() {
+		cardButton(c, "提交", true, f.sending, func() {
 			a.elicit(p, pr, prompt.ElicitAccept, f.values)
 		})
 	})
