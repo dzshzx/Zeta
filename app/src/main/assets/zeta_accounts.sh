@@ -6,7 +6,7 @@
 # 界面据此说清是谁挡着。
 #
 #   <程序> list          还开着的 Claude Code 进程（P），再跑 claude-switch --json
-#   <程序> run <参数…>   跑 claude-switch <参数…>；换号和 add 之前先等进程都退出（Zeta 刚叫停的自己的对话要几秒），最多约 8 秒
+#   <程序> run <参数…>   跑 claude-switch <参数…>；换号和 add 之前，开着的都是本包（ZETA_NAME）自己的对话时先等它们退出（Zeta 刚叫停的要几秒），最多约 8 秒
 #
 # <程序> 是装好的 claude-switch 相对家目录的路径（HelperProgram.relativePath），带着版本。
 # claude-switch 的结果是三条记录：O 标准输出、E 标准错误（都是 base64，可能有多行）、X 退出码；没成功时再列一遍进程（P）。
@@ -83,8 +83,10 @@ fi
 case ${1:-} in
   --json | remove) ;;
   *)
+    # 只剩本包自己的对话（Zeta 刚叫停的，几秒内会退出）时才等；有别人的就不等，那些不会自己退，交给 claude-switch 拒绝
     for _ in $(seq 40); do
-      [ -z "$(procs)" ] && break
+      owners=$(procs | tr '\0' '\t' | cut -f3)
+      if [ -z "$owners" ] || grep -qvxF -- "${ZETA_NAME:-zeta}" <<<"$owners"; then break; fi
       sleep 0.2
     done
     ;;

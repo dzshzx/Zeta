@@ -330,15 +330,15 @@ func (h *Host) Remove(ctx context.Context, name string) error {
 	return h.err(r)
 }
 
-// change 跑一个改登录状态的 claude-switch 命令：先等开着的 Claude Code 退出（最多 Wait），不管等没等到都交给 claude-switch，
-// 它自己会拒绝。
+// change 跑一个改登录状态的 claude-switch 命令：开着的 Claude Code 都是调用方自己的（它刚叫停、几秒内会退出）时先等它们退出
+// （最多 Wait）；有别人的就不等，那些不会自己退。不管等没等到都交给 claude-switch，它自己会拒绝。
 func (h *Host) change(ctx context.Context, args ...string) error {
 	wait := h.Wait
 	if wait == 0 {
 		wait = 8 * time.Second
 	}
 	deadline := time.Now().Add(wait)
-	for len(h.procs()) > 0 && time.Now().Before(deadline) {
+	for onlyMine(h.procs(), h.Package) && time.Now().Before(deadline) {
 		select {
 		case <-ctx.Done():
 			return ctx.Err()
@@ -350,6 +350,11 @@ func (h *Host) change(ctx context.Context, args ...string) error {
 		return err
 	}
 	return h.err(r)
+}
+
+// onlyMine 是还开着的 Claude Code 都是 mine 这个包的（至少一个）：只有这种值得等。
+func onlyMine(procs []Proc, mine string) bool {
+	return len(procs) > 0 && !slices.ContainsFunc(procs, func(p Proc) bool { return p.Owner != mine })
 }
 
 // builtin 是 claude-switch 里总能用作目标的号（没有切换记录时默认配置目录里那个）：直接换过去，add 不收它。

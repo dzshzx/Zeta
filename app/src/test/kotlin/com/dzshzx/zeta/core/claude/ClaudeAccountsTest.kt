@@ -1,5 +1,6 @@
 package com.dzshzx.zeta.core.claude
 
+import com.dzshzx.zeta.core.AppVariant
 import com.dzshzx.zeta.core.HelperProgram
 import com.dzshzx.zeta.core.HostTesting
 import com.dzshzx.zeta.core.LinuxShell
@@ -54,7 +55,15 @@ class ClaudeAccountsTest {
         assumeTrue("要 bash 和 /proc", File("/proc/self/stat").exists())
         home = Files.createTempDirectory("zeta-accounts").toFile().canonicalFile
         File(home, ".claude").mkdirs()
-        accounts = ClaudeAccounts(ClaudeConfigClient { localShell(home) }, script, program)
+        // 本包是测试版（同真机上 LinuxEnv 给脚本带的 ZETA_NAME）：换号前只等记号是 zeta-dev 的对话
+        accounts =
+            ClaudeAccounts(
+                ClaudeConfigClient {
+                    localShell(home, mapOf(AppVariant.LINUX_NAME_ENV to "zeta-dev"))
+                },
+                script,
+                program,
+            )
     }
 
     @After
@@ -414,13 +423,15 @@ class ClaudeAccountsTest {
             "另一个 Zeta（正式版）开着 1 个对话，其中 1 个在进行" in blocker && "1 个别处开着的 Claude Code" in blocker,
         )
 
-        // claude-switch 拒绝时带上脚本列的进程
+        // claude-switch 拒绝时带上脚本列的进程；有别人的进程时脚本不等（它们不会自己退），等满是 8 秒
         failWith("claude-b", 1, "claude-switch: 还有 Claude Code 进程在跑，先全部退出再换号：\n  1 claude\n")
+        val refusing = System.currentTimeMillis()
         val outcome = accounts.switch("claude-b")
         assertTrue(
             outcome.toString(),
             outcome is SwitchOutcome.Busy && outcome.processes.toSet() == expected,
         )
+        assertTrue("有别人的进程时不该等", System.currentTimeMillis() - refusing < 5000)
 
         // 只剩本包自己的（Zeta 正在关）：不算阻碍；换号前脚本会等它退出（最多约 8 秒）再跑 claude-switch
         File(fake, "claude-b.code").delete()

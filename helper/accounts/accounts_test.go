@@ -15,6 +15,7 @@ import (
 	"slices"
 	"strings"
 	"sync"
+	"sync/atomic"
 	"testing"
 	"time"
 )
@@ -345,13 +346,44 @@ func TestProcessOwnersAndBlocker(t *testing.T) {
 	if st.Blocker != blocker {
 		t.Fatalf("挡着的：%q", st.Blocker)
 	}
+	// 别人的进程不会自己退，不等它们，直接交给 claude-switch 拒绝
+	host.Wait = time.Minute
 	start := time.Now()
 	err = host.Switch(ctx(t), "claude-b")
 	if err == nil || err.Error() != blocker {
 		t.Fatalf("被挡着时换号：%v", err)
 	}
-	if time.Since(start) < time.Second {
-		t.Fatal("换号前应先等进程退出")
+	if d := time.Since(start); d > 30*time.Second {
+		t.Fatalf("有别人的进程时不该等：等了 %v", d)
+	}
+}
+
+// 只剩本包自己的对话（调用方刚叫停）：等它退出再换，换得成。
+func TestSwitchWaitsForOwnConversations(t *testing.T) {
+	h := newHost(t)
+	host := h.host()
+	host.Wait = time.Minute
+	twoAccounts(t, h, host)
+	mine := h.spawn("claude", "ZETA_HOST=zeta/host-1")
+	h.register(mine, "idle")
+	var killed atomic.Bool
+	go func() {
+		time.Sleep(300 * time.Millisecond)
+		killed.Store(true)
+		// 杀了还要收尸：僵尸进程的 /proc/<pid>/stat 还在，会被当成活着
+		if p, err := os.FindProcess(mine); err == nil {
+			_ = p.Kill()
+			_, _ = p.Wait()
+		}
+	}()
+	if err := host.Switch(ctx(t), "claude-b"); err != nil {
+		t.Fatalf("本包的对话退出后换号：%v", err)
+	}
+	if !killed.Load() {
+		t.Fatal("本包的对话还开着就去换号了")
+	}
+	if h.liveUUID() != "uuid-b" {
+		t.Fatal("没换成")
 	}
 }
 
