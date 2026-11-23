@@ -96,3 +96,29 @@ func TestDefaultModelWhenTheDeviceCannotReport(t *testing.T) {
 	f.see(t, "Opus", "Sonnet", "Haiku", "Fable")
 	f.notSee(t, "更多模型")
 }
+
+// 输入栏的模型菜单也分两层（同设置里的默认模型）：上层是各系列最新的，旧版本在「更多模型」里；选了旧版本，那一项右边写着它。
+func TestComposerModelMenuSplitsOlder(t *testing.T) {
+	f := newChatFixture(t)
+	f.newChat(t)
+	f.push(`"process":true,"models":` + reportedModels)
+	f.click(t, "默认")
+	f.see(t, "Opus 5.5", "Sonnet 5.5", "更多模型")
+	f.notSee(t, "Opus 4.6")
+	f.click(t, "更多模型")
+	f.clickMenuItem(t, "Opus 4.6")
+	got := f.link().Took()
+	if len(got) != 1 || got[0].Method != "conv.model" || got[0].JSON() != `{"conv":"w1","value":"claude-opus-4-6"}` {
+		t.Fatalf("选旧版本：%+v", got)
+	}
+	f.push(`"model":"claude-opus-4-6"`)
+	f.click(t, "Opus 4.6") // 按钮上换成了它；点开菜单
+	texts := f.tt.Texts()
+	n := slices.Index(texts, "更多模型")
+	for n >= 0 && n+1 < len(texts) && texts[n+1] == "更多模型" { // 读屏名和字各一条
+		n++
+	}
+	if n < 0 || n+1 >= len(texts) || texts[n+1] != "Opus 4.6" {
+		t.Fatalf("更多模型旁边没写选中的旧版本：%q", texts)
+	}
+}

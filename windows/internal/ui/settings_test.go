@@ -118,12 +118,26 @@ func TestSettingsPage(t *testing.T) {
 	f.notSee(t, "修登录页", "有新版本")
 
 	// 外观：选深色，存进设置，界面跟着换
-	f.click(t, "跟随系统")
+	f.press(t, "主题模式")
 	f.click(t, "深色")
 	if dark, set := f.hub.Settings().Dark(); !set || !dark {
 		t.Fatalf("外观没存上：%v %v", dark, set)
 	}
 	f.see(t, "深色")
+
+	// 语言：默认跟随系统，菜单里是文字表里的几种、各用自己的写法；选了交给 mygo（这里是内存里的），按钮上换成它
+	f.press(t, "语言")
+	f.clickMenuItem(t, "English")
+	if got := f.app.Language.Chosen(); got != "en" {
+		t.Fatalf("选了 English，记下的是 %q", got)
+	}
+	f.see(t, "English")
+	f.press(t, "语言")
+	f.see(t, "简体中文")
+	f.clickMenuItem(t, "跟随系统")
+	if got := f.app.Language.Chosen(); got != "" {
+		t.Fatalf("选回跟随系统，记下的是 %q", got)
+	}
 
 	// 有新版本时「关于」标出来，点进关于页能更新
 	f.updates.available = true

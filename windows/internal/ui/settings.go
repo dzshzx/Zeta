@@ -9,11 +9,13 @@ import (
 	acct "github.com/dzshzx/Zeta/windows/internal/accounts"
 	cfg "github.com/dzshzx/Zeta/windows/internal/claudecfg"
 	"github.com/dzshzx/Zeta/windows/internal/hub"
+	"github.com/dzshzx/Zeta/windows/internal/locales"
 	"github.com/dzshzx/Zeta/windows/internal/ui/about"
 	uiacct "github.com/dzshzx/Zeta/windows/internal/ui/accounts"
 	"github.com/dzshzx/Zeta/windows/internal/ui/claudecfg"
 	"github.com/dzshzx/Zeta/windows/internal/ui/widget"
 	"github.com/dzshzx/Zeta/windows/internal/update"
+	"github.com/egoist/mygo/i18n"
 	"github.com/egoist/mygo/ui"
 )
 
@@ -161,7 +163,7 @@ func headline(q *acct.Quota, now time.Time) (coreapi.QuotaWindow, bool) {
 
 func percentText(n int) string { return strconv.Itoa(n) + "%" }
 
-// appearanceSection 是外观：主题（跟随系统、浅色、深色，存在设置里，键同手机版）和界面缩放（zoom.go）。
+// appearanceSection 是外观：主题（跟随系统、浅色、深色，存在设置里，键同手机版）、界面语言和界面缩放（zoom.go）。
 func (a *App) appearanceSection(c *ui.Context) {
 	s := a.hub.Settings()
 	widget.Group(c, "外观", "", func(l *widget.List) {
@@ -178,8 +180,34 @@ func (a *App) appearanceSection(c *ui.Context) {
 				}
 			})
 		}})
+		a.languageRow(c, l)
 		a.zoomRow(l)
 	})
+}
+
+// languageRow 是界面语言：跟随系统，或文字表里有的几种（各用自己的写法，「简体中文」「English」）。选了马上换，下次启动还是它
+// （mygo 记在用户数据目录里）；手机上的语言各管各的。换了以后开着的连接把新语言报给核心（入口的 OnLocaleChanged）。
+func (a *App) languageRow(c *ui.Context, l *widget.List) {
+	chosen := a.Language.Chosen()
+	label := locales.SettingsLanguageSystem()
+	if chosen != "" {
+		label = i18n.Autonym(chosen)
+	}
+	l.Row(widget.Row{Icon: widget.IconGlobe, Title: locales.SettingsLanguage(), End: func() {
+		widget.MenuButton(c.Key("language"), func(t ui.Element) {
+			widget.Dropdown(c, t, label)
+			t.Label(locales.SettingsLanguage())
+		}, func(m *widget.Menu) {
+			if m.Choice(locales.SettingsLanguageSystem(), chosen == "") && chosen != "" {
+				a.Language.Choose("")
+			}
+			for _, tag := range i18n.Languages() {
+				if m.Choice(i18n.Autonym(tag), chosen == tag) && chosen != tag {
+					a.Language.Choose(tag)
+				}
+			}
+		})
+	}})
 }
 
 // themeOf 是存着的深浅色在 themeLabels 里是第几档。

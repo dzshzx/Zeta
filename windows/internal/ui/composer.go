@@ -261,7 +261,8 @@ func modeIcon(k *widget.Colors, mode string) (*ui.SVG, ui.Color) {
 // fallbackModels 是进程还没起、Claude Code 还没报模型清单时给的几个常用别名（它自己认）。
 var fallbackModels = []chat.ModelOption{{Value: "opus", DisplayName: "Opus"}, {Value: "sonnet", DisplayName: "Sonnet"}, {Value: "haiku", DisplayName: "Haiku"}}
 
-// modelMenu 是模型：「默认」（Claude Code 的设置）和 Claude Code 报的各个模型。
+// modelMenu 是模型：「默认」（Claude Code 的设置）和 Claude Code 报的各系列最新的，旧版本收在「更多模型」的二级菜单里
+// （chat.SplitModels，同设置里的默认模型和手机版），选中的是旧版本时写在那一项右边。
 func (a *App) modelMenu(c *ui.Context, p *chatPane) {
 	models := p.state.Models
 	if len(models) == 0 {
@@ -276,16 +277,32 @@ func (a *App) modelMenu(c *ui.Context, p *chatPane) {
 		if m.Choice("默认", chosen == "" || chosen == chat.DefaultModel) {
 			a.act(func(ctx context.Context, conv *chat.Conversation) error { return conv.SetModel(ctx, nil) })
 		}
-		for _, o := range models {
-			if o.Value == chat.DefaultModel {
-				continue
-			}
-			if m.Choice(optionName(o), o.Value == chosen) {
-				value := o.Value
-				a.act(func(ctx context.Context, conv *chat.Conversation) error { return conv.SetModel(ctx, &value) })
+		latest, older := chat.SplitModels(models)
+		a.modelChoices(m, latest, chosen)
+		if len(older) == 0 {
+			return
+		}
+		hint := ""
+		for _, o := range older {
+			if o.Value == chosen {
+				hint = optionName(o)
 			}
 		}
+		m.Sub("更多模型", hint, func(m *widget.Menu) { a.modelChoices(m, older, chosen) })
 	})
+}
+
+// modelChoices 把 models 列成模型菜单里的选项（「默认」不列，菜单自己有那一项），选了就换。
+func (a *App) modelChoices(m *widget.Menu, models []chat.ModelOption, chosen string) {
+	for _, o := range models {
+		if o.Value == chat.DefaultModel {
+			continue
+		}
+		if m.Choice(optionName(o), o.Value == chosen) {
+			value := o.Value
+			a.act(func(ctx context.Context, conv *chat.Conversation) error { return conv.SetModel(ctx, &value) })
+		}
+	}
 }
 
 func optionName(o chat.ModelOption) string {

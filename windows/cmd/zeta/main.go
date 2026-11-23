@@ -93,6 +93,7 @@ func main() {
 		})
 		// 回答完了而窗口不在前台时发通知，看大图时系统按钮换深浅（window.go）
 		app.Window = desktopWindow{win}
+		app.Language = mygoLanguage{}
 		// 更新的状态在后台变：重画；查到新版本时窗口底部提示；安装程序起好后退出
 		updater.Changed = func() { win.Update(func() {}) }
 		updater.Notify = func(text string) { win.Update(func() { app.ShowUpdate(text) }) }

@@ -45,3 +45,9 @@ func (w desktopWindow) ButtonsOverDark(on bool) {
 		w.win.SetWindowButtonsTheme(mygo.ThemeSystem)
 	}
 }
+
+// mygoLanguage 是界面语言的选择（设置「常规」的「语言」）：mygo 选了就换（窗口重画、OnLocaleChanged），记在用户数据目录里下次照旧。
+type mygoLanguage struct{}
+
+func (mygoLanguage) Chosen() string    { return mygo.App.ChosenLocale() }
+func (mygoLanguage) Choose(tag string) { mygo.App.SetLocale(tag) }

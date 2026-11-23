@@ -82,7 +82,21 @@ type App struct {
 	// Window 是真窗口（在不在前台、通知、系统按钮）。New 给的是窗口起来之前的（总在前台、什么也不做），
 	// 窗口起来后由入口换成真的。
 	Window Window
+	// Language 是界面语言的选择（设置「常规」的「语言」）。New 给的只记在内存里，入口换成 mygo 的（马上换语言、下次启动还记得）。
+	Language Language
 }
+
+// Language 是界面语言的选择：Chosen 是选了哪种（BCP 47 标签，"" 是跟随系统），Choose 改成 tag。
+type Language interface {
+	Chosen() string
+	Choose(tag string)
+}
+
+// memoryLanguage 只记着选了哪种，不真换语言（入口换成真的之前、测试里）。
+type memoryLanguage struct{ tag string }
+
+func (l *memoryLanguage) Chosen() string    { return l.tag }
+func (l *memoryLanguage) Choose(tag string) { l.tag = tag }
 
 // Window 是 App 碰真窗口的几样。
 type Window interface {
@@ -112,7 +126,7 @@ type notice struct {
 
 // New 建窗口的状态。run 把要等设备的事放到后台，post 把结果交回主线程（窗口的 Update）。
 func New(h *hub.Hub, run, post func(func())) *App {
-	a := &App{hub: h, run: run, post: post, now: time.Now, pick: systemPicker, saveFile: systemSaveFile, Window: noWindow{},
+	a := &App{hub: h, run: run, post: post, now: time.Now, pick: systemPicker, saveFile: systemSaveFile, Window: noWindow{}, Language: &memoryLanguage{},
 		About: defaultAbout(h)}
 	h.OnAlert(a.alert)
 	a.loadLayout()
