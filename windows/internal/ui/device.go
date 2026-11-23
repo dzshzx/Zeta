@@ -24,6 +24,16 @@ type editing struct {
 	cutting    bool   // 正问着断不断开（那台上有对话在进行）
 	naming     bool   // 正在改名（对话框开着）
 	moving     bool   // 正在改默认工作目录（对话框开着）
+	// 改默认工作目录时先到设备上核对（moveCwd）：verifying 是正在核对，cwdProblem 是 cwdChecked 那个目录进不去的原因；
+	// 核对不了（连不上）时 unchecked 问用户仍然保存 pendingCwd 吗，uncheckedWhy 是连不上的原因。cwdRound 每开一次对话框、
+	// 每核对一次加一，对不上的结果是过时的，不用。
+	verifying    bool
+	cwdChecked   string
+	cwdProblem   string
+	unchecked    bool
+	pendingCwd   string
+	uncheckedWhy string
+	cwdRound     int
 }
 
 // startEditing 打开一台设备的页面：输入框里放上现在的值。
@@ -103,6 +113,8 @@ func (a *App) connectionSection(c *ui.Context, x sshlink.Host) {
 		l.Row(widget.Row{Title: "家目录", Value: x.Home})
 		l.Row(widget.Row{Title: "默认工作目录", Summary: x.DefaultCwd, Arrow: true, OnClick: func() {
 			a.edit.cwd, a.edit.moving = x.DefaultCwd, true
+			a.edit.verifying, a.edit.cwdProblem = false, ""
+			a.edit.cwdRound++
 		}})
 	})
 }
@@ -225,12 +237,7 @@ func (a *App) deviceDialogs(c *ui.Context, x sshlink.Host) {
 		x.CustomName = strings.TrimSpace(a.edit.name)
 		a.save(x)
 	}
-	cwd, cwdOK := normalizeCwd(a.edit.cwd, x.Home)
-	if widget.InputDialog(c, &a.edit.moving, "默认工作目录", "在这台设备上开新对话时的工作目录，~ 是 "+x.Home, &a.edit.cwd, x.Home, "确定",
-		cwdOK) {
-		x.DefaultCwd = cwd
-		a.save(x)
-	}
+	a.cwdDialogs(c, x)
 	message := "记下的：" + x.Fingerprint() + "\n现在的：" + sshlink.Fingerprint(a.edit.changedKey) +
 		"\n确认是那台设备换过密钥（比如重装过系统）再改认新的；不确定的话可能连到了别的机器上。"
 	if widget.Alert(c, &a.edit.trusting, "主机指纹变了", message, widget.Action{Label: "取消"},
@@ -253,5 +260,67 @@ func (a *App) deviceDialogs(c *ui.Context, x sshlink.Host) {
 			a.say("没存上", err.Error())
 		}
 		a.open(pageSettings)
+	}
+}
+
+// cwdDialogs 是改默认工作目录的输入框（核对时说正在核对，进不去时说原因、留着让改），和核对不了时问仍然保存吗。
+func (a *App) cwdDialogs(c *ui.Context, x sshlink.Host) {
+	e := &a.edit
+	cwd, cwdOK := normalizeCwd(e.cwd, x.Home)
+	summary := "在这台设备上开新对话时的工作目录，~ 是 " + x.Home
+	switch {
+	case e.verifying:
+		summary = "正在到「" + x.Name() + "」上看 " + e.cwdChecked + " 能不能进去…"
+	case e.cwdProblem != "" && cwd == e.cwdChecked:
+		summary = e.cwdProblem + "。换一个目录，或先在那边建好。"
+	}
+	if widget.InputDialog(c, &e.moving, "默认工作目录", summary, &e.cwd, x.Home, "确定", cwdOK && !e.verifying) {
+		a.moveCwd(x, cwd)
+	}
+	message := "没连上「" + x.Name() + "」，不知道 " + e.pendingCwd + " 在那边能不能进去：" + e.uncheckedWhy +
+		"。仍然保存的话，进不去时开新对话会再说。"
+	if widget.Alert(c, &e.unchecked, "无法核对这个目录", message, widget.Action{Label: "取消"},
+		widget.Action{Label: "仍然保存", Style: widget.Recommend}) == 1 {
+		a.setCwd(x.ID, e.pendingCwd)
+	}
+}
+
+// moveCwd 把默认工作目录改成 cwd（同手机版）：先到那台设备上看进不进得去，进得去才存；进不去时输入框留着，写明原因让改；
+// 连不上、「连接」关着时问用户仍然保存还是取消。没改时直接关上。
+func (a *App) moveCwd(x sshlink.Host, cwd string) {
+	e := &a.edit
+	if cwd == x.DefaultCwd {
+		return
+	}
+	e.moving, e.verifying, e.cwdChecked, e.cwdProblem = true, true, cwd, ""
+	e.cwdRound++
+	round := e.cwdRound
+	check := a.hub.DirChecker(x.ID)
+	a.async(func() func() {
+		problem, err := check(cwd)
+		return func() {
+			if round != e.cwdRound || !e.moving {
+				return // 对话框关了或又开了一次：这次的结果不用
+			}
+			e.verifying = false
+			switch {
+			case err != nil:
+				e.moving = false
+				e.pendingCwd, e.uncheckedWhy, e.unchecked = cwd, sshlink.Describe(err), true
+			case problem != "":
+				e.cwdProblem = problem
+			default:
+				e.moving = false
+				a.setCwd(x.ID, cwd)
+			}
+		}
+	})
+}
+
+// setCwd 存设备 id 的默认工作目录（按此刻的设置改这一项）。
+func (a *App) setCwd(id, cwd string) {
+	if x, ok := a.hub.Host(id); ok {
+		x.DefaultCwd = cwd
+		a.save(x)
 	}
 }
