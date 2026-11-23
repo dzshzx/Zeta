@@ -22,6 +22,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import com.dzshzx.zeta.core.AccountStatus
+import com.dzshzx.zeta.core.Backends
 import com.dzshzx.zeta.core.ConversationHub
 import com.dzshzx.zeta.core.EnvController
 import com.dzshzx.zeta.core.EnvHealth
@@ -655,20 +656,23 @@ private fun InstallActions(
     }
 }
 
-/** 登录 Claude 账号：打开授权页，把页面给的授权码贴回来。 */
+/** 主机 [backend] 上登录 Claude 账号：打开授权页，把页面给的授权码贴回来。登录命令由那台的核心跑（[com.dzshzx.zeta.core.LoginFlow]）。 */
 @Composable
-internal fun LoginScreen(hub: ConversationHub, onBack: () -> Unit) {
+internal fun LoginScreen(hub: ConversationHub, backend: String, onBack: () -> Unit) {
     val context = LocalContext.current
-    val flow = hub.environment.login
+    val flow = hub.accounts(backend).login
     val state = flow.state
-    val account = hub.environment.account
+    val account = loginAccount(hub, backend)
     var code by remember { mutableStateOf("") }
     val leave = {
         flow.cancel()
         onBack()
     }
+    // 远程设备的名字放在「当前状态」上：标题再加设备名就放不下了
+    val statusTitle =
+        if (backend == Backends.LOCAL) "当前状态" else "当前状态 · " + hub.backendName(backend)
     CouiPage(title = "登录 Claude 账号", onBack = leave) {
-        item(key = "status") { LoginStatusGroup(account) }
+        item(key = "status") { LoginStatusGroup(account, statusTitle) }
         when (state) {
             LoginState.Idle,
             is LoginState.Failed -> {
@@ -708,10 +712,25 @@ internal fun LoginScreen(hub: ConversationHub, onBack: () -> Unit) {
     }
 }
 
+/** 登录页顶部「当前状态」读的账号：手机本机的是环境检查时查到的，远程主机的看那台的账号清单（没读过就读一次）。 */
+@Composable
+private fun loginAccount(hub: ConversationHub, backend: String): AccountStatus? {
+    if (backend == Backends.LOCAL) return hub.environment.account
+    val service = hub.accounts(backend)
+    LaunchedEffect(backend) { if (service.state == null) service.refresh() }
+    return service.state?.let { listed ->
+        AccountStatus(
+            loggedIn = listed.loggedIn,
+            email = listed.current?.email?.ifBlank { null },
+            plan = listed.current?.plan?.ifBlank { null },
+        )
+    }
+}
+
 /** 「当前状态」一组：是否已登录，登录了就带上邮箱和套餐。 */
 @Composable
-private fun LoginStatusGroup(account: AccountStatus?) {
-    PreferenceGroup(title = "当前状态") {
+private fun LoginStatusGroup(account: AccountStatus?, title: String) {
+    PreferenceGroup(title = title) {
         item {
             BasicComponent(
                 title =

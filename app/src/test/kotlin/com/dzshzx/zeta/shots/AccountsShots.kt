@@ -5,19 +5,21 @@ import androidx.compose.ui.test.junit4.AndroidComposeTestRule
 import androidx.compose.ui.test.onFirst
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
+import com.dzshzx.zeta.core.AccountsState
 import com.dzshzx.zeta.core.AnswerItem
 import com.dzshzx.zeta.core.Backends
+import com.dzshzx.zeta.core.ClaudeAccount
 import com.dzshzx.zeta.core.ConversationHub
+import com.dzshzx.zeta.core.LoginState
 import com.dzshzx.zeta.core.QuotaSeverity
 import com.dzshzx.zeta.core.QuotaSnapshot
 import com.dzshzx.zeta.core.QuotaWindow
 import com.dzshzx.zeta.core.UserItem
-import com.dzshzx.zeta.core.claude.AccountsState
-import com.dzshzx.zeta.core.claude.ClaudeAccount
 import com.dzshzx.zeta.shots.Fixtures.force
 import com.dzshzx.zeta.shots.Fixtures.showChat
 import com.dzshzx.zeta.ui.chat.ChatScreen
 import com.dzshzx.zeta.ui.settings.AccountsScreen
+import com.dzshzx.zeta.ui.setup.LoginScreen
 import org.junit.Test
 
 class AccountsShots : ShotTest() {
@@ -76,7 +78,7 @@ class AccountsShots : ShotTest() {
         val current = account("claude", "shots@example.invalid")
         return AccountsState(
             current = current,
-            saved =
+            all =
                 listOf(
                     current,
                     account(
@@ -86,7 +88,6 @@ class AccountsShots : ShotTest() {
                         subscription = "team",
                     ),
                 ),
-            processes = emptyList(),
         )
     }
 
@@ -94,8 +95,11 @@ class AccountsShots : ShotTest() {
     private fun unrecordedState() =
         AccountsState(
             current = account("", "new@example.invalid"),
-            saved = listOf(account("claude", "shots@example.invalid")),
-            processes = emptyList(),
+            all =
+                listOf(
+                    account("", "new@example.invalid"),
+                    account("claude", "shots@example.invalid"),
+                ),
         )
 
     /** 账号页：打开页面时会去 Linux 环境里读账号，JVM 上读不到，换成摆好的 [state]；[then] 是摆好以后要做的操作。 */
@@ -156,7 +160,7 @@ class AccountsShots : ShotTest() {
         }
     }
 
-    /** 远程设备的账号页：标题带设备名，那台上的账号和额度；不能在这里添加账号。 */
+    /** 远程设备的账号页：标题带设备名，那台上的账号和额度；和手机本机一样能添加账号（登录经那台的核心）。 */
     @Test
     fun remoteHostAccounts() {
         val hub = Fixtures.readyHub(app)
@@ -171,6 +175,30 @@ class AccountsShots : ShotTest() {
             },
         ) {
             AccountsScreen(hub = hub, backend = remote, onBack = {})
+        }
+    }
+
+    /** 在远程设备上添加账号：核心已把在用的号存档并退出、起了登录命令，这边打开授权网址、贴回授权码。 */
+    @Test
+    fun remoteHostLogin() {
+        val hub = Fixtures.readyHub(app)
+        val remote = Fixtures.workstation.id
+        hub.settings.remoteHosts = listOf(Fixtures.workstation)
+        val loggedOut = accountsState().let { it.copy(current = null, all = it.all) }
+        shoot(
+            "login-remote",
+            prepare = {
+                hub.accounts(remote).force("state", loggedOut)
+                hub.accounts(remote).force("problem", null)
+                hub.accounts(remote)
+                    .login
+                    .force(
+                        "state",
+                        LoginState.WaitingCode("https://claude.ai/oauth/authorize?code=true"),
+                    )
+            },
+        ) {
+            LoginScreen(hub = hub, backend = remote, onBack = {})
         }
     }
 }

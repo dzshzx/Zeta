@@ -1,7 +1,6 @@
 package com.dzshzx.zeta.core.claude
 
 import com.dzshzx.zeta.core.ConversationHub
-import com.dzshzx.zeta.core.HelperProgram
 import com.dzshzx.zeta.core.LinuxEnv
 import com.dzshzx.zeta.core.LinuxShell
 import com.dzshzx.zeta.core.exitsWithin
@@ -146,34 +145,6 @@ class ClaudeConfigClient(private val shellProvider: () -> LinuxShell?) {
         return ClaudeScripts.records(output.stdout).also {
             if (output.code != 0) throw ClaudeConfigException(failure(output))
         }
-    }
-
-    /** 跑一个 [ClaudeScripts.script] 写的脚本，返回它的记录（账号页这类别处的脚本也走这里）。 */
-    fun runScript(
-        script: String,
-        args: List<String>,
-        timeoutMs: Long = 60_000,
-    ): List<ShellRecord> = records(script, args, null, timeoutMs)
-
-    /**
-     * 把 APK 里带的 [program] 装进这台 Linux（`uname -m` 报的是 [machine]），给 [runScript] 跑的脚本用（账号页的
-     * claude-switch）。 装不上时抛 [ClaudeConfigException]。
-     */
-    fun install(program: HelperProgram, machine: String) {
-        val shell = shell()
-        val result =
-            runCatching {
-                program.install(
-                    { command, stdin -> shell.run(command, stdin, 60_000) },
-                    machine,
-                )
-            }
-                .getOrElse { throw ClaudeConfigException("进不了 Linux 环境：${it.message}") }
-                ?: throw ClaudeConfigException("进不了 Linux 环境")
-        if (result.exitCode != 0)
-            throw ClaudeConfigException(
-                result.stderr.trim().ifEmpty { "装 ${program.name} 没成功（退出码 ${result.exitCode}）" },
-            )
     }
 
     private fun failure(output: Output): String =

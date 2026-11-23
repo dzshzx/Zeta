@@ -18,10 +18,10 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
 import com.dzshzx.zeta.core.AccountService
 import com.dzshzx.zeta.core.Backends
+import com.dzshzx.zeta.core.ClaudeAccount
 import com.dzshzx.zeta.core.ConversationHub
 import com.dzshzx.zeta.core.QuotaService
 import com.dzshzx.zeta.core.SetupState
-import com.dzshzx.zeta.core.claude.ClaudeAccount
 import com.dzshzx.zeta.core.environment
 import com.dzshzx.zeta.ui.chat.QuotaWindows
 import com.dzshzx.zeta.ui.chat.quotaFootnote
@@ -97,18 +97,17 @@ internal fun AccountsEntry(hub: ConversationHub, backend: String, onOpen: () -> 
 /**
  * 主机 [backend] 的账号与额度：那台上当前账号的订阅额度（Claude Code 给的，和 /usage 同一份），claude-switch 管着的几个 Claude
  * 账号，切换、添加、移除。 切换改的是那台上 Linux 用户的 Claude Code 登录状态：两个 Zeta 和终端里的 claude 用的都是这一份。各台设备各管各的，
- * 可以登录不同的账号。添加账号只在手机本机上做（走 Zeta 的登录页）；远程设备上的新账号在那台的终端里登录、用 claude-switch 记下，这里就能切。
+ * 可以登录不同的账号。都经那台的核心做（[AccountService]），手机本机和远程设备一样。
  *
- * 账号和终端里的 claude-switch 是同一份：存在 Linux 环境的 ~/.local/state/claude-switch 里，每个账号一份登录令牌。
+ * 账号和终端里的 claude-switch 是同一份：存在那台的 ~/.local/state/claude-switch 里，每个账号一份登录令牌。
  * 切换前关掉本包闲着的对话进程（内容不丢，下次发消息时接着用新账号）；另一个 Zeta 或终端里开着 Claude Code 时 claude-switch 不让换。
- * 添加账号：先把在用的号存档并退出，再走 Claude Code 的登录（claude auth login），新号的名字自动起成 claude-b、claude-c 这样。
- * 移除只删这台手机上的存档和记录，服务器上的登录还在。
+ * 添加账号：核心先把在用的号存档并退出，再在那台上起 Claude Code 的登录（claude auth login），这边打开授权网址、贴回授权码； 新号的名字自动起成
+ * claude-b、claude-c 这样。移除只删那台设备上的存档和记录，服务器上的登录还在。
  */
 @Composable
 internal fun AccountsScreen(hub: ConversationHub, backend: String, onBack: () -> Unit) {
     val service = hub.accounts(backend)
     val quota = hub.quota(backend)
-    val local = backend == Backends.LOCAL
     val now = rememberNow()
     var adding by remember { mutableStateOf(false) }
     var confirming by remember { mutableStateOf<ClaudeAccount?>(null) }
@@ -119,7 +118,8 @@ internal fun AccountsScreen(hub: ConversationHub, backend: String, onBack: () ->
     }
     Box(Modifier.fillMaxSize()) {
         CouiPage(
-            title = if (local) "账号与额度" else "账号与额度 · " + hub.backendName(backend),
+            title =
+                if (backend == Backends.LOCAL) "账号与额度" else "账号与额度 · " + hub.backendName(backend),
             onBack = onBack,
             dialogs = {
                 AccountDialogs(
@@ -145,7 +145,7 @@ internal fun AccountsScreen(hub: ConversationHub, backend: String, onBack: () ->
                     now = now,
                     onSwitch = { confirming = it },
                     onRemove = { removing = it },
-                    onAdd = if (local) ({ service.prepareLogin { adding = true } }) else null,
+                    onAdd = { service.prepareLogin { adding = true } },
                 )
             }
             service.problem?.let { problem ->
@@ -158,11 +158,11 @@ internal fun AccountsScreen(hub: ConversationHub, backend: String, onBack: () ->
             }
         }
         SlideInPage(adding) {
-            LoginScreen(hub = hub, onBack = { adding = false })
+            LoginScreen(hub = hub, backend = backend, onBack = { adding = false })
         }
     }
     BackHandler(enabled = adding) {
-        hub.environment.login.cancel()
+        service.login.cancel()
         adding = false
     }
     // 离开页面时，上一次没做成的原因不再挂着
@@ -233,8 +233,7 @@ private fun AccountsGroup(
     now: Long,
     onSwitch: (ClaudeAccount) -> Unit,
     onRemove: (ClaudeAccount) -> Unit,
-    /** 添加账号；远程设备上不在这里加，是 null。 */
-    onAdd: (() -> Unit)?,
+    onAdd: () -> Unit,
 ) {
     val state = service.state
     val working = service.working
@@ -242,12 +241,11 @@ private fun AccountsGroup(
         title = "账号",
         footer =
             "这台设备上两个 Zeta 和终端里的 claude 共用一份登录，有对话在进行或别处开着 Claude Code 时不能切换。" +
-                if (onAdd != null) "添加账号会先退出当前账号，中途取消的话，在这里切回去。"
-                else "要加账号，在这台设备的终端里登录后用 claude-switch 记下，这里就能切换。",
+                "添加账号会先退出当前账号，中途取消的话，在这里切回去。",
     ) {
         when {
             state == null -> item { BasicComponent(title = "正在读取…") }
-            !state.loggedIn && state.saved.isEmpty() -> item { BasicComponent(title = "还没有登录") }
+            !state.loggedIn && state.all.isEmpty() -> item { BasicComponent(title = "还没有登录") }
         }
         state?.all?.forEach { account ->
             val isCurrent = account.id == state.current?.id
@@ -264,10 +262,9 @@ private fun AccountsGroup(
             }
         }
         working?.let { item(key = "working") { BasicComponent(title = "$it…") } }
-        if (onAdd != null)
-            item(key = "add") {
-                ArrowPreference(title = "添加账号", enabled = working == null, onClick = onAdd)
-            }
+        item(key = "add") {
+            ArrowPreference(title = "添加账号", enabled = working == null, onClick = onAdd)
+        }
     }
 }
 
