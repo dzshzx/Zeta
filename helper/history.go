@@ -107,10 +107,8 @@ func (t *timeline) switchedModel() string {
 // historyReader 把会话记录读成要显示的消息（形状同 stream-json）。
 type historyReader struct {
 	timeline
-	compacted bool // 刚读到压缩提示，后面紧跟的 /compact 命令不再显示
-	// 还没接上的 hook 附加上下文（和各自出自哪一行），见 hookContext
-	hooks    []obj
-	hookRows []any
+	compacted bool          // 刚读到压缩提示，后面紧跟的 /compact 命令不再显示
+	hooks     []pendingHook // 还没接上的 hook 附加上下文，见 hookContext
 }
 
 func readEvents(path string) (*timeline, error) {
@@ -191,6 +189,12 @@ func (r *historyReader) record(o obj, number int) {
 	r.add(e, row)
 }
 
+// pendingHook 是一条等着接上的 hook 信息和它出自哪一行（uuid）。
+type pendingHook struct {
+	row   any
+	event obj
+}
+
 // hookContext 记下 hook（SessionStart 等）带来的附加上下文。记录里它写在触发它的那条用户消息前面，
 // 终端里却显示在那条消息之后、第一次工具调用之上，所以先攒着，等下一条用户消息进来再接在它后面（flushHooks）。
 func (r *historyReader) hookContext(attachment obj, row any) {
@@ -209,17 +213,16 @@ func (r *historyReader) hookContext(attachment obj, row any) {
 	if text == "" {
 		return
 	}
-	r.hooks = append(r.hooks, obj{"type": "system", "subtype": "hook_context",
-		"hook_event": asString(attachment["hookEvent"]), "text": clipText(text)})
-	r.hookRows = append(r.hookRows, row)
+	r.hooks = append(r.hooks, pendingHook{row, obj{"type": "system", "subtype": "hook_context",
+		"hook_event": asString(attachment["hookEvent"]), "text": clipText(text)}})
 }
 
 // flushHooks 把攒着的 hook 信息接到刚加的用户消息后面。
 func (r *historyReader) flushHooks() {
-	for i, e := range r.hooks {
-		r.add(e, r.hookRows[i])
+	for _, h := range r.hooks {
+		r.add(h.event, h.row)
 	}
-	r.hooks, r.hookRows = nil, nil
+	r.hooks = nil
 }
 
 func (r *historyReader) system(o obj, row any) {
