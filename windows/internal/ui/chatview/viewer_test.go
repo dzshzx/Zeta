@@ -401,17 +401,26 @@ func TestZoomSnapsToFit(t *testing.T) {
 
 // 在遮罩上点一下关上看大图：图旁边、两边、底栏的空白处都算；点在图上、标题栏上不关；按下后拖开了不算点。
 // 900×700 的窗里，300×200 的图放大两倍成 600×400，在标题栏（52）和底栏（128）之间、翻页键让出的两边之间居中：
-// 横着 150 到 750，竖着 112 到 512。
+// 横着 150 到 750，竖着 112 到 512（测试窗按 1 倍缩放画，DIP 就是像素）。
+// 遮罩是毛玻璃，透出底下的聊天界面：浅色窗口里，遮罩上一点（窗口左边、标题栏以下）比底下暗，又远比深色主题的底色亮。
 func TestViewerBackdropCloses(t *testing.T) {
 	ch := New()
 	ch.LoadImage = func(file, ref string) ([]byte, error) { return testPNG(t, 300, 200), nil }
 	ch.SetItems(decodeItems(t, `[{"kind":"user","id":"u","text":"看图","images":[{"kind":"session","file":"/s.jsonl","ref":"1"}]}]`))
 	tt, w := viewerTester(ch, false, nil)
 	settleImages(ch, tt)
+	luma := func(r, g, b uint8) float64 { return 0.2126*float64(r) + 0.7152*float64(g) + 0.0722*float64(b) }
+	backdrop := func() float64 { p := tt.Image().RGBAAt(30, 300); return luma(p.R, p.G, p.B) }
+	under := backdrop()
 	open := func() {
 		w.v = NewViewer(ch, ch.items[0].Images, 0)
 		tt.Frame()
 		tt.Advance(time.Second) // 和上一次点隔开，不算双击
+	}
+	open()
+	bg := widget.Theme(true).Background
+	if got, dark := backdrop(), luma(bg.R, bg.G, bg.B); got < dark+60 || got >= under {
+		t.Errorf("遮罩亮度 %.0f：底下是 %.0f，深色底色 %.0f，要在两者之间且比底色亮 60 以上", got, under, dark)
 	}
 	for _, c := range []struct {
 		name   string
@@ -439,29 +448,5 @@ func TestViewerBackdropCloses(t *testing.T) {
 	tt.Frame()
 	if w.v == nil {
 		t.Error("按下后拖开了，不该关上")
-	}
-}
-
-// 看大图的遮罩是毛玻璃，透出底下的聊天界面：浅色窗口里，遮罩上一点（窗口左边、标题栏以下）压暗后仍远比深色主题的底色亮。
-// 套深色配色的那一层要是铺了自己的底色，毛玻璃采样到的只有那层底色，遮罩就和这层底色一样黑。
-func TestViewerBackdropShowsThrough(t *testing.T) {
-	ch := New()
-	ch.LoadImage = func(file, ref string) ([]byte, error) { return testPNG(t, 300, 200), nil }
-	ch.SetItems(decodeItems(t, `[{"kind":"user","id":"u","text":"看图","images":[{"kind":"session","file":"/s.jsonl","ref":"1"}]}]`))
-	tt, w := viewerTester(ch, false, nil)
-	settleImages(ch, tt)
-	luma := func(x, y int) float64 {
-		p := tt.Image().RGBAAt(x, y)
-		return 0.2126*float64(p.R) + 0.7152*float64(p.G) + 0.0722*float64(p.B)
-	}
-	x, y := 30, 300 // 测试窗按 1 倍缩放画，DIP 就是像素
-	under := luma(x, y)
-	w.v = NewViewer(ch, ch.items[0].Images, 0)
-	tt.Frame()
-	got := luma(x, y)
-	b := widget.Theme(true).Background
-	dark := 0.2126*float64(b.R) + 0.7152*float64(b.G) + 0.0722*float64(b.B)
-	if got < dark+60 || got >= under {
-		t.Errorf("遮罩亮度 %.0f：底下是 %.0f，深色底色 %.0f，要在两者之间且比底色亮 60 以上", got, under, dark)
 	}
 }
