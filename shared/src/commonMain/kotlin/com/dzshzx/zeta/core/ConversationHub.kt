@@ -746,16 +746,11 @@ class ConversationHub(val platform: HubPlatform) {
      */
     fun endSessions(list: List<SessionSummary>) {
         for (session in list.filter { it.live }) {
-            val open = liveConversations.firstOrNull {
-                it.backend == session.backend && it.sessionId == session.id
-            }
+            val open = findConversation(session.id)?.takeIf { it.backend == session.backend }
             when {
-                open != null && open === current -> endCurrent()
+                open === current -> endCurrent()
                 session.external -> sessionList.endElsewhere(session.id, session.backend)
-                open != null -> {
-                    parked.remove(open)
-                    open.shutdown()
-                }
+                open != null -> closeParked(open)
                 else -> sessionList.end(session.id, session.backend)
             }
         }
@@ -765,12 +760,15 @@ class ConversationHub(val platform: HubPlatform) {
     /** 会话 [ids] 要删了（[SessionList.delete]）：开着的对话收掉，后台屏幕一并收掉。在主线程上调用。 */
     fun closeSessions(ids: Set<String>) {
         if (current.sessionId in ids) replaceCurrent(blank(), end = true)
-        for (conversation in parked.filter { it.openKey in ids }) {
-            parked.remove(conversation)
-            conversation.shutdown()
-        }
+        parked.filter { it.openKey in ids }.forEach(::closeParked)
         unread.removeAll(ids)
         platform.prunePhones(ids)
+    }
+
+    /** 结束切到后台的对话 [conversation] 的进程，不再拿着它。在主线程上调用。 */
+    private fun closeParked(conversation: Conversation) {
+        parked.remove(conversation)
+        conversation.shutdown()
     }
 
     /**

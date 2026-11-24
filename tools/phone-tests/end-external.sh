@@ -12,7 +12,6 @@ set -euo pipefail
 
 DIR=/tmp/zeta-end-external
 ID=$(cat /proc/sys/kernel/random/uuid)
-PANE_X=116 PANE_Y=84 # 顶栏左边的侧栏按钮
 
 trap 'drop_session $ID $DIR' EXIT
 

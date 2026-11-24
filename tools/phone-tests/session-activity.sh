@@ -10,7 +10,6 @@ set -euo pipefail
 
 DIR=/tmp/zeta-session-activity
 ID=$(cat /proc/sys/kernel/random/uuid)
-PANE_X=116 PANE_Y=84 # 顶栏左边的侧栏按钮
 OUT=/tmp/zeta-session-activity.out
 trap 'vd debian "[ -f $OUT.pid ] && kill -- -\$(cat $OUT.pid) 2>/dev/null; rm -f $OUT $OUT.pid $OUT.req $OUT.sh" >/dev/null 2>&1 || true; drop_session $ID $DIR' EXIT
 
@@ -32,12 +31,7 @@ wait_for() {
   done
 }
 
-tries=0
-until vd nodes '^新对话$' | grep -q .; do
-  ((++tries <= 10)) || { echo "点了 10 次侧栏按钮，侧栏没打开"; exit 1; }
-  vd tap $PANE_X $PANE_Y >/dev/null
-  sleep 1
-done
+open_pane
 wait_for 'activity probe' 15 列出
 echo "侧栏里有测试会话"
 

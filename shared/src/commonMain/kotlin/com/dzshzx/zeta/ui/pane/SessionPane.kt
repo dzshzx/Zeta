@@ -321,8 +321,10 @@ fun SessionPane(
                     exitSelection()
                 },
                 onExport = { exporter.saveAll(chosen) },
-                canEnd = endable(chosen).isNotEmpty(),
-                onEnd = { ending = endPrompt(endable(chosen), hub::isActive) },
+                onEnd =
+                    endable(chosen)
+                        .takeIf { it.isNotEmpty() }
+                        ?.let { live -> { ending = endPrompt(live, hub::isActive) } },
                 onDelete = {
                     askBatchDelete(chosen, hub) { removable ->
                         batchSkipped = chosen.size - removable.size
@@ -1161,7 +1163,7 @@ private fun sessionMenu(
     listOf(
         DropdownEntry(
             items =
-                listOf(
+                listOfNotNull(
                     menuItem(
                         Strings.sidebarSelect(),
                         COUIIcons.SelectAll,
@@ -1189,11 +1191,9 @@ private fun sessionMenu(
                         if (session.archived) ZetaIcons.Unarchive else ZetaIcons.Archive,
                         { actions().archive(session) },
                     ),
-                ) +
-                    listOfNotNull(
-                        menuItem(Strings.chatEndChat(), ZetaIcons.Exit, { actions().end(session) })
-                            .takeIf { session.live },
-                    ),
+                    menuItem(Strings.chatEndChat(), ZetaIcons.Exit, { actions().end(session) })
+                        .takeIf { session.live },
+                ),
         ),
         DropdownEntry(
             items =

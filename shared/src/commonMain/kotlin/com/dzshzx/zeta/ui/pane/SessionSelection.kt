@@ -50,7 +50,7 @@ fun endable(chosen: List<SessionSummary>): List<SessionSummary> = chosen.filter 
 data class EndPrompt(val sessions: List<SessionSummary>, val title: String, val summary: String)
 
 fun endPrompt(sessions: List<SessionSummary>, isActive: (String) -> Boolean): EndPrompt {
-    val busy = sessions.any { it.external || isActive(it.id) }
+    val busy = sessions.any { inProgress(it, isActive) }
     val one = sessions.singleOrNull()
     val summary =
         when {
@@ -62,11 +62,15 @@ fun endPrompt(sessions: List<SessionSummary>, isActive: (String) -> Boolean): En
     return EndPrompt(sessions, title, summary)
 }
 
-/** 选中的会话里能删的：正在进行的（Zeta 里在跑、等确认、后台任务没完，或别处的 Claude Code 开着它）不删。 */
+/** 正在进行：Zeta 里在跑、等确认、后台任务没完，或别处的 Claude Code 开着它。删除时跳过它，结束时确认框说会一并停掉。 */
+fun inProgress(session: SessionSummary, isActive: (String) -> Boolean): Boolean =
+    session.external || isActive(session.id)
+
+/** 选中的会话里能删的：正在进行的（[inProgress]）不删。 */
 fun deletable(
     chosen: List<SessionSummary>,
     isActive: (String) -> Boolean,
-): List<SessionSummary> = chosen.filterNot { it.external || isActive(it.id) }
+): List<SessionSummary> = chosen.filterNot { inProgress(it, isActive) }
 
 /**
  * 单条删除的确认框。打开那一刻就定下是只提示（[Blocked]：正在进行，只有“知道了”）还是确认删除（[Confirm]），开着的时候不再变：
@@ -142,15 +146,15 @@ fun SelectionHeader(
     }
 }
 
-/** 多选时的底部：归档或取消归档、导出、结束、删除（红色）。没选中时都不能点，选中的都已结束时「结束」不能点。 */
+/** 多选时的底部：归档或取消归档、导出、结束、删除（红色）。没选中时都不能点，选中的都已结束时「结束」不能点（[onEnd] 为 null）。 */
 @Composable
 fun SelectionActions(
     count: Int,
     archive: Boolean,
     onArchive: () -> Unit,
     onExport: () -> Unit,
-    canEnd: Boolean,
-    onEnd: () -> Unit,
+    /** 结束选中的；选中的都已结束时为 null，按钮不能点。 */
+    onEnd: (() -> Unit)?,
     onDelete: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
@@ -181,8 +185,8 @@ fun SelectionActions(
         )
         TextButton(
             text = Strings.sidebarEnd(),
-            onClick = onEnd,
-            enabled = enabled && canEnd,
+            onClick = { onEnd?.invoke() },
+            enabled = onEnd != null,
             minWidth = 0.dp,
             insideMargin = padding,
             modifier = Modifier.weight(1f),

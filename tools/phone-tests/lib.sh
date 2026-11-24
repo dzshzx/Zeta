@@ -27,6 +27,38 @@ new_chat() {
   sleep 1.5
 }
 
+# 顶栏左边的侧栏按钮；open_pane：点它直到侧栏真打开（冷启动后头几秒的点按会丢），看到“新对话”这一项为止，点 10 次还没开就截图退出
+PANE_X=116 PANE_Y=84
+open_pane() {
+  local tries=0
+  until vd nodes '^新对话$' | grep -q .; do
+    ((++tries <= 10)) || { echo "点了 10 次侧栏按钮，侧栏没打开"; vd shot pane-closed.png >/dev/null; exit 1; }
+    vd tap $PANE_X $PANE_Y >/dev/null
+    sleep 1
+  done
+}
+
+# gone <托管目录>：10 秒内目录没了（zeta_host.sh stop 收掉进程后删掉它）；还在时说一声、返回 1
+gone() {
+  for _ in $(seq 20); do
+    android "[ -d $1 ]" || return 0
+    sleep 0.5
+  done
+  echo "托管目录还在：$1"
+  return 1
+}
+
+# exited <托管目录>：10 秒内托管的进程退出了（目录没了，或目录里 pid 文件记的进程不在了）；还在时说一声、返回 1。
+# 结束一个这边没开着的对话（sessions.end）时进程马上退出，目录要等最后一个接着的一方离开、或核心下次扫描时才删，所以不等目录
+exited() {
+  for _ in $(seq 20); do
+    android "[ -d $1 ] && [ -d /proc/\$(cat $1/pid 2>/dev/null || echo 0) ]" || return 0
+    sleep 0.5
+  done
+  echo "托管的进程还在：$1"
+  return 1
+}
+
 # 输入栏的权限模式按钮（第二个圆钮）和它往上弹的菜单；choose_mode <模式> 只改当前这个对话
 MODE_X=228 MODE_Y=2542
 choose_mode() {

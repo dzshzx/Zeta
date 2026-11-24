@@ -170,7 +170,6 @@ fun ChatScreen(
     // 对话能不能显示：要靠 Debian 的主机等它就绪，直连的远程主机不用
     val usable = hub.usable(conversation.backend)
     val blur = rememberPageBlur()
-    // 结束还在进行的、或正在别处运行的对话要先确认：会停掉在做的事、别处的进程
     // 结束确认框的说明，打开时定下（框开着时对话闲下来，说明也不跟着变）；null 是没开着
     var endSummary by remember(conversation) { mutableStateOf<String?>(null) }
     Scaffold(

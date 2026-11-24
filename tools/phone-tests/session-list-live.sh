@@ -11,7 +11,6 @@ set -euo pipefail
 DIR=/tmp/zeta-session-list-live
 ID=$(cat /proc/sys/kernel/random/uuid)
 PROJECT=.claude/projects/${DIR//\//-}
-PANE_X=116 PANE_Y=84 # 顶栏左边的侧栏按钮
 trap 'drop_session $ID $DIR' EXIT
 
 # 这个包的 zeta-helper serve 进程有几个（Debian 里）：可执行文件是测试版装好的 zeta-helper（~/.cache/zeta-dev/bin 下，
@@ -32,13 +31,7 @@ wait_for() {
   done
 }
 
-# 侧栏要真打开（冷启动后头几秒的点按会丢）：看到“新对话”这一项为止
-tries=0
-until vd nodes '^新对话$' | grep -q .; do
-  ((++tries <= 10)) || { echo "点了 10 次侧栏按钮，侧栏没打开"; exit 1; }
-  vd tap $PANE_X $PANE_Y >/dev/null
-  sleep 1
-done
+open_pane
 for _ in $(seq 20); do [[ $(serves) -ge 1 ]] && break; sleep 0.5; done
 [[ $(serves) -ge 1 ]] || { echo "侧栏开着，Debian 里却没有 zeta-helper serve"; exit 1; }
 echo "侧栏开着：Debian 里有 $(serves) 个 zeta-helper serve"
