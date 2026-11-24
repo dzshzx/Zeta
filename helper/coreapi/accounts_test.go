@@ -43,16 +43,16 @@ func TestAccountsMethods(t *testing.T) {
 	}{
 		{
 			name:  "列账号",
-			reply: `{"current":{"name":"claude","email":"a@example.com","subscription":"max","current":true,"parked":true},"accounts":[{"name":"claude","email":"a@example.com","subscription":"max","current":true,"parked":true},{"name":"claude-b","refreshExpiresAt":1700000000000,"parked":true}],"procs":[{"pid":42,"owner":"zeta","status":"idle","kind":"interactive"}],"blocker":"终端里有 Claude Code 开着"}`,
+			reply: `{"current":{"name":"claude","email":"a@example.com","subscription":"max","plan":"Ultra","current":true,"parked":true},"accounts":[{"name":"claude","email":"a@example.com","subscription":"max","plan":"Ultra","current":true,"parked":true},{"name":"claude-b","refreshExpiresAt":1700000000000,"parked":true}],"procs":[{"pid":42,"owner":"zeta","status":"idle","kind":"interactive"}],"blocker":"终端里有 Claude Code 开着"}`,
 			run: func(cl *Client) (any, error) {
 				return cl.ListAccounts(context.Background(), ".cache/zeta/bin/claude-switch-1")
 			},
 			method: "accounts.list",
 			params: map[string]any{"program": ".cache/zeta/bin/claude-switch-1"},
 			wantResult: AccountList{
-				Current: &Account{Name: "claude", Email: "a@example.com", Subscription: "max", Current: true, Parked: true},
+				Current: &Account{Name: "claude", Email: "a@example.com", Subscription: "max", Plan: "Ultra", Current: true, Parked: true},
 				Accounts: []Account{
-					{Name: "claude", Email: "a@example.com", Subscription: "max", Current: true, Parked: true},
+					{Name: "claude", Email: "a@example.com", Subscription: "max", Plan: "Ultra", Current: true, Parked: true},
 					{Name: "claude-b", RefreshExpiresAt: 1700000000000, Parked: true},
 				},
 				Procs:   []ClaudeProcess{{PID: 42, Owner: "zeta", Status: "idle", Kind: "interactive"}},
@@ -279,5 +279,27 @@ func TestAccountsSnapshotAt(t *testing.T) {
 	}
 	if h, _ := later.Headline(); h.Kind != "weekly_all" {
 		t.Fatalf("服务器挑的：%+v", h)
+	}
+}
+
+// 套餐的显示名：核心给了展示名（Ultra）就用它，没有时（旧存档、还没拉到资料）才由订阅类型写成。
+func TestPlanLabel(t *testing.T) {
+	t.Parallel()
+	cases := []struct {
+		plan, subscription, want string
+	}{
+		{"Ultra", "max", "Ultra"},
+		{" Max ", "max", "Max"},
+		{"", "max", "Max"},
+		{"", "pro", "Pro"},
+		{"", "", ""},
+	}
+	for _, c := range cases {
+		if got := (Account{Plan: c.plan, Subscription: c.subscription}).PlanLabel(); got != c.want {
+			t.Errorf("账号 plan=%q subscription=%q：%q，期望 %q", c.plan, c.subscription, got, c.want)
+		}
+		if got := (QuotaSnapshot{Plan: c.plan, Subscription: c.subscription}).PlanLabel(); got != c.want {
+			t.Errorf("额度 plan=%q subscription=%q：%q，期望 %q", c.plan, c.subscription, got, c.want)
+		}
 	}
 }

@@ -15,28 +15,29 @@ data class ClaudeAccount(
     val email: String,
     val organization: String,
     val displayName: String,
-    /** 订阅类型（pro、max、team…）。 */
+    /** 订阅类型（pro、max、team…）；Max 与 Ultra 都是 max，分不开。 */
     val subscription: String,
     /** 刷新令牌的到期时刻（毫秒）；过了就只能重新登录。 */
     val refreshExpiresAt: Long?,
+    /** 套餐的展示名（Pro、Max、Ultra…），claude-switch 照 Claude Code 存的服务器资料报；旧存档里没有时为空串。 */
+    val planName: String = "",
 ) {
     val title: String
         get() = email.ifBlank { displayName.ifBlank { id } }
 
-    /** 套餐的显示名，按订阅类型推（claude-switch 不给显示名）。 */
+    /** 套餐的显示名：[planName]，没有时由订阅类型写成。 */
     val plan: String
-        get() =
-            when (subscription) {
-                "" -> ""
-                "pro" -> "Pro"
-                "max" -> "Max"
-                "team" -> "Team"
-                "enterprise" -> "Enterprise"
-                else -> subscription.replaceFirstChar { it.uppercase() }
-            }
+        get() = planLabel(planName, subscription)
 
     fun expired(now: Long): Boolean = refreshExpiresAt != null && refreshExpiresAt <= now
 }
+
+/**
+ * 套餐的显示名：核心给的展示名 [plan]（Claude Code 照服务器的账号资料存的，Max 20x 现在叫 Ultra）不为空就用它，否则把订阅类型
+ * [subscription]（pro、max…）首字母大写；两者都没有时是空串。
+ */
+fun planLabel(plan: String?, subscription: String?): String =
+    plan?.trim().orEmpty().ifEmpty { subscription.orEmpty().replaceFirstChar { it.uppercase() } }
 
 /** 一台主机上的账号（核心 accounts.list 的结果）。 */
 @Immutable
@@ -243,6 +244,7 @@ class AccountsCore(
                 displayName = o.str("displayName").orEmpty(),
                 subscription = o.str("subscription").orEmpty(),
                 refreshExpiresAt = o.long("refreshExpiresAt")?.takeIf { it > 0 },
+                planName = o.str("plan").orEmpty(),
             )
     }
 }

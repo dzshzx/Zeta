@@ -35,8 +35,10 @@ type Account struct {
 	Email        string `json:"email,omitempty"`
 	Organization string `json:"organization,omitempty"`
 	DisplayName  string `json:"displayName,omitempty"`
-	// Subscription 是订阅类型（pro、max、team…）。
+	// Subscription 是订阅类型（pro、max、team…）；Max 与 Ultra 都是 max，分不开。
 	Subscription string `json:"subscription,omitempty"`
+	// Plan 是套餐的展示名（Pro、Max、Ultra…），Claude Code 照服务器的账号资料写的；旧的存档里没有时为空，界面回落到 Subscription。
+	Plan string `json:"plan,omitempty"`
 	// RefreshExpiresAt 是续期凭证的到期时刻（Unix 毫秒），过了只能重新登录；不知道时为 0。
 	RefreshExpiresAt int64 `json:"refreshExpiresAt,omitempty"`
 	Current          bool  `json:"current"`

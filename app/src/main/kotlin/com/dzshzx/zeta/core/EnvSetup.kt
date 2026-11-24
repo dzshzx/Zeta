@@ -6,6 +6,7 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import com.dzshzx.zeta.i18n.Strings
 import kotlin.concurrent.thread
+import kotlinx.serialization.json.JsonObject
 
 /** 一个位置上的 Debian 环境装到了哪一步。 */
 data class EnvStatus(
@@ -448,5 +449,18 @@ data class AccountStatus(
                 relay = name,
                 relayUrl = baseUrl,
             )
+
+        /**
+         * `claude auth status` 的输出 [o]。套餐写显示名：核心列出的在用账号 [listed] 有展示名（Ultra 的号订阅类型也是 max，auth
+         * status 分不出）就用它，否则把 auth status 的订阅类型写成（Max）。没登录时没有套餐。
+         */
+        fun fromAuthStatus(o: JsonObject, listed: ClaudeAccount?): AccountStatus {
+            val loggedIn = o.bool("loggedIn") == true
+            val plan =
+                if (loggedIn)
+                    planLabel(listed?.planName, o.str("subscriptionType")).ifEmpty { null }
+                else null
+            return AccountStatus(loggedIn, o.str("email"), plan)
+        }
     }
 }

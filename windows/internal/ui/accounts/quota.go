@@ -1,7 +1,6 @@
 package accounts
 
 import (
-	"github.com/dzshzx/Zeta/helper/coreapi"
 	acct "github.com/dzshzx/Zeta/windows/internal/accounts"
 	"github.com/dzshzx/Zeta/windows/internal/locales"
 	"github.com/dzshzx/Zeta/windows/internal/ui/widget"
@@ -15,8 +14,8 @@ func QuotaDetails(c *ui.Context, q *acct.Quota) {
 	s, ok := q.Snapshot()
 	ui.Row(c).AlignItems(ui.Center).Children(func() {
 		ui.Text(c, locales.AccountsQuotaTitle()).FontSize(widget.SizeHeadlineXS).FontWeight(widget.Medium).TextColor(k.Text).Grow(1)
-		if ok && s.Subscription != "" {
-			ui.Text(c, coreapi.PlanName(s.Subscription)).FontSize(widget.SizeBodyM).TextColor(k.Tertiary)
+		if ok && s.PlanLabel() != "" {
+			ui.Text(c, s.PlanLabel()).FontSize(widget.SizeBodyM).TextColor(k.Tertiary)
 		}
 	})
 	if ok && !s.Unavailable && len(s.Windows) > 0 {

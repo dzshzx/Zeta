@@ -127,8 +127,11 @@ type Extra struct {
 type Snapshot struct {
 	Windows []Window `json:"windows"`
 	Extra   *Extra   `json:"extra,omitempty"`
-	// Subscription 是 Claude Code 报的订阅类型（pro、max…）。
+	// Subscription 是 Claude Code 报的订阅类型（pro、max…）；Max 与 Ultra 都是 max，分不开。
 	Subscription string `json:"subscription,omitempty"`
+	// Plan 是套餐的展示名（Pro、Max、Ultra…），由 QuotaStore 取在用登录的资料（见 QuotaStore.login）；没有时省略，界面回落到
+	// Subscription。
+	Plan string `json:"plan,omitempty"`
 	// Unavailable：这种登录方式没有订阅额度（API key、Bedrock、Vertex，或登录缺 profile 权限）。
 	Unavailable bool `json:"unavailable,omitempty"`
 	// Blocked：请求已经被拒，到了上限，BlockedUntil 解除（不知道时为零值）。
@@ -136,6 +139,14 @@ type Snapshot struct {
 	BlockedUntil time.Time `json:"blockedUntil,omitzero"`
 	// UpdatedAt 是收到这份数的时刻。
 	UpdatedAt time.Time `json:"updatedAt"`
+}
+
+// withPlan 在 plan 不为空时把套餐展示名换成它：额度都是在用登录的，登录资料里的名字比存着的新。
+func (s Snapshot) withPlan(plan string) Snapshot {
+	if plan != "" {
+		s.Plan = plan
+	}
+	return s
 }
 
 // At 是按 now 看的额度：过了重置时刻的窗口从零算起，过了解除时刻的拒绝不再算数。

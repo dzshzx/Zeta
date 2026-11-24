@@ -170,7 +170,7 @@ Zeta 的逻辑往 Go 写的核心里搬：核心是每台主机（手机的 Debi
 
 | 方法 | 参数 | 做什么 |
 |---|---|---|
-| `accounts.list` | | `result` 是 `{current, accounts, procs, blocker, relays}`：在用的登录（未登录为 `null`，认不出是哪个号时 `name` 为空）、要列的账号（在用的在前，每项 `{name, email, organization, displayName, subscription, refreshExpiresAt, current, parked}`）、`~/.claude/sessions` 登记的还开着的 Claude Code（`{pid, owner, status, kind}`，`owner` 是托管它的 Zeta 包，按进程身上的 `ZETA_HOST` 认）、别的包或终端里的进程挡着换号时的一句说明、中转（见下，每项 `{name, baseUrl, model, hasKey, keyEditable, current}`，没有密钥的值；在用中转时 `current` 为 `null`、那一项的 `current` 为真） |
+| `accounts.list` | | `result` 是 `{current, accounts, procs, blocker, relays}`：在用的登录（未登录为 `null`，认不出是哪个号时 `name` 为空）、要列的账号（在用的在前，每项 `{name, email, organization, displayName, subscription, plan, refreshExpiresAt, current, parked}`，`subscription` 是订阅类型（pro、max、team…，Max 与 Ultra 都是 max），`plan` 是套餐的展示名（Pro、Max、Ultra…，claude-switch 取 Claude Code 存在 `~/.claude.json` 里的服务器资料，旧存档里没有时省略，界面回落到订阅类型）；、`~/.claude/sessions` 登记的还开着的 Claude Code（`{pid, owner, status, kind}`，`owner` 是托管它的 Zeta 包，按进程身上的 `ZETA_HOST` 认）、别的包或终端里的进程挡着换号时的一句说明、中转（见下，每项 `{name, baseUrl, model, hasKey, keyEditable, current}`，没有密钥的值；在用中转时 `current` 为 `null`、那一项的 `current` 为真） |
 | `accounts.switch` | `name` | 换成存着的这个号或这个中转 |
 | `accounts.save` | | 在用的登录还没记过（在终端里登录了新号）时给它起个空闲的名字记下，`result` 是 `{name}` |
 | `accounts.prepare_login` | | 登录另一个号之前：起好新号的名字，把在用的号存档并退出登录，`result` 是 `{name}`；之后的登录（`claude auth login`）由调用方自己跑，登录后的新号由 claude-switch 记成这个名字。手机版和桌面版都用 `accounts.login_start`，这个方法留给自己跑登录命令的调用方（Kotlin 的 `ClaudeCodeQuotaContractTest` 就这样用：真的 `claude auth login` 会打开浏览器） |
@@ -201,7 +201,7 @@ Zeta 的逻辑往 Go 写的核心里搬：核心是每台主机（手机的 Debi
 | `quota.usage` | `response`（get_usage 的应答，control_response 的 `response.response`） | 读成额度并存起来，`result` 是 `{snapshot, fresh}`；Claude Code 这次没取到服务器的数而已有窗口时留着已有的，`fresh` 为假 |
 | `quota.event` | `info`（rate_limit_event 的 `rate_limit_info`） | 并进存着的额度，`result` 是 `{snapshot, changed}`；核心接着的对话里的事件核心已经存了，不用再交 |
 
-`snapshot` 照 `helper/accounts/quota.go` 的 `Snapshot`：`windows`（每项 `{kind, group, scope, used, resetsAt, severity, active, label}`，`used` 是 0～1 的比例，`severity` 是 `normal`、`warning`、`critical`，`label` 是界面上的名字）、`extra`（额外用量）、`subscription`、`unavailable`（这种登录没有订阅额度）、`blocked`、`blockedUntil`、`updatedAt`。过了重置时刻的窗口怎么显示由客户端按自己的时钟算。
+`snapshot` 照 `helper/accounts/quota.go` 的 `Snapshot`：`windows`（每项 `{kind, group, scope, used, resetsAt, severity, active, label}`，`used` 是 0～1 的比例，`severity` 是 `normal`、`warning`、`critical`，`label` 是界面上的名字）、`extra`（额外用量）、`subscription`（订阅类型）、`plan`（套餐的展示名，核心收下额度、读出额度时都取在用登录的 `oauthAccount.planDisplayName`，登录资料里没有时留着快照里已有的，都没有就省略）、`unavailable`（这种登录没有订阅额度）、`blocked`、`blockedUntil`、`updatedAt`。过了重置时刻的窗口怎么显示由客户端按自己的时钟算。
 
 在用中转（切换记录指着非账号目标，`accounts.CurrentRelay`）时没有订阅额度：核心不问也不存（起进程时不顺便问 get_usage，对话里的 rate_limit_event 不存，`conv.quota` 答出错、`code` 为 `errNoSubscription`，即 `sessionproto.CodeNoSubscription`，Go 客户端用 `coreapi.CodeNoSubscription`），`quota.get`、`quota.usage`、`quota.event` 的结果和 `quota.snapshot` 推送里 `snapshot` 为 `null`、`relay` 是那个中转的名字（在用账号时 `relay` 为空串），不推上一个号的旧数。客户端只看 `relay` 决定显不显示订阅额度（账号页、聊天页的用量、侧栏、胶囊、通知），不在各个界面自己猜；换回账号后推来的又是那个号存着的额度。
 

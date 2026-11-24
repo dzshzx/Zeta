@@ -96,14 +96,31 @@ func (h *testHost) login(uuid, email, subscription string) {
 	}})
 }
 
+// setPlan 把在用的登录的套餐展示名（Claude Code 写进 ~/.claude.json 的 oauthAccount.planDisplayName）设成 plan；空串是删掉。
+func (h *testHost) setPlan(plan string) {
+	h.t.Helper()
+	var config map[string]any
+	data, err := os.ReadFile(filepath.Join(h.home, ".claude.json"))
+	if err != nil || json.Unmarshal(data, &config) != nil {
+		h.t.Fatalf("读不了 .claude.json：%v", err)
+	}
+	account := config["oauthAccount"].(map[string]any)
+	if plan == "" {
+		delete(account, "planDisplayName")
+	} else {
+		account["planDisplayName"] = plan
+	}
+	h.write(".claude.json", config)
+}
+
 // liveUUID 是 ~/.claude.json 里在用的登录编号（假数据）。
 func (h *testHost) liveUUID() string {
 	h.t.Helper()
-	uuid, err := QuotaStore{Home: h.home}.account()
+	in, err := QuotaStore{Home: h.home}.login()
 	if err != nil {
 		h.t.Fatal(err)
 	}
-	return uuid
+	return in.UUID
 }
 
 func (h *testHost) write(rel string, v any) {
@@ -192,6 +209,22 @@ func twoAccounts(t *testing.T, h *testHost, host *Host) {
 	// 新登录的号在下一次换号时才记进 claude-switch 的记录
 	if err := host.Switch(ctx(t), "claude"); err != nil {
 		t.Fatal(err)
+	}
+}
+
+// 账号的套餐展示名取 claude-switch 报的 plan（Max 20x 现在叫 Ultra，订阅类型仍是 max），没有时为空。
+func TestListReportsPlanName(t *testing.T) {
+	h := newHost(t)
+	host := h.host()
+	h.login("uuid-a", "a@example.com", "max")
+	st, err := host.List(ctx(t))
+	if err != nil || st.Current == nil || st.Current.Plan != "" {
+		t.Fatalf("资料里没有套餐名时不报：%+v %v", st.Current, err)
+	}
+	h.setPlan("Ultra")
+	st, err = host.List(ctx(t))
+	if err != nil || st.Current == nil || st.Current.Plan != "Ultra" || st.Current.Subscription != "max" {
+		t.Fatalf("套餐名 Ultra、订阅类型 max：%+v %v", st.Current, err)
 	}
 }
 

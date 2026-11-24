@@ -50,6 +50,58 @@ func TestStoreKeepsQuotaPerAccount(t *testing.T) {
 	}
 }
 
+// 额度的套餐名取在用登录的 planDisplayName：get_usage 只报订阅类型 max，分不出 Max 与 Ultra。读和事件并进的结果也带着它，
+// 没有套餐名的旧快照读出来时补上；登录资料里没有时，留着快照里已有的。
+func TestStoreReportsPlanNameOfTheLogin(t *testing.T) {
+	h, s := storeHome(t)
+	h.login("uuid-a", "a@example.com", "max")
+	if snap, _, err := s.Usage([]byte(usageAnswer), now); err != nil || snap.Plan != "" || snap.Subscription != "max" {
+		t.Fatalf("资料里没有套餐名：%+v %v", snap, err)
+	}
+
+	h.setPlan("Ultra")
+	snap, fresh, err := s.Usage([]byte(usageAnswer), now.Add(time.Minute))
+	if err != nil || !fresh || snap.Plan != "Ultra" || snap.Subscription != "max" {
+		t.Fatalf("Usage：%+v %v %v", snap, fresh, err)
+	}
+	if got, err := s.Get(); err != nil || got == nil || got.Plan != "Ultra" {
+		t.Fatalf("Get：%+v %v", got, err)
+	}
+	if ev, changed, err := s.Event(event(0.5, "allowed", "allowed"), now.Add(2*time.Minute)); err != nil || !changed || ev.Plan != "Ultra" {
+		t.Fatalf("Event：%+v %v %v", ev, changed, err)
+	}
+
+	// 存着的快照没有套餐名（旧版本存的）：读出来补上，不用等下一次 get_usage
+	old := snap
+	old.Plan = ""
+	if err := s.save("uuid-a", old); err != nil {
+		t.Fatal(err)
+	}
+	if got, _ := s.Get(); got == nil || got.Plan != "Ultra" {
+		t.Fatalf("旧快照没补上：%+v", got)
+	}
+	// 事件并进没有套餐名的旧快照：推给客户端的那份也带着，不先露出订阅类型再变
+	if ev, changed, err := s.Event(event(0.6, "allowed", "allowed"), now.Add(3*time.Minute)); err != nil || !changed || ev.Plan != "Ultra" {
+		t.Fatalf("事件并进旧快照：%+v %v %v", ev, changed, err)
+	}
+	if err := s.save("uuid-a", old); err != nil {
+		t.Fatal(err)
+	}
+	// 套餐变了（升级、降级）：以登录资料的为准
+	h.setPlan("Max")
+	if got, _ := s.Get(); got == nil || got.Plan != "Max" {
+		t.Fatalf("套餐变了：%+v", got)
+	}
+	// 登录资料里没有套餐名：快照里已有的留着
+	if err := s.save("uuid-a", snap); err != nil {
+		t.Fatal(err)
+	}
+	h.setPlan("")
+	if got, _ := s.Get(); got == nil || got.Plan != "Ultra" {
+		t.Fatalf("资料里没有时该留着已有的：%+v", got)
+	}
+}
+
 func TestStoreUsageKeepsWindowsWhenAnswerIsEmpty(t *testing.T) {
 	h, s := storeHome(t)
 	h.login("uuid-a", "a@example.com", "max")

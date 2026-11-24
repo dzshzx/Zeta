@@ -62,8 +62,10 @@ data class ExtraUsage(
 data class QuotaSnapshot(
     val windows: List<QuotaWindow>,
     val extra: ExtraUsage? = null,
-    /** Claude Code 报的订阅类型（pro、max、team…）。 */
+    /** Claude Code 报的订阅类型（pro、max、team…）；Max 与 Ultra 都是 max，分不开。 */
     val subscription: String? = null,
+    /** 套餐的展示名（Pro、Max、Ultra…），核心取在用登录的资料；旧快照里没有时为 null。 */
+    val plan: String? = null,
     /** false：这种登录方式没有订阅额度（API key、Bedrock、Vertex，或登录缺 profile 权限）。 */
     val available: Boolean = true,
     /** 请求已经被拒：到上限了，[blockedUntil] 解除。 */
@@ -72,6 +74,10 @@ data class QuotaSnapshot(
     /** 核心收到这份数据的时刻（毫秒）。 */
     val updatedAt: Long,
 ) {
+    /** 套餐的显示名：[plan]，没有时由订阅类型写成；两者都没有（API key 等没有订阅的登录）时为 null。 */
+    val planLabel: String?
+        get() = planLabel(plan, subscription).ifEmpty { null }
+
     /** 按 [now] 看：已经过了重置时刻的窗口算从零开始，过了解除时刻的拒绝不再算数。 */
     fun current(now: Long): QuotaSnapshot {
         val expired = windows.any { it.resetsAt != null && it.resetsAt <= now }
@@ -110,6 +116,7 @@ object Quota {
             windows = o.arr("windows").orEmpty().mapNotNull { (it as? JsonObject)?.let(::window) },
             extra = o.obj("extra")?.let(::extra),
             subscription = o.str("subscription")?.ifEmpty { null },
+            plan = o.str("plan")?.ifEmpty { null },
             available = o.bool("unavailable") != true,
             blocked = o.bool("blocked") == true,
             blockedUntil = time(o.str("blockedUntil")),

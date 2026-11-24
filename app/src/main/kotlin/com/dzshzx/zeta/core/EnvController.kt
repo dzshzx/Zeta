@@ -174,19 +174,11 @@ class EnvController constructor(private val hub: ConversationHub, assets: (Strin
                 json.parseToJsonElement(result.stdout) as? JsonObject
             }
                 .getOrNull()
-            val status =
-                if (o == null) null
-                else
-                    AccountStatus(
-                        o.bool("loggedIn") == true,
-                        o.str("email"),
-                        o.str("subscriptionType"),
-                    )
-            // 在用中转时 claude-switch 已退出登录，auth status（不带中转的设置）说没登录：问核心是不是在用中转
-            val relay =
-                if (status?.loggedIn == false)
-                    runCatching { accounts.core.list().relay }.getOrNull()
-                else null
+            // 问核心列的账号：登录着时取它的套餐展示名（auth status 只有订阅类型，分不出 Max 与 Ultra）；在用中转时 claude-switch
+            // 已退出登录，auth status（不带中转的设置）说没登录，要看核心是不是在用中转
+            val listed = if (o == null) null else runCatching { accounts.core.list() }.getOrNull()
+            val status = o?.let { AccountStatus.fromAuthStatus(it, listed?.current) }
+            val relay = if (status?.loggedIn == false) listed?.relay else null
             val shown = relay?.let { AccountStatus.relay(it.name, it.baseUrl) } ?: status
             main.post { if (settings.env?.rootfs == config.rootfs) account = shown }
         }

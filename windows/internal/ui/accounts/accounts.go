@@ -148,7 +148,7 @@ func (p *Page) row(l *widget.List, a coreapi.Account, current bool, now time.Tim
 // summary 是账号一行的说明：名字（和终端里 claude-switch 列的一样）、组织、套餐、过期了没有。
 func summary(a coreapi.Account, now time.Time) string {
 	var parts []string
-	for _, s := range []string{a.Name, a.Organization, a.Plan()} {
+	for _, s := range []string{a.Name, a.Organization, a.PlanLabel()} {
 		if s != "" {
 			parts = append(parts, s)
 		}

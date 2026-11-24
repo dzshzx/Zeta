@@ -42,8 +42,10 @@ type Account struct {
 	Email        string `json:"email,omitempty"`
 	Organization string `json:"organization,omitempty"`
 	DisplayName  string `json:"displayName,omitempty"`
-	// Subscription 是订阅类型（pro、max、team…）。
+	// Subscription 是订阅类型（pro、max、team…）；Max 与 Ultra 都是 max，分不开。
 	Subscription string `json:"subscription,omitempty"`
+	// Plan 是套餐的展示名（Pro、Max、Ultra…）；旧的存档里没有时为空。显示用 PlanLabel。
+	Plan string `json:"plan,omitempty"`
 	// RefreshExpiresAt 是续期凭证的到期时刻（Unix 毫秒），过了只能重新登录；不知道时为 0。
 	RefreshExpiresAt int64 `json:"refreshExpiresAt,omitempty"`
 	// Current、Parked 照 claude-switch --json：在用的、存着档的。
@@ -61,16 +63,19 @@ func (a Account) Title() string {
 	return a.Name
 }
 
-// Plan 是套餐的显示名。
-func (a Account) Plan() string { return PlanName(a.Subscription) }
+// PlanLabel 是套餐的显示名：核心给的展示名，没有时由订阅类型写成。
+func (a Account) PlanLabel() string { return planLabel(a.Plan, a.Subscription) }
 
 // Expired 报告续期凭证在 now 时是不是已经过期。
 func (a Account) Expired(now time.Time) bool {
 	return a.RefreshExpiresAt > 0 && a.RefreshExpiresAt <= now.UnixMilli()
 }
 
-// PlanName 把订阅类型（pro、max…）写成显示名。
-func PlanName(subscription string) string {
+// planLabel 是套餐的显示名：展示名 plan 不为空就用它，否则把订阅类型（pro、max…）首字母大写。
+func planLabel(plan, subscription string) string {
+	if plan = strings.TrimSpace(plan); plan != "" {
+		return plan
+	}
 	if subscription == "" {
 		return ""
 	}
@@ -284,12 +289,17 @@ type QuotaExtra struct {
 	Used     *float64 `json:"used,omitempty"`
 }
 
+// PlanLabel 是套餐的显示名：核心给的展示名，没有时由订阅类型写成。
+func (s QuotaSnapshot) PlanLabel() string { return planLabel(s.Plan, s.Subscription) }
+
 // QuotaSnapshot 是一个账号的订阅额度（quota.* 结果里的 snapshot，同 helper/accounts 的 Snapshot）。
 type QuotaSnapshot struct {
 	Windows []QuotaWindow `json:"windows"`
 	Extra   *QuotaExtra   `json:"extra,omitempty"`
-	// Subscription 是订阅类型。
+	// Subscription 是订阅类型；Max 与 Ultra 都是 max，分不开。
 	Subscription string `json:"subscription,omitempty"`
+	// Plan 是套餐的展示名（Pro、Max、Ultra…）；旧的快照里没有时为空。显示用 PlanLabel。
+	Plan string `json:"plan,omitempty"`
 	// Unavailable：这种登录没有订阅额度。
 	Unavailable  bool      `json:"unavailable,omitempty"`
 	Blocked      bool      `json:"blocked,omitempty"`

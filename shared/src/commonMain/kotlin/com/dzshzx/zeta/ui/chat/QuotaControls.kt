@@ -182,9 +182,9 @@ fun QuotaDialogSection(
             color = COUITheme.colorScheme.labelPrimary,
             modifier = Modifier.weight(1f),
         )
-        quota.snapshot?.subscription?.let { sub ->
+        quota.snapshot?.planLabel?.let { plan ->
             Text(
-                text = sub.replaceFirstChar { it.uppercase() },
+                text = plan,
                 style =
                     COUITheme.textStyles.bodyM.copy(
                         fontSize = 14.sp,

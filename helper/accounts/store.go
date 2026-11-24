@@ -28,27 +28,34 @@ type QuotaStore struct {
 // quotaDir 是存额度的目录（相对家目录）。
 const quotaDir = ".cache/zeta-quota"
 
-// account 是在用的登录编号（~/.claude.json 的 oauthAccount.accountUuid）；没登录时为空。只解码这一项。
-func (s QuotaStore) account() (string, error) {
+// login 是在用的登录（~/.claude.json 的 oauthAccount）：登录编号和套餐展示名（Claude Code 照服务器的账号资料写的，Max 20x
+// 现在叫 Ultra，get_usage 报的订阅类型仍是 max）。没登录时都为空。只解码这两项。
+type login struct {
+	UUID string
+	Plan string
+}
+
+func (s QuotaStore) login() (login, error) {
 	data, err := os.ReadFile(filepath.Join(s.Home, ".claude.json"))
 	if errors.Is(err, fs.ErrNotExist) {
-		return "", nil
+		return login{}, nil
 	}
 	if err != nil {
-		return "", err
+		return login{}, err
 	}
 	var config struct {
 		OAuth *struct {
 			UUID string `json:"accountUuid"`
+			Plan string `json:"planDisplayName"`
 		} `json:"oauthAccount"`
 	}
 	if err := json.Unmarshal(data, &config); err != nil {
-		return "", locales.Err("errClaudeJSON")
+		return login{}, locales.Err("errClaudeJSON")
 	}
 	if config.OAuth == nil {
-		return "", nil
+		return login{}, nil
 	}
-	return config.OAuth.UUID, nil
+	return login{UUID: config.OAuth.UUID, Plan: config.OAuth.Plan}, nil
 }
 
 func (s QuotaStore) path(account string) string {
@@ -58,11 +65,15 @@ func (s QuotaStore) path(account string) string {
 
 // Get 是在用的账号最近一次的额度；没登录、还没有数时为 nil。
 func (s QuotaStore) Get() (*Snapshot, error) {
-	account, err := s.account()
-	if err != nil || account == "" {
+	in, err := s.login()
+	if err != nil || in.UUID == "" {
 		return nil, err
 	}
-	return s.load(account)
+	snap, err := s.load(in.UUID)
+	if snap != nil {
+		*snap = snap.withPlan(in.Plan)
+	}
+	return snap, err
 }
 
 func (s QuotaStore) load(account string) (*Snapshot, error) {
@@ -110,33 +121,34 @@ func (s QuotaStore) Usage(raw []byte, now time.Time) (snap Snapshot, fresh bool,
 		return Snapshot{}, false, err
 	}
 	recordReading(s.Home, raw, now)
-	account, err := s.account()
-	if err != nil || account == "" {
+	in, err := s.login()
+	parsed = parsed.withPlan(in.Plan)
+	if err != nil || in.UUID == "" {
 		return parsed, true, err
 	}
-	prev, err := s.load(account)
+	prev, err := s.load(in.UUID)
 	if err != nil {
 		return Snapshot{}, false, err
 	}
 	if prev != nil {
 		if !parsed.Unavailable && len(parsed.Windows) == 0 && len(prev.Windows) > 0 {
-			return *prev, false, nil
+			return prev.withPlan(in.Plan), false, nil
 		}
 		parsed.Blocked, parsed.BlockedUntil = prev.Blocked, prev.BlockedUntil
 	}
 	parsed = parsed.At(now)
-	return parsed, true, s.save(account, parsed)
+	return parsed, true, s.save(in.UUID, parsed)
 }
 
 // Event 收下对话里一条 rate_limit_event 的 rate_limit_info，并进已有的额度。没有变化时 changed 为 false。
 func (s QuotaStore) Event(info []byte, now time.Time) (snap Snapshot, changed bool, err error) {
-	account, err := s.account()
+	in, err := s.login()
 	if err != nil {
 		return Snapshot{}, false, err
 	}
 	var prev *Snapshot
-	if account != "" {
-		if prev, err = s.load(account); err != nil {
+	if in.UUID != "" {
+		if prev, err = s.load(in.UUID); err != nil {
 			return Snapshot{}, false, err
 		}
 	}
@@ -145,10 +157,11 @@ func (s QuotaStore) Event(info []byte, now time.Time) (snap Snapshot, changed bo
 		return snap, changed, err
 	}
 	recordReading(s.Home, info, now)
-	if !changed || account == "" {
+	snap = snap.withPlan(in.Plan)
+	if !changed || in.UUID == "" {
 		return snap, changed, nil
 	}
-	return snap, true, s.save(account, snap)
+	return snap, true, s.save(in.UUID, snap)
 }
 
 // recordReading 把这份额度也交给 agent-usage（github.com/dzshzx/agent-usage，统计各账号的用量、折算金额并估算每周额度），

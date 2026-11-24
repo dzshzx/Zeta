@@ -170,7 +170,7 @@ class AccountService(private val hub: ConversationHub, private val backend: Stri
                 listed?.current?.takeIf {
                     listed.loggedIn && it.email.isNotBlank() && it.subscription.isNotBlank()
                 }
-            if (current != null) local.showAccount(current.email, current.subscription)
+            if (current != null) local.showAccount(current.email, current.plan)
             else local.refreshAccount()
         }
     }
