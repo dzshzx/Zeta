@@ -482,32 +482,26 @@ fun TypingIndicator(modifier: Modifier = Modifier) {
 @Composable
 fun NoticeRow(item: NoticeItem, modifier: Modifier = Modifier) {
     val colors = COUITheme.colorScheme
-    if (item.error) {
+    if (item.error || item.code == "noticeHookContext") {
+        // 出错提示和 hook 原文都是又长又分行的块：靠左、可选中；出错的另加红色底
         val shape = RoundedCornerShape(14.dp)
+        val boxed =
+            if (item.error)
+                Modifier.clip(shape)
+                    .background(colors.error.copy(alpha = 0.08f), shape)
+                    .padding(horizontal = 14.dp, vertical = 10.dp)
+            else Modifier
         SelectionContainer(
             modifier = modifier.fillMaxWidth().padding(horizontal = 20.dp, vertical = 6.dp),
         ) {
             Text(
                 text = item.said(),
-                style = COUITheme.textStyles.bodyM.copy(fontSize = 13.sp, lineHeight = 19.sp),
-                color = colors.error,
-                modifier =
-                    Modifier.fillMaxWidth()
-                        .clip(shape)
-                        .background(colors.error.copy(alpha = 0.08f), shape)
-                        .padding(horizontal = 14.dp, vertical = 10.dp),
-            )
-        }
-    } else if (item.code == "noticeHookContext") {
-        // hook 给的原文又长又分行：靠左、可选中，不居中成一小行
-        SelectionContainer(
-            modifier = modifier.fillMaxWidth().padding(horizontal = 20.dp, vertical = 6.dp),
-        ) {
-            Text(
-                text = item.said(),
-                style = COUITheme.textStyles.bodyS,
-                color = colors.labelSecondary,
-                modifier = Modifier.fillMaxWidth(),
+                style =
+                    if (item.error)
+                        COUITheme.textStyles.bodyM.copy(fontSize = 13.sp, lineHeight = 19.sp)
+                    else COUITheme.textStyles.bodyS,
+                color = if (item.error) colors.error else colors.labelSecondary,
+                modifier = Modifier.fillMaxWidth().then(boxed),
             )
         }
     } else {

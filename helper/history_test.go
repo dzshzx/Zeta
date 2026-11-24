@@ -264,6 +264,7 @@ func TestHistoryShowsHookContextAfterFirstUserMessage(t *testing.T) {
 		`{"type":"attachment","attachment":{"type":"hook_success","hookEvent":"SessionStart","stdout":"{}"},"uuid":"h0"}`,
 		`{"type":"attachment","attachment":{"type":"hook_additional_context","hookEvent":"SessionStart","content":["第一段","第二段"]},"uuid":"h1"}`,
 		userLine("u1", "你好"),
+		`{"type":"attachment","attachment":{"type":"hook_additional_context","hookEvent":"PreToolUse","content":["每次工具调用前"]},"uuid":"h2"}`,
 		answerLine("a1", "嗯"))
 	out := mustCall(t, e, "history", file)
 	if len(out) != 4 {

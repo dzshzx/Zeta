@@ -195,18 +195,17 @@ type pendingHook struct {
 	event obj
 }
 
-// hookContext 记下 hook（SessionStart 等）带来的附加上下文。记录里它写在触发它的那条用户消息前面，
+// hookContext 记下 SessionStart hook 带来的附加上下文。记录里它写在触发它的那条用户消息前面，
 // 终端里却显示在那条消息之后、第一次工具调用之上，所以先攒着，等下一条用户消息进来再接在它后面（flushHooks）。
+// 别的 hook（PreToolUse、PostToolBatch 等）每轮都有、量大，不是会话开头的信息，不收。
 func (r *historyReader) hookContext(attachment obj, row any) {
+	if attachment["hookEvent"] != "SessionStart" {
+		return
+	}
 	var parts []string
-	switch c := attachment["content"].(type) {
-	case string:
-		parts = append(parts, c)
-	case []any:
-		for _, p := range c {
-			if s, ok := p.(string); ok {
-				parts = append(parts, s)
-			}
+	for _, p := range asList(attachment["content"]) {
+		if s, ok := p.(string); ok {
+			parts = append(parts, s)
 		}
 	}
 	text := strings.TrimSpace(strings.Join(parts, "\n"))
@@ -214,7 +213,7 @@ func (r *historyReader) hookContext(attachment obj, row any) {
 		return
 	}
 	r.hooks = append(r.hooks, pendingHook{row, obj{"type": "system", "subtype": "hook_context",
-		"hook_event": asString(attachment["hookEvent"]), "text": clipText(text)}})
+		"hook_event": "SessionStart", "text": clipText(text)}})
 }
 
 // flushHooks 把攒着的 hook 信息接到刚加的用户消息后面。
