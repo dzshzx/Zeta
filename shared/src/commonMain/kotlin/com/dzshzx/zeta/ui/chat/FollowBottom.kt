@@ -2,6 +2,8 @@ package com.dzshzx.zeta.ui.chat
 
 import androidx.compose.foundation.gestures.scrollBy
 import androidx.compose.foundation.interaction.DragInteraction
+import androidx.compose.foundation.layout.WindowInsets
+import androidx.compose.foundation.layout.ime
 import androidx.compose.foundation.lazy.LazyListState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -11,6 +13,8 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.runtime.snapshotFlow
+import androidx.compose.runtime.withFrameNanos
+import androidx.compose.ui.platform.LocalDensity
 import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.launch
@@ -35,6 +39,12 @@ class FollowBottom(
     /** 跟随停在 [anchor] 顶到上沿处；为假时一直跟到底。 */
     private var capped = anchor != null
 
+    /**
+     * 发消息那一刻 [anchor] 的值：刚发的消息要过一会儿才进列表，这之前 [anchor] 还是上一条（早就在屏幕上面了），
+     * 不能拿它判断「到顶了」，先照常滚到底，等它变了再按到顶为止。
+     */
+    private var sentAfter: Int? = null
+
     fun pause() {
         following = false
     }
@@ -48,6 +58,7 @@ class FollowBottom(
     /** 发了消息：滚到底，回答变长时跟到这条消息顶到上沿为止。 */
     fun followTurn() {
         capped = anchor != null
+        sentAfter = anchor?.invoke()
         following = true
     }
 
@@ -99,6 +110,11 @@ class FollowBottom(
     /** 往下滚一步。到顶为止时：[anchor] 还在屏幕下面（打开对话、刚发的消息还没露出来）就滚到底；在屏幕上就只滚到它顶到上沿， 已经顶到或在屏幕上面了就停止跟随。 */
     private suspend fun step() {
         val index = if (capped) anchor?.invoke() else null
+        if (index != null && index == sentAfter) {
+            listState.scrollToEnd()
+            return
+        }
+        sentAfter = null
         if (index == null) {
             listState.scrollToEnd()
             return
@@ -138,4 +154,23 @@ suspend fun LazyListState.scrollToEnd() {
     val last = (layoutInfo.totalItemsCount - 1).coerceAtLeast(0)
     if (layoutInfo.visibleItemsInfo.none { it.index == last }) scrollToItem(last)
     scrollBy(1_000_000f)
+}
+
+/** 输入法升起时把聊天列表滚到最新处，不管这时跟不跟随（默认不跟，要打字时总是想看最新的）。 升起过程中列表一帧帧变矮，每变一次等这一帧排完再滚，升完那一帧也滚到；收起时不动。 */
+@Composable
+fun ScrollToEndOnKeyboard(listState: LazyListState) {
+    val ime = WindowInsets.ime
+    val density = LocalDensity.current
+    LaunchedEffect(listState, ime, density) {
+        var last = 0
+        snapshotFlow { ime.getBottom(density) }
+            .collectLatest { bottom ->
+                val rising = bottom > last
+                last = bottom
+                if (rising) {
+                    withFrameNanos {}
+                    listState.scrollToEnd()
+                }
+            }
+    }
 }

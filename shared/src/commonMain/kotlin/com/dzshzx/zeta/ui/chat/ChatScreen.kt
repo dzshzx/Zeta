@@ -488,6 +488,7 @@ private fun ConversationBody(
         rememberFollowBottom(listState) {
             latestShown.indexOfLast { it is UserItem }.takeIf { it >= 0 }?.plus(latestLeading)
         }
+    ScrollToEndOnKeyboard(listState)
     // 长对话先只载入最近的一段，往上翻到顶附近时再接上更早的；“更早的记录”那行是列表的第一项
     val earlierPaging = rememberEarlierPaging(conversation, listState, onLoad = follow::pause)
     // 列表到底后接着上拖调起输入法，输入法开着时下拖收起

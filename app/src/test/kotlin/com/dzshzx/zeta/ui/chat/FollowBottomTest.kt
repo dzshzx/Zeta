@@ -102,10 +102,11 @@ class FollowBottomAnchorTest : ShotTest() {
 
     /** 发了一条消息（锚点是新加的这一行），回答一截截往下长。 */
     private fun send() {
+        // 和聊天页一样先调 followTurn，消息再进列表
+        compose.runOnUiThread { follow.followTurn() }
         compose.runOnUiThread {
             anchorAt = rows.size
             rows += rows.size
-            follow.followTurn()
         }
         compose.waitForIdle()
     }
@@ -140,5 +141,52 @@ class FollowBottomAnchorTest : ShotTest() {
         add(5)
         assertTrue("问题已在屏幕上面：之后不跟", list.canScrollForward)
         assertFalse(follow.following)
+    }
+}
+
+/** 发消息后，消息要过一会儿才进列表：这之前锚点还是上一条，不能当成「已经到顶」停下。 */
+class FollowBottomLateMessageTest : ShotTest() {
+    private lateinit var list: LazyListState
+    private lateinit var follow: FollowBottom
+    private val rows = mutableStateListOf<Int>()
+    private var anchorAt: Int? = null
+
+    private fun add(count: Int) {
+        compose.runOnUiThread { repeat(count) { rows += rows.size } }
+        compose.waitForIdle()
+    }
+
+    @Test
+    fun followsWhenTheSentMessageShowsUpLate() {
+        anchorAt = 5
+        rows += 0 until 30
+        compose.setContent {
+            val state = rememberLazyListState()
+            list = state
+            follow = rememberFollowBottom(state) { anchorAt }
+            LazyColumn(state = state, modifier = Modifier.fillMaxSize()) {
+                items(rows, key = { it }) { Box(Modifier.fillMaxWidth().height(100.dp)) }
+            }
+        }
+        compose.waitForIdle()
+        add(3)
+        assertTrue("打开后不跟", list.canScrollForward)
+
+        compose.runOnUiThread { follow.followTurn() }
+        compose.waitForIdle()
+        assertFalse("发出去先滚到底", list.canScrollForward)
+        // 消息这时才进列表，回答跟着往下长
+        compose.runOnUiThread {
+            anchorAt = rows.size
+            rows += rows.size
+        }
+        compose.waitForIdle()
+        assertFalse("新消息露出来", list.canScrollForward)
+        repeat(30) { add(1) }
+        assertEquals(
+            "跟到新消息顶到上沿",
+            0,
+            list.layoutInfo.visibleItemsInfo.firstOrNull { it.index == anchorAt }?.offset,
+        )
     }
 }
