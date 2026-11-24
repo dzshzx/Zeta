@@ -1,6 +1,7 @@
 package chatview
 
 import (
+	"slices"
 	"strconv"
 	"strings"
 	"time"
@@ -13,7 +14,9 @@ import (
 )
 
 // userMessage 画用户发的一条消息（第 row 个条目），靠右：带的图（最多四张缩略图，只有一张时大些）、附带的文件和文字气泡。
+// 缩略图画出来了的图片文件（图的 Original）不再画文件小标签。
 func (ch *Chat) userMessage(c *ui.Context, it items.Item, row int) {
+	shown := it.Images[:min(len(it.Images), 4)]
 	ui.Column(c).FillWidth().AlignItems(ui.End).Gap(6).Padding(16, 0, 6, 0).Children(func() {
 		if len(it.Images) > 0 {
 			size := float32(76)
@@ -22,13 +25,15 @@ func (ch *Chat) userMessage(c *ui.Context, it items.Item, row int) {
 			}
 			// 窗口窄得排不下时折行，不伸出聊天区
 			ui.Row(c).Gap(6).Wrap().Justify(ui.End).MaxWidthPercent(100).Children(func() {
-				for k, im := range it.Images[:min(len(it.Images), 4)] {
+				for k, im := range shown {
 					ch.opensImage(ui.Box(c.Key(k)), it.Images, k).Children(func() { ch.thumbnail(c, im, size) })
 				}
 			})
 		}
 		for _, f := range it.Files {
-			fileChip(c, f)
+			if !slices.ContainsFunc(shown, func(im items.Image) bool { return im.Original == f }) {
+				fileChip(c, f)
+			}
 		}
 		if it.Text == "" {
 			return

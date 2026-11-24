@@ -139,7 +139,7 @@ class ComposerDraftsTest {
     }
 
     @Test
-    fun imageFilesSendTheirDownscaledCopyAfterOtherImages() {
+    fun imageFilesSendTheirDownscaledCopyWithTheOriginal() {
         val draft = ComposerDraft()
         val shot = jpeg(0xFFFF0000.toInt())
         val copy = jpeg(0xFF0000FF.toInt())
@@ -151,31 +151,27 @@ class ComposerDraftsTest {
                 it.path = "/tmp/IMG_1.jpg"
                 it.inline = copy
             }
-        // 还在复制的原图：缩小图也先不发，免得和附件行对不上
+        // 还在复制的原图：缩小图也先不发（附件行里还没有它）
         draft.uploads += FileUpload("u3", "IMG_2.jpg").also { it.inline = pending }
-        assertEquals(listOf(shot, copy), draft.outgoingImages())
+        val sent = draft.outgoingImages()
+        assertEquals(listOf(shot.base64, copy.base64), sent.map { it.base64 })
+        assertEquals(listOf(null, "/tmp/IMG_1.jpg"), sent.map { it.original })
         assertEquals(listOf("/tmp/a.txt", "/tmp/IMG_1.jpg"), draft.outgoingFiles())
     }
 
     @Test
-    fun puttingBackPairsDownscaledCopiesWithTheirFiles() {
+    fun puttingBackHangsDownscaledCopiesOnTheirFiles() {
         val draft = ComposerDraft()
         val shot = jpeg(0xFFFF0000.toInt())
-        val copy = jpeg(0xFF0000FF.toInt())
-        val files = listOf("/tmp/a.txt", "/tmp/IMG_1.jpg", "@/sdcard/b.png")
-        for (path in files) draft.uploads += FileUpload(path, path).also { it.path = path }
-        assertEquals(listOf(shot), draft.pairInline(listOf(shot, copy), files))
+        val copy = jpeg(0xFF0000FF.toInt()).withOriginal("/tmp/IMG_1.jpg")
+        // 文件已经不在输入栏里的：当单独的图
+        val stray = jpeg(0xFF00FF00.toInt()).withOriginal("/tmp/gone.jpg")
+        for (path in listOf("/tmp/a.txt", "/tmp/IMG_1.jpg")) {
+            draft.uploads += FileUpload(path, path).also { it.path = path }
+        }
+        assertEquals(listOf(shot, stray), draft.putBackImages(listOf(copy, shot, stray)))
         assertSame(copy, draft.uploads[1].inline)
-        assertNull(draft.uploads[2].inline)
-        // 图比图片文件少：对不上，都当单独的图
-        val other = ComposerDraft()
-        other.uploads += FileUpload("x", "x").also { it.path = "/tmp/IMG_1.jpg" }
-        other.uploads += FileUpload("y", "y").also { it.path = "/tmp/IMG_2.jpg" }
-        assertEquals(
-            listOf(shot),
-            other.pairInline(listOf(shot), listOf("/tmp/IMG_1.jpg", "/tmp/IMG_2.jpg")),
-        )
-        assertNull(other.uploads[0].inline)
+        assertNull(draft.uploads[0].inline)
     }
 
     @Test

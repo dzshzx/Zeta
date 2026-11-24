@@ -88,7 +88,13 @@ private fun workStepJson(step: WorkStep): JsonObject =
     }
 
 /** 图片：Go 核心只出 inline（带数据）和 session（会话记录里的位置）两种；file、remote 是界面里 Markdown 引用的，写出来只为读得回。 */
-private fun imageRefJson(image: ImageRef): JsonObject =
+private fun imageRefJson(image: ImageRef): JsonObject {
+    val body = imageRefBody(image)
+    val original = image.original ?: return body
+    return JsonObject(body + ("original" to JsonPrimitive(original)))
+}
+
+private fun imageRefBody(image: ImageRef): JsonObject =
     when (image) {
         is InlineImage ->
             buildJsonObject {
@@ -211,18 +217,21 @@ private fun imagesOf(o: JsonObject, conv: String): List<ImageRef> =
     o.arr("images").orEmpty().mapNotNull { (it as? JsonObject)?.let { im -> imageRefOf(im, conv) } }
 
 /** [conv] 是条目所在的对话在核心里的标识：只带了键没带数据的实时图（[CoreImage]）要靠它去取。 */
-private fun imageRefOf(o: JsonObject, conv: String): ImageRef? =
-    when (o.str("kind")) {
+private fun imageRefOf(o: JsonObject, conv: String): ImageRef? {
+    val original = o.str("original")?.ifEmpty { null }
+    return when (o.str("kind")) {
         "inline" -> {
             val data = o.str("data").orEmpty()
-            if (data.isEmpty() && conv.isNotEmpty()) CoreImage(conv, o.str("key").orEmpty())
-            else InlineImage(o.str("key").orEmpty(), data)
+            if (data.isEmpty() && conv.isNotEmpty())
+                CoreImage(conv, o.str("key").orEmpty(), original)
+            else InlineImage(o.str("key").orEmpty(), data, original)
         }
-        "session" -> SessionImage(o.str("file").orEmpty(), o.str("ref").orEmpty())
+        "session" -> SessionImage(o.str("file").orEmpty(), o.str("ref").orEmpty(), original)
         "file" -> FileImage(o.str("path").orEmpty())
         "remote" -> RemoteImage(o.str("url").orEmpty())
         else -> null
     }
+}
 
 private fun editPatchOf(o: JsonObject): EditPatch =
     EditPatch(

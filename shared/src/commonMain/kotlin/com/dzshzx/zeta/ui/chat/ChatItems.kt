@@ -266,8 +266,11 @@ private fun OwnUserBubble(
             modifier.fillMaxWidth().padding(start = 20.dp, end = 20.dp, top = 16.dp, bottom = 6.dp),
         horizontalAlignment = Alignment.End,
     ) {
-        if (item.images.isNotEmpty()) UserImages(item)
-        item.files.forEach { path ->
+        // 图片文件和它的缩小图画成一张：画出了缩小图的文件不另画小标签（缩略图最多四张，其余的照样画小标签）
+        val files = item.files.filter { f -> item.images.take(4).none { it.original == f } }
+        if (item.images.isNotEmpty())
+            UserImages(item, last = item.text.isEmpty() && files.isEmpty())
+        files.forEach { path ->
             FileChip(
                 name = AttachedPaths.label(path),
                 folder = AttachedPaths.isFolder(path),
@@ -282,12 +285,12 @@ private fun OwnUserBubble(
 
 /** 用户消息带的图片：最多四张缩略图排一行，只有一张时画大些。 */
 @Composable
-private fun UserImages(item: UserItem) {
+private fun UserImages(item: UserItem, last: Boolean) {
     Row(
         horizontalArrangement = Arrangement.spacedBy(6.dp),
         modifier =
             Modifier.padding(
-                bottom = if (item.text.isEmpty() && item.files.isEmpty()) 0.dp else 6.dp,
+                bottom = if (last) 0.dp else 6.dp,
             ),
     ) {
         item.images.take(4).forEach { image ->

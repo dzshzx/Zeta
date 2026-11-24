@@ -51,6 +51,7 @@ import androidx.compose.ui.draw.dropShadow
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.ImageBitmap
 import androidx.compose.ui.graphics.Shape
 import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.graphics.compositeOver
@@ -399,12 +400,7 @@ private fun ComposerAttachments(
         }
         attachments.forEach { attachment ->
             RemovableThumbnail(onRemove = { onRemoveAttachment(attachment) }) {
-                Image(
-                    bitmap = attachment.preview,
-                    contentDescription = Strings.composerImageAttachment(),
-                    contentScale = ContentScale.Crop,
-                    modifier = Modifier.fillMaxSize(),
-                )
+                CroppedImage(attachment.preview, Strings.composerImageAttachment())
             }
         }
     }
@@ -425,17 +421,21 @@ private fun UploadThumbnail(file: FileUpload, onRemove: () -> Unit) {
     val path = file.path
     RemovableThumbnail(onRemove, Modifier.alpha(if (file.uploading) 0.5f else 1f)) {
         when {
-            preview != null ->
-                Image(
-                    bitmap = preview,
-                    contentDescription = file.name,
-                    contentScale = ContentScale.Crop,
-                    modifier = Modifier.fillMaxSize(),
-                )
+            preview != null -> CroppedImage(preview, file.name)
             path != null -> ChatThumbnail(FileImage(AttachedPaths.path(path)), size = 64.dp)
         }
     }
 }
+
+/** 裁切填满缩略图块的一张小图。 */
+@Composable
+private fun CroppedImage(bitmap: ImageBitmap, description: String) =
+    Image(
+        bitmap = bitmap,
+        contentDescription = description,
+        contentScale = ContentScale.Crop,
+        modifier = Modifier.fillMaxSize(),
+    )
 
 /** 待发图片的 64dp 缩略图 [content]，右上角是移除键。 */
 @Composable

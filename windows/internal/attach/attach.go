@@ -40,8 +40,9 @@ const (
 	jpegQuality = 85
 )
 
-// imageExtensions 是选图时列的扩展名（同桌面版的 IMAGE_EXTENSIONS），也是拖进来、选的文件里当图片收的。
-var imageExtensions = []string{"png", "jpg", "jpeg", "gif", "webp", "bmp"}
+// imageExtensions 是当作图片文件的扩展名：选图对话框里列的，拖进来、选的文件里当图片收的，主机上的路径也按它认。
+// 同核心（helper/transcript 的 imageSuffixes）和手机版。heic、avif 这里解不开，做不成缩小图，只当文件传。
+var imageExtensions = []string{"png", "jpg", "jpeg", "gif", "webp", "bmp", "heic", "avif"}
 
 // ImageExtensions 是系统选图对话框里列的扩展名。
 func ImageExtensions() []string { return append([]string(nil), imageExtensions...) }

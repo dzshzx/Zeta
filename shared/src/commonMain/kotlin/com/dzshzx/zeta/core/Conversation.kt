@@ -528,7 +528,7 @@ class Conversation(
         localNotices = emptyList()
         sending = true
         hub.onActivityChanged()
-        val images = attachments.map { ConvImage(it.mediaType, it.base64) }
+        val images = attachments.map { ConvImage(it.mediaType, it.base64, it.original.orEmpty()) }
         call(
             failed = { e ->
                 sending = false
@@ -577,7 +577,14 @@ class Conversation(
             message.images.mapNotNull { image ->
                 runCatching { Base64.getDecoder().decode(image.data) }
                     .getOrNull()
-                    ?.let { Attachments.restore(UUID.randomUUID().toString(), image.mediaType, it) }
+                    ?.let {
+                        Attachments.restore(
+                            UUID.randomUUID().toString(),
+                            image.mediaType,
+                            it,
+                            image.original.ifEmpty { null },
+                        )
+                    }
             },
             message.files,
         )
@@ -608,7 +615,7 @@ class Conversation(
         files: List<String> = emptyList(),
     ) {
         if (text.isBlank() && attachments.isEmpty() && files.isEmpty()) return
-        val images = attachments.map { ConvImage(it.mediaType, it.base64) }
+        val images = attachments.map { ConvImage(it.mediaType, it.base64, it.original.orEmpty()) }
         call { it.rewrite(target.id, text, images, files) }
     }
 

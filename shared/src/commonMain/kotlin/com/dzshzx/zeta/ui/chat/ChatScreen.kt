@@ -917,8 +917,6 @@ private fun sendDraft(
     draft: ComposerDraft,
     actions: MessageActions,
 ) {
-    val attachments = draft.attachments
-    val uploads = draft.uploads
     val images = draft.outgoingImages()
     val files = draft.outgoingFiles()
     if (actions.editing == null) {
@@ -928,8 +926,8 @@ private fun sendDraft(
         draft.input.setTextAndPlaceCursorAtEnd(text)
         return
     }
-    attachments.clear()
-    uploads.clear()
+    draft.attachments.clear()
+    draft.uploads.clear()
     // 发出去了：存着的那份马上清掉，不等停手存盘
     hub.drafts.save(draft)
 }

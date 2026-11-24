@@ -47,6 +47,7 @@ func (d Deps) originalMessage(it transcript.Item) (Message, error) {
 		if err != nil {
 			return Message{}, locales.Err("errResendImage", "reason", locales.ErrArg(err))
 		}
+		img.Original = im.Original
 		m.Images = append(m.Images, img)
 	}
 	if m.empty() {

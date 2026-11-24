@@ -3,6 +3,7 @@ package ui
 import (
 	"cmp"
 	"context"
+	"slices"
 	"strconv"
 	"strings"
 	"time"
@@ -460,9 +461,15 @@ func (a *App) queueStrip(c *ui.Context, p *chatPane) {
 }
 
 // queuedPreview 是一条排队消息的一行：正文（空白并成一个空格），没有字时说带了几张图、几个文件。
+// 图片文件和它的缩小图（图的 Original）算一样。
 func queuedPreview(m coreapi.Message) string {
 	line := strings.Join(strings.Fields(m.Text), " ")
-	extra := len(m.Images) + len(m.Files)
+	extra := len(m.Images)
+	for _, f := range m.Files {
+		if !slices.ContainsFunc(m.Images, func(im coreapi.Image) bool { return im.Original == f }) {
+			extra++
+		}
+	}
 	switch {
 	case line != "" && extra > 0:
 		return line + " +" + strconv.Itoa(extra)

@@ -157,6 +157,8 @@ type Image struct {
 	File string    `json:"file"` // session：会话记录的路径
 	Ref  string    `json:"ref"`  // session：在记录里的位置
 	URL  string    `json:"url"`  // linked：主机上的路径或网址
+	// Original：用户消息里这张图是 Files 里这一项（传上去的图片文件）的缩小图，两者画成一张；单独的图是空的。
+	Original string `json:"original"`
 }
 
 // CacheKey 是认这张图的键：同一张图在列表里出现几次、条目被整份换掉，都只取一次。

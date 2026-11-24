@@ -80,7 +80,9 @@ class IntakeSink(
         if (intake.uris.isNotEmpty()) addFiles(intake.uris.map(hub.platform::sharedFile))
     }
 
-    /** 撤回的排队消息（点了它，或按了停止）放回输入栏：文字接在已有草稿前面，附件和路径补上没有的；图片文件的缩小图配回文件上 （[ComposerDraft.pairInline]）。 */
+    /**
+     * 撤回的排队消息（点了它，或按了停止）放回输入栏：文字接在已有草稿前面，附件和路径补上没有的；图片文件的缩小图配回文件上 （[ComposerDraft.putBackImages]）。
+     */
     fun putBack(message: QueuedMessage) {
         val typed = draft.input.text.toString()
         draft.input.setTextAndPlaceCursorAtEnd(
@@ -89,7 +91,7 @@ class IntakeSink(
         message.files.forEach(draft.uploads::addPath)
         draft.attachments.addAll(
             draft
-                .pairInline(message.attachments, message.files)
+                .putBackImages(message.attachments)
                 .filter { a -> draft.attachments.none { it.id == a.id } }
                 .take(maxImages - draft.attachments.size),
         )

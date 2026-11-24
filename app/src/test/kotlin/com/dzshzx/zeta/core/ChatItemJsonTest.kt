@@ -74,6 +74,29 @@ class ChatItemJsonTest {
         assertEquals(listOf(CoreImage("c3", "t:0")), tool.images)
     }
 
+    /** 图片文件的缩小图带着 original（它是哪个附件的）：三种用户消息里的图都读得出、写得回。 */
+    @Test
+    fun imagesKeepTheirOriginal() {
+        val o =
+            Json.parseToJsonElement(
+                    """{"kind":"user","id":"u","files":["/w/a.jpg","/w/b.png","/w/c.gif"],"images":[""" +
+                        """{"kind":"inline","key":"a:1:0","original":"/w/a.jpg"},""" +
+                        """{"kind":"inline","key":"a:1:1","data":"AAAA","original":"/w/b.png"},""" +
+                        """{"kind":"session","file":"/s.jsonl","ref":"3.1","original":"/w/c.gif"},""" +
+                        """{"kind":"inline","key":"a:1:2","data":"BBBB"}]}""",
+                )
+                .jsonObject
+        val item = chatItemOf(o, conv = "c3") as UserItem
+        assertEquals(
+            listOf("/w/a.jpg", "/w/b.png", "/w/c.gif", null),
+            item.images.map { it.original },
+        )
+        assertEquals(
+            listOf("/w/a.jpg", "/w/b.png", "/w/c.gif", null),
+            (chatItemOf(chatItemJson(item), conv = "c3") as UserItem).images.map { it.original },
+        )
+    }
+
     /** 核心自己说的提示带种类码和参数（docs/i18n.md）：读出来、写回去不丢，按界面语言出字；别的种类的条目不读这两项。 */
     @Test
     fun noticesKeepTheirCodeAndArgs() {

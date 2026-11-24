@@ -3,11 +3,11 @@ package chatview
 import (
 	"encoding/base64"
 	"hash/fnv"
-	"path"
 	"regexp"
 	"strconv"
 	"strings"
 
+	"github.com/dzshzx/Zeta/windows/internal/attach"
 	"github.com/dzshzx/Zeta/windows/internal/chat/items"
 )
 
@@ -19,9 +19,6 @@ var (
 	markdownImage = regexp.MustCompile(`!\[[^\]]*]\(\s*<?([^)\s>]+)>?(?:\s+["'][^"']*["'])?\s*\)`)
 	codeFence     = regexp.MustCompile("(?s)```.*?(```|$)")
 )
-
-// imageSuffixes 是当作图片文件的扩展名（主机上的路径按它认）。
-var imageSuffixes = map[string]bool{"png": true, "jpg": true, "jpeg": true, "webp": true, "gif": true, "bmp": true, "heic": true, "avif": true}
 
 // maxAnswerImages：一段回答里最多直接显示几张图，多的原样留在正文里。
 const maxAnswerImages = 12
@@ -124,7 +121,7 @@ func linkedImage(target, cwd string) (items.Image, bool) {
 	default:
 		p = strings.TrimRight(cwd, "/") + "/" + strings.TrimPrefix(raw, "./")
 	}
-	if !imageSuffixes[strings.ToLower(strings.TrimPrefix(path.Ext(p), "."))] {
+	if !attach.IsImage(p) {
 		return items.Image{}, false
 	}
 	return items.Image{Kind: items.Linked, URL: p}, true

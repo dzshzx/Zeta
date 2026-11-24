@@ -115,7 +115,7 @@ func (c *Conversation) switchMode(p *process, mode string) {
 
 // stage：一条要发的消息先进列表（回答进行中时进排队，等 Claude Code 真正取走才进列表）。
 func (c *Conversation) stage(text string, images []Image, files []string) *outgoing {
-	m := &outgoing{uuid: newUUID(), text: text, images: images, files: files}
+	m := &outgoing{uuid: newUUID(), text: text, images: orderImages(images, files), files: files}
 	if c.busy {
 		c.queued = append(c.queued, m)
 	} else {

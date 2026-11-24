@@ -143,9 +143,8 @@ func (a *App) restoreDraft(p *chatPane, r drafts.Draft) {
 			if err != nil {
 				continue
 			}
-			// 编号沿用存着的，不重算
-			d := &draftImage{image: coreapi.Image{MediaType: im.Type, Data: data}, hash: im.ID}
-			d.thumb, _ = ui.DecodeBitmap(data)
+			d := newDraftImage(coreapi.Image{MediaType: im.Type, Data: data})
+			d.hash = im.ID // 编号沿用存着的，不重算
 			restored = append(restored, d)
 		}
 		// 查不成（连不上）时当作都还在

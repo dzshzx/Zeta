@@ -585,10 +585,12 @@ internal constructor(
                     JsonArray(
                         images.map {
                             JsonObject(
-                                mapOf(
-                                    "media_type" to JsonPrimitive(it.mediaType),
-                                    "data" to JsonPrimitive(it.data),
-                                ),
+                                buildMap {
+                                    put("media_type", JsonPrimitive(it.mediaType))
+                                    put("data", JsonPrimitive(it.data))
+                                    if (it.original.isNotEmpty())
+                                        put("original", JsonPrimitive(it.original))
+                                },
                             )
                         },
                     ),

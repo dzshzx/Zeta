@@ -25,13 +25,23 @@ import (
 // 输入栏里一张图只显示一个缩略图。「输入路径」引用设备上本来就有的。images 是旧消息、草稿里存着的内联图放回来时用的。
 // 收不了的（太大、读不了、太多）攒在 problems 里，弹框说一次。
 
-// draftImage 是输入栏里一张只有内联图的待发图：撤回、编辑的旧消息和草稿里存着的；新加的图片是带缩小图的 draftFile。
+// draftImage 是输入栏里一张内联图：单独的（撤回、编辑的旧消息和草稿里存着的，放在 attachments.images），
+// 或图片文件的缩小图（draftFile.shrunk）。
 type draftImage struct {
 	id    int
 	image coreapi.Image
 	thumb *ui.Bitmap // 解不开时是 nil，画一块灰
 	// hash 是内容的编号（草稿里存图的文件名），见 contentHash。
 	hash string
+}
+
+// thumbSide 是输入栏缩略图解出来的最长边（像素）：缩略图画 64 DIP，留够 200% 缩放下的清晰度，不留整张图的像素。
+const thumbSide = 128
+
+// newDraftImage 是要放进输入栏的一张图，缩略图从它解（解不开时 thumb 是 nil）。解图耗时，大图在后台调用。
+func newDraftImage(img coreapi.Image) *draftImage {
+	thumb, _ := ui.DecodeBitmapScaled(img.Data, thumbSide)
+	return &draftImage{image: img, thumb: thumb}
 }
 
 // contentHash 是图的内容编号：内容的哈希，同一张图在草稿里只存一份。第一次用时算好记着；从草稿恢复的沿用存着的编号。
@@ -52,16 +62,17 @@ type draftFile struct {
 	entry  string // 传好了的主机路径（/…）或引用（@…）
 	failed string // 没传成的原因
 	sent   int64  // 已传的字节数
-	// picture：是张图片，输入栏里画成缩略图；encoding 时缩小图还在做（做好才能发），inline 是做好的缩小图
-	// （随消息内联发），thumb 从它解；做不成时 picture 变回假，只当文件。
-	picture  bool
+	// encoding 时缩小图还在做（做好才能发）；shrunk 是做好的缩小图（随消息内联发，带着输入栏的缩略图）。
+	// 做不成时两样都空，只当文件。
 	encoding bool
-	inline   *coreapi.Image
-	thumb    *ui.Bitmap
+	shrunk   *draftImage
 	cancel   context.CancelFunc
 }
 
 func (f *draftFile) uploading() bool { return f.entry == "" && f.failed == "" }
+
+// picture：是张图片，输入栏里画成缩略图。
+func (f *draftFile) picture() bool { return f.encoding || f.shrunk != nil }
 
 // label 是附件上显示的字：正在传的带进度，没传成的注明。
 func (f *draftFile) label() string {
@@ -118,16 +129,18 @@ func (at *attachments) entries() []string {
 	return out
 }
 
-// pictures 是要随消息内联发的图：放回来的内联图，再是传好了的图片文件的缩小图，后者的顺序同 entries() 里
-// 这些文件的顺序（Claude 靠顺序对上原图）。
+// pictures 是要随消息内联发的图：放回来的单独的图，和传好了的图片文件的缩小图（Original 是它的附件说明，
+// 排序由核心做）。
 func (at *attachments) pictures() []coreapi.Image {
 	var out []coreapi.Image
 	for _, im := range at.images {
 		out = append(out, im.image)
 	}
 	for _, f := range at.files {
-		if f.entry != "" && f.inline != nil {
-			out = append(out, *f.inline)
+		if f.entry != "" && f.shrunk != nil {
+			img := f.shrunk.image
+			img.Original = f.entry
+			out = append(out, img)
 		}
 	}
 	return out
@@ -248,27 +261,29 @@ func (a *App) uploadFile(p *chatPane, u host.Upload, name string, size int64) {
 		p.att.report(attach.TooLargeReason(name, size), true)
 		return
 	}
-	f := &draftFile{name: name, size: size, picture: attach.IsImage(name)}
-	f.encoding = f.picture
+	f := &draftFile{name: name, size: size, encoding: attach.IsImage(name)}
 	a.startUpload(p, u, f)
-	if !f.picture {
+	if !f.encoding {
 		return
 	}
 	a.async(func() func() {
 		im, err := shrunkImage(u)
 		return func() {
 			f.encoding = false
-			if err != nil {
-				f.picture = false
-				return
+			if err == nil {
+				f.shrunk = im
 			}
-			f.inline, f.thumb = &im.image, im.thumb
 		}
 	})
 }
 
+// encodeSlots 限制同时做缩小图的个数：一次选很多张大图时不同时整张解码，占住几倍的内存。
+var encodeSlots = make(chan struct{}, 2)
+
 // shrunkImage 是要传的图片的缩小图：读本机的原文件或粘贴的数据（编码和解缩略图都耗时，在后台调用）。
 func shrunkImage(u host.Upload) (*draftImage, error) {
+	encodeSlots <- struct{}{}
+	defer func() { <-encodeSlots }()
 	data := u.Data
 	if u.Local != "" {
 		var err error
@@ -280,8 +295,7 @@ func shrunkImage(u host.Upload) (*draftImage, error) {
 	if err != nil {
 		return nil, err
 	}
-	thumb, _ := ui.DecodeBitmap(img.Data)
-	return &draftImage{image: img, thumb: thumb}, nil
+	return newDraftImage(img), nil
 }
 
 // uploadFolder 把本机的文件夹整个传上去，传好后当文件夹引用（@路径/）。
@@ -350,45 +364,42 @@ func (a *App) paste(c *ui.Context, p *chatPane) bool {
 	return false
 }
 
-// putBack 把撤回的、没发出去的一条放回输入栏：文字接在已有的前面，图补上放得下的，附件说明补上没有的。
-// 传上去的图片文件带着的缩小图在 m.Images 的末尾、和这些文件同样的顺序（见 pictures），配回到文件上，不另放一份。
+// putBack 把撤回的、没发出去的一条放回输入栏：文字接在已有的前面，附件说明补上没有的，图补上放得下的。
+// 带 Original 的图是那个图片文件的缩小图，挂回文件上（文件不在输入栏里时先加上），不另放一份。
 func (p *chatPane) putBack(m coreapi.Message) {
+	at := &p.att
 	if m.Text != "" {
 		p.recall(m.Text)
 	}
 	for _, entry := range m.Files {
-		if !containsEntry(p.att.files, entry) {
-			p.att.files = append(p.att.files, p.att.newEntryFile(entry, ""))
-		}
+		at.entryFile(entry)
 	}
-	for _, img := range p.att.pairShrunk(m) {
-		if p.att.roomForImages() <= 0 {
-			break
+	for _, img := range m.Images {
+		if img.Original != "" {
+			if f := at.entryFile(img.Original); f.shrunk == nil {
+				f.shrunk = newDraftImage(img)
+			}
+			continue
 		}
-		im := &draftImage{id: p.att.id(), image: img}
-		im.thumb, _ = ui.DecodeBitmap(img.Data)
-		p.att.images = append(p.att.images, im)
+		if at.roomForImages() <= 0 {
+			continue
+		}
+		im := newDraftImage(img)
+		im.id = at.id()
+		at.images = append(at.images, im)
 	}
 }
 
-// splitShrunk 把 m 的图分成单独的内联图和传上去的图片文件的缩小图（按文件的附件说明）。图片文件比末尾的图多时
-// （有的没做成缩小图）对不上，都当单独的图。
-func splitShrunk(m coreapi.Message) ([]coreapi.Image, map[string]coreapi.Image) {
-	var pictures []string
-	for _, entry := range m.Files {
-		if !strings.HasPrefix(entry, "@") && attach.IsImage(entry) {
-			pictures = append(pictures, entry)
+// entryFile 是输入栏里附件说明为 entry 的文件，没有时加上一个。
+func (at *attachments) entryFile(entry string) *draftFile {
+	for _, f := range at.files {
+		if f.entry == entry {
+			return f
 		}
 	}
-	if len(pictures) == 0 || len(pictures) > len(m.Images) {
-		return m.Images, nil
-	}
-	own := len(m.Images) - len(pictures)
-	shrunk := map[string]coreapi.Image{}
-	for i, entry := range pictures {
-		shrunk[entry] = m.Images[own+i]
-	}
-	return m.Images[:own], shrunk
+	f := at.newEntryFile(entry, "")
+	at.files = append(at.files, f)
+	return f
 }
 
 // newEntryFile 是一个已经在设备上的附件（传好了的路径或引用）：name 是小标签上的名字，空着时按路径取。
@@ -397,15 +408,6 @@ func (at *attachments) newEntryFile(entry, name string) *draftFile {
 		name = attach.EntryName(entry)
 	}
 	return &draftFile{id: at.id(), name: name, size: -1, folder: strings.HasPrefix(entry, "@") && strings.HasSuffix(entry, "/"), entry: entry}
-}
-
-func containsEntry(files []*draftFile, entry string) bool {
-	for _, f := range files {
-		if f.entry == entry {
-			return true
-		}
-	}
-	return false
 }
 
 // attachProblems 告诉用户哪些没有加进来、为什么（同手机版的 IntakeProblemsDialog）。
@@ -427,16 +429,4 @@ func (a *App) attachProblems(c *ui.Context, p *chatPane) {
 	if !open {
 		at.problems, at.tooLarge = nil, false
 	}
-}
-
-// pairShrunk 把 m 里传上去的图片文件的缩小图配回输入栏里已有的这些文件（见 splitShrunk），返回剩下的单独的图。
-func (at *attachments) pairShrunk(m coreapi.Message) []coreapi.Image {
-	images, shrunk := splitShrunk(m)
-	for _, f := range at.files {
-		if img, ok := shrunk[f.entry]; ok && f.inline == nil {
-			f.picture, f.inline = true, &img
-			f.thumb, _ = ui.DecodeBitmap(img.Data)
-		}
-	}
-	return images
 }

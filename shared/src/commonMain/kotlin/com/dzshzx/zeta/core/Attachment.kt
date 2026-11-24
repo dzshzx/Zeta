@@ -10,14 +10,20 @@ import java.io.OutputStream
 import java.util.Base64
 import java.util.UUID
 
-/** 随消息内联发给模型看的一张图片：已缩小并编码好，另带一张界面用的小图。用户选的图片另把原文件复制进主机，见 [FileUpload.inline]。 */
+/**
+ * 随消息内联发给模型看的一张图片：已缩小并编码好，另带一张界面用的小图。用户选的图片另把原文件复制进主机（[FileUpload.inline]）， 这时 [original]
+ * 是那个文件的附件说明（核心协议里图的 original）。
+ */
 @Immutable
 class Attachment(
     val id: String,
     val preview: ImageBitmap,
     val mediaType: String,
     val base64: String,
-)
+    val original: String? = null,
+) {
+    fun withOriginal(path: String) = Attachment(id, preview, mediaType, base64, path)
+}
 
 object Attachments {
     /** 长边上限：内联的只是让模型先看一眼，要细节时 Claude Code 去读原文件（见 [FileUpload.inline]）。 */
@@ -25,13 +31,19 @@ object Attachments {
     const val PREVIEW_EDGE = 360
 
     /** 已经编码好的一张图（草稿里存下的、会话记录里取回的）重新做成附件：内容原样发送，只另解一张界面用的小图。 解不开返回 null。耗时，别在主线程调用。 */
-    fun restore(id: String, mediaType: String, bytes: ByteArray): Attachment? = runCatching {
+    fun restore(
+        id: String,
+        mediaType: String,
+        bytes: ByteArray,
+        original: String? = null,
+    ): Attachment? = runCatching {
         val preview = ImageCodec.current.decodeWithin(bytes, PREVIEW_EDGE)
         Attachment(
             id,
             preview,
             mediaType,
             Base64.getEncoder().encodeToString(bytes),
+            original,
         )
     }
         .getOrNull()
@@ -40,8 +52,8 @@ object Attachments {
 /**
  * 要随消息送进对话所在主机的一个文件。复制完成后 [path] 才有值。
  *
- * 图片文件另有 [inline]：缩小的一份，随消息内联发给模型先看，原文件仍复制进主机，模型看不清时自己去读（核心起 Claude Code
- * 时的系统提示里说了这个对应）。输入栏只画它的缩略图；没有时（放回的、草稿里恢复的）缩略图从主机上的 [path] 取，只发文件。
+ * 图片文件另有 [inline]：缩小的一份，随消息内联发给模型先看（带上 original 指明是这个文件的），原文件仍复制进主机，模型看不清时
+ * 自己去读。输入栏只画它的缩略图；没有时（草稿里恢复的）缩略图从主机上的 [path] 取，只发文件。
  */
 class FileUpload(val id: String, val name: String) {
     var path by mutableStateOf<String?>(null)

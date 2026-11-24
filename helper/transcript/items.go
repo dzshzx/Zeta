@@ -128,6 +128,8 @@ type Image struct {
 	Data string `json:"data,omitempty"` // inline：base64
 	File string `json:"file,omitempty"` // session：会话记录
 	Ref  string `json:"ref,omitempty"`  // session：在记录里的位置（zeta-helper history 给的）
+	// Original 是这张图对应的原文件（消息里的一个附件说明）：它是那个图片文件的缩小图，客户端把两者画成一张。
+	Original string `json:"original,omitempty"`
 }
 
 // Patch 是改文件的工具的结果里 Claude Code 给出的改动（tool_use_result 的 structuredPatch）。

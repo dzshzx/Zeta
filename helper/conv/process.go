@@ -107,8 +107,9 @@ func (c *Conversation) phoneHolder() bool {
 	return false
 }
 
-// imagesHint 告诉模型客户端发图的规矩（两端的输入栏都这样发）：用户选的图片，原文件传到主机上、写进消息开头的附件行，
-// 另把缩小的一份内联在消息里先看。内联的那份长边只有约 1568，看不清时去读原文件。
+// imagesHint 告诉模型发图的规矩：用户选的图片，原文件传到主机上、写进消息开头的附件行，客户端另把缩小的一份
+// 随消息内联（Image.Original 指明是哪个文件的），orderImages 排在别的图后面、和附件行同序。内联的那份长边只有约 1568，
+// 看不清时去读原文件。
 const imagesHint = "When the user attaches image files ([Attached file: ...] lines), the message also carries a downscaled copy of each one as an inline image, " +
 	"after any other inline images and in the same order as those lines. If the inline copy is not enough for the task (small text, fine detail, exact pixels, metadata), " +
 	"read the original file with the Read tool or other tools instead of guessing."

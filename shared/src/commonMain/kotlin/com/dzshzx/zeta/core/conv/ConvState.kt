@@ -130,7 +130,13 @@ data class ConvMessage(
 )
 
 /** 随消息发的一张图：base64 的数据和它的 MIME 类型（helper/conv/message.go 的 Image）。 */
-@Immutable data class ConvImage(val mediaType: String, val data: String)
+@Immutable
+data class ConvImage(
+    val mediaType: String,
+    val data: String,
+    /** 这张图是消息 files 里这一项（复制进主机的图片文件）的缩小图；单独的图是空的。 */
+    val original: String = "",
+)
 
 /** 一个字段的读法：把推来的值放进状态。 */
 private typealias FieldReader = (ConvState, JsonElement) -> ConvState
@@ -210,7 +216,11 @@ internal fun convMessageOf(o: JsonObject): ConvMessage =
         text = o.str("text").orEmpty(),
         images =
             o.arr("images").orEmpty().filterIsInstance<JsonObject>().map {
-                ConvImage(it.str("media_type").orEmpty(), it.str("data").orEmpty())
+                ConvImage(
+                    it.str("media_type").orEmpty(),
+                    it.str("data").orEmpty(),
+                    it.str("original").orEmpty(),
+                )
             },
         files = o.strings("files"),
     )

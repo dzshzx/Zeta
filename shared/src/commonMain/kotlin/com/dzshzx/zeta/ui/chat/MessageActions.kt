@@ -138,12 +138,7 @@ class MessageActions(
                         images.map { reattach(hub, conversation.backend, it) }
                     }
                 if (editing !== turn) return@launch
-                // 都取回来了才配回图片文件上：少了一张顺序就对不上
-                val kept = restored.filterNotNull()
-                draft.attachments.addAll(
-                    if (kept.size == restored.size) draft.pairInline(kept, turn.user.files)
-                    else kept,
-                )
+                draft.attachments.addAll(draft.putBackImages(restored.filterNotNull()))
                 if (restored.any { it == null }) toast(Strings.composerImagesNotRestored())
             }
     }
@@ -421,6 +416,7 @@ private fun reattach(hub: ConversationHub, backend: String, ref: ImageRef): Atta
             UUID.randomUUID().toString(),
             mediaType,
             Base64.getMimeDecoder().decode(data),
+            ref.original,
         )
     }
     .getOrNull()

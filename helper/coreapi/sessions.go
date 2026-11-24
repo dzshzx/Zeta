@@ -112,6 +112,8 @@ func (cl *Client) SearchSessions(ctx context.Context, query string, search any) 
 type Image struct {
 	MediaType string `json:"media_type"`
 	Data      []byte `json:"data"`
+	// Original：这张图是消息 Files 里这一项（复制进主机的图片文件）的缩小图；单独的图是空的。
+	Original string `json:"original,omitempty"`
 }
 
 // SessionImage 取会话记录 file 里 ref 处的图片（sessions.image）。记录已经不在时 code 为 sessionproto.CodeNoSession。

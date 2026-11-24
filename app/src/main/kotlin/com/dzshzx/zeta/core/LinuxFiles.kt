@@ -66,11 +66,10 @@ object LinuxFiles {
     /** 图片经助手的 file-image 整个读进来（转成 base64 再解码，内存要翻几倍），再大的不预览。 */
     const val MAX_PREVIEW_IMAGE = 20L * 1024 * 1024
 
-    private val ImageExtensions = setOf("png", "jpg", "jpeg", "webp", "gif", "bmp", "heic", "avif")
     private val json = Json { ignoreUnknownKeys = true }
 
     fun isImage(name: String): Boolean =
-        name.substringAfterLast('.', "").lowercase() in ImageExtensions
+        name.substringAfterLast('.', "").lowercase() in AttachedPaths.ImageSuffixes
 
     /** 词法归一化成绝对路径，不解析符号链接；不合法的退回 /。 */
     fun normalize(path: String): String {

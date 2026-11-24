@@ -1,6 +1,7 @@
 package chatview
 
 import (
+	"encoding/base64"
 	"errors"
 	"slices"
 	"strings"
@@ -487,6 +488,20 @@ func TestNoticesAndFiles(t *testing.T) {
 	answer, _ := tt.Find("截图里的报错是端口没读到，改完以后测试通过。")
 	if bubble.X+bubble.W < answer.X+answer.W-40 {
 		t.Errorf("用户消息没靠右：气泡 %v，回答 %v", bubble, answer)
+	}
+}
+
+// 图片文件和它的缩小图（图的 original）画成一张：只画缩略图，不另画文件小标签；别的文件照常画。
+func TestPictureFileShownOnlyAsItsThumbnail(t *testing.T) {
+	data := base64.StdEncoding.EncodeToString(testPNG(t, 120, 80))
+	ch := New()
+	ch.SetItems([]items.Item{{Kind: items.User, ID: "u", Text: "看看",
+		Images: []items.Image{{Kind: items.Inline, Key: "k", Data: data, Original: "/f/1/海边.png"}},
+		Files:  []string{"/f/1/海边.png", "/f/2/需求.pdf"}}})
+	tt := newTester(ch, 700, 600, false)
+	settleImages(ch, tt)
+	if tt.HasText("海边.png") || !tt.HasText("需求.pdf") || !tt.HasText("看看") {
+		t.Errorf("小标签：海边.png %v，需求.pdf %v", tt.HasText("海边.png"), tt.HasText("需求.pdf"))
 	}
 }
 

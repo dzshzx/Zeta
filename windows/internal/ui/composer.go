@@ -130,10 +130,11 @@ func (a *App) composerAttachments(c *ui.Context, p *chatPane) {
 	ui.ScrollHorizontal(c.Key("attachments")).FillWidth().Children(func() {
 		ui.Row(c).Padding(2, 4, 6, 4).Gap(8).AlignItems(ui.Center).Children(func() {
 			for _, f := range at.files {
-				if f.picture {
-					attachedPicture(c.Key("file/"+strconv.Itoa(f.id)), f, func() { at.removeFile(f.id) })
+				fc, remove := c.Key("file/"+strconv.Itoa(f.id)), func() { at.removeFile(f.id) }
+				if f.picture() {
+					attachedPicture(fc, f, remove)
 				} else {
-					attachedFile(c.Key("file/"+strconv.Itoa(f.id)), f, func() { at.removeFile(f.id) })
+					attachedFile(fc, f, remove)
 				}
 			}
 			for _, im := range at.images {
@@ -185,7 +186,11 @@ func attachedPicture(c *ui.Context, f *draftFile, remove func()) {
 	case f.uploading() || f.encoding:
 		overlay = func() { ui.Spinner(c).Size(18, 18) }
 	}
-	thumbTile(c, f.thumb, f.label(), f.failed, overlay, remove)
+	var thumb *ui.Bitmap
+	if f.shrunk != nil {
+		thumb = f.shrunk.thumb
+	}
+	thumbTile(c, thumb, f.label(), f.failed, overlay, remove)
 }
 
 // thumbTile 是输入栏里的一块缩略图（64，12 的圆角）：thumb 是 nil 时是灰块，overlay 不是 nil 时盖一层半透明画上它，右上角是移除键。

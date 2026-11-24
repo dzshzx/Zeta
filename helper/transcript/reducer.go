@@ -361,6 +361,7 @@ func (r *Reducer) replayUser(blocks []Block, opts UserOptions) bool {
 		return true
 	}
 	files, text := splitAttachedFiles(raw)
+	PairOriginals(images, files)
 	if len(images) > 0 || len(files) > 0 || text != "" {
 		r.AddUser(text, images, files, opts.UUID).Peer = opts.Peer
 	}

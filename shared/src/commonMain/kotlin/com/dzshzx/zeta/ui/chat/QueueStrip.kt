@@ -183,12 +183,14 @@ private fun QueuedRow(
 @Composable
 private fun Preview(message: ConvMessage, onClick: () -> Unit, modifier: Modifier = Modifier) {
     val line = message.text.replace(Whitespace, " ").trim()
-    val extra = message.images.size + message.files.size
+    // 图片文件和它的缩小图算一个
+    val files = message.files.count { f -> message.images.none { it.original == f } }
+    val extra = message.images.size + files
     val text =
         when {
             line.isNotEmpty() -> line
             message.images.isNotEmpty() -> Strings.chatQueuedImages(message.images.size)
-            else -> Strings.chatQueuedFiles(message.files.size)
+            else -> Strings.chatQueuedFiles(files)
         }
     Row(
         modifier =

@@ -2,6 +2,7 @@ package transcript
 
 import (
 	"encoding/json"
+	"path"
 	"strconv"
 
 	"github.com/dzshzx/Zeta/helper/locales"
@@ -191,4 +192,30 @@ func parsePatch(result *ToolUseResult) *Patch {
 		}
 	}
 	return p
+}
+
+// imageSuffixes 是附件里当作图片文件的扩展名（同客户端认图片的那份）。
+var imageSuffixes = map[string]bool{".png": true, ".jpg": true, ".jpeg": true, ".webp": true, ".gif": true, ".bmp": true, ".heic": true, ".avif": true}
+
+// IsImageFile：附件说明 entry 是复制进来的图片文件（引用的路径不算：客户端只给复制进来的图片做缩小图）。
+func IsImageFile(entry string) bool {
+	return !strings.HasPrefix(entry, "@") && imageSuffixes[strings.ToLower(path.Ext(entry))]
+}
+
+// PairOriginals 给会话记录里的一条用户消息补上图和原文件的对应（Image.Original）：发的时候核心把图片文件的缩小图
+// 排在别的图后面、和附件行同序（见 conv 的 orderImages），所以末尾那几张就是。图比图片文件少时对不上，不补。
+func PairOriginals(images []Image, files []string) {
+	var originals []string
+	for _, f := range files {
+		if IsImageFile(f) {
+			originals = append(originals, f)
+		}
+	}
+	own := len(images) - len(originals)
+	if len(originals) == 0 || own < 0 {
+		return
+	}
+	for i, f := range originals {
+		images[own+i].Original = f
+	}
 }

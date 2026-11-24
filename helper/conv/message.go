@@ -4,6 +4,7 @@ import (
 	"crypto/rand"
 	"encoding/json"
 	"fmt"
+	"slices"
 
 	"github.com/dzshzx/Zeta/helper/transcript"
 )
@@ -12,6 +13,29 @@ import (
 type Image struct {
 	MediaType string `json:"media_type"`
 	Data      string `json:"data"`
+	// Original 是这张图对应的原文件（消息 files 里的一项）：它是那个图片文件的缩小图。见 orderImages。
+	Original string `json:"original,omitempty"`
+}
+
+// orderImages 排好一条消息里的图：单独的图在前，图片文件的缩小图在后、和 files 同序，模型照这个顺序对上原文件
+// （imagesHint）。Original 不在 files 里的当单独的图。
+func orderImages(images []Image, files []string) []Image {
+	var own, shrunk []Image
+	for _, im := range images {
+		if im.Original == "" || !slices.Contains(files, im.Original) {
+			im.Original = ""
+			own = append(own, im)
+		}
+	}
+	for _, f := range files {
+		for _, im := range images {
+			if im.Original == f {
+				shrunk = append(shrunk, im)
+				break
+			}
+		}
+	}
+	return append(own, shrunk...)
 }
 
 // outgoing 是一条要发给 Claude Code 的用户消息：回答进行中时先排队（queued），能发了再交给进程。
@@ -38,7 +62,7 @@ func nonNilSlice[T any](s []T) []T {
 func (m *outgoing) inlineImages() []transcript.Image {
 	var out []transcript.Image
 	for i, im := range m.images {
-		out = append(out, transcript.Image{Kind: "inline", Key: fmt.Sprintf("a:%s:%d", m.uuid, i), Data: im.Data})
+		out = append(out, transcript.Image{Kind: "inline", Key: fmt.Sprintf("a:%s:%d", m.uuid, i), Data: im.Data, Original: im.Original})
 	}
 	return out
 }

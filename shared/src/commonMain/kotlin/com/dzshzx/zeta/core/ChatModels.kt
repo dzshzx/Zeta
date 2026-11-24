@@ -44,24 +44,41 @@ data class UserItem(
 @Immutable
 sealed interface ImageRef {
     val key: String
+
+    /** 用户消息里的图是消息里这个附件（复制进主机的图片文件）的缩小图：气泡里两者画成一张。 */
+    val original: String?
+        get() = null
 }
 
 /** 数据就在手边：刚发出的附件、实时收到的工具结果、data: 地址。 */
-@Immutable class InlineImage(override val key: String, val base64: String) : ImageRef
+@Immutable
+class InlineImage(
+    override val key: String,
+    val base64: String,
+    override val original: String? = null,
+) : ImageRef
 
 /**
  * 实时收到、条目里只带了键没带数据的图（打开对话时声明了 [ConvOptions.imageRefs]，核心推来的就是这样）：显示时经核心的 `conv.image` 按对话在核心里的标识
  * [conv]（conv.state 的 key）和图的键 [image] 取。[key] 就是图的键，和带着数据时的 [InlineImage] 一样。
  */
 @Immutable
-data class CoreImage(val conv: String, val image: String) : ImageRef {
+data class CoreImage(
+    val conv: String,
+    val image: String,
+    override val original: String? = null,
+) : ImageRef {
     override val key: String
         get() = image
 }
 
 /** 存在会话记录里的图片，[ref] 是助手脚本给出的位置。 */
 @Immutable
-data class SessionImage(val file: String, val ref: String) : ImageRef {
+data class SessionImage(
+    val file: String,
+    val ref: String,
+    override val original: String? = null,
+) : ImageRef {
     override val key: String
         get() = "s:$file:$ref"
 }

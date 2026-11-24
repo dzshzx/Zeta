@@ -177,7 +177,8 @@ func (a *App) confirmed(cf *confirm) {
 	}
 }
 
-// reattach 把消息里的图还原成能再发出去的附件（几张同时取，顺序照旧），返回取回来的和取不回来的张数。阻塞，在后台调用。
+// reattach 把消息里的图还原成能再发出去的附件（几张同时取，顺序照旧，图片文件的缩小图带着 Original），返回取回来的和
+// 取不回来的张数。阻塞，在后台调用。
 func reattach(list []items.Image, load func(file, ref string) ([]byte, error), loadInline func(key string) ([]byte, error)) ([]coreapi.Image, int) {
 	got := make([]*coreapi.Image, len(list))
 	var wg sync.WaitGroup
@@ -185,7 +186,7 @@ func reattach(list []items.Image, load func(file, ref string) ([]byte, error), l
 		wg.Go(func() {
 			data, err := chatview.ImageBytes(im, load, loadInline)
 			if kind := http.DetectContentType(data); err == nil && strings.HasPrefix(kind, "image/") {
-				got[i] = &coreapi.Image{MediaType: kind, Data: data}
+				got[i] = &coreapi.Image{MediaType: kind, Data: data, Original: im.Original}
 			}
 		})
 	}
@@ -217,9 +218,6 @@ func (a *App) beginEdit(p *chatPane, user items.Item, later int) {
 		return func() {
 			if x.editing != editing {
 				return
-			}
-			if lost == 0 { // 少了图时顺序对不上，不配
-				images = p.att.pairShrunk(coreapi.Message{Images: images, Files: user.Files})
 			}
 			p.putBack(coreapi.Message{Images: images})
 			if lost > 0 {
