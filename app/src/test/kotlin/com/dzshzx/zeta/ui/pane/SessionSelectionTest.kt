@@ -107,7 +107,7 @@ class SessionSelectionTest {
         )
         assertEquals(Strings.chatEndSummaryActive(), endPrompt(listOf(b), busy).summary)
         assertEquals(
-            endConfirmSummary(external = true, occupant = null),
+            endConfirmSummary(external = true, occupant = null, busy = false),
             endPrompt(listOf(elsewhere), busy).summary,
         )
         assertEquals(

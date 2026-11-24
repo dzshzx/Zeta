@@ -54,9 +54,7 @@ fun endPrompt(sessions: List<SessionSummary>, isActive: (String) -> Boolean): En
     val one = sessions.singleOrNull()
     val summary =
         when {
-            one?.external == true -> endConfirmSummary(external = true, occupant = null)
-            one != null ->
-                if (busy) Strings.chatEndSummaryActive() else Strings.chatEndSummaryIdle()
+            one != null -> endConfirmSummary(one.external, occupant = null, busy = busy)
             busy -> Strings.sidebarEndManySummaryActive()
             else -> Strings.sidebarEndManySummaryIdle()
         }

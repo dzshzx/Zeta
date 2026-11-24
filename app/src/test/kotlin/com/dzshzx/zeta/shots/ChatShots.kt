@@ -55,7 +55,7 @@ class ChatShots : ShotTest() {
         }
     }
 
-    /** 结束还在进行的对话：先确认，会停掉在做的事。 */
+    /** 结束还在进行的对话：确认框说会停掉在做的事。 */
     @Test
     fun endRunningConversation() {
         val hub = Fixtures.readyHub(app)
@@ -66,6 +66,29 @@ class ChatShots : ShotTest() {
             prepare = {
                 tapNode(onNodeWithContentDescription("更多"))
                 tap("结束对话")
+            },
+        ) {
+            ChatScreen(
+                hub = hub,
+                onOpenPane = {},
+                onOpenSettings = {},
+                onOpenInstall = {},
+                onOpenLogin = {},
+            )
+        }
+    }
+
+    /** 结束闲着的对话也先确认（同侧栏），说明只说停掉背后的进程。 */
+    @Test
+    fun endIdleConversation() {
+        val hub = Fixtures.readyHub(app)
+        hub.showChat("改 README 的构建命令", oneTurn)
+        shoot(
+            "chat-end-confirm-idle",
+            prepare = {
+                tapNode(onNodeWithContentDescription("更多"))
+                tap("结束对话")
+                onNodeWithText("结束会停掉它背后的", substring = true).assertExists()
             },
         ) {
             ChatScreen(

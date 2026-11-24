@@ -96,6 +96,7 @@ import com.dzshzx.zeta.ui.components.coui2.ZetaIcons
 import com.dzshzx.zeta.ui.components.coui2.menuItem
 import com.dzshzx.zeta.ui.components.coui2.pageBlurSource
 import com.dzshzx.zeta.ui.components.coui2.rememberPageBlur
+import com.dzshzx.zeta.ui.components.rememberRetained
 import com.dzshzx.zeta.ui.components.whileStarted
 import com.dzshzx.zeta.ui.markdown.LocalTextFinder
 import com.dzshzx.zeta.ui.markdown.StreamingMarkdownStateCache
@@ -126,16 +127,12 @@ import kotlinx.coroutines.flow.drop
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 
-/** 结束当前对话：还在进行的（会停掉在做的事）和正在别处运行的（会停掉那边的进程）先经 [confirm] 确认，别的直接结束。 */
-private fun requestEnd(hub: ConversationHub, conversation: Conversation, confirm: () -> Unit) {
-    if (conversation.active || conversation.blockedByExternal) confirm() else hub.endCurrent()
-}
-
 /**
- * 结束确认框的说明：正在别处运行的（[external]）连那边的进程一起停掉，说得出在哪（[occupant]，核心查到的那边的样子，没查到是 null）时说在哪。同桌面版
- * `windows/internal/ui/sessionops.go` 的 endConfirmSummary。
+ * 结束一个对话的确认框说明（结束一律先问，顶栏和侧栏同一条规则）：正在别处运行的（[external]）连那边的进程一起停掉，说得出在哪 （[occupant]，核心查到的那边的样子，没查到是
+ * null）时说在哪；还在进行的（[busy]）一并停掉；闲着的只停掉背后的进程。 同桌面版 `windows/internal/ui/sessionops.go` 的
+ * endConfirmSummary。
  */
-fun endConfirmSummary(external: Boolean, occupant: Occupant?): String =
+fun endConfirmSummary(external: Boolean, occupant: Occupant?, busy: Boolean): String =
     if (external)
         spaceMixed(
             Strings.chatEndSummaryAt(
@@ -143,7 +140,7 @@ fun endConfirmSummary(external: Boolean, occupant: Occupant?): String =
                     ?: Strings.chatPlaceElsewhere(),
             ),
         )
-    else Strings.chatEndSummaryActive()
+    else if (busy) Strings.chatEndSummaryActive() else Strings.chatEndSummaryIdle()
 
 /**
  * 聊天页。根上是 COUI 的 Scaffold（页面上的对话框、菜单都画在它里面），顶栏是 COUI 的小顶栏，中间换成对话标题和模型切换。
@@ -174,7 +171,8 @@ fun ChatScreen(
     val usable = hub.usable(conversation.backend)
     val blur = rememberPageBlur()
     // 结束还在进行的、或正在别处运行的对话要先确认：会停掉在做的事、别处的进程
-    var confirmingEnd by remember(conversation) { mutableStateOf(false) }
+    // 结束确认框的说明，打开时定下（框开着时对话闲下来，说明也不跟着变）；null 是没开着
+    var endSummary by remember(conversation) { mutableStateOf<String?>(null) }
     Scaffold(
         modifier = Modifier.fillMaxSize(),
         containerColor = colors.background,
@@ -194,10 +192,17 @@ fun ChatScreen(
                     listState = listState.takeIf { usable },
                     onOpenPane = onOpenPane,
                     onNewChat = hub::startNew,
-                    onEnd =
-                        { requestEnd(hub, conversation) { confirmingEnd = true } }.takeIf {
-                            canEnd(hub, conversation)
-                        },
+                    onEnd = {
+                            endSummary =
+                                endConfirmSummary(
+                                    conversation.blockedByExternal,
+                                    conversation.occupant,
+                                    conversation.active,
+                                )
+                        }
+                            .takeIf {
+                                canEnd(hub, conversation)
+                            },
                     onOpenSettings = onOpenSettings,
                     onFind = find::open.takeIf { usable && conversation.hasItems },
                 )
@@ -247,17 +252,16 @@ fun ChatScreen(
                     onElicit = conversation::answerElicitation,
                 )
                 ConfirmDialog(
-                    show = confirmingEnd,
+                    show = endSummary != null,
                     title = Strings.chatEndTitle(),
-                    summary =
-                        endConfirmSummary(conversation.blockedByExternal, conversation.occupant),
+                    summary = rememberRetained(endSummary),
                     confirmText = Strings.chatEnd(),
                     destructive = true,
                     onConfirm = {
-                        confirmingEnd = false
+                        endSummary = null
                         if (hub.current === conversation) hub.endCurrent()
                     },
-                    onDismissRequest = { confirmingEnd = false },
+                    onDismissRequest = { endSummary = null },
                 )
             }
         }

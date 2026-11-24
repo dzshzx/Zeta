@@ -92,16 +92,24 @@ class SessionHandoffTest {
     @Test
     fun endConfirmSaysWhere() {
         assertTrue(
-            endConfirmSummary(true, Occupant("idle", app = "terminal", device = "work-pc"))
+            endConfirmSummary(
+                    true,
+                    Occupant("idle", app = "terminal", device = "work-pc"),
+                    busy = false,
+                )
                 .startsWith("它正在 work-pc 的终端里运行，结束会停掉那边的进程"),
         )
         assertTrue(
-            endConfirmSummary(true, Occupant("idle", app = "zeta", local = true))
+            endConfirmSummary(true, Occupant("idle", app = "zeta", local = true), busy = false)
                 .startsWith("它正在本机的 Zeta 里运行，"),
         )
-        assertTrue(endConfirmSummary(true, null).startsWith("它正在别处运行，"))
-        assertTrue(endConfirmSummary(true, Occupant("idle", app = "sdk-py")).startsWith("它正在别处运行，"))
-        assertTrue(endConfirmSummary(false, null).startsWith("它还在进行"))
+        assertTrue(endConfirmSummary(true, null, busy = false).startsWith("它正在别处运行，"))
+        assertTrue(
+            endConfirmSummary(true, Occupant("idle", app = "sdk-py"), busy = false)
+                .startsWith("它正在别处运行，"),
+        )
+        assertTrue(endConfirmSummary(false, null, busy = true).startsWith("它还在进行"))
+        assertTrue(endConfirmSummary(false, null, busy = false).startsWith("结束会停掉它背后的"))
     }
 
     @Test
