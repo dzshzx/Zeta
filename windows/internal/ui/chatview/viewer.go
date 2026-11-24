@@ -154,10 +154,11 @@ func (v *Viewer) View(c *ui.Context) bool {
 		}
 	}
 	ui.Overlay(c, func() {
-		page := ui.Themed(c, widget.Theme(true)).Absolute().Left(0).Top(0).Right(0).Bottom(0)
+		page := ui.Themed(c, widget.Theme(true)).Background(ui.Transparent).Absolute().Left(0).Top(0).Right(0).Bottom(0)
 		page = page.Modal().Role(ui.RoleDialog).Label(locales.ChatViewer())
 		page.Children(func() {
-			// 毛玻璃画在深色主题里面的一层：材质按包住它的主题决定压暗还是提亮，浅色窗口下也压暗
+			// 毛玻璃画在深色主题里面的一层：材质按包住它的主题决定压暗还是提亮，浅色窗口下也压暗。
+			// 这一层不铺主题底色（上面的 Transparent），否则毛玻璃采样到的只有这层纯黑底，遮罩一片黑
 			ui.Box(c).Absolute().Left(0).Top(0).Right(0).Bottom(0).PassThrough().Material(viewerGlass)
 			// 标题栏以下的遮罩，在最底层：点了关上。图所在的框、按钮、两条栏画在它上面，各自接各自的点击
 			ui.Box(c.Key("backdrop")).Absolute().Left(0).Right(0).Top(widget.TitleBarHeight).Bottom(0).HandleInput(v.backdropInput)

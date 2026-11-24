@@ -441,3 +441,27 @@ func TestViewerBackdropCloses(t *testing.T) {
 		t.Error("按下后拖开了，不该关上")
 	}
 }
+
+// 看大图的遮罩是毛玻璃，透出底下的聊天界面：浅色窗口里，遮罩上一点（窗口左边、标题栏以下）压暗后仍远比深色主题的底色亮。
+// 套深色配色的那一层要是铺了自己的底色，毛玻璃采样到的只有那层底色，遮罩就和这层底色一样黑。
+func TestViewerBackdropShowsThrough(t *testing.T) {
+	ch := New()
+	ch.LoadImage = func(file, ref string) ([]byte, error) { return testPNG(t, 300, 200), nil }
+	ch.SetItems(decodeItems(t, `[{"kind":"user","id":"u","text":"看图","images":[{"kind":"session","file":"/s.jsonl","ref":"1"}]}]`))
+	tt, w := viewerTester(ch, false, nil)
+	settleImages(ch, tt)
+	luma := func(x, y int) float64 {
+		p := tt.Image().RGBAAt(x, y)
+		return 0.2126*float64(p.R) + 0.7152*float64(p.G) + 0.0722*float64(p.B)
+	}
+	x, y := 30, 300 // 测试窗按 1 倍缩放画，DIP 就是像素
+	under := luma(x, y)
+	w.v = NewViewer(ch, ch.items[0].Images, 0)
+	tt.Frame()
+	got := luma(x, y)
+	b := widget.Theme(true).Background
+	dark := 0.2126*float64(b.R) + 0.7152*float64(b.G) + 0.0722*float64(b.B)
+	if got < dark+60 || got >= under {
+		t.Errorf("遮罩亮度 %.0f：底下是 %.0f，深色底色 %.0f，要在两者之间且比底色亮 60 以上", got, under, dark)
+	}
+}
