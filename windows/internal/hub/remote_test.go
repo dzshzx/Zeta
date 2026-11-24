@@ -100,7 +100,7 @@ func TestRemoteDropsDeadConnection(t *testing.T) {
 	}
 }
 
-// 额度：开着进程的对话借来问（conv.quota）；没有时读主机上存着的（quota.get）。
+// 额度：头一次先读主机上存着的（quota.get，核心说在用中转就不再问）；再借开着进程的对话问（conv.quota），没有时就是读到的那份。
 func TestQuotaAsksOpenProcess(t *testing.T) {
 	quota := func(link *hubtest.ChatLink) {
 		link.Took()
@@ -132,7 +132,7 @@ func TestQuotaAsksOpenProcess(t *testing.T) {
 	quota(f.link())
 	r.Quota.Refresh(true)
 	until("取完额度", func() bool { return !r.Quota.Refreshing() })
-	if got := f.link().Methods(); !slices.Equal(got, []string{"conv.quota", "quota.usage"}) {
+	if got := f.link().Methods(); !slices.Equal(got, []string{"quota.get", "conv.quota", "quota.usage"}) {
 		t.Fatalf("有对话时：%v", got)
 	}
 }
@@ -186,3 +186,27 @@ func TestOptionsFollowDeviceSettings(t *testing.T) {
 }
 
 var _ accounts.UsageSource = usageSource{}
+
+// 在用中转（核心的 quota.get 带 relay）：有开着进程的对话也不发 conv.quota、quota.usage，额度不显示。
+func TestQuotaSkipsRelay(t *testing.T) {
+	f, until := queuedFixture(t)
+	r := f.hub.Remote(f.id)
+	f.hub.NewChat()
+	until("打开对话", func() bool { return f.hub.Chat().Conv != nil })
+	f.take()
+	f.replay("turn")
+	f.link().Took()
+	f.link().OnCall(func(c hubtest.Call) (json.RawMessage, error) {
+		return json.RawMessage(`{"snapshot":null,"relay":"cpa"}`), nil
+	})
+	for range 2 {
+		r.Quota.Refresh(true)
+		until("取完额度", func() bool { return !r.Quota.Refreshing() })
+	}
+	if got := f.link().Methods(); !slices.Equal(got, []string{"quota.get", "quota.get"}) {
+		t.Fatalf("在用中转时：%v", got)
+	}
+	if r.Quota.Subscribed() || r.Quota.Relay() != "cpa" {
+		t.Fatalf("%q", r.Quota.Relay())
+	}
+}

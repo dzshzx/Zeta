@@ -490,7 +490,7 @@ func contextColor(k *widget.Colors, l usage.Level) ui.Color {
 
 // usageDetails 是用量弹出框的内容。
 func (a *App) usageDetails(c *ui.Context, p *chatPane) {
-	if r := a.hub.Remote(p.src.Backend); r != nil {
+	if r := a.hub.Remote(p.src.Backend); r != nil && r.Quota.Shown() { // 在用中转、还不知道时没有这一节
 		uiacct.QuotaDetails(c, r.Quota)
 		ui.Divider(c)
 	}

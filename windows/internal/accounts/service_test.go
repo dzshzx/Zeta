@@ -27,6 +27,14 @@ type fakeServe struct {
 	installed bool
 	quota     string // quota.get 回的 snapshot（JSON），空是 null
 	calls     []string
+	// 中转（relays_test.go）：在用的是 relay 时 current 为空；models、modelsErr 是 relay_models 回的；params 记下每个请求的参数。
+	relays    []coreapi.Relay
+	relay     string
+	models    []coreapi.RelayModel
+	modelsErr error
+	params    []map[string]any
+	// failQuota：quota.get 出错。
+	failQuota bool
 }
 
 type codeErr struct{ code, msg string }
@@ -50,7 +58,13 @@ func (f *fakeServe) Call(_ context.Context, method string, p map[string]any) (js
 	case "accounts.list":
 		out = f.state()
 	case "accounts.switch":
-		f.current = name
+		f.current, f.relay = name, ""
+		if slices.ContainsFunc(f.relays, func(r coreapi.Relay) bool { return r.Name == name }) {
+			f.current, f.relay = "", name
+		}
+	case "accounts.relay_save", "accounts.relay_remove", "accounts.relay_models":
+		f.params = append(f.params, p)
+		return f.relayCall(method, name, p)
 	case "accounts.save":
 		f.unknown.Name = "claude-c"
 		f.accounts = append(f.accounts, *f.unknown)
@@ -61,6 +75,12 @@ func (f *fakeServe) Call(_ context.Context, method string, p map[string]any) (js
 		}
 		f.accounts = slices.DeleteFunc(f.accounts, func(a coreapi.Account) bool { return a.Name == name })
 	case "quota.get":
+		if f.failQuota {
+			return nil, errors.New("连不上")
+		}
+		if f.relay != "" { // 在用中转时没有订阅额度
+			return json.RawMessage(`{"snapshot":null,"relay":"` + f.relay + `"}`), nil
+		}
 		return json.RawMessage(`{"snapshot":` + or(f.quota, "null") + `}`), nil
 	case "quota.usage":
 		raw, _ := json.Marshal(p["response"])
@@ -84,7 +104,11 @@ func or(s, def string) string {
 }
 
 func (f *fakeServe) state() coreapi.AccountList {
-	st := coreapi.AccountList{Current: f.unknown, Blocker: f.blocker}
+	st := coreapi.AccountList{Current: f.unknown, Blocker: f.blocker, Relays: []coreapi.Relay{}}
+	for _, r := range f.relays {
+		r.Current = r.Name == f.relay
+		st.Relays = append(st.Relays, r)
+	}
 	if f.unknown != nil {
 		st.Accounts = append(st.Accounts, *f.unknown)
 	}
@@ -156,9 +180,19 @@ func (f *fakeConvs) CloseIdle() bool {
 type source struct {
 	asked atomic.Int32
 	err   error
+	serve *fakeServe // 在用中转时同核心一样拒绝（errNoSubscription），不问 Claude Code
 }
 
 func (s *source) Usage(context.Context) (json.RawMessage, error) {
+	if s.serve != nil {
+		s.serve.mu.Lock()
+		relay := s.serve.relay
+		s.serve.calls = append(s.serve.calls, "conv.quota")
+		s.serve.mu.Unlock()
+		if relay != "" {
+			return nil, codeErr{coreapi.CodeNoSubscription, "这台设备正在用中转，没有订阅额度"}
+		}
+	}
 	s.asked.Add(1)
 	if s.err != nil {
 		return nil, s.err
@@ -200,6 +234,7 @@ type fixture struct {
 func newFixture() *fixture {
 	f := &fixture{serve: newServe(), convs: &fakeConvs{}, src: &source{}, loop: newLoop()}
 	f.prog = &program{serve: f.serve}
+	f.src.serve = f.serve
 	f.quota = NewQuota(coreapi.New(f.serve), f.src, f.loop.accounts(), nil)
 	f.svc = NewService(coreapi.New(f.serve), f.prog, f.convs, f.quota, f.loop.accounts())
 	return f

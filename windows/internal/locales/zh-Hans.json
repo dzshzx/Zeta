@@ -6027,5 +6027,216 @@
         "type": "String"
       }
     }
+  },
+  "accountsRelaysTitle": "中转",
+  "@accountsRelaysTitle": {
+    "description": "账号页「中转」一组的标题：经中转用 API 密钥访问模型。"
+  },
+  "accountsRelaysFooter": "Claude Code 经中转用 API 密钥访问模型，协议只有 Anthropic Messages。点一行换过去，和切换账号一样先关掉闲着的对话进程；在用中转时没有订阅额度。",
+  "@accountsRelaysFooter": {
+    "description": "账号页「中转」一组底下的说明。"
+  },
+  "accountsRelayAdd": "添加中转",
+  "@accountsRelayAdd": {
+    "description": "账号页「中转」一组最后一行，也是添加中转那一页的标题。"
+  },
+  "accountsRelaySummaryModel": "{url} · 默认模型 {model}",
+  "@accountsRelaySummaryModel": {
+    "description": "账号页中转一行的小字：地址和这个中转上新对话的默认模型。",
+    "placeholders": {
+      "url": {
+        "type": "String"
+      },
+      "model": {
+        "type": "String"
+      }
+    }
+  },
+  "accountsRelaySwitchTitle": "切换到中转 {name}？",
+  "@accountsRelaySwitchTitle": {
+    "description": "点中转一行后确认的对话框标题。",
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "accountsRelaySwitchMessage": "会先关掉这台设备上闲着的对话进程，对话内容不丢。之后这台上的新对话和终端里的 claude 都经这个中转，没有订阅额度。",
+  "@accountsRelaySwitchMessage": {
+    "description": "切换到中转的确认对话框的说明。"
+  },
+  "settingsAccountsRelay": "中转 {name}",
+  "@settingsAccountsRelay": {
+    "description": "设置侧栏一台设备的账号与额度右边的小字：这台在用中转。",
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "accountsRelayEditTitle": "编辑中转 {name}",
+  "@accountsRelayEditTitle": {
+    "description": "编辑中转那一页的标题。",
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "accountsRelayName": "名称",
+  "@accountsRelayName": {
+    "description": "中转编辑页：名称一行。"
+  },
+  "accountsRelayNameHint": "小写字母、数字和连字符",
+  "@accountsRelayNameHint": {
+    "description": "中转编辑页：添加时名称输入框的占位字。"
+  },
+  "accountsRelayNameFixed": "名称加好以后不能改",
+  "@accountsRelayNameFixed": {
+    "description": "中转编辑页：编辑时名称一行下面的小字。"
+  },
+  "accountsRelayUrl": "地址",
+  "@accountsRelayUrl": {
+    "description": "中转编辑页：地址一行。"
+  },
+  "accountsRelayKey": "密钥",
+  "@accountsRelayKey": {
+    "description": "中转编辑页：密钥一行。"
+  },
+  "accountsRelayKeyKeep": "留空不改",
+  "@accountsRelayKeyKeep": {
+    "description": "中转编辑页：编辑时密钥输入框的占位字。"
+  },
+  "accountsRelayKeyReadOnly": "密钥不是从文件读的，Zeta 改不了；在它的设置文件里改",
+  "@accountsRelayKeyReadOnly": {
+    "description": "中转编辑页：用户自己放的中转，密钥框灰着时下面的说明。"
+  },
+  "accountsRelayShowKey": "显示",
+  "@accountsRelayShowKey": {
+    "description": "中转编辑页：密钥框右边的按钮，显示密钥明文。"
+  },
+  "accountsRelayHideKey": "隐藏",
+  "@accountsRelayHideKey": {
+    "description": "中转编辑页：密钥框右边的按钮，把密钥遮起来。"
+  },
+  "accountsRelayModel": "默认模型",
+  "@accountsRelayModel": {
+    "description": "中转编辑页：默认模型一组的标题和输入框的读屏名字。"
+  },
+  "accountsRelayModelFooter": "写进这个中转的设置，盖过这台设备的新对话默认模型；对话里选的模型又盖过它。留空是不设。",
+  "@accountsRelayModelFooter": {
+    "description": "中转编辑页：默认模型一组底下的说明。"
+  },
+  "accountsRelayModelNone": "不设",
+  "@accountsRelayModelNone": {
+    "description": "中转编辑页：默认模型输入框空着时的占位字。"
+  },
+  "accountsRelayFetchModels": "获取模型列表",
+  "@accountsRelayFetchModels": {
+    "description": "中转编辑页：向中转要模型列表的按钮。"
+  },
+  "accountsRelayFetchNeeds": "填好地址和密钥后能获取模型列表",
+  "@accountsRelayFetchNeeds": {
+    "description": "中转编辑页：添加时还没填地址或密钥，获取模型列表的按钮点不了时的说明。"
+  },
+  "accountsRelayFetching": "正在获取模型列表",
+  "@accountsRelayFetching": {
+    "description": "中转编辑页：正在向中转要模型列表。"
+  },
+  "accountsRelayModelsFailed": "没取到模型列表：{error}",
+  "@accountsRelayModelsFailed": {
+    "description": "中转编辑页：获取模型列表没成，后面是原因。",
+    "placeholders": {
+      "error": {
+        "type": "String"
+      }
+    }
+  },
+  "accountsRelayModelsEmpty": "这个中转没有报模型",
+  "@accountsRelayModelsEmpty": {
+    "description": "中转编辑页：模型列表取到了但是空的。"
+  },
+  "accountsRelayModelsFilter": "筛选模型",
+  "@accountsRelayModelsFilter": {
+    "description": "中转编辑页：模型多时列表上面筛选框的占位字。"
+  },
+  "accountsRelayModelsNoMatch": "没有对得上的模型",
+  "@accountsRelayModelsNoMatch": {
+    "description": "中转编辑页：筛选后一个模型都不剩。"
+  },
+  "accountsRelayModelsMore": "还有 {count} 个，输入筛选",
+  "@accountsRelayModelsMore": {
+    "description": "中转编辑页：模型太多只列了一部分，最后一行说还有多少。",
+    "placeholders": {
+      "count": {
+        "type": "int",
+        "example": "120"
+      }
+    }
+  },
+  "accountsRelayModelChosen": "已选",
+  "@accountsRelayModelChosen": {
+    "description": "中转编辑页：模型列表里和输入框一样的那项右边的字。"
+  },
+  "accountsRelayClearModel": "清空",
+  "@accountsRelayClearModel": {
+    "description": "中转编辑页：清掉默认模型的按钮。"
+  },
+  "accountsRelayCurrentNote": "正在用这个中转：改了以后，新起的对话进程才用上。要删除先换到别的账号或中转。",
+  "@accountsRelayCurrentNote": {
+    "description": "中转编辑页：编辑的是在用的中转时下面的说明。"
+  },
+  "accountsRelaySaving": "正在保存 {name}",
+  "@accountsRelaySaving": {
+    "description": "中转编辑页：正在保存这个中转。",
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "accountsRelaySaveFailed": "没有保存：{error}",
+  "@accountsRelaySaveFailed": {
+    "description": "中转编辑页：保存没成，后面是原因。",
+    "placeholders": {
+      "error": {
+        "type": "String"
+      }
+    }
+  },
+  "accountsRelayRemoving": "正在删除 {name}",
+  "@accountsRelayRemoving": {
+    "description": "中转编辑页：正在删除这个中转。",
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "accountsRelayRemoveFailed": "没有删除：{error}",
+  "@accountsRelayRemoveFailed": {
+    "description": "中转编辑页：删除没成，后面是原因。",
+    "placeholders": {
+      "error": {
+        "type": "String"
+      }
+    }
+  },
+  "accountsRelayRemoveTitle": "删除中转 {name}？",
+  "@accountsRelayRemoveTitle": {
+    "description": "删除中转的确认对话框标题。",
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "accountsRelayRemoveMessage": "删掉这台设备上这个中转的设置，和 Zeta 给它存的密钥文件。",
+  "@accountsRelayRemoveMessage": {
+    "description": "删除中转的确认对话框的说明。"
+  },
+  "accountsRelayUrlNote": "要是 Anthropic Messages 协议的接入点；OpenAI 协议的上游请经能翻译的中转接入。",
+  "@accountsRelayUrlNote": {
+    "description": "中转编辑页：地址输入框下面的说明。"
   }
 }

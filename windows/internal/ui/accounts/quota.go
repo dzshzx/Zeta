@@ -8,7 +8,8 @@ import (
 	"github.com/egoist/mygo/ui"
 )
 
-// QuotaDetails 是额度的明细：标题和套餐、各个窗口、多久以前的数、刷新。聊天页的用量弹出框里用。
+// QuotaDetails 是额度的明细：标题和套餐、各个窗口、多久以前的数、刷新。聊天页的用量弹出框里用；不是订阅账号
+// （q.Subscribed 为假）时调用方不画它。
 func QuotaDetails(c *ui.Context, q *acct.Quota) {
 	k := widget.Of(c)
 	s, ok := q.Snapshot()

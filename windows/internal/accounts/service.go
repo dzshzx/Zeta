@@ -49,7 +49,8 @@ func (cl client) list(ctx context.Context) (st coreapi.AccountList, err error) {
 	return st, err
 }
 
-// Service 是一台主机的账号页背后的状态：那台上 claude-switch 管着哪些账号、当前是哪个、正在做什么、上一件事为什么没做成。
+// Service 是一台主机的账号页背后的状态：那台上 claude-switch 管着哪些账号和中转（relays.go）、当前是哪个、正在做什么、
+// 上一件事为什么没做成。
 // 换号和记下账号都改那台上 Linux 用户的 Claude Code 登录状态，两个 Zeta 和终端里的 claude 共用这一份，所以只在没有
 // 别的 Claude Code 进程开着时做（accounts.list 的 blocker）。
 //
@@ -67,10 +68,22 @@ type Service struct {
 	problem error
 }
 
-// NewService 返回一台主机的账号状态。convs 是本客户端在那台上的对话；quota 是那台的额度（换号后重取，可以为 nil）；
-// loop 是界面线程的两头（见 Loop）。
+// NewService 返回一台主机的账号状态。convs 是本客户端在那台上的对话；quota 是那台的额度（换号后重取，可以为 nil，
+// 读到的在用中转也告诉它）；loop 是界面线程的两头（见 Loop）。
 func NewService(core *coreapi.Client, program Program, convs Conversations, quota *Quota, loop Loop) *Service {
 	return &Service{cl: client{core, program}, convs: convs, quota: quota, loop: loop}
+}
+
+// setState 收下读到的账号（界面线程上），告诉额度在用的是不是中转。
+func (s *Service) setState(st coreapi.AccountList) {
+	s.state = &st
+	if s.quota != nil {
+		name := ""
+		if r := st.CurrentRelay(); r != nil {
+			name = r.Name
+		}
+		s.quota.follow(name)
+	}
 }
 
 // State 是读到的账号；还没读到时 ok 为 false。
@@ -107,9 +120,10 @@ func (s *Service) Refresh() {
 		defer cancel()
 		st, err := s.cl.list(ctx)
 		s.loop.Post(func() {
-			if err == nil {
-				s.state = &st
-			} else if s.working == nil {
+			switch {
+			case err == nil:
+				s.setState(st)
+			case s.working == nil:
 				s.problem = locales.Wrap(err, locales.AccountsReadFailed)
 			}
 		})
@@ -147,7 +161,7 @@ func (s *Service) Remove(target coreapi.Account) {
 		if err != nil {
 			err = locales.Wrap(err, locales.AccountsRemoveFailed)
 		}
-		s.finish(ctx, err)
+		s.finish(ctx, err, false, nil)
 	})
 }
 
@@ -171,7 +185,10 @@ func (s *Service) change(working func() string, op func(ctx context.Context, pro
 		case err != nil:
 			s.loop.Post(func() { s.working, s.problem = nil, locales.Wrap(err, locales.AccountsReadFailed) })
 		case st.Blocker != "":
-			s.loop.Post(func() { s.working, s.problem, s.state = nil, errors.New(st.Blocker), &st })
+			s.loop.Post(func() {
+				s.working, s.problem = nil, errors.New(st.Blocker)
+				s.setState(st)
+			})
 		default:
 			s.loop.Post(func() { s.closeAndChange(op) })
 		}
@@ -189,21 +206,25 @@ func (s *Service) closeAndChange(op func(ctx context.Context, program string) er
 		ctx, cancel := context.WithTimeout(context.Background(), opTimeout)
 		defer cancel()
 		err := s.cl.do(ctx, op)
-		if err == nil && s.quota != nil {
-			s.loop.Post(s.quota.switched)
-		}
-		s.finish(ctx, err)
+		s.finish(ctx, err, err == nil, nil)
 	})
 }
 
-// finish 收下一件事的结果（err 为 nil 是做成了），重读账号。
-func (s *Service) finish(ctx context.Context, err error) {
+// finish 收下一件事的结果（err 为 nil 是做成了），重读账号。switched：登录状态换了，额度在读完账号（知道在用的是不是
+// 中转）以后重取；done 在做成时最后调（可以为 nil）。
+func (s *Service) finish(ctx context.Context, err error, switched bool, done func()) {
 	st, listErr := s.cl.list(ctx)
 	s.loop.Post(func() {
 		s.working = nil
 		if listErr == nil {
-			s.state = &st
+			s.setState(st)
 		}
 		s.problem = err
+		if switched && s.quota != nil {
+			s.quota.switched()
+		}
+		if err == nil && done != nil {
+			done()
+		}
 	})
 }

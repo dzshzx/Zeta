@@ -15072,3 +15072,553 @@ func AboutLicenseGoStdlib(version string) string {
 func (msgs Messages) AboutLicenseGoStdlib(version string) string {
 	return Catalog.Format(msgs.locale, "aboutLicenseGoStdlib", map[string]any{"version": version})
 }
+
+// AccountsRelaysTitle says "中转"
+// in the language the app shows.
+//
+// 账号页「中转」一组的标题：经中转用 API
+// 密钥访问模型。
+func AccountsRelaysTitle() string { return In(i18n.Locale()).AccountsRelaysTitle() }
+
+// AccountsRelaysTitle says "中转"
+// in the language of msgs.
+//
+// 账号页「中转」一组的标题：经中转用 API
+// 密钥访问模型。
+func (msgs Messages) AccountsRelaysTitle() string {
+	return Catalog.Format(msgs.locale, "accountsRelaysTitle", nil)
+}
+
+// AccountsRelaysFooter says "Claude Code 经中转用 API 密钥访问模型，协议只有 Anthropic Messages…"
+// in the language the app shows.
+//
+// 账号页「中转」一组底下的说明。
+func AccountsRelaysFooter() string { return In(i18n.Locale()).AccountsRelaysFooter() }
+
+// AccountsRelaysFooter says "Claude Code 经中转用 API 密钥访问模型，协议只有 Anthropic Messages…"
+// in the language of msgs.
+//
+// 账号页「中转」一组底下的说明。
+func (msgs Messages) AccountsRelaysFooter() string {
+	return Catalog.Format(msgs.locale, "accountsRelaysFooter", nil)
+}
+
+// AccountsRelayAdd says "添加中转"
+// in the language the app shows.
+//
+// 账号页「中转」一组最后一行，也是添加中转那一页的标题。
+func AccountsRelayAdd() string { return In(i18n.Locale()).AccountsRelayAdd() }
+
+// AccountsRelayAdd says "添加中转"
+// in the language of msgs.
+//
+// 账号页「中转」一组最后一行，也是添加中转那一页的标题。
+func (msgs Messages) AccountsRelayAdd() string {
+	return Catalog.Format(msgs.locale, "accountsRelayAdd", nil)
+}
+
+// AccountsRelaySummaryModel says "{url} · 默认模型 {model}"
+// in the language the app shows.
+//
+// 账号页中转一行的小字：地址和这个中转上新对话的默认模型。
+func AccountsRelaySummaryModel(url string, model string) string {
+	return In(i18n.Locale()).AccountsRelaySummaryModel(url, model)
+}
+
+// AccountsRelaySummaryModel says "{url} · 默认模型 {model}"
+// in the language of msgs.
+//
+// 账号页中转一行的小字：地址和这个中转上新对话的默认模型。
+func (msgs Messages) AccountsRelaySummaryModel(url string, model string) string {
+	return Catalog.Format(msgs.locale, "accountsRelaySummaryModel", map[string]any{"url": url, "model": model})
+}
+
+// AccountsRelaySwitchTitle says "切换到中转 {name}？"
+// in the language the app shows.
+//
+// 点中转一行后确认的对话框标题。
+func AccountsRelaySwitchTitle(name string) string {
+	return In(i18n.Locale()).AccountsRelaySwitchTitle(name)
+}
+
+// AccountsRelaySwitchTitle says "切换到中转 {name}？"
+// in the language of msgs.
+//
+// 点中转一行后确认的对话框标题。
+func (msgs Messages) AccountsRelaySwitchTitle(name string) string {
+	return Catalog.Format(msgs.locale, "accountsRelaySwitchTitle", map[string]any{"name": name})
+}
+
+// AccountsRelaySwitchMessage says "会先关掉这台设备上闲着的对话进程，对话内容不丢。之后这台上的新对话和终端里的 cl…"
+// in the language the app shows.
+//
+// 切换到中转的确认对话框的说明。
+func AccountsRelaySwitchMessage() string { return In(i18n.Locale()).AccountsRelaySwitchMessage() }
+
+// AccountsRelaySwitchMessage says "会先关掉这台设备上闲着的对话进程，对话内容不丢。之后这台上的新对话和终端里的 cl…"
+// in the language of msgs.
+//
+// 切换到中转的确认对话框的说明。
+func (msgs Messages) AccountsRelaySwitchMessage() string {
+	return Catalog.Format(msgs.locale, "accountsRelaySwitchMessage", nil)
+}
+
+// SettingsAccountsRelay says "中转 {name}"
+// in the language the app shows.
+//
+// 设置侧栏一台设备的账号与额度右边的小字：这台在用中转。
+func SettingsAccountsRelay(name string) string { return In(i18n.Locale()).SettingsAccountsRelay(name) }
+
+// SettingsAccountsRelay says "中转 {name}"
+// in the language of msgs.
+//
+// 设置侧栏一台设备的账号与额度右边的小字：这台在用中转。
+func (msgs Messages) SettingsAccountsRelay(name string) string {
+	return Catalog.Format(msgs.locale, "settingsAccountsRelay", map[string]any{"name": name})
+}
+
+// AccountsRelayEditTitle says "编辑中转 {name}"
+// in the language the app shows.
+//
+// 编辑中转那一页的标题。
+func AccountsRelayEditTitle(name string) string {
+	return In(i18n.Locale()).AccountsRelayEditTitle(name)
+}
+
+// AccountsRelayEditTitle says "编辑中转 {name}"
+// in the language of msgs.
+//
+// 编辑中转那一页的标题。
+func (msgs Messages) AccountsRelayEditTitle(name string) string {
+	return Catalog.Format(msgs.locale, "accountsRelayEditTitle", map[string]any{"name": name})
+}
+
+// AccountsRelayName says "名称"
+// in the language the app shows.
+//
+// 中转编辑页：名称一行。
+func AccountsRelayName() string { return In(i18n.Locale()).AccountsRelayName() }
+
+// AccountsRelayName says "名称"
+// in the language of msgs.
+//
+// 中转编辑页：名称一行。
+func (msgs Messages) AccountsRelayName() string {
+	return Catalog.Format(msgs.locale, "accountsRelayName", nil)
+}
+
+// AccountsRelayNameHint says "小写字母、数字和连字符"
+// in the language the app shows.
+//
+// 中转编辑页：添加时名称输入框的占位字。
+func AccountsRelayNameHint() string { return In(i18n.Locale()).AccountsRelayNameHint() }
+
+// AccountsRelayNameHint says "小写字母、数字和连字符"
+// in the language of msgs.
+//
+// 中转编辑页：添加时名称输入框的占位字。
+func (msgs Messages) AccountsRelayNameHint() string {
+	return Catalog.Format(msgs.locale, "accountsRelayNameHint", nil)
+}
+
+// AccountsRelayNameFixed says "名称加好以后不能改"
+// in the language the app shows.
+//
+// 中转编辑页：编辑时名称一行下面的小字。
+func AccountsRelayNameFixed() string { return In(i18n.Locale()).AccountsRelayNameFixed() }
+
+// AccountsRelayNameFixed says "名称加好以后不能改"
+// in the language of msgs.
+//
+// 中转编辑页：编辑时名称一行下面的小字。
+func (msgs Messages) AccountsRelayNameFixed() string {
+	return Catalog.Format(msgs.locale, "accountsRelayNameFixed", nil)
+}
+
+// AccountsRelayUrl says "地址"
+// in the language the app shows.
+//
+// 中转编辑页：地址一行。
+func AccountsRelayUrl() string { return In(i18n.Locale()).AccountsRelayUrl() }
+
+// AccountsRelayUrl says "地址"
+// in the language of msgs.
+//
+// 中转编辑页：地址一行。
+func (msgs Messages) AccountsRelayUrl() string {
+	return Catalog.Format(msgs.locale, "accountsRelayUrl", nil)
+}
+
+// AccountsRelayKey says "密钥"
+// in the language the app shows.
+//
+// 中转编辑页：密钥一行。
+func AccountsRelayKey() string { return In(i18n.Locale()).AccountsRelayKey() }
+
+// AccountsRelayKey says "密钥"
+// in the language of msgs.
+//
+// 中转编辑页：密钥一行。
+func (msgs Messages) AccountsRelayKey() string {
+	return Catalog.Format(msgs.locale, "accountsRelayKey", nil)
+}
+
+// AccountsRelayKeyKeep says "留空不改"
+// in the language the app shows.
+//
+// 中转编辑页：编辑时密钥输入框的占位字。
+func AccountsRelayKeyKeep() string { return In(i18n.Locale()).AccountsRelayKeyKeep() }
+
+// AccountsRelayKeyKeep says "留空不改"
+// in the language of msgs.
+//
+// 中转编辑页：编辑时密钥输入框的占位字。
+func (msgs Messages) AccountsRelayKeyKeep() string {
+	return Catalog.Format(msgs.locale, "accountsRelayKeyKeep", nil)
+}
+
+// AccountsRelayKeyReadOnly says "密钥不是从文件读的，Zeta 改不了；在它的设置文件里改"
+// in the language the app shows.
+//
+// 中转编辑页：用户自己放的中转，密钥框灰着时下面的说明。
+func AccountsRelayKeyReadOnly() string { return In(i18n.Locale()).AccountsRelayKeyReadOnly() }
+
+// AccountsRelayKeyReadOnly says "密钥不是从文件读的，Zeta 改不了；在它的设置文件里改"
+// in the language of msgs.
+//
+// 中转编辑页：用户自己放的中转，密钥框灰着时下面的说明。
+func (msgs Messages) AccountsRelayKeyReadOnly() string {
+	return Catalog.Format(msgs.locale, "accountsRelayKeyReadOnly", nil)
+}
+
+// AccountsRelayShowKey says "显示"
+// in the language the app shows.
+//
+// 中转编辑页：密钥框右边的按钮，显示密钥明文。
+func AccountsRelayShowKey() string { return In(i18n.Locale()).AccountsRelayShowKey() }
+
+// AccountsRelayShowKey says "显示"
+// in the language of msgs.
+//
+// 中转编辑页：密钥框右边的按钮，显示密钥明文。
+func (msgs Messages) AccountsRelayShowKey() string {
+	return Catalog.Format(msgs.locale, "accountsRelayShowKey", nil)
+}
+
+// AccountsRelayHideKey says "隐藏"
+// in the language the app shows.
+//
+// 中转编辑页：密钥框右边的按钮，把密钥遮起来。
+func AccountsRelayHideKey() string { return In(i18n.Locale()).AccountsRelayHideKey() }
+
+// AccountsRelayHideKey says "隐藏"
+// in the language of msgs.
+//
+// 中转编辑页：密钥框右边的按钮，把密钥遮起来。
+func (msgs Messages) AccountsRelayHideKey() string {
+	return Catalog.Format(msgs.locale, "accountsRelayHideKey", nil)
+}
+
+// AccountsRelayModel says "默认模型"
+// in the language the app shows.
+//
+// 中转编辑页：默认模型一组的标题和输入框的读屏名字。
+func AccountsRelayModel() string { return In(i18n.Locale()).AccountsRelayModel() }
+
+// AccountsRelayModel says "默认模型"
+// in the language of msgs.
+//
+// 中转编辑页：默认模型一组的标题和输入框的读屏名字。
+func (msgs Messages) AccountsRelayModel() string {
+	return Catalog.Format(msgs.locale, "accountsRelayModel", nil)
+}
+
+// AccountsRelayModelFooter says "…"
+// in the language the app shows.
+//
+// 中转编辑页：默认模型一组底下的说明。
+func AccountsRelayModelFooter() string { return In(i18n.Locale()).AccountsRelayModelFooter() }
+
+// AccountsRelayModelFooter says "…"
+// in the language of msgs.
+//
+// 中转编辑页：默认模型一组底下的说明。
+func (msgs Messages) AccountsRelayModelFooter() string {
+	return Catalog.Format(msgs.locale, "accountsRelayModelFooter", nil)
+}
+
+// AccountsRelayModelNone says "不设"
+// in the language the app shows.
+//
+// 中转编辑页：默认模型输入框空着时的占位字。
+func AccountsRelayModelNone() string { return In(i18n.Locale()).AccountsRelayModelNone() }
+
+// AccountsRelayModelNone says "不设"
+// in the language of msgs.
+//
+// 中转编辑页：默认模型输入框空着时的占位字。
+func (msgs Messages) AccountsRelayModelNone() string {
+	return Catalog.Format(msgs.locale, "accountsRelayModelNone", nil)
+}
+
+// AccountsRelayFetchModels says "获取模型列表"
+// in the language the app shows.
+//
+// 中转编辑页：向中转要模型列表的按钮。
+func AccountsRelayFetchModels() string { return In(i18n.Locale()).AccountsRelayFetchModels() }
+
+// AccountsRelayFetchModels says "获取模型列表"
+// in the language of msgs.
+//
+// 中转编辑页：向中转要模型列表的按钮。
+func (msgs Messages) AccountsRelayFetchModels() string {
+	return Catalog.Format(msgs.locale, "accountsRelayFetchModels", nil)
+}
+
+// AccountsRelayFetchNeeds says "填好地址和密钥后能获取模型列表"
+// in the language the app shows.
+//
+// 中转编辑页：添加时还没填地址或密钥，获取模型列表的按钮点不了时的说明。
+func AccountsRelayFetchNeeds() string { return In(i18n.Locale()).AccountsRelayFetchNeeds() }
+
+// AccountsRelayFetchNeeds says "填好地址和密钥后能获取模型列表"
+// in the language of msgs.
+//
+// 中转编辑页：添加时还没填地址或密钥，获取模型列表的按钮点不了时的说明。
+func (msgs Messages) AccountsRelayFetchNeeds() string {
+	return Catalog.Format(msgs.locale, "accountsRelayFetchNeeds", nil)
+}
+
+// AccountsRelayFetching says "正在获取模型列表"
+// in the language the app shows.
+//
+// 中转编辑页：正在向中转要模型列表。
+func AccountsRelayFetching() string { return In(i18n.Locale()).AccountsRelayFetching() }
+
+// AccountsRelayFetching says "正在获取模型列表"
+// in the language of msgs.
+//
+// 中转编辑页：正在向中转要模型列表。
+func (msgs Messages) AccountsRelayFetching() string {
+	return Catalog.Format(msgs.locale, "accountsRelayFetching", nil)
+}
+
+// AccountsRelayModelsFailed says "没取到模型列表：{error}"
+// in the language the app shows.
+//
+// 中转编辑页：获取模型列表没成，后面是原因。
+func AccountsRelayModelsFailed(error string) string {
+	return In(i18n.Locale()).AccountsRelayModelsFailed(error)
+}
+
+// AccountsRelayModelsFailed says "没取到模型列表：{error}"
+// in the language of msgs.
+//
+// 中转编辑页：获取模型列表没成，后面是原因。
+func (msgs Messages) AccountsRelayModelsFailed(error string) string {
+	return Catalog.Format(msgs.locale, "accountsRelayModelsFailed", map[string]any{"error": error})
+}
+
+// AccountsRelayModelsEmpty says "这个中转没有报模型"
+// in the language the app shows.
+//
+// 中转编辑页：模型列表取到了但是空的。
+func AccountsRelayModelsEmpty() string { return In(i18n.Locale()).AccountsRelayModelsEmpty() }
+
+// AccountsRelayModelsEmpty says "这个中转没有报模型"
+// in the language of msgs.
+//
+// 中转编辑页：模型列表取到了但是空的。
+func (msgs Messages) AccountsRelayModelsEmpty() string {
+	return Catalog.Format(msgs.locale, "accountsRelayModelsEmpty", nil)
+}
+
+// AccountsRelayModelsFilter says "筛选模型"
+// in the language the app shows.
+//
+// 中转编辑页：模型多时列表上面筛选框的占位字。
+func AccountsRelayModelsFilter() string { return In(i18n.Locale()).AccountsRelayModelsFilter() }
+
+// AccountsRelayModelsFilter says "筛选模型"
+// in the language of msgs.
+//
+// 中转编辑页：模型多时列表上面筛选框的占位字。
+func (msgs Messages) AccountsRelayModelsFilter() string {
+	return Catalog.Format(msgs.locale, "accountsRelayModelsFilter", nil)
+}
+
+// AccountsRelayModelsNoMatch says "没有对得上的模型"
+// in the language the app shows.
+//
+// 中转编辑页：筛选后一个模型都不剩。
+func AccountsRelayModelsNoMatch() string { return In(i18n.Locale()).AccountsRelayModelsNoMatch() }
+
+// AccountsRelayModelsNoMatch says "没有对得上的模型"
+// in the language of msgs.
+//
+// 中转编辑页：筛选后一个模型都不剩。
+func (msgs Messages) AccountsRelayModelsNoMatch() string {
+	return Catalog.Format(msgs.locale, "accountsRelayModelsNoMatch", nil)
+}
+
+// AccountsRelayModelsMore says "还有 {count} 个，输入筛选"
+// in the language the app shows.
+//
+// 中转编辑页：模型太多只列了一部分，最后一行说还有多少。
+func AccountsRelayModelsMore(count int) string {
+	return In(i18n.Locale()).AccountsRelayModelsMore(count)
+}
+
+// AccountsRelayModelsMore says "还有 {count} 个，输入筛选"
+// in the language of msgs.
+//
+// 中转编辑页：模型太多只列了一部分，最后一行说还有多少。
+func (msgs Messages) AccountsRelayModelsMore(count int) string {
+	return Catalog.Format(msgs.locale, "accountsRelayModelsMore", map[string]any{"count": count})
+}
+
+// AccountsRelayModelChosen says "已选"
+// in the language the app shows.
+//
+// 中转编辑页：模型列表里和输入框一样的那项右边的字。
+func AccountsRelayModelChosen() string { return In(i18n.Locale()).AccountsRelayModelChosen() }
+
+// AccountsRelayModelChosen says "已选"
+// in the language of msgs.
+//
+// 中转编辑页：模型列表里和输入框一样的那项右边的字。
+func (msgs Messages) AccountsRelayModelChosen() string {
+	return Catalog.Format(msgs.locale, "accountsRelayModelChosen", nil)
+}
+
+// AccountsRelayClearModel says "清空"
+// in the language the app shows.
+//
+// 中转编辑页：清掉默认模型的按钮。
+func AccountsRelayClearModel() string { return In(i18n.Locale()).AccountsRelayClearModel() }
+
+// AccountsRelayClearModel says "清空"
+// in the language of msgs.
+//
+// 中转编辑页：清掉默认模型的按钮。
+func (msgs Messages) AccountsRelayClearModel() string {
+	return Catalog.Format(msgs.locale, "accountsRelayClearModel", nil)
+}
+
+// AccountsRelayCurrentNote says "正在用这个中转：改了以后，新起的对话进程才用上。要删除先换到别的账号或中转。"
+// in the language the app shows.
+//
+// 中转编辑页：编辑的是在用的中转时下面的说明。
+func AccountsRelayCurrentNote() string { return In(i18n.Locale()).AccountsRelayCurrentNote() }
+
+// AccountsRelayCurrentNote says "正在用这个中转：改了以后，新起的对话进程才用上。要删除先换到别的账号或中转。"
+// in the language of msgs.
+//
+// 中转编辑页：编辑的是在用的中转时下面的说明。
+func (msgs Messages) AccountsRelayCurrentNote() string {
+	return Catalog.Format(msgs.locale, "accountsRelayCurrentNote", nil)
+}
+
+// AccountsRelaySaving says "正在保存 {name}"
+// in the language the app shows.
+//
+// 中转编辑页：正在保存这个中转。
+func AccountsRelaySaving(name string) string { return In(i18n.Locale()).AccountsRelaySaving(name) }
+
+// AccountsRelaySaving says "正在保存 {name}"
+// in the language of msgs.
+//
+// 中转编辑页：正在保存这个中转。
+func (msgs Messages) AccountsRelaySaving(name string) string {
+	return Catalog.Format(msgs.locale, "accountsRelaySaving", map[string]any{"name": name})
+}
+
+// AccountsRelaySaveFailed says "没有保存：{error}"
+// in the language the app shows.
+//
+// 中转编辑页：保存没成，后面是原因。
+func AccountsRelaySaveFailed(error string) string {
+	return In(i18n.Locale()).AccountsRelaySaveFailed(error)
+}
+
+// AccountsRelaySaveFailed says "没有保存：{error}"
+// in the language of msgs.
+//
+// 中转编辑页：保存没成，后面是原因。
+func (msgs Messages) AccountsRelaySaveFailed(error string) string {
+	return Catalog.Format(msgs.locale, "accountsRelaySaveFailed", map[string]any{"error": error})
+}
+
+// AccountsRelayRemoving says "正在删除 {name}"
+// in the language the app shows.
+//
+// 中转编辑页：正在删除这个中转。
+func AccountsRelayRemoving(name string) string { return In(i18n.Locale()).AccountsRelayRemoving(name) }
+
+// AccountsRelayRemoving says "正在删除 {name}"
+// in the language of msgs.
+//
+// 中转编辑页：正在删除这个中转。
+func (msgs Messages) AccountsRelayRemoving(name string) string {
+	return Catalog.Format(msgs.locale, "accountsRelayRemoving", map[string]any{"name": name})
+}
+
+// AccountsRelayRemoveFailed says "没有删除：{error}"
+// in the language the app shows.
+//
+// 中转编辑页：删除没成，后面是原因。
+func AccountsRelayRemoveFailed(error string) string {
+	return In(i18n.Locale()).AccountsRelayRemoveFailed(error)
+}
+
+// AccountsRelayRemoveFailed says "没有删除：{error}"
+// in the language of msgs.
+//
+// 中转编辑页：删除没成，后面是原因。
+func (msgs Messages) AccountsRelayRemoveFailed(error string) string {
+	return Catalog.Format(msgs.locale, "accountsRelayRemoveFailed", map[string]any{"error": error})
+}
+
+// AccountsRelayRemoveTitle says "删除中转 {name}？"
+// in the language the app shows.
+//
+// 删除中转的确认对话框标题。
+func AccountsRelayRemoveTitle(name string) string {
+	return In(i18n.Locale()).AccountsRelayRemoveTitle(name)
+}
+
+// AccountsRelayRemoveTitle says "删除中转 {name}？"
+// in the language of msgs.
+//
+// 删除中转的确认对话框标题。
+func (msgs Messages) AccountsRelayRemoveTitle(name string) string {
+	return Catalog.Format(msgs.locale, "accountsRelayRemoveTitle", map[string]any{"name": name})
+}
+
+// AccountsRelayRemoveMessage says "删掉这台设备上这个中转的设置，和 Zeta 给它存的密钥文件。"
+// in the language the app shows.
+//
+// 删除中转的确认对话框的说明。
+func AccountsRelayRemoveMessage() string { return In(i18n.Locale()).AccountsRelayRemoveMessage() }
+
+// AccountsRelayRemoveMessage says "删掉这台设备上这个中转的设置，和 Zeta 给它存的密钥文件。"
+// in the language of msgs.
+//
+// 删除中转的确认对话框的说明。
+func (msgs Messages) AccountsRelayRemoveMessage() string {
+	return Catalog.Format(msgs.locale, "accountsRelayRemoveMessage", nil)
+}
+
+// AccountsRelayUrlNote says "要是 Anthropic Messages 协议的接入点；OpenAI 协议的上游请经能翻译的中转接入。"
+// in the language the app shows.
+//
+// 中转编辑页：地址输入框下面的说明。
+func AccountsRelayUrlNote() string { return In(i18n.Locale()).AccountsRelayUrlNote() }
+
+// AccountsRelayUrlNote says "要是 Anthropic Messages 协议的接入点；OpenAI 协议的上游请经能翻译的中转接入。"
+// in the language of msgs.
+//
+// 中转编辑页：地址输入框下面的说明。
+func (msgs Messages) AccountsRelayUrlNote() string {
+	return Catalog.Format(msgs.locale, "accountsRelayUrlNote", nil)
+}

@@ -69,14 +69,12 @@ func (s *Service) SubmitCode(code string) {
 			if s.login == l {
 				s.login = nil
 			}
-			if err == nil && s.quota != nil {
-				s.quota.switched()
-			}
 		})
+		switched := err == nil
 		if err != nil {
 			err = locales.Wrap(err, locales.AccountsLoginFailed)
 		}
-		s.finish(ctx, err)
+		s.finish(ctx, err, switched, nil)
 	})
 }
 
@@ -90,6 +88,6 @@ func (s *Service) CancelLogin() {
 		ctx, cancel := context.WithTimeout(context.Background(), opTimeout)
 		defer cancel()
 		_ = s.cl.core.LoginCancel(ctx)
-		s.finish(ctx, nil)
+		s.finish(ctx, nil, false, nil)
 	})
 }

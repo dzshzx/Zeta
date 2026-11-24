@@ -28,6 +28,11 @@ type fakeServe struct {
 	unknown  *coreapi.Account
 	quota    bool // 主机上存着额度
 	calls    []string
+	// 中转（relay_test.go）：在用的是 relay 时 current 为空；models 是 relay_models 回的；params 记下 relay_* 的参数。
+	relays []coreapi.Relay
+	relay  string
+	models []coreapi.RelayModel
+	params []map[string]any
 }
 
 func (h *fakeServe) Call(_ context.Context, method string, p map[string]any) (json.RawMessage, error) {
@@ -40,7 +45,13 @@ func (h *fakeServe) Call(_ context.Context, method string, p map[string]any) (js
 	case "accounts.list":
 		out = h.state()
 	case "accounts.switch":
-		h.current = name
+		h.current, h.relay = name, ""
+		if slices.ContainsFunc(h.relays, func(r coreapi.Relay) bool { return r.Name == name }) {
+			h.current, h.relay = "", name
+		}
+	case "accounts.relay_save", "accounts.relay_remove", "accounts.relay_models":
+		h.params = append(h.params, p)
+		return h.relayCall(method, name, p)
 	case "accounts.save":
 		h.unknown.Name = "claude-c"
 		h.accounts = append(h.accounts, *h.unknown)
@@ -63,6 +74,9 @@ func (h *fakeServe) Call(_ context.Context, method string, p map[string]any) (js
 		}
 	case "accounts.login_cancel":
 	case "quota.get":
+		if h.relay != "" {
+			return json.RawMessage(`{"snapshot":null,"relay":"` + h.relay + `"}`), nil
+		}
 		if !h.quota {
 			return json.RawMessage(`{"snapshot":null}`), nil
 		}
@@ -84,6 +98,10 @@ func (e replyErr) Code() string  { return e.code }
 
 func (h *fakeServe) state() coreapi.AccountList {
 	st := coreapi.AccountList{Current: h.unknown}
+	for _, r := range h.relays {
+		r.Current = r.Name == h.relay
+		st.Relays = append(st.Relays, r)
+	}
 	if h.unknown != nil {
 		st.Accounts = append(st.Accounts, *h.unknown)
 	}
@@ -126,7 +144,7 @@ func (c *convs) CloseIdle() bool { return !c.busy }
 type source struct{ asked atomic.Int32 }
 
 func (s *source) Usage(context.Context) (json.RawMessage, error) {
-	s.asked.Add(1)
+	s.asked.Add(1) // 在用中转时 Quota 不该来问（relay_test.go 断言）
 	return json.RawMessage(`{"rate_limits_available":true}`), nil
 }
 

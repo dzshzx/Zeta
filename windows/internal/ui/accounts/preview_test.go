@@ -76,5 +76,32 @@ func TestPreviews(t *testing.T) {
 		tt = page(f)
 		f.until(t, tt, "读完", f.loaded)
 		shot("unknown", tt)
+
+		// 中转：账号页的中转一组；在用中转时的样子；编辑页（拉到模型列表、选了一个）
+		f = relayFixture()
+		f.host.relays = append(f.host.relays, coreapi.Relay{Name: "mine", BaseURL: "https://mine.example.com", HasKey: true})
+		tt = page(f)
+		f.until(t, tt, "读完", f.loaded)
+		shot("relays", tt)
+
+		f = relayFixture()
+		f.host.current, f.host.relay = "", "cpa"
+		tt = page(f)
+		f.until(t, tt, "读完", func() bool { _, ok := f.page.Accounts.State(); return ok && !f.page.Quota.Refreshing() })
+		shot("relay-current", tt)
+
+		f = relayFixture()
+		tt = page(f)
+		f.until(t, tt, "读完", f.loaded)
+		click(t, tt, "编辑")
+		click(t, tt, "获取模型列表")
+		f.until(t, tt, "拉到模型", func() bool { return tt.HasText("Claude Sonnet 4.5") })
+		shot("relay-edit", tt)
+
+		f = relayFixture()
+		tt = page(f)
+		f.until(t, tt, "读完", f.loaded)
+		click(t, tt, "添加中转")
+		shot("relay-add", tt)
 	}
 }

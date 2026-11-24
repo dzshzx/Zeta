@@ -14,7 +14,8 @@ import (
 	"github.com/egoist/mygo/ui"
 )
 
-// Page 是一台主机的「账号与额度」页：那台上当前账号的订阅额度，claude-switch 管着的几个账号，切换、记下、移除。
+// Page 是一台主机的「账号与额度」页：那台上当前账号的订阅额度，claude-switch 管着的几个账号，切换、记下、移除；
+// 中转（relay.go）的切换、添加、编辑、删除。
 // 切换改的是那台上 Linux 用户的 Claude Code 登录状态，两个 Zeta 和终端里的 claude 用的都是这一份；各台设备各管各的。
 // 添加账号：主机上跑登录命令，这里打开授权网页、收授权码（login.go）；在终端里登录的号也能在这里「记下」。
 type Page struct {
@@ -25,10 +26,19 @@ type Page struct {
 
 	switching, removing  coreapi.Account
 	askSwitch, askRemove bool
+
+	// 中转：要换过去的、在编辑的（草稿开着时整页换成编辑页）、编辑页上的模型筛选和密钥显不显示、要删的。
+	switchingRelay coreapi.Relay
+	askSwitchRelay bool
+	edit           *acct.RelayDraft
+	modelFilter    string
+	showKey        bool
+	removingRelay  string
+	askRemoveRelay bool
 }
 
-// View 画这一页（照手机版的账号与额度页：订阅额度、账号两组卡片）。第一次画时读一遍账号、数不够新就问一次额度；
-// 离开页面时上一次没做成的原因不再挂着。
+// View 画这一页（照手机版的账号与额度页：订阅额度、账号、中转三组卡片；在用中转时没有订阅额度一组），编辑中转时是编辑页。第一次画时读一遍账号、
+// 数不够新就问一次额度；离开页面时上一次没做成的原因不再挂着。
 func (p *Page) View(c *ui.Context) {
 	page := ui.Column(c.Key("accounts-page")).FillWidth()
 	ui.Local(page, "opened", func() bool {
@@ -38,8 +48,16 @@ func (p *Page) View(c *ui.Context) {
 	})
 	page.OnUnmount(p.Accounts.DismissProblem)
 	page.Children(func() {
+		if p.edit != nil {
+			p.editor(c, p.edit)
+			return
+		}
 		p.quota(c)
 		p.accounts(c)
+		p.relays(c)
+		if problem := p.Accounts.Problem(); problem != "" {
+			ui.Column(c).Padding(0, 16, 16, 16).Children(func() { widget.Notice(c, problem, widget.Failure) })
+		}
 	})
 	if widget.Alert(c, &p.askSwitch, locales.AccountsSwitchTitle(p.switching.Title()), locales.AccountsSwitchMessage(),
 		widget.Action{Label: locales.CommonCancel()}, widget.Action{Label: locales.AccountsSwitch(), Style: widget.Recommend}) == 1 {
@@ -49,10 +67,14 @@ func (p *Page) View(c *ui.Context) {
 		widget.Action{Label: locales.CommonCancel()}, widget.Action{Label: locales.CommonRemove(), Style: widget.Destructive}) == 1 {
 		p.Accounts.Remove(p.removing)
 	}
+	p.relayAlerts(c)
 }
 
 func (p *Page) quota(c *ui.Context) {
 	q := p.Quota
+	if !q.Shown() { // 在用中转（在用的那个在中转一组里写着「当前」）、还不知道时没有这一组
+		return
+	}
 	widget.Group(c, locales.AccountsQuotaTitle(), q.Footnote(c.Now()), func(l *widget.List) {
 		if s, ok := q.Snapshot(); ok && !s.Unavailable && len(s.Windows) > 0 {
 			l.Custom(func() {
@@ -77,7 +99,7 @@ func (p *Page) accounts(c *ui.Context) {
 		switch {
 		case !loaded:
 			l.Message(locales.CommonLoading())
-		case st.Current == nil && len(st.Accounts) == 0:
+		case st.Current == nil && len(st.Accounts) == 0 && st.CurrentRelay() == nil:
 			l.Message(locales.AccountsNotSignedIn())
 		}
 		for _, a := range st.Accounts {
@@ -101,9 +123,6 @@ func (p *Page) accounts(c *ui.Context) {
 	})
 	if l, ok := svc.Login(); ok {
 		p.login(c, l)
-	}
-	if problem := svc.Problem(); problem != "" {
-		ui.Column(c).Padding(0, 16, 16, 16).Children(func() { widget.Notice(c, problem, widget.Failure) })
 	}
 }
 

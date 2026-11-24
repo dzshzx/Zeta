@@ -31,6 +31,8 @@ type settingsFixture struct {
 	serve   *cfgtest.Serve
 	posts   chan func()
 	updates *fakeUpdates
+	// relay 不空时这台在用中转 relay（不是订阅账号）：账号里没有在用的，quota.get 带 relay，conv.quota 被拒。
+	relay string
 }
 
 func newSettingsFixture(t *testing.T) *settingsFixture {
@@ -69,6 +71,14 @@ func (f *settingsFixture) answer(c hubtest.Call) (json.RawMessage, error) {
 	switch {
 	case strings.HasPrefix(c.Method, "config."), strings.HasPrefix(c.Method, "diag."):
 		return f.serve.Call(context.Background(), c.Method, c.Params)
+	case c.Method == "accounts.list" && f.relay != "":
+		return json.RawMessage(`{"current":null,"accounts":[{"name":"claude","email":"a@example.com","subscription":"max"}],` +
+			`"procs":[],"relays":[{"name":"` + f.relay + `","baseUrl":"https://relay.example.com",` +
+			`"hasKey":true,"keyEditable":true,"current":true}]}`), nil
+	case c.Method == "conv.quota" && f.relay != "":
+		return nil, codedErr{"errNoSubscription", "这台设备正在用中转，没有订阅额度"}
+	case c.Method == "quota.get" && f.relay != "":
+		return json.RawMessage(`{"snapshot":null,"relay":"` + f.relay + `"}`), nil
 	case c.Method == "accounts.list":
 		return json.RawMessage(`{"current":{"name":"claude","email":"a@example.com","subscription":"max","current":true},` +
 			`"accounts":[{"name":"claude","email":"a@example.com","subscription":"max","current":true},` +
@@ -325,7 +335,7 @@ func (f *fixture) press(t *testing.T, name string) {
 	t.Fatalf("没有 %q；%q", name, f.tt.Texts())
 }
 
-// 聊天页的用量弹出框最上面是这台的订阅额度（同手机版），打开时借开着的进程问一次。
+// 聊天页的用量弹出框最上面是这台的订阅额度（同手机版），打开时先读存着的（核心据此说是不是订阅），再借开着的进程问一次。
 func TestUsagePopoverShowsQuota(t *testing.T) {
 	f := newSettingsFixture(t)
 	x := f.withHosts(t, "box")[0]
@@ -343,7 +353,7 @@ func TestUsagePopoverShowsQuota(t *testing.T) {
 	for _, c := range f.devices.Chat(x.ID).Took() {
 		methods = append(methods, c.Method)
 	}
-	if strings.Join(methods, " ") != "conv.quota quota.usage" {
+	if strings.Join(methods, " ") != "quota.get conv.quota quota.usage" {
 		t.Fatalf("问额度：%v", methods)
 	}
 }
@@ -365,4 +375,46 @@ func TestUpdateNotice(t *testing.T) {
 	f.clickButton(t, "关闭提示", 0)
 	f.tt.Frame()
 	f.notSee(t, "Zeta 0.9.0 已发布，可在设置中更新")
+}
+
+// codedErr 是核心答的带 code 的出错（同 hostlink.ReplyError）。
+type codedErr struct{ code, msg string }
+
+func (e codedErr) Error() string { return e.msg }
+func (e codedErr) Code() string  { return e.code }
+
+// 这台在用中转（不是订阅账号）：用量弹出框没有订阅额度一节，也不发 conv.quota、quota.usage；设置侧栏写在用的中转，
+// 账号页没有订阅额度一组，在用的中转那一行写「当前」。
+func TestRelayHidesQuota(t *testing.T) {
+	f := newSettingsFixture(t)
+	f.relay = "cpa"
+	x := f.withHosts(t, "box")[0]
+	f.click(t, "新对话")
+	f.until(t, "打开新对话", func() bool { c := f.hub.Chat(); return c != nil && c.Conv != nil })
+	for _, line := range hubtest.Recorded("turn", f.hub.Chat().Conv.Name()) {
+		f.devices.Chat(x.ID).Push(line)
+	}
+	f.until(t, "答完一轮", func() bool { return f.shows("上下文 0%") })
+	f.devices.Chat(x.ID).Took()
+	f.click(t, "上下文 0%")
+	f.until(t, "读完", func() bool { r := f.hub.Remote(x.ID); return !r.Quota.Refreshing() && r.Quota.Relay() == "cpa" })
+	f.see(t, "上下文", "本对话累计 · 1 轮")
+	f.notSee(t, "订阅额度", "86%", "Max")
+	for _, c := range f.devices.Chat(x.ID).Took() {
+		if c.Method == "conv.quota" || c.Method == "quota.usage" {
+			t.Fatalf("在用中转时问了额度：%s", c.Method)
+		}
+	}
+
+	f.click(t, "上下文 0%")
+	f.click(t, "设置")
+	f.until(t, "读到中转", func() bool { return f.shows("中转 cpa") })
+	f.notSee(t, "已用 86%")
+	f.click(t, "中转 cpa")
+	f.until(t, "账号页", func() bool { return f.shows("添加中转") })
+	f.see(t, "cpa", "当前", "https://relay.example.com", "a@example.com")
+	f.notSee(t, "每周 · 全部模型", "还没有登录")
+	if f.shows("订阅额度") || f.shows("刷新") { // 中转一组的说明里也有「订阅额度」几个字，按整段比
+		t.Fatalf("在用中转还显示额度：%q", f.tt.Texts())
+	}
 }

@@ -47,9 +47,12 @@ func (a *App) inSettings() bool { return a.page != pageHome && a.page != pageTas
 // leaveSettings 回到对话。
 func (a *App) leaveSettings() { a.page = pageHome }
 
-// escapeSettings 是设置里按 Esc：诊断页点开着一个日志文件时先回到清单，别的时候回到对话。
+// escapeSettings 是设置里按 Esc：诊断页点开着一个日志文件时先回到清单，账号页在编辑中转时先回到账号页，别的时候回到对话。
 func (a *App) escapeSettings() {
 	if a.page == pageDiag && a.diag != nil && a.diag.Back() {
+		return
+	}
+	if a.page == pageAccounts && a.acct != nil && a.acct.Back() {
 		return
 	}
 	a.leaveSettings()
@@ -96,12 +99,14 @@ func (a *App) settingsCategories(c *ui.Context) {
 	widget.NavItem(c, widget.IconInfo, locales.SettingsAbout(), hint, a.page == pageAbout).OnClick(func() { a.open(pageAbout) })
 }
 
-// accountsItem 是一台设备的账号与额度：名字是设备名，右边是最要紧的额度窗口用了多少；「连接」关着的那台写已断开，点不进去。
+// accountsItem 是一台设备的账号与额度：名字是设备名，右边是最要紧的额度窗口用了多少（在用中转时是中转名，不写额度）；「连接」关着的那台写已断开，点不进去。
 func (a *App) accountsItem(c *ui.Context, x sshlink.Host) {
 	r := a.hub.Remote(x.ID)
 	hint := offLabel(x)
 	if r != nil {
-		if h, ok := headline(r.Quota, c.Now()); ok {
+		if relay := r.Quota.Relay(); relay != "" {
+			hint = locales.SettingsAccountsRelay(relay)
+		} else if h, ok := headline(r.Quota, c.Now()); ok {
 			hint = locales.SettingsQuotaUsed(h.Percent())
 		}
 	}
@@ -142,10 +147,10 @@ func offLabel(x sshlink.Host) string {
 	return ""
 }
 
-// headline 是额度里最要紧的那个窗口；没有数、这种登录没有订阅额度时 ok 为 false。
+// headline 是额度里最要紧的那个窗口；没有数、这种登录没有订阅额度、在用中转时 ok 为 false。
 func headline(q *acct.Quota, now time.Time) (coreapi.QuotaWindow, bool) {
 	s, ok := q.Snapshot()
-	if !ok {
+	if !ok || !q.Shown() {
 		return coreapi.QuotaWindow{}, false
 	}
 	s = s.At(now)
@@ -258,7 +263,10 @@ func (a *App) accountsPage(c *ui.Context) {
 		return
 	}
 	title := locales.SettingsAccounts()
-	if len(a.hub.Hosts()) > 1 {
+	switch {
+	case a.acct.Title() != "": // 在编辑中转
+		title = a.acct.Title()
+	case len(a.hub.Hosts()) > 1:
 		title = locales.SettingsAccountsOnDevice(x.Name())
 	}
 	a.subPage(c, title, "accounts", func() { a.acct.View(c) })
