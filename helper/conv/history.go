@@ -59,7 +59,8 @@ func readHistory(out []byte, file, prefix string, keepRunningTools bool) history
 		case h.Type == "system" && h.Subtype == "compact_boundary":
 			r.AddNoticeMsg(usage.CompactNotice(line), false)
 		case h.Type == "system" && h.Subtype == "hook_context":
-			r.AddNoticeMsg(locales.M("noticeHookContext", "event", h.HookEvent, "text", h.Text), false)
+			// 原文只在参数里放一份，不再另写进 text 给旧客户端兜底
+			r.AddNoticeMsg(locales.M("noticeHookContext", "event", h.HookEvent, "text", h.Text), false).Text = ""
 		case h.Type == "assistant" && h.Message != nil:
 			r.ApplyAssistant(*h.Message, true)
 		case h.Type == "user" && h.Message != nil:

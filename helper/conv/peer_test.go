@@ -18,7 +18,7 @@ func TestHistoryHookContextNotice(t *testing.T) {
 		`{"type":"system","subtype":"hook_context","hook_event":"SessionStart","text":"仓库信息"}` + "\n")
 	items := readHistory(out, "/s.jsonl", "h", false).reducer.Items
 	if len(items) != 2 || items[1].Kind != "notice" || items[1].Code != "noticeHookContext" ||
-		items[1].Args["event"] != "SessionStart" || items[1].Args["text"] != "仓库信息" {
+		items[1].Args["event"] != "SessionStart" || items[1].Args["text"] != "仓库信息" || items[1].Text != "" {
 		t.Fatalf("条目 %+v", items)
 	}
 }
