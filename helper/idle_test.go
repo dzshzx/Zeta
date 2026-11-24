@@ -61,7 +61,7 @@ func idleLimitInScript(t *testing.T, e *env) string {
 		t.Fatal("zeta_host.sh 里没有 idle_limit")
 	}
 	cmd := exec.Command("bash", "-c", fn+"\nidle_limit")
-	cmd.Env = append(os.Environ(), "ZETA_IDLE_LIMIT=", "HOME="+e.home, "ZETA_NAME="+e.name)
+	cmd.Env = append(os.Environ(), "BASH_ENV=", "ZETA_IDLE_LIMIT=", "HOME="+e.home, "ZETA_NAME="+e.name)
 	out, err := cmd.Output()
 	if err != nil {
 		t.Fatal(err)

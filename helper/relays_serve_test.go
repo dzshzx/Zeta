@@ -100,7 +100,8 @@ func TestResumeCommandRelaySettings(t *testing.T) {
 			t.Fatalf("交给 shell 的参数 %q", args)
 		}
 		cmd := exec.Command("bash", append([]string{"-c"}, args[1:]...)...)
-		cmd.Env = append(os.Environ(), "PATH="+bin+":"+os.Getenv("PATH"), "ANTHROPIC_BASE_URL="+c.baseURL)
+		// BASH_ENV 置空：跑测试的人的 shell 配置（比如给 claude 套一层、按当前中转加 --settings 的函数）不能混进来
+		cmd.Env = append(os.Environ(), "BASH_ENV=", "PATH="+bin+":"+os.Getenv("PATH"), "ANTHROPIC_BASE_URL="+c.baseURL)
 		out, err := cmd.Output()
 		if err != nil || strings.TrimSpace(string(out)) != c.want {
 			t.Errorf("%+v：%q %v", c, out, err)
