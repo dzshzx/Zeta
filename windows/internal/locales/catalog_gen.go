@@ -7875,6 +7875,34 @@ func (msgs Messages) SessionEndBusyMany() string {
 	return Catalog.Format(msgs.locale, "sessionEndBusyMany", nil)
 }
 
+// SessionEndIdle says "结束会停掉它背后的 Claude Code 进程。"
+// in the language the app shows.
+//
+// 结束一个闲着的对话前确认框说明的前半句。
+func SessionEndIdle() string { return In(i18n.Locale()).SessionEndIdle() }
+
+// SessionEndIdle says "结束会停掉它背后的 Claude Code 进程。"
+// in the language of msgs.
+//
+// 结束一个闲着的对话前确认框说明的前半句。
+func (msgs Messages) SessionEndIdle() string {
+	return Catalog.Format(msgs.locale, "sessionEndIdle", nil)
+}
+
+// SessionEndIdleMany says "结束会停掉它们背后的 Claude Code 进程。"
+// in the language the app shows.
+//
+// 结束几个都闲着的对话前确认框说明的前半句。
+func SessionEndIdleMany() string { return In(i18n.Locale()).SessionEndIdleMany() }
+
+// SessionEndIdleMany says "结束会停掉它们背后的 Claude Code 进程。"
+// in the language of msgs.
+//
+// 结束几个都闲着的对话前确认框说明的前半句。
+func (msgs Messages) SessionEndIdleMany() string {
+	return Catalog.Format(msgs.locale, "sessionEndIdleMany", nil)
+}
+
 // SessionEndExternal says "它正在{place}运行，结束会停掉那边的进程，那边在做的也一并停掉。"
 // in the language the app shows.
 //

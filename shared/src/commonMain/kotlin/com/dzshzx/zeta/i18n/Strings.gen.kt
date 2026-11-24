@@ -50,6 +50,13 @@ object Strings {
     fun chatEndSummaryActive(): String = catalog.say("chatEndSummaryActive")
 
     /**
+     * 「结束会停掉它背后的 Claude Code 进程。对话内容保留，可以从历史对话里接着聊。」
+     *
+     * 结束确认框的说明：对话闲着（侧栏里结束一个闲着的对话时）。
+     */
+    fun chatEndSummaryIdle(): String = catalog.say("chatEndSummaryIdle")
+
+    /**
      * 「别处」
      *
      * 占着会话的进程在哪说不出时，接在「它正在」「会话正在」后面。
@@ -255,7 +262,7 @@ object Strings {
     /**
      * 「结束对话」
      *
-     * 聊天页右上角菜单：结束当前对话（同终端里的 /exit）。
+     * 聊天页右上角菜单和侧栏一行的长按菜单：结束这个对话（同终端里的 /exit）。
      */
     fun chatEndChat(): String = catalog.say("chatEndChat")
 
@@ -3424,6 +3431,34 @@ object Strings {
     fun sidebarDeleteManySummary(): String = catalog.say("sidebarDeleteManySummary")
 
     /**
+     * 「结束」
+     *
+     * 多选时底部的按钮：结束选中的、还在运行的对话（同终端里的 /exit）。
+     */
+    fun sidebarEnd(): String = catalog.say("sidebarEnd")
+
+    /**
+     * 「结束 {count} 个对话？」
+     *
+     * 多选结束的确认框标题；count 是选中的里还在运行的个数。
+     */
+    fun sidebarEndMany(count: Int): String = catalog.say("sidebarEndMany", mapOf("count" to count))
+
+    /**
+     * 「其中有还在进行（在回答、等你确认或有后台任务）或在别处运行的，结束会一并停掉。对话内容保留，可以从历史对话里接着聊。」
+     *
+     * 多选结束的确认框说明：其中有还在进行或在别处运行的。
+     */
+    fun sidebarEndManySummaryActive(): String = catalog.say("sidebarEndManySummaryActive")
+
+    /**
+     * 「结束会停掉它们背后的 Claude Code 进程。对话内容保留，可以从历史对话里接着聊。」
+     *
+     * 多选结束的确认框说明：都闲着。
+     */
+    fun sidebarEndManySummaryIdle(): String = catalog.say("sidebarEndManySummaryIdle")
+
+    /**
      * 「另有 {count} 个正在进行的对话不会删除。」
      *
      * 多选删除的确认框说明的第二行：有几个正在进行的不删。
@@ -5907,6 +5942,13 @@ object Strings {
      * 结束 Zeta 之外占着会话的 Claude Code 失败（toast）。
      */
     fun coreSessionsEndElsewhereFailed(error: String): String = catalog.say("coreSessionsEndElsewhereFailed", mapOf("error" to error))
+
+    /**
+     * 「结束对话没成功：{error}」
+     *
+     * 侧栏里结束一个没开着的对话（sessions.end）失败（toast）。
+     */
+    fun coreSessionsEndFailed(error: String): String = catalog.say("coreSessionsEndFailed", mapOf("error" to error))
 
     /**
      * 「{hours} 小时 {minutes} 分」

@@ -30,6 +30,10 @@
   "@chatEndSummaryActive": {
     "description": "结束确认框的说明：对话还在这里进行。"
   },
+  "chatEndSummaryIdle": "结束会停掉它背后的 Claude Code 进程。对话内容保留，可以从历史对话里接着聊。",
+  "@chatEndSummaryIdle": {
+    "description": "结束确认框的说明：对话闲着（侧栏里结束一个闲着的对话时）。"
+  },
   "chatPlaceElsewhere": "别处",
   "@chatPlaceElsewhere": {
     "description": "占着会话的进程在哪说不出时，接在「它正在」「会话正在」后面。"
@@ -198,7 +202,7 @@
   },
   "chatEndChat": "结束对话",
   "@chatEndChat": {
-    "description": "聊天页右上角菜单：结束当前对话（同终端里的 /exit）。"
+    "description": "聊天页右上角菜单和侧栏一行的长按菜单：结束这个对话（同终端里的 /exit）。"
   },
   "chatFindInChat": "在对话中查找",
   "@chatFindInChat": {
@@ -2724,6 +2728,27 @@
   "@sidebarDeleteManySummary": {
     "description": "多选删除的确认框说明。"
   },
+  "sidebarEnd": "结束",
+  "@sidebarEnd": {
+    "description": "多选时底部的按钮：结束选中的、还在运行的对话（同终端里的 /exit）。"
+  },
+  "sidebarEndMany": "结束 {count} 个对话？",
+  "@sidebarEndMany": {
+    "description": "多选结束的确认框标题；count 是选中的里还在运行的个数。",
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "sidebarEndManySummaryActive": "其中有还在进行（在回答、等你确认或有后台任务）或在别处运行的，结束会一并停掉。对话内容保留，可以从历史对话里接着聊。",
+  "@sidebarEndManySummaryActive": {
+    "description": "多选结束的确认框说明：其中有还在进行或在别处运行的。"
+  },
+  "sidebarEndManySummaryIdle": "结束会停掉它们背后的 Claude Code 进程。对话内容保留，可以从历史对话里接着聊。",
+  "@sidebarEndManySummaryIdle": {
+    "description": "多选结束的确认框说明：都闲着。"
+  },
   "sidebarDeleteManySkipped": "另有 {count} 个正在进行的对话不会删除。",
   "@sidebarDeleteManySkipped": {
     "description": "多选删除的确认框说明的第二行：有几个正在进行的不删。",
@@ -4922,6 +4947,15 @@
       "error": {
         "type": "String",
         "example": "连接超时"
+      }
+    }
+  },
+  "coreSessionsEndFailed": "结束对话没成功：{error}",
+  "@coreSessionsEndFailed": {
+    "description": "侧栏里结束一个没开着的对话（sessions.end）失败（toast）。",
+    "placeholders": {
+      "error": {
+        "type": "String"
       }
     }
   },

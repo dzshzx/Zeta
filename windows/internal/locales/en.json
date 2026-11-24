@@ -544,6 +544,8 @@
   "sessionEndButton": "End",
   "sessionEndBusy": "It's still in progress (answering, waiting for you, or running background tasks). Ending it stops that too.",
   "sessionEndBusyMany": "Some of them are still in progress (answering, waiting for you, or running background tasks) or running elsewhere. Ending them stops that too.",
+  "sessionEndIdle": "Ending it stops the Claude Code process behind it.",
+  "sessionEndIdleMany": "Ending them stops the Claude Code processes behind them.",
   "sessionEndExternal": "It's running {place}. Ending it stops the process there, along with whatever it's doing.",
   "sessionEndElsewhere": "elsewhere",
   "sessionEndConfirm": "{what} The conversation is kept, so you can continue it from history later.",

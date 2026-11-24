@@ -15,6 +15,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.dzshzx.zeta.core.SessionSummary
 import com.dzshzx.zeta.i18n.Strings
+import com.dzshzx.zeta.ui.chat.endConfirmSummary
 import io.github.suqi8.coui.kmp.basic.ButtonDefaults
 import io.github.suqi8.coui.kmp.basic.Text
 import io.github.suqi8.coui.kmp.basic.TextButton
@@ -22,7 +23,7 @@ import io.github.suqi8.coui.kmp.icon.COUIIcons
 import io.github.suqi8.coui.kmp.icon.extended.Close
 import io.github.suqi8.coui.kmp.theme.COUITheme
 
-// 侧栏的多选：选几条会话，一起归档或取消归档、导出、删除。做法照 Eta 模型列表的多选：
+// 侧栏的多选：选几条会话，一起归档或取消归档、导出、结束、删除。做法照 Eta 模型列表的多选：
 // 顶部换成“已选 N 个”和全选，底部换成操作按钮，返回键退出多选。
 
 /** [scope]（当前看得到的那些会话）是不是都选上了。 */
@@ -38,6 +39,30 @@ fun toggleAll(selected: Set<String>, scope: List<SessionSummary>): Set<String> {
 /** 底部那个按钮是归档（true）还是取消归档（false）：选中的全是已归档的才是取消归档。 */
 fun archiveAction(chosen: List<SessionSummary>): Boolean =
     chosen.isEmpty() || !chosen.all { it.archived }
+
+/** 选中的会话里能结束的：还在运行的（[SessionSummary.live]），已经结束的跳过。 */
+fun endable(chosen: List<SessionSummary>): List<SessionSummary> = chosen.filter { it.live }
+
+/**
+ * 结束 [sessions] 的确认框，打开那一刻定下标题和说明：一个时说它在别处运行（会停掉那边的进程）、还在进行还是闲着；几个时说
+ * 其中有没有还在进行或在别处运行的。侧栏里结束一律先问：列表上看不出它在做什么，一点就停掉不合适。
+ */
+data class EndPrompt(val sessions: List<SessionSummary>, val title: String, val summary: String)
+
+fun endPrompt(sessions: List<SessionSummary>, isActive: (String) -> Boolean): EndPrompt {
+    val busy = sessions.any { it.external || isActive(it.id) }
+    val one = sessions.singleOrNull()
+    val summary =
+        when {
+            one?.external == true -> endConfirmSummary(external = true, occupant = null)
+            one != null ->
+                if (busy) Strings.chatEndSummaryActive() else Strings.chatEndSummaryIdle()
+            busy -> Strings.sidebarEndManySummaryActive()
+            else -> Strings.sidebarEndManySummaryIdle()
+        }
+    val title = if (one != null) Strings.chatEndTitle() else Strings.sidebarEndMany(sessions.size)
+    return EndPrompt(sessions, title, summary)
+}
 
 /** 选中的会话里能删的：正在进行的（Zeta 里在跑、等确认、后台任务没完，或别处的 Claude Code 开着它）不删。 */
 fun deletable(
@@ -119,18 +144,20 @@ fun SelectionHeader(
     }
 }
 
-/** 多选时的底部：归档或取消归档、导出、删除（红色）。没选中时都不能点。 */
+/** 多选时的底部：归档或取消归档、导出、结束、删除（红色）。没选中时都不能点，选中的都已结束时「结束」不能点。 */
 @Composable
 fun SelectionActions(
     count: Int,
     archive: Boolean,
     onArchive: () -> Unit,
     onExport: () -> Unit,
+    canEnd: Boolean,
+    onEnd: () -> Unit,
     onDelete: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
     val enabled = count > 0
-    // 侧栏窄，三个按钮并排时“取消归档”要放得下：不要 COUI 按钮默认的 132dp 最小宽度，左右留白也收窄
+    // 侧栏窄，四个按钮并排时“取消归档”要放得下：不要 COUI 按钮默认的 132dp 最小宽度，左右留白也收窄
     val padding = PaddingValues(horizontal = 8.dp, vertical = 8.dp)
     val error = COUITheme.colorScheme.error
     Row(
@@ -150,6 +177,14 @@ fun SelectionActions(
             text = Strings.sidebarExport(),
             onClick = onExport,
             enabled = enabled,
+            minWidth = 0.dp,
+            insideMargin = padding,
+            modifier = Modifier.weight(1f),
+        )
+        TextButton(
+            text = Strings.sidebarEnd(),
+            onClick = onEnd,
+            enabled = enabled && canEnd,
             minWidth = 0.dp,
             insideMargin = padding,
             modifier = Modifier.weight(1f),

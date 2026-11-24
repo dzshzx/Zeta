@@ -1,6 +1,8 @@
 package com.dzshzx.zeta.ui.pane
 
 import com.dzshzx.zeta.core.SessionSummary
+import com.dzshzx.zeta.i18n.Strings
+import com.dzshzx.zeta.ui.chat.endConfirmSummary
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNull
@@ -90,5 +92,36 @@ class SessionSelectionTest {
             Regex("Zeta-设置-\\d{8}-\\d{4}\\.json")
                 .matches(exportFileName("设置", now = 0L, extension = "json")),
         )
+    }
+
+    @Test
+    fun endSkipsEndedSessionsAndSaysWhatStops() {
+        val ended = session("d").copy(live = false)
+        val elsewhere = session("e", external = true)
+        assertEquals(listOf(a, b), endable(listOf(a, ended, b)))
+
+        val busy = setOf("b")::contains
+        assertEquals(
+            EndPrompt(listOf(a), Strings.chatEndTitle(), Strings.chatEndSummaryIdle()),
+            endPrompt(listOf(a), busy),
+        )
+        assertEquals(Strings.chatEndSummaryActive(), endPrompt(listOf(b), busy).summary)
+        assertEquals(
+            endConfirmSummary(external = true, occupant = null),
+            endPrompt(listOf(elsewhere), busy).summary,
+        )
+        assertEquals(
+            EndPrompt(
+                listOf(a, b),
+                Strings.sidebarEndMany(2),
+                Strings.sidebarEndManySummaryActive(),
+            ),
+            endPrompt(listOf(a, b), busy),
+        )
+        assertEquals(
+            Strings.sidebarEndManySummaryActive(),
+            endPrompt(listOf(a, elsewhere), busy).summary,
+        )
+        assertEquals(Strings.sidebarEndManySummaryIdle(), endPrompt(listOf(a, c), busy).summary)
     }
 }

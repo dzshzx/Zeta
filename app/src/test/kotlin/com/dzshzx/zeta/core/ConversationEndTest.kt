@@ -111,6 +111,55 @@ class ConversationEndTest {
         assertNull(hub.current.sessionId)
     }
 
+    /**
+     * 侧栏里一起结束几个（[ConversationHub.endSessions]）：正看着的照顶栏的结束对话换成空的新对话，切到后台还在跑的停掉，
+     * 这边没开着的请核心结束（sessions.end），已经结束的跳过，没选的不受影响。
+     */
+    @Test
+    fun endingSessionsFromThePane() {
+        val hub = Fixtures.readyHub(app)
+        val core = FakeCore().install(hub)
+        val sent = CopyOnWriteArrayList<FakeCore.Call>()
+        core.respond = { call ->
+            sent += call
+            core.defaultReply(call)
+        }
+        val background = hub.opened("s-bg")
+        awaitCore { background.view.connected }
+        background.core { it.copy(busy = true) }
+        hub.startNew()
+        val kept = hub.opened("s-kept")
+        awaitCore { kept.view.connected }
+        kept.core { it.copy(busy = true) }
+        hub.startNew()
+        val shown = hub.opened("s-shown")
+        awaitCore { shown.view.connected }
+        sent.clear()
+
+        hub.endSessions(
+            listOf(
+                summary("s-bg"),
+                summary("s-shown"),
+                summary("s-far"),
+                summary("s-gone").copy(live = false),
+            ),
+        )
+        assertNull(hub.current.sessionId)
+        assertNull(hub.findConversation("s-bg"))
+        assertNull(hub.findConversation("s-shown"))
+        assertSame(kept, hub.findConversation("s-kept"))
+        assertTrue(
+            waitUntil {
+                sent.count { it.method == "conv.end" } == 2 &&
+                    sent.any { it.method == "sessions.end" }
+            },
+        )
+        assertEquals(
+            listOf("s-far"),
+            sent.filter { it.method == "sessions.end" }.map { it.str("session") },
+        )
+    }
+
     /** 结束进程后接着做的事（引用文件夹前换核心）：排在 conv.end 答了之后；没打开过的对话也照做。 */
     @Test
     fun shutdownRunsTheNextStepAfterTheEnd() {

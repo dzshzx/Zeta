@@ -372,6 +372,16 @@ class SessionList constructor(private val hub: ConversationHub) {
         )
 
     /**
+     * 结束 [backend] 上本包占着会话 [sessionId] 的 Claude Code 进程（`sessions.end`，等于终端里的 /exit），等它退出，
+     * 完了重读列表，侧栏把它灰着显示：侧栏里结束一个这边没开着的对话时（[ConversationHub.endSessions]）。经对话用的连接发
+     * （[ConvLinks.endSession]），同放开过的对话结束时。
+     */
+    fun end(sessionId: String, backend: String) =
+        inBackground(Strings::coreSessionsEndFailed, done = ::refresh) {
+            hub.convLinks.endSession(backend, sessionId)
+        }
+
+    /**
      * 把界面上已经改了的经核心的方法 [method] 写进 [backend] 上的会话记录：界面先改，操作马上看得到；写在后台跑。没写成时在主线程上做 [undo]
      * （把界面改回去，和会话记录对上），Zeta 在前台时用 [failed] 说一声没成功和原因。[done] 在写完（成没成都算）后在主线程上调用。
      */
@@ -383,12 +393,17 @@ class SessionList constructor(private val hub: ConversationHub) {
         timeoutMs: Long = 30_000,
         undo: () -> Unit = {},
         done: () -> Unit = {},
+    ) = inBackground(failed, undo, done) { hub.callCore(backend, method, params, timeoutMs) }
+
+    /** [write] 的做法，做的事是 [call]：在后台跑，没成时在主线程上做 [undo]、提示 [failed]，完了做 [done]。 */
+    private fun inBackground(
+        failed: (error: String) -> String,
+        undo: () -> Unit = {},
+        done: () -> Unit = {},
+        call: () -> Unit,
     ) {
         thread(name = "zeta-sessions", isDaemon = true) {
-            val failure = runCatching {
-                hub.callCore(backend, method, params, timeoutMs)
-            }
-                .exceptionOrNull()
+            val failure = runCatching(call).exceptionOrNull()
             main.post {
                 if (failure != null) {
                     undo()

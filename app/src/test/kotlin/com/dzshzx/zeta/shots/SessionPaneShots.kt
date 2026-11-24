@@ -172,6 +172,39 @@ class SessionPaneShots : ShotTest() {
         }
     }
 
+    /** 长按一个还在运行的对话点「结束对话」：先弹确认框（闲着的也问）。 */
+    @Test
+    fun end() {
+        val hub = hub()
+        shoot(
+            "pane-end",
+            prepare = {
+                longPress("修复登录页的布局")
+                onNodeWithText("结束对话").performClick()
+            },
+        ) {
+            Pane()
+        }
+    }
+
+    /** 多选后点底部的「结束」：已经结束的不算，确认框说其中有还在进行的。 */
+    @Test
+    fun endMany() {
+        val hub = hub()
+        shoot(
+            "pane-end-many",
+            prepare = {
+                longPress("侧栏迁到 COUI 2")
+                onNodeWithText("选择").performClick()
+                mainClock.advanceTimeBy(1_000)
+                onNodeWithText("排查 web-01 磁盘告警").performClick()
+                onNodeWithText("结束").performClick()
+            },
+        ) {
+            Pane()
+        }
+    }
+
     @Test
     fun delete() {
         val hub = hub()

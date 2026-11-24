@@ -41,9 +41,10 @@ type sessionOps struct {
 		list []hostlink.Session
 		open bool
 	}
-	// ending 是结束对话的确认框：还在进行或在别处运行的先问（needsEndConfirm），别的直接结束。
+	// ending 是结束对话的确认框（结束一律先问）；busy：其中有还在进行或在别处运行的，打开时定下（endStopsWork）。
 	ending struct {
 		list []hostlink.Session
+		busy bool
 		open bool
 	}
 }
@@ -324,7 +325,7 @@ func (a *App) sessionDialogs(c *ui.Context) {
 		if len(e.list) == 1 {
 			title = locales.SessionEndTitle()
 		}
-		if widget.Alert(c, &e.open, title, endConfirmSummary(e.list, a.occupantOf(e.list[0])),
+		if widget.Alert(c, &e.open, title, endConfirmSummary(e.list, e.busy, a.occupantOf(e.list[0])),
 			widget.Action{Label: locales.CommonCancel()}, widget.Action{Label: locales.SessionEndButton(), Style: widget.Destructive}) == 1 {
 			h.End(e.list, a.failed(locales.SessionEndFailed()))
 		}
@@ -336,18 +337,14 @@ func runningOf(list []hostlink.Session) []hostlink.Session {
 	return slices.DeleteFunc(slices.Clone(list), func(s hostlink.Session) bool { return s.Ended })
 }
 
-// end 结束 list 里的对话（右键菜单的「结束对话」，同手机版的结束对话、终端里的 /exit）：其中有还在进行（在回答、等确认、
-// 有后台任务）或在别处运行的先弹确认框，都是闲着的直接结束。
+// end 结束 list 里的对话（右键菜单的「结束对话」，同手机版的结束对话、终端里的 /exit）：一律先弹确认框（列表上看不出它在
+// 做什么，一点就停掉不合适）。说明在打开时定下：其中有还在进行（在回答、等确认、有后台任务）或在别处运行的，说会一并停掉。
 func (a *App) end(list []hostlink.Session) {
-	if slices.ContainsFunc(list, a.needsEndConfirm) {
-		a.ops.ending.list, a.ops.ending.open = list, true
-		return
-	}
-	a.hub.End(list, a.failed(locales.SessionEndFailed()))
+	a.ops.ending.list, a.ops.ending.busy, a.ops.ending.open = list, slices.ContainsFunc(list, a.endStopsWork), true
 }
 
-// needsEndConfirm：结束 s 前要先问——它在别处运行（会停掉那边的进程），或还在进行。
-func (a *App) needsEndConfirm(s hostlink.Session) bool {
+// endStopsWork：结束 s 会停掉正在做的事——它在别处运行（会停掉那边的进程），或还在进行。
+func (a *App) endStopsWork(s hostlink.Session) bool {
 	if s.External {
 		return true
 	}
@@ -358,19 +355,26 @@ func (a *App) needsEndConfirm(s hostlink.Session) bool {
 	return false
 }
 
-// endConfirmSummary 是结束确认框的说明（同手机版 endConfirmSummary）：在别处运行的连那边的进程一起停掉。
-// o 是那边的样子（结束的正是开着的这个对话、核心查到了占着它的进程时），不知道时为 nil，只说「别处」。
-func endConfirmSummary(list []hostlink.Session, o *sessionproto.Occupancy) string {
-	what := locales.SessionEndBusy()
+// endConfirmSummary 是结束确认框的说明（同手机版 endConfirmSummary、侧栏的 endPrompt）：在别处运行的连那边的进程一起
+// 停掉，还在进行的（busy）一并停掉，闲着的只停掉背后的进程。o 是那边的样子（结束的正是开着的这个对话、核心查到了占着它的
+// 进程时），不知道时为 nil，只说「别处」。
+func endConfirmSummary(list []hostlink.Session, busy bool, o *sessionproto.Occupancy) string {
+	var what string
 	switch {
-	case len(list) > 1:
+	case len(list) > 1 && busy:
 		what = locales.SessionEndBusyMany()
+	case len(list) > 1:
+		what = locales.SessionEndIdleMany()
 	case list[0].External:
 		place := locales.SessionEndElsewhere()
 		if o != nil {
 			place = cmp.Or(occupantPlace(o.App, o.Device, o.Local), place)
 		}
 		what = cjkSpaced(locales.SessionEndExternal(place))
+	case busy:
+		what = locales.SessionEndBusy()
+	default:
+		what = locales.SessionEndIdle()
 	}
 	return locales.SessionEndConfirm(what)
 }

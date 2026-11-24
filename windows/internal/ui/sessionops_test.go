@@ -337,8 +337,8 @@ func TestSessionOpsPreviews(t *testing.T) {
 	}
 }
 
-// 结束对话（同手机版的结束对话、终端里的 /exit）：还在运行的会话右键里才有；闲着的直接结束（sessions.end），
-// 还在进行的先问，别处运行的问过以后经 sessions.end_elsewhere 停掉那边；结束了的马上标成已结束。
+// 结束对话（同手机版的结束对话、终端里的 /exit）：还在运行的会话右键里才有；一律先问，说明按闲着、还在进行、别处运行
+// 分开说；闲着和进行中的经 sessions.end 结束，别处运行的经 sessions.end_elsewhere 停掉那边；结束了的马上标成已结束。
 func TestEndConversation(t *testing.T) {
 	f := newOpsFixture(t)
 	if err := f.tt.RightClick("部署脚本"); err != nil {
@@ -349,11 +349,17 @@ func TestEndConversation(t *testing.T) {
 	}
 	f.tt.CloseMenu()
 
-	// 闲着的：不问，直接结束
+	// 闲着的也先问，说明只说停掉背后的进程；取消了不结束
 	f.menu(t, "看看日志", "结束对话")
-	if f.shows("结束这个对话？") {
-		t.Fatal("闲着的也问了")
+	f.see(t, "结束这个对话？", "结束会停掉它背后的 Claude Code 进程。对话内容保留，可以从历史对话里接着聊。")
+	f.clickNamed(t, "取消", 0)
+	f.tt.Frame()
+	if got := f.devices.SessionCalls(); len(got) != 0 {
+		t.Fatalf("取消了还发 %q", got)
 	}
+	f.menu(t, "看看日志", "结束对话")
+	f.clickNamed(t, "结束", 0)
+	f.tt.Frame()
 	if got := f.devices.SessionCalls(); len(got) != 1 || !strings.Contains(got[0], `sessions.end {"session":"s2"}`) {
 		t.Fatalf("发出 %q", got)
 	}
@@ -361,17 +367,11 @@ func TestEndConversation(t *testing.T) {
 		t.Error("结束了没标成已结束")
 	}
 
-	// 还在回答的：先问，取消了不结束
+	// 还在回答的：说明换成一并停掉
 	f.devices.PushActivity(f.id, map[string]hostlink.Activity{"s1": {State: "answering"}})
 	f.tt.Frame()
 	f.menu(t, "修登录页", "结束对话")
 	f.see(t, "结束这个对话？", "它还在进行（在回答、等你确认或有后台任务），结束会一并停掉。对话内容保留，可以从历史对话里接着聊。")
-	f.clickNamed(t, "取消", 0)
-	f.tt.Frame()
-	if got := f.devices.SessionCalls(); len(got) != 0 {
-		t.Fatalf("取消了还发 %q", got)
-	}
-	f.menu(t, "修登录页", "结束对话")
 	f.clickNamed(t, "结束", 0)
 	f.tt.Frame()
 	if got := f.devices.SessionCalls(); len(got) != 1 || !strings.Contains(got[0], `sessions.end {"session":"s1"}`) {
@@ -392,7 +392,7 @@ func TestEndConversation(t *testing.T) {
 	}
 }
 
-// 多选时「结束 N 个对话」只算、只结束还在运行的；其中有还在进行的先问。
+// 多选时「结束 N 个对话」只算、只结束还在运行的；先问，其中有还在进行的说会一并停掉。
 func TestEndSelectedConversations(t *testing.T) {
 	f := newOpsFixture(t)
 	f.devices.PushActivity(f.id, map[string]hostlink.Activity{"s1": {State: "waiting"}})

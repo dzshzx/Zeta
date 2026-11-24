@@ -69,16 +69,16 @@ func TestOccupantPlace(t *testing.T) {
 
 func TestEndConfirmSummarySaysWhere(t *testing.T) {
 	ext := []hostlink.Session{{External: true}}
-	if got := endConfirmSummary(ext, &sessionproto.Occupancy{App: "terminal", Device: "work-pc"}); !strings.HasPrefix(got, "它正在 work-pc 的终端里运行，结束会停掉那边的进程") {
+	if got := endConfirmSummary(ext, false, &sessionproto.Occupancy{App: "terminal", Device: "work-pc"}); !strings.HasPrefix(got, "它正在 work-pc 的终端里运行，结束会停掉那边的进程") {
 		t.Errorf("%q", got)
 	}
-	if got := endConfirmSummary(ext, &sessionproto.Occupancy{App: "zeta", Local: true}); !strings.HasPrefix(got, "它正在本机的 Zeta 里运行，") {
+	if got := endConfirmSummary(ext, false, &sessionproto.Occupancy{App: "zeta", Local: true}); !strings.HasPrefix(got, "它正在本机的 Zeta 里运行，") {
 		t.Errorf("%q", got)
 	}
-	if got := endConfirmSummary(ext, nil); !strings.HasPrefix(got, "它正在别处运行，") {
+	if got := endConfirmSummary(ext, false, nil); !strings.HasPrefix(got, "它正在别处运行，") {
 		t.Errorf("%q", got)
 	}
-	if got := endConfirmSummary(ext, &sessionproto.Occupancy{App: "sdk-py"}); !strings.HasPrefix(got, "它正在别处运行，") {
+	if got := endConfirmSummary(ext, false, &sessionproto.Occupancy{App: "sdk-py"}); !strings.HasPrefix(got, "它正在别处运行，") {
 		t.Errorf("%q", got)
 	}
 }
@@ -128,4 +128,23 @@ func TestHandoffStuck(t *testing.T) {
 	f.click(t, "接管会话")
 	f.tt.Frame()
 	f.see(t, "没有退出", "接管会话")
+}
+
+// 结束确认框的说明按闲着、还在进行分开说，几个的同样。
+func TestEndConfirmSummarySaysWhatStops(t *testing.T) {
+	one, two := []hostlink.Session{{}}, []hostlink.Session{{}, {}}
+	for _, c := range []struct {
+		list []hostlink.Session
+		busy bool
+		want string
+	}{
+		{one, false, "结束会停掉它背后的 Claude Code 进程。"},
+		{one, true, "它还在进行"},
+		{two, false, "结束会停掉它们背后的 Claude Code 进程。"},
+		{two, true, "其中有还在进行"},
+	} {
+		if got := endConfirmSummary(c.list, c.busy, nil); !strings.HasPrefix(got, c.want) {
+			t.Errorf("%d 个、busy=%v：%q", len(c.list), c.busy, got)
+		}
+	}
 }

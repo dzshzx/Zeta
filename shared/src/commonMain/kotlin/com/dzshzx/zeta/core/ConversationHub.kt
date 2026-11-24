@@ -740,6 +740,28 @@ class ConversationHub(val platform: HubPlatform) {
         if (conversation !in parked) parked += conversation
     }
 
+    /**
+     * 侧栏里结束会话 [list]（长按菜单或多选的「结束」，同终端里的 /exit），已经结束的跳过：正看着的照顶栏的结束对话收掉
+     * （[endCurrent]），切到后台的结束进程，在别处运行的停掉那边的进程，这边没开着的请那台的核心结束（[SessionList.end]）。 对话内容都保留。在主线程上调用。
+     */
+    fun endSessions(list: List<SessionSummary>) {
+        for (session in list.filter { it.live }) {
+            val open = liveConversations.firstOrNull {
+                it.backend == session.backend && it.sessionId == session.id
+            }
+            when {
+                open != null && open === current -> endCurrent()
+                session.external -> sessionList.endElsewhere(session.id, session.backend)
+                open != null -> {
+                    parked.remove(open)
+                    open.shutdown()
+                }
+                else -> sessionList.end(session.id, session.backend)
+            }
+        }
+        platform.prunePhones()
+    }
+
     /** 会话 [ids] 要删了（[SessionList.delete]）：开着的对话收掉，后台屏幕一并收掉。在主线程上调用。 */
     fun closeSessions(ids: Set<String>) {
         if (current.sessionId in ids) replaceCurrent(blank(), end = true)

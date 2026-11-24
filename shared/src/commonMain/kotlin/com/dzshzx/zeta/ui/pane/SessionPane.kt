@@ -132,6 +132,7 @@ private class RowActions(
     val export: (SessionSummary) -> Unit,
     val share: (SessionSummary) -> Unit,
     val archive: (SessionSummary) -> Unit,
+    val end: (SessionSummary) -> Unit,
     val delete: (SessionSummary) -> Unit,
 )
 
@@ -161,6 +162,7 @@ fun SessionPane(
     val hub = LocalHub.current
     val focusManager = LocalFocusManager.current
     var deleting by remember { mutableStateOf<DeletePrompt?>(null) }
+    var ending by remember { mutableStateOf<EndPrompt?>(null) }
     var renaming by remember { mutableStateOf<SessionSummary?>(null) }
     var renameDraft by remember { mutableStateOf("") }
 
@@ -226,6 +228,7 @@ fun SessionPane(
             export = exporter.save,
             share = exporter.share,
             archive = { session -> onArchive(session, !session.archived) },
+            end = { session -> ending = endPrompt(listOf(session), hub::isActive) },
             delete = { session -> deleting = deletePrompt(session, hub::isActive) },
         )
     val todayStart = remember(sessions) { startOfToday() }
@@ -318,6 +321,8 @@ fun SessionPane(
                     exitSelection()
                 },
                 onExport = { exporter.saveAll(chosen) },
+                canEnd = endable(chosen).isNotEmpty(),
+                onEnd = { ending = endPrompt(endable(chosen), hub::isActive) },
                 onDelete = {
                     askBatchDelete(chosen, hub) { removable ->
                         batchSkipped = chosen.size - removable.size
@@ -338,6 +343,14 @@ fun SessionPane(
             )
     }
 
+    EndDialog(
+        ending = ending,
+        onConfirm = { prompt ->
+            hub.endSessions(prompt.sessions)
+            exitSelection() // 多选里结束的做完退出多选；不在多选时什么也不变
+        },
+        onDismiss = { ending = null },
+    )
     DeleteDialogs(
         deleting = deleting,
         onDelete = { prompt -> confirmDelete(prompt, hub, onDelete) },
@@ -927,6 +940,28 @@ private fun DeleteDialogs(
     )
 }
 
+/** 结束一个或几个对话的确认框（COUI 的 ConfirmDialog，同聊天页顶栏的结束对话）：标题和说明在打开时定下（[EndPrompt]）， 确认后交给 [onConfirm]。 */
+@Composable
+private fun EndDialog(
+    ending: EndPrompt?,
+    onConfirm: (EndPrompt) -> Unit,
+    onDismiss: () -> Unit,
+) {
+    val last = rememberRetained(ending)
+    ConfirmDialog(
+        show = ending != null,
+        title = last?.title,
+        summary = last?.summary,
+        confirmText = Strings.chatEnd(),
+        destructive = true,
+        onConfirm = {
+            ending?.let(onConfirm)
+            onDismiss()
+        },
+        onDismissRequest = onDismiss,
+    )
+}
+
 /** 批量删除的确认框；[skipped] 个正在进行的不删，注明。 */
 @Composable
 private fun BatchDeleteDialog(
@@ -1117,7 +1152,7 @@ private fun rowClick(session: SessionSummary, selecting: Boolean, actions: RowAc
     if (selecting) actions.toggle(session) else actions.open(session)
 }
 
-/** 一行会话的长按菜单：选择、置顶、重命名、导出、分享、归档一组，删除单独一组、标成红色。点击时才取 [actions]（最新的那组）。 */
+/** 一行会话的长按菜单：选择、置顶、重命名、导出、分享、归档、结束（还在运行的）一组，删除单独一组、标成红色。点击时才取 [actions]（最新的那组）。 */
 private fun sessionMenu(
     session: SessionSummary,
     pinned: Boolean,
@@ -1154,7 +1189,11 @@ private fun sessionMenu(
                         if (session.archived) ZetaIcons.Unarchive else ZetaIcons.Archive,
                         { actions().archive(session) },
                     ),
-                ),
+                ) +
+                    listOfNotNull(
+                        menuItem(Strings.chatEndChat(), ZetaIcons.Exit, { actions().end(session) })
+                            .takeIf { session.live },
+                    ),
         ),
         DropdownEntry(
             items =
