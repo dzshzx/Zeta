@@ -1,5 +1,6 @@
 package com.dzshzx.zeta.core.diag
 
+import com.dzshzx.zeta.core.TestDeps
 import com.dzshzx.zeta.core.removeTestDir
 import java.io.File
 import java.nio.file.Files
@@ -8,7 +9,6 @@ import java.util.concurrent.TimeUnit
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
-import org.junit.Assume.assumeTrue
 import org.junit.Test
 
 class DiagScriptsTest {
@@ -136,7 +136,7 @@ class DiagScriptsTest {
     /** 真跑一遍探测脚本（临时 HOME，假的 claude），核对脚本和解析对得上。 */
     @Test
     fun probeScriptRunsInBash() {
-        assumeTrue("要 Linux 的 bash 和 GNU find", File("/proc/self/cmdline").exists())
+        TestDeps.require("Linux 的 bash 和 GNU find", File("/proc/self/cmdline").exists())
         val dir = Files.createTempDirectory("zeta-probe").toFile().canonicalFile
         try {
             File(dir, "bin/claude").apply {

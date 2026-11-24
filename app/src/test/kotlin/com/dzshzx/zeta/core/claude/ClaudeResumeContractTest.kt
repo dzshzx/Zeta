@@ -1,5 +1,6 @@
 package com.dzshzx.zeta.core.claude
 
+import com.dzshzx.zeta.core.TestDeps
 import com.dzshzx.zeta.core.removeTestDir
 import com.sun.net.httpserver.HttpExchange
 import com.sun.net.httpserver.HttpServer
@@ -23,7 +24,6 @@ import org.junit.After
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNotEquals
 import org.junit.Assert.assertTrue
-import org.junit.Assume.assumeTrue
 import org.junit.Before
 import org.junit.Test
 
@@ -76,16 +76,6 @@ class ClaudeResumeContractTest {
     fun tearDown() {
         if (::server.isInitialized) server.stop(0)
         if (::home.isInitialized) removeTestDir(home)
-    }
-
-    private fun claudeAvailable(): Boolean {
-        val path =
-            listOfNotNull(
-                    System.getProperty("user.home")?.let { "$it/.local/bin" },
-                    System.getenv("PATH"),
-                )
-                .joinToString(":")
-        return path.split(':').any { File(it, "claude").canExecute() }
     }
 
     private fun serve(ex: HttpExchange) {
@@ -207,12 +197,7 @@ class ClaudeResumeContractTest {
                     )
                     .directory(File(home, "proj"))
             val env = builder.environment()
-            val path =
-                listOfNotNull(
-                        System.getProperty("user.home")?.let { "$it/.local/bin" },
-                        System.getenv("PATH"),
-                    )
-                    .joinToString(":")
+            val path = TestDeps.searchPath
             env.clear()
             env["HOME"] = home.path
             env["PATH"] = path
@@ -314,7 +299,7 @@ class ClaudeResumeContractTest {
 
     @Test
     fun resumeKeepsTheSessionModelButNotItsEffort() {
-        assumeTrue("没有 claude 命令", claudeAvailable())
+        TestDeps.requireClaude()
         val fresh = run()
         val default = fresh.model!!
         val sonnet = run("--model", "sonnet", "--effort", "low")
@@ -346,7 +331,7 @@ class ClaudeResumeContractTest {
 
     @Test
     fun aRetiredModelIsKeptUntilAnotherIsChosen() {
-        assumeTrue("没有 claude 命令", claudeAvailable())
+        TestDeps.requireClaude()
         val made = run("--model", "sonnet")
         // 这个模型下线了：记录里写的模型都换成 API 不认的
         val record =
@@ -412,7 +397,7 @@ class ClaudeResumeContractTest {
     /** 终端里 /model 换的模型，接着会话时不认：有过回答的用最后一次回答的模型，一个回答都没有的用默认模型。 */
     @Test
     fun aModelSwitchedInTheTerminalIsNotRestored() {
-        assumeTrue("没有 claude 命令", claudeAvailable())
+        TestDeps.requireClaude()
         val default = run().model!!
         val made = run("--model", "sonnet")
         assertNotEquals(default, made.model)

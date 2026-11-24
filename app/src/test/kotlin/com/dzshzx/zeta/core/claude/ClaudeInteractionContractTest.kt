@@ -1,5 +1,6 @@
 package com.dzshzx.zeta.core.claude
 
+import com.dzshzx.zeta.core.TestDeps
 import com.dzshzx.zeta.core.removeTestDir
 import com.dzshzx.zeta.core.waitUntil
 import com.sun.net.httpserver.HttpExchange
@@ -25,7 +26,6 @@ import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertTrue
-import org.junit.Assume.assumeTrue
 import org.junit.Before
 import org.junit.Test
 
@@ -95,16 +95,6 @@ class ClaudeInteractionContractTest {
     fun tearDown() {
         if (::server.isInitialized) server.stop(0)
         if (::home.isInitialized) removeTestDir(home)
-    }
-
-    private fun claudeAvailable(): Boolean {
-        val path =
-            listOfNotNull(
-                    System.getProperty("user.home")?.let { "$it/.local/bin" },
-                    System.getenv("PATH"),
-                )
-                .joinToString(":")
-        return path.split(':').any { File(it, "claude").canExecute() }
     }
 
     private fun tool(id: String, name: String, input: String) = buildJsonObject {
@@ -275,12 +265,7 @@ class ClaudeInteractionContractTest {
                     )
                     .directory(File(home, "proj"))
             builder.environment().apply {
-                val path =
-                    listOfNotNull(
-                            System.getProperty("user.home")?.let { "$it/.local/bin" },
-                            System.getenv("PATH"),
-                        )
-                        .joinToString(":")
+                val path = TestDeps.searchPath
                 clear()
                 put("HOME", home.path)
                 put("PATH", path)
@@ -383,7 +368,7 @@ class ClaudeInteractionContractTest {
 
     @Test
     fun toolPrompts() {
-        assumeTrue("没有 claude 命令", claudeAvailable())
+        TestDeps.requireClaude()
         main +=
             listOf(listOf(tool("t1", "Bash", """{"command":"touch a.txt"}""")), listOf(text("ok")))
         main +=
@@ -443,7 +428,7 @@ class ClaudeInteractionContractTest {
 
     @Test
     fun planApprovalAndQuestions() {
-        assumeTrue("没有 claude 命令", claudeAvailable())
+        TestDeps.requireClaude()
         main += listOf(tool("w1", "Write", """{"file_path":"@PLAN@","content":"# 计划\n1. 做事"}"""))
         main += listOf(tool("p1", "ExitPlanMode", "{}"))
         main += listOf(text("planned"))
@@ -496,7 +481,7 @@ class ClaudeInteractionContractTest {
     /** 同一个确认被答两次（几个客户端接着同一个进程时各答一次）：Claude Code 照第一份应答做，第二份（不管同意还是拒绝） 不报错、不改结果，工具只跑一次，进程照常接着下一轮。 */
     @Test
     fun aPromptAnsweredTwiceKeepsTheFirstAnswer() {
-        assumeTrue("没有 claude 命令", claudeAvailable())
+        TestDeps.requireClaude()
         main += listOf(tool("d1", "Bash", """{"command":"echo once >> twice.txt"}"""))
         main += listOf(text("ok"))
         main += listOf(tool("d2", "Bash", """{"command":"echo denied >> twice.txt"}"""))
@@ -542,7 +527,7 @@ class ClaudeInteractionContractTest {
 
     @Test
     fun concurrentPromptsAndReinitialize() {
-        assumeTrue("没有 claude 命令", claudeAvailable())
+        TestDeps.requireClaude()
         sub += listOf(tool("s1", "Bash", """{"command":"touch s1"}"""))
         main +=
             listOf(
@@ -575,8 +560,8 @@ class ClaudeInteractionContractTest {
 
     @Test
     fun mcpElicitation() {
-        assumeTrue("没有 claude 命令", claudeAvailable())
-        assumeTrue("没有 jq", File("/usr/bin/jq").canExecute())
+        TestDeps.requireClaude()
+        TestDeps.requireJq()
         // 一个 stdio MCP 服务器：工具 ask 一被调用就向客户端要一张表，把收到的应答原样当结果
         val script =
             File(home, "eli.sh").apply {
@@ -631,7 +616,7 @@ class ClaudeInteractionContractTest {
 
     @Test
     fun shellCommand() {
-        assumeTrue("没有 claude 命令", claudeAvailable())
+        TestDeps.requireClaude()
         Claude().use { c ->
             c.control("""{"subtype":"initialize"}""")
             c.send(
@@ -662,7 +647,7 @@ class ClaudeInteractionContractTest {
 
     @Test
     fun shellOutputIntoContext() {
-        assumeTrue("没有 claude 命令", claudeAvailable())
+        TestDeps.requireClaude()
         Claude().use { c ->
             c.control("""{"subtype":"initialize"}""")
             val notes =
@@ -709,7 +694,7 @@ class ClaudeInteractionContractTest {
 
     @Test
     fun codeRewind() {
-        assumeTrue("没有 claude 命令", claudeAvailable())
+        TestDeps.requireClaude()
         val file = File(home, "proj/r.txt").apply { writeText("v0\n") }
         main += listOf(tool("t1", "Read", """{"file_path":"${file.path}"}"""))
         main +=

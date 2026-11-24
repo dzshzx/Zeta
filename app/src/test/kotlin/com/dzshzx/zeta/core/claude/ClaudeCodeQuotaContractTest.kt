@@ -7,6 +7,7 @@ import com.dzshzx.zeta.core.HelperServe
 import com.dzshzx.zeta.core.LinuxShell
 import com.dzshzx.zeta.core.QuotaProbe
 import com.dzshzx.zeta.core.ServeError
+import com.dzshzx.zeta.core.TestDeps
 import com.dzshzx.zeta.core.TestHelper
 import com.dzshzx.zeta.core.removeTestDir
 import com.dzshzx.zeta.core.waitUntil
@@ -32,7 +33,6 @@ import org.junit.After
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertThrows
 import org.junit.Assert.assertTrue
-import org.junit.Assume.assumeTrue
 import org.junit.Before
 import org.junit.Test
 
@@ -55,7 +55,7 @@ class ClaudeCodeQuotaContractTest {
 
     @Before
     fun setUp() {
-        assumeTrue("没有 claude 命令", claudeAvailable())
+        TestDeps.requireClaude()
         home = java.nio.file.Files.createTempDirectory("zeta-quota").toFile().canonicalFile
         File(home, ".claude").mkdirs()
         File(home, "proj").mkdirs()
@@ -76,16 +76,6 @@ class ClaudeCodeQuotaContractTest {
         if (::server.isInitialized) server.stop(0)
         if (::home.isInitialized) removeTestDir(home)
     }
-
-    private fun claudeAvailable(): Boolean =
-        path().split(':').any { File(it, "claude").canExecute() }
-
-    private fun path() =
-        listOfNotNull(
-                System.getProperty("user.home")?.let { "$it/.local/bin" },
-                System.getenv("PATH"),
-            )
-            .joinToString(":")
 
     private val env: Map<String, String>
         get() =
@@ -198,7 +188,7 @@ class ClaudeCodeQuotaContractTest {
                 builder.environment().apply {
                     clear()
                     put("HOME", home)
-                    put("PATH", path())
+                    put("PATH", TestDeps.searchPath)
                     put("LANG", "C.UTF-8")
                     put(AppVariant.LINUX_NAME_ENV, "zeta")
                     putAll(env)
@@ -254,7 +244,7 @@ class ClaudeCodeQuotaContractTest {
             builder.environment().apply {
                 clear()
                 put("HOME", home.path)
-                put("PATH", path())
+                put("PATH", TestDeps.searchPath)
                 put("LANG", "C.UTF-8")
                 putAll(env)
             }

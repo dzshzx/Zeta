@@ -13,7 +13,6 @@ import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertThrows
 import org.junit.Assert.assertTrue
-import org.junit.Assume.assumeTrue
 import org.junit.Before
 import org.junit.Test
 import org.junit.runner.RunWith
@@ -60,7 +59,7 @@ class AccountServiceTest {
 
     @Before
     fun setUp() {
-        assumeTrue("要 Linux 的 /proc 和 bash", File("/proc/self/stat").exists())
+        TestDeps.require("Linux 的 /proc 和 bash", File("/proc/self/stat").exists())
         dir = Files.createTempDirectory("zeta-accounts").toFile().canonicalFile
         fakeLogin("uuid-a", "a@example.com")
         fakeLoginCommand()

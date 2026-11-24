@@ -179,3 +179,11 @@ internal fun waitUntil(seconds: Int = 60, condition: () -> Boolean): Boolean {
     }
     return false
 }
+
+/**
+ * 等名叫 [name] 的线程都结束。被测代码在调用里同步决定要不要起这样一条线程、起了再去做事时，用它确认「什么也没发生」：调用返回后等这些线程收尾，
+ * 再看有没有多出的请求或改动，不靠睡一段固定时长。
+ */
+internal fun joinThreadsNamed(name: String, seconds: Long = 30) {
+    Thread.getAllStackTraces().keys.filter { it.name == name }.forEach { it.join(seconds * 1000) }
+}

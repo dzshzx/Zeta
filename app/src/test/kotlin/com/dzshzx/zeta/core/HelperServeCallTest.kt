@@ -26,7 +26,10 @@ class HelperServeCallTest {
         serves.forEach { it.close() }
     }
 
-    /** 起一个假 serve：先打招呼，echo 把请求原样当 result，fail 答出错，drop 不答就退出，push 推一行，silent 不答。 */
+    /**
+     * 起一个假 serve：先打招呼，echo 把请求原样当 result，fail 答出错，drop 不答就退出，push 推一行，silent 不答、只推一行
+     * {"type":"got","method":"silent"} 说收到了。
+     */
     private fun fake(): HelperServe.Opened =
         HelperServe.Opened(ProcessBuilder("bash", "-c", SCRIPT).start()) { it.destroy() }
 
@@ -103,7 +106,8 @@ class HelperServeCallTest {
             waiting.put(failure { s.call("silent", JsonObject(emptyMap())) }.message.orEmpty())
         }
             .start()
-        Thread.sleep(300)
+        // 请求已经发到 serve、在等应答了再关
+        assertEquals("silent", messages.poll(5, TimeUnit.SECONDS)?.str("method"))
         s.close()
         assertEquals("和 zeta-helper serve 的连接已关闭", waiting.poll(5, TimeUnit.SECONDS))
         assertEquals(
@@ -202,7 +206,7 @@ class HelperServeCallTest {
                 *'"method":"push"'*)
                   echo '{"type":"pushed"}'
                   printf '{"type":"zeta_reply","id":%s,"ok":true}\n' "${'$'}id" ;;
-                *'"method":"silent"'*) ;;
+                *'"method":"silent"'*) echo '{"type":"got","method":"silent"}' ;;
                 *'"method":"ping"'*) ;;
                 *) printf '{"type":"zeta_reply","id":%s,"ok":true,"result":null}\n' "${'$'}id" ;;
               esac

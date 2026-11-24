@@ -1,6 +1,7 @@
 package com.dzshzx.zeta.core.claude
 
 import com.dzshzx.zeta.core.AutoCompact
+import com.dzshzx.zeta.core.TestDeps
 import com.dzshzx.zeta.core.removeTestDir
 import com.sun.net.httpserver.HttpExchange
 import com.sun.net.httpserver.HttpServer
@@ -27,7 +28,6 @@ import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
-import org.junit.Assume.assumeTrue
 import org.junit.Before
 import org.junit.Test
 
@@ -69,16 +69,6 @@ class AutoCompactContractTest {
         if (::server.isInitialized) server.stop(0)
         if (::home.isInitialized) removeTestDir(home)
     }
-
-    private fun searchPath() =
-        listOfNotNull(
-                System.getProperty("user.home")?.let { "$it/.local/bin" },
-                System.getenv("PATH"),
-            )
-            .joinToString(":")
-
-    private fun claudeAvailable(): Boolean =
-        searchPath().split(':').any { File(it, "claude").canExecute() }
 
     private fun serve(ex: HttpExchange) {
         if (
@@ -224,7 +214,7 @@ class AutoCompactContractTest {
             val e = builder.environment()
             e.clear()
             e["HOME"] = home.path
-            e["PATH"] = searchPath()
+            e["PATH"] = TestDeps.searchPath
             e["LANG"] = "C.UTF-8"
             e["ANTHROPIC_API_KEY"] = "fake-key-1"
             e["ANTHROPIC_BASE_URL"] = "http://127.0.0.1:${server.address.port}"
@@ -335,7 +325,7 @@ class AutoCompactContractTest {
 
     @Test
     fun defaultCompactsAtWindowMinusBuffers() {
-        assumeTrue("没有 claude 命令", claudeAvailable())
+        TestDeps.requireClaude()
         Claude(phoneSettings(), AutoCompact.env(enabled = true, percent = null)).use { claude ->
             val usage = claude.contextUsage()
             assertEquals(100_000L, usage.long("maxTokens"))
@@ -354,7 +344,7 @@ class AutoCompactContractTest {
 
     @Test
     fun percentOverrideCompactsEarlierButIsNotReported() {
-        assumeTrue("没有 claude 命令", claudeAvailable())
+        TestDeps.requireClaude()
         Claude(phoneSettings(), AutoCompact.env(enabled = true, percent = 60)).use { claude ->
             val usage = claude.contextUsage()
             // get_context_usage 报的压缩点不含百分比，核心自己算（helper/usage 的 compactThreshold）：6.7 万的 60% 档是 4.8
@@ -368,7 +358,7 @@ class AutoCompactContractTest {
 
     @Test
     fun disableSwitchWinsOverSettingsAndKeepsManualCompact() {
-        assumeTrue("没有 claude 命令", claudeAvailable())
+        TestDeps.requireClaude()
         Claude(phoneSettings(), AutoCompact.env(enabled = false, percent = 60)).use { claude ->
             val usage = claude.contextUsage()
             assertEquals(false, usage.bool("isAutoCompactEnabled"))
@@ -387,7 +377,7 @@ class AutoCompactContractTest {
 
     @Test
     fun claudeCodeOwnSwitchStillApplies() {
-        assumeTrue("没有 claude 命令", claudeAvailable())
+        TestDeps.requireClaude()
         // Zeta 这边开着（不带环境变量）时，用户在 Claude Code 里关掉的照样关着：设置页和用量弹窗的说明照这个写
         Claude("""{"autoCompactEnabled":false}""", AutoCompact.env(enabled = true, percent = null))
             .use { claude ->
@@ -417,14 +407,14 @@ class AutoCompactContractTest {
 
     @Test
     fun percentThresholdMatchesZetaFormula() {
-        assumeTrue("没有 claude 命令", claudeAvailable())
+        TestDeps.requireClaude()
         // 手机上的压缩窗口是 40 万：默认 36.7 万，70% 是 ⌊38 万 × 0.7⌋（核心的 compactThreshold 照这个算式）
         assertEquals(266_000L, loggedThreshold(400_000, 70))
     }
 
     @Test
     fun defaultThresholdMatchesReported() {
-        assumeTrue("没有 claude 命令", claudeAvailable())
+        TestDeps.requireClaude()
         assertEquals(67_000L, loggedThreshold(100_000, null))
     }
 }

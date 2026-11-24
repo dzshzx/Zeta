@@ -5,7 +5,6 @@ import java.nio.file.Files
 import org.junit.After
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
-import org.junit.Assume.assumeTrue
 import org.junit.Before
 import org.junit.Test
 
@@ -25,7 +24,10 @@ class FakeClaudeHostTest {
 
     @Before
     fun setUp() {
-        assumeTrue("要 Linux 的 /proc 和 bash、jq", File("/proc/self/cmdline").exists() && onPath("jq"))
+        TestDeps.require(
+            "Linux 的 /proc 和 bash、jq",
+            File("/proc/self/cmdline").exists() && TestDeps.onPath("jq"),
+        )
         home = Files.createTempDirectory("zeta-fake").toFile().canonicalFile
         // 真的 claude 用替身代替
         HostTesting.writeClaudeStandIn(home)

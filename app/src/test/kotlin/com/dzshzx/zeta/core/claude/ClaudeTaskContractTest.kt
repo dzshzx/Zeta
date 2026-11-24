@@ -1,5 +1,6 @@
 package com.dzshzx.zeta.core.claude
 
+import com.dzshzx.zeta.core.TestDeps
 import com.dzshzx.zeta.core.removeTestDir
 import com.dzshzx.zeta.core.waitUntil
 import com.sun.net.httpserver.HttpExchange
@@ -25,7 +26,6 @@ import org.junit.After
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
-import org.junit.Assume.assumeTrue
 import org.junit.Before
 import org.junit.Test
 
@@ -53,7 +53,7 @@ class ClaudeTaskContractTest {
     /** 主对话要依次调用的工具（名字、参数）。 */
     @Volatile private var script: List<Pair<String, JsonObject>> = emptyList()
 
-    /** 子代理的请求等它放行才答（停子代理的测试要它一直在跑）。 */
+    /** 子代理的请求等它放行才答：停子代理的测试要它一直在跑；后台子代理的测试等主对话这一轮结束再放行，子代理的结局落在这一轮之后。 */
     private val subagentGate = CountDownLatch(1)
     @Volatile private var subagentWaits = false
 
@@ -88,16 +88,6 @@ class ClaudeTaskContractTest {
         reportGate.countDown()
         if (::server.isInitialized) server.stop(0)
         if (::home.isInitialized) removeTestDir(home)
-    }
-
-    private fun claudeAvailable(): Boolean {
-        val path =
-            listOfNotNull(
-                    System.getProperty("user.home")?.let { "$it/.local/bin" },
-                    System.getenv("PATH"),
-                )
-                .joinToString(":")
-        return path.split(':').any { File(it, "claude").canExecute() }
     }
 
     private fun serve(ex: HttpExchange) {
@@ -161,7 +151,7 @@ class ClaudeTaskContractTest {
 
     /** 子代理收到了 [results] 个工具结果时答什么；按测试要求先等放行。 */
     private fun subagentReply(results: Int): Pair<List<JsonObject>, String> {
-        if (subagentWaits) subagentGate.await(60, TimeUnit.SECONDS) else Thread.sleep(1500)
+        if (subagentWaits) subagentGate.await(60, TimeUnit.SECONDS)
         if (pauseBeforeReport && results > 0) reportGate.await(60, TimeUnit.SECONDS)
         if (results > 0) return listOf(text("REPORT: all good")) to "end_turn"
         return listOf(
@@ -284,12 +274,7 @@ class ClaudeTaskContractTest {
                     )
                     .directory(File(home, "proj"))
             val env = builder.environment()
-            val path =
-                listOfNotNull(
-                        System.getProperty("user.home")?.let { "$it/.local/bin" },
-                        System.getenv("PATH"),
-                    )
-                    .joinToString(":")
+            val path = TestDeps.searchPath
             env.clear()
             env["HOME"] = home.path
             env["PATH"] = path
@@ -403,7 +388,7 @@ class ClaudeTaskContractTest {
 
     @Test
     fun backgroundCommandOutputAndStop() {
-        assumeTrue("没有 claude 命令", claudeAvailable())
+        TestDeps.requireClaude()
         val command = "echo hello-bg; sleep 0.3; echo second-line; sleep 300"
         script = listOf(bash(command, "ticker in background", background = true))
         Claude().use { claude ->
@@ -479,7 +464,8 @@ class ClaudeTaskContractTest {
 
     @Test
     fun backgroundSubagentReportsAndStartsATurn() {
-        assumeTrue("没有 claude 命令", claudeAvailable())
+        TestDeps.requireClaude()
+        subagentWaits = true
         script = listOf("Agent" to agentInput())
         Claude().use { claude ->
             claude.turn("go")
@@ -491,6 +477,7 @@ class ClaudeTaskContractTest {
             // 子代理没有可读的输出
             val output = claude.taskOutput(id)
             assertEquals("error", output.str("subtype"))
+            subagentGate.countDown()
 
             // 做完：进展、结局，然后 Claude Code 自己起一轮（init，前面没有用户消息）
             claude.until { it.str("type") == "system" && it.str("subtype") == "task_notification" }
@@ -506,7 +493,7 @@ class ClaudeTaskContractTest {
 
     @Test
     fun stoppedSubagentStartsATurn() {
-        assumeTrue("没有 claude 命令", claudeAvailable())
+        TestDeps.requireClaude()
         subagentWaits = true
         script = listOf("Agent" to agentInput())
         Claude().use { claude ->
@@ -552,7 +539,7 @@ class ClaudeTaskContractTest {
 
     @Test
     fun monitorIsALocalBashTaskWithOutput() {
-        assumeTrue("没有 claude 命令", claudeAvailable())
+        TestDeps.requireClaude()
         val command = "for i in 1 2 3; do echo evt-\$i; sleep 0.3; done; sleep 300"
         script =
             listOf(
@@ -592,7 +579,7 @@ class ClaudeTaskContractTest {
 
     @Test
     fun foregroundSubagentIsRecordedAndOnlyPartlyStreamed() {
-        assumeTrue("没有 claude 命令", claudeAvailable())
+        TestDeps.requireClaude()
         script = listOf("Agent" to agentInput(background = false))
         Claude().use { claude ->
             claude.turn("go")
@@ -634,13 +621,15 @@ class ClaudeTaskContractTest {
 
     @Test
     fun backgroundSubagentRecordIsReadWhileItRuns() {
-        assumeTrue("没有 claude 命令", claudeAvailable())
+        TestDeps.requireClaude()
+        subagentWaits = true
         pauseBeforeReport = true
         script = listOf("Agent" to agentInput())
         Claude().use { claude ->
             claude.turn("go")
             val id = claude.events.system("task_started").single().str("task_id")!!
             val session = claude.sessionId()
+            subagentGate.countDown()
             // 后台子代理内部的事件在这一轮结束后陆续送来
             claude.until {
                 it.str("type") == "user" &&
@@ -796,7 +785,7 @@ class ClaudeTaskContractTest {
     /** 不声明有逐个停止的按钮时，停止一轮会把后台子代理一起结束（后台命令留着）。 */
     @Test
     fun interruptKillsBackgroundSubagentsWhenUndeclared() {
-        assumeTrue("没有 claude 命令", claudeAvailable())
+        TestDeps.requireClaude()
         subagentWaits = true
         script = backgroundWorkScript()
         Claude().use { claude ->
@@ -816,7 +805,7 @@ class ClaudeTaskContractTest {
     /** 用 Zeta 发的那份 initialize（里面声明了）：停止一轮只停这一轮，后台子代理和后台命令都接着跑，之后还能逐个停。 */
     @Test
     fun interruptSparesBackgroundSubagentsWhenDeclared() {
-        assumeTrue("没有 claude 命令", claudeAvailable())
+        TestDeps.requireClaude()
         subagentWaits = true
         script = backgroundWorkScript()
         Claude(asZeta = true).use { claude ->

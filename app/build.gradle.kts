@@ -1,5 +1,7 @@
 import java.time.Duration
 import javax.inject.Inject
+import org.gradle.api.tasks.testing.logging.TestExceptionFormat
+import org.gradle.api.tasks.testing.logging.TestLogEvent
 
 plugins {
     alias(libs.plugins.android.application)
@@ -400,7 +402,7 @@ tasks.withType<Test>().configureEach {
     // 合入门禁（scripts/check.sh，没设 ZETA_GATE_FULL=1 时）传 -Pzeta.gate=fast：不跑截图测试（shots 包里类名以 Shots 结尾的）。
     // 它们占单元测试一半的时间，改由全量门禁（每晚的 CI、打开 gate 的发版）跑。不传时全跑。
     // 别的测试不往合入门禁之外挪，除非两条都成立：它慢不是在白等（连接超时、宽限期、等一个不会来的事件，是就改掉等待）；
-    // 全量门禁所在的 CI 上它真的跑（钉住真 claude 命令行行为的各 ContractTest 在没有 claude 命令的机器上是跳过的，挪出去就没有地方跑）
+    // 全量门禁所在的 CI 上它真的跑（钉住真 claude 命令行行为的各 ContractTest 只在 CI 上没有 claude 命令时跳过，挪出去就没有地方跑）
     val gate = providers.gradleProperty("zeta.gate").orNull
     require(gate == null || gate == "fast") { "zeta.gate 只认 fast（现在是 $gate）" }
     if (gate == "fast") filter { excludeTestsMatching("com.dzshzx.zeta.shots.*Shots") }
@@ -420,6 +422,16 @@ tasks.withType<Test>().configureEach {
     // 能命中的只有同一个提交在别的树里重跑；只改文档和设备脚本的提交，门禁已经不跑测试（scripts/check.sh）。
     // 要缓存还得先声明一串本机输入：截图目录 app/build/shots，契约测试用的 claude 命令行，bash、jq、ssh 等系统命令
     outputs.cacheIf("版本号随提交变，换个提交就不命中；截图目录和本机的 claude、jq 等命令行都没声明") { false }
+    // 失败时在构建输出里打出完整的异常：断言的期望值与实际值、原因链、测试代码里的栈。不打时只有一行
+    // 「ComparisonFailure at Xxx.kt:423」，细节只在门禁目录的 HTML 报告里，下一次合入就被覆盖。
+    // 跳过的也打：本机缺依赖时测试是失败，只有 CI 上会跳过（见测试里的 TestDeps）
+    testLogging {
+        events(TestLogEvent.FAILED, TestLogEvent.SKIPPED)
+        exceptionFormat = TestExceptionFormat.FULL
+        showExceptions = true
+        showCauses = true
+        showStackTraces = true
+    }
     // 卡死的测试（比如截图测试里在长页面上 performScrollTo）到点就失败，不把门禁和构建名额一直挂着。
     // 不用 JUnit 的单用例超时：它把测试挪到别的线程跑，Robolectric 要求在主线程上
     timeout.set(Duration.ofMinutes(10))

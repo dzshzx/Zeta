@@ -1,6 +1,7 @@
 package com.dzshzx.zeta.phone
 
 import com.dzshzx.zeta.core.CommandResult
+import com.dzshzx.zeta.core.joinThreadsNamed
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNull
@@ -332,7 +333,8 @@ class AudioFocusGuardTest {
         guard.onWindowShown(music, 7) { 0 }
         guard.onWindowShown(video, 0) { 0 }
         guard.onWindowShown(null, 0) { 0 }
-        Thread.sleep(100)
+        // 要改回的话 onWindowShown 已经起了线程：等它做完再看
+        joinThreadsNamed("zeta-audio-focus")
         assertEquals("ignore", phone.mode(music))
 
         guard.onWindowShown(music, 0) { 0 }

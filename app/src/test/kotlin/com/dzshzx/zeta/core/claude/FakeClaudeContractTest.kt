@@ -1,5 +1,6 @@
 package com.dzshzx.zeta.core.claude
 
+import com.dzshzx.zeta.core.TestDeps
 import com.dzshzx.zeta.core.removeTestDir
 import com.dzshzx.zeta.phone.tools.ScheduleTools
 import com.sun.net.httpserver.HttpExchange
@@ -25,7 +26,6 @@ import kotlinx.serialization.json.put
 import kotlinx.serialization.json.putJsonArray
 import kotlinx.serialization.json.putJsonObject
 import org.junit.Assert.assertEquals
-import org.junit.Assume.assumeTrue
 import org.junit.Test
 
 /**
@@ -125,20 +125,10 @@ class FakeClaudeContractTest {
             ),
         )
 
-    private fun onPath(command: String): Boolean {
-        val path =
-            listOfNotNull(
-                    System.getProperty("user.home")?.let { "$it/.local/bin" },
-                    System.getenv("PATH"),
-                )
-                .joinToString(":")
-        return path.split(':').any { File(it, command).canExecute() }
-    }
-
     @Test
     fun fakeMatchesRealClaudeCode() {
-        assumeTrue("没有 claude 命令", onPath("claude"))
-        assumeTrue("没有 jq", onPath("jq"))
+        TestDeps.requireClaude()
+        TestDeps.requireJq()
         val pool = Executors.newFixedThreadPool(6)
         val runs =
             try {
@@ -542,12 +532,7 @@ class FakeClaudeContractTest {
                     .directory(File(home, "proj"))
                     .redirectError(File("/dev/null"))
             builder.environment().apply {
-                val path =
-                    listOfNotNull(
-                            System.getProperty("user.home")?.let { "$it/.local/bin" },
-                            System.getenv("PATH"),
-                        )
-                        .joinToString(":")
+                val path = TestDeps.searchPath
                 clear()
                 put("HOME", home.path)
                 put("PATH", path)

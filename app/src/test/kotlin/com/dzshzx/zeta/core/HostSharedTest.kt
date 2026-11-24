@@ -16,7 +16,6 @@ import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertTrue
-import org.junit.Assume.assumeTrue
 import org.junit.Before
 import org.junit.Test
 
@@ -40,7 +39,7 @@ class HostSharedTest {
 
     @Before
     fun setUp() {
-        assumeTrue("要 Linux 的 /proc 和 bash", File("/proc/self/cmdline").exists())
+        TestDeps.requireLinux()
         home = Files.createTempDirectory("zeta-shared").toFile().canonicalFile
         // 替身：起来时在 procs 里记下自己；输入的每一行原样追加到 got，再输出一行回声（第几行）；读到 end_session 退出
         HostTesting.writeClaudeStandIn(

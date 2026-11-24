@@ -17,6 +17,7 @@ import com.dzshzx.zeta.core.TaskState
 import com.dzshzx.zeta.core.TodoEntry
 import com.dzshzx.zeta.core.TodoList
 import com.dzshzx.zeta.core.TodoStatus
+import com.dzshzx.zeta.core.joinThreadsNamed
 import com.dzshzx.zeta.i18n.UiLanguage
 import java.util.concurrent.CopyOnWriteArrayList
 import java.util.concurrent.LinkedBlockingQueue
@@ -462,7 +463,8 @@ class ConvClientTest {
         link.onCall = { call -> if (call.method == "conv.open") client.connected() }
         client.open(SPEC)
         link.onCall = {}
-        Thread.sleep(200)
+        // 要重开的话 connected() 已在 open 返回前起了重开的线程：等它做完再看请求
+        joinThreadsNamed("zeta-conv-reopen")
         assertEquals(listOf("conv.open"), link.took().map { it.method })
     }
 

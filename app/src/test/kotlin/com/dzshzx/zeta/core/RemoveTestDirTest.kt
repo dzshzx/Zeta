@@ -5,7 +5,6 @@ import java.nio.file.Files
 import org.junit.After
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
-import org.junit.Assume.assumeTrue
 import org.junit.Before
 import org.junit.Test
 
@@ -17,7 +16,7 @@ class RemoveTestDirTest {
 
     @Before
     fun setUp() {
-        assumeTrue("要 Linux 的 /proc", File("/proc/self/environ").exists())
+        TestDeps.require("Linux 的 /proc", File("/proc/self/environ").exists())
         dir = Files.createTempDirectory("zeta-remove").toFile().canonicalFile
         elsewhere = Files.createTempDirectory("zeta-remove-elsewhere").toFile().canonicalFile
     }

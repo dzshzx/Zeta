@@ -1,5 +1,6 @@
 package com.dzshzx.zeta.core.claude
 
+import com.dzshzx.zeta.core.TestDeps
 import com.dzshzx.zeta.core.removeTestDir
 import com.sun.net.httpserver.HttpExchange
 import com.sun.net.httpserver.HttpServer
@@ -21,7 +22,6 @@ import kotlinx.serialization.json.putJsonObject
 import org.junit.After
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
-import org.junit.Assume.assumeTrue
 import org.junit.Before
 import org.junit.Test
 
@@ -65,16 +65,6 @@ class ClaudeCodeContractTest {
     fun tearDown() {
         if (::server.isInitialized) server.stop(0)
         if (::home.isInitialized) removeTestDir(home)
-    }
-
-    private fun claudeAvailable(): Boolean {
-        val path =
-            listOfNotNull(
-                    System.getProperty("user.home")?.let { "$it/.local/bin" },
-                    System.getenv("PATH"),
-                )
-                .joinToString(":")
-        return path.split(':').any { File(it, "claude").canExecute() }
     }
 
     private fun serve(ex: HttpExchange) {
@@ -261,12 +251,7 @@ class ClaudeCodeContractTest {
                     )
                     .directory(File(home, "proj"))
             val env = builder.environment()
-            val path =
-                listOfNotNull(
-                        System.getProperty("user.home")?.let { "$it/.local/bin" },
-                        System.getenv("PATH"),
-                    )
-                    .joinToString(":")
+            val path = TestDeps.searchPath
             env.clear()
             env["HOME"] = home.path
             env["PATH"] = path
@@ -426,7 +411,7 @@ class ClaudeCodeContractTest {
 
     @Test
     fun bypassModeStillHonoursDenyAndAsk() {
-        assumeTrue("没有 claude 命令", claudeAvailable())
+        TestDeps.requireClaude()
         script = listOf(bash("touch denied.txt"), bash("mkdir asked"), bash("touch -c free.txt"))
         Claude(
                 "bypassPermissions",
@@ -463,7 +448,7 @@ class ClaudeCodeContractTest {
 
     @Test
     fun askBeatsAllowAndCustomTitlesStay() {
-        assumeTrue("没有 claude 命令", claudeAvailable())
+        TestDeps.requireClaude()
         script = listOf(bash("touch made.txt"))
         Claude("default", """{"permissions":{"allow":["Bash(touch:*)"],"ask":["Bash"]}}""").use {
             claude ->
@@ -524,7 +509,7 @@ class ClaudeCodeContractTest {
      */
     @Test
     fun endSessionExitsLikeExitCommand() {
-        assumeTrue("没有 claude 命令", claudeAvailable())
+        TestDeps.requireClaude()
         val log = File(home, "session-end.log")
         Claude("bypassPermissions", sessionEndHook(log)).use { claude ->
             claude.turn("say hi")
@@ -540,7 +525,7 @@ class ClaudeCodeContractTest {
      */
     @Test
     fun endSessionStopsTheRunningTurn() {
-        assumeTrue("没有 claude 命令", claudeAvailable())
+        TestDeps.requireClaude()
         // 工具跑得比下面任何一个限时都长：等它跑完才收尾的话 result 等不到，不用按秒数判断
         script = listOf(bash("timeout 300 tail -f /dev/null"))
         val log = File(home, "session-end.log")
@@ -570,7 +555,7 @@ class ClaudeCodeContractTest {
      */
     @Test
     fun followUpJoinsTheRunningTurn() {
-        assumeTrue("没有 claude 命令", claudeAvailable())
+        TestDeps.requireClaude()
         script = listOf(bash("sleep 2"))
         val first = "11111111-2222-4333-8444-555555555555"
         val second = "33333333-2222-4333-8444-555555555555"
@@ -610,7 +595,7 @@ class ClaudeCodeContractTest {
      */
     @Test
     fun sendNowDeliversWithoutWaitingForTheTool() {
-        assumeTrue("没有 claude 命令", claudeAvailable())
+        TestDeps.requireClaude()
         // 单独一条 sleep 会被 Claude Code 拦下（要等待得用 Monitor），换一条同样一直跑的
         script = listOf(bash("timeout 40 tail -f /dev/null"))
         val first = "11111111-2222-4333-8444-666666666666"

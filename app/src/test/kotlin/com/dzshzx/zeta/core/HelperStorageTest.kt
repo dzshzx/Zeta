@@ -11,7 +11,6 @@ import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertTrue
-import org.junit.Assume.assumeTrue
 import org.junit.Before
 import org.junit.Test
 
@@ -42,7 +41,7 @@ class HelperStorageTest {
 
     @Before
     fun setUp() {
-        assumeTrue("要 Linux 的 /proc 和 find、touch、mkfifo", File("/proc/self/stat").exists())
+        TestDeps.require("Linux 的 /proc 和 find、touch、mkfifo", File("/proc/self/stat").exists())
         home = Files.createTempDirectory("zeta-storage-home").toFile().canonicalFile
         outside = Files.createTempDirectory("zeta-storage-outside").toFile().canonicalFile
         tmp = Files.createTempDirectory("zeta-test-tmp").toFile().canonicalFile

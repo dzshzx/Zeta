@@ -1,5 +1,6 @@
 package com.dzshzx.zeta.core.claude
 
+import com.dzshzx.zeta.core.TestDeps
 import com.dzshzx.zeta.core.removeTestDir
 import com.dzshzx.zeta.phone.tools.ScheduleTools
 import com.sun.net.httpserver.HttpExchange
@@ -24,7 +25,6 @@ import kotlinx.serialization.json.putJsonObject
 import org.junit.After
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
-import org.junit.Assume.assumeTrue
 import org.junit.Before
 import org.junit.Test
 
@@ -93,16 +93,6 @@ class UnattendedRulesContractTest {
     fun tearDown() {
         if (::server.isInitialized) server.stop(0)
         if (::home.isInitialized) removeTestDir(home)
-    }
-
-    private fun claudeAvailable(): Boolean {
-        val path =
-            listOfNotNull(
-                    System.getProperty("user.home")?.let { "$it/.local/bin" },
-                    System.getenv("PATH"),
-                )
-                .joinToString(":")
-        return path.split(':').any { File(it, "claude").canExecute() }
     }
 
     // ---- 假的 Messages API ----
@@ -306,12 +296,7 @@ class UnattendedRulesContractTest {
                     )
                     .directory(File(home, "proj"))
             val env = builder.environment()
-            val path =
-                listOfNotNull(
-                        System.getProperty("user.home")?.let { "$it/.local/bin" },
-                        System.getenv("PATH"),
-                    )
-                    .joinToString(":")
+            val path = TestDeps.searchPath
             env.clear()
             env["HOME"] = home.path
             env["PATH"] = path
@@ -531,7 +516,7 @@ class UnattendedRulesContractTest {
 
     @Test
     fun unattendedRulesBlockOnlyThisLayer() {
-        assumeTrue("没有 claude 命令", claudeAvailable())
+        TestDeps.requireClaude()
         val rules = ScheduleTools.unattendedRules
         val denied = names(rules["deny"])
         Claude().use { claude ->
@@ -623,7 +608,7 @@ class UnattendedRulesContractTest {
 
     @Test
     fun revokingWithoutRulesChangesNothing() {
-        assumeTrue("没有 claude 命令", claudeAvailable())
+        TestDeps.requireClaude()
         Claude(allowBypass = false).use { claude ->
             claude.response(claude.request { put("subtype", "initialize") })
             // 顺带：不带 --allow-dangerously-skip-permissions 时运行中切不进完全放行
@@ -666,7 +651,7 @@ class UnattendedRulesContractTest {
 
     @Test
     fun modeFollowsTheSender() {
-        assumeTrue("没有 claude 命令", claudeAvailable())
+        TestDeps.requireClaude()
         Claude(mode = "acceptEdits").use { claude ->
             claude.response(claude.request { put("subtype", "initialize") })
             // 用户自己的一轮：自动接受编辑，手机工具照常要确认
@@ -696,7 +681,7 @@ class UnattendedRulesContractTest {
 
     @Test
     fun launchWithoutModeReportsTheSettingsDefault() {
-        assumeTrue("没有 claude 命令", claudeAvailable())
+        TestDeps.requireClaude()
         File(home, ".claude/settings.json")
             .writeText(
                 """{"permissions":{"defaultMode":"acceptEdits","allow":["mcp__phone__run_scheduled_task"],"deny":["WebSearch"]}}""",
@@ -711,7 +696,7 @@ class UnattendedRulesContractTest {
 
     @Test
     fun defaultsLiveWhereZetaReadsThem() {
-        assumeTrue("没有 claude 命令", claudeAvailable())
+        TestDeps.requireClaude()
         val settings = File(home, ".claude/settings.json")
         settings.writeText(
             """{"model":"claude-opus-5-5","permissions":{"allow":["mcp__phone__run_scheduled_task"],"deny":["WebSearch"]}}""",

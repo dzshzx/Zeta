@@ -8,7 +8,6 @@ import org.junit.After
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
-import org.junit.Assume.assumeTrue
 import org.junit.Before
 import org.junit.Test
 
@@ -37,7 +36,7 @@ class HostStopTest {
 
     @Before
     fun setUp() {
-        assumeTrue("要 Linux 的 /proc 和 bash", File("/proc/self/cmdline").exists())
+        TestDeps.requireLinux()
         home = Files.createTempDirectory("zeta-stop").toFile().canonicalFile
     }
 

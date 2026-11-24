@@ -8,7 +8,6 @@ import org.junit.After
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
-import org.junit.Assume.assumeTrue
 import org.junit.Before
 import org.junit.Test
 
@@ -23,7 +22,7 @@ class HostStderrTest {
 
     @Before
     fun setUp() {
-        assumeTrue("要 Linux 的 bash", File("/proc/self/cmdline").exists())
+        TestDeps.require("Linux 的 bash", File("/proc/self/cmdline").exists())
         home = Files.createTempDirectory("zeta-stderr").toFile().canonicalFile
     }
 

@@ -7,7 +7,6 @@ import kotlinx.serialization.json.jsonObject
 import org.junit.After
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
-import org.junit.Assume.assumeTrue
 import org.junit.Before
 import org.junit.Test
 import org.junit.runner.RunWith
@@ -32,7 +31,7 @@ class HostTurnTest {
 
     @Before
     fun setUp() {
-        assumeTrue("要 Linux 的 /proc 和 bash", File("/proc/self/cmdline").exists())
+        TestDeps.requireLinux()
         home = Files.createTempDirectory("zeta-host-turn").toFile().canonicalFile
     }
 

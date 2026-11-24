@@ -6,7 +6,6 @@ import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
-import org.junit.Assume.assumeTrue
 import org.junit.Test
 
 class AttachedPathsTest {
@@ -212,7 +211,10 @@ class AttachedPathsTest {
     /** 在本机的 sh 里真跑一遍查路径的脚本（用 JVM 自己当“对话进程”，它看到的和新开的环境一样）。 */
     @Test
     fun pathCheckScriptRunsInShell() {
-        assumeTrue(File("/bin/sh").canExecute() && File("/proc/self/root").exists())
+        TestDeps.require(
+            "/bin/sh 和 /proc",
+            File("/bin/sh").canExecute() && File("/proc/self/root").exists(),
+        )
         val home = Files.createTempDirectory("zeta-path").toFile()
         try {
             val dir = File(home, "a dir").apply { mkdirs() }
