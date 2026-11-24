@@ -358,3 +358,21 @@ bridge_call() { printf '{"jsonrpc":"2.0","id":%s,"method":"tools/call","params":
 # bridge_reply <应答文件> <id>：那个请求的应答；bridge_ok：它成功了（有 result、不是工具出错）
 bridge_reply() { jq -c "select(.id == $2)" "$1"; }
 bridge_ok() { test "$(bridge_reply "$1" "$2" | jq '.result != null and .result.isError != true')" = true; }
+
+# app_threads：测试版（进程号 $pid）每个线程的「线程号 名字 CPU 节拍（用户态加内核态）」
+app_threads() {
+  android "cd /proc/$pid/task && for t in *; do echo \"\$t \$(tr ' ' _ < \$t/comm) \$(sed 's/.*) //' \$t/stat | cut -d' ' -f12,13)\"; done" |
+    tr -d '\r' | awk '{ print $1, $2, $3 + $4 }'
+}
+# measure_cpu <序号> <标题>：等第 <序号> 轮答完，打印这段时间按线程名合计的 CPU（节拍是 10 毫秒）和前 6 名
+measure_cpu() {
+  local start=$SECONDS
+  app_threads >before
+  wait_result "$1" 90
+  app_threads >after
+  awk -v title="$2" -v secs=$((SECONDS - start)) 'NR == FNR { a[$1] = $3; next } { d = $3 - a[$1]; if (d > 0) { by[$2] += d; total += d } }
+    END { printf "%s（%s 秒）：合计 %d 毫秒；", title, secs, total * 10; n = 0; PROCINFO["sorted_in"] = "@val_num_desc"
+      for (k in by) { if (n++ == 6) break; printf "%s %d，", k, by[k] * 10 } }' before after
+}
+# frames：测试版自上次 dumpsys gfxinfo reset 以来画了多少帧
+frames() { android "dumpsys gfxinfo $PKG | grep -m1 'Total frames rendered'" | tr -d '\r' | grep -o '[0-9]*$'; }

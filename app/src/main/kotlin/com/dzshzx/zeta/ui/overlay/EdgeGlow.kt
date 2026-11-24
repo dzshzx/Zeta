@@ -6,11 +6,6 @@ import android.graphics.Paint
 import android.graphics.SweepGradient
 import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.AnimationVector1D
-import androidx.compose.animation.core.LinearEasing
-import androidx.compose.animation.core.RepeatMode
-import androidx.compose.animation.core.animateFloat
-import androidx.compose.animation.core.infiniteRepeatable
-import androidx.compose.animation.core.rememberInfiniteTransition
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
@@ -29,6 +24,8 @@ import androidx.compose.ui.graphics.drawscope.drawIntoCanvas
 import androidx.compose.ui.graphics.nativeCanvas
 import androidx.compose.ui.graphics.toArgb
 import com.dzshzx.zeta.phone.OverlayPhase
+import com.dzshzx.zeta.ui.components.rememberIndicatorClock
+import com.dzshzx.zeta.ui.components.turn
 import io.github.suqi8.coui.kmp.squircle.addSquircleRect
 
 // 照 Eta：流光取蓝色和相邻的冷暖色，不用高饱和彩虹，免得在浅色页面上喧宾夺主。
@@ -44,6 +41,9 @@ private val EdgeLightColors =
 
 internal const val EdgeGlowFadeInMs = 420
 internal const val EdgeGlowFadeOutMs = 240
+
+/** 运行时流光沿边缘转一圈的毫秒数。 */
+private const val EdgeTurnMs = 4200
 
 /** 转角曲线从离角多少倍半径处开始弯。 */
 private const val EdgeCornerSpan = 1.1f
@@ -70,18 +70,8 @@ internal fun EdgeGlow(phase: OverlayPhase, visible: Boolean, hidden: Boolean, co
     val revealMs = if (visible) EdgeGlowFadeInMs else EdgeGlowFadeOutMs
     LaunchedEffect(visible) { reveal.animateTo(revealTarget, tween(revealMs)) }
     val running = phase == OverlayPhase.RUNNING
-    // 只在运行时转动；角度只在绘制阶段读取，每帧不重组
-    val rotation =
-        if (running) {
-            rememberInfiniteTransition(label = "edge_light")
-                .animateFloat(
-                    initialValue = 0f,
-                    targetValue = 360f,
-                    animationSpec =
-                        infiniteRepeatable(tween(4200, easing = LinearEasing), RepeatMode.Restart),
-                    label = "edge_rotation",
-                )
-        } else null
+    // 只在运行时转动；时钟只在绘制阶段读取，每步不重组
+    val clock = if (running) rememberIndicatorClock() else null
     val outlineColor =
         phaseAccent(
             if (phase == OverlayPhase.CONTROLLING) OverlayPhase.CONTROLLING
@@ -95,7 +85,7 @@ internal fun EdgeGlow(phase: OverlayPhase, visible: Boolean, hidden: Boolean, co
             val light = EdgeLight(edge, size.width / 2f, size.height / 2f, density, outlineColor)
             onDrawBehind {
                 drawIntoCanvas { canvas ->
-                    light.draw(canvas.nativeCanvas, hidden, reveal, rotation)
+                    light.draw(canvas.nativeCanvas, hidden, reveal, clock)
                 }
             }
         },
@@ -150,23 +140,23 @@ private class EdgeLight(
         }
 
     /**
-     * 按淡入进度 [reveal] 画一帧，[hidden]（截图兜底）或完全透明时不画；[rotation] 为 null 时（不在运行）只画淡描边。
+     * 按淡入进度 [reveal] 画一帧，[hidden]（截图兜底）或完全透明时不画；[clock] 为 null 时（不在运行）只画淡描边，否则按它转到的角度画流光（4.2 秒一圈）。
      * 进度和角度在这里才读，看不见时不跟着重画。
      */
     fun draw(
         native: android.graphics.Canvas,
         hidden: Boolean,
         reveal: Animatable<Float, AnimationVector1D>,
-        rotation: State<Float>?,
+        clock: State<Long>?,
     ) {
         val alpha = if (hidden) 0f else reveal.value
         if (alpha <= 0f) return
-        if (rotation == null) {
+        if (clock == null) {
             outline.alpha = (0.55f * alpha * 255).toInt()
             native.drawPath(edge, outline)
             return
         }
-        matrix.setRotate(rotation.value, cx, cy)
+        matrix.setRotate(turn(clock.value, EdgeTurnMs), cx, cy)
         shader.setLocalMatrix(matrix)
         halo.alpha = (0.55f * alpha * 255).toInt()
         line.alpha = (0.95f * alpha * 255).toInt()

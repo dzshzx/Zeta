@@ -8,15 +8,10 @@ import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.SizeTransform
 import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.core.FastOutLinearInEasing
-import androidx.compose.animation.core.LinearEasing
 import androidx.compose.animation.core.MutableTransitionState
-import androidx.compose.animation.core.RepeatMode
 import androidx.compose.animation.core.Spring
 import androidx.compose.animation.core.animateDpAsState
-import androidx.compose.animation.core.animateFloat
 import androidx.compose.animation.core.animateFloatAsState
-import androidx.compose.animation.core.infiniteRepeatable
-import androidx.compose.animation.core.rememberInfiniteTransition
 import androidx.compose.animation.core.snap
 import androidx.compose.animation.core.spring
 import androidx.compose.animation.core.tween
@@ -99,6 +94,9 @@ import com.dzshzx.zeta.phone.OverlayPhase
 import com.dzshzx.zeta.phone.TouchMark
 import com.dzshzx.zeta.phone.VirtualScreen
 import com.dzshzx.zeta.ui.components.coui2.ZetaIcons
+import com.dzshzx.zeta.ui.components.pingPong
+import com.dzshzx.zeta.ui.components.rememberIndicatorClock
+import com.dzshzx.zeta.ui.components.turn
 import io.github.suqi8.coui.kmp.basic.ButtonDefaults
 import io.github.suqi8.coui.kmp.basic.Icon
 import io.github.suqi8.coui.kmp.basic.Text
@@ -559,24 +557,11 @@ private fun PhaseIndicator(phase: OverlayPhase, accent: Color) {
         )
         return
     }
-    val transition = rememberInfiniteTransition(label = "capsule_indicator")
-    val rotation by
-        transition.animateFloat(
-            0f,
-            360f,
-            infiniteRepeatable(tween(1100, easing = LinearEasing)),
-            label = "capsule_indicator_rotation",
-        )
-    val breathe by
-        transition.animateFloat(
-            0.55f,
-            1f,
-            infiniteRepeatable(tween(900), RepeatMode.Reverse),
-            label = "capsule_indicator_breathe",
-        )
+    // 转圈和中间圆点的呼吸共用一个时钟，只在绘制阶段读
+    val clock = rememberIndicatorClock()
     Box(
         Modifier.size(size)
-            .graphicsLayer { rotationZ = rotation }
+            .graphicsLayer { rotationZ = turn(clock.value, 1100) }
             .drawBehind {
                 val radius = this.size.minDimension / 2f
                 val center = Offset(radius, radius)
@@ -588,7 +573,11 @@ private fun PhaseIndicator(phase: OverlayPhase, accent: Color) {
                     useCenter = false,
                     style = Stroke(radius * 0.34f, cap = StrokeCap.Round),
                 )
-                drawCircle(accent.copy(alpha = breathe), radius * 0.26f, center)
+                drawCircle(
+                    accent.copy(alpha = pingPong(clock.value, 900, 0.55f, 1f)),
+                    radius * 0.26f,
+                    center,
+                )
             },
     )
 }

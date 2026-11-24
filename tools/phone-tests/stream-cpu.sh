@@ -17,35 +17,19 @@ new_chat
 pid=$(android "pidof $PKG" | tr -d '\r')
 [[ -n $pid ]] || { echo "测试版没在跑"; exit 1; }
 
-# threads：测试版每个线程的「线程号 名字 CPU 节拍（用户态加内核态）」
-threads() {
-  android "cd /proc/$pid/task && for t in *; do echo \"\$t \$(tr ' ' _ < \$t/comm) \$(sed 's/.*) //' \$t/stat | cut -d' ' -f12,13)\"; done" |
-    tr -d '\r' | awk '{ print $1, $2, $3 + $4 }'
-}
-# measure <序号> <标题>：等第 <序号> 轮答完，打印这段时间按线程名合计的 CPU（节拍是 10 毫秒）和前 6 名
-measure() {
-  local start=$SECONDS
-  threads >before
-  wait_result "$1" 90
-  threads >after
-  awk -v title="$2" -v secs=$((SECONDS - start)) 'NR == FNR { a[$1] = $3; next } { d = $3 - a[$1]; if (d > 0) { by[$2] += d; total += d } }
-    END { printf "%s（%s 秒）：合计 %d 毫秒；", title, secs, total * 10; n = 0; PROCINFO["sorted_in"] = "@val_num_desc"
-      for (k in by) { if (n++ == 6) break; printf "%s %d，", k, by[k] * 10 } }' before after
-}
-
 send warm
 wait_result 1 60
 sleep 3
 
 android "dumpsys gfxinfo $PKG reset" >/dev/null
 send shown
-shown="$(measure 2 界面开着)画了 $(android "dumpsys gfxinfo $PKG | grep -m1 'Total frames rendered'" | tr -d '\r' | grep -o '[0-9]*$') 帧"
+shown="$(measure_cpu 2 界面开着)画了 $(frames) 帧"
 
 send covered
 sleep 0.5
 android "am start --display $DISPLAY_ID -n com.android.settings/.Settings" >/dev/null
 for _ in 1 2 3 4 5 6; do [[ -z $(resumed) ]] && break; sleep 0.5; done
 [[ -z $(resumed) ]] || { echo "系统设置没盖住测试版：$(resumed)"; exit 1; }
-covered=$(measure 3 界面被盖住)
+covered=$(measure_cpu 3 界面被盖住)
 
 printf '%s\n%s\n' "$shown" "$covered" | tee cpu.txt

@@ -2,12 +2,7 @@ package com.dzshzx.zeta.ui.chat
 
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.animateContentSize
-import androidx.compose.animation.core.RepeatMode
-import androidx.compose.animation.core.animateFloat
 import androidx.compose.animation.core.animateFloatAsState
-import androidx.compose.animation.core.infiniteRepeatable
-import androidx.compose.animation.core.rememberInfiniteTransition
-import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -72,6 +67,8 @@ import com.dzshzx.zeta.ui.components.coui2.CopyIconButton
 import com.dzshzx.zeta.ui.components.coui2.FlatIconButton
 import com.dzshzx.zeta.ui.components.coui2.ZetaIcons
 import com.dzshzx.zeta.ui.components.coui2.menuItem
+import com.dzshzx.zeta.ui.components.pingPong
+import com.dzshzx.zeta.ui.components.rememberIndicatorClock
 import com.dzshzx.zeta.ui.markdown.EditorialLineHeightStyle
 import com.dzshzx.zeta.ui.markdown.FindableText
 import com.dzshzx.zeta.ui.markdown.LocalTextFinder
@@ -460,7 +457,7 @@ private fun AnswerImageGroups(groups: List<List<ImageRef>>) {
 
 @Composable
 fun TypingIndicator(modifier: Modifier = Modifier) {
-    val transition = rememberInfiniteTransition(label = "typing")
+    val clock = rememberIndicatorClock()
     val dot = COUITheme.colorScheme.labelSecondary
     Row(
         modifier = modifier,
@@ -468,18 +465,13 @@ fun TypingIndicator(modifier: Modifier = Modifier) {
         verticalAlignment = Alignment.CenterVertically,
     ) {
         repeat(3) { index ->
-            val alpha by
-                transition.animateFloat(
-                    initialValue = 0.3f,
-                    targetValue = 1f,
-                    animationSpec =
-                        infiniteRepeatable(
-                            animation = tween(600, delayMillis = index * 150),
-                            repeatMode = RepeatMode.Reverse,
-                        ),
-                    label = "alpha",
-                )
-            Box(Modifier.size(6.dp).graphicsLayer(alpha = alpha).background(dot, CircleShape))
+            Box(
+                Modifier.size(6.dp)
+                    .graphicsLayer {
+                        alpha = pingPong(clock.value, 600, 0.3f, 1f, delayMs = index * 150)
+                    }
+                    .background(dot, CircleShape),
+            )
         }
     }
 }
@@ -865,26 +857,16 @@ fun PulsingText(
     color: Color,
     modifier: Modifier = Modifier,
 ) {
-    val alpha =
-        if (active) {
-            val transition = rememberInfiniteTransition(label = "pulse")
-            transition
-                .animateFloat(
-                    0.45f,
-                    1f,
-                    infiniteRepeatable(tween(800), RepeatMode.Reverse),
-                    label = "pulse-alpha",
-                )
-                .value
-        } else {
-            1f
-        }
+    val clock = if (active) rememberIndicatorClock() else null
     Text(
         text = text,
         style = COUITheme.textStyles.bodyM.copy(fontSize = 13.5.sp),
         color = color,
         maxLines = 1,
         overflow = TextOverflow.Ellipsis,
-        modifier = modifier.graphicsLayer { this.alpha = alpha },
+        modifier =
+            modifier.graphicsLayer {
+                alpha = clock?.let { pingPong(it.value, 800, 0.45f, 1f) } ?: 1f
+            },
     )
 }

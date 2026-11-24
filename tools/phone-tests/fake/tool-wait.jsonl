@@ -1,0 +1,2 @@
+{"title":"预热","steps":[{"text":"OK"}]}
+{"title":"等工具","steps":[{"text":"先跑测试。"},{"tool":"Bash","input":{"command":"make test","description":"跑测试"},"result":"ok","ms":15000},{"text":"测试通过。"}]}

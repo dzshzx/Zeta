@@ -1,14 +1,8 @@
 package com.dzshzx.zeta.ui.pane
 
-import androidx.compose.animation.core.LinearEasing
-import androidx.compose.animation.core.animateFloat
-import androidx.compose.animation.core.infiniteRepeatable
-import androidx.compose.animation.core.rememberInfiniteTransition
-import androidx.compose.animation.core.tween
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.layout.size
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.State
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
@@ -24,6 +18,8 @@ import com.dzshzx.zeta.core.SessionStatus
 import com.dzshzx.zeta.core.SessionStatus.Activity
 import com.dzshzx.zeta.i18n.Strings
 import com.dzshzx.zeta.ui.components.StatusWarning
+import com.dzshzx.zeta.ui.components.rememberIndicatorClock
+import com.dzshzx.zeta.ui.components.turn
 import io.github.suqi8.coui.kmp.basic.Text
 import io.github.suqi8.coui.kmp.theme.COUITheme
 import kotlin.math.roundToInt
@@ -85,7 +81,7 @@ fun SessionStatusLabel(status: SessionStatus) {
 @Composable
 private fun StatusMark(activity: Activity, color: Color) {
     // 转着的角度只在画的时候读：每帧只重画这个记号，不重组
-    val turn = if (activity == Activity.Answering) spin() else null
+    val turn = if (activity == Activity.Answering) rememberIndicatorClock() else null
     Canvas(Modifier.size(MarkSize)) {
         val stroke = MarkStroke.toPx()
         val line = Stroke(stroke, cap = StrokeCap.Round)
@@ -106,7 +102,7 @@ private fun StatusMark(activity: Activity, color: Color) {
                 ring(color.copy(alpha = 0.25f))
                 drawArc(
                     color,
-                    (turn?.value ?: 0f) - 90f,
+                    turn(turn?.value ?: 0L, 1000) - 90f,
                     250f,
                     false,
                     Offset(stroke / 2, stroke / 2),
@@ -135,13 +131,3 @@ private fun StatusMark(activity: Activity, color: Color) {
         }
     }
 }
-
-@Composable
-private fun spin(): State<Float> =
-    rememberInfiniteTransition(label = "status")
-        .animateFloat(
-            0f,
-            360f,
-            infiniteRepeatable(tween(1000, easing = LinearEasing)),
-            label = "status-spin",
-        )

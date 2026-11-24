@@ -89,3 +89,4 @@ COUI 2 没有的才在 `ui/components/coui2` 补，页面文件里不各写一�
 - 换主题时 COUI 就地改同一个配色对象，`remember(colorScheme)` 会拿到旧颜色；要按具体的颜色值做键。
 - COUI 2 的 `TextField` 只有一个 label（占位提示和浮动标题二选一），要标题在框上方就用 `InputView` 或 `DialogTextField`；`InputView` 的多行形态固定 152dp 高。
 - 截图测试画不出：平滑圆角（着色器裁剪，块会整块空白，截图里可以临时关掉 `LocalSquircleEnabled`）、毛玻璃和顶栏光晕、公式。这些上真机看。`ScheduleStore`、`NotifyRuleStore` 是进程级单例，同一个 JVM 里前面测试留下的数据会串到后面，用到的测试先清空。
+- 一直循环的提示动画（转圈、呼吸、闪烁的点）用 `ui/components/IndicatorClock.kt` 的 `rememberIndicatorClock()`，配 `turn`、`pingPong` 换算，值只在绘制阶段读；不用 `rememberInfiniteTransition`、`infiniteRepeatable`（`IndicatorClockTest` 拦着）：它们每帧要一次新画面，回答进行中整窗按刷新率一直重画，耗电。COUI 的 `InfiniteProgressIndicator` 只用在短暂的加载里。

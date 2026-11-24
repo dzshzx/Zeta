@@ -1,10 +1,5 @@
 package com.dzshzx.zeta.ui.tasks
 
-import androidx.compose.animation.core.RepeatMode
-import androidx.compose.animation.core.animateFloat
-import androidx.compose.animation.core.infiniteRepeatable
-import androidx.compose.animation.core.rememberInfiniteTransition
-import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Box
@@ -50,6 +45,8 @@ import com.dzshzx.zeta.ui.components.coui2.ConfirmDialog
 import com.dzshzx.zeta.ui.components.coui2.CouiPage
 import com.dzshzx.zeta.ui.components.coui2.PreferenceGroup
 import com.dzshzx.zeta.ui.components.coui2.PreferenceValue
+import com.dzshzx.zeta.ui.components.pingPong
+import com.dzshzx.zeta.ui.components.rememberIndicatorClock
 import com.dzshzx.zeta.ui.components.rememberNow
 import io.github.suqi8.coui.kmp.basic.BasicComponent
 import io.github.suqi8.coui.kmp.basic.BasicComponentDefaults
@@ -491,14 +488,7 @@ fun BackgroundTaskStrip(
     val running = conversation.tasks.list.filter { it.running }
     if (running.isEmpty()) return
     val colors = COUITheme.colorScheme
-    val pulse =
-        rememberInfiniteTransition(label = "tasks")
-            .animateFloat(
-                0.35f,
-                1f,
-                infiniteRepeatable(tween(900), RepeatMode.Reverse),
-                label = "tasks-dot",
-            )
+    val clock = rememberIndicatorClock()
     Row(
         modifier =
             modifier
@@ -513,7 +503,7 @@ fun BackgroundTaskStrip(
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Box(
                     Modifier.size(6.dp)
-                        .graphicsLayer { alpha = pulse.value }
+                        .graphicsLayer { alpha = pingPong(clock.value, 900, 0.35f, 1f) }
                         .clip(CircleShape)
                         .background(colors.primary),
                 )
