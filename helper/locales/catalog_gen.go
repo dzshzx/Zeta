@@ -558,6 +558,28 @@ func (msgs Messages) NoticeHistoryFailed(reason string) string {
 	return Catalog.Format(msgs.locale, "noticeHistoryFailed", map[string]any{"reason": reason})
 }
 
+// NoticeHookContext says "{event} hook 附加上下文：\n{text}"
+// in the language the app shows.
+//
+// 对话里的灰色提示：终端里 Claude Code
+// 在第一条消息后显示的 hook（比如
+// SessionStart）附加上下文，event 是 hook 事件名，text 是 hook
+// 给的原文。
+func NoticeHookContext(event string, text string) string {
+	return In(i18n.Locale()).NoticeHookContext(event, text)
+}
+
+// NoticeHookContext says "{event} hook 附加上下文：\n{text}"
+// in the language of msgs.
+//
+// 对话里的灰色提示：终端里 Claude Code
+// 在第一条消息后显示的 hook（比如
+// SessionStart）附加上下文，event 是 hook 事件名，text 是 hook
+// 给的原文。
+func (msgs Messages) NoticeHookContext(event string, text string) string {
+	return Catalog.Format(msgs.locale, "noticeHookContext", map[string]any{"event": event, "text": text})
+}
+
 // ForkFailed says "分支没有建成：{reason}"
 // in the language the app shows.
 //

@@ -498,6 +498,18 @@ fun NoticeRow(item: NoticeItem, modifier: Modifier = Modifier) {
                         .padding(horizontal = 14.dp, vertical = 10.dp),
             )
         }
+    } else if (item.code == "noticeHookContext") {
+        // hook 给的原文又长又分行：靠左、可选中，不居中成一小行
+        SelectionContainer(
+            modifier = modifier.fillMaxWidth().padding(horizontal = 20.dp, vertical = 6.dp),
+        ) {
+            Text(
+                text = item.said(),
+                style = COUITheme.textStyles.bodyS,
+                color = colors.labelSecondary,
+                modifier = Modifier.fillMaxWidth(),
+            )
+        }
     } else {
         Box(
             modifier = modifier.fillMaxWidth().padding(vertical = 8.dp),

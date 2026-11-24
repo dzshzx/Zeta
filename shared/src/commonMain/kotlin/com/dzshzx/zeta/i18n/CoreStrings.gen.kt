@@ -246,6 +246,13 @@ object CoreStrings {
     fun noticeHistoryFailed(reason: String): String = catalog.say("noticeHistoryFailed", mapOf("reason" to reason))
 
     /**
+     * 「{event} hook 附加上下文： {text}」
+     *
+     * 对话里的灰色提示：终端里 Claude Code 在第一条消息后显示的 hook（比如 SessionStart）附加上下文，event 是 hook 事件名，text 是 hook 给的原文。
+     */
+    fun noticeHookContext(event: String, text: String): String = catalog.say("noticeHookContext", mapOf("event" to event, "text" to text))
+
+    /**
      * 「分支没有建成：{reason}」
      *
      * 「没有发出：」后面的原因：分支第一次发消息时剪会话没成，reason 是原因。

@@ -26,6 +26,8 @@ type historyHeader struct {
 type historyLine struct {
 	Type          string                    `json:"type"`
 	Subtype       string                    `json:"subtype"`
+	HookEvent     string                    `json:"hook_event"`
+	Text          string                    `json:"text"`
 	UUID          string                    `json:"uuid"`
 	Peer          string                    `json:"peer"`
 	Message       *transcript.Message       `json:"message"`
@@ -56,6 +58,8 @@ func readHistory(out []byte, file, prefix string, keepRunningTools bool) history
 		switch {
 		case h.Type == "system" && h.Subtype == "compact_boundary":
 			r.AddNoticeMsg(usage.CompactNotice(line), false)
+		case h.Type == "system" && h.Subtype == "hook_context":
+			r.AddNoticeMsg(locales.M("noticeHookContext", "event", h.HookEvent, "text", h.Text), false)
 		case h.Type == "assistant" && h.Message != nil:
 			r.ApplyAssistant(*h.Message, true)
 		case h.Type == "user" && h.Message != nil:

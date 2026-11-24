@@ -255,3 +255,24 @@ func TestHistoryHeaderModelSwitchedInTerminal(t *testing.T) {
 		t.Errorf("cut %v", out)
 	}
 }
+
+// 终端里 hook 的附加上下文显示在第一条用户消息之后，记录里它写在那条消息前面
+func TestHistoryShowsHookContextAfterFirstUserMessage(t *testing.T) {
+	e := testEnv(t)
+	file := e.root + "/-p/55555555-5555-5555-5555-555555555555.jsonl"
+	writeLines(t, file,
+		`{"type":"attachment","attachment":{"type":"hook_success","hookEvent":"SessionStart","stdout":"{}"},"uuid":"h0"}`,
+		`{"type":"attachment","attachment":{"type":"hook_additional_context","hookEvent":"SessionStart","content":["第一段","第二段"]},"uuid":"h1"}`,
+		userLine("u1", "你好"),
+		answerLine("a1", "嗯"))
+	out := mustCall(t, e, "history", file)
+	if len(out) != 4 {
+		t.Fatalf("events %v", out[1:])
+	}
+	if out[1]["type"] != "user" || out[2]["type"] != "system" || out[2]["subtype"] != "hook_context" || out[3]["type"] != "assistant" {
+		t.Fatalf("order %v", out[1:])
+	}
+	if out[2]["hook_event"] != "SessionStart" || out[2]["text"] != "第一段\n第二段" {
+		t.Errorf("hook %v", out[2])
+	}
+}

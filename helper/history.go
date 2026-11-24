@@ -108,6 +108,9 @@ func (t *timeline) switchedModel() string {
 type historyReader struct {
 	timeline
 	compacted bool // 刚读到压缩提示，后面紧跟的 /compact 命令不再显示
+	// 还没接上的 hook 附加上下文（和各自出自哪一行），见 hookContext
+	hooks    []obj
+	hookRows []any
 }
 
 func readEvents(path string) (*timeline, error) {
@@ -123,7 +126,7 @@ func readEvents(path string) (*timeline, error) {
 		if !ok {
 			break
 		}
-		if !hasAny(line, `"type":"user"`, `"type":"assistant"`, `"local_command"`, `"queued_command"`, `"rewound":true`, `"compact_boundary"`) {
+		if !hasAny(line, `"type":"user"`, `"type":"assistant"`, `"local_command"`, `"queued_command"`, `"rewound":true`, `"compact_boundary"`, `"hook_additional_context"`) {
 			continue
 		}
 		if cut, leaf, ok := rewindCut(line); ok {
@@ -137,6 +140,7 @@ func readEvents(path string) (*timeline, error) {
 	if lr.err != nil {
 		return nil, lr.err
 	}
+	r.flushHooks() // 一条用户消息都没有的会话：hook 信息照样显示
 	return &r.timeline, nil
 }
 
@@ -151,6 +155,10 @@ func (r *historyReader) record(o obj, number int) {
 	if kind == "attachment" {
 		// 回答进行中插进来的消息：记成 queued_command 附件，不是普通的 user 条目
 		attachment := asObj(o["attachment"])
+		if attachment["type"] == "hook_additional_context" && !truthy(o["isSidechain"]) {
+			r.hookContext(attachment, row)
+			return
+		}
 		if attachment["type"] != "queued_command" || truthy(o["isSidechain"]) {
 			return
 		}
@@ -181,6 +189,37 @@ func (r *historyReader) record(o obj, number int) {
 		e["effort"] = o["effort"]
 	}
 	r.add(e, row)
+}
+
+// hookContext 记下 hook（SessionStart 等）带来的附加上下文。记录里它写在触发它的那条用户消息前面，
+// 终端里却显示在那条消息之后、第一次工具调用之上，所以先攒着，等下一条用户消息进来再接在它后面（flushHooks）。
+func (r *historyReader) hookContext(attachment obj, row any) {
+	var parts []string
+	switch c := attachment["content"].(type) {
+	case string:
+		parts = append(parts, c)
+	case []any:
+		for _, p := range c {
+			if s, ok := p.(string); ok {
+				parts = append(parts, s)
+			}
+		}
+	}
+	text := strings.TrimSpace(strings.Join(parts, "\n"))
+	if text == "" {
+		return
+	}
+	r.hooks = append(r.hooks, obj{"type": "system", "subtype": "hook_context",
+		"hook_event": asString(attachment["hookEvent"]), "text": clipText(text)})
+	r.hookRows = append(r.hookRows, row)
+}
+
+// flushHooks 把攒着的 hook 信息接到刚加的用户消息后面。
+func (r *historyReader) flushHooks() {
+	for i, e := range r.hooks {
+		r.add(e, r.hookRows[i])
+	}
+	r.hooks, r.hookRows = nil, nil
 }
 
 func (r *historyReader) system(o obj, row any) {
@@ -245,6 +284,7 @@ func (r *historyReader) user(o obj, content any, number int, row any) {
 		e["uuid"] = row
 	}
 	r.add(e, row)
+	r.flushHooks()
 }
 
 // assistantBlocks 是回答里要显示的块（文字、思考、工具调用），长字符串截断，去掉签名。

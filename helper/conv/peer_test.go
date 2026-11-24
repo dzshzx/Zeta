@@ -11,3 +11,14 @@ func TestHistoryPeerItem(t *testing.T) {
 		t.Fatalf("条目 %+v", items)
 	}
 }
+
+// 历史里 hook 的附加上下文进条目：灰色提示，带种类码和 hook 原文，排在它所属的用户消息之后
+func TestHistoryHookContextNotice(t *testing.T) {
+	out := []byte(`{"type":"user","uuid":"u1","message":{"content":[{"type":"text","text":"a"}]}}` + "\n" +
+		`{"type":"system","subtype":"hook_context","hook_event":"SessionStart","text":"仓库信息"}` + "\n")
+	items := readHistory(out, "/s.jsonl", "h", false).reducer.Items
+	if len(items) != 2 || items[1].Kind != "notice" || items[1].Code != "noticeHookContext" ||
+		items[1].Args["event"] != "SessionStart" || items[1].Args["text"] != "仓库信息" {
+		t.Fatalf("条目 %+v", items)
+	}
+}

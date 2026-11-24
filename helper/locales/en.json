@@ -34,6 +34,7 @@
   "noticeShellRunning": "The previous ! command is still running. Send this one after it finishes.",
   "noticeReattachFailed": "Couldn't reattach to the background process: {reason}",
   "noticeHistoryFailed": "Couldn't read the history: {reason}",
+  "noticeHookContext": "{event} hook additional context:\n{text}",
   "forkFailed": "The branch wasn't created: {reason}",
   "rewindProcessExited": "The Claude Code process exited",
   "rewindRefused": "Claude Code refused: {detail}",
