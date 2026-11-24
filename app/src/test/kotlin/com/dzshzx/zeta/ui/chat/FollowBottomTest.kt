@@ -22,7 +22,7 @@ import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Test
 
-/** 贴底跟随（[FollowBottom]）：聊天页一开始就跟，子代理查看页拉到底才跟；往上拖就停，恢复后接着跟。借截图测试的 Robolectric 环境，不出图。 */
+/** 贴底跟随（[FollowBottom]）不带锚点（子代理查看页）：一开始跟或拉到底才跟；往上拖就停，恢复后接着跟。借截图测试的 Robolectric 环境，不出图。 */
 class FollowBottomTest : ShotTest() {
     private lateinit var list: LazyListState
     private lateinit var follow: FollowBottom
@@ -76,5 +76,69 @@ class FollowBottomTest : ShotTest() {
         assertTrue("滚到底以后跟上", follow.following)
         add(5)
         assertFalse(list.canScrollForward)
+    }
+}
+
+/** 带锚点（聊天页最新一条用户消息）：发消息后只跟到它顶到上沿；打开时落到底、之后不跟；点「回到底部」才一直跟。 */
+class FollowBottomAnchorTest : ShotTest() {
+    private lateinit var list: LazyListState
+    private lateinit var follow: FollowBottom
+    private val rows = mutableStateListOf<Int>()
+    private var anchorAt: Int? = null
+
+    private fun show() = compose.setContent {
+        val state = rememberLazyListState()
+        list = state
+        follow = rememberFollowBottom(state) { anchorAt }
+        LazyColumn(state = state, modifier = Modifier.fillMaxSize().testTag("list")) {
+            items(rows, key = { it }) { Box(Modifier.fillMaxWidth().height(100.dp)) }
+        }
+    }
+
+    private fun add(count: Int) {
+        compose.runOnUiThread { repeat(count) { rows += rows.size } }
+        compose.waitForIdle()
+    }
+
+    /** 发了一条消息（锚点是新加的这一行），回答一截截往下长。 */
+    private fun send() {
+        compose.runOnUiThread {
+            anchorAt = rows.size
+            rows += rows.size
+            follow.followTurn()
+        }
+        compose.waitForIdle()
+    }
+
+    private fun anchorTop(): Int? =
+        list.layoutInfo.visibleItemsInfo.firstOrNull { it.index == anchorAt }?.offset
+
+    @Test
+    fun followsAnswerUntilQuestionReachesTop() {
+        show()
+        add(3)
+        send()
+        repeat(30) { add(1) }
+        assertEquals("问题顶到上沿就停", 0, anchorTop())
+        assertFalse("停下了", follow.following)
+        assertTrue("回答还在下面接着长", list.canScrollForward)
+
+        compose.runOnUiThread { follow.resume() }
+        compose.waitForIdle()
+        assertFalse("点回到底部就滚到底", list.canScrollForward)
+        repeat(5) { add(1) }
+        assertFalse("之后一直跟到底", list.canScrollForward)
+    }
+
+    @Test
+    fun openLandsAtEndThenStaysPut() {
+        anchorAt = 20
+        rows += 0 until 30
+        show()
+        compose.waitForIdle()
+        assertFalse("打开时落到最底下", list.canScrollForward)
+        add(5)
+        assertTrue("问题已在屏幕上面：之后不跟", list.canScrollForward)
+        assertFalse(follow.following)
     }
 }

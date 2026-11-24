@@ -462,8 +462,6 @@ private fun ConversationBody(
         remember(conversation.cwd, home) {
             { text: String -> answerImages(text, conversation.cwd, home) }
         }
-    // 贴底跟随：内容增长时自动滚到底；用户向上拖动后停止，回到底部或点按钮后恢复
-    val follow = rememberFollowBottom(listState)
     // 撤回的排队消息（点了它，或按了停止）：放回输入框，接在已有草稿前面
     LaunchedEffect(conversation.recalled) {
         conversation.takeRecalled()?.let(sink::putBack)
@@ -483,9 +481,16 @@ private fun ConversationBody(
     val turnList = remember(items) { userTurns(items) }
     val turns = remember(turnList) { TurnIndex(turnList) }
     val shown = actions.visible(items)
+    val leading = if (conversation.earlier != null) 1 else 0
+    // 贴底跟随：发消息后跟到这条消息顶到上沿为止，点「回到底部」后一直跟，往上拖就停（见 FollowBottom）
+    val latestShown by rememberUpdatedState(shown)
+    val latestLeading by rememberUpdatedState(leading)
+    val follow =
+        rememberFollowBottom(listState) {
+            latestShown.indexOfLast { it is UserItem }.takeIf { it >= 0 }?.plus(latestLeading)
+        }
     // 长对话先只载入最近的一段，往上翻到顶附近时再接上更早的；“更早的记录”那行是列表的第一项
     val earlierPaging = rememberEarlierPaging(conversation, listState, onLoad = follow::pause)
-    val leading = if (conversation.earlier != null) 1 else 0
     // 列表到底后接着上拖调起输入法，输入法开着时下拖收起
     val composerFocus = remember { FocusRequester() }
     val swipeKeyboard = rememberSwipeKeyboard(composerFocus)
@@ -863,7 +868,7 @@ private fun ConversationInput(
             onRemoveFile = { uploads.remove(it) },
             onSlashTyped = conversation::prepare,
             onSend = { text ->
-                follow.resume()
+                follow.followTurn()
                 sendDraft(text, hub, conversation, draft, actions)
             },
             onStop = conversation::interrupt,

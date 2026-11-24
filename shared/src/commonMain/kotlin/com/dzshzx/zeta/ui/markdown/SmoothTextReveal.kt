@@ -41,7 +41,8 @@ import kotlinx.coroutines.isActive
  * 一条回答只使用一个显现时钟，按源码顺序在 Markdown 块之间分配同一帧的推进量。
  *
  * 解析和文本排版仅在目标文本变化时发生；帧间推进只更新普通字段并调用 [invalidateDraw]。只有显现跨入新行时才额外请求一次测量以增长消息高度， 全程不写 Compose
- * State，因此字符帧不会触发重组或重新排版。 推进约 30 帧每秒（[REVEAL_FRAME_DELAY_MILLIS]），不跟屏幕刷新率走：再快肉眼看不出差别，每一帧却都要重画、合成。
+ * State，因此字符帧不会触发重组或重新排版。 推进约 20 帧每秒（[REVEAL_FRAME_DELAY_MILLIS]），不跟屏幕刷新率走：ChatGPT 的应用流式时也只画约 19
+ * 帧每秒，再快看着差别不大，每一帧却都要重画、合成。
  */
 @Stable
 class SmoothTextRevealCoordinator {
@@ -633,7 +634,7 @@ fun advanceSmoothReveal(
 private const val NANOS_PER_SECOND = 1_000_000_000f
 private const val MAX_FRAME_DELTA_SECONDS = 0.1f
 
-/** 两次推进之间先等这么久再等下一帧：60 Hz 的屏上隔一帧推进一次，120 Hz 的约隔三帧，都在 30 帧每秒上下。 */
-private const val REVEAL_FRAME_DELAY_MILLIS = 25L
+/** 两次推进之间先等这么久再等下一帧：60 Hz 的屏上每三帧推进一次，120 Hz 的约每六帧，都在 20 帧每秒上下。 */
+private const val REVEAL_FRAME_DELAY_MILLIS = 42L
 private const val BASE_REVEAL_GRAPHEMES_PER_SECOND = 36f
 private const val TARGET_CATCH_UP_SECONDS = 0.20f
