@@ -219,3 +219,28 @@ func TestHostsLeavesADirBeingStarted(t *testing.T) {
 		t.Fatalf("锁放开以后没有 pid 的目录还在：%v", err)
 	}
 }
+
+// 续派的子代理同一个任务有两条 task_started：重放第一条，它带着发起它的 Agent 调用。
+func TestScanHostReplaysTheFirstTaskStarted(t *testing.T) {
+	dir := filepath.Join(t.TempDir(), "k1")
+	writeLines(t, filepath.Join(dir, "out.jsonl"),
+		`{"type":"system","subtype":"init","session_id":"s"}`,
+		`{"type":"assistant","message":{"content":[{"type":"tool_use","id":"toolu_agent","name":"Agent","input":{"prompt":"build it"}}]}}`,
+		`{"type":"system","subtype":"task_started","task_id":"a1","tool_use_id":"toolu_agent","task_type":"local_agent"}`,
+		`{"type":"assistant","message":{"content":[{"type":"tool_use","id":"toolu_send","name":"SendMessage","input":{"to":"a1","message":"go on"}}]}}`,
+		`{"type":"system","subtype":"task_started","task_id":"a1","tool_use_id":"toolu_send","task_type":"local_agent"}`,
+		`{"type":"system","subtype":"background_tasks_changed","tasks":[{"task_id":"a1","task_type":"local_agent"}]}`)
+	scan, err := scanHost(dir)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var uses []any
+	for _, e := range scan.events {
+		if o, _ := e.(obj); o["subtype"] == "task_started" {
+			uses = append(uses, o["tool_use_id"])
+		}
+	}
+	if len(uses) != 1 || uses[0] != "toolu_agent" {
+		t.Fatalf("重放的 task_started 是 %v，应只有 toolu_agent", uses)
+	}
+}

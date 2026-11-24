@@ -204,7 +204,7 @@ type hostScan struct {
 	events  []any
 }
 
-// hostReader 是 scanHost 的状态。后台任务：最后一份清单；各任务的 task_started（带上发起它的工具调用和开始时间）和最近一条 task_progress。
+// hostReader 是 scanHost 的状态。后台任务：最后一份清单；各任务的第一条 task_started（带上发起它的工具调用和开始时间）和最近一条 task_progress。
 type hostReader struct {
 	hostScan
 	waiting  []obj             // 还没回应的请求，见 pending
@@ -293,7 +293,8 @@ func (r *hostReader) system(o obj) {
 		r.tasks = sizeOf(orValue(o["tasks"], []any{}))
 		r.listing = o
 	case "task_started":
-		if truthy(o["task_id"]) {
+		// 续派的子代理同一个任务会再来一次，留第一次：它带着发起它的调用（见 tasks.Board.enrich）
+		if _, seen := r.started[valueKey(o["task_id"])]; truthy(o["task_id"]) && !seen {
 			if call, ok := r.calls.get(valueKey(o["tool_use_id"])); ok {
 				o["zeta_tool"] = call
 			}

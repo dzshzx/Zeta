@@ -285,3 +285,35 @@ func TestRememberedCallsAreBounded(t *testing.T) {
 	}
 	eq(t, "个数", len(b.calls.keys), maxRemembered)
 }
+
+// 停下的子代理被 SendMessage 续派：Claude Code 对同一个任务再发一次 task_started，带的是 SendMessage 调用（2.1.330 实测）。
+// 发起它的仍是原来的 Agent 调用，子代理查看页按它找记录。
+func TestResumedSubagentKeepsTheLaunchingCall(t *testing.T) {
+	agent := `{"type":"assistant","message":{"content":[{"type":"tool_use","id":"toolu_agent","name":"Agent","input":{"description":"viewer","prompt":"build the viewer","subagent_type":"general-purpose","run_in_background":true}}]}}`
+	send := `{"type":"assistant","message":{"content":[{"type":"tool_use","id":"toolu_send","name":"SendMessage","input":{"to":"a405","message":"go on"}}]}}`
+	listed := `{"type":"system","subtype":"background_tasks_changed","tasks":[{"task_id":"a405","task_type":"local_agent","subagent_type":"general-purpose","description":"viewer"}]}`
+	started := func(use, prompt string) string {
+		return `{"type":"system","subtype":"task_started","task_id":"a405","tool_use_id":"` + use + `","description":"viewer","subagent_type":"general-purpose","is_backgrounded":true,"task_type":"local_agent","prompt":"` + prompt + `"}`
+	}
+	for _, c := range []struct {
+		name   string
+		events []string
+	}{
+		{"已在清单里", []string{agent, listed, started("toolu_agent", "build the viewer"),
+			`{"type":"system","subtype":"task_updated","task_id":"a405","patch":{"status":"killed","end_time":50}}`,
+			send, listed, started("toolu_send", "go on")}},
+		{"清单还没到", []string{agent, started("toolu_agent", "build the viewer"), send, started("toolu_send", "go on"), listed}},
+	} {
+		t.Run(c.name, func(t *testing.T) {
+			b := New()
+			for i, e := range c.events {
+				b.see(e, int64(10*i))
+			}
+			task := single(t, b)
+			eq(t, "tool use", task.ToolUseID, "toolu_agent")
+			eq(t, "command", task.Command, "build the viewer")
+			eq(t, "kind", task.Kind, KindAgent)
+			eq(t, "state", task.State, StateRunning)
+		})
+	}
+}

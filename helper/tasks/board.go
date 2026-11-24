@@ -244,19 +244,23 @@ func (b *Board) taskStarted(e *event, now int64) bool {
 	}
 	t := b.entries[e.TaskID]
 	if t == nil {
-		// 还没进后台清单（前台的，或者清单那条还没到）：先记着
-		b.started.put(e.TaskID, startedTask{e, at})
+		// 还没进后台清单（前台的，或者清单那条还没到）：先记着；记过的不换（续派又来一次，见 enrich）
+		if _, seen := b.started.get(e.TaskID); !seen {
+			b.started.put(e.TaskID, startedTask{e, at})
+		}
 		return false
 	}
 	b.enrich(t, e)
 	return true
 }
 
-// enrich 用 task_started 补全：发起它的调用、命令、子代理类型。
+// enrich 用 task_started 补全：发起它的调用、命令、子代理类型。发起它的调用以第一次为准：停下的子代理被 SendMessage
+// 续派时，Claude Code 对同一个任务再发一次 task_started，带的是那次 SendMessage 调用（2.1.330 实测），
+// 换成它的话子代理查看页按调用找记录就对不上了。
 func (b *Board) enrich(t *Task, start *event) {
-	use := start.ToolUseID
+	use := t.ToolUseID
 	if use == "" {
-		use = t.ToolUseID
+		use = start.ToolUseID
 	}
 	c, _ := b.calls.get(use)
 	if blank(t.Type) {
