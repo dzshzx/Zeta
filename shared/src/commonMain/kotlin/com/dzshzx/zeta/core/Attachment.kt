@@ -10,7 +10,7 @@ import java.io.OutputStream
 import java.util.Base64
 import java.util.UUID
 
-/** 要随消息发出的一张图片：已缩小并编码好，另带一张界面用的小图。 */
+/** 随消息内联发给模型看的一张图片：已缩小并编码好，另带一张界面用的小图。用户选的图片另把原文件复制进主机，见 [FileUpload.inline]。 */
 @Immutable
 class Attachment(
     val id: String,
@@ -20,7 +20,7 @@ class Attachment(
 )
 
 object Attachments {
-    /** 长边上限。再大模型端也会缩，白占传输和上下文。 */
+    /** 长边上限：内联的只是让模型先看一眼，要细节时 Claude Code 去读原文件（见 [FileUpload.inline]）。 */
     const val MAX_EDGE = 1568
     const val PREVIEW_EDGE = 360
 
@@ -37,9 +37,15 @@ object Attachments {
         .getOrNull()
 }
 
-/** 要随消息送进对话所在主机的一个文件。复制完成后 [path] 才有值。 */
+/**
+ * 要随消息送进对话所在主机的一个文件。复制完成后 [path] 才有值。
+ *
+ * 图片文件另有 [inline]：缩小的一份，随消息内联发给模型先看，原文件仍复制进主机，模型看不清时自己去读（核心起 Claude Code
+ * 时的系统提示里说了这个对应）。输入栏只画它的缩略图；没有时（放回的、草稿里恢复的）缩略图从主机上的 [path] 取，只发文件。
+ */
 class FileUpload(val id: String, val name: String) {
     var path by mutableStateOf<String?>(null)
+    var inline by mutableStateOf<Attachment?>(null)
     var failed by mutableStateOf(false)
     val uploading: Boolean
         get() = path == null && !failed
@@ -108,7 +114,7 @@ interface PickedFile {
     /** 打开读内容；打不开是 null。 */
     fun open(): InputStream?
 
-    /** 读成一张图片附件（缩小、编码好）；读不了是 null。 */
+    /** 读成一张缩小、编码好的图片附件；不是图片、读不了是 null。 */
     fun loadImage(): Attachment?
 }
 

@@ -20,6 +20,7 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.defaultMinSize
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
@@ -44,6 +45,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.dropShadow
 import androidx.compose.ui.focus.FocusRequester
@@ -66,6 +68,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.dzshzx.zeta.core.AttachedPaths
 import com.dzshzx.zeta.core.Attachment
+import com.dzshzx.zeta.core.FileImage
 import com.dzshzx.zeta.core.FileUpload
 import com.dzshzx.zeta.core.SlashCommand
 import com.dzshzx.zeta.core.voice.SpeechPhase
@@ -353,7 +356,7 @@ private fun SlashSuggestionRow(command: SlashCommand, onClick: () -> Unit) {
     }
 }
 
-/** 输入框上方一排待发的附件：文件（复制中、复制失败的注明）和图片缩略图，各带移除键，横向滚动。 */
+/** 输入框上方一排待发的附件：文件（复制中、复制失败的注明）和图片缩略图（图片文件只画一张缩略图，复制中时淡一些），各带移除键，横向滚动。 */
 @Composable
 private fun ComposerAttachments(
     attachments: List<Attachment>,
@@ -370,6 +373,13 @@ private fun ComposerAttachments(
         verticalAlignment = Alignment.CenterVertically,
     ) {
         files.forEach { file ->
+            if (
+                !file.failed &&
+                    (file.inline != null || file.path?.let(AttachedPaths::isImage) == true)
+            ) {
+                UploadThumbnail(file) { onRemoveFile(file) }
+                return@forEach
+            }
             FileChip(
                 name = uploadLabel(file),
                 modifier = Modifier.widthIn(max = 220.dp),
@@ -388,7 +398,14 @@ private fun ComposerAttachments(
             }
         }
         attachments.forEach { attachment ->
-            AttachmentThumbnail(attachment) { onRemoveAttachment(attachment) }
+            RemovableThumbnail(onRemove = { onRemoveAttachment(attachment) }) {
+                Image(
+                    bitmap = attachment.preview,
+                    contentDescription = Strings.composerImageAttachment(),
+                    contentScale = ContentScale.Crop,
+                    modifier = Modifier.fillMaxSize(),
+                )
+            }
         }
     }
 }
@@ -401,17 +418,35 @@ private fun uploadLabel(file: FileUpload): String =
         else -> file.name
     }
 
-/** 待发图片的缩略图，右上角是移除键。 */
+/** 待发的图片文件：画内联那份的小图，没有（放回的、草稿里恢复的）从主机上取；还在复制时淡一些。 */
 @Composable
-private fun AttachmentThumbnail(attachment: Attachment, onRemove: () -> Unit) {
+private fun UploadThumbnail(file: FileUpload, onRemove: () -> Unit) {
+    val preview = file.inline?.preview
+    val path = file.path
+    RemovableThumbnail(onRemove, Modifier.alpha(if (file.uploading) 0.5f else 1f)) {
+        when {
+            preview != null ->
+                Image(
+                    bitmap = preview,
+                    contentDescription = file.name,
+                    contentScale = ContentScale.Crop,
+                    modifier = Modifier.fillMaxSize(),
+                )
+            path != null -> ChatThumbnail(FileImage(AttachedPaths.path(path)), size = 64.dp)
+        }
+    }
+}
+
+/** 待发图片的 64dp 缩略图 [content]，右上角是移除键。 */
+@Composable
+private fun RemovableThumbnail(
+    onRemove: () -> Unit,
+    modifier: Modifier = Modifier,
+    content: @Composable () -> Unit,
+) {
     val colors = COUITheme.colorScheme
-    Box {
-        Image(
-            bitmap = attachment.preview,
-            contentDescription = Strings.composerImageAttachment(),
-            contentScale = ContentScale.Crop,
-            modifier = Modifier.size(64.dp).clip(RoundedCornerShape(COUIRoundCorner.M)),
-        )
+    Box(modifier) {
+        Box(Modifier.size(64.dp).clip(RoundedCornerShape(COUIRoundCorner.M))) { content() }
         Box(
             modifier =
                 Modifier.align(Alignment.TopEnd)

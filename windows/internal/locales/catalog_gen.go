@@ -6803,50 +6803,6 @@ func (msgs Messages) ComposerUnreadable(name string) string {
 	return Catalog.Format(msgs.locale, "composerUnreadable", map[string]any{"name": name})
 }
 
-// ComposerTooManyImages says "一条消息最多带 {max} 张图片，「{name}」没有加进来"
-// in the language the app shows.
-//
-// 附件没加进来的原因：图片超过一条消息的上限。
-func ComposerTooManyImages(max int, name string) string {
-	return In(i18n.Locale()).ComposerTooManyImages(max, name)
-}
-
-// ComposerTooManyImages says "一条消息最多带 {max} 张图片，「{name}」没有加进来"
-// in the language of msgs.
-//
-// 附件没加进来的原因：图片超过一条消息的上限。
-func (msgs Messages) ComposerTooManyImages(max int, name string) string {
-	return Catalog.Format(msgs.locale, "composerTooManyImages", map[string]any{"max": max, "name": name})
-}
-
-// ComposerImageUnreadable says "有一张图片读不了，没有加进来"
-// in the language the app shows.
-//
-// 附件没加进来的原因：拖进来或粘贴的图片读不了。
-func ComposerImageUnreadable() string { return In(i18n.Locale()).ComposerImageUnreadable() }
-
-// ComposerImageUnreadable says "有一张图片读不了，没有加进来"
-// in the language of msgs.
-//
-// 附件没加进来的原因：拖进来或粘贴的图片读不了。
-func (msgs Messages) ComposerImageUnreadable() string {
-	return Catalog.Format(msgs.locale, "composerImageUnreadable", nil)
-}
-
-// ComposerClipboardUnreadable says "剪贴板里的图片读不了，没有加进来"
-// in the language the app shows.
-//
-// 附件没加进来的原因：剪贴板里的图片读不了。
-func ComposerClipboardUnreadable() string { return In(i18n.Locale()).ComposerClipboardUnreadable() }
-
-// ComposerClipboardUnreadable says "剪贴板里的图片读不了，没有加进来"
-// in the language of msgs.
-//
-// 附件没加进来的原因：剪贴板里的图片读不了。
-func (msgs Messages) ComposerClipboardUnreadable() string {
-	return Catalog.Format(msgs.locale, "composerClipboardUnreadable", nil)
-}
-
 // ComposerFolderUnreadable says "文件夹「{name}」读不了，没有加进来"
 // in the language the app shows.
 //

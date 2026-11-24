@@ -107,6 +107,12 @@ func (c *Conversation) phoneHolder() bool {
 	return false
 }
 
+// imagesHint 告诉模型客户端发图的规矩（两端的输入栏都这样发）：用户选的图片，原文件传到主机上、写进消息开头的附件行，
+// 另把缩小的一份内联在消息里先看。内联的那份长边只有约 1568，看不清时去读原文件。
+const imagesHint = "When the user attaches image files ([Attached file: ...] lines), the message also carries a downscaled copy of each one as an inline image, " +
+	"after any other inline images and in the same order as those lines. If the inline copy is not enough for the task (small text, fine detail, exact pixels, metadata), " +
+	"read the original file with the Read tool or other tools instead of guessing."
+
 // launchArgs 是起 Claude Code 进程的参数。没指定模型时不带 --model：接着已有会话时 Claude Code 照记录用原来的模型；
 // 终端里换过模型、之后还没有回答的指定换成的那个。
 func (c *Conversation) launchArgs(mode string, o Options) []string {
@@ -129,7 +135,7 @@ func (c *Conversation) launchArgs(mode string, o Options) []string {
 	if c.effort != "" {
 		args = append(args, "--effort", c.effort)
 	}
-	prompt := strings.TrimSpace(o.SystemPrompt + " " + c.launchHint)
+	prompt := strings.TrimSpace(imagesHint + " " + o.SystemPrompt + " " + c.launchHint)
 	if prompt != "" {
 		args = append(args, "--append-system-prompt", prompt)
 	}

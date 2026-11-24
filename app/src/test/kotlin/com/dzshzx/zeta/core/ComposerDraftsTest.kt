@@ -139,6 +139,46 @@ class ComposerDraftsTest {
     }
 
     @Test
+    fun imageFilesSendTheirDownscaledCopyAfterOtherImages() {
+        val draft = ComposerDraft()
+        val shot = jpeg(0xFFFF0000.toInt())
+        val copy = jpeg(0xFF0000FF.toInt())
+        val pending = jpeg(0xFF00FF00.toInt())
+        draft.attachments += shot
+        draft.uploads += FileUpload("u1", "a.txt").also { it.path = "/tmp/a.txt" }
+        draft.uploads +=
+            FileUpload("u2", "IMG_1.jpg").also {
+                it.path = "/tmp/IMG_1.jpg"
+                it.inline = copy
+            }
+        // 还在复制的原图：缩小图也先不发，免得和附件行对不上
+        draft.uploads += FileUpload("u3", "IMG_2.jpg").also { it.inline = pending }
+        assertEquals(listOf(shot, copy), draft.outgoingImages())
+        assertEquals(listOf("/tmp/a.txt", "/tmp/IMG_1.jpg"), draft.outgoingFiles())
+    }
+
+    @Test
+    fun puttingBackPairsDownscaledCopiesWithTheirFiles() {
+        val draft = ComposerDraft()
+        val shot = jpeg(0xFFFF0000.toInt())
+        val copy = jpeg(0xFF0000FF.toInt())
+        val files = listOf("/tmp/a.txt", "/tmp/IMG_1.jpg", "@/sdcard/b.png")
+        for (path in files) draft.uploads += FileUpload(path, path).also { it.path = path }
+        assertEquals(listOf(shot), draft.pairInline(listOf(shot, copy), files))
+        assertSame(copy, draft.uploads[1].inline)
+        assertNull(draft.uploads[2].inline)
+        // 图比图片文件少：对不上，都当单独的图
+        val other = ComposerDraft()
+        other.uploads += FileUpload("x", "x").also { it.path = "/tmp/IMG_1.jpg" }
+        other.uploads += FileUpload("y", "y").also { it.path = "/tmp/IMG_2.jpg" }
+        assertEquals(
+            listOf(shot),
+            other.pairInline(listOf(shot), listOf("/tmp/IMG_1.jpg", "/tmp/IMG_2.jpg")),
+        )
+        assertNull(other.uploads[0].inline)
+    }
+
+    @Test
     fun savingEmptyDraftClearsIt() {
         val hub = Fixtures.readyHub(app)
         val draft = hub.drafts.of(hub.session("s-a"))

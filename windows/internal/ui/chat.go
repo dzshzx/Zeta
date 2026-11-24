@@ -189,7 +189,7 @@ func (a *App) chatPage(c *ui.Context) {
 	page := ui.Column(c).Fill()
 	// 拖进窗口的文件、文件夹收成附件
 	if files := page.DroppedFiles(); len(files) > 0 && p.src.Conv != nil && p.src.CwdProblem == "" {
-		a.addPaths(p, files, false)
+		a.addPaths(p, files)
 	}
 	page.Children(func() {
 		a.attachProblems(c, p)

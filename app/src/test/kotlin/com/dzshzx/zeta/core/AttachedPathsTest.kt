@@ -36,6 +36,14 @@ class AttachedPathsTest {
     }
 
     @Test
+    fun imageEntriesByExtension() {
+        assertTrue(AttachedPaths.isImage("/home/zeta/.cache/zeta/files/ab12cd34/IMG_1.JPG"))
+        assertTrue(AttachedPaths.isImage("@/sdcard/DCIM/a.heic"))
+        assertFalse(AttachedPaths.isImage("@/sdcard/DCIM.png/"))
+        assertFalse(AttachedPaths.isImage("/tmp/report.pdf"))
+    }
+
+    @Test
     fun headersUseQuotedMentions() {
         assertEquals(
             "[Attached folder: @\"/mnt/shared/Download\"]",

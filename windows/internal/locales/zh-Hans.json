@@ -2590,26 +2590,6 @@
       }
     }
   },
-  "composerTooManyImages": "一条消息最多带 {max} 张图片，「{name}」没有加进来",
-  "@composerTooManyImages": {
-    "description": "附件没加进来的原因：图片超过一条消息的上限。",
-    "placeholders": {
-      "max": {
-        "type": "int"
-      },
-      "name": {
-        "type": "String"
-      }
-    }
-  },
-  "composerImageUnreadable": "有一张图片读不了，没有加进来",
-  "@composerImageUnreadable": {
-    "description": "附件没加进来的原因：拖进来或粘贴的图片读不了。"
-  },
-  "composerClipboardUnreadable": "剪贴板里的图片读不了，没有加进来",
-  "@composerClipboardUnreadable": {
-    "description": "附件没加进来的原因：剪贴板里的图片读不了。"
-  },
   "composerFolderUnreadable": "文件夹「{name}」读不了，没有加进来",
   "@composerFolderUnreadable": {
     "description": "附件没加进来的原因：文件夹读不了。",

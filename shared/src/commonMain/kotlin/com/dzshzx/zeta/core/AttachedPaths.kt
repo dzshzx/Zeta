@@ -24,6 +24,13 @@ object AttachedPaths {
 
     fun isFolder(entry: String): Boolean = entry.startsWith("@") && entry.endsWith("/")
 
+    /** 图片文件的扩展名：回答里写的这类路径当图显示，附件里的这类文件在输入栏和气泡里画成缩略图。 */
+    val ImageSuffixes = setOf("png", "jpg", "jpeg", "webp", "gif", "bmp", "heic", "avif")
+
+    /** 附件是不是图片文件（按扩展名）。只是界面上画成图：发出去的仍是文件，Claude Code 自己读原图。 */
+    fun isImage(entry: String): Boolean =
+        !isFolder(entry) && path(entry).substringAfterLast('.', "").lowercase() in ImageSuffixes
+
     /** 附件说明对应的 Linux 路径。 */
     fun path(entry: String): String =
         when {

@@ -17,7 +17,7 @@ func TestPrepare(t *testing.T) {
 	if len(l.lines("user")) != 0 || h.state(1, "process") != true || h.state(1, "busy") != false || len(h.client(1).turns) != 0 {
 		t.Fatalf("发了消息或开了一轮：%v，状态 %v", l.lines("user"), h.client(1).state)
 	}
-	if got := h.starts[0].Args; !reflect.DeepEqual(got[len(got)-2:], []string{"--append-system-prompt", "hint"}) {
+	if got := h.starts[0].Args; !reflect.DeepEqual(got[len(got)-2:], []string{"--append-system-prompt", imagesHint + " hint"}) {
 		t.Fatalf("没按这个客户端的设置起：%v", got)
 	}
 	init := l.lines("control_request/initialize")

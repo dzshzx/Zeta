@@ -27,13 +27,11 @@ interface ChatPlatform {
     /** 回答下方复制键后面的朗读键；没有朗读就什么都不画。 */
     @Composable fun ReadAloudButton(answer: AnswerItem)
 
-    /** 附件菜单里「图片」「文件」用的系统选择器：选好的图片交给 [onImages]（最多 [maxImages] 张），文件交给 [onFiles]。 */
-    @Composable
-    fun rememberFilePickers(
-        maxImages: Int,
-        onImages: (List<PickedFile>) -> Unit,
-        onFiles: (List<PickedFile>) -> Unit,
-    ): FilePickers
+    /**
+     * 附件菜单里「图片」「文件」用的系统选择器，选好的（最多 [com.dzshzx.zeta.core.FileLimits.MAX_FILES] 个）都交给
+     * [onPicked]：两者只是选的界面不同， 图片也是复制原文件进主机。
+     */
+    @Composable fun rememberFilePickers(onPicked: (List<PickedFile>) -> Unit): FilePickers
 
     /** 侧栏的导出（存成 .md 文件）和分享；多选导出选好了保存位置时调 [onSavedMany]。 */
     @Composable

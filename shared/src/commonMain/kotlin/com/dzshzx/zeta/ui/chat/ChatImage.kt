@@ -32,6 +32,7 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.dzshzx.zeta.core.AttachedPaths
 import com.dzshzx.zeta.core.Backends
 import com.dzshzx.zeta.core.FileImage
 import com.dzshzx.zeta.core.ImageRef
@@ -264,7 +265,6 @@ fun FileChip(
 
 private val MarkdownImage = Regex("""!\[[^\]]*]\(\s*<?([^)\s>]+)>?(?:\s+["'][^"']*["'])?\s*\)""")
 private val CodeFence = Regex("""```.*?(```|$)""", RegexOption.DOT_MATCHES_ALL)
-private val ImageSuffixes = setOf("png", "jpg", "jpeg", "webp", "gif", "bmp", "heic", "avif")
 
 /**
  * 一段回答拆成两部分：照常排版的正文，和从正文里取出来直接显示的图片。图片按原文里的先后分成 [groups]： 只隔着空白的几张连成一组（显示成一个能左右翻的图片组），被正文隔开的各成一组。
@@ -332,7 +332,8 @@ private fun localImage(target: String, cwd: String, home: String?): ImageRef? =
                     raw.startsWith("~/") && home != null -> home + raw.substring(1)
                     else -> cwd.trimEnd('/') + "/" + raw.removePrefix("./")
                 }
-            if (path.substringAfterLast('.', "").lowercase() in ImageSuffixes) FileImage(path)
+            if (path.substringAfterLast('.', "").lowercase() in AttachedPaths.ImageSuffixes)
+                FileImage(path)
             else null
         }
     }

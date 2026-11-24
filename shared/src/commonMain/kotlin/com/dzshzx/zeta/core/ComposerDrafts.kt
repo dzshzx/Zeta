@@ -33,6 +33,31 @@ class ComposerDraft constructor(text: String = "", selection: TextRange = TextRa
     val attachments = mutableStateListOf<Attachment>()
     val uploads = mutableStateListOf<FileUpload>()
 
+    /**
+     * 发送时随消息内联的图：先是图片附件（截屏、放回的旧图），再是复制好了的图片文件的缩小图（[FileUpload.inline]），按附件的先后。
+     * 模型照这个顺序把缩小图对应到消息开头的原图（核心起 Claude Code 时的系统提示 imagesHint）。
+     */
+    fun outgoingImages(): List<Attachment> =
+        attachments + uploads.filter { it.path != null }.mapNotNull { it.inline }
+
+    /** 发送时的附件说明：复制好了的和引用的路径。 */
+    fun outgoingFiles(): List<String> = uploads.mapNotNull { it.path }
+
+    /**
+     * 放回一条消息的图（撤回、编辑）：末尾那几张是消息里复制进去的图片文件的缩小图（见 [outgoingImages]），配回到 [uploads] 里那些文件的
+     * [FileUpload.inline] 上，一张图不显示两份；返回剩下的单独的图。图片文件比图多（有的没做成缩小图）时 对不上，都当单独的图。[files] 要先放进
+     * [uploads]。
+     */
+    fun pairInline(images: List<Attachment>, files: List<String>): List<Attachment> {
+        val pictures = files.filter { !AttachedPaths.isReference(it) && AttachedPaths.isImage(it) }
+        if (pictures.isEmpty() || pictures.size > images.size) return images
+        val shrunk = images.takeLast(pictures.size)
+        pictures.zip(shrunk).forEach { (path, image) ->
+            uploads.firstOrNull { it.path == path }?.inline = image
+        }
+        return images.dropLast(pictures.size)
+    }
+
     /** 要存下来的那部分；没东西可存时为 null。还在复制、复制失败的文件不存。 */
     fun record(key: String, at: Long): DraftRecord? {
         val selection = input.selection

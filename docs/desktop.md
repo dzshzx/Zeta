@@ -28,7 +28,7 @@ windows/
   cmd/zeta/           入口
   internal/settings/  设置文件、各项设置（含常用指令）、草稿的存盘
   internal/runlog/    Zeta 自己的运行日志：设置目录 diag 下有上限、会轮转的 zeta.log，标准库 log 的输出接到这里，记之前打码
-  internal/attach/    输入栏收附件的规矩：图片缩到长边 1568 编成 JPEG、文件大小上限与说明
+  internal/attach/    输入栏收附件的规矩：图片另做的缩小图（长边 1568 的 JPEG，原文件照常传上去）、文件大小上限与说明
   internal/host/      桌面版碰设备的几样：中枢用的 Devices（会话列表的订阅、对话连接、取图和导出另用的连接、查目录、传附件、查路径）、加设备时的探测、
                       Zeta 在主机上的目录名 LinuxName、从 assets 取编进程序的 zeta-helper（LoadProgram）
   internal/claudecfg/ 客户端本地存的每台设备设置（自动压缩、自动标题）

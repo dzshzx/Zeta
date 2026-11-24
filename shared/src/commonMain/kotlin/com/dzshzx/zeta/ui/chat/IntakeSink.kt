@@ -6,6 +6,7 @@ import androidx.compose.runtime.Stable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
+import com.dzshzx.zeta.core.AttachedPaths
 import com.dzshzx.zeta.core.ComposerDraft
 import com.dzshzx.zeta.core.ConversationHub
 import com.dzshzx.zeta.core.FileLimits
@@ -36,7 +37,7 @@ import kotlinx.coroutines.withContext
 
 /**
  * 输入栏这一头：把送进来的东西（[Intake]）、附件菜单里选的图片和文件、撤回的排队消息放进这个对话的草稿 [draft]。
- * 文字接在草稿后面；图片做成图片附件，放不下的、读不了的当文件；别的文件复制进 Linux。 太大的文件不收，没收的和原因攒在 [problems] 里，由
+ * 文字接在草稿后面；截屏做成图片附件，放不下的当文件；选的、分享来的文件原样复制进对话所在的主机，图片另带一张缩小的内联图。 太大的文件不收，没收的和原因攒在 [problems] 里，由
  * [IntakeProblemsDialog] 告诉用户。
  */
 @Stable
@@ -79,18 +80,19 @@ class IntakeSink(
         if (intake.uris.isNotEmpty()) addFiles(intake.uris.map(hub.platform::sharedFile))
     }
 
-    /** 撤回的排队消息（点了它，或按了停止）放回输入栏：文字接在已有草稿前面，附件和路径补上没有的。 */
+    /** 撤回的排队消息（点了它，或按了停止）放回输入栏：文字接在已有草稿前面，附件和路径补上没有的；图片文件的缩小图配回文件上 （[ComposerDraft.pairInline]）。 */
     fun putBack(message: QueuedMessage) {
         val typed = draft.input.text.toString()
         draft.input.setTextAndPlaceCursorAtEnd(
             listOf(message.text, typed).filter { it.isNotBlank() }.joinToString("\n"),
         )
+        message.files.forEach(draft.uploads::addPath)
         draft.attachments.addAll(
-            message.attachments
+            draft
+                .pairInline(message.attachments, message.files)
                 .filter { a -> draft.attachments.none { it.id == a.id } }
                 .take(maxImages - draft.attachments.size),
         )
-        message.files.forEach(draft.uploads::addPath)
     }
 
     /** 文字接在草稿后面；太长的存成文本文件当附件，免得把输入框撑爆。 */
@@ -104,18 +106,9 @@ class IntakeSink(
         }
     }
 
-    /** 附件菜单的「图片」：选的都当图片附件。 */
-    fun addImages(files: List<PickedFile>) {
-        scope.launch {
-            for (file in files.take(maxImages - draft.attachments.size)) {
-                val loaded = withContext(Dispatchers.IO) { file.loadImage() }
-                if (loaded != null) draft.attachments.add(loaded)
-                else report(Strings.composerImageUnreadable())
-            }
-        }
-    }
-
-    /** 文件：图片在输入栏还放得下时当图片附件发给模型看，别的复制进 Linux 让 Claude 用工具去读。 */
+    /**
+     * 选的、分享来的文件：原样复制进对话所在的主机，让 Claude Code 用工具去读。图片也复制原文件，另随消息内联一张缩小的给模型先看 （[FileUpload.inline]）。
+     */
     fun addFiles(files: List<PickedFile>) {
         if (files.size > FileLimits.MAX_FILES) {
             report(
@@ -128,20 +121,9 @@ class IntakeSink(
         scope.launch { for (file in files.take(FileLimits.MAX_FILES)) addFile(file) }
     }
 
-    /** 收一个文件：能当图片附件的读成图片，否则检查大小后复制进 Linux（在这个协程里另起一个复制）。 */
+    /** 收一个文件：检查大小后复制进主机（在这个协程里另起一个复制）；图片另在后台做一张缩小的内联图（[FileUpload.inline]）。 */
     private suspend fun CoroutineScope.addFile(file: PickedFile) {
         val (name, type) = withContext(Dispatchers.IO) { file.describe() }
-        if (
-            type?.startsWith("image/") == true &&
-                type != "image/svg+xml" &&
-                draft.attachments.size < maxImages
-        ) {
-            val loaded = withContext(Dispatchers.IO) { file.loadImage() }
-            if (loaded != null) {
-                draft.attachments.add(loaded)
-                return
-            }
-        }
         val size = withContext(Dispatchers.IO) { file.size() }
         if (FileLimits.tooLarge(size)) {
             report(FileLimits.tooLargeReason(name, size), tooLarge = true)
@@ -160,6 +142,9 @@ class IntakeSink(
                 }
         val upload = FileUpload(UUID.randomUUID().toString(), FileLimits.label(name, size))
         draft.uploads.add(upload)
+        if (type?.startsWith("image/") == true || AttachedPaths.isImage(name)) {
+            launch { upload.inline = withContext(Dispatchers.IO) { file.loadImage() } }
+        }
         launch { copyUpload(shell, file, name, upload) }
     }
 

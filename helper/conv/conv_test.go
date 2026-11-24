@@ -266,7 +266,7 @@ func TestOneTurn(t *testing.T) {
 	h.call(1, "conv.send", map[string]any{"conv": "a", "text": "  你好  "})
 	c, l := h.conv(1, "a"), h.link(0)
 	h.settle(c)
-	if args := strings.Join(h.starts[0].Args, " "); strings.Contains(args, "--resume") || !strings.Contains(args, "--append-system-prompt hint") {
+	if args := strings.Join(h.starts[0].Args, " "); strings.Contains(args, "--resume") || !strings.Contains(args, "--append-system-prompt "+imagesHint+" hint") {
 		t.Fatalf("新对话的参数不对：%s", args)
 	}
 	users := l.lines("user")

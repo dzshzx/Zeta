@@ -1,5 +1,5 @@
-// Package attach 是输入栏收附件的规矩，同 shared 的 Attachments、FileLimits：图片缩到长边 1568、
-// 编成 JPEG 随消息发给模型看；别的文件传到主机上（client/hostlink 的 Upload），太大的不收。
+// Package attach 是输入栏收附件的规矩，同 shared 的 Attachments、FileLimits：文件（图片也是）原样传到主机上
+// （client/hostlink 的 Upload），太大的不收；图片另做一张长边 1568 的 JPEG 缩小图随消息内联发给模型看（EncodeImage）。
 package attach
 
 import (
@@ -25,7 +25,8 @@ import (
 )
 
 const (
-	// MaxImages 是一条消息最多带几张图（ChatScreen.kt 的 MaxAttachments）。
+	// MaxImages 是输入栏里最多放几张单独的内联图（旧消息、草稿里存着的，同 ChatScreen.kt 的 MaxAttachments）；
+	// 传上去的图片文件带的缩小图不算，跟着文件数的上限 MaxFiles。
 	MaxImages = 4
 	// MaxEdge 是图片长边的上限：再大模型端也会缩，白占传输和上下文。
 	MaxEdge = 1568

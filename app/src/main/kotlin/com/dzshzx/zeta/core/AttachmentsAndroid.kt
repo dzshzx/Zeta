@@ -14,7 +14,7 @@ import java.util.UUID
 
 // 手机上读附件：从 content:// 地址（[UriFile]）、截屏的 Bitmap 读图，问文件名、类型和大小。数据类和上传在 shared 的 Attachment.kt。
 
-/** 读取并压缩一张图片；读不了返回 null。耗时，别在主线程调用。 */
+/** 读取并缩小一张图片；读不了返回 null。耗时，别在主线程调用。 */
 fun Attachments.load(context: Context, uri: Uri): Attachment? = runCatching {
     encodeJpeg(
         Images.decodeWithin(

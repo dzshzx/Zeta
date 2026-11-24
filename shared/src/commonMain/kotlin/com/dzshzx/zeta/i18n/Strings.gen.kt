@@ -1884,13 +1884,6 @@ object Strings {
     fun composerScreenshotFile(time: String): String = catalog.say("composerScreenshotFile", mapOf("time" to time))
 
     /**
-     * 「有一张图片读不了，没有加进来」
-     *
-     * 「有些内容没有加进来」里的一条：选的图片读不了。
-     */
-    fun composerImageUnreadable(): String = catalog.say("composerImageUnreadable")
-
-    /**
      * 「一次最多收 {max} 个文件，另外 {count} 个没有加进来」
      *
      * 「有些内容没有加进来」里的一条：一次选的文件太多。

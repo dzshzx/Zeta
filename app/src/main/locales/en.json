@@ -268,7 +268,6 @@
   "composerPromptTextLabel": "Prompt",
   "composerSharedTextFile": "Shared text.txt",
   "composerScreenshotFile": "Screenshot-{time}.jpg",
-  "composerImageUnreadable": "An image couldn't be read and wasn't added",
   "composerTooManyFiles": "{count, plural, one {You can add up to {max} files at a time; # more wasn't added} other {You can add up to {max} files at a time; # more weren't added}}",
   "composerNotCopied": "“{name}” wasn't copied: {reason}",
   "composerDeviceUnavailable": "This device isn't available",

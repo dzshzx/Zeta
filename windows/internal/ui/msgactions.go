@@ -218,6 +218,9 @@ func (a *App) beginEdit(p *chatPane, user items.Item, later int) {
 			if x.editing != editing {
 				return
 			}
+			if lost == 0 { // 少了图时顺序对不上，不配
+				images = p.att.pairShrunk(coreapi.Message{Images: images, Files: user.Files})
+			}
 			p.putBack(coreapi.Message{Images: images})
 			if lost > 0 {
 				p.failed = locales.Err(locales.MessageImagesLost)

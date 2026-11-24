@@ -17,6 +17,7 @@ import androidx.compose.ui.unit.dp
 import com.dzshzx.zeta.core.AnswerItem
 import com.dzshzx.zeta.core.Conversation
 import com.dzshzx.zeta.core.ConversationHub
+import com.dzshzx.zeta.core.FileLimits
 import com.dzshzx.zeta.core.PickedFile
 import com.dzshzx.zeta.core.SharedFolders
 import com.dzshzx.zeta.core.ToolStep
@@ -49,22 +50,18 @@ class AndroidChatPlatform : ChatPlatform {
     @Composable override fun ReadAloudButton(answer: AnswerItem) = PhoneReadAloudButton(answer)
 
     @Composable
-    override fun rememberFilePickers(
-        maxImages: Int,
-        onImages: (List<PickedFile>) -> Unit,
-        onFiles: (List<PickedFile>) -> Unit,
-    ): FilePickers {
+    override fun rememberFilePickers(onPicked: (List<PickedFile>) -> Unit): FilePickers {
         val context = LocalContext.current.applicationContext
         val images =
             rememberLauncherForActivityResult(
-                ActivityResultContracts.PickMultipleVisualMedia(maxImages),
+                ActivityResultContracts.PickMultipleVisualMedia(FileLimits.MAX_FILES),
             ) { uris ->
-                onImages(uris.map { UriFile(context, it) })
+                onPicked(uris.map { UriFile(context, it) })
             }
         val files =
             rememberLauncherForActivityResult(ActivityResultContracts.OpenMultipleDocuments()) {
                 uris ->
-                onFiles(uris.map { UriFile(context, it) })
+                onPicked(uris.map { UriFile(context, it) })
             }
         return remember(images, files) {
             object : FilePickers {

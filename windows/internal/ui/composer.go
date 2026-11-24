@@ -130,7 +130,11 @@ func (a *App) composerAttachments(c *ui.Context, p *chatPane) {
 	ui.ScrollHorizontal(c.Key("attachments")).FillWidth().Children(func() {
 		ui.Row(c).Padding(2, 4, 6, 4).Gap(8).AlignItems(ui.Center).Children(func() {
 			for _, f := range at.files {
-				attachedFile(c.Key("file/"+strconv.Itoa(f.id)), f, func() { at.removeFile(f.id) })
+				if f.picture {
+					attachedPicture(c.Key("file/"+strconv.Itoa(f.id)), f, func() { at.removeFile(f.id) })
+				} else {
+					attachedFile(c.Key("file/"+strconv.Itoa(f.id)), f, func() { at.removeFile(f.id) })
+				}
 			}
 			for _, im := range at.images {
 				attachedImage(c.Key("image/"+strconv.Itoa(im.id)), im, func() { at.removeImage(im.id) })
@@ -167,14 +171,39 @@ func attachedFile(c *ui.Context, f *draftFile, remove func()) {
 	})
 }
 
-// attachedImage 是一张待发图片的缩略图（64，12 的圆角），右上角是移除键。
+// attachedImage 是一张待发的内联图（旧消息、草稿里存着的）的缩略图，右上角是移除键。
 func attachedImage(c *ui.Context, im *draftImage, remove func()) {
+	thumbTile(c, im.thumb, locales.ComposerImageAttachment(), "", nil, remove)
+}
+
+// attachedPicture 是一张要传到设备上的图片：缩略图（缩小图还没做好时是灰块），正在传、正在做缩小图时上面转圈，没传成时标红、原因放在悬停提示里。
+func attachedPicture(c *ui.Context, f *draftFile, remove func()) {
+	var overlay func()
+	switch {
+	case f.failed != "":
+		overlay = func() { ui.Icon(c, widget.IconClose).Size(18, 18).TextColor(widget.Of(c).Error) }
+	case f.uploading() || f.encoding:
+		overlay = func() { ui.Spinner(c).Size(18, 18) }
+	}
+	thumbTile(c, f.thumb, f.label(), f.failed, overlay, remove)
+}
+
+// thumbTile 是输入栏里的一块缩略图（64，12 的圆角）：thumb 是 nil 时是灰块，overlay 不是 nil 时盖一层半透明画上它，右上角是移除键。
+func thumbTile(c *ui.Context, thumb *ui.Bitmap, label, tooltip string, overlay func(), remove func()) {
 	k := widget.Of(c)
 	ui.Box(c).Size(64, 64).Shrink(0).Children(func() {
-		box := ui.Box(c).Size(64, 64).Radius(12).Clip().Background(k.Chip).Label(locales.ComposerImageAttachment())
-		if im.thumb != nil {
-			box.Children(func() { ui.Image(c, im.thumb).Size(64, 64).Fit(ui.Cover) })
+		box := ui.Box(c).Size(64, 64).Radius(12).Clip().Background(k.Chip).Label(label)
+		if tooltip != "" {
+			box.Tooltip(tooltip)
 		}
+		box.Children(func() {
+			if thumb != nil {
+				ui.Image(c, thumb).Size(64, 64).Fit(ui.Cover)
+			}
+			if overlay != nil {
+				ui.Box(c).Absolute().Top(0).Left(0).Size(64, 64).Center().Background(k.Chip.Alpha(0.7)).Children(overlay)
+			}
+		})
 		x := ui.ButtonBase(c).Label(locales.CommonRemove()).Absolute().Top(3).Right(3).Size(20, 20).Radius(10).Center().Background(k.Mask).
 			Cursor(ui.CursorPointer)
 		x.Children(func() { ui.Icon(c, widget.IconClose).Size(13, 13).TextColor(ui.Hex("#FFFFFF")) })

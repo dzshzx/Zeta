@@ -441,15 +441,14 @@ private fun ConversationBody(
     val scope = rememberCoroutineScope()
     // 附件菜单里的“文件夹”“输入路径”：引用 Linux 里本来就有的路径
     val pathAttach = remember { PathAttach() }
-    // 选的、分享来的、截屏：图片当作图片发给模型看，别的文件复制进 Linux 环境，让 Claude 用工具去读。
+    // 选的、分享来的文件复制进对话所在的主机，让 Claude 用工具去读；图片另带一张缩小的随消息给模型先看。截屏只当图片附件。
     // 读图片、复制文件在草稿那边跑，切到别的对话也会做完，落进这份草稿
     val sink = remember {
         IntakeSink(hub, hub.drafts.scope, draft, MaxAttachments, conversation.backend)
     }
     // 编辑、重新生成、删除一轮、分支
     val actions = remember { MessageActions(hub, conversation, draft, scope) }
-    val pickers =
-        ChatPlatform.current.rememberFilePickers(MaxAttachments, sink::addImages, sink::addFiles)
+    val pickers = ChatPlatform.current.rememberFilePickers(sink::addFiles)
     // 从外面送进来、定了放进这个对话的东西（分享、用 Zeta 打开、截屏）
     val incoming = hub.incoming
     LaunchedEffect(incoming) {
@@ -858,7 +857,7 @@ private fun ConversationInput(
             attachments = attachments,
             files = uploads,
             commands = conversation.commands,
-            onPickImages = { if (attachments.size < MaxAttachments) onPickImages() },
+            onPickImages = onPickImages,
             onPickFiles = onPickFiles,
             // 手机上的文件夹只有手机本机的 Debian 绑得进去
             onPickFolder = pathAttach::openFolder.takeIf { conversation.backend == Backends.LOCAL },
@@ -920,9 +919,11 @@ private fun sendDraft(
 ) {
     val attachments = draft.attachments
     val uploads = draft.uploads
+    val images = draft.outgoingImages()
+    val files = draft.outgoingFiles()
     if (actions.editing == null) {
-        conversation.send(text, attachments.toList(), uploads.mapNotNull { it.path })
-    } else if (!actions.submitEdit(text, attachments.toList(), uploads.mapNotNull { it.path })) {
+        conversation.send(text, images, files)
+    } else if (!actions.submitEdit(text, images, files)) {
         // 还不能改写：内容留在输入框里
         draft.input.setTextAndPlaceCursorAtEnd(text)
         return

@@ -6,12 +6,15 @@ import (
 	"image"
 	"image/color"
 	"image/png"
+	"maps"
 	"os"
 	"path/filepath"
+	"slices"
 	"strings"
 	"testing"
 
 	"github.com/dzshzx/Zeta/client/hostlink"
+	"github.com/dzshzx/Zeta/helper/coreapi"
 	"github.com/dzshzx/Zeta/windows/internal/attach"
 	"github.com/egoist/mygo/transfer"
 	"github.com/egoist/mygo/ui"
@@ -99,8 +102,13 @@ func TestAttachingImagesFilesAndFolders(t *testing.T) {
 
 	asked := f.pickReturns(local["海边.png"], local["截图.png"])
 	f.attach(t, "图片")
-	if got := len(f.app.pane.att.images); got != 2 || (*asked)[0] != "选择图片" {
-		t.Fatalf("选了两张图，输入栏里有 %d 张（问的是 %v）", got, *asked)
+	if at := f.app.pane.att; len(at.images) != 0 || len(at.files) != 2 || (*asked)[0] != "选择图片" {
+		t.Fatalf("选了两张图：内联图 %d 张、文件 %d 个（问的是 %v）", len(at.images), len(at.files), *asked)
+	}
+	for _, pic := range f.app.pane.att.files {
+		if !pic.picture || pic.inline == nil || pic.thumb == nil {
+			t.Errorf("「%s」应是带缩小图和缩略图的图片：%+v", pic.name, pic)
+		}
 	}
 	f.pickReturns(local["需求说明.pdf"])
 	f.attach(t, "文件")
@@ -128,14 +136,16 @@ func TestAttachingImagesFilesAndFolders(t *testing.T) {
 	if err := json.Unmarshal([]byte(sent[0]), &m); err != nil {
 		t.Fatal(err)
 	}
-	if m.Text != "看看这些" || len(m.Images) != 2 || m.Images[0].MediaType != "image/jpeg" {
+	if m.Text != "看看这些" || len(m.Images) != 2 || m.Images[0].MediaType != "image/jpeg" || m.Images[1].MediaType != "image/jpeg" {
 		t.Errorf("文字和图：%+v", m)
 	}
-	want := []string{"/home/box/.cache/zeta/files/00000001/需求说明.pdf", "@/home/box/.cache/zeta/files/00000002/资料/"}
+	// 图片的原文件也传上去，缩小图和它们同样的顺序
+	want := []string{"/home/box/.cache/zeta/files/00000001/海边.png", "/home/box/.cache/zeta/files/00000002/截图.png",
+		"/home/box/.cache/zeta/files/00000003/需求说明.pdf", "@/home/box/.cache/zeta/files/00000004/资料/"}
 	if strings.Join(m.Files, "|") != strings.Join(want, "|") {
 		t.Errorf("files = %v, want %v", m.Files, want)
 	}
-	if up := f.devices.Uploaded(); len(up) != 2 || up[0].Limit != attach.MaxBytes || !up[1].Folder {
+	if up := f.devices.Uploaded(); len(up) != 4 || up[0].Local != local["海边.png"] || up[0].Limit != attach.MaxBytes || !up[3].Folder {
 		t.Errorf("传上去的：%+v", up)
 	}
 	if at := f.app.pane.att; len(at.images)+len(at.files) != 0 {
@@ -180,6 +190,9 @@ func TestTooLargeOrUnreadableIsReported(t *testing.T) {
 	if up := f.devices.Uploaded(); len(up) != 1 || filepath.Base(up[0].Local) != "坏的.png" {
 		t.Errorf("读不了的图当文件传，太大的不传：%+v", up)
 	}
+	if at := f.app.pane.att; len(at.files) != 1 || at.files[0].picture || at.files[0].inline != nil {
+		t.Errorf("解不开的图只当文件，画成文件小标签：%+v", at.files)
+	}
 	f.click(t, "好")
 	f.notSee(t, "有些内容没有加进来")
 }
@@ -191,8 +204,11 @@ func TestPastingAnImageOrDroppingFiles(t *testing.T) {
 		picture(64, 64, color.NRGBA{200, 60, 60, 255}, color.NRGBA{255, 255, 255, 255})))))
 	f.click(t, "消息")
 	f.tt.Key(ui.Ctrl, ui.KeyV)
-	if len(f.app.pane.att.images) != 1 || f.app.pane.draft != "" {
-		t.Fatalf("粘贴图片：%d 张，输入框 %q", len(f.app.pane.att.images), f.app.pane.draft)
+	if at := f.app.pane.att; len(at.files) != 1 || at.files[0].inline == nil || len(at.images) != 0 || f.app.pane.draft != "" {
+		t.Fatalf("粘贴图片：文件 %d 个、内联图 %d 张，输入框 %q", len(at.files), len(at.images), f.app.pane.draft)
+	}
+	if up := f.devices.Uploaded(); len(up) != 1 || len(up[0].Data) == 0 || !strings.HasSuffix(up[0].Name, ".png") {
+		t.Errorf("粘贴的图原样传上去：%+v", up)
 	}
 	f.tt.SetClipboard("一段字")
 	f.tt.Key(ui.Ctrl, ui.KeyV)
@@ -204,8 +220,8 @@ func TestPastingAnImageOrDroppingFiles(t *testing.T) {
 		t.Fatal("聊天页不收拖进来的文件")
 	}
 	f.tt.Frame()
-	if len(f.app.pane.att.images) != 2 || len(f.devices.Uploaded()) != 1 {
-		t.Errorf("拖进来：%d 张图，传了 %d 个文件", len(f.app.pane.att.images), len(f.devices.Uploaded()))
+	if at := f.app.pane.att; len(at.files) != 3 || !at.files[2].picture || at.files[1].picture || len(f.devices.Uploaded()) != 3 {
+		t.Errorf("拖进来：文件 %d 个，传了 %d 个", len(at.files), len(f.devices.Uploaded()))
 	}
 }
 
@@ -276,5 +292,43 @@ func TestSavedPrompts(t *testing.T) {
 	f.clickButton(t, "删除", 0)
 	if got := f.hub.Prompts(); len(got) != 1 || got[0].Name != "周报" {
 		t.Errorf("删除后：%+v", got)
+	}
+}
+
+// 放回输入栏（撤回、没发出去、编辑）时，传上去的图片文件带的缩小图在图的末尾、和文件同样的顺序：配回文件上，不另放一份。
+func TestPuttingBackPairsShrunkImagesWithTheirFiles(t *testing.T) {
+	f := newChatFixture(t)
+	f.newChat(t)
+	jpg := func(r uint8) coreapi.Image {
+		im, err := attach.EncodeImage(picture(40, 30, color.NRGBA{r, 0, 0, 255}, color.NRGBA{0, 0, r, 255}))
+		if err != nil {
+			t.Fatal(err)
+		}
+		return im
+	}
+	own, a, c := jpg(10), jpg(20), jpg(30)
+	p := f.app.pane
+	p.putBack(coreapi.Message{Images: []coreapi.Image{own, a, c}, Files: []string{"/f/1/a.png", "@/srv/b.png", "/f/2/c.jpg", "/f/3/d.pdf"}})
+	if len(p.att.images) != 1 || !bytes.Equal(p.att.images[0].image.Data, own.Data) {
+		t.Fatalf("单独的图：%d 张", len(p.att.images))
+	}
+	got := map[string][]byte{}
+	for _, x := range p.att.files {
+		if x.inline != nil {
+			got[x.entry] = x.inline.Data
+		}
+	}
+	if len(got) != 2 || !bytes.Equal(got["/f/1/a.png"], a.Data) || !bytes.Equal(got["/f/2/c.jpg"], c.Data) {
+		t.Errorf("配回的缩小图：%v", slices.Collect(maps.Keys(got)))
+	}
+	if pics := p.att.pictures(); len(pics) != 3 || !bytes.Equal(pics[1].Data, a.Data) || !bytes.Equal(pics[2].Data, c.Data) {
+		t.Errorf("再发时的图：%d 张", len(pics))
+	}
+
+	// 图比图片文件少（有的没做成缩小图）：对不上，都当单独的图
+	p.att.clear()
+	p.putBack(coreapi.Message{Images: []coreapi.Image{a}, Files: []string{"/f/1/a.png", "/f/2/c.jpg"}})
+	if len(p.att.images) != 1 || p.att.files[0].inline != nil || p.att.files[1].inline != nil {
+		t.Errorf("对不上时：%d 张单独的图", len(p.att.images))
 	}
 }
