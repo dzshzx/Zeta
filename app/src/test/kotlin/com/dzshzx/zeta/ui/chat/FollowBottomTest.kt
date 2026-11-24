@@ -79,7 +79,9 @@ class FollowBottomTest : ShotTest() {
     }
 }
 
-/** 带锚点（聊天页最新一条用户消息）：发消息后只跟到它顶到上沿；打开时落到底、之后不跟；点「回到底部」才一直跟。 */
+/**
+ * 带锚点（聊天页最新一条用户消息）：发消息后只跟到它顶到上沿；打开时落到底、之后不跟；点「回到底部」才一直跟； 消息要过一会儿才进列表时不能把上一条当成「已经到顶」。列表的 key 就是下标。
+ */
 class FollowBottomAnchorTest : ShotTest() {
     private lateinit var list: LazyListState
     private lateinit var follow: FollowBottom
@@ -89,8 +91,8 @@ class FollowBottomAnchorTest : ShotTest() {
     private fun show() = compose.setContent {
         val state = rememberLazyListState()
         list = state
-        follow = rememberFollowBottom(state) { anchorAt }
-        LazyColumn(state = state, modifier = Modifier.fillMaxSize().testTag("list")) {
+        follow = rememberFollowBottom(state) { anchorAt?.let { FollowAnchor(it, it) } }
+        LazyColumn(state = state, modifier = Modifier.fillMaxSize()) {
             items(rows, key = { it }) { Box(Modifier.fillMaxWidth().height(100.dp)) }
         }
     }
@@ -100,10 +102,10 @@ class FollowBottomAnchorTest : ShotTest() {
         compose.waitForIdle()
     }
 
-    /** 发了一条消息（锚点是新加的这一行），回答一截截往下长。 */
+    /** 和聊天页一样先调 followTurn，消息再进列表。 */
     private fun send() {
-        // 和聊天页一样先调 followTurn，消息再进列表
         compose.runOnUiThread { follow.followTurn() }
+        compose.waitForIdle()
         compose.runOnUiThread {
             anchorAt = rows.size
             rows += rows.size
@@ -142,51 +144,19 @@ class FollowBottomAnchorTest : ShotTest() {
         assertTrue("问题已在屏幕上面：之后不跟", list.canScrollForward)
         assertFalse(follow.following)
     }
-}
-
-/** 发消息后，消息要过一会儿才进列表：这之前锚点还是上一条，不能当成「已经到顶」停下。 */
-class FollowBottomLateMessageTest : ShotTest() {
-    private lateinit var list: LazyListState
-    private lateinit var follow: FollowBottom
-    private val rows = mutableStateListOf<Int>()
-    private var anchorAt: Int? = null
-
-    private fun add(count: Int) {
-        compose.runOnUiThread { repeat(count) { rows += rows.size } }
-        compose.waitForIdle()
-    }
 
     @Test
     fun followsWhenTheSentMessageShowsUpLate() {
         anchorAt = 5
         rows += 0 until 30
-        compose.setContent {
-            val state = rememberLazyListState()
-            list = state
-            follow = rememberFollowBottom(state) { anchorAt }
-            LazyColumn(state = state, modifier = Modifier.fillMaxSize()) {
-                items(rows, key = { it }) { Box(Modifier.fillMaxWidth().height(100.dp)) }
-            }
-        }
+        show()
         compose.waitForIdle()
         add(3)
         assertTrue("打开后不跟", list.canScrollForward)
 
-        compose.runOnUiThread { follow.followTurn() }
-        compose.waitForIdle()
-        assertFalse("发出去先滚到底", list.canScrollForward)
-        // 消息这时才进列表，回答跟着往下长
-        compose.runOnUiThread {
-            anchorAt = rows.size
-            rows += rows.size
-        }
-        compose.waitForIdle()
-        assertFalse("新消息露出来", list.canScrollForward)
+        send()
+        assertFalse("上一条早在屏幕上面，也照样滚到新消息", list.canScrollForward)
         repeat(30) { add(1) }
-        assertEquals(
-            "跟到新消息顶到上沿",
-            0,
-            list.layoutInfo.visibleItemsInfo.firstOrNull { it.index == anchorAt }?.offset,
-        )
+        assertEquals("跟到新消息顶到上沿", 0, anchorTop())
     }
 }

@@ -10,10 +10,12 @@ import androidx.compose.runtime.withFrameMillis
 import kotlinx.coroutines.delay
 
 /** 一直循环的提示动画每秒走几步。 */
-const val IndicatorFps = 20
+private const val IndicatorFps = 20
+
+private const val IndicatorStepMs = 1000L / IndicatorFps
 
 /**
- * 一直循环的提示动画（转圈、呼吸、闪烁的点）的时钟：从第一次出现起过了多少毫秒，每秒只走 [IndicatorFps] 步。 用 [turn]、[pingPong]
+ * 一直循环的提示动画（转圈、呼吸、闪烁的点）的时钟：从第一次出现起过了多少毫秒，每秒只走 20 步。 用 [turn]、[pingPong]
  * 换算成角度、透明度；同一个提示里几样东西周期不同时共用一个时钟，每步只重画一次。
  *
  * 不用 `rememberInfiniteTransition`：它每一帧都要一次新画面，手机上是每秒 120 帧整窗重画，
@@ -26,10 +28,16 @@ const val IndicatorFps = 20
 fun rememberIndicatorClock(): State<Long> {
     val elapsed = remember { mutableLongStateOf(0L) }
     LaunchedEffect(Unit) {
-        val start = withFrameMillis { it }
+        var frame = withFrameMillis { it }
+        val start = frame
         while (true) {
-            delay(1000L / IndicatorFps)
-            elapsed.longValue = withFrameMillis { it } - start
+            // 等到下一个 50 毫秒的整格：同屏几个提示的时钟都按帧时间对齐到同一格，在同一帧里走，不各要各的帧
+            delay(IndicatorStepMs - frame % IndicatorStepMs)
+            // 在帧回调里改：要的重画落在这一帧
+            withFrameMillis {
+                frame = it
+                elapsed.longValue = it - start
+            }
         }
     }
     return elapsed

@@ -359,6 +359,21 @@ bridge_call() { printf '{"jsonrpc":"2.0","id":%s,"method":"tools/call","params":
 bridge_reply() { jq -c "select(.id == $2)" "$1"; }
 bridge_ok() { test "$(bridge_reply "$1" "$2" | jq '.result != null and .result.isError != true')" = true; }
 
+# cpu_warm_up <剧本>：量 CPU 的脚本的开头：用假 Claude 的 <剧本> 开个新对话、记下测试版的进程号 pid，
+# 答完第一轮（预热）再清零帧数，之后发的第二轮由脚本用 measure_cpu 量
+cpu_warm_up() {
+  NEWER=/data/local/tmp/zeta-$(basename "$0" .sh).mark
+  trap 'android "rm -f $NEWER" >/dev/null 2>&1 || true' EXIT
+  vd fake "$1"
+  android "touch $NEWER"
+  new_chat
+  pid=$(android "pidof $PKG" | tr -d '\r')
+  [[ -n $pid ]] || { echo "测试版没在跑"; exit 1; }
+  send warm
+  wait_result 1 60
+  sleep 3
+  android "dumpsys gfxinfo $PKG reset" >/dev/null
+}
 # app_threads：测试版（进程号 $pid）每个线程的「线程号 名字 CPU 节拍（用户态加内核态）」
 app_threads() {
   android "cd /proc/$pid/task && for t in *; do echo \"\$t \$(tr ' ' _ < \$t/comm) \$(sed 's/.*) //' \$t/stat | cut -d' ' -f12,13)\"; done" |

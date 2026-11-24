@@ -486,7 +486,8 @@ private fun ConversationBody(
     val latestLeading by rememberUpdatedState(leading)
     val follow =
         rememberFollowBottom(listState) {
-            latestShown.indexOfLast { it is UserItem }.takeIf { it >= 0 }?.plus(latestLeading)
+            val at = latestShown.indexOfLast { it is UserItem }
+            if (at < 0) null else FollowAnchor(latestShown[at].id, at + latestLeading)
         }
     ScrollToEndOnKeyboard(listState)
     // 长对话先只载入最近的一段，往上翻到顶附近时再接上更早的；“更早的记录”那行是列表的第一项

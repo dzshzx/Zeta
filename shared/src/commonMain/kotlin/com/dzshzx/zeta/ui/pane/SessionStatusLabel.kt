@@ -81,7 +81,7 @@ fun SessionStatusLabel(status: SessionStatus) {
 @Composable
 private fun StatusMark(activity: Activity, color: Color) {
     // 转着的角度只在画的时候读：每帧只重画这个记号，不重组
-    val turn = if (activity == Activity.Answering) rememberIndicatorClock() else null
+    val clock = if (activity == Activity.Answering) rememberIndicatorClock() else null
     Canvas(Modifier.size(MarkSize)) {
         val stroke = MarkStroke.toPx()
         val line = Stroke(stroke, cap = StrokeCap.Round)
@@ -102,7 +102,7 @@ private fun StatusMark(activity: Activity, color: Color) {
                 ring(color.copy(alpha = 0.25f))
                 drawArc(
                     color,
-                    turn(turn?.value ?: 0L, 1000) - 90f,
+                    turn(clock?.value ?: 0L, 1000) - 90f,
                     250f,
                     false,
                     Offset(stroke / 2, stroke / 2),

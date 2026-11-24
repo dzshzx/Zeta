@@ -19,11 +19,14 @@ import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.launch
 
+/** 跟随的锚点：列表里最新一条用户消息，[key] 认是哪一条，[index] 是它此刻在列表里的下标。 */
+data class FollowAnchor(val key: Any, val index: Int)
+
 /**
  * 贴底跟随：[following] 时内容一长出屏幕就往下滚。 用户往上拖就停下；拖完、或者滚动停下时在最底端（而且列表确实滚得动）就恢复。程序跳到别处（接上更早的记录、查找跳转）前调
  * [pause]。聊天页和子代理查看页共用。
  *
- * 给了 [anchor]（列表里最新一条用户消息的下标）时，跟随默认「到顶为止」：往下滚最多滚到这条消息顶到列表上沿，再长就停下， 和 Claude、ChatGPT
+ * 给了 [anchor]（列表里最新一条用户消息）时，跟随默认「到顶为止」：往下滚最多滚到这条消息顶到列表上沿，再长就停下， 和 Claude、ChatGPT
  * 的应用一样，回答时问题留在上面、回答往下长， 不会一直跟着每一截新内容滚动、重排（流式输出时这是一大笔开销）； 它已经在屏幕上面了（比如打开对话落到底以后）就不再跟。发消息时调
  * [followTurn]。 只有点「回到底部」（[resume]）是一直跟到底，直到用户往上拖。
  */
@@ -31,42 +34,38 @@ import kotlinx.coroutines.launch
 class FollowBottom(
     private val listState: LazyListState,
     following: Boolean,
-    private val anchor: (() -> Int?)? = null,
+    private val anchor: (() -> FollowAnchor?)? = null,
 ) {
     var following by mutableStateOf(following)
         private set
 
-    /** 跟随停在 [anchor] 顶到上沿处；为假时一直跟到底。 */
-    private var capped = anchor != null
+    /** 这一回跟随停在哪条消息顶到上沿处：默认是 [anchor]，点「回到底部」后为 null，一直跟到底。 */
+    private var cap = anchor
 
     /**
-     * 发消息那一刻 [anchor] 的值：刚发的消息要过一会儿才进列表，这之前 [anchor] 还是上一条（早就在屏幕上面了），
-     * 不能拿它判断「到顶了」，先照常滚到底，等它变了再按到顶为止。
+     * 发消息那一刻最新一条用户消息的 key：刚发的消息要过一会儿才进列表，这之前锚点还是上一条（早就在屏幕上面了）， 不能拿它判断「到顶了」，先照常滚到底，等锚点换成新消息再按到顶为止。
      */
-    private var sentAfter: Int? = null
+    private var sentAfter: Any? = null
 
     fun pause() {
         following = false
     }
 
     /** 点「回到底部」：滚到底，一直跟着，直到用户往上拖。 */
-    fun resume() {
-        capped = false
-        following = true
-    }
+    fun resume() = start(cap = null)
 
     /** 发了消息：滚到底，回答变长时跟到这条消息顶到上沿为止。 */
-    fun followTurn() {
-        capped = anchor != null
-        sentAfter = anchor?.invoke()
+    fun followTurn() = start(cap = anchor, sentAfter = anchor?.invoke()?.key)
+
+    private fun start(cap: (() -> FollowAnchor?)?, sentAfter: Any? = null) {
+        this.cap = cap
+        this.sentAfter = sentAfter
         following = true
     }
 
     /** 拖完或停在最底端时恢复跟随，照默认的到顶为止；正跟着时不动（点「回到底部」滚到底停下也走到这里）。 */
     private fun settleFollow() {
-        if (following) return
-        capped = anchor != null
-        following = true
+        if (!following) start(cap = anchor)
     }
 
     /** 跟着手势和内容变化走，直到所在的协程被取消。由 [rememberFollowBottom] 挂在界面上。 */
@@ -107,23 +106,19 @@ class FollowBottom(
             }
     }
 
-    /** 往下滚一步。到顶为止时：[anchor] 还在屏幕下面（打开对话、刚发的消息还没露出来）就滚到底；在屏幕上就只滚到它顶到上沿， 已经顶到或在屏幕上面了就停止跟随。 */
+    /** 往下滚一步。到顶为止时：锚点还在屏幕下面（打开对话、刚发的消息还没露出来）就滚到底；在屏幕上就只滚到它顶到上沿， 已经顶到或在屏幕上面了就停止跟随。 */
     private suspend fun step() {
-        val index = if (capped) anchor?.invoke() else null
-        if (index != null && index == sentAfter) {
+        val at = cap?.invoke()
+        if (at == null || at.key == sentAfter) {
             listState.scrollToEnd()
             return
         }
         sentAfter = null
-        if (index == null) {
-            listState.scrollToEnd()
-            return
-        }
         val visible = listState.layoutInfo.visibleItemsInfo
         val first = visible.firstOrNull()?.index ?: return
-        val item = visible.firstOrNull { it.index == index }
+        val item = visible.firstOrNull { it.key == at.key }
         when {
-            index < first || (item != null && item.offset <= 0) -> following = false
+            at.index < first || (item != null && item.offset <= 0) -> following = false
             item == null -> listState.scrollToEnd()
             // 滚不到这么远时停在最底端（scrollBy 不越界）；滚满了就是顶到上沿，停止跟随：
             // 之后列表一直「还能往下滚」，不会再来一步
@@ -139,7 +134,7 @@ class FollowBottom(
 fun rememberFollowBottom(
     listState: LazyListState,
     following: Boolean = true,
-    anchor: (() -> Int?)? = null,
+    anchor: (() -> FollowAnchor?)? = null,
 ): FollowBottom {
     val follow = remember(listState) { FollowBottom(listState, following, anchor) }
     LaunchedEffect(follow) { follow.run() }
@@ -169,7 +164,8 @@ fun ScrollToEndOnKeyboard(listState: LazyListState) {
                 last = bottom
                 if (rising) {
                     withFrameNanos {}
-                    listState.scrollToEnd()
+                    // 已经在最底下时不再滚：升起时每帧都来一次
+                    if (listState.canScrollForward) listState.scrollToEnd()
                 }
             }
     }

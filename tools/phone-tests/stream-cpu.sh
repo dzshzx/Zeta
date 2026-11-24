@@ -8,20 +8,7 @@
 # 假 Claude 不写会话记录，没有要删的测试会话；phone-run 收尾的 vd stop 删掉剧本。
 set -euo pipefail
 . "$ZETA_ROOT/tools/phone-tests/lib.sh"
-NEWER=/data/local/tmp/zeta-stream-cpu.mark
-trap 'android "rm -f $NEWER" >/dev/null 2>&1 || true' EXIT
-
-vd fake "$HERE/fake/stream.jsonl"
-android "touch $NEWER"
-new_chat
-pid=$(android "pidof $PKG" | tr -d '\r')
-[[ -n $pid ]] || { echo "测试版没在跑"; exit 1; }
-
-send warm
-wait_result 1 60
-sleep 3
-
-android "dumpsys gfxinfo $PKG reset" >/dev/null
+cpu_warm_up "$HERE/fake/stream.jsonl"
 send shown
 shown="$(measure_cpu 2 界面开着)画了 $(frames) 帧"
 
