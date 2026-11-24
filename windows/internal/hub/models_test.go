@@ -5,7 +5,9 @@ import (
 	"encoding/json"
 	"errors"
 	"slices"
+	"strings"
 	"testing"
+	"time"
 
 	"github.com/dzshzx/Zeta/windows/internal/hubtest"
 )
@@ -51,6 +53,19 @@ func TestRemoteModels(t *testing.T) {
 	}
 	if n := len(f.hub.chatConn(f.id).client.Conversations()); n != 0 {
 		t.Fatalf("连接上还留着 %d 个对话", n)
+	}
+}
+
+// 假连接对 conv.prepare 什么都不推时自己补一条「启动失败」（hubtest.ChatLink.Call），要清单的立刻拿到原因：界面测试打开设备页
+// 都靠它不去等 modelsTimeout（一分钟）。这条补的提示和 Models 认的对不上时，每个打开设备页的界面测试都白等一分钟，所以在这里
+// 用几秒的时限钉住：到期的话报的是 context.DeadlineExceeded，不是启动失败。
+func TestFakeLinkAnswersModelsWithStartFailure(t *testing.T) {
+	f := newChatFixture(t)
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+	_, err := f.hub.Remote(f.id).Models(ctx, "/home/box")
+	if err == nil || !strings.HasPrefix(err.Error(), "启动失败：") {
+		t.Fatalf("假连接没让 Models 立刻拿到启动失败的原因：%v", err)
 	}
 }
 

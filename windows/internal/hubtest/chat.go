@@ -89,7 +89,8 @@ func (l *ChatLink) Call(_ context.Context, method string, params map[string]any)
 	}
 	if method == "conv.prepare" && err == nil && l.pushes() == before {
 		// 测试没让它推东西：当作这台上起不来 Claude Code（同核心，条目里加一条「启动失败」），要模型清单的不用等到超时
-		l.Push(`{"type":"conv.items","conv":"` + c.Conv() + `","full":true,"items":[{"kind":"notice","id":"n1","text":"启动失败：假设备上没有 claude"}]}`)
+		l.Push(`{"type":"conv.items","conv":"` + c.Conv() + `","full":true,"items":[{"kind":"notice","id":"n1","text":"启动失败：假设备上没有 claude",` +
+			`"code":"noticeStartFailed","args":{"reason":"假设备上没有 claude"}}]}`)
 	}
 	return result, err
 }
