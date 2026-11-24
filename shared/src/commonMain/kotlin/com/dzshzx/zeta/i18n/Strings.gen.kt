@@ -14400,6 +14400,216 @@ object Strings {
     fun settingsAccountsSwitchTo(): String = catalog.say("settingsAccountsSwitchTo")
 
     /**
+     * 「中转 {name}」
+     *
+     * 「账号与额度」一行的摘要、登录页和 Linux 环境页的账号状态：这台设备在用中转，name 是中转名。
+     */
+    fun settingsAccountsRelayEntry(name: String): String = catalog.say("settingsAccountsRelayEntry", mapOf("name" to name))
+
+    /**
+     * 「正在用中转 {name}，没有订阅额度。」
+     *
+     * 在用中转时额度一组（账号页、聊天页的用量弹窗）的说明，name 是中转名。
+     */
+    fun settingsAccountsQuotaRelay(name: String): String = catalog.say("settingsAccountsQuotaRelay", mapOf("name" to name))
+
+    /**
+     * 「中转」
+     *
+     * 账号与额度页上中转那一组的标题。
+     */
+    fun settingsRelaysGroup(): String = catalog.say("settingsRelaysGroup")
+
+    /**
+     * 「中转是说 Anthropic Messages 协议、用密钥鉴权的接口（官方 API 或兼容它的中转站）。点一行切换过去，条件同切换账号；在用中转时没有订阅额度。」
+     *
+     * 中转一组下面的说明。
+     */
+    fun settingsRelaysFooter(): String = catalog.say("settingsRelaysFooter")
+
+    /**
+     * 「添加中转」
+     *
+     * 中转一组最后一行，也是添加中转页的页标题。
+     */
+    fun settingsRelaysAdd(): String = catalog.say("settingsRelaysAdd")
+
+    /**
+     * 「编辑 {name}」
+     *
+     * 中转一行右边编辑按钮的读屏说明，name 是中转名。
+     */
+    fun settingsRelaysEdit(name: String): String = catalog.say("settingsRelaysEdit", mapOf("name" to name))
+
+    /**
+     * 「Zeta 会先关掉这台设备上闲着的对话进程（对话内容不丢）。之后这台上的新对话都经这个中转，没有订阅额度。」
+     *
+     * 切换到中转的确认框说明。
+     */
+    fun settingsRelaysSwitchSummary(): String = catalog.say("settingsRelaysSwitchSummary")
+
+    /**
+     * 「编辑中转」
+     *
+     * 修改已有中转的页标题。
+     */
+    fun relayEditTitle(): String = catalog.say("relayEditTitle")
+
+    /**
+     * 「名称」
+     *
+     * 中转编辑页：名称输入框的标题。
+     */
+    fun relayName(): String = catalog.say("relayName")
+
+    /**
+     * 「例如 my-relay」
+     *
+     * 中转编辑页：名称输入框里的占位提示。
+     */
+    fun relayNameHint(): String = catalog.say("relayNameHint")
+
+    /**
+     * 「小写字母、数字和连字符，保存后不能改。」
+     *
+     * 添加中转时名称输入框下面的说明。
+     */
+    fun relayNameFooter(): String = catalog.say("relayNameFooter")
+
+    /**
+     * 「地址」
+     *
+     * 中转编辑页：地址输入框的标题。
+     */
+    fun relayBaseUrl(): String = catalog.say("relayBaseUrl")
+
+    /**
+     * 「Zeta 只接 Claude Code 会说的 Anthropic Messages 协议，不做翻译；OpenAI 协议的上游要经能翻译的中转接入。」
+     *
+     * 中转编辑页：地址输入框下面的说明。
+     */
+    fun relayBaseUrlFooter(): String = catalog.say("relayBaseUrlFooter")
+
+    /**
+     * 「密钥」
+     *
+     * 中转编辑页：密钥输入框的标题。
+     */
+    fun relayKey(): String = catalog.say("relayKey")
+
+    /**
+     * 「已设置，留空不改」
+     *
+     * 修改中转时密钥输入框里的占位提示：已经存着密钥。
+     */
+    fun relayKeyKeep(): String = catalog.say("relayKeyKeep")
+
+    /**
+     * 「显示密钥」
+     *
+     * 密钥输入框右边按钮的读屏说明：现在遮着。
+     */
+    fun relayKeyShow(): String = catalog.say("relayKeyShow")
+
+    /**
+     * 「隐藏密钥」
+     *
+     * 密钥输入框右边按钮的读屏说明：现在显示着。
+     */
+    fun relayKeyHide(): String = catalog.say("relayKeyHide")
+
+    /**
+     * 「默认模型」
+     *
+     * 中转编辑页：默认模型输入框的标题。
+     */
+    fun relayModel(): String = catalog.say("relayModel")
+
+    /**
+     * 「不设」
+     *
+     * 默认模型输入框里的占位提示，也是模型列表里清空它的那一项。
+     */
+    fun relayModelHint(): String = catalog.say("relayModelHint")
+
+    /**
+     * 「新对话默认用这个模型，盖过这台设备「新对话默认」里的模型；对话里选的又盖过它。」
+     *
+     * 中转编辑页：默认模型一组下面的说明。
+     */
+    fun relayModelFooter(): String = catalog.say("relayModelFooter")
+
+    /**
+     * 「获取模型列表」
+     *
+     * 中转编辑页：点了用填的地址和密钥向中转要模型列表。
+     */
+    fun relayFetchModels(): String = catalog.say("relayFetchModels")
+
+    /**
+     * 「正在获取…」
+     *
+     * 获取模型列表那一行：正在获取。
+     */
+    fun relayFetchingModels(): String = catalog.say("relayFetchingModels")
+
+    /**
+     * 「中转没有报任何模型」
+     *
+     * 获取模型列表成了，但列表是空的。
+     */
+    fun relayModelsEmpty(): String = catalog.say("relayModelsEmpty")
+
+    /**
+     * 「选择默认模型」
+     *
+     * 获取到模型列表后弹出的选择框标题。
+     */
+    fun relayPickModel(): String = catalog.say("relayPickModel")
+
+    /**
+     * 「正在保存…」
+     *
+     * 中转编辑页顶栏：保存中。
+     */
+    fun relaySaving(): String = catalog.say("relaySaving")
+
+    /**
+     * 「没有保存：{reason}」
+     *
+     * 保存中转没成，reason 是核心给的原因。
+     */
+    fun relaySaveFailed(reason: String): String = catalog.say("relaySaveFailed", mapOf("reason" to reason))
+
+    /**
+     * 「删除中转」
+     *
+     * 中转编辑页最下面的危险操作。
+     */
+    fun relayDelete(): String = catalog.say("relayDelete")
+
+    /**
+     * 「删除 {name}？」
+     *
+     * 删除中转的确认框标题，name 是中转名。
+     */
+    fun relayDeleteTitle(name: String): String = catalog.say("relayDeleteTitle", mapOf("name" to name))
+
+    /**
+     * 「删掉这个中转的设置和 Zeta 给它存的密钥文件。」
+     *
+     * 删除中转的确认框说明。
+     */
+    fun relayDeleteSummary(): String = catalog.say("relayDeleteSummary")
+
+    /**
+     * 「没有删掉：{reason}」
+     *
+     * 删除中转没成，reason 是核心给的原因。
+     */
+    fun relayDeleteFailed(reason: String): String = catalog.say("relayDeleteFailed", mapOf("reason" to reason))
+
+    /**
      * 「在这台设备上开新对话时用。存在这台设备上 Claude Code 自己的设置里，和那边终端里 /model、/effort 存为默认的是同一份；对话里选的只管那个对话。思考强度按模型分别存。上下文窗口是会话最多用多少 token，自动压缩按它算，比模型本身的窗口大时按模型的。」
      *
      * 设备页「新对话默认」一组下面的说明。

@@ -472,7 +472,8 @@ private fun ClaudeGroup(
                 onClick = onOpenLogin,
             )
         }
-        if (account?.loggedIn == true) {
+        // 在用中转时没有登录着的账号，退出登录无从谈起；换回账号在账号页
+        if (account?.loggedIn == true && account.relay == null) {
             item {
                 BasicComponent(
                     title = Strings.setupLogout(),
@@ -487,6 +488,7 @@ private fun ClaudeGroup(
 private fun accountSummary(account: AccountStatus?): String =
     when {
         account == null -> Strings.setupQuerying()
+        account.relay != null -> Strings.settingsAccountsRelayEntry(account.relay)
         !account.loggedIn -> Strings.setupNotLoggedIn()
         else ->
             listOfNotNull(account.email, account.plan).joinToString(" · ").ifBlank {
@@ -738,15 +740,16 @@ private fun loginAccount(hub: ConversationHub, backend: String): AccountStatus? 
     val service = hub.accounts(backend)
     LaunchedEffect(backend) { if (service.state == null) service.refresh() }
     return service.state?.let { listed ->
-        AccountStatus(
-            loggedIn = listed.loggedIn,
-            email = listed.current?.email?.ifBlank { null },
-            plan = listed.current?.plan?.ifBlank { null },
-        )
+        listed.relay?.let { AccountStatus.relay(it.name, it.baseUrl) }
+            ?: AccountStatus(
+                loggedIn = listed.loggedIn,
+                email = listed.current?.email?.ifBlank { null },
+                plan = listed.current?.plan?.ifBlank { null },
+            )
     }
 }
 
-/** 「当前状态」一组：是否已登录，登录了就带上邮箱和套餐。 */
+/** 「当前状态」一组：是否已登录，登录了就带上邮箱和套餐；在用中转时写中转名和地址。 */
 @Composable
 private fun LoginStatusGroup(account: AccountStatus?, title: String) {
     PreferenceGroup(title = title) {
@@ -755,6 +758,7 @@ private fun LoginStatusGroup(account: AccountStatus?, title: String) {
                 title =
                     when {
                         account == null -> Strings.setupQuerying()
+                        account.relay != null -> Strings.settingsAccountsRelayEntry(account.relay)
                         account.loggedIn -> Strings.setupLoggedIn()
                         else -> Strings.setupNotLoggedIn()
                     },
@@ -762,7 +766,11 @@ private fun LoginStatusGroup(account: AccountStatus?, title: String) {
                     account
                         ?.takeIf { it.loggedIn }
                         ?.let {
-                            listOfNotNull(it.email, it.plan).joinToString(" · ").ifBlank { null }
+                            listOfNotNull(it.email, it.plan, it.relayUrl)
+                                .joinToString(" · ")
+                                .ifBlank {
+                                    null
+                                }
                         },
             )
         }

@@ -19,6 +19,7 @@ import androidx.compose.ui.unit.dp
 import com.dzshzx.zeta.core.AccountService
 import com.dzshzx.zeta.core.Backends
 import com.dzshzx.zeta.core.ClaudeAccount
+import com.dzshzx.zeta.core.ClaudeRelay
 import com.dzshzx.zeta.core.ConversationHub
 import com.dzshzx.zeta.core.QuotaService
 import com.dzshzx.zeta.core.SetupState
@@ -30,6 +31,7 @@ import com.dzshzx.zeta.ui.chat.severityColor
 import com.dzshzx.zeta.ui.components.SlideInPage
 import com.dzshzx.zeta.ui.components.coui2.ConfirmDialog
 import com.dzshzx.zeta.ui.components.coui2.CouiPage
+import com.dzshzx.zeta.ui.components.coui2.FlatIconButton
 import com.dzshzx.zeta.ui.components.coui2.PreferenceGroup
 import com.dzshzx.zeta.ui.components.coui2.PreferenceValue
 import com.dzshzx.zeta.ui.components.coui2.SettingsHue
@@ -41,23 +43,42 @@ import io.github.suqi8.coui.kmp.basic.DropdownEntry
 import io.github.suqi8.coui.kmp.basic.DropdownItem
 import io.github.suqi8.coui.kmp.icon.COUIIcons
 import io.github.suqi8.coui.kmp.icon.extended.ContactsBook
+import io.github.suqi8.coui.kmp.icon.extended.Edit
 import io.github.suqi8.coui.kmp.menu.OverlayDropdownMenu
 import io.github.suqi8.coui.kmp.preference.ArrowPreference
 import io.github.suqi8.coui.kmp.preference.PagerFooterPreference
 import io.github.suqi8.coui.kmp.theme.COUITheme
 
-/** 入口上写的账号状态：登没登录、是哪个号；还没查到是 null。 */
-private class EntryAccount(val loggedIn: Boolean, val email: String?)
+/** 入口上写的账号状态：登没登录、是哪个号、在用的中转（[relay]，这时没有账号登录）；还没查到是 null。 */
+private class EntryAccount(val loggedIn: Boolean, val email: String?, val relay: String? = null)
 
 /** 主机 [backend] 上登录着的账号：手机本机的是环境检查时查到的，远程主机的看那台的账号清单（没读过就读一次）。 */
 @Composable
 private fun entryAccount(hub: ConversationHub, backend: String, ready: Boolean): EntryAccount? {
     if (backend == Backends.LOCAL)
-        return hub.environment.account?.let { EntryAccount(it.loggedIn, it.email) }
+        return hub.environment.account?.let { EntryAccount(it.loggedIn, it.email, it.relay) }
     val service = hub.accounts(backend)
     LaunchedEffect(backend, ready) { if (ready && service.state == null) service.refresh() }
-    return service.state?.let { EntryAccount(it.loggedIn, it.current?.email?.ifBlank { null }) }
+    return service.state?.let {
+        EntryAccount(
+            it.loggedIn || it.relay != null,
+            it.current?.email?.ifBlank { null },
+            it.relay?.name,
+        )
+    }
 }
+
+/** 入口的摘要：用不了的原因、查询中、未登录、中转名，或登录着的邮箱。 */
+private fun entrySummary(backend: String, ready: Boolean, account: EntryAccount?): String =
+    when {
+        !ready ->
+            if (backend == Backends.LOCAL) Strings.settingsAccountsLinuxNotReady()
+            else Strings.settingsAccountsDeviceUnavailable()
+        account == null -> Strings.commonQuerying()
+        account.relay != null -> Strings.settingsAccountsRelayEntry(account.relay)
+        !account.loggedIn -> Strings.settingsAccountsSignedOut()
+        else -> account.email ?: Strings.settingsAccountsSignedIn()
+    }
 
 /** 各台设备页上的入口：那台上当前的账号，和最要紧的一个额度窗口。 */
 @Composable
@@ -74,18 +95,11 @@ internal fun AccountsEntry(hub: ConversationHub, backend: String, onOpen: () -> 
     // 摘要只放账号，最要紧的额度窗口用了多少放右侧（按紧张程度上色）；是哪个窗口点进去看，摘要才不折行
     ArrowPreference(
         title = Strings.settingsAccountsTitle(),
-        summary =
-            when {
-                !ready ->
-                    if (backend == Backends.LOCAL) Strings.settingsAccountsLinuxNotReady()
-                    else Strings.settingsAccountsDeviceUnavailable()
-                account == null -> Strings.commonQuerying()
-                !account.loggedIn -> Strings.settingsAccountsSignedOut()
-                else -> account.email ?: Strings.settingsAccountsSignedIn()
-            },
+        summary = entrySummary(backend, ready, account),
         startAction = { SettingsIcon(COUIIcons.ContactsBook, SettingsHue.Claude, enabled = ready) },
         endActions = {
-            if (ready && account?.loggedIn == true && headline != null) {
+            // 在用中转时没有订阅额度，也不显示上一个账号留下的数
+            if (ready && account?.loggedIn == true && quota.subscribed && headline != null) {
                 PreferenceValue(
                     Strings.settingsAccountsUsedPercent(headline.percent),
                     color = severityColor(headline.severity, Color.Unspecified),
@@ -115,6 +129,8 @@ internal fun AccountsScreen(hub: ConversationHub, backend: String, onBack: () ->
     var adding by remember { mutableStateOf(false) }
     var confirming by remember { mutableStateOf<ClaudeAccount?>(null) }
     var removing by remember { mutableStateOf<ClaudeAccount?>(null) }
+    var switchingRelay by remember { mutableStateOf<ClaudeRelay?>(null) }
+    var editing by remember { mutableStateOf<RelayEdit?>(null) }
     LaunchedEffect(Unit) {
         service.refresh()
         quota.refresh()
@@ -140,6 +156,17 @@ internal fun AccountsScreen(hub: ConversationHub, backend: String, onBack: () ->
                     onDismissSwitch = { confirming = null },
                     onDismissRemove = { removing = null },
                 )
+                ConfirmDialog(
+                    show = switchingRelay != null,
+                    title = Strings.settingsAccountsSwitchTitle(switchingRelay?.name.orEmpty()),
+                    summary = Strings.settingsRelaysSwitchSummary(),
+                    confirmText = Strings.settingsAccountsSwitch(),
+                    onConfirm = {
+                        switchingRelay?.let(service::switchTo)
+                        switchingRelay = null
+                    },
+                    onDismissRequest = { switchingRelay = null },
+                )
             },
         ) {
             item(key = "quota") { QuotaGroup(quota, now) }
@@ -150,6 +177,13 @@ internal fun AccountsScreen(hub: ConversationHub, backend: String, onBack: () ->
                     onSwitch = { confirming = it },
                     onRemove = { removing = it },
                     onAdd = { service.prepareLogin { adding = true } },
+                )
+            }
+            item(key = "relays") {
+                RelaysGroup(
+                    service = service,
+                    onSwitch = { switchingRelay = it },
+                    onEdit = { editing = RelayEdit(it) },
                 )
             }
             service.problem?.let { problem ->
@@ -163,6 +197,9 @@ internal fun AccountsScreen(hub: ConversationHub, backend: String, onBack: () ->
         }
         SlideInPage(adding) {
             LoginScreen(hub = hub, backend = backend, onBack = { adding = false })
+        }
+        SlideInPage(editing, onBack = { editing = null }) {
+            RelayScreen(service = service, original = it.relay, onBack = { editing = null })
         }
     }
     BackHandler(enabled = adding) {
@@ -202,9 +239,18 @@ private fun AccountDialogs(
     )
 }
 
-/** 订阅额度：各个时间窗的用量（有的话）和刷新。 */
+/** 订阅额度：各个时间窗的用量（有的话）和刷新。在用中转（核心说的 [QuotaService.relay]）时没有订阅额度，只说这一句。 */
 @Composable
 private fun QuotaGroup(quota: QuotaService, now: Long) {
+    val relay = quota.relay
+    if (relay != null) {
+        PreferenceGroup(title = Strings.settingsAccountsQuota()) {
+            item(key = "relay") {
+                BasicComponent(title = Strings.settingsAccountsQuotaRelay(relay))
+            }
+        }
+        return
+    }
     val snapshot = quota.snapshot
     PreferenceGroup(
         title = Strings.settingsAccountsQuota(),
@@ -249,7 +295,7 @@ private fun AccountsGroup(
     ) {
         when {
             state == null -> item { BasicComponent(title = Strings.settingsAccountsLoading()) }
-            !state.loggedIn && state.all.isEmpty() ->
+            !state.loggedIn && state.relay == null && state.all.isEmpty() ->
                 item { BasicComponent(title = Strings.settingsAccountsNone()) }
         }
         state?.all?.forEach { account ->
@@ -326,4 +372,57 @@ private fun AccountRow(
         summary = summary,
         enabled = enabled,
     )
+}
+
+/** 打开着的中转编辑页：[relay] 为 null 是添加。 */
+private class RelayEdit(val relay: ClaudeRelay?)
+
+/** 中转：每行名字、地址（有默认模型时附上），在用的标“当前”；点行切换过去，右边的按钮进编辑页；最后是添加中转。 */
+@Composable
+private fun RelaysGroup(
+    service: AccountService,
+    onSwitch: (ClaudeRelay) -> Unit,
+    onEdit: (ClaudeRelay?) -> Unit,
+) {
+    val state = service.state ?: return
+    val enabled = service.working == null
+    PreferenceGroup(
+        title = Strings.settingsRelaysGroup(),
+        footer = Strings.settingsRelaysFooter(),
+    ) {
+        state.relays.forEach { relay ->
+            item(key = "relay:" + relay.name) {
+                BasicComponent(
+                    title = relay.name,
+                    summary =
+                        listOf(relay.baseUrl, relay.model)
+                            .filter { it.isNotBlank() }
+                            .joinToString(" · "),
+                    enabled = enabled,
+                    // 在用的不用再切
+                    onClick = if (relay.current) null else ({ onSwitch(relay) }),
+                    endActions = {
+                        if (relay.current) PreferenceValue(Strings.commonCurrent())
+                        FlatIconButton(
+                            icon = COUIIcons.Edit,
+                            contentDescription = Strings.settingsRelaysEdit(relay.name),
+                            size = 36.dp,
+                            iconSize = 20.dp,
+                            enabled = enabled,
+                            tint = COUITheme.colorScheme.labelSecondary,
+                        ) {
+                            onEdit(relay)
+                        }
+                    },
+                )
+            }
+        }
+        item(key = "relay-add") {
+            ArrowPreference(
+                title = Strings.settingsRelaysAdd(),
+                enabled = enabled,
+                onClick = { onEdit(null) },
+            )
+        }
+    }
 }

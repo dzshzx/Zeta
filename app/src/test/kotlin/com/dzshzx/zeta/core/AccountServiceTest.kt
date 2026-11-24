@@ -2,8 +2,11 @@ package com.dzshzx.zeta.core
 
 import android.app.Application
 import androidx.test.core.app.ApplicationProvider
+import com.dzshzx.zeta.core.diag.DiagLog
 import com.dzshzx.zeta.shots.Fixtures
+import com.sun.net.httpserver.HttpServer
 import java.io.File
+import java.net.InetSocketAddress
 import java.nio.file.Files
 import org.junit.After
 import org.junit.Assert.assertEquals
@@ -235,5 +238,99 @@ class AccountServiceTest {
         assertTrue("登录命令没被结束", waitUntil { !File("/proc/$pid").exists() })
         val ended = assertThrows(ServeError::class.java) { service.core.loginCode("good#code") }
         assertEquals(ended.message, AccountsCore.NO_LOGIN, ended.code)
+    }
+
+    /** 等一个回调：在主线程上收到结果为止。 */
+    private fun <T> awaitCallback(start: ((T) -> Unit) -> Unit): T {
+        var got: Any? = NONE
+        start { got = it }
+        awaitMain(60_000) { got !== NONE }
+        @Suppress("UNCHECKED_CAST")
+        return got as T
+    }
+
+    /**
+     * 中转经核心走一遍：添加（带密钥）、用填的密钥和已存的密钥拉模型列表、切换过去（账号状态说在用中转、额度记成中转）、在用时删不掉、换回账号、删掉。 模型列表由本机的一个小 HTTP
+     * 服务给，只认 x-api-key 是假密钥的请求。密钥不进诊断日志，也不进出错的话。
+     */
+    @Test
+    fun relaysThroughTheCoreKeepTheKeyOutOfLogs() {
+        val key = "sk-test-relay-zeta-0003"
+        val server = HttpServer.create(InetSocketAddress("127.0.0.1", 0), 0)
+        server.createContext("/v1/models") { ex ->
+            val ok = ex.requestHeaders.getFirst("x-api-key") == key
+            val body =
+                if (ok) """{"data":[{"id":"claude-opus-5-5","display_name":"Claude Opus 5.5"}]}"""
+                else """{"error":"no"}"""
+            val bytes = body.toByteArray()
+            ex.sendResponseHeaders(if (ok) 200 else 401, bytes.size.toLong())
+            ex.responseBody.use { it.write(bytes) }
+        }
+        server.start()
+        try {
+            val url = "http://127.0.0.1:${server.address.port}"
+            DiagLog.clear()
+            service.refresh()
+            awaitMain(60_000) { service.state != null }
+
+            val draft = RelayDraft(name = "gw", baseUrl = url, key = key)
+            val fetched = awaitCallback { done -> service.relayModels(draft, done) }
+            assertEquals(listOf("claude-opus-5-5"), fetched.getOrThrow().map { it.id })
+            // 密钥不对：出错的话是核心按界面语言写的原因，不带密钥
+            val wrong = awaitCallback { done ->
+                service.relayModels(draft.copy(key = "sk-test-wrong-0004"), done)
+            }
+            val why = wrong.exceptionOrNull()?.message.orEmpty()
+            assertTrue(why, why.isNotBlank() && "sk-test" !in why)
+
+            assertNull(awaitCallback { done -> service.saveRelay(draft, true, done) })
+            val saved = service.state!!.relays.single()
+            assertEquals("gw", saved.name)
+            assertTrue(saved.hasKey && saved.keyEditable && !saved.current)
+            // 修改：密钥留空不改，设默认模型；拉模型列表时用已存的密钥
+            val edit = RelayDraft.of(saved).copy(model = "claude-opus-5-5")
+            assertEquals(
+                listOf("claude-opus-5-5"),
+                awaitCallback { done -> service.relayModels(edit, done) }
+                    .getOrThrow()
+                    .map { it.id },
+            )
+            assertNull(awaitCallback { done -> service.saveRelay(edit, false, done) })
+            assertEquals("claude-opus-5-5", service.state!!.relays.single().model)
+
+            // 切换到中转：没有登录着的账号，在用的是 gw；额度记成中转、不去问
+            service.switchTo(service.state!!.relays.single())
+            awaitMain(60_000) { service.working == null && service.state?.relay != null }
+            assertNull(service.problem)
+            assertEquals("gw", service.state!!.relay!!.name)
+            assertNull(service.state!!.current)
+            assertEquals("gw", hub.quota(Backends.LOCAL).relay)
+            // 在用时删不掉，核心说原因
+            val refused = awaitCallback { done ->
+                service.removeRelay(service.state!!.relay!!, done)
+            }
+            assertTrue(refused.orEmpty(), !refused.isNullOrBlank())
+
+            // 换回账号，额度跟着回来
+            service.switchTo(service.state!!.all.single { it.id == "claude" })
+            awaitMain(60_000) { service.working == null && service.state?.current?.id == "claude" }
+            assertNull(service.state!!.relay)
+            assertTrue(hub.quota(Backends.LOCAL).subscribed)
+            assertNull(
+                awaitCallback { done ->
+                    service.removeRelay(service.state!!.relays.single(), done)
+                },
+            )
+            assertTrue(service.state!!.relays.isEmpty())
+
+            val logged = DiagLog.entries().joinToString("\n") { it.message }
+            assertTrue("诊断日志里有密钥", key !in logged && "sk-test-wrong" !in logged)
+        } finally {
+            server.stop(0)
+        }
+    }
+
+    private companion object {
+        val NONE = Any()
     }
 }

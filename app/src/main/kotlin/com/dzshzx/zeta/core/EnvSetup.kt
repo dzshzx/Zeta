@@ -428,5 +428,25 @@ class EnvInstaller(private val hub: ConversationHub, private val assets: (String
         get() = "exec bash -c " + LinuxEnv.quote(debianScript) + " zeta-setup tools"
 }
 
-/** Claude Code 的登录状态（`claude auth status`）。 */
-data class AccountStatus(val loggedIn: Boolean, val email: String?, val plan: String?)
+/**
+ * Claude Code 的登录状态（`claude auth status`）。在用中转时 [relay] 是中转名、[relayUrl] 是它的地址：这时没有账号登录，但 Claude
+ * Code 能用，[loggedIn] 也为真（聊天页不给登录提示）。
+ */
+data class AccountStatus(
+    val loggedIn: Boolean,
+    val email: String?,
+    val plan: String?,
+    val relay: String? = null,
+    val relayUrl: String? = null,
+) {
+    companion object {
+        fun relay(name: String, baseUrl: String) =
+            AccountStatus(
+                loggedIn = true,
+                email = null,
+                plan = null,
+                relay = name,
+                relayUrl = baseUrl,
+            )
+    }
+}

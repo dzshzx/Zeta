@@ -166,6 +166,11 @@ fun QuotaDialogSection(
     val quota = hub.quota(backend)
     val now = rememberNow()
     LaunchedEffect(visible) { if (visible) quota.refresh() }
+    // 在用中转时没有订阅额度：只说一句，不显示窗口、套餐和更新时间
+    quota.relay?.let { relay ->
+        QuotaNote(Strings.settingsAccountsQuotaRelay(relay), Modifier.padding(bottom = 8.dp))
+        return
+    }
     Row(
         modifier = Modifier.fillMaxWidth().padding(bottom = 8.dp),
         verticalAlignment = Alignment.CenterVertically,

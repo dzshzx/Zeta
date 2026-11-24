@@ -32,6 +32,10 @@ class EnvController constructor(private val hub: ConversationHub, assets: (Strin
         account = AccountStatus(loggedIn = true, email = email, plan = plan)
     }
 
+    override fun showRelay(name: String, baseUrl: String) {
+        account = AccountStatus.relay(name, baseUrl)
+    }
+
     override fun showLoggedOut() {
         account = AccountStatus(loggedIn = false, email = null, plan = null)
     }
@@ -161,6 +165,7 @@ class EnvController constructor(private val hub: ConversationHub, assets: (Strin
 
     override fun refreshAccount() {
         val config = settings.env ?: return
+        val accounts = hub.accounts(Backends.LOCAL)
         thread(name = "zeta-account", isDaemon = true) {
             val result =
                 runCatching { LinuxEnv.run(config, "exec claude auth status", timeoutMs = 60_000) }
@@ -177,7 +182,13 @@ class EnvController constructor(private val hub: ConversationHub, assets: (Strin
                         o.str("email"),
                         o.str("subscriptionType"),
                     )
-            main.post { if (settings.env?.rootfs == config.rootfs) account = status }
+            // 在用中转时 claude-switch 已退出登录，auth status（不带中转的设置）说没登录：问核心是不是在用中转
+            val relay =
+                if (status?.loggedIn == false)
+                    runCatching { accounts.core.list().relay }.getOrNull()
+                else null
+            val shown = relay?.let { AccountStatus.relay(it.name, it.baseUrl) } ?: status
+            main.post { if (settings.env?.rootfs == config.rootfs) account = shown }
         }
     }
 

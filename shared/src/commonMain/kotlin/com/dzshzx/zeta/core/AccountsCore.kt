@@ -47,9 +47,20 @@ data class AccountsState(
     val all: List<ClaudeAccount>,
     /** 别的 Zeta 包或终端里开着的 Claude Code 挡着换号时，核心给的一句说明；没有时为 null。 */
     val blocker: String? = null,
+    /** 这台上的中转（核心按名字排好的）。在用中转时 [current] 为 null，那一项的 current 为真。 */
+    val relays: List<ClaudeRelay> = emptyList(),
 ) {
+    /** 登录着一个账号（在用中转时为假，见 [relay]）。 */
     val loggedIn: Boolean
         get() = current != null
+
+    /** 在用的中转；在用账号或未登录时为 null。 */
+    val relay: ClaudeRelay?
+        get() = relays.firstOrNull { it.current }
+
+    /** 账号名和中转名：添加中转时不能和它们重名。 */
+    val names: Set<String>
+        get() = (all.map { it.id } + relays.map { it.name }).filter { it.isNotEmpty() }.toSet()
 }
 
 /** 开始登录（accounts.login_start）的结果：授权网址，和登录后新号会记成的名字（没登录过时为空串）。 */
@@ -71,7 +82,7 @@ class AccountsCore(
 ) {
     fun list(): AccountsState = parse(request("accounts.list"))
 
-    /** 换成存着的 [name]。 */
+    /** 换成存着的账号或中转 [name]。 */
     fun switch(name: String) {
         request("accounts.switch", "name" to name)
     }
@@ -99,16 +110,51 @@ class AccountsCore(
         request("accounts.login_cancel")
     }
 
+    /**
+     * 添加（[create]）或修改一个中转（accounts.relay_save）。修改时 [RelayDraft.key] 为空表示不改。密钥只经到核心的这条连接的标准输入发出，
+     * 不进日志；核心出错的话里也不带它。
+     */
+    fun saveRelay(draft: RelayDraft, create: Boolean) {
+        requestWith(
+            "accounts.relay_save",
+            relayParams(draft) +
+                mapOf(
+                    "model" to JsonPrimitive(draft.model.trim()),
+                    "create" to JsonPrimitive(create),
+                ),
+        )
+    }
+
+    /** 删掉一个不在用的中转（在用的核心会拒绝）。 */
+    fun removeRelay(name: String) {
+        request("accounts.relay_remove", "name" to name)
+    }
+
+    /** 用草稿里的地址和密钥拉中转的模型列表（核心两个鉴权头一起带）；密钥为空时核心用已保存的中转 [RelayDraft.name] 的密钥。 */
+    fun relayModels(draft: RelayDraft): List<RelayModel> {
+        val result = requestWith("accounts.relay_models", relayParams(draft)) as? JsonObject
+        return (result?.get("models") as? JsonArray).orEmpty().mapNotNull { item ->
+            val o = item as? JsonObject ?: return@mapNotNull null
+            val id = o.str("id")?.ifBlank { null } ?: return@mapNotNull null
+            RelayModel(id, o.str("displayName").orEmpty())
+        }
+    }
+
+    private fun relayParams(draft: RelayDraft): Map<String, JsonPrimitive> =
+        mapOf(
+            "name" to JsonPrimitive(draft.name.trim()),
+            "baseUrl" to JsonPrimitive(draft.baseUrl.trim()),
+            "key" to JsonPrimitive(draft.key),
+        )
+
     private fun nameOf(result: JsonElement?): String =
         (result as? JsonObject)?.str("name").orEmpty()
 
-    private fun request(method: String, vararg args: Pair<String, String>): JsonElement? {
-        val params =
-            JsonObject(
-                (args.toList() + ("program" to program.relativePath)).associate {
-                    it.first to JsonPrimitive(it.second)
-                },
-            )
+    private fun request(method: String, vararg args: Pair<String, String>): JsonElement? =
+        requestWith(method, args.associate { it.first to JsonPrimitive(it.second) })
+
+    private fun requestWith(method: String, args: Map<String, JsonPrimitive>): JsonElement? {
+        val params = JsonObject(args + ("program" to JsonPrimitive(program.relativePath)))
         return try {
             call(method, params, TIMEOUT_MS)
         } catch (e: ServeError) {
@@ -170,6 +216,22 @@ class AccountsCore(
                         (it as? JsonObject)?.let(::account)
                     },
                 blocker = o.str("blocker")?.ifBlank { null },
+                relays =
+                    (o["relays"] as? JsonArray).orEmpty().mapNotNull {
+                        (it as? JsonObject)?.let(::relay)
+                    },
+            )
+        }
+
+        private fun relay(o: JsonObject): ClaudeRelay? {
+            val name = o.str("name")?.ifBlank { null } ?: return null
+            return ClaudeRelay(
+                name = name,
+                baseUrl = o.str("baseUrl").orEmpty(),
+                model = o.str("model").orEmpty(),
+                hasKey = o.bool("hasKey") == true,
+                keyEditable = o.bool("keyEditable") == true,
+                current = o.bool("current") == true,
             )
         }
 

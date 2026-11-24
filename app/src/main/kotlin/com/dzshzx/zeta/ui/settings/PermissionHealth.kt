@@ -273,9 +273,15 @@ internal object PermissionHealth {
                         PermissionItem(
                             PermissionId.Linux,
                             Strings.settingsTitleLinux(),
-                            listOfNotNull(user, account?.email).joinToString(" · ").ifBlank {
-                                null
-                            },
+                            listOfNotNull(
+                                    user,
+                                    account?.email,
+                                    account?.relay?.let(Strings::settingsAccountsRelayEntry),
+                                )
+                                .joinToString(" · ")
+                                .ifBlank {
+                                    null
+                                },
                             Strings.settingsPermReady(),
                             PermissionStatus.Ready,
                             false,

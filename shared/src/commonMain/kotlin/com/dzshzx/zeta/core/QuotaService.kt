@@ -29,7 +29,19 @@ class QuotaService(private val hub: ConversationHub, private val backend: String
 
     /** 存上次的数用的键：各台主机分开（[HostKeys]）。 */
     private val key = HostKeys.key(backend, KEY)
+    private val relayKey = HostKeys.key(backend, RELAY_KEY)
     private val main = MainHandler()
+
+    /**
+     * 这台在用的中转名（核心 quota.get、quota.snapshot 推送、quota.usage 的 `relay`）；在用订阅账号时为 null。界面和问额度都只看这一处： 不为
+     * null 时没有订阅额度，各处的额度、用量百分比、重置时间都不显示，也不向 Claude Code 要额度。存一份，重开应用先按它显示。
+     */
+    var relay by mutableStateOf(prefs.getString(relayKey, null))
+        private set
+
+    /** 在用订阅账号（不是中转）：有订阅额度可显示。 */
+    val subscribed: Boolean
+        get() = relay == null
 
     var snapshot by mutableStateOf(Quota.fromSaved(prefs.getString(key, null)))
         private set
@@ -99,7 +111,8 @@ class QuotaService(private val hub: ConversationHub, private val backend: String
                 onMessage = { o ->
                     if (o.str("type") == "quota.snapshot") {
                         val pushed = o["snapshot"] as? JsonObject
-                        main.post { if (serve === self) received(pushed) }
+                        val relay = o.str("relay")
+                        main.post { if (serve === self) received(pushed, relay) }
                     }
                 },
                 onProblem = { why -> main.post { if (serve === self) broken = why != null } },
@@ -130,9 +143,12 @@ class QuotaService(private val hub: ConversationHub, private val backend: String
         paused = false
     }
 
-    /** 核心给的额度（推来的，或 quota.usage 的结果里的）；null 是在用的账号还没有数。在主线程上调用。 */
-    fun received(core: JsonObject?) {
-        val next = Quota.fromCore(core)
+    /**
+     * 核心给的额度（推来的，或 quota.usage 的结果里的）；null 是在用的账号还没有数，或在用中转（[relay] 是中转名，空串或没有这一项是在用账号）。 在主线程上调用。
+     */
+    fun received(core: JsonObject?, relay: String? = null) {
+        noteRelay(relay)
+        val next = if (this.relay != null) null else Quota.fromCore(core)
         snapshot = next
         if (next == null) prefs.edit().remove(key).apply()
         else prefs.edit().putString(key, core.toString()).apply()
@@ -169,7 +185,7 @@ class QuotaService(private val hub: ConversationHub, private val backend: String
             error = why?.let(Strings::coreQuotaFetchFailedWhy) ?: Strings.coreQuotaFetchFailed()
             return
         }
-        received(done?.obj("snapshot"))
+        received(done?.obj("snapshot"), done?.str("relay"))
         val shown = snapshot
         // Claude Code 这次没取到服务器的数：核心留着已有的窗口
         error =
@@ -183,6 +199,11 @@ class QuotaService(private val hub: ConversationHub, private val backend: String
         watch()
         if (refreshing) return
         val link = serve ?: return
+        // 在用中转时没有订阅额度：不借对话进程问（conv.quota），也不单起 Claude Code
+        if (relay != null) {
+            error = null
+            return
+        }
         if (!force && !synced) {
             staleCheck = true
             return
@@ -215,8 +236,23 @@ class QuotaService(private val hub: ConversationHub, private val backend: String
         prefs.edit().remove(key).apply()
     }
 
+    /** 核心说的在用中转（空串、null 是在用账号）。换到中转时清掉存着的额度；账号页换好以后照 accounts.list 的结果也调一次（核心随后也会推）。 在主线程上调用。 */
+    fun noteRelay(name: String?) {
+        val next = name?.ifBlank { null }
+        if (next == relay) return
+        relay = next
+        if (next != null) {
+            snapshot = null
+            error = null
+            refreshing = false
+            main.removeCallbacks(giveUp)
+            prefs.edit().remove(key).putString(relayKey, next).apply()
+        } else prefs.edit().remove(relayKey).apply()
+    }
+
     companion object {
         private const val KEY = "snapshot"
+        private const val RELAY_KEY = "relay"
 
         /** 打开页面时，数比这旧才去问。 */
         const val STALE_MS = 2 * 60_000L

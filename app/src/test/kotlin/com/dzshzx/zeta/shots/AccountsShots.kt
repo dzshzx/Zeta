@@ -9,6 +9,7 @@ import com.dzshzx.zeta.core.AccountsState
 import com.dzshzx.zeta.core.AnswerItem
 import com.dzshzx.zeta.core.Backends
 import com.dzshzx.zeta.core.ClaudeAccount
+import com.dzshzx.zeta.core.ClaudeRelay
 import com.dzshzx.zeta.core.ConversationHub
 import com.dzshzx.zeta.core.LoginState
 import com.dzshzx.zeta.core.QuotaSeverity
@@ -20,6 +21,7 @@ import com.dzshzx.zeta.shots.Fixtures.force
 import com.dzshzx.zeta.shots.Fixtures.showChat
 import com.dzshzx.zeta.ui.chat.ChatScreen
 import com.dzshzx.zeta.ui.settings.AccountsScreen
+import com.dzshzx.zeta.ui.settings.RelayScreen
 import com.dzshzx.zeta.ui.setup.LoginScreen
 import org.junit.Test
 
@@ -127,6 +129,71 @@ class AccountsShots : ShotTest() {
     }
 
     @Test fun accountsPage() = shootAccounts("accounts", accountsState())
+
+    /** 两个中转：gw（带默认模型），own 是用户自己放的（密钥不是从文件读的）。 */
+    private fun relays(current: Boolean) =
+        listOf(
+            ClaudeRelay(
+                "gw",
+                "https://relay.example.invalid",
+                "claude-opus-5-5",
+                hasKey = true,
+                keyEditable = true,
+                current = current,
+            ),
+            ClaudeRelay(
+                "own",
+                "http://127.0.0.1:8317",
+                "",
+                hasKey = true,
+                keyEditable = false,
+                current = false,
+            ),
+        )
+
+    /** 账号页带中转一组；在用中转 gw 时额度一组只说没有订阅额度。 */
+    @Test
+    fun accountsWithRelays() {
+        val hub = Fixtures.readyHub(app)
+        hub.fakeQuota()
+        val state = accountsState().copy(current = null, relays = relays(current = true))
+        shoot(
+            "accounts-relays",
+            prepare = {
+                hub.accounts(Backends.LOCAL).force("state", state)
+                hub.accounts(Backends.LOCAL).force("problem", null)
+                hub.quota(Backends.LOCAL).noteRelay("gw")
+            },
+        ) {
+            AccountsScreen(hub = hub, backend = Backends.LOCAL, onBack = {})
+        }
+    }
+
+    /** 中转编辑页：修改 own（密钥框禁用并说明）。 */
+    @Test
+    fun relayEditor() {
+        val hub = Fixtures.readyHub(app)
+        val state = accountsState().copy(relays = relays(current = false))
+        shoot("relay-edit", prepare = { hub.accounts(Backends.LOCAL).force("state", state) }) {
+            RelayScreen(
+                service = hub.accounts(Backends.LOCAL),
+                original = state.relays[1],
+                onBack = {},
+            )
+        }
+    }
+
+    /** 添加中转：空白的草稿。 */
+    @Test
+    fun relayAdd() {
+        val hub = Fixtures.readyHub(app)
+        shoot(
+            "relay-add",
+            prepare = { hub.accounts(Backends.LOCAL).force("state", accountsState()) },
+        ) {
+            RelayScreen(service = hub.accounts(Backends.LOCAL), original = null, onBack = {})
+        }
+    }
 
     /** 英文界面的账号页（每个用例新建 Application，语言随之回到简体中文）。 */
     @Test

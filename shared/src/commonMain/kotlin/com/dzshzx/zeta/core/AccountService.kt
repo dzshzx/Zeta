@@ -52,7 +52,7 @@ class AccountService(private val hub: ConversationHub, private val backend: Stri
     fun refresh() = refresh {}
 
     /** 读一遍账号；读完（读不成时是 null）在主线程上做 [then]。 */
-    private fun refresh(then: (AccountsState?) -> Unit) {
+    internal fun refresh(then: (AccountsState?) -> Unit) {
         if (!usable) return then(null)
         background("zeta-accounts") { core ->
             val listed = runCatching { core.list() }
@@ -85,10 +85,15 @@ class AccountService(private val hub: ConversationHub, private val backend: Stri
      * 换成存着的 [target]：先看核心说有没有别的 Claude Code 进程开着，再关掉本包闲着的对话进程（内容不丢，下次发消息时接上），
      * 然后请核心换。换好以后额度、新对话都是新账号的。在主线程上调用。
      */
-    fun switchTo(target: ClaudeAccount) {
-        checked(Strings.coreAccountsSwitching(target.title)) {
+    fun switchTo(target: ClaudeAccount) = switchTo(target.id, target.title)
+
+    /** 换成中转 [target]：和换号一样（先收本包闲着的对话进程，忙时不换）。之后这台上没有订阅额度。在主线程上调用。 */
+    fun switchTo(target: ClaudeRelay) = switchTo(target.name, target.name)
+
+    private fun switchTo(name: String, title: String) {
+        checked(Strings.coreAccountsSwitching(title)) {
             background("zeta-accounts") { core ->
-                val done = runCatching { synchronized(probeLock) { core.switch(target.id) } }
+                val done = runCatching { synchronized(probeLock) { core.switch(name) } }
                 // 换成了的话 switched() 会重读一遍账号，这里不用读
                 val after = if (done.isSuccess) null else runCatching { core.list() }.getOrNull()
                 main.post {
@@ -149,17 +154,65 @@ class AccountService(private val hub: ConversationHub, private val backend: Stri
      */
     fun switched() {
         hub.quota(backend).forget()
-        hub.quota(backend).refresh(force = true)
         refresh { listed ->
+            // 读到账号以后再问额度：换到中转时没有订阅额度，不单起 Claude Code 去问（QuotaService.refresh 看它的 relay）
+            val quota = hub.quota(backend)
+            if (listed != null) quota.noteRelay(listed.relay?.name)
+            quota.refresh(force = true)
             // 环境那份账号状态（聊天页的登录提示、手机设备页的账号入口读它）是手机本机的
             if (backend != Backends.LOCAL) return@refresh
+            val local = hub.platform.local ?: return@refresh
+            listed?.relay?.let {
+                local.showRelay(it.name, it.baseUrl)
+                return@refresh
+            }
             val current =
                 listed?.current?.takeIf {
                     listed.loggedIn && it.email.isNotBlank() && it.subscription.isNotBlank()
                 }
-            val local = hub.platform.local ?: return@refresh
             if (current != null) local.showAccount(current.email, current.subscription)
             else local.refreshAccount()
+        }
+    }
+
+    /**
+     * 添加（[create]）或修改中转：保存成了重读账号，在主线程上调 [onDone]（没成时带核心给的原因）。保存前列表不变。
+     * 改的是正在用的中转时，之后起的对话进程才用上。在主线程上调用。
+     */
+    fun saveRelay(draft: RelayDraft, create: Boolean, onDone: (String?) -> Unit) {
+        if (!usable) return onDone(hub.unavailable(backend) ?: Strings.coreNoLinuxEnv())
+        background("zeta-relays") { core ->
+            val saved = runCatching { core.saveRelay(draft, create) }
+            val listed = runCatching { core.list() }.getOrNull()
+            main.post {
+                listed?.let { state = it }
+                onDone(saved.exceptionOrNull()?.let { it.message ?: it.javaClass.simpleName })
+            }
+        }
+    }
+
+    /** 删掉一个不在用的中转；做完在主线程上调 [onDone]（没成时带原因）。在主线程上调用。 */
+    fun removeRelay(target: ClaudeRelay, onDone: (String?) -> Unit) {
+        if (!usable) return onDone(hub.unavailable(backend) ?: Strings.coreNoLinuxEnv())
+        background("zeta-relays") { core ->
+            val removed = runCatching { core.removeRelay(target.name) }
+            val listed = runCatching { core.list() }.getOrNull()
+            main.post {
+                listed?.let { state = it }
+                onDone(removed.exceptionOrNull()?.let { it.message ?: it.javaClass.simpleName })
+            }
+        }
+    }
+
+    /** 用草稿里的地址和密钥拉模型列表，在主线程上把结果交给 [onDone]；没成时的原因是核心按界面语言写好的。在主线程上调用。 */
+    fun relayModels(draft: RelayDraft, onDone: (Result<List<RelayModel>>) -> Unit) {
+        if (!usable)
+            return onDone(
+                Result.failure(ServeError(hub.unavailable(backend) ?: Strings.coreNoLinuxEnv())),
+            )
+        background("zeta-relays") { core ->
+            val models = runCatching { core.relayModels(draft) }
+            main.post { onDone(models) }
         }
     }
 

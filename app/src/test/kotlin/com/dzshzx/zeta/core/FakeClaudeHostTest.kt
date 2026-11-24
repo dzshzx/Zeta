@@ -115,7 +115,7 @@ class FakeClaudeHostTest {
     }
 
     @Test
-    fun devStartsNewConversationsOnHaikuUnlessAModelOrSessionIsGiven() {
+    fun devStartsNewConversationsOnHaikuUnlessAModelSessionOrRelayIsGiven() {
         val haiku = "--model claude-haiku-5-5"
         var started = 0
         // 每次另起一个标识（stop 在后台清理目录，紧接着用同一个标识会撞上），tearDown 统一结束
@@ -134,6 +134,8 @@ class FakeClaudeHostTest {
                 arrayOf("--model", "sonnet"),
                 arrayOf("--resume", "0a1b2c3d-0000-4000-8000-000000000002"),
                 arrayOf("--resume", "0a1b2c3d-0000-4000-8000-000000000002", "--fork-session"),
+                // 走中转（核心带了 --settings）时用中转的默认模型
+                arrayOf("--settings", "/nonexistent/relay.json"),
             )) {
             val line = launched(*extra)
             assertFalse(line, line.contains(haiku))

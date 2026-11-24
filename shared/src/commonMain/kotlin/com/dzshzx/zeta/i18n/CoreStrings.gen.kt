@@ -897,6 +897,153 @@ object CoreStrings {
     fun errAccountMissing(): String = catalog.say("errAccountMissing")
 
     /**
+     * 「中转名称只能用小写字母、数字和连字符，以字母或数字开头，最长 32 个字符，也不能叫 claude」
+     *
+     * 出错应答：添加中转时名称不合规（claude-switch 的名字规则）。
+     */
+    fun errRelayName(): String = catalog.say("errRelayName")
+
+    /**
+     * 「地址要以 http:// 或 https:// 开头」
+     *
+     * 出错应答：中转地址不是 http(s) 网址。
+     */
+    fun errRelayURL(): String = catalog.say("errRelayURL")
+
+    /**
+     * 「密钥里不能有空格或换行」
+     *
+     * 出错应答：填的中转密钥中间带空白。
+     */
+    fun errRelayKey(): String = catalog.say("errRelayKey")
+
+    /**
+     * 「这个名称已经有账号或中转在用了」
+     *
+     * 出错应答：添加中转时名称和已有的账号或中转重名。
+     */
+    fun errRelayNameTaken(): String = catalog.say("errRelayNameTaken")
+
+    /**
+     * 「添加中转要填密钥」
+     *
+     * 出错应答：添加中转没填密钥。
+     */
+    fun errRelayKeyRequired(): String = catalog.say("errRelayKeyRequired")
+
+    /**
+     * 「这个中转的密钥不是从文件读的，Zeta 改不了；在它的设置文件里改」
+     *
+     * 出错应答：用户自己放的中转设置文件的 apiKeyHelper 不是 cat 一个家目录里的文件（或密钥写在 env 里），不能改密钥。
+     */
+    fun errRelayKeyReadOnly(): String = catalog.say("errRelayKeyReadOnly")
+
+    /**
+     * 「这个中转已经不在了」
+     *
+     * 出错应答：要改、要删的中转已经不在了。
+     */
+    fun errRelayMissing(): String = catalog.say("errRelayMissing")
+
+    /**
+     * 「正在用这个中转，先换到别的账号或中转再删」
+     *
+     * 出错应答：要删的中转正在用。
+     */
+    fun errRelayInUse(): String = catalog.say("errRelayInUse")
+
+    /**
+     * 「读不懂这个中转的设置文件」
+     *
+     * 出错应答：要改的中转设置文件读不了或不是 JSON 对象。
+     */
+    fun errRelayUnreadable(): String = catalog.say("errRelayUnreadable")
+
+    /**
+     * 「写不了 {path}」
+     *
+     * 出错应答：中转的设置文件或密钥文件写不了、删不了；path 是文件路径。
+     */
+    fun errRelayWrite(path: String): String = catalog.say("errRelayWrite", mapOf("path" to path))
+
+    /**
+     * 「这台设备正在用中转，没有订阅额度」
+     *
+     * 出错应答（code 是 errNoSubscription）：问订阅额度时这台设备在用中转（非账号目标）。
+     */
+    fun errNoSubscription(): String = catalog.say("errNoSubscription")
+
+    /**
+     * 「模型名里不能有空格，最长 200 个字符」
+     *
+     * 出错应答：中转的默认模型名不合规。
+     */
+    fun errRelayModel(): String = catalog.say("errRelayModel")
+
+    /**
+     * 「中转把请求转到了别的地址（{host}），为了不把密钥带过去没有跟过去」
+     *
+     * 出错应答：拉模型列表时服务器重定向到别的主机；host 是那个主机。
+     */
+    fun errModelsRedirect(host: String): String = catalog.say("errModelsRedirect", mapOf("host" to host))
+
+    /**
+     * 「先填密钥再获取模型列表」
+     *
+     * 出错应答：拉模型列表时没填密钥，已保存的中转也读不到密钥文件。
+     */
+    fun errModelsNoKey(): String = catalog.say("errModelsNoKey")
+
+    /**
+     * 「中转拒绝了这个密钥（HTTP {status}），检查密钥」
+     *
+     * 出错应答：拉模型列表返回 401 或 403；status 是状态码。
+     */
+    fun errModelsAuth(status: String): String = catalog.say("errModelsAuth", mapOf("status" to status))
+
+    /**
+     * 「这个中转没有模型列表接口（/v1/models 返回 404），可以直接填模型名」
+     *
+     * 出错应答：拉模型列表返回 404。
+     */
+    fun errModelsNotFound(): String = catalog.say("errModelsNotFound")
+
+    /**
+     * 「中转返回了 HTTP {status}」
+     *
+     * 出错应答：拉模型列表返回别的非 2xx 状态；status 是状态码。
+     */
+    fun errModelsStatus(status: String): String = catalog.say("errModelsStatus", mapOf("status" to status))
+
+    /**
+     * 「模型列表超过 4 MB，没有读完」
+     *
+     * 出错应答：拉模型列表的响应太大。
+     */
+    fun errModelsTooLarge(): String = catalog.say("errModelsTooLarge")
+
+    /**
+     * 「连接中转超时」
+     *
+     * 出错应答：拉模型列表超时。
+     */
+    fun errModelsTimeout(): String = catalog.say("errModelsTimeout")
+
+    /**
+     * 「连不上中转：{detail}」
+     *
+     * 出错应答：拉模型列表时网络出错；detail 是 Go 的原话（有地址，没有密钥）。
+     */
+    fun errModelsNetwork(detail: String): String = catalog.say("errModelsNetwork", mapOf("detail" to detail))
+
+    /**
+     * 「中转返回的不是模型列表（不是带 data 的 JSON）」
+     *
+     * 出错应答：拉模型列表的响应不是 JSON 或没有 data。
+     */
+    fun errModelsNotJSON(): String = catalog.say("errModelsNotJSON")
+
+    /**
      * 「读不懂 ~/.claude.json」
      *
      * 出错应答：~/.claude.json 不是有效的 JSON。

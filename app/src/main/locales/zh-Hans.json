@@ -11058,6 +11058,144 @@
   "@settingsAccountsSwitchTo": {
     "description": "点开一个账号的菜单里的一项。"
   },
+  "settingsAccountsRelayEntry": "中转 {name}",
+  "@settingsAccountsRelayEntry": {
+    "description": "「账号与额度」一行的摘要、登录页和 Linux 环境页的账号状态：这台设备在用中转，name 是中转名。",
+    "placeholders": {
+      "name": {}
+    }
+  },
+  "settingsAccountsQuotaRelay": "正在用中转 {name}，没有订阅额度。",
+  "@settingsAccountsQuotaRelay": {
+    "description": "在用中转时额度一组（账号页、聊天页的用量弹窗）的说明，name 是中转名。",
+    "placeholders": {
+      "name": {}
+    }
+  },
+  "settingsRelaysGroup": "中转",
+  "@settingsRelaysGroup": {
+    "description": "账号与额度页上中转那一组的标题。"
+  },
+  "settingsRelaysFooter": "中转是说 Anthropic Messages 协议、用密钥鉴权的接口（官方 API 或兼容它的中转站）。点一行切换过去，条件同切换账号；在用中转时没有订阅额度。",
+  "@settingsRelaysFooter": {
+    "description": "中转一组下面的说明。"
+  },
+  "settingsRelaysAdd": "添加中转",
+  "@settingsRelaysAdd": {
+    "description": "中转一组最后一行，也是添加中转页的页标题。"
+  },
+  "settingsRelaysEdit": "编辑 {name}",
+  "@settingsRelaysEdit": {
+    "description": "中转一行右边编辑按钮的读屏说明，name 是中转名。",
+    "placeholders": {
+      "name": {}
+    }
+  },
+  "settingsRelaysSwitchSummary": "Zeta 会先关掉这台设备上闲着的对话进程（对话内容不丢）。之后这台上的新对话都经这个中转，没有订阅额度。",
+  "@settingsRelaysSwitchSummary": {
+    "description": "切换到中转的确认框说明。"
+  },
+  "relayEditTitle": "编辑中转",
+  "@relayEditTitle": {
+    "description": "修改已有中转的页标题。"
+  },
+  "relayName": "名称",
+  "@relayName": {
+    "description": "中转编辑页：名称输入框的标题。"
+  },
+  "relayNameHint": "例如 my-relay",
+  "@relayNameHint": {
+    "description": "中转编辑页：名称输入框里的占位提示。"
+  },
+  "relayNameFooter": "小写字母、数字和连字符，保存后不能改。",
+  "@relayNameFooter": {
+    "description": "添加中转时名称输入框下面的说明。"
+  },
+  "relayBaseUrl": "地址",
+  "@relayBaseUrl": {
+    "description": "中转编辑页：地址输入框的标题。"
+  },
+  "relayBaseUrlFooter": "Zeta 只接 Claude Code 会说的 Anthropic Messages 协议，不做翻译；OpenAI 协议的上游要经能翻译的中转接入。",
+  "@relayBaseUrlFooter": {
+    "description": "中转编辑页：地址输入框下面的说明。"
+  },
+  "relayKey": "密钥",
+  "@relayKey": {
+    "description": "中转编辑页：密钥输入框的标题。"
+  },
+  "relayKeyKeep": "已设置，留空不改",
+  "@relayKeyKeep": {
+    "description": "修改中转时密钥输入框里的占位提示：已经存着密钥。"
+  },
+  "relayKeyShow": "显示密钥",
+  "@relayKeyShow": {
+    "description": "密钥输入框右边按钮的读屏说明：现在遮着。"
+  },
+  "relayKeyHide": "隐藏密钥",
+  "@relayKeyHide": {
+    "description": "密钥输入框右边按钮的读屏说明：现在显示着。"
+  },
+  "relayModel": "默认模型",
+  "@relayModel": {
+    "description": "中转编辑页：默认模型输入框的标题。"
+  },
+  "relayModelHint": "不设",
+  "@relayModelHint": {
+    "description": "默认模型输入框里的占位提示，也是模型列表里清空它的那一项。"
+  },
+  "relayModelFooter": "新对话默认用这个模型，盖过这台设备「新对话默认」里的模型；对话里选的又盖过它。",
+  "@relayModelFooter": {
+    "description": "中转编辑页：默认模型一组下面的说明。"
+  },
+  "relayFetchModels": "获取模型列表",
+  "@relayFetchModels": {
+    "description": "中转编辑页：点了用填的地址和密钥向中转要模型列表。"
+  },
+  "relayFetchingModels": "正在获取…",
+  "@relayFetchingModels": {
+    "description": "获取模型列表那一行：正在获取。"
+  },
+  "relayModelsEmpty": "中转没有报任何模型",
+  "@relayModelsEmpty": {
+    "description": "获取模型列表成了，但列表是空的。"
+  },
+  "relayPickModel": "选择默认模型",
+  "@relayPickModel": {
+    "description": "获取到模型列表后弹出的选择框标题。"
+  },
+  "relaySaving": "正在保存…",
+  "@relaySaving": {
+    "description": "中转编辑页顶栏：保存中。"
+  },
+  "relaySaveFailed": "没有保存：{reason}",
+  "@relaySaveFailed": {
+    "description": "保存中转没成，reason 是核心给的原因。",
+    "placeholders": {
+      "reason": {}
+    }
+  },
+  "relayDelete": "删除中转",
+  "@relayDelete": {
+    "description": "中转编辑页最下面的危险操作。"
+  },
+  "relayDeleteTitle": "删除 {name}？",
+  "@relayDeleteTitle": {
+    "description": "删除中转的确认框标题，name 是中转名。",
+    "placeholders": {
+      "name": {}
+    }
+  },
+  "relayDeleteSummary": "删掉这个中转的设置和 Zeta 给它存的密钥文件。",
+  "@relayDeleteSummary": {
+    "description": "删除中转的确认框说明。"
+  },
+  "relayDeleteFailed": "没有删掉：{reason}",
+  "@relayDeleteFailed": {
+    "description": "删除中转没成，reason 是核心给的原因。",
+    "placeholders": {
+      "reason": {}
+    }
+  },
   "settingsDefaultsFooter": "在这台设备上开新对话时用。存在这台设备上 Claude Code 自己的设置里，和那边终端里 /model、/effort 存为默认的是同一份；对话里选的只管那个对话。思考强度按模型分别存。上下文窗口是会话最多用多少 token，自动压缩按它算，比模型本身的窗口大时按模型的。",
   "@settingsDefaultsFooter": {
     "description": "设备页「新对话默认」一组下面的说明。"
