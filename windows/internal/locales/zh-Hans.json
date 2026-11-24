@@ -2417,38 +2417,6 @@
       }
     }
   },
-  "emptyChatExplore": "看看这个项目",
-  "@emptyChatExplore": {
-    "description": "新对话空白页的建议卡片。"
-  },
-  "emptyChatExplorePrompt": "先浏览当前目录，概括这个项目是做什么的、结构如何。",
-  "@emptyChatExplorePrompt": {
-    "description": "点了「看看这个项目」替用户发给 Claude 的提问（按界面语言发）。"
-  },
-  "emptyChatGit": "检查 Git 状态",
-  "@emptyChatGit": {
-    "description": "新对话空白页的建议卡片。"
-  },
-  "emptyChatGitPrompt": "查看当前目录的 git 状态和最近的提交，告诉我有哪些未提交的改动。",
-  "@emptyChatGitPrompt": {
-    "description": "点了「检查 Git 状态」替用户发给 Claude 的提问（按界面语言发）。"
-  },
-  "emptyChatResume": "接着上次做",
-  "@emptyChatResume": {
-    "description": "新对话空白页的建议卡片。"
-  },
-  "emptyChatResumePrompt": "回顾这个目录里最近的改动，告诉我上次做到哪了、接下来该做什么。",
-  "@emptyChatResumePrompt": {
-    "description": "点了「接着上次做」替用户发给 Claude 的提问（按界面语言发）。"
-  },
-  "emptyChatHealth": "设备状况",
-  "@emptyChatHealth": {
-    "description": "新对话空白页的建议卡片。"
-  },
-  "emptyChatHealthPrompt": "检查这台设备的内存、存储和负载情况，有异常就指出来。",
-  "@emptyChatHealthPrompt": {
-    "description": "点了「设备状况」替用户发给 Claude 的提问（按界面语言发）。"
-  },
   "todoNext": "下一项：{item}",
   "@todoNext": {
     "description": "任务清单条上的一行：没在做的时候写下一项。",

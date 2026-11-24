@@ -274,62 +274,6 @@ object Strings {
     fun chatSettings(): String = catalog.say("chatSettings")
 
     /**
-     * 「看看这个项目」
-     *
-     * 新对话空白页的建议卡片标题（卡片窄，尽量短）。
-     */
-    fun chatSuggestProjectTitle(): String = catalog.say("chatSuggestProjectTitle")
-
-    /**
-     * 「先浏览当前目录，概括这个项目是做什么的、结构如何。」
-     *
-     * 点「看看这个项目」卡片后替用户发给 Claude 的提问。
-     */
-    fun chatSuggestProjectPrompt(): String = catalog.say("chatSuggestProjectPrompt")
-
-    /**
-     * 「检查 Git 状态」
-     *
-     * 新对话空白页的建议卡片标题（卡片窄，尽量短）。
-     */
-    fun chatSuggestGitTitle(): String = catalog.say("chatSuggestGitTitle")
-
-    /**
-     * 「查看当前目录的 git 状态和最近的提交，告诉我有哪些未提交的改动。」
-     *
-     * 点「检查 Git 状态」卡片后替用户发给 Claude 的提问。
-     */
-    fun chatSuggestGitPrompt(): String = catalog.say("chatSuggestGitPrompt")
-
-    /**
-     * 「接着上次做」
-     *
-     * 新对话空白页的建议卡片标题（卡片窄，尽量短）。
-     */
-    fun chatSuggestResumeTitle(): String = catalog.say("chatSuggestResumeTitle")
-
-    /**
-     * 「回顾这个目录里最近的改动，告诉我上次做到哪了、接下来该做什么。」
-     *
-     * 点「接着上次做」卡片后替用户发给 Claude 的提问。
-     */
-    fun chatSuggestResumePrompt(): String = catalog.say("chatSuggestResumePrompt")
-
-    /**
-     * 「设备状况」
-     *
-     * 新对话空白页的建议卡片标题（卡片窄，尽量短）。
-     */
-    fun chatSuggestDeviceTitle(): String = catalog.say("chatSuggestDeviceTitle")
-
-    /**
-     * 「检查这台设备的内存、存储和负载情况，有异常就指出来。」
-     *
-     * 点「设备状况」卡片后替用户发给 Claude 的提问。
-     */
-    fun chatSuggestDevicePrompt(): String = catalog.say("chatSuggestDevicePrompt")
-
-    /**
      * 「有什么可以帮你？」
      *
      * 新对话空白页的大标题。

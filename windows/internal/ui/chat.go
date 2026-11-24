@@ -54,8 +54,6 @@ type chatPane struct {
 	wait waitMark
 	// alerted 是提醒过的最后一个等回应的请求；alertNote 是正为它显示着的通知的编号，没有时为空（notify.go）。
 	alerted, alertNote string
-	// suggested：在新对话的空白页上点了建议，正等它发出去（emptychat.go）。
-	suggested bool
 	// cwd 是新对话顶栏上换工作目录的对话框。
 	cwd struct {
 		open  bool

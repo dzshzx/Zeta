@@ -208,38 +208,6 @@
   "@chatSettings": {
     "description": "聊天页右上角菜单：打开设置。"
   },
-  "chatSuggestProjectTitle": "看看这个项目",
-  "@chatSuggestProjectTitle": {
-    "description": "新对话空白页的建议卡片标题（卡片窄，尽量短）。"
-  },
-  "chatSuggestProjectPrompt": "先浏览当前目录，概括这个项目是做什么的、结构如何。",
-  "@chatSuggestProjectPrompt": {
-    "description": "点「看看这个项目」卡片后替用户发给 Claude 的提问。"
-  },
-  "chatSuggestGitTitle": "检查 Git 状态",
-  "@chatSuggestGitTitle": {
-    "description": "新对话空白页的建议卡片标题（卡片窄，尽量短）。"
-  },
-  "chatSuggestGitPrompt": "查看当前目录的 git 状态和最近的提交，告诉我有哪些未提交的改动。",
-  "@chatSuggestGitPrompt": {
-    "description": "点「检查 Git 状态」卡片后替用户发给 Claude 的提问。"
-  },
-  "chatSuggestResumeTitle": "接着上次做",
-  "@chatSuggestResumeTitle": {
-    "description": "新对话空白页的建议卡片标题（卡片窄，尽量短）。"
-  },
-  "chatSuggestResumePrompt": "回顾这个目录里最近的改动，告诉我上次做到哪了、接下来该做什么。",
-  "@chatSuggestResumePrompt": {
-    "description": "点「接着上次做」卡片后替用户发给 Claude 的提问。"
-  },
-  "chatSuggestDeviceTitle": "设备状况",
-  "@chatSuggestDeviceTitle": {
-    "description": "新对话空白页的建议卡片标题（卡片窄，尽量短）。"
-  },
-  "chatSuggestDevicePrompt": "检查这台设备的内存、存储和负载情况，有异常就指出来。",
-  "@chatSuggestDevicePrompt": {
-    "description": "点「设备状况」卡片后替用户发给 Claude 的提问。"
-  },
   "chatEmptyGreeting": "有什么可以帮你？",
   "@chatEmptyGreeting": {
     "description": "新对话空白页的大标题。"

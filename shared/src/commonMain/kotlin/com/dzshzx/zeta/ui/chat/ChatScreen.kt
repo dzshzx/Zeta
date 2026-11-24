@@ -58,7 +58,6 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.input.nestedscroll.NestedScrollConnection
 import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.platform.LocalDensity
@@ -114,11 +113,9 @@ import io.github.suqi8.coui.kmp.basic.TextButton
 import io.github.suqi8.coui.kmp.blur.LayerBackdrop
 import io.github.suqi8.coui.kmp.blur.TopAppBarGlow
 import io.github.suqi8.coui.kmp.icon.COUIIcons
-import io.github.suqi8.coui.kmp.icon.extended.Merge
 import io.github.suqi8.coui.kmp.icon.extended.Search
 import io.github.suqi8.coui.kmp.icon.extended.Settings
 import io.github.suqi8.coui.kmp.icon.extended.Sidebar
-import io.github.suqi8.coui.kmp.squircle.SquircleShape
 import io.github.suqi8.coui.kmp.theme.COUIRoundCorner
 import io.github.suqi8.coui.kmp.theme.COUITheme
 import java.util.UUID
@@ -615,11 +612,6 @@ private fun ChatContent(
                 needsLogin =
                     conversation.backend == Backends.LOCAL && hub.platform.local?.loggedOut == true,
                 onLogin = onOpenLogin,
-                onSuggestion = {
-                    conversation.send(it)
-                    // 新对话就此开始：输入框里没发的字归这个对话，下一个新对话从空的开始
-                    hub.drafts.save(draft)
-                },
                 onChangeCwd = { hub.startNew(it) },
                 modifier = Modifier.padding(padding),
             )
@@ -1099,36 +1091,12 @@ private fun OverflowMenu(
     )
 }
 
-private class Suggestion(val title: String, val icon: ImageVector, val prompt: String)
-
-/** 建议卡片：标题和点了替用户发出的提问都按界面语言，显示时取。 */
-private fun suggestions() =
-    listOf(
-        Suggestion(
-            Strings.chatSuggestProjectTitle(),
-            ZetaIcons.FolderOpen,
-            Strings.chatSuggestProjectPrompt(),
-        ),
-        Suggestion(Strings.chatSuggestGitTitle(), COUIIcons.Merge, Strings.chatSuggestGitPrompt()),
-        Suggestion(
-            Strings.chatSuggestResumeTitle(),
-            ZetaIcons.History,
-            Strings.chatSuggestResumePrompt(),
-        ),
-        Suggestion(
-            Strings.chatSuggestDeviceTitle(),
-            ZetaIcons.Chip,
-            Strings.chatSuggestDevicePrompt(),
-        ),
-    )
-
 @Composable
 private fun EmptyState(
     hub: ConversationHub,
     cwd: String,
     needsLogin: Boolean,
     onLogin: () -> Unit,
-    onSuggestion: (String) -> Unit,
     onChangeCwd: (String) -> Unit,
     modifier: Modifier = Modifier,
 ) {
@@ -1136,7 +1104,7 @@ private fun EmptyState(
     var editingCwd by remember { mutableStateOf(false) }
     var cwdDraft by remember { mutableStateOf(cwd) }
     val scope = rememberCoroutineScope()
-    // 键盘弹出后地方不够时内容照原样排、能上下滚，不让 Column 把最后一排建议卡片压扁；地方够时照旧居中（底下留 56）
+    // 键盘弹出后地方不够时内容照原样排、能上下滚，不让 Column 把下面的登录提示压扁；地方够时照旧居中（底下留 56）
     BoxWithConstraints(modifier = modifier.fillMaxSize()) {
         Column(
             modifier =
@@ -1181,9 +1149,9 @@ private fun EmptyState(
                     modifier = Modifier.widthIn(max = 260.dp),
                 )
             }
-            Spacer(Modifier.height(18.dp))
             // 还没登录时发什么都只会报错，先把人领去登录
             if (needsLogin) {
+                Spacer(Modifier.height(18.dp))
                 Text(
                     text = Strings.chatNotSignedIn(),
                     style = COUITheme.textStyles.bodyM,
@@ -1195,51 +1163,7 @@ private fun EmptyState(
                     onClick = onLogin,
                     colors = ButtonDefaults.textButtonColorsPrimary(),
                 )
-            } else
-                Column(
-                    modifier = Modifier.padding(horizontal = 20.dp),
-                    verticalArrangement = Arrangement.spacedBy(10.dp),
-                ) {
-                    suggestions().chunked(2).forEach { row ->
-                        Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                            row.forEach { item ->
-                                val shape = remember { SquircleShape(COUIRoundCorner.L) }
-                                Row(
-                                    modifier =
-                                        Modifier.weight(1f)
-                                            .clip(shape)
-                                            .background(colors.container4, shape)
-                                            .clickable { onSuggestion(item.prompt) }
-                                            .padding(horizontal = 12.dp, vertical = 12.dp),
-                                    verticalAlignment = Alignment.CenterVertically,
-                                ) {
-                                    Box(
-                                        modifier =
-                                            Modifier.size(28.dp)
-                                                .clip(CircleShape)
-                                                .background(colors.containerThemeHalftone),
-                                        contentAlignment = Alignment.Center,
-                                    ) {
-                                        Icon(
-                                            imageVector = item.icon,
-                                            contentDescription = null,
-                                            modifier = Modifier.size(15.dp),
-                                            tint = colors.primary,
-                                        )
-                                    }
-                                    Spacer(Modifier.width(10.dp))
-                                    Text(
-                                        text = item.title,
-                                        style = COUITheme.textStyles.buttonM,
-                                        color = colors.labelPrimary,
-                                        maxLines = 1,
-                                        overflow = TextOverflow.Ellipsis,
-                                    )
-                                }
-                            }
-                        }
-                    }
-                }
+            }
         }
     }
     TextInputDialog(

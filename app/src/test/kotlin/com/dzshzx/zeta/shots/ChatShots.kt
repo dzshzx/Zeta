@@ -1,13 +1,8 @@
 package com.dzshzx.zeta.shots
 
-import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.height
-import androidx.compose.ui.Modifier
-import androidx.compose.ui.test.getUnclippedBoundsInRoot
 import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
-import androidx.compose.ui.unit.dp
 import com.dzshzx.zeta.core.AnswerItem
 import com.dzshzx.zeta.core.DiffHunk
 import com.dzshzx.zeta.core.DiffKind
@@ -25,7 +20,6 @@ import com.dzshzx.zeta.ui.chat.ChatScreen
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.serialization.json.buildJsonObject
 import kotlinx.serialization.json.put
-import org.junit.Assert.assertEquals
 import org.junit.Test
 
 class ChatShots : ShotTest() {
@@ -43,34 +37,6 @@ class ChatShots : ShotTest() {
                 onOpenLogin = {},
             )
         }
-    }
-
-    /**
-     * 键盘弹出后新对话的空白页地方不够：内容照原样排、能滚，两排建议卡片一样高（原来最后一排被压扁、图标被裁）。 340dp
-     * 高时顶栏、标题、目录、两排卡片和输入栏加起来放不下，是键盘弹出后矮屏上的样子。
-     */
-    @Test
-    fun emptyChatShortKeepsSuggestionSize() {
-        val hub = Fixtures.readyHub(app)
-        shoot("chat-empty-short") {
-            Box(Modifier.height(340.dp)) {
-                ChatScreen(
-                    hub = hub,
-                    onOpenPane = {},
-                    onOpenSettings = {},
-                    onOpenInstall = {},
-                    onOpenLogin = {},
-                )
-            }
-        }
-        val first = compose.onNodeWithText("看看这个项目").getUnclippedBoundsInRoot()
-        val last = compose.onNodeWithText("接着上次做").getUnclippedBoundsInRoot()
-        assertEquals(
-            "两排建议卡片要一样高",
-            (first.bottom - first.top).value,
-            (last.bottom - last.top).value,
-            0.5f,
-        )
     }
 
     /** 顶栏的“更多”菜单：新对话、结束对话、在对话中查找、设置。 */
