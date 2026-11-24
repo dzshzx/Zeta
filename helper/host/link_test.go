@@ -430,3 +430,23 @@ func TestExitCode(t *testing.T) {
 		t.Errorf("SIGTERM 得 %d", got)
 	}
 }
+
+// 走中转时核心在参数最前面放 --settings <中转的设置>：原样交给 claude；登录环境里自己配了 ANTHROPIC_BASE_URL 时托管脚本去掉
+// 这一对（同终端里 dotfiles 给 claude 定义的函数），别的参数不动。
+func TestStartDropsRelaySettingsForOwnBaseURL(t *testing.T) {
+	home := setupHome(t)
+	for _, c := range []struct{ baseURL, want string }{
+		{"", "--settings /x/relay.json -p"},
+		{"https://own.example.com", "-p"},
+	} {
+		t.Setenv("ANTHROPIC_BASE_URL", c.baseURL)
+		key := "relay" + strconv.Itoa(len(c.baseURL))
+		l := startLink(t, home, StartOptions{Key: key, Title: "t", Args: []string{"--settings", "/x/relay.json", "-p"}})
+		nextAttached(t, l)
+		if hello := nextLine(t, l, 1); hello.Args != c.want {
+			t.Errorf("ANTHROPIC_BASE_URL=%q 时 claude 的参数 %q，应为 %q", c.baseURL, hello.Args, c.want)
+		}
+		<-l.Stop()
+		expectSilentEnd(t, l)
+	}
+}

@@ -396,12 +396,19 @@ func (c *Conversation) taskOutput(id string) <-chan answer {
 
 var errNoProcess = locales.Err("errNoProcess")
 
+// errNoSubscription 是 conv.quota 时这台主机在用中转，没有订阅额度可问（出错应答的 code 是 sessionproto.CodeNoSubscription）。
+var errNoSubscription = locales.Err("errNoSubscription")
+
 // usageRequest 是问订阅额度的控制请求：skip_behaviors 让 Claude Code 不去扫本机的会话记录，只取额度。
 func usageRequest() map[string]any { return control("get_usage", "skip_behaviors", true) }
 
 // queryQuota 借这个对话开着的进程问一次所在主机的订阅额度（get_usage），应答里的 response 原样交回客户端。
 func (c *Conversation) queryQuota() <-chan answer {
 	out := make(chan answer, 1)
+	if q := c.deps.Quota; q != nil && !q.Subscribed() {
+		out <- answer{err: errNoSubscription}
+		return out
+	}
 	p := c.proc
 	if p == nil {
 		out <- answer{err: errNoProcess}

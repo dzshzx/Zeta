@@ -280,11 +280,14 @@ if [ "$mode" = start ]; then
   title=$4
   shift 4
   cd "$cwd" 2>/dev/null || { echo "zeta: 进不去工作目录 $cwd" >&2; exit 97; }
+  # 走中转时核心在参数最前面放 --settings <中转的设置>（helper/hostlink.go 的 launchArgs）。登录环境里自己配了 ANTHROPIC_BASE_URL
+  # 时去掉这一对：--settings 的 env 会盖过它，和终端里 dotfiles 给 claude 定义的函数一样以用户自己配的为准
+  if [ "${1:-}" = --settings ] && [ $# -ge 2 ] && [ -n "${ANTHROPIC_BASE_URL:-}" ]; then shift 2; fi
   # 接着旧会话（--resume <id>，不是分支出新会话）时先看本包是不是已经有进程在跑它，再看它是不是正被别处占着
-  resume="" fork=0 model=0 prev=""
+  resume="" fork=0 model=0 relay=0 prev=""
   for a in "$@"; do
     [ "$prev" = --resume ] && resume=$a
-    case $a in --fork-session) fork=1 ;; --model) model=1 ;; esac
+    case $a in --fork-session) fork=1 ;; --model) model=1 ;; --settings) relay=1 ;; esac
     prev=$a
   done
   [ $fork = 1 ] && resume=""
@@ -316,13 +319,14 @@ elif [ "$mode" = start ]; then
   export CLAUDE_CODE_ENABLE_TODO_TOOLS="${CLAUDE_CODE_ENABLE_TODO_TOOLS:-1}"
   # 起哪个程序：正式版（ZETA_NAME=zeta）永远是真的 claude，参数原样。
   # 只有测试版在设备测试里放了剧本时换成按剧本回话的假 Claude（tools/fake-claude；vd fake 放进来，vd stop 删掉）。
-  # 测试版起真的 claude 时新开、没指定模型的对话补 Haiku 5.5，规则见 CLAUDE.md「真跑用 Haiku 5.5」。
+  # 测试版起真的 claude 时新开、没指定模型的对话补 Haiku 5.5，规则见 CLAUDE.md「真跑用 Haiku 5.5」。走中转（核心带了 --settings，
+  # 见 helper/hostlink.go 的 launchArgs）时不补：用中转自己的默认模型，中转上也未必有这个模型。
   # 只补 --model，不设 ANTHROPIC_MODEL：接着旧会话时那个变量让请求换成它、init 却还报记录里的模型（2.1.330 实测）。
   run=claude
   if [ "${ZETA_NAME:-zeta}" = zeta-dev ]; then
     if [ -f "$HOME/.config/zeta-dev/fake-claude/scenario.jsonl" ]; then
       run="$HOME/.config/zeta-dev/fake-claude/fake-claude.sh"
-    elif [ -z "$resume" ] && [ $fork = 0 ] && [ $model = 0 ]; then
+    elif [ -z "$resume" ] && [ $fork = 0 ] && [ $model = 0 ] && [ $relay = 0 ]; then
       set -- "$@" --model claude-haiku-5-5
     fi
   fi

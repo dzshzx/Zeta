@@ -74,6 +74,8 @@ type Quota interface {
 	ClaimQuery() bool
 	// Usage 收下 get_usage 的应答（control_response 的 response.response，原样）。
 	Usage(response json.RawMessage)
+	// Subscribed 是这台主机在用订阅账号；在用中转（claude-switch 的非账号目标）时为假，那时没有订阅额度，conv.quota 不问。
+	Subscribed() bool
 }
 
 // StartOptions 是起进程用的：托管标识、工作目录、标题、claude 的参数，和只给这个进程的环境变量。

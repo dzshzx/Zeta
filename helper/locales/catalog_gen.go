@@ -1946,6 +1946,318 @@ func (msgs Messages) ErrAccountMissing() string {
 	return Catalog.Format(msgs.locale, "errAccountMissing", nil)
 }
 
+// ErrRelayName says "中转名称只能用小写字母、数字和连字符，以字母或数字开头，最长 32 …"
+// in the language the app shows.
+//
+// 出错应答：添加中转时名称不合规（claude-switch
+// 的名字规则）。
+func ErrRelayName() string { return In(i18n.Locale()).ErrRelayName() }
+
+// ErrRelayName says "中转名称只能用小写字母、数字和连字符，以字母或数字开头，最长 32 …"
+// in the language of msgs.
+//
+// 出错应答：添加中转时名称不合规（claude-switch
+// 的名字规则）。
+func (msgs Messages) ErrRelayName() string {
+	return Catalog.Format(msgs.locale, "errRelayName", nil)
+}
+
+// ErrRelayURL says "地址要以 http:// 或 https:// 开头"
+// in the language the app shows.
+//
+// 出错应答：中转地址不是 http(s) 网址。
+func ErrRelayURL() string { return In(i18n.Locale()).ErrRelayURL() }
+
+// ErrRelayURL says "地址要以 http:// 或 https:// 开头"
+// in the language of msgs.
+//
+// 出错应答：中转地址不是 http(s) 网址。
+func (msgs Messages) ErrRelayURL() string {
+	return Catalog.Format(msgs.locale, "errRelayURL", nil)
+}
+
+// ErrRelayKey says "密钥里不能有空格或换行"
+// in the language the app shows.
+//
+// 出错应答：填的中转密钥中间带空白。
+func ErrRelayKey() string { return In(i18n.Locale()).ErrRelayKey() }
+
+// ErrRelayKey says "密钥里不能有空格或换行"
+// in the language of msgs.
+//
+// 出错应答：填的中转密钥中间带空白。
+func (msgs Messages) ErrRelayKey() string {
+	return Catalog.Format(msgs.locale, "errRelayKey", nil)
+}
+
+// ErrRelayNameTaken says "这个名称已经有账号或中转在用了"
+// in the language the app shows.
+//
+// 出错应答：添加中转时名称和已有的账号或中转重名。
+func ErrRelayNameTaken() string { return In(i18n.Locale()).ErrRelayNameTaken() }
+
+// ErrRelayNameTaken says "这个名称已经有账号或中转在用了"
+// in the language of msgs.
+//
+// 出错应答：添加中转时名称和已有的账号或中转重名。
+func (msgs Messages) ErrRelayNameTaken() string {
+	return Catalog.Format(msgs.locale, "errRelayNameTaken", nil)
+}
+
+// ErrRelayKeyRequired says "添加中转要填密钥"
+// in the language the app shows.
+//
+// 出错应答：添加中转没填密钥。
+func ErrRelayKeyRequired() string { return In(i18n.Locale()).ErrRelayKeyRequired() }
+
+// ErrRelayKeyRequired says "添加中转要填密钥"
+// in the language of msgs.
+//
+// 出错应答：添加中转没填密钥。
+func (msgs Messages) ErrRelayKeyRequired() string {
+	return Catalog.Format(msgs.locale, "errRelayKeyRequired", nil)
+}
+
+// ErrRelayKeyReadOnly says "这个中转的密钥不是从文件读的，Zeta 改不了；在它的设置文件里改"
+// in the language the app shows.
+//
+// 出错应答：用户自己放的中转设置文件的 apiKeyHelper
+// 不是 cat 一个家目录里的文件（或密钥写在 env
+// 里），不能改密钥。
+func ErrRelayKeyReadOnly() string { return In(i18n.Locale()).ErrRelayKeyReadOnly() }
+
+// ErrRelayKeyReadOnly says "这个中转的密钥不是从文件读的，Zeta 改不了；在它的设置文件里改"
+// in the language of msgs.
+//
+// 出错应答：用户自己放的中转设置文件的 apiKeyHelper
+// 不是 cat 一个家目录里的文件（或密钥写在 env
+// 里），不能改密钥。
+func (msgs Messages) ErrRelayKeyReadOnly() string {
+	return Catalog.Format(msgs.locale, "errRelayKeyReadOnly", nil)
+}
+
+// ErrRelayMissing says "这个中转已经不在了"
+// in the language the app shows.
+//
+// 出错应答：要改、要删的中转已经不在了。
+func ErrRelayMissing() string { return In(i18n.Locale()).ErrRelayMissing() }
+
+// ErrRelayMissing says "这个中转已经不在了"
+// in the language of msgs.
+//
+// 出错应答：要改、要删的中转已经不在了。
+func (msgs Messages) ErrRelayMissing() string {
+	return Catalog.Format(msgs.locale, "errRelayMissing", nil)
+}
+
+// ErrRelayInUse says "正在用这个中转，先换到别的账号或中转再删"
+// in the language the app shows.
+//
+// 出错应答：要删的中转正在用。
+func ErrRelayInUse() string { return In(i18n.Locale()).ErrRelayInUse() }
+
+// ErrRelayInUse says "正在用这个中转，先换到别的账号或中转再删"
+// in the language of msgs.
+//
+// 出错应答：要删的中转正在用。
+func (msgs Messages) ErrRelayInUse() string {
+	return Catalog.Format(msgs.locale, "errRelayInUse", nil)
+}
+
+// ErrRelayUnreadable says "读不懂这个中转的设置文件"
+// in the language the app shows.
+//
+// 出错应答：要改的中转设置文件读不了或不是 JSON
+// 对象。
+func ErrRelayUnreadable() string { return In(i18n.Locale()).ErrRelayUnreadable() }
+
+// ErrRelayUnreadable says "读不懂这个中转的设置文件"
+// in the language of msgs.
+//
+// 出错应答：要改的中转设置文件读不了或不是 JSON
+// 对象。
+func (msgs Messages) ErrRelayUnreadable() string {
+	return Catalog.Format(msgs.locale, "errRelayUnreadable", nil)
+}
+
+// ErrRelayWrite says "写不了 {path}"
+// in the language the app shows.
+//
+// 出错应答：中转的设置文件或密钥文件写不了、删不了；path
+// 是文件路径。
+func ErrRelayWrite(path string) string { return In(i18n.Locale()).ErrRelayWrite(path) }
+
+// ErrRelayWrite says "写不了 {path}"
+// in the language of msgs.
+//
+// 出错应答：中转的设置文件或密钥文件写不了、删不了；path
+// 是文件路径。
+func (msgs Messages) ErrRelayWrite(path string) string {
+	return Catalog.Format(msgs.locale, "errRelayWrite", map[string]any{"path": path})
+}
+
+// ErrNoSubscription says "这台设备正在用中转，没有订阅额度"
+// in the language the app shows.
+//
+// 出错应答（code 是
+// errNoSubscription）：问订阅额度时这台设备在用中转（非账号目标）。
+func ErrNoSubscription() string { return In(i18n.Locale()).ErrNoSubscription() }
+
+// ErrNoSubscription says "这台设备正在用中转，没有订阅额度"
+// in the language of msgs.
+//
+// 出错应答（code 是
+// errNoSubscription）：问订阅额度时这台设备在用中转（非账号目标）。
+func (msgs Messages) ErrNoSubscription() string {
+	return Catalog.Format(msgs.locale, "errNoSubscription", nil)
+}
+
+// ErrRelayModel says "模型名里不能有空格，最长 200 个字符"
+// in the language the app shows.
+//
+// 出错应答：中转的默认模型名不合规。
+func ErrRelayModel() string { return In(i18n.Locale()).ErrRelayModel() }
+
+// ErrRelayModel says "模型名里不能有空格，最长 200 个字符"
+// in the language of msgs.
+//
+// 出错应答：中转的默认模型名不合规。
+func (msgs Messages) ErrRelayModel() string {
+	return Catalog.Format(msgs.locale, "errRelayModel", nil)
+}
+
+// ErrModelsRedirect says "中转把请求转到了别的地址（{host}），为了不把密钥带过去没有跟过去"
+// in the language the app shows.
+//
+// 出错应答：拉模型列表时服务器重定向到别的主机；host
+// 是那个主机。
+func ErrModelsRedirect(host string) string { return In(i18n.Locale()).ErrModelsRedirect(host) }
+
+// ErrModelsRedirect says "中转把请求转到了别的地址（{host}），为了不把密钥带过去没有跟过去"
+// in the language of msgs.
+//
+// 出错应答：拉模型列表时服务器重定向到别的主机；host
+// 是那个主机。
+func (msgs Messages) ErrModelsRedirect(host string) string {
+	return Catalog.Format(msgs.locale, "errModelsRedirect", map[string]any{"host": host})
+}
+
+// ErrModelsNoKey says "先填密钥再获取模型列表"
+// in the language the app shows.
+//
+// 出错应答：拉模型列表时没填密钥，已保存的中转也读不到密钥文件。
+func ErrModelsNoKey() string { return In(i18n.Locale()).ErrModelsNoKey() }
+
+// ErrModelsNoKey says "先填密钥再获取模型列表"
+// in the language of msgs.
+//
+// 出错应答：拉模型列表时没填密钥，已保存的中转也读不到密钥文件。
+func (msgs Messages) ErrModelsNoKey() string {
+	return Catalog.Format(msgs.locale, "errModelsNoKey", nil)
+}
+
+// ErrModelsAuth says "中转拒绝了这个密钥（HTTP {status}），检查密钥"
+// in the language the app shows.
+//
+// 出错应答：拉模型列表返回 401 或 403；status 是状态码。
+func ErrModelsAuth(status string) string { return In(i18n.Locale()).ErrModelsAuth(status) }
+
+// ErrModelsAuth says "中转拒绝了这个密钥（HTTP {status}），检查密钥"
+// in the language of msgs.
+//
+// 出错应答：拉模型列表返回 401 或 403；status 是状态码。
+func (msgs Messages) ErrModelsAuth(status string) string {
+	return Catalog.Format(msgs.locale, "errModelsAuth", map[string]any{"status": status})
+}
+
+// ErrModelsNotFound says "这个中转没有模型列表接口（/v1/models 返回 404），可以直接填模型名"
+// in the language the app shows.
+//
+// 出错应答：拉模型列表返回 404。
+func ErrModelsNotFound() string { return In(i18n.Locale()).ErrModelsNotFound() }
+
+// ErrModelsNotFound says "这个中转没有模型列表接口（/v1/models 返回 404），可以直接填模型名"
+// in the language of msgs.
+//
+// 出错应答：拉模型列表返回 404。
+func (msgs Messages) ErrModelsNotFound() string {
+	return Catalog.Format(msgs.locale, "errModelsNotFound", nil)
+}
+
+// ErrModelsStatus says "中转返回了 HTTP {status}"
+// in the language the app shows.
+//
+// 出错应答：拉模型列表返回别的非 2xx 状态；status
+// 是状态码。
+func ErrModelsStatus(status string) string { return In(i18n.Locale()).ErrModelsStatus(status) }
+
+// ErrModelsStatus says "中转返回了 HTTP {status}"
+// in the language of msgs.
+//
+// 出错应答：拉模型列表返回别的非 2xx 状态；status
+// 是状态码。
+func (msgs Messages) ErrModelsStatus(status string) string {
+	return Catalog.Format(msgs.locale, "errModelsStatus", map[string]any{"status": status})
+}
+
+// ErrModelsTooLarge says "模型列表超过 4 MB，没有读完"
+// in the language the app shows.
+//
+// 出错应答：拉模型列表的响应太大。
+func ErrModelsTooLarge() string { return In(i18n.Locale()).ErrModelsTooLarge() }
+
+// ErrModelsTooLarge says "模型列表超过 4 MB，没有读完"
+// in the language of msgs.
+//
+// 出错应答：拉模型列表的响应太大。
+func (msgs Messages) ErrModelsTooLarge() string {
+	return Catalog.Format(msgs.locale, "errModelsTooLarge", nil)
+}
+
+// ErrModelsTimeout says "连接中转超时"
+// in the language the app shows.
+//
+// 出错应答：拉模型列表超时。
+func ErrModelsTimeout() string { return In(i18n.Locale()).ErrModelsTimeout() }
+
+// ErrModelsTimeout says "连接中转超时"
+// in the language of msgs.
+//
+// 出错应答：拉模型列表超时。
+func (msgs Messages) ErrModelsTimeout() string {
+	return Catalog.Format(msgs.locale, "errModelsTimeout", nil)
+}
+
+// ErrModelsNetwork says "连不上中转：{detail}"
+// in the language the app shows.
+//
+// 出错应答：拉模型列表时网络出错；detail 是 Go
+// 的原话（有地址，没有密钥）。
+func ErrModelsNetwork(detail string) string { return In(i18n.Locale()).ErrModelsNetwork(detail) }
+
+// ErrModelsNetwork says "连不上中转：{detail}"
+// in the language of msgs.
+//
+// 出错应答：拉模型列表时网络出错；detail 是 Go
+// 的原话（有地址，没有密钥）。
+func (msgs Messages) ErrModelsNetwork(detail string) string {
+	return Catalog.Format(msgs.locale, "errModelsNetwork", map[string]any{"detail": detail})
+}
+
+// ErrModelsNotJSON says "中转返回的不是模型列表（不是带 data 的 JSON）"
+// in the language the app shows.
+//
+// 出错应答：拉模型列表的响应不是 JSON 或没有 data。
+func ErrModelsNotJSON() string { return In(i18n.Locale()).ErrModelsNotJSON() }
+
+// ErrModelsNotJSON says "中转返回的不是模型列表（不是带 data 的 JSON）"
+// in the language of msgs.
+//
+// 出错应答：拉模型列表的响应不是 JSON 或没有 data。
+func (msgs Messages) ErrModelsNotJSON() string {
+	return Catalog.Format(msgs.locale, "errModelsNotJSON", nil)
+}
+
 // ErrClaudeJSON says "读不懂 ~/.claude.json"
 // in the language the app shows.
 //

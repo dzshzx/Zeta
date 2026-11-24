@@ -7,6 +7,8 @@ import (
 	"sync"
 	"testing"
 	"time"
+
+	"github.com/dzshzx/Zeta/helper/sessionproto"
 )
 
 func TestQuota(t *testing.T) {
@@ -52,6 +54,7 @@ func TestQuota(t *testing.T) {
 type fakeQuota struct {
 	mu     sync.Mutex
 	allow  int
+	relay  bool // 在用中转：Subscribed 为假
 	claims int
 	infos  []string
 	usages []string
@@ -68,6 +71,12 @@ func (q *fakeQuota) ClaimQuery() bool {
 	defer q.mu.Unlock()
 	q.claims++
 	return q.claims <= q.allow
+}
+
+func (q *fakeQuota) Subscribed() bool {
+	q.mu.Lock()
+	defer q.mu.Unlock()
+	return !q.relay
 }
 
 func (q *fakeQuota) Usage(response json.RawMessage) {
@@ -172,4 +181,51 @@ func (q *fakeQuota) claimed() int {
 	q.mu.Lock()
 	defer q.mu.Unlock()
 	return q.claims
+}
+
+// 在用中转时没有订阅额度：conv.quota 不问 Claude Code、答 errNoSubscription；起进程时也不顺便问（额度存储的 ClaimQuery
+// 在中转上答 false，见 helper/accounts.go 的 quotaSink）。换回账号后照常问。
+func TestQuotaNotAskedOnRelay(t *testing.T) {
+	h := newHarness(t)
+	q := &fakeQuota{relay: true}
+	h.m.deps.Quota = q
+	h.call(1, "conv.open", map[string]any{"conv": "a", "cwd": "/w"})
+	h.call(1, "conv.send", map[string]any{"conv": "a", "text": "一"})
+	c, l := h.conv(1, "a"), h.link(0)
+	h.feed(c, l, initLine("s1"))
+	h.settle(c)
+	if _, err := h.m.Request(1, "conv.quota", []byte(`{"conv":"a"}`)); err != errNoSubscription {
+		t.Fatalf("中转上问额度：%v", err)
+	}
+	if n := len(l.lines("control_request/get_usage")); n != 0 {
+		t.Fatalf("中转上发了 %d 次 get_usage", n)
+	}
+
+	q.mu.Lock()
+	q.relay = false
+	q.mu.Unlock()
+	done := make(chan error, 1)
+	go func() {
+		_, err := h.m.Request(1, "conv.quota", []byte(`{"conv":"a"}`))
+		done <- err
+	}()
+	deadline := time.Now().Add(5 * time.Second)
+	for len(l.lines("control_request/get_usage")) == 0 {
+		if time.Now().After(deadline) {
+			t.Fatal("换回账号后没问额度")
+		}
+		time.Sleep(5 * time.Millisecond)
+	}
+	req := l.lines("control_request/get_usage")[0]
+	h.feed(c, l, `{"type":"control_response","response":{"subtype":"success","request_id":"`+req["request_id"].(string)+`","response":{}}}`)
+	if err := <-done; err != nil {
+		t.Fatal(err)
+	}
+}
+
+// conv.quota 在中转上出错时应答的 code 就是协议里的 CodeNoSubscription（客户端按它认）。
+func TestNoSubscriptionCode(t *testing.T) {
+	if errNoSubscription.Code() != sessionproto.CodeNoSubscription {
+		t.Fatalf("code %q", errNoSubscription.Code())
+	}
 }

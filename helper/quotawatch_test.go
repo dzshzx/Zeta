@@ -2,6 +2,7 @@ package main
 
 import (
 	"fmt"
+	"path/filepath"
 	"strings"
 	"testing"
 )
@@ -62,5 +63,63 @@ func TestQuotaSinkTellsTheWatch(t *testing.T) {
 	q.Usage([]byte(`{"models":[]}`))
 	if told != 1 {
 		t.Fatalf("不是额度的应答存不成，不该通知：%d", told)
+	}
+}
+
+// relays 是 call 途中推来的额度里的 relay（几条就几个）。
+func pushedRelays(c *serveClient) (snaps []any, relays []any) {
+	for _, m := range c.stashed("quota.snapshot") {
+		snaps, relays = append(snaps, m["snapshot"]), append(relays, m["relay"])
+	}
+	return snaps, relays
+}
+
+// 在用中转时没有订阅额度：推的额度为 null、带着中转名，不推上一个号的旧数；quota.get、quota.usage、quota.event 不读不存；
+// 对话也不顺便问（quotaSink.ClaimQuery 为假）、交来的不存。换回账号后旧数照常回来、照常问。
+func TestQuotaHiddenOnRelay(t *testing.T) {
+	home := t.TempDir()
+	fakeLogin(t, home, "uuid-a", "a@example.com")
+	e := newEnvAt(home, "zeta")
+	inProcessCore(t, e, fastWatch)
+	c := startServe(t, e, testIdle)
+	other := startServe(t, e, testIdle)
+	event := `"info":{"status":"allowed","unifiedWindows":{"five_hour":{"utilization":30,"resetsAt":1795057510,"status":"allowed"}}}`
+	c.call("quota.watch", "")
+	pushedRelays(c)
+	other.ok("quota.event", event)
+	c.call("quota.get", "")
+	if snaps, relays := pushedRelays(c); len(snaps) != 1 || snaps[0] == nil || relays[0] != "" {
+		t.Fatalf("在用账号时：%v %v", snaps, relays)
+	}
+
+	// 换到中转（claude-switch 的切换记录指着一个非账号目标）
+	writeFile(t, filepath.Join(home, ".config/claude-switch/targets/gw.json"), `{"env":{"ANTHROPIC_BASE_URL":"https://relay.example.com"}}`)
+	writeFile(t, filepath.Join(home, ".local/state/claude-switch/current"), "gw\n")
+	other.ok("quota.event", event)
+	c.call("quota.get", "")
+	if snaps, relays := pushedRelays(c); len(snaps) != 1 || snaps[0] != nil || relays[0] != "gw" {
+		t.Fatalf("在用中转时推的：%v %v", snaps, relays)
+	}
+	got := mustAccounts(t, e, "quota.get", ``)
+	if got["snapshot"] != nil || got["relay"] != "gw" {
+		t.Fatalf("在用中转时 quota.get：%v", got)
+	}
+	if got := mustAccounts(t, e, "quota.usage", `{"response":`+serveUsage+`}`); got["snapshot"] != nil || got["relay"] != "gw" {
+		t.Fatalf("在用中转时 quota.usage：%v", got)
+	}
+	q := newQuotaSink(e, nil)
+	if q.Subscribed() || q.ClaimQuery() {
+		t.Fatal("在用中转时对话不该顺便问额度")
+	}
+	q.RateLimit([]byte(`{"status":"allowed","unifiedWindows":{"five_hour":{"utilization":99,"resetsAt":1795057510,"status":"allowed"}}}`))
+
+	// 换回账号：旧数还在（中转上交来的 99% 没存），对话照常问
+	writeFile(t, filepath.Join(home, ".local/state/claude-switch/current"), "claude\n")
+	got = mustAccounts(t, e, "quota.get", ``)
+	if got["relay"] != "" || !strings.Contains(fmt.Sprint(got["snapshot"]), "used:30") {
+		t.Fatalf("换回账号后 quota.get：%v", got)
+	}
+	if !q.Subscribed() || !q.ClaimQuery() {
+		t.Fatal("换回账号后对话该照常问额度")
 	}
 }

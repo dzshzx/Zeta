@@ -74,8 +74,14 @@ type State struct {
 	Procs []Proc `json:"procs"`
 	// Blocker 说明别的 Claude Code 挡着换号（见 Blocker），没有时为空。
 	Blocker string `json:"blocker,omitempty"`
-	// taken 是新账号不能用的名字：列出的账号、非账号目标和切换记录里的名字。
+	// Relays 是中转（claude-switch 的非账号目标，见 relays.go），按名字排。切换记录指着其中一个时 Current 为 nil、那一项的
+	// Current 为真。
+	Relays []Relay `json:"relays"`
+	// taken 是新账号、新中转不能用的名字：列出的账号、非账号目标和切换记录里的名字。
 	taken map[string]bool
+	// targets、record 是 claude-switch 报的非账号目标名和切换记录，List 按它们读出 Relays。
+	targets []string
+	record  string
 }
 
 // Host 是一台主机上的 claude-switch。方法都阻塞（跑 claude-switch、换号前等进程退出），可以并发调用：改登录状态的几个
@@ -247,7 +253,8 @@ func parseStatus(out []byte) (State, error) {
 	if err := json.Unmarshal(out, &st); err != nil {
 		return State{}, locales.Err("errSwitchOutput")
 	}
-	state := State{Current: st.Live, Accounts: []Account{}, Procs: []Proc{}, taken: map[string]bool{}}
+	state := State{Current: st.Live, Accounts: []Account{}, Procs: []Proc{}, Relays: []Relay{}, taken: map[string]bool{},
+		record: st.Current}
 	var saved []Account
 	for _, a := range st.Accounts {
 		state.taken[a.Name] = true
@@ -258,6 +265,7 @@ func parseStatus(out []byte) (State, error) {
 	}
 	for _, t := range st.Targets {
 		state.taken[t.Name] = true
+		state.targets = append(state.targets, t.Name)
 	}
 	state.taken[st.Current] = true
 	delete(state.taken, "")
@@ -285,6 +293,7 @@ func (h *Host) List(ctx context.Context) (State, error) {
 	if err != nil {
 		return State{}, err
 	}
+	st.Relays = relays(h.Home, st.targets, st.record)
 	if procs != nil {
 		st.Procs = procs
 	}
@@ -294,7 +303,7 @@ func (h *Host) List(ctx context.Context) (State, error) {
 	return st, nil
 }
 
-// Switch 换成存着的 name。没换成时是 *BusyError、ErrMissing 或带 claude-switch 原话的错误。
+// Switch 换成存着的账号或中转（非账号目标） name。没换成时是 *BusyError、ErrMissing 或带 claude-switch 原话的错误。
 func (h *Host) Switch(ctx context.Context, name string) error {
 	if name == "" {
 		return ErrMissing
@@ -358,7 +367,17 @@ func (h *Host) Remove(ctx context.Context, name string) error {
 
 // change 跑一个改登录状态的 claude-switch 命令：开着的 Claude Code 都是调用方自己的（它刚叫停、几秒内会退出）时先等它们退出
 // （最多 Wait）；有别人的就不等，那些不会自己退。不管等没等到都交给 claude-switch，它自己会拒绝。
+//
+// 等的是进程真退出，不只是登记没了：Claude Code 收到 end_session 先删 ~/.claude/sessions 里的登记，进程还要再活约半秒
+// （2.1.330 实测：约 25 毫秒删登记，约 540 毫秒才退出），claude-switch 按 /proc 认进程，那时交给它会被拒。所以叫停前记下
+// 本包登记着的进程，叫停后连它们一起等。
 func (h *Host) change(ctx context.Context, args ...string) error {
+	var mine []procID
+	for _, p := range h.procs() {
+		if start, ok := procStart(p.PID); ok && p.Owner == h.Package {
+			mine = append(mine, procID{p.PID, start})
+		}
+	}
 	if h.EndIdle != nil {
 		h.EndIdle()
 	}
@@ -367,11 +386,11 @@ func (h *Host) change(ctx context.Context, args ...string) error {
 		wait = 8 * time.Second
 	}
 	deadline := time.Now().Add(wait)
-	for onlyMine(h.procs(), h.Package) && time.Now().Before(deadline) {
+	for worthWaiting(h.procs(), mine, h.Package) && time.Now().Before(deadline) {
 		select {
 		case <-ctx.Done():
 			return ctx.Err()
-		case <-time.After(200 * time.Millisecond):
+		case <-time.After(50 * time.Millisecond):
 		}
 	}
 	r, err := h.run(ctx, args...)
@@ -381,9 +400,33 @@ func (h *Host) change(ctx context.Context, args ...string) error {
 	return h.err(r)
 }
 
-// onlyMine 是还开着的 Claude Code 都是 mine 这个包的（至少一个）：只有这种值得等。
-func onlyMine(procs []Proc, mine string) bool {
-	return len(procs) > 0 && !slices.ContainsFunc(procs, func(p Proc) bool { return p.Owner != mine })
+// procID 是一个进程：进程号和启动时刻（/proc/<pid>/stat 的第 22 项），进程号被复用时认得出不是同一个。
+type procID struct {
+	pid   int
+	start string
+}
+
+// worthWaiting 是换号前还值得等：登记着的 Claude Code 都是 pkg 这个包的，且还有登记着的、或叫停前记下的本包进程 before
+// 还活着。有别人的就不等，那些不会自己退。
+func worthWaiting(procs []Proc, before []procID, pkg string) bool {
+	if slices.ContainsFunc(procs, func(p Proc) bool { return p.Owner != pkg }) {
+		return false
+	}
+	return len(procs) > 0 || slices.ContainsFunc(before, alive)
+}
+
+// alive 是进程 p 还在：同一个进程（启动时刻对得上），不是僵尸（claude-switch 读不到僵尸的可执行文件，不算它）。
+func alive(p procID) bool {
+	start, ok := procStart(p.pid)
+	if !ok || start != p.start {
+		return false
+	}
+	data, err := os.ReadFile("/proc/" + strconv.Itoa(p.pid) + "/stat")
+	if err != nil {
+		return false
+	}
+	i := bytes.LastIndexByte(data, ')')
+	return i < 0 || !strings.HasPrefix(strings.TrimSpace(string(data[i+1:])), "Z")
 }
 
 // builtin 是 claude-switch 里总能用作目标的号（没有切换记录时默认配置目录里那个）：直接换过去，add 不收它。

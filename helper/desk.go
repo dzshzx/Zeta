@@ -10,6 +10,8 @@ import (
 	"strings"
 	"syscall"
 	"time"
+
+	"github.com/dzshzx/Zeta/helper/accounts"
 )
 
 // 电脑那边的「Zeta」tmux 会话：Zeta 在远程主机上起的对话，每个在 tmux 会话 zeta 里有一个窗口（窗口名是标题），
@@ -193,7 +195,7 @@ func cmdDesk(e *env, w io.Writer, id, cwd string) error {
 			continue
 		}
 		signal.Notify(interrupts, syscall.SIGINT)
-		runResume(w, id, cwd)
+		runResume(w, id, cwd, accounts.Settings(e.home))
 		signal.Stop(interrupts)
 		prompt = true
 	}
@@ -228,12 +230,14 @@ func (e *env) deskRelease(w io.Writer, id string) bool {
 }
 
 // runResume 在这个窗口里接着会话：经用户的交互 shell 跑 claude，shell 里给 claude 定义的函数（比如选账号）照常生效。
-func runResume(w io.Writer, id, cwd string) {
+// settings 不空时（切换记录指着中转，见 accounts.Settings）带上 --settings，交互 shell 的环境里自己配了 ANTHROPIC_BASE_URL 时
+// 不带（同 zeta_host.sh）；shell 函数也带了同一份时，同一个文件给两次照样能用（Claude Code 2.1.330 实测）。
+func runResume(w io.Writer, id, cwd, settings string) {
 	shell := os.Getenv("SHELL")
 	if shell == "" {
 		shell = "/bin/bash"
 	}
-	cmd := exec.Command(shell, "-ic", `claude --resume "$1"`, "zeta-desk", id)
+	cmd := exec.Command(shell, resumeArgs(id, settings)...)
 	cmd.Dir = cwd
 	cmd.Stdin, cmd.Stdout, cmd.Stderr = os.Stdin, os.Stdout, os.Stderr
 	if err := cmd.Run(); err != nil {
@@ -241,4 +245,12 @@ func runResume(w io.Writer, id, cwd string) {
 			fmt.Fprintf(w, "起不了 claude：%v\n", err)
 		}
 	}
+}
+
+// resumeScript 是 runResume 交给交互 shell 的命令（bash、zsh 都认）：$1 是会话号，$2 是中转的设置（空是不带）。
+const resumeScript = `if [ -n "$2" ] && [ -z "${ANTHROPIC_BASE_URL:-}" ]; then claude --resume "$1" --settings "$2"; else claude --resume "$1"; fi`
+
+// resumeArgs 是 runResume 交给 shell 的参数。
+func resumeArgs(id, settings string) []string {
+	return []string{"-ic", resumeScript, "zeta-desk", id, settings}
 }

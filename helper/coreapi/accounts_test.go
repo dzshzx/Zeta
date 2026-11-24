@@ -137,6 +137,48 @@ func TestAccountsMethods(t *testing.T) {
 			params: map[string]any{"program": "bin/cs", "name": "claude-b"},
 		},
 		{
+			name:  "列中转",
+			reply: `{"current":null,"accounts":[],"procs":[],"relays":[{"name":"gw","baseUrl":"https://relay.example.com","model":"claude-opus-5-5","auth":"bearer","hasKey":true,"keyEditable":true,"current":true}]}`,
+			run: func(cl *Client) (any, error) {
+				l, err := cl.ListAccounts(context.Background(), "bin/cs")
+				return l.CurrentRelay(), err
+			},
+			method: "accounts.list",
+			params: map[string]any{"program": "bin/cs"},
+			wantResult: &Relay{Name: "gw", BaseURL: "https://relay.example.com", Model: "claude-opus-5-5",
+				HasKey: true, KeyEditable: true, Current: true},
+		},
+		{
+			name:  "存中转",
+			reply: `{}`,
+			run: func(cl *Client) (any, error) {
+				return nil, cl.SaveRelay(context.Background(), "bin/cs", RelayInput{Name: "gw", BaseURL: "https://r", Key: "k",
+					Model: "m", Create: true})
+			},
+			method: "accounts.relay_save",
+			params: map[string]any{"program": "bin/cs", "name": "gw", "baseUrl": "https://r", "key": "k", "model": "m",
+				"create": true},
+		},
+		{
+			name:  "删中转",
+			reply: `{}`,
+			run: func(cl *Client) (any, error) {
+				return nil, cl.RemoveRelay(context.Background(), "bin/cs", "gw")
+			},
+			method: "accounts.relay_remove",
+			params: map[string]any{"program": "bin/cs", "name": "gw"},
+		},
+		{
+			name:  "拉模型列表",
+			reply: `{"models":[{"id":"claude-opus-5-5","displayName":"Claude Opus 5.5"},{"id":"gpt-5"}]}`,
+			run: func(cl *Client) (any, error) {
+				return cl.RelayModels(context.Background(), "bin/cs", "gw", "https://r", "")
+			},
+			method:     "accounts.relay_models",
+			params:     map[string]any{"program": "bin/cs", "name": "gw", "baseUrl": "https://r", "key": ""},
+			wantResult: []RelayModel{{ID: "claude-opus-5-5", DisplayName: "Claude Opus 5.5"}, {ID: "gpt-5"}},
+		},
+		{
 			name:  "读额度",
 			reply: `{"snapshot":` + snap + `}`,
 			run: func(cl *Client) (any, error) {
@@ -144,7 +186,7 @@ func TestAccountsMethods(t *testing.T) {
 			},
 			method:     "quota.get",
 			params:     map[string]any{},
-			wantResult: wantSnap,
+			wantResult: QuotaState{Snapshot: wantSnap},
 		},
 		{
 			name:  "还没有额度",
@@ -154,7 +196,18 @@ func TestAccountsMethods(t *testing.T) {
 			},
 			method:     "quota.get",
 			params:     map[string]any{},
-			wantResult: (*QuotaSnapshot)(nil),
+			wantResult: QuotaState{},
+		},
+		{
+			name:  "在用中转",
+			reply: `{"snapshot":null,"relay":"gw"}`,
+			run: func(cl *Client) (any, error) {
+				s, err := cl.Quota(context.Background())
+				return s.Subscribed(), err
+			},
+			method:     "quota.get",
+			params:     map[string]any{},
+			wantResult: false,
 		},
 		{
 			name: "订阅额度",

@@ -166,18 +166,23 @@ Zeta 的逻辑往 Go 写的核心里搬：核心是每台主机（手机的 Debi
 
 核心答 `accounts.` 和 `quota.` 开头的方法（逻辑在 `helper/accounts`，入口是 `helper/accounts.go` 的 `handleAccounts`；订阅 `quota.watch` 在 `helper/corehandlers.go` 的 `accountsHandler`），每个请求在自己的 goroutine 里做、做完再答，不挡同一连接上别的请求。参数和 `id`、`method` 平级，结果在 `zeta_reply` 的 `result`；出错时 `ok` 为假，认得出的另带 `code`：`claude_switch_missing`（客户端把带着的 claude-switch 装上再试）、`busy`（有 Claude Code 开着，claude-switch 没换）、`no_account`（要换、要删的号不在了）。
 
-账号由 claude-switch 管（存档、换号、加号、删号），这一组只是替客户端跑它：令牌只在主机上由它搬，结果里只有账号名、邮箱、组织和套餐。改登录状态的请求一个一个来，开着的 Claude Code 都是调用方自己的对话时先等它们退出（最多约 8 秒，刚收掉的要几秒），有别人的就不等（那些不会自己退），不管等没等到都交给 claude-switch，它自己会拒绝。客户端要先收掉自己闲着的对话。每个 `accounts.` 请求都可带 `program`：claude-switch 相对家目录的路径（客户端带的那个版本）；不带时在 `~/.cache/<ZETA_NAME>/bin` 下找 `claude-switch-<版本>`。这组请求要跑 claude-switch，慢。
+账号由 claude-switch 管（存档、换号、加号、删号），这一组只是替客户端跑它：令牌只在主机上由它搬，结果里只有账号名、邮箱、组织和套餐。改登录状态的请求一个一个来，开着的 Claude Code 都是调用方自己的对话时先等它们退出（最多约 8 秒，刚收掉的要几秒；等到进程真退出：Claude Code 收到 end_session 先删 `~/.claude/sessions` 里的登记、约半秒后才退出，claude-switch 按进程认，所以核心叫停前记下本包登记着的进程，连它们一起等），有别人的就不等（那些不会自己退），不管等没等到都交给 claude-switch，它自己会拒绝。客户端要先收掉自己闲着的对话。每个 `accounts.` 请求都可带 `program`：claude-switch 相对家目录的路径（客户端带的那个版本）；不带时在 `~/.cache/<ZETA_NAME>/bin` 下找 `claude-switch-<版本>`。这组请求要跑 claude-switch，慢。
 
 | 方法 | 参数 | 做什么 |
 |---|---|---|
-| `accounts.list` | | `result` 是 `{current, accounts, procs, blocker}`：在用的登录（未登录为 `null`，认不出是哪个号时 `name` 为空）、要列的账号（在用的在前，每项 `{name, email, organization, displayName, subscription, refreshExpiresAt, current, parked}`）、`~/.claude/sessions` 登记的还开着的 Claude Code（`{pid, owner, status, kind}`，`owner` 是托管它的 Zeta 包，按进程身上的 `ZETA_HOST` 认）、别的包或终端里的进程挡着换号时的一句说明 |
-| `accounts.switch` | `name` | 换成存着的这个号 |
+| `accounts.list` | | `result` 是 `{current, accounts, procs, blocker, relays}`：在用的登录（未登录为 `null`，认不出是哪个号时 `name` 为空）、要列的账号（在用的在前，每项 `{name, email, organization, displayName, subscription, refreshExpiresAt, current, parked}`）、`~/.claude/sessions` 登记的还开着的 Claude Code（`{pid, owner, status, kind}`，`owner` 是托管它的 Zeta 包，按进程身上的 `ZETA_HOST` 认）、别的包或终端里的进程挡着换号时的一句说明、中转（见下，每项 `{name, baseUrl, model, hasKey, keyEditable, current}`，没有密钥的值；在用中转时 `current` 为 `null`、那一项的 `current` 为真） |
+| `accounts.switch` | `name` | 换成存着的这个号或这个中转 |
 | `accounts.save` | | 在用的登录还没记过（在终端里登录了新号）时给它起个空闲的名字记下，`result` 是 `{name}` |
 | `accounts.prepare_login` | | 登录另一个号之前：起好新号的名字，把在用的号存档并退出登录，`result` 是 `{name}`；之后的登录（`claude auth login`）由调用方自己跑，登录后的新号由 claude-switch 记成这个名字。手机版和桌面版都用 `accounts.login_start`，这个方法留给自己跑登录命令的调用方（Kotlin 的 `ClaudeCodeQuotaContractTest` 就这样用：真的 `claude auth login` 会打开浏览器） |
 | `accounts.remove` | `name` | 删掉一个不在用的号在这台主机上的存档与记录（服务端仍是登录状态） |
 | `accounts.login_start` | | 在这台主机上登录一个新号：先同 `accounts.prepare_login` 把在用的号存档并退出登录，再起 `claude auth login`（登录 shell 的环境），`result` 是 `{url, name}`：授权网址和登录后新号的名字（没登录过时 `name` 为空）。客户端打开网址、让用户把授权码贴回来。核心里同时只有一个登录，再开始时结束上一个；15 分钟没交成授权码就结束它 |
 | `accounts.login_code` | `code` | 把授权码交给在等的登录命令，最多等 1 分钟。成功时记下新号（同 `accounts.save`），`result` 是 `{name}`。出错时 `code` 为 `login_incomplete`：授权码不完整（少了 `#` 和后半段），登录还在等，改了再交；`no_login`：没有在等的登录（没开始、取消了、超时），要重新开始；不带 `code` 的（码没被接受、登录命令出错）登录已经结束，也要重新开始 |
 | `accounts.login_cancel` | | 结束正在进行的登录，没有时什么也不做。在用的号已经存档，换号能换回去 |
+| `accounts.relay_save` | `name`、`baseUrl`、`key`、`model`、`create` | 添加（`create` 为真；名字不能和已有的账号、中转重名，要填 `key`）或修改一个中转：`baseUrl` 要是 http(s)，`key` 修改时为空表示不改，`model` 为空是不设默认模型 |
+| `accounts.relay_remove` | `name` | 删掉一个不在用的中转（在用的拒绝）：设置文件和 Zeta 给它写的密钥文件（别的中转也读它时留着） |
+| `accounts.relay_models` | `name`、`baseUrl`、`key` | 用这组地址和密钥拉中转的模型列表（`GET <baseUrl>/v1/models`，`x-api-key` 和 `Authorization: Bearer` 两个头都带，同 Claude Code），`result` 是 `{models}`，每项 `{id, displayName}`；`key` 为空时用已保存的中转 `name` 的密钥文件。Anthropic（`data[].id`、`display_name`）和 OpenAI（`data[].id`）两种返回都认，响应最多 4 MB、20 秒超时、跨源的重定向不跟；出错说原因（鉴权失败、没有这个接口、别的状态码、超时、连不上、不是模型列表），不带密钥。结果不存 |
+
+中转是 claude-switch 的非账号目标（`~/.config/claude-switch/targets/<名字>.json`，一份 Claude Code 设置）：换过去时 claude-switch 把在用的号存档并退出登录，核心之后起 Claude Code（对话进程、tmux 窗口里的 `claude --resume`）都带上 `--settings <这份文件>`（`helper/hostlink.go` 的 `launchArgs`、`helper/accounts` 的 `Settings`，每次起进程时看切换记录），不带时 Claude Code 当成没登录。用户自己配了地址时不带，和终端里 dotfiles 给 `claude` 定义的函数一样：这台 `~/.claude/settings.json` 的 `env.ANTHROPIC_BASE_URL` 是不全是空白的字符串时核心不加；登录环境里有 `ANTHROPIC_BASE_URL` 时托管脚本 `zeta_host.sh` 去掉核心放在参数最前面的那一对，tmux 窗口里的命令也不带（`--settings` 的 `env` 和 `model` 盖过 settings.json 的同名项，2.1.330 实测）。这时仍算在用中转，没有订阅额度。Zeta 写的设置只有 `env.ANTHROPIC_BASE_URL`、`apiKeyHelper`（`cat ~/.local/state/claude-switch/<名字>-key`，密钥文件 0600）和选了默认模型时的 `model`；协议只有 Claude Code 会说的 Anthropic Messages，Zeta 不做协议翻译，OpenAI 协议的上游经能翻译的中转接入。Claude Code 用 apiKeyHelper 的密钥时 `x-api-key` 和 `Authorization: Bearer` 两个头都发（2.1.330 实测；`env` 里的 `ANTHROPIC_API_KEY` 只发前者，`ANTHROPIC_AUTH_TOKEN` 只发后者），所以只认其中一种头的中转也都能用，不用选鉴权方式。设置里的 `model` 盖过这台的 settings.json 里的默认模型，对话里选的（`--model`）又盖过它。用户自己放的目标照样列出、切换、改地址和默认模型，别的设置原样留着；它的 `apiKeyHelper` 是 `cat <家目录里的文件>` 时按那个文件改密钥，别的写法（或密钥写在 `env` 里）只读（`keyEditable` 为假）。密钥的值不回传、不进日志和出错。在用中转时没有订阅额度，见下面额度一段末尾。
 
 额度都是 Claude Code 给的。各账号最近一次的数存在 `~/.cache/zeta-quota/`（按 `~/.claude.json` 里的登录编号分开，同一台上各个包共用），换了号读到的就是新号的。这一组只读写小文件，快。数从三条路进来，存进同一份：
 
@@ -187,16 +192,18 @@ Zeta 的逻辑往 Go 写的核心里搬：核心是每台主机（手机的 Debi
 
 三条路进来的数（`QuotaStore.Event`、`QuotaStore.Usage`）也都交给 [agent-usage](https://github.com/dzshzx/agent-usage) 的 `reading` 包，在进程内记进那台主机上它的数据目录（`~/.local/share/agent-usage`，按 claude-switch 的切换记录分账号，每周读数有变化才追加一行）：agent-usage 统计各账号的用量和折算金额，靠这些读数估算每周额度，Claude Code 不把额度写进文件，别处拿不到。记不下只写日志，不影响这边的额度。
 
-要跟着变的客户端发 `quota.watch` 订阅（不带 `watch` 或为真；`watch` 为假时退订，断开连接也退订）：先推一行 `{"type":"quota.snapshot","snapshot":…}`（同 `quota.get` 的 `snapshot`），之后这个核心存了新的数（上面三条路）或换了号时，存着的额度（连同 `updatedAt`）和上次推的不一样就再推一行。别的包的核心、终端里的 claude-switch 改的推不到，只读一次的用 `quota.get`。
+要跟着变的客户端发 `quota.watch` 订阅（不带 `watch` 或为真；`watch` 为假时退订，断开连接也退订）：先推一行 `{"type":"quota.snapshot","snapshot":…,"relay":…}`（同 `quota.get` 的结果），之后这个核心存了新的数（上面三条路）或换了号时，存着的额度（连同 `updatedAt`）和上次推的不一样就再推一行。别的包的核心、终端里的 claude-switch 改的推不到，只读一次的用 `quota.get`。
 
 | 方法 | 参数 | 做什么 |
 |---|---|---|
-| `quota.get` | | `result` 是 `{snapshot}`：在用的账号最近一次的额度，没有时为 `null` |
+| `quota.get` | | `result` 是 `{snapshot, relay}`：在用的账号最近一次的额度，没有时为 `null`；`relay` 见下 |
 | `quota.watch` | `watch` | 订阅（省掉或为真）、退订（为假）额度的推送 `quota.snapshot`，见上 |
 | `quota.usage` | `response`（get_usage 的应答，control_response 的 `response.response`） | 读成额度并存起来，`result` 是 `{snapshot, fresh}`；Claude Code 这次没取到服务器的数而已有窗口时留着已有的，`fresh` 为假 |
 | `quota.event` | `info`（rate_limit_event 的 `rate_limit_info`） | 并进存着的额度，`result` 是 `{snapshot, changed}`；核心接着的对话里的事件核心已经存了，不用再交 |
 
 `snapshot` 照 `helper/accounts/quota.go` 的 `Snapshot`：`windows`（每项 `{kind, group, scope, used, resetsAt, severity, active, label}`，`used` 是 0～1 的比例，`severity` 是 `normal`、`warning`、`critical`，`label` 是界面上的名字）、`extra`（额外用量）、`subscription`、`unavailable`（这种登录没有订阅额度）、`blocked`、`blockedUntil`、`updatedAt`。过了重置时刻的窗口怎么显示由客户端按自己的时钟算。
+
+在用中转（切换记录指着非账号目标，`accounts.CurrentRelay`）时没有订阅额度：核心不问也不存（起进程时不顺便问 get_usage，对话里的 rate_limit_event 不存，`conv.quota` 答出错、`code` 为 `errNoSubscription`，即 `sessionproto.CodeNoSubscription`，Go 客户端用 `coreapi.CodeNoSubscription`），`quota.get`、`quota.usage`、`quota.event` 的结果和 `quota.snapshot` 推送里 `snapshot` 为 `null`、`relay` 是那个中转的名字（在用账号时 `relay` 为空串），不推上一个号的旧数。客户端只看 `relay` 决定显不显示订阅额度（账号页、聊天页的用量、侧栏、胶囊、通知），不在各个界面自己猜；换回账号后推来的又是那个号存着的额度。
 
 ## 存储与文件
 

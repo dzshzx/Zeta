@@ -1,6 +1,7 @@
 package main
 
 import (
+	"github.com/dzshzx/Zeta/helper/accounts"
 	"github.com/dzshzx/Zeta/helper/conv"
 	"github.com/dzshzx/Zeta/helper/host"
 )
@@ -11,15 +12,26 @@ type hostLink struct{ *host.Link }
 
 func (l hostLink) Stop() { l.Link.Stop() }
 
-func startHost(*env) func(conv.StartOptions, conv.Events) (conv.Link, error) {
+func startHost(e *env) func(conv.StartOptions, conv.Events) (conv.Link, error) {
 	return func(o conv.StartOptions, ev conv.Events) (conv.Link, error) {
-		l, err := host.Start(host.StartOptions{Key: o.Key, Cwd: o.Cwd, Title: o.Title, Args: o.Args, Env: o.Env, OnJoin: o.OnJoin})
+		l, err := host.Start(host.StartOptions{Key: o.Key, Cwd: o.Cwd, Title: o.Title, Args: launchArgs(e.home, o.Args), Env: o.Env,
+			OnJoin: o.OnJoin})
 		if err != nil {
 			return nil, err
 		}
 		go pump(l, ev)
 		return hostLink{l}, nil
 	}
+}
+
+// launchArgs 是交给 claude 的参数：切换记录指着中转（claude-switch 的非账号目标）时前面加上 --settings <那份设置>，
+// Claude Code 才照它的 env.ANTHROPIC_BASE_URL 和 apiKeyHelper 连中转；不带时它当成没登录（2.1.330 实测：
+// 「Not logged in · Please run /login」）。每次起进程时读，换过中转、换回账号后新起的进程跟着变。
+func launchArgs(home string, args []string) []string {
+	if s := accounts.Settings(home); s != "" {
+		return append([]string{"--settings", s}, args...)
+	}
+	return args
 }
 
 func attachHost(*env) func(string, int, conv.Events) (conv.Link, error) {

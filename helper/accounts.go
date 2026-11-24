@@ -22,7 +22,7 @@ const accountsTimeout = 2 * time.Minute
 
 // accountsParams 是请求里和 id、method 平级的参数；整行交来也行，多的键不管。
 type accountsParams struct {
-	// Name 是 accounts.switch、accounts.remove 的账号名。
+	// Name 是 accounts.switch、accounts.remove 的账号名，accounts.switch、accounts.relay_save、accounts.relay_remove 的中转名。
 	Name string `json:"name"`
 	// Program 是 claude-switch 相对家目录的路径（客户端带的版本，同 HelperProgram.relativePath）；不给时在 ~/.cache/<包>/bin 下找。
 	Program string `json:"program"`
@@ -31,6 +31,12 @@ type accountsParams struct {
 	Info     json.RawMessage `json:"info"`
 	// Code 是 accounts.login_code 交的授权码。
 	Code string `json:"code"`
+	// BaseURL、Key、Create 是 accounts.relay_save 的中转地址、密钥（修改时空串表示不改）和是不是添加（Name 是中转名）。
+	BaseURL string `json:"baseUrl"`
+	Key     string `json:"key"`
+	Create  bool   `json:"create"`
+	// Model 是 accounts.relay_save 的默认模型。
+	Model string `json:"model"`
 }
 
 // codedError 是带代号的出错：核心回 ok:false 时把代号放进 reply 的 code，客户端按它认出要做什么（比如先装 claude-switch）。
@@ -90,6 +96,17 @@ func handleAccounts(ctx context.Context, e *env, method, lang string, params jso
 	case "accounts.remove":
 		err = h.Remove(ctx, p.Name)
 		result = struct{}{}
+	case "accounts.relay_save":
+		err = h.SaveRelay(ctx, accounts.RelayInput{Name: p.Name, BaseURL: p.BaseURL, Key: p.Key, Model: p.Model,
+			Create: p.Create})
+		result = struct{}{}
+	case "accounts.relay_remove":
+		err = h.RemoveRelay(ctx, p.Name)
+		result = struct{}{}
+	case "accounts.relay_models":
+		var models []accounts.RelayModel
+		models, err = h.RelayModels(ctx, accounts.ModelsQuery{Name: p.Name, BaseURL: p.BaseURL, Key: p.Key})
+		result = map[string]any{"models": models}
 	default:
 		return nil, errors.New("unknown method: " + method)
 	}
@@ -113,13 +130,25 @@ func accountsError(err error) error {
 	return err
 }
 
+// handleQuota 处理 quota.get、quota.usage、quota.event。在用中转（非账号目标）时没有订阅额度：不读、不存，snapshot 为 null，
+// relay 是那个中转的名字（客户端据它说「正在用中转」，不显示额度）；在用账号时 relay 为空。
 func handleQuota(e *env, method string, p accountsParams) (any, error) {
 	store := accounts.QuotaStore{Home: e.home}
 	now := time.Now()
+	if relay := accounts.CurrentRelay(e.home); relay != "" {
+		switch method {
+		case "quota.get":
+			return map[string]any{"snapshot": nil, "relay": relay}, nil
+		case "quota.usage":
+			return map[string]any{"snapshot": nil, "fresh": false, "relay": relay}, nil
+		case "quota.event":
+			return map[string]any{"snapshot": nil, "changed": false, "relay": relay}, nil
+		}
+	}
 	switch method {
 	case "quota.get":
 		snap, err := store.Get()
-		return map[string]any{"snapshot": snap}, err
+		return map[string]any{"snapshot": snap, "relay": ""}, err
 	case "quota.usage":
 		snap, fresh, err := store.Usage(p.Response, now)
 		if err != nil {
@@ -142,6 +171,7 @@ const autoQuotaEvery = 5 * time.Minute
 // quotaSink 是对话交来的额度的去处（conv.Deps.Quota）：输出里的 rate_limit_event、起进程时顺便问的 get_usage，
 // 和客户端经 quota.event、quota.usage 交来的一样存进额度存储，quota.get 读到的就是它们。
 type quotaSink struct {
+	home    string
 	store   accounts.QuotaStore
 	now     func() time.Time
 	changed func() // 存了以后调（推给订阅的客户端，见 quotaWatch）；可以是 nil
@@ -151,7 +181,7 @@ type quotaSink struct {
 }
 
 func newQuotaSink(e *env, changed func()) *quotaSink {
-	return &quotaSink{store: accounts.QuotaStore{Home: e.home}, now: time.Now, changed: changed}
+	return &quotaSink{home: e.home, store: accounts.QuotaStore{Home: e.home}, now: time.Now, changed: changed}
 }
 
 func (q *quotaSink) stored() {
@@ -160,7 +190,13 @@ func (q *quotaSink) stored() {
 	}
 }
 
+// Subscribed 是这台主机在用订阅账号（不是中转）：只有这时才问、才存额度。
+func (q *quotaSink) Subscribed() bool { return accounts.CurrentRelay(q.home) == "" }
+
 func (q *quotaSink) RateLimit(info json.RawMessage) {
+	if !q.Subscribed() {
+		return
+	}
 	if _, changed, err := q.store.Event(info, q.now()); err != nil {
 		log.Print("存额度（rate_limit_event）：", err)
 	} else if changed {
@@ -169,6 +205,9 @@ func (q *quotaSink) RateLimit(info json.RawMessage) {
 }
 
 func (q *quotaSink) ClaimQuery() bool {
+	if !q.Subscribed() {
+		return false
+	}
 	q.mu.Lock()
 	defer q.mu.Unlock()
 	now := q.now()
@@ -180,6 +219,9 @@ func (q *quotaSink) ClaimQuery() bool {
 }
 
 func (q *quotaSink) Usage(response json.RawMessage) {
+	if !q.Subscribed() {
+		return
+	}
 	if _, _, err := q.store.Usage(response, q.now()); err != nil {
 		log.Print("存额度（get_usage）：", err)
 	} else {

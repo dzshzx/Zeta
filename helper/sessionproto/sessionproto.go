@@ -19,6 +19,8 @@ const (
 	CodeActive = "active"
 	// CodeHistoryChanged：conv.earlier 没读成，会话记录在别处改过；重试没用，要重新打开对话
 	CodeHistoryChanged = "history_changed"
+	// CodeNoSubscription：conv.quota 时这台主机在用中转（claude-switch 的非账号目标），没有订阅额度可问；客户端不显示额度、不再自己起进程问
+	CodeNoSubscription = "errNoSubscription"
 )
 
 // TitleMax 是会话标题最多几个字（按字符数）。

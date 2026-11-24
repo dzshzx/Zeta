@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/dzshzx/Zeta/helper/locales"
+	"github.com/dzshzx/Zeta/helper/sessionproto"
 )
 
 // 账号与额度：accounts.* 和 quota.*（docs/core.md「账号与额度」，核心里的实现在 helper/accounts.go 与 helper/accounts）。
@@ -17,6 +18,9 @@ import (
 
 // CodeClaudeSwitchMissing 是 accounts.* 出错时的 code：主机上还没装 claude-switch。别的 code 见 docs/core.md。
 const CodeClaudeSwitchMissing = "claude_switch_missing"
+
+// CodeNoSubscription 是 conv.quota（Conversation.Quota）出错时的 code：这台主机在用中转，没有订阅额度可问。
+const CodeNoSubscription = sessionproto.CodeNoSubscription
 
 // accountsParams 是一个 accounts.* 请求的参数：p 加上 program。
 func accountsParams(program string, p params) params {
@@ -91,17 +95,29 @@ type AccountList struct {
 	Procs []ClaudeProcess `json:"procs"`
 	// Blocker 说明别的包或终端里的 Claude Code 挡着换号，没有时为空。
 	Blocker string `json:"blocker,omitempty"`
+	// Relays 是中转（claude-switch 的非账号目标），按名字排；在用中转时 Current 为 nil，那一项的 Current 为真。
+	Relays []Relay `json:"relays"`
 }
 
 // IsCurrent 报告 a 是不是在用的那个。
 func (l AccountList) IsCurrent(a Account) bool { return l.Current != nil && a.Name == l.Current.Name }
+
+// CurrentRelay 是在用的中转；在用账号（或未登录）时为 nil。
+func (l AccountList) CurrentRelay() *Relay {
+	for i := range l.Relays {
+		if l.Relays[i].Current {
+			return &l.Relays[i]
+		}
+	}
+	return nil
+}
 
 // ListAccounts 列这台主机上的账号、开着的 Claude Code 和挡着换号的原因（accounts.list）。
 func (cl *Client) ListAccounts(ctx context.Context, program string) (AccountList, error) {
 	return get[AccountList](ctx, cl.c, "accounts.list", accountsParams(program, nil))
 }
 
-// SwitchAccount 换成存着的 name（accounts.switch）。
+// SwitchAccount 换成存着的账号或中转 name（accounts.switch）。
 func (cl *Client) SwitchAccount(ctx context.Context, program, name string) error {
 	return call(ctx, cl.c, "accounts.switch", accountsParams(program, params{"name": name}))
 }
@@ -115,6 +131,55 @@ func (cl *Client) SaveAccount(ctx context.Context, program string) (string, erro
 // RemoveAccount 删掉不在用的 name 在这台主机上的存档与记录（accounts.remove）；服务端仍是登录状态。
 func (cl *Client) RemoveAccount(ctx context.Context, program, name string) error {
 	return call(ctx, cl.c, "accounts.remove", accountsParams(program, params{"name": name}))
+}
+
+// ---- 中转 ----
+//
+// 中转是 claude-switch 的非账号目标：一份 Claude Code 设置（地址、读密钥的 apiKeyHelper、默认模型），换过去同换号，用
+// SwitchAccount。协议只有 Anthropic Messages，不用选鉴权方式：Claude Code 用密钥文件时 x-api-key 和 Authorization: Bearer 两个头都发，
+// 核心拉模型列表时也两个都带。
+
+// Relay 是一个中转（同 helper/accounts 的 Relay），没有密钥的值。
+type Relay struct {
+	Name    string `json:"name"`
+	BaseURL string `json:"baseUrl"`
+	// Model 是这个中转上新对话的默认模型，没设时为空。
+	Model string `json:"model"`
+	// HasKey 是配了密钥；KeyEditable 是 Zeta 能改它的密钥（用户自己放的、密钥不是从家目录里的文件读的中转只读）。
+	HasKey      bool `json:"hasKey"`
+	KeyEditable bool `json:"keyEditable"`
+	Current     bool `json:"current"`
+}
+
+// RelayInput 是添加、修改中转的参数。Key 在修改时为空表示不改；Model 为空是不设默认模型。
+type RelayInput struct {
+	Name, BaseURL, Key, Model string
+	Create                    bool
+}
+
+// SaveRelay 添加（in.Create）或修改一个中转（accounts.relay_save）。
+func (cl *Client) SaveRelay(ctx context.Context, program string, in RelayInput) error {
+	return call(ctx, cl.c, "accounts.relay_save", accountsParams(program, params{"name": in.Name, "baseUrl": in.BaseURL,
+		"key": in.Key, "model": in.Model, "create": in.Create}))
+}
+
+// RemoveRelay 删掉一个不在用的中转（accounts.relay_remove）。
+func (cl *Client) RemoveRelay(ctx context.Context, program, name string) error {
+	return call(ctx, cl.c, "accounts.relay_remove", accountsParams(program, params{"name": name}))
+}
+
+// RelayModel 是中转报的一个模型。
+type RelayModel struct {
+	ID          string `json:"id"`
+	DisplayName string `json:"displayName,omitempty"`
+}
+
+// RelayModels 用地址、密钥拉中转的模型列表（accounts.relay_models）；key 为空时用已保存的中转 name 的密钥。
+func (cl *Client) RelayModels(ctx context.Context, program, name, baseURL, key string) ([]RelayModel, error) {
+	r, err := get[struct {
+		Models []RelayModel `json:"models"`
+	}](ctx, cl.c, "accounts.relay_models", accountsParams(program, params{"name": name, "baseUrl": baseURL, "key": key}))
+	return r.Models, err
 }
 
 // accountName 是 accounts.save、accounts.prepare_login 的结果。
@@ -270,12 +335,20 @@ func (s QuotaSnapshot) Headline() (w QuotaWindow, ok bool) {
 	}), true
 }
 
-// Quota 读在用账号存着的额度（quota.get）；还没有时为 nil。
-func (cl *Client) Quota(ctx context.Context) (*QuotaSnapshot, error) {
-	r, err := get[struct {
-		Snapshot *QuotaSnapshot `json:"snapshot"`
-	}](ctx, cl.c, "quota.get", nil)
-	return r.Snapshot, err
+// QuotaState 是 quota.get 的结果，也是推送 quota.snapshot 的样子：在用账号存着的额度（还没有时 Snapshot 为 nil）。Relay 不空时
+// 这台设备在用中转（claude-switch 的非账号目标），没有订阅额度，Snapshot 一定为 nil：客户端据 Subscribed 决定显不显示额度，
+// 不在各个界面自己猜。
+type QuotaState struct {
+	Snapshot *QuotaSnapshot `json:"snapshot"`
+	Relay    string         `json:"relay"`
+}
+
+// Subscribed 是在用订阅账号（不是中转）：只有这时才有订阅额度可显示。
+func (s QuotaState) Subscribed() bool { return s.Relay == "" }
+
+// Quota 读在用账号存着的额度（quota.get）。
+func (cl *Client) Quota(ctx context.Context) (QuotaState, error) {
+	return get[QuotaState](ctx, cl.c, "quota.get", nil)
 }
 
 // WatchQuota 订阅（on 为真）或退订额度的推送 quota.snapshot（quota.watch）；推送由客户端自己解。
@@ -288,6 +361,8 @@ type QuotaUsage struct {
 	Snapshot *QuotaSnapshot `json:"snapshot"`
 	// Fresh 为假：Claude Code 这次没取到服务器的数，留着的是已有的窗口。
 	Fresh bool `json:"fresh"`
+	// Relay 不空时在用中转：没读没存，Snapshot 为 nil。
+	Relay string `json:"relay"`
 }
 
 // SubmitQuotaUsage 把 get_usage 的应答（control_response 的 response.response）交给核心读成额度并存起来（quota.usage）。
@@ -300,6 +375,8 @@ type QuotaEvent struct {
 	Snapshot *QuotaSnapshot `json:"snapshot"`
 	// Changed：存着的额度因这次事件变了。
 	Changed bool `json:"changed"`
+	// Relay 不空时在用中转：没并没存，Snapshot 为 nil。
+	Relay string `json:"relay"`
 }
 
 // SubmitQuotaEvent 把对话里 rate_limit_event 的 rate_limit_info 并进存着的额度（quota.event）。核心接着的对话里的事件核心已经存了，不用再交。

@@ -489,3 +489,41 @@ func TestChangesEndIdleHostedFirst(t *testing.T) {
 		t.Fatalf("换号：%v，叫了 %d 次", err, calls-before)
 	}
 }
+
+// 本包闲着的进程被 EndIdle 叫停后，Claude Code 先删 ~/.claude/sessions 里的登记，进程还要再活约半秒（2.1.330 实测：
+// end_session 后约 25 毫秒删登记，约 540 毫秒才退出）；claude-switch 按 /proc 认进程，所以要等进程真退出再交给它。
+// 换账号和从中转换回账号都一样。
+func TestSwitchWaitsForOwnProcessAfterRegistrationGone(t *testing.T) {
+	h := newHost(t)
+	host := h.host()
+	host.Wait = time.Minute
+	twoAccounts(t, h, host)
+	if err := host.SaveRelay(ctx(t), RelayInput{Name: "gw", BaseURL: "https://relay.example.com", Key: testKey, Create: true}); err != nil {
+		t.Fatal(err)
+	}
+	for i, target := range []string{"gw", "claude", "claude-b"} {
+		mine := h.spawn("claude", fmt.Sprintf("ZETA_HOST=zeta/host-%d", i))
+		h.register(mine, "idle")
+		var killed atomic.Bool
+		host.EndIdle = func() {
+			// 同真 Claude Code 收到 end_session：登记马上没了，进程过一会儿才退出
+			if err := os.Remove(filepath.Join(h.home, fmt.Sprintf(".claude/sessions/%d.json", mine))); err != nil {
+				t.Error(err)
+			}
+			go func() {
+				time.Sleep(300 * time.Millisecond)
+				killed.Store(true)
+				if p, err := os.FindProcess(mine); err == nil {
+					_ = p.Kill()
+					_, _ = p.Wait()
+				}
+			}()
+		}
+		if err := host.Switch(ctx(t), target); err != nil {
+			t.Fatalf("换到 %s：%v", target, err)
+		}
+		if !killed.Load() {
+			t.Fatalf("换到 %s 时本包的进程还没退出就去换了", target)
+		}
+	}
+}
