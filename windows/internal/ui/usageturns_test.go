@@ -4,6 +4,9 @@ import (
 	"fmt"
 	"strings"
 	"testing"
+
+	"github.com/dzshzx/Zeta/windows/internal/locales"
+	"github.com/dzshzx/Zeta/windows/internal/ui/widget"
 )
 
 // 用量弹出框里有各轮明细（同手机版）：新的在上，一行「第 N 轮 · 用时」和费用（估的带 ≈，算不出是 —），下面一行四类 token；
@@ -59,5 +62,24 @@ func TestUsageTurnsKeepsLatest(t *testing.T) {
 	}
 	if f.shows("第 5 轮") {
 		t.Errorf("第 5 轮不在最近 50 轮里")
+	}
+}
+
+// 用量弹出框的数字右对齐，滚动区右边留出滚动条的宽：鼠标移进去、滚动条出来时不挡字。
+func TestUsagePopoverLeavesRoomForScrollbar(t *testing.T) {
+	f := newChatFixture(t)
+	f.newChat(t)
+	f.push(`"usage":{"context_tokens":42000,"context_window":100000,"fraction":0.42,"level":"normal","total":{}}`)
+	f.click(t, "上下文 42%")
+	box, ok := f.tt.Access(locales.ComposerUsage())
+	if !ok {
+		t.Fatalf("没有用量的滚动区：%q", f.tt.Texts())
+	}
+	value, ok := f.tt.Find("42K / 100K · 42.0%")
+	if !ok {
+		t.Fatalf("没有上下文那一行：%q", f.tt.Texts())
+	}
+	if right, limit := value.X+value.W, box.Bounds.X+box.Bounds.W-widget.ScrollbarTrack; right > limit+0.5 {
+		t.Errorf("数字右边到 %v，滚动条从 %v 起：会被挡住", right, limit)
 	}
 }

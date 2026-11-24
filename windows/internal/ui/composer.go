@@ -408,7 +408,7 @@ func effortLevel(v string) int {
 }
 
 // usageButton 是用量：按钮上是上下文用了多少，点开是这台的订阅额度（同手机版的用量弹框，打开时数不够新就问一次）、
-// 上下文、本对话累计、各轮明细（usageTurns）和压缩上下文；弹出框限高，内容多了在里面滚动。
+// 上下文、本对话累计、各轮明细（usageTurns）和压缩上下文；弹出框限高，内容多了在里面滚动，右边给滚动条留出位置。
 func (a *App) usageButton(c *ui.Context, p *chatPane) {
 	u := p.state.Usage
 	label := locales.ComposerContext()
@@ -426,7 +426,7 @@ func (a *App) usageButton(c *ui.Context, p *chatPane) {
 	ui.Popover(c.Key("usage-panel"), button, &p.usage, func() {
 		_, winH := c.Size()
 		ui.Column(c).Width(320).Padding(4).Gap(10).Children(func() {
-			ui.Scroll(c.Key("usage-body")).FillWidth().MaxHeight(usagePanelHeight(winH)).Label(locales.ComposerUsage()).Children(func() {
+			ui.Scroll(c.Key("usage-body")).FillWidth().MaxHeight(usagePanelHeight(winH)).Padding(0, widget.ScrollbarTrack, 0, 0).Label(locales.ComposerUsage()).Children(func() {
 				ui.Column(c).FillWidth().Gap(10).Children(func() { a.usageDetails(c, p) })
 			})
 			widget.SmallButton(c, locales.ComposerCompact()).Disabled(!p.connected || p.state.Busy).OnClick(func() {

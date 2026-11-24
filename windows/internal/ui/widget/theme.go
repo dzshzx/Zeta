@@ -44,7 +44,12 @@ func Theme(darkMode bool) *ui.Theme {
 	t.Selection = k.PrimaryText.Alpha(0.25)
 	t.Focus = k.Primary.Alpha(0.55)
 	t.Scrollbar = k.Tertiary
+	t.ScrollbarStyle.TrackWidth = ScrollbarTrack
 	t.Radius = 10
 	t.FontSize = SizeBodyM
 	return t
 }
+
+// ScrollbarTrack 是滚动条占的宽（mygo 默认的滑块 6、两边各留 3）。滚动条悬浮在滚动区最右边、盖在内容上面，
+// 内容贴着右边缘的滚动区（比如右对齐的数字）右边要留出这么宽，鼠标移进去时才不被挡住。
+const ScrollbarTrack = 12
