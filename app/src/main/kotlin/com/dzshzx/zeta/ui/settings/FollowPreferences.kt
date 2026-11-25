@@ -81,7 +81,7 @@ internal fun ModelPreference(
     onChange: (String?) -> Unit,
 ) {
     val usable = hub.usable(backend)
-    LaunchedEffect(hub, backend, usable) { if (usable) hub.refreshClaudeDefaults(backend) }
+    LaunchedEffect(hub, backend, usable) { if (usable) hub.ensureModelSource(backend) }
     val choices = modelChoices(hub.modelOptions(backend))
     FollowDropdownPreference(
         Strings.settingsFollowModel(),

@@ -428,7 +428,8 @@ class ConversationHub(val platform: HubPlatform) {
 
     fun modelSourceChanging(backend: String): Boolean = modelStates[backend]?.changing == true
 
-    internal fun ensureModelSource(backend: String) {
+    /** 还没读过设备 [backend] 的模型来源时读一次；读过就沿用，来源变没变由聊天页进入时的 [refreshClaudeDefaults] 核对。 */
+    fun ensureModelSource(backend: String) {
         if (modelStates[backend]?.source == null) refreshModelOptions(backend)
     }
 
