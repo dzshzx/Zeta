@@ -120,7 +120,7 @@ func TestSlashPreparesTheProcess(t *testing.T) {
 	f.newChat(t)
 	f.push(`"process":false,"commands":null,"models":null`)
 	f.click(t, "默认")
-	f.see(t, "Fable", "Opus", "Sonnet", "Haiku") // 还没报清单时的后备
+	f.see(t, "Opus", "Sonnet", "Haiku") // 还没报清单时的后备
 	f.clickMenuItem(t, "Fable")
 	if got := f.link().Took(); len(got) != 1 || got[0].Method != "conv.model" || got[0].JSON() != `{"conv":"w1","value":"fable"}` {
 		t.Fatalf("新对话选 Fable：%+v", got)

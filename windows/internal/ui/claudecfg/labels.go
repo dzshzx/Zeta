@@ -19,9 +19,9 @@ import (
 
 // fallbackModels 是还没拿到 Claude Code 的模型清单时，默认模型下拉里的几个别名。
 var fallbackModels = func() []Model {
-	var models []Model
-	for _, m := range chat.FallbackModels {
-		models = append(models, Model{Value: m.Value, Label: m.DisplayName})
+	models := make([]Model, len(chat.FallbackModels))
+	for i, m := range chat.FallbackModels {
+		models[i] = Model{Value: m.Value, Label: m.DisplayName}
 	}
 	return models
 }()
