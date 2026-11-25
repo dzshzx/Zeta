@@ -23,8 +23,8 @@ func TestCoreAPIThroughServe(t *testing.T) {
 	if err != nil || d.EffortOf("claude-opus-5-5") != "max" {
 		t.Fatalf("effort %+v %v", d, err)
 	}
-	if _, err := cl.SetDefaultPermissionMode(ctx, "bypassPermissions"); err == nil || !strings.Contains(err.Error(), "完全放行") {
-		t.Errorf("bypass: %v", err)
+	if d, err := cl.SetDefaultPermissionMode(ctx, "bypassPermissions"); err != nil || d.PermissionMode != "bypassPermissions" {
+		t.Errorf("bypass: %+v %v", d, err)
 	}
 
 	m, err := cl.Memory(ctx, "", "")

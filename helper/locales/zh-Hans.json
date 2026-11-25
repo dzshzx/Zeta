@@ -362,8 +362,6 @@
   "@cfgPermissionsInvalid": { "description": "工具权限页出错：settings.json 的 permissions 不对。" },
   "cfgRuleChanged": "这条规则已经被改过了（可能是 Claude 或终端里改的），已重新读取",
   "@cfgRuleChanged": { "description": "工具权限页出错：规则在别处被改过。" },
-  "cfgBypassNotDefault": "完全放行不能设成默认，只能在对话里临时切换",
-  "@cfgBypassNotDefault": { "description": "新对话默认出错：完全放行不能设为默认。" },
   "cfgModelSettingsInvalid": "settings.json 里的 modelSettings 不是对象，先在终端里修好它",
   "@cfgModelSettingsInvalid": { "description": "新对话默认出错：modelSettings 不对。" },
   "cfgMcpOAuth": "这个服务器用 OAuth 登录，Zeta 取不到它的工具",

@@ -158,8 +158,8 @@ func TestDefaults(t *testing.T) {
 	if d, err = c.SetDefaultPermissionMode("acceptEdits"); err != nil || d.PermissionMode != "acceptEdits" {
 		t.Errorf("mode %+v", d)
 	}
-	if _, err = c.SetDefaultPermissionMode("bypassPermissions"); err == nil {
-		t.Error("bypass accepted")
+	if d, err = c.SetDefaultPermissionMode("bypassPermissions"); err != nil || d.PermissionMode != "bypassPermissions" {
+		t.Errorf("mode %+v: %v", d, err)
 	}
 	if d, err = c.SetDefaultModel(""); err != nil || d.Model != "" || strings.Contains(read(t, path), `"model"`) {
 		t.Errorf("model removed %+v", d)

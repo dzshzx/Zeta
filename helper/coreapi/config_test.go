@@ -201,8 +201,8 @@ func TestConfigErrors(t *testing.T) {
 	if _, err := New(&fakeCaller{reply: `null`}).Defaults(ctx); !errors.Is(err, ErrNoResult) {
 		t.Errorf("null: %v", err)
 	}
-	failing := &fakeCaller{err: errors.New("完全放行不能设成默认")}
-	if _, err := New(failing).SetDefaultPermissionMode(ctx, "bypassPermissions"); err == nil || err.Error() != "完全放行不能设成默认" {
+	failing := &fakeCaller{err: errors.New("写设置失败")}
+	if _, err := New(failing).SetDefaultPermissionMode(ctx, "bypassPermissions"); err == nil || err.Error() != "写设置失败" {
 		t.Errorf("出错没有原样交回：%v", err)
 	}
 	big := &fakeCaller{}

@@ -115,14 +115,14 @@ internal fun CompactWindowPreference(hub: ConversationHub, backend: String) {
     }
 }
 
-/** 「默认权限模式」：settings.json 的 permissions.defaultMode。完全放行不能设成默认（Claude Code 也不肯存），不列出来。 */
+/** 「默认权限模式」：settings.json 的 permissions.defaultMode。 */
 @Composable
 internal fun DefaultPermissionModePreference(hub: ConversationHub, backend: String) {
     val write = rememberDefaultsWriter(hub, backend)
     val defaults = hub.claudeDefaults(backend)
     FollowDropdownPreference(
         title = Strings.settingsDefaultsMode(),
-        choices = PermissionModes.filter { it.first != "bypassPermissions" },
+        choices = PermissionModes,
         value = hub.defaultPermissionMode(backend),
         unknown = ::permissionModeLabel,
         followLabel = null,

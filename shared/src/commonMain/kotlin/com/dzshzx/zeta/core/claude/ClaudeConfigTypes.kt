@@ -14,7 +14,7 @@ import com.dzshzx.zeta.i18n.Strings
 data class ClaudeDefaults(
     /** model；null 是没设，用 Claude Code 内置的默认模型。 */
     val model: String?,
-    /** permissions.defaultMode；null 是没设（逐项确认）。完全放行 Claude Code 不肯存成默认。 */
+    /** permissions.defaultMode；null 是没设（逐项确认）。 */
     val permissionMode: String?,
     /** 按模型存的思考强度（modelSettings.<模型>.effortLevel），按文件里的顺序；/effort 存为默认时写这里。 */
     val efforts: Map<String, String>,

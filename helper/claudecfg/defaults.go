@@ -29,8 +29,6 @@ type ModelEffort struct {
 // MinCompactWindow 是 Claude Code 肯认的最小上下文窗口（2.1.330 的设置校验），更小的值它当没设。
 const MinCompactWindow = 100_000
 
-const bypassPermissions = "bypassPermissions"
-
 func defaultsOf(s *object) Defaults {
 	d := Defaults{Model: nonBlank(s, "model"), Effort: nonBlank(s, "effortLevel"), Efforts: []ModelEffort{}}
 	d.PermissionMode = nonBlank(s.obj("permissions"), "defaultMode")
@@ -99,11 +97,7 @@ func (st *Store) SetCompactWindow(tokens int64) (Defaults, error) {
 }
 
 // SetDefaultPermissionMode 设默认权限模式（permissions.defaultMode），permissions 里别的键原样留着。
-// 完全放行不能设成默认：Claude Code 自己也不肯存（只用于当前会话）。
 func (st *Store) SetDefaultPermissionMode(mode string) (Defaults, error) {
-	if mode == bypassPermissions {
-		return Defaults{}, locales.Err("cfgBypassNotDefault")
-	}
 	return st.editDefaults(func(s *object) error {
 		p, err := childObject(s, "permissions", errInvalidPermissions)
 		if err != nil {

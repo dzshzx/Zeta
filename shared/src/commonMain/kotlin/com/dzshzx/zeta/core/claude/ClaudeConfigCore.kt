@@ -81,7 +81,7 @@ class ClaudeConfigCore(
     fun setCompactWindow(tokens: Long?): ClaudeDefaults =
         parseDefaults(result("config.defaults.setCompactWindow") { put("value", tokens ?: 0L) })
 
-    /** 完全放行不能设成默认：Claude Code 自己也不肯存（只用于当前会话），核心会拒绝。 */
+    /** 设置这台设备上新对话的默认权限模式。 */
     fun setDefaultPermissionMode(mode: String): ClaudeDefaults =
         parseDefaults(result("config.defaults.setPermissionMode") { put("value", mode) })
 

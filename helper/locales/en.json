@@ -181,7 +181,6 @@
   "cfgWriteFailedSpace": "Couldn't write. The storage may be full.",
   "cfgPermissionsInvalid": "permissions in settings.json isn't an object. Fix it in a terminal first.",
   "cfgRuleChanged": "This rule was changed elsewhere (perhaps by Claude or in a terminal) and has been reloaded",
-  "cfgBypassNotDefault": "Bypass permissions can't be the default. Switch to it in a conversation instead.",
   "cfgModelSettingsInvalid": "modelSettings in settings.json isn't an object. Fix it in a terminal first.",
   "cfgMcpOAuth": "This server signs in with OAuth, so Zeta can't get its tools",
   "cfgMcpNoURL": "The configuration has no URL",

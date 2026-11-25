@@ -116,8 +116,8 @@ func TestDefaultsAndDeviceSettings(t *testing.T) {
 	f.page.Load()
 	f.see("新对话默认", "默认权限模式", "Claude Code 配置", "自动压缩上下文")
 
-	f.pick("默认权限模式", "计划模式")
-	if got := f.serve.Read(".claude/settings.json"); !strings.Contains(got, `"defaultMode": "plan"`) || !strings.Contains(got, `"model": "sonnet"`) {
+	f.pick("默认权限模式", "完全放行")
+	if got := f.serve.Read(".claude/settings.json"); !strings.Contains(got, `"defaultMode": "bypassPermissions"`) || !strings.Contains(got, `"model": "sonnet"`) {
 		t.Errorf("settings.json：%s", got)
 	}
 	f.pick("上下文窗口", "400K")

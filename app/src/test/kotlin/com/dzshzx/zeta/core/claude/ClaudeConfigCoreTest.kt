@@ -68,12 +68,11 @@ class ClaudeConfigCoreTest {
         val cleared = client.setCompactWindow(null)
         assertEquals(ClaudeDefaults(null, "acceptEdits", emptyMap(), "low", null), cleared)
 
-        // 核心拒绝的给人看的原因原样交给界面
-        val bypass =
-            assertThrows(ServeError::class.java) {
-                client.setDefaultPermissionMode("bypassPermissions")
-            }
-        assertEquals("完全放行不能设成默认，只能在对话里临时切换", bypass.message)
+        val bypass = client.setDefaultPermissionMode("bypassPermissions")
+        assertEquals("bypassPermissions", bypass.permissionMode)
+        assertEquals(bypass, client.defaults())
+
+        // 核心拒绝的原因原样交给界面
         val small = assertThrows(ServeError::class.java) { client.setCompactWindow(50_000) }
         assertTrue(small.message!!, small.message!!.startsWith("上下文窗口最小是"))
     }

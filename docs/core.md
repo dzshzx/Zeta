@@ -137,7 +137,7 @@ Zeta 的逻辑往 Go 写的核心里搬：核心是每台主机（手机的 Debi
 |---|---|---|
 | `config.defaults.read` | | 新对话默认 `{model, permissionMode, efforts: [{model, level}], effort, compactWindow}`（settings.json 的 model、permissions.defaultMode、modelSettings.*.effortLevel、effortLevel、autoCompactWindow；没设的是空串、0） |
 | `config.defaults.setModel` | `value`（空串是删掉） | 同上 |
-| `config.defaults.setPermissionMode` | `value`（不能是空串或 bypassPermissions，否则出错） | 同上 |
+| `config.defaults.setPermissionMode` | `value`（不能为空；`bypassPermissions` 是完全放行，写入设备的 Claude Code 用户设置，对新对话生效） | 同上 |
 | `config.defaults.setEffort` | `model`（完整模型 ID，空串是顶层那一档）、`value`（空串是删掉） | 同上 |
 | `config.defaults.setCompactWindow` | `value`（token 数，0 是删掉，最小 100000） | 同上 |
 | `config.memory.read` | `cwd`、`project` | 记忆页：自动记忆开关、CLAUDE.md、可选的项目（默认工作目录所在的排第一，worktree 算主仓库）、选中项目的 MEMORY.md 和每条记忆 |

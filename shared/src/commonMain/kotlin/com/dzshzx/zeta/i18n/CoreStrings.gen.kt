@@ -1275,13 +1275,6 @@ object CoreStrings {
     fun cfgRuleChanged(): String = catalog.say("cfgRuleChanged")
 
     /**
-     * 「完全放行不能设成默认，只能在对话里临时切换」
-     *
-     * 新对话默认出错：完全放行不能设为默认。
-     */
-    fun cfgBypassNotDefault(): String = catalog.say("cfgBypassNotDefault")
-
-    /**
      * 「settings.json 里的 modelSettings 不是对象，先在终端里修好它」
      *
      * 新对话默认出错：modelSettings 不对。

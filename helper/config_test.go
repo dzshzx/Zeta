@@ -54,9 +54,8 @@ func TestServeConfigMethods(t *testing.T) {
 	if out := mustConfig(t, `{"id":2,"method":"config.defaults.setEffort","model":"claude-opus-5-5","value":"max"}`); !strings.Contains(out, `"efforts":[{"model":"claude-opus-5-5","level":"max"}]`) {
 		t.Errorf("effort %s", out)
 	}
-	if _, err := configCall(t, `{"id":3,"method":"config.defaults.setPermissionMode","value":"bypassPermissions"}`); err == nil ||
-		!strings.Contains(err.Error(), "完全放行") {
-		t.Errorf("bypass: %v", err)
+	if out := mustConfig(t, `{"id":3,"method":"config.defaults.setPermissionMode","value":"bypassPermissions"}`); !strings.Contains(out, `"permissionMode":"bypassPermissions"`) {
+		t.Errorf("bypass: %s", out)
 	}
 
 	out := mustConfig(t, `{"id":4,"method":"config.memory.read","cwd":"`+home+`"}`)

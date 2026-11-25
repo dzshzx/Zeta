@@ -2732,20 +2732,6 @@ func (msgs Messages) CfgRuleChanged() string {
 	return Catalog.Format(msgs.locale, "cfgRuleChanged", nil)
 }
 
-// CfgBypassNotDefault says "完全放行不能设成默认，只能在对话里临时切换"
-// in the language the app shows.
-//
-// 新对话默认出错：完全放行不能设为默认。
-func CfgBypassNotDefault() string { return In(i18n.Locale()).CfgBypassNotDefault() }
-
-// CfgBypassNotDefault says "完全放行不能设成默认，只能在对话里临时切换"
-// in the language of msgs.
-//
-// 新对话默认出错：完全放行不能设为默认。
-func (msgs Messages) CfgBypassNotDefault() string {
-	return Catalog.Format(msgs.locale, "cfgBypassNotDefault", nil)
-}
-
 // CfgModelSettingsInvalid says "settings.json 里的 modelSettings 不是对象，先在终端里修好它"
 // in the language the app shows.
 //

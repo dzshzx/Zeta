@@ -41,10 +41,11 @@ func effortLabel(v string) string {
 	return v
 }
 
-// permissionModes 是能设成默认的权限模式（完全放行 Claude Code 不肯存成默认，不列）。
+// permissionModes 是能设成默认的权限模式。
 var permissionModes = []option{
 	{"default", locales.ClaudecfgModeDefault}, {"acceptEdits", locales.ClaudecfgModeAcceptEdits},
 	{"plan", locales.ClaudecfgModePlan}, {"auto", locales.ClaudecfgModeAuto},
+	{"bypassPermissions", locales.ComposerModeBypass},
 }
 
 func permissionModeLabel(v string) string {
