@@ -291,10 +291,7 @@ const headerHeight = widget.TitleBarHeight
 // 右边让出按钮，窄了截断。
 func (a *App) chatHeader(c *ui.Context, p *chatPane) {
 	k := widget.Of(c)
-	cwd := p.state.Cwd
-	if cwd == "" {
-		cwd = p.src.Session.Cwd
-	}
+	cwd := a.chatCwd(p)
 	bar := ui.Column(c)
 	if p.list.Scrolled() {
 		widget.Surface{Fill: k.Window.Alpha(0.8), Blur: widget.BlurBar}.Paint(bar)

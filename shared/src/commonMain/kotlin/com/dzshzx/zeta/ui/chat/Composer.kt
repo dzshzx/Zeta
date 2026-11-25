@@ -75,6 +75,7 @@ import com.dzshzx.zeta.core.SlashCommand
 import com.dzshzx.zeta.core.voice.SpeechPhase
 import com.dzshzx.zeta.core.voice.SpeechState
 import com.dzshzx.zeta.i18n.Strings
+import com.dzshzx.zeta.i18n.UiLanguage
 import com.dzshzx.zeta.ui.components.coui2.ZetaIcons
 import com.dzshzx.zeta.ui.components.coui2.menuItem
 import com.dzshzx.zeta.ui.markdown.EditorialLineHeightStyle
@@ -140,6 +141,7 @@ fun Composer(
     attachments: List<Attachment>,
     files: List<FileUpload>,
     commands: List<SlashCommand>,
+    configCommandsEnabled: Boolean = false,
     onPickImages: () -> Unit,
     onPickFiles: () -> Unit,
     /** 引用 Linux 里的文件夹（从手机这边选）；对话在远程主机上时没有这一项（null）。 */
@@ -201,7 +203,7 @@ fun Composer(
                 .border(1.dp, talkBorder, shape)
                 .padding(horizontal = 10.dp, vertical = 8.dp),
     ) {
-        ComposerSlash(state, commands, onSlashTyped)
+        ComposerSlash(state, commands, configCommandsEnabled, onSlashTyped)
         if (attachments.isNotEmpty() || files.isNotEmpty()) {
             ComposerAttachments(attachments, files, onRemoveAttachment, onRemoveFile)
         }
@@ -270,15 +272,21 @@ private fun hasSomethingToSend(
 private fun ComposerSlash(
     state: TextFieldState,
     commands: List<SlashCommand>,
+    configCommandsEnabled: Boolean,
     onSlashTyped: () -> Unit,
 ) {
     val typed = state.text.toString()
     val cursor = state.selection
     val slash = if (cursor.collapsed) SlashToken.at(typed, cursor.start) else null
-    val suggestions =
-        remember(slash?.prefix, commands) { slashSuggestions(slash?.prefix, commands) }
     LaunchedEffect(slash != null) { if (slash != null) onSlashTyped() }
-    if (slash == null || suggestions.isEmpty()) return
+    if (slash == null) return
+    val available =
+        remember(commands, configCommandsEnabled, UiLanguage.current) {
+            ClaudeConfigCommand.suggestions(commands, configCommandsEnabled)
+        }
+    val suggestions =
+        remember(slash.prefix, available) { slashSuggestions(slash.prefix, available) }
+    if (suggestions.isEmpty()) return
     SlashSuggestions(suggestions) { name ->
         val (text, caret) = slash.complete(typed, name)
         state.edit {
@@ -289,8 +297,7 @@ private fun ComposerSlash(
 }
 
 /** 要提示的斜杠命令：名字以 [slash] 开头的排前面，名字里含有它的跟在后面；内部命令（“__”开头）不列。 */
-private fun slashSuggestions(slash: String?, commands: List<SlashCommand>): List<SlashCommand> {
-    if (slash == null) return emptyList()
+private fun slashSuggestions(slash: String, commands: List<SlashCommand>): List<SlashCommand> {
     val visible = commands.filter { !it.name.startsWith("__") }
     return visible.filter { it.name.lowercase().startsWith(slash) } +
         visible.filter {

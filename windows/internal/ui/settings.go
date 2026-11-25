@@ -290,13 +290,14 @@ func (a *App) openChatDeviceSettings(p *chatPane, permissions bool) bool {
 	a.device = x.ID
 	a.open(pageDevice)
 	if permissions {
-		a.cfg.OpenPermissions(cmp.Or(p.state.Cwd, p.src.Session.Cwd, x.DefaultCwd))
+		a.cfg.OpenPermissions(cmp.Or(a.chatCwd(p), x.DefaultCwd))
 	}
 	return true
 }
 
-// startDeviceConfig 打开设备页时建那台的 Claude Code 配置部分，读一遍新对话默认。
+// startDeviceConfig 打开设备页时建那台的 Claude Code 配置部分，数据等显示对应页面时再读。
 func (a *App) startDeviceConfig(x sshlink.Host) {
+	a.edit.loaded = false
 	r := a.hub.Remote(x.ID)
 	if r == nil {
 		a.cfg = nil
@@ -313,8 +314,6 @@ func (a *App) startDeviceConfig(x sshlink.Host) {
 		// 还没有清单时去要一次，要到了换上（models.go）
 		ModelsPending: len(models) == 0,
 	})
-	a.cfg.Load()
-	a.askModels(x, r)
 }
 
 // defaultAbout 是没给关于页时用的：本程序的版本，不查更新（测试里；窗口由入口换成接了自动更新的）。

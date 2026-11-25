@@ -14,6 +14,7 @@ import (
 
 // editing 是一台设备的页面上的状态。
 type editing struct {
+	loaded     bool          // 已加载设备首页；直达子页时不读首页数据
 	name       string        // 名称输入框
 	cwd        string        // 默认工作目录输入框
 	checking   bool          // 正在检查连接
@@ -42,6 +43,17 @@ func (a *App) startEditing() {
 	x, _ := a.hub.Host(a.device)
 	a.edit = editing{name: x.CustomName, cwd: x.DefaultCwd}
 	a.startDeviceConfig(x)
+}
+
+func (a *App) loadDeviceHome(x sshlink.Host) {
+	if a.edit.loaded {
+		return
+	}
+	a.edit.loaded = true
+	if a.cfg != nil {
+		a.cfg.Load()
+		a.askModels(x, a.hub.Remote(x.ID))
+	}
 	a.async(func() func() {
 		keys := a.hub.Keys()
 		return func() { a.add.keys = keys }
@@ -60,6 +72,7 @@ func (a *App) devicePage(c *ui.Context) {
 		a.cfg.SubPage(c)
 		return
 	}
+	a.loadDeviceHome(x)
 	widget.Header(c, x.Name(), nil)
 	widget.Body(c, "device", func() {
 		a.connectionSection(c, x)

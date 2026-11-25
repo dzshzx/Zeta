@@ -3,25 +3,20 @@
 set -euo pipefail
 . "$ZETA_ROOT/tools/phone-tests/lib.sh"
 
+check_page() {
+	send "$1"
+	wait_text "$2" 10 || {
+		echo "$1 没打开目标页：$2"
+		return 1
+	}
+	vd key 4
+	wait_text '^有什么可以帮你' 10 || {
+		echo "$1 返回后不是空白聊天页"
+		return 1
+	}
+}
+
 vd fake "$HERE/fake/text.jsonl"
 new_chat
-send /permissions
-wait_text '^工具权限$' 10 || {
-	echo '/permissions 没打开工具权限页'
-	exit 1
-}
-vd key 4
-wait_text '^有什么可以帮你' 10 || {
-	echo '/permissions 返回后不是空白聊天页'
-	exit 1
-}
-send /config
-wait_text '^新对话默认$' 10 || {
-	echo '/config 没打开设备设置页'
-	exit 1
-}
-vd key 4
-wait_text '^有什么可以帮你' 10 || {
-	echo '/config 返回后不是空白聊天页'
-	exit 1
-}
+check_page /permissions '^工具权限$'
+check_page /config '^新对话默认$'

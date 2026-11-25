@@ -55,10 +55,10 @@ func (s Slash) Complete(text, name string) (string, int) {
 	return string(r[:s.Start]) + ins + string(rest), s.Start + utf8.RuneCountInString(ins) + 1
 }
 
-// Suggest 是要提示的命令：名字以 prefix 开头的排前面，名字里含有它的跟在后面，各自照原来的顺序（没有名字的核心已经滤掉）。
-func Suggest(commands []Command, prefix string) []Command {
+// Suggest 是要提示的命令：名字以 prefix 开头的排前面，名字里含有它的跟在后面，各自照原来的顺序（没有名字的核心已经滤掉）。本地命令排在核心命令后，替代同名的核心项。
+func Suggest(commands []Command, prefix string, local ...Command) []Command {
 	var starts, contains []Command
-	for _, c := range commands {
+	add := func(c Command) {
 		name := strings.ToLower(c.Name)
 		switch {
 		case strings.HasPrefix(name, prefix):
@@ -66,6 +66,18 @@ func Suggest(commands []Command, prefix string) []Command {
 		case strings.Contains(name, prefix):
 			contains = append(contains, c)
 		}
+	}
+native:
+	for _, c := range commands {
+		for _, l := range local {
+			if strings.EqualFold(c.Name, l.Name) {
+				continue native
+			}
+		}
+		add(c)
+	}
+	for _, c := range local {
+		add(c)
 	}
 	return append(starts, contains...)
 }

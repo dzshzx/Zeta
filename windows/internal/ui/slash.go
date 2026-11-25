@@ -11,19 +11,24 @@ import (
 	"github.com/egoist/mygo/ui"
 )
 
-const (
-	configCommand      = "config"
-	permissionsCommand = "permissions"
-)
+const permissionsCommand = "permissions"
+
+var settingsCommands = [...]struct {
+	name  string
+	label func() string
+}{
+	{"config", locales.ClaudecfgConfigTitle},
+	{permissionsCommand, locales.ClaudecfgPermissions},
+}
 
 // settingsCommand 只接管单独发送的裸命令；编辑旧消息时，文字仍是那条消息的内容。
 func settingsCommand(p *chatPane, text string) string {
 	if p.acts.editing == nil {
-		switch strings.TrimSpace(text) {
-		case "/" + configCommand:
-			return configCommand
-		case "/" + permissionsCommand:
-			return permissionsCommand
+		text = strings.TrimSpace(text)
+		for _, cmd := range settingsCommands {
+			if text == "/"+cmd.name {
+				return cmd.name
+			}
 		}
 	}
 	return ""
@@ -60,20 +65,11 @@ func (a *App) suggestions(p *chatPane, text string, caret int) (chat.Slash, []ch
 	if p.acts.editing != nil {
 		return s, chat.Suggest(p.state.Commands, s.Prefix)
 	}
-	commands := make([]chat.Command, 0, len(p.state.Commands)+2)
-	for _, cmd := range p.state.Commands {
-		switch strings.ToLower(cmd.Name) {
-		case configCommand, permissionsCommand:
-			// 裸命令打开 Zeta 的页面，补全只列本地的说明。
-		default:
-			commands = append(commands, cmd)
-		}
+	var local [len(settingsCommands)]chat.Command
+	for i, cmd := range settingsCommands {
+		local[i] = chat.Command{Name: cmd.name, Description: cmd.label()}
 	}
-	commands = append(commands,
-		chat.Command{Name: configCommand, Description: locales.ClaudecfgConfigTitle()},
-		chat.Command{Name: permissionsCommand, Description: locales.ClaudecfgPermissions()},
-	)
-	return s, chat.Suggest(commands, s.Prefix)
+	return s, chat.Suggest(p.state.Commands, s.Prefix, local[:]...)
 }
 
 // caretIn 是输入框里是 text 时的光标：上一帧记下的光标加上这之后多打（或删掉）的字数。

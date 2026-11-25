@@ -216,6 +216,9 @@ func TestSlashSettingsOpenForCurrentChat(t *testing.T) {
 				requests = []string{"config.permissions.read", "config.mcp.tools", "config.permissions.read"}
 			}
 			f.checkSlashSettingsCalls(t, requests)
+			if tc.permissions {
+				f.checkDeviceHomeOnBack(t)
+			}
 			f.click(t, locales.SettingsBackToApp())
 			if f.app.pane != p || p.draft != "" || len(p.att.files) != 1 || p.att.files[0] != file {
 				t.Fatal("只应清除命令文字，保留对话与附件")
@@ -224,11 +227,31 @@ func TestSlashSettingsOpenForCurrentChat(t *testing.T) {
 	}
 }
 
+func (f *chatFixture) checkDeviceHomeOnBack(t *testing.T) {
+	t.Helper()
+	f.click(t, locales.WidgetBack()) // 工具清单返回权限页
+	f.click(t, locales.WidgetBack()) // 权限页返回设备首页
+	f.tt.Frame()
+	count := 0
+	for _, c := range f.link().Took() {
+		if c.Method == "config.defaults.read" {
+			count++
+		}
+	}
+	if count != 1 {
+		t.Fatalf("设备首页应只加载一次，读取默认值 %d 次", count)
+	}
+}
+
 func (f *chatFixture) checkSlashSettingsCalls(t *testing.T, want []string) {
 	t.Helper()
 	var got []string
 	for _, c := range f.link().Took() {
 		switch c.Method {
+		case "config.defaults.read", "system.idle", "system.claude":
+			if len(want) != 0 {
+				t.Fatalf("直达权限页不应读取设备首页：%s", c.Method)
+			}
 		case "conv.send":
 			t.Fatal("裸命令不应发给 Claude Code")
 		case "config.permissions.read", "config.mcp.tools":
