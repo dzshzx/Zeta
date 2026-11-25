@@ -303,7 +303,7 @@ func (ch *Chat) item(c *ui.Context, row int) {
 		noticeRow(c, it)
 		ch.actionRow(c, row)
 	case items.Work:
-		ch.workGroup(c, it)
+		ch.workGroup(c, it, row)
 		ch.actionRow(c, row)
 	}
 }

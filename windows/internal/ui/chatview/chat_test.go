@@ -31,6 +31,31 @@ func TestRendersHelperFixtures(t *testing.T) {
 	}
 }
 
+func TestCollapseScrolledWorkGroup(t *testing.T) {
+	ch := New()
+	ch.Top = 52
+	ch.SetItems(append(manyEdits(t, 30), longConversation("after", 8)...))
+	ch.list.ScrollTo(1, ui.Start)
+	tt := newTester(ch, 800, 400, false)
+	tt.Frame()
+	const summary = "已完成 30 个步骤"
+	mustClick(t, tt, summary)
+	tt.Scroll(350, 240, 0, 550)
+	tt.Frame()
+	if r, ok := tt.Find(summary); ok && r.Y+r.H > ch.Top {
+		t.Fatalf("测试没有滚过整组摘要：%v", r)
+	}
+	r, ok := tt.Find("收起")
+	if !ok || r.Y < ch.Top || r.Y > ch.Top+12 || r.X < 650 {
+		t.Fatalf("没在右上角找到整组收起按钮：%v %v", r, ok)
+	}
+	tt.ClickAt(r.X+r.W/2, r.Y+r.H/2)
+	tt.Frame()
+	if r, ok := tt.Find(summary); *ch.open["work:w"] || !ok || r.Y < ch.Top || r.Y+r.H > 400 {
+		t.Fatalf("没在视野内收成一行摘要：%v %v", r, ok)
+	}
+}
+
 // 工作组默认折叠成一行摘要，点开是逐步的时间线；点一步看它的参数和结果。
 func TestWorkGroupExpands(t *testing.T) {
 	ch := New()

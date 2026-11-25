@@ -27,7 +27,7 @@ const collapsedCards = 3
 
 // workGroup 画一组连续的思考与工具调用：圆角细边框的卡片，默认折叠成一行摘要，点开是逐步的时间线；
 // 折叠着也直接露出改了哪些文件。工具结果里的图（Read 打开的图片、截图）不收在卡片里，画在卡片下面（workImages）。
-func (ch *Chat) workGroup(c *ui.Context, it items.Item) {
+func (ch *Chat) workGroup(c *ui.Context, it items.Item, row int) {
 	t := c.Theme()
 	k := inkOf(t)
 	open := ch.flag("work:"+it.ID, ch.ExpandWork)
@@ -45,8 +45,25 @@ func (ch *Chat) workGroup(c *ui.Context, it items.Item) {
 			}
 			ui.Icon(c, ic).FontSize(15).TextColor(tint)
 			pulsingText(c, workTitle(it.Steps, running), running != nil, k.muted).Grow(1)
-			chevron(c, p.Progress())
+			if *open {
+				ui.Box(c).Size(17, 17).Shrink(0) // 给同一位置的整组收起按钮留空
+			} else {
+				chevron(c, p.Progress())
+			}
 		})
+		if *open {
+			// 按钮与摘要共用一行，但直接属于整张卡：摘要滚走后它还能留在视野里，卡片滚走时一起离开。
+			p.Trigger.Margin(0, 0, -42, 0)
+			b := widget.IconButton(c.Key("collapse-work"), widget.IconChevronUp, locales.ChatCollapse())
+			b.AlignSelf(ui.End).Margin(5, 6, 5, 0).Sticky().Top(ch.Top)
+			if !b.Hovered() && !b.Pressed() {
+				b.Background(widget.Of(c).Window)
+			}
+			b.OnClick(func() {
+				*open = false
+				ch.list.ScrollTo(row, ui.Start)
+			})
+		}
 		if !*open && p.Progress() == 0 {
 			ch.collapsedChanges(c, it.Steps, open)
 		}
