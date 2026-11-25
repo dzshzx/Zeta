@@ -34,7 +34,6 @@ import com.dzshzx.zeta.ui.components.coui2.CouiPage
 import com.dzshzx.zeta.ui.components.coui2.FlatIconButton
 import com.dzshzx.zeta.ui.components.coui2.PreferenceGroup
 import com.dzshzx.zeta.ui.components.coui2.PreferenceValue
-import com.dzshzx.zeta.ui.components.coui2.SettingsHue
 import com.dzshzx.zeta.ui.components.coui2.SettingsIcon
 import com.dzshzx.zeta.ui.components.rememberNow
 import com.dzshzx.zeta.ui.setup.LoginScreen
@@ -96,7 +95,7 @@ internal fun AccountsEntry(hub: ConversationHub, backend: String, onOpen: () -> 
     ArrowPreference(
         title = Strings.settingsAccountsTitle(),
         summary = entrySummary(backend, ready, account),
-        startAction = { SettingsIcon(COUIIcons.ContactsBook, SettingsHue.Claude, enabled = ready) },
+        startAction = { SettingsIcon(COUIIcons.ContactsBook, enabled = ready) },
         endActions = {
             // 在用中转时没有订阅额度，也不显示上一个账号留下的数
             if (ready && account?.loggedIn == true && quota.subscribed && headline != null) {
@@ -349,7 +348,7 @@ private fun AccountRow(
         BasicComponent(
             title = account.title,
             summary = summary,
-            endActions = { PreferenceValue(Strings.commonCurrent()) },
+            endActions = { PreferenceValue(Strings.commonCurrent(), clickable = false) },
         )
         return
     }
@@ -402,7 +401,8 @@ private fun RelaysGroup(
                     // 在用的不用再切
                     onClick = if (relay.current) null else ({ onSwitch(relay) }),
                     endActions = {
-                        if (relay.current) PreferenceValue(Strings.commonCurrent())
+                        if (relay.current)
+                            PreferenceValue(Strings.commonCurrent(), clickable = false)
                         FlatIconButton(
                             icon = COUIIcons.Edit,
                             contentDescription = Strings.settingsRelaysEdit(relay.name),

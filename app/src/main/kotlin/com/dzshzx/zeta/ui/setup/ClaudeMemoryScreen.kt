@@ -226,7 +226,7 @@ private fun CardListGroupScope.memoryLocationRows(
             BasicComponent(
                 title = Strings.setupMemoryDir(),
                 summary = shortPath(customDir, home),
-                endActions = { PreferenceValue(Strings.setupMemorySharedDir()) },
+                endActions = { PreferenceValue(Strings.setupMemorySharedDir(), clickable = false) },
             )
         }
     } else if (o.projects.isNotEmpty()) {

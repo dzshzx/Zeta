@@ -47,7 +47,6 @@ import com.dzshzx.zeta.ui.components.coui2.CouiPage
 import com.dzshzx.zeta.ui.components.coui2.IconActionButton
 import com.dzshzx.zeta.ui.components.coui2.PreferenceGroup
 import com.dzshzx.zeta.ui.components.coui2.PreferenceValue
-import com.dzshzx.zeta.ui.components.coui2.SettingsHue
 import com.dzshzx.zeta.ui.components.coui2.SettingsIcon
 import com.dzshzx.zeta.ui.components.coui2.TextInputDialog
 import com.dzshzx.zeta.ui.components.coui2.ZetaIcons
@@ -93,7 +92,7 @@ internal fun ScheduleEntry(backend: String, onOpen: () -> Unit) {
     ArrowPreference(
         title = Strings.settingsTitleSchedules(),
         summary = next?.let { Strings.settingsScheduleNext(Schedules.formatWhen(it, now, zone)) },
-        startAction = { SettingsIcon(ZetaIcons.Clock, SettingsHue.Automation) },
+        startAction = { SettingsIcon(ZetaIcons.Clock) },
         endActions = {
             if (tasks.isNotEmpty())
                 PreferenceValue(

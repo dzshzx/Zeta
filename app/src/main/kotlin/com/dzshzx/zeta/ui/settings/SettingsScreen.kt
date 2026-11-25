@@ -22,7 +22,6 @@ import com.dzshzx.zeta.ui.components.coui2.CouiPage
 import com.dzshzx.zeta.ui.components.coui2.CouiTopBarStyle
 import com.dzshzx.zeta.ui.components.coui2.PreferenceGroup
 import com.dzshzx.zeta.ui.components.coui2.PreferenceValue
-import com.dzshzx.zeta.ui.components.coui2.SettingsHue
 import com.dzshzx.zeta.ui.components.coui2.SettingsIcon
 import com.dzshzx.zeta.ui.components.coui2.ZetaIcons
 import com.dzshzx.zeta.ui.pane.hostIcon
@@ -134,7 +133,7 @@ private fun SettingsHome(
                 item {
                     ArrowPreference(
                         title = Strings.settingsHomeAddRemote(),
-                        startAction = { SettingsIcon(COUIIcons.Add, SettingsHue.Files) },
+                        startAction = { SettingsIcon(COUIIcons.Add) },
                         onClick = { onOpenSubPage(SettingsSubPage.RemoteHosts) },
                     )
                 }
@@ -145,7 +144,7 @@ private fun SettingsHome(
                 item {
                     ArrowPreference(
                         title = Strings.settingsTitlePhone(),
-                        startAction = { SettingsIcon(ZetaIcons.Phone, SettingsHue.System) },
+                        startAction = { SettingsIcon(ZetaIcons.Phone) },
                         endActions = {
                             PreferenceValue(
                                 if (hub.settings.phoneTools) Strings.commonOn()
@@ -159,7 +158,7 @@ private fun SettingsHome(
                 item {
                     ArrowPreference(
                         title = Strings.settingsHomeBrowser(),
-                        startAction = { SettingsIcon(ZetaIcons.Globe, SettingsHue.System) },
+                        startAction = { SettingsIcon(ZetaIcons.Globe) },
                         onClick = { BrowserActivity.open(context) },
                     )
                 }
@@ -174,7 +173,7 @@ private fun SettingsHome(
                 item {
                     ArrowPreference(
                         title = Strings.settingsTitleAppearance(),
-                        startAction = { SettingsIcon(COUIIcons.Theme, SettingsHue.System) },
+                        startAction = { SettingsIcon(COUIIcons.Theme) },
                         endActions = {
                             PreferenceValue(
                                 when (hub.settings.darkTheme) {
@@ -191,7 +190,7 @@ private fun SettingsHome(
                     // 只在 Zeta 显示在前台时起作用；切到别的应用或回到桌面，屏幕照常按系统设置熄灭
                     SwitchPreference(
                         title = Strings.settingsHomeKeepScreenOn(),
-                        startAction = { SettingsIcon(ZetaIcons.Sun, SettingsHue.System) },
+                        startAction = { SettingsIcon(ZetaIcons.Sun) },
                         checked = hub.settings.keepScreenOn,
                         onCheckedChange = { hub.settings.keepScreenOn = it },
                     )
@@ -200,7 +199,7 @@ private fun SettingsHome(
                     // 关着的时候，回答里的网络图片先显示成一个“加载图片”的小条，点一下才去取
                     SwitchPreference(
                         title = Strings.settingsHomeAutoLoadImages(),
-                        startAction = { SettingsIcon(COUIIcons.Image, SettingsHue.Claude) },
+                        startAction = { SettingsIcon(COUIIcons.Image) },
                         checked = hub.settings.autoLoadRemoteImages,
                         onCheckedChange = { hub.settings.autoLoadRemoteImages = it },
                     )
@@ -209,7 +208,7 @@ private fun SettingsHome(
                     // 一轮回答完了用系统的朗读引擎念出来，锁屏也接着读
                     SwitchPreference(
                         title = Strings.settingsHomeAutoRead(),
-                        startAction = { SettingsIcon(COUIIcons.VolumeUp, SettingsHue.Claude) },
+                        startAction = { SettingsIcon(COUIIcons.VolumeUp) },
                         checked = hub.settings.autoReadAnswers,
                         onCheckedChange = { hub.settings.autoReadAnswers = it },
                     )
@@ -218,7 +217,7 @@ private fun SettingsHome(
                 item {
                     ArrowPreference(
                         title = Strings.settingsBackupTitle(),
-                        startAction = { SettingsIcon(ZetaIcons.Archive, SettingsHue.Files) },
+                        startAction = { SettingsIcon(ZetaIcons.Archive) },
                         onClick = { onOpenSubPage(SettingsSubPage.Backup) },
                     )
                 }
@@ -254,7 +253,7 @@ private fun HostEntry(hub: ConversationHub, backend: String, onOpen: () -> Unit)
         summary =
             host?.let { RemoteHosts.displayTarget(it.target) + " · " + it.via.label }
                 ?: RemoteHosts.LOCAL_SUMMARY,
-        startAction = { SettingsIcon(hostIcon(backend), SettingsHue.Files) },
+        startAction = { SettingsIcon(hostIcon(backend)) },
         endActions = {
             when {
                 problem != null ->
@@ -279,7 +278,7 @@ private fun PermissionHealthEntry(hub: ConversationHub, onOpen: () -> Unit) {
     val checking = items.any { it.status == PermissionStatus.Checking }
     ArrowPreference(
         title = Strings.settingsPermTitle(),
-        startAction = { SettingsIcon(ZetaIcons.ShieldCheck, SettingsHue.System) },
+        startAction = { SettingsIcon(ZetaIcons.ShieldCheck) },
         endActions = {
             PreferenceValue(
                 text =
@@ -288,7 +287,6 @@ private fun PermissionHealthEntry(hub: ConversationHub, onOpen: () -> Unit) {
                         checking -> Strings.commonChecking()
                         else -> Strings.settingsHomeHealthy()
                     },
-                color = if (issues == 0) Color.Unspecified else COUITheme.colorScheme.error,
             )
         },
         onClick = onOpen,

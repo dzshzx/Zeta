@@ -42,20 +42,26 @@ fun PreferenceGroup(
 }
 
 /**
- * 设置行右侧显示的当前值，放进行的 endActions：`endActions = { PreferenceValue("跟随系统") }`。 要按状态上色（出错、需关注）时给
- * [color]，Unspecified 时是普通值的颜色。
+ * 设置行右侧显示的当前值，放进行的 endActions：`endActions = { PreferenceValue("跟随系统") }`。 要按状态上色（出错）时给 [color]。
+ * [color] 为 Unspecified 时按这一行能不能点上色：能点进去或点了能调整的行用实色 `labelSecondary`（和 COUI
+ * 下拉行右侧的值同色）；点不了的只读行（版本号、路径、大小、统计这类纯展示）传 `clickable = false`，用虚色 `labelTertiary`。
  */
 @Composable
 fun PreferenceValue(
     text: String,
     modifier: Modifier = Modifier,
     color: Color = Color.Unspecified,
+    clickable: Boolean = true,
 ) {
     Text(
         text = text,
         modifier = modifier,
         style = COUITheme.textStyles.bodyM,
-        color = color.takeOrElse { COUITheme.colorScheme.labelTertiary },
+        color =
+            color.takeOrElse {
+                if (clickable) COUITheme.colorScheme.labelSecondary
+                else COUITheme.colorScheme.labelTertiary
+            },
         maxLines = 1,
         // 放不下时（译文比中文长）显示省略号，不在词边界上悄悄截掉后半
         overflow = TextOverflow.Ellipsis,

@@ -251,7 +251,7 @@ private fun EnvironmentGroup(hub: ConversationHub, probe: LinuxProbe?, probing: 
                 if (entry.value.length <= 14) {
                     BasicComponent(
                         title = entry.label,
-                        endActions = { PreferenceValue(entry.value) },
+                        endActions = { PreferenceValue(entry.value, clickable = false) },
                     )
                 } else {
                     BasicComponent(title = entry.label, summary = entry.value)
@@ -270,7 +270,11 @@ private fun PermissionsGroup(snapshot: PermissionSnapshot?, hub: ConversationHub
                 BasicComponent(
                     title = entry.title,
                     endActions = {
-                        PreferenceValue(entry.value, color = statusColor(entry.status))
+                        PreferenceValue(
+                            entry.value,
+                            color = statusColor(entry.status),
+                            clickable = false,
+                        )
                     },
                 )
             }

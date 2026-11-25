@@ -33,7 +33,6 @@ import com.dzshzx.zeta.ui.components.coui2.CardListSegment
 import com.dzshzx.zeta.ui.components.coui2.CouiPage
 import com.dzshzx.zeta.ui.components.coui2.PreferenceGroup
 import com.dzshzx.zeta.ui.components.coui2.PreferenceValue
-import com.dzshzx.zeta.ui.components.coui2.SettingsHue
 import com.dzshzx.zeta.ui.components.coui2.SettingsIcon
 import com.dzshzx.zeta.ui.components.coui2.ZetaIcons
 import com.dzshzx.zeta.ui.setup.ConfigLoadingRow
@@ -64,7 +63,7 @@ internal fun AboutGroup(onOpenSubPage: (SettingsSubPage) -> Unit) {
             val context = LocalContext.current
             ArrowPreference(
                 title = Strings.aboutSource(),
-                startAction = { SettingsIcon(ZetaIcons.Branch, SettingsHue.System) },
+                startAction = { SettingsIcon(ZetaIcons.Branch) },
                 endActions = {
                     PreferenceValue(ZetaInfo.sourceRef(BuildConfig.VERSION_NAME) ?: "GitHub")
                 },
@@ -74,7 +73,7 @@ internal fun AboutGroup(onOpenSubPage: (SettingsSubPage) -> Unit) {
         item {
             ArrowPreference(
                 title = Strings.aboutLicense(),
-                startAction = { SettingsIcon(COUIIcons.Notes, SettingsHue.System) },
+                startAction = { SettingsIcon(COUIIcons.Notes) },
                 endActions = { PreferenceValue("GPL-3.0") },
                 onClick = { onOpenSubPage(SettingsSubPage.License) },
             )
@@ -82,21 +81,21 @@ internal fun AboutGroup(onOpenSubPage: (SettingsSubPage) -> Unit) {
         item {
             ArrowPreference(
                 title = Strings.aboutOpenSource(),
-                startAction = { SettingsIcon(COUIIcons.Layers, SettingsHue.System) },
+                startAction = { SettingsIcon(COUIIcons.Layers) },
                 onClick = { onOpenSubPage(SettingsSubPage.OpenSource) },
             )
         }
         item {
             ArrowPreference(
                 title = Strings.aboutCredits(),
-                startAction = { SettingsIcon(COUIIcons.Favorites, SettingsHue.System) },
+                startAction = { SettingsIcon(COUIIcons.Favorites) },
                 onClick = { onOpenSubPage(SettingsSubPage.Credits) },
             )
         }
         item {
             ArrowPreference(
                 title = Strings.aboutDiagnostics(),
-                startAction = { SettingsIcon(ZetaIcons.Pulse, SettingsHue.Files) },
+                startAction = { SettingsIcon(ZetaIcons.Pulse) },
                 onClick = { onOpenSubPage(SettingsSubPage.Diagnostics) },
             )
         }
@@ -114,7 +113,7 @@ internal fun LicenseScreen(onBack: () -> Unit) {
                 item {
                     BasicComponent(
                         title = Strings.aboutLicense(),
-                        endActions = { PreferenceValue("GPL-3.0") },
+                        endActions = { PreferenceValue("GPL-3.0", clickable = false) },
                     )
                 }
             }
@@ -190,7 +189,7 @@ internal fun ComponentScreen(component: Component, onBack: () -> Unit) {
                 item {
                     BasicComponent(
                         title = Strings.commonVersion(),
-                        endActions = { PreferenceValue(component.version) },
+                        endActions = { PreferenceValue(component.version, clickable = false) },
                     )
                 }
                 item { BasicComponent(title = Strings.aboutLicense(), summary = component.license) }

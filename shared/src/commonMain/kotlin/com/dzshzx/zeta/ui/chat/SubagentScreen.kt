@@ -161,7 +161,7 @@ private fun SubagentSummary(log: ConvSubagent) {
                 title = Strings.chatStatus(),
                 endActions = {
                     val (text, color) = stateLabel(log.state)
-                    PreferenceValue(text, color = color)
+                    PreferenceValue(text, color = color, clickable = false)
                 },
             )
         }
@@ -169,20 +169,25 @@ private fun SubagentSummary(log: ConvSubagent) {
             item(key = "type") {
                 BasicComponent(
                     title = Strings.chatSubagentType(),
-                    endActions = { PreferenceValue(value) },
+                    endActions = { PreferenceValue(value, clickable = false) },
                 )
             }
         }
         meta?.model?.let { value ->
             item(key = "model") {
-                BasicComponent(title = Strings.chatModel(), endActions = { PreferenceValue(value) })
+                BasicComponent(
+                    title = Strings.chatModel(),
+                    endActions = { PreferenceValue(value, clickable = false) },
+                )
             }
         }
         if (log.toolUses > 0)
             item(key = "tools") {
                 BasicComponent(
                     title = Strings.chatToolCalls(),
-                    endActions = { PreferenceValue(Strings.chatTimes(log.toolUses)) },
+                    endActions = {
+                        PreferenceValue(Strings.chatTimes(log.toolUses), clickable = false)
+                    },
                 )
             }
     }

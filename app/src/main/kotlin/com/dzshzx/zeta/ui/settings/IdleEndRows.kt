@@ -12,7 +12,6 @@ import androidx.compose.ui.platform.LocalContext
 import com.dzshzx.zeta.core.ConversationHub
 import com.dzshzx.zeta.core.notify.NotifyRules
 import com.dzshzx.zeta.i18n.Strings
-import com.dzshzx.zeta.ui.components.coui2.SettingsHue
 import com.dzshzx.zeta.ui.components.coui2.SettingsIcon
 import com.dzshzx.zeta.ui.setup.problem
 import com.dzshzx.zeta.ui.setup.runConfig
@@ -45,7 +44,7 @@ internal fun IdleEndPreference(hub: ConversationHub, backend: String, ready: Boo
     OverlayDropdownPreference(
         title = Strings.settingsIdleTimeout(),
         startAction = {
-            SettingsIcon(COUIIcons.Timer, SettingsHue.Claude, enabled = current != null)
+            SettingsIcon(COUIIcons.Timer, enabled = current != null)
         },
         items = choices.map(::idleLabel),
         selectedIndex = choices.indexOf(current).coerceAtLeast(0),

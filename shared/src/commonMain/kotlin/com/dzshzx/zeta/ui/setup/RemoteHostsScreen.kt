@@ -744,7 +744,9 @@ private fun ConnectionGroup(
         item {
             BasicComponent(
                 title = Strings.setupRemoteAddress(),
-                endActions = { PreferenceValue(RemoteHosts.displayTarget(host.target)) },
+                endActions = {
+                    PreferenceValue(RemoteHosts.displayTarget(host.target), clickable = false)
+                },
             )
         }
         item { ViaChoice(host, switching, enabled = switching == null && !checking, onSwitch) }
@@ -754,7 +756,7 @@ private fun ConnectionGroup(
         item {
             BasicComponent(
                 title = Strings.setupRemoteHome(),
-                endActions = { PreferenceValue(host.home) },
+                endActions = { PreferenceValue(host.home, clickable = false) },
             )
         }
         item {

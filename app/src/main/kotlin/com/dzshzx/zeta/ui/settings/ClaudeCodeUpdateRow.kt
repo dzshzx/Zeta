@@ -11,7 +11,6 @@ import com.dzshzx.zeta.core.ConversationHub
 import com.dzshzx.zeta.core.conv.ClaudeUpdate
 import com.dzshzx.zeta.i18n.Strings
 import com.dzshzx.zeta.ui.components.coui2.PreferenceValue
-import com.dzshzx.zeta.ui.components.coui2.SettingsHue
 import com.dzshzx.zeta.ui.components.coui2.SettingsIcon
 import com.dzshzx.zeta.ui.setup.problem
 import com.dzshzx.zeta.ui.setup.runConfig
@@ -48,7 +47,6 @@ internal fun ClaudeCodeUpdateRow(hub: ConversationHub, backend: String, ready: B
         startAction = {
             SettingsIcon(
                 COUIIcons.Update,
-                SettingsHue.Claude,
                 enabled = ready && loaded && !updating,
             )
         },

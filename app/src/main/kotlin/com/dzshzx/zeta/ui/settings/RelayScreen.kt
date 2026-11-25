@@ -240,7 +240,7 @@ private fun NameField(draft: RelayDraft, create: Boolean, update: (RelayDraft) -
             item {
                 BasicComponent(
                     title = Strings.relayName(),
-                    endActions = { PreferenceValue(draft.name) },
+                    endActions = { PreferenceValue(draft.name, clickable = false) },
                 )
             }
         }

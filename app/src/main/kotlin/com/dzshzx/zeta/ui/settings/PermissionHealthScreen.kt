@@ -139,6 +139,7 @@ private fun PermissionRow(
         PreferenceValue(
             if (busy) Strings.settingsPermWorking() else entry.value,
             color = if (busy) Color.Unspecified else statusColor(entry.status),
+            clickable = clickable,
         )
     }
     if (clickable && opensPage(entry)) {

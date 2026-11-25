@@ -43,7 +43,6 @@ import com.dzshzx.zeta.ui.components.coui2.CouiPageScaffold
 import com.dzshzx.zeta.ui.components.coui2.IconActionButton
 import com.dzshzx.zeta.ui.components.coui2.PreferenceGroup
 import com.dzshzx.zeta.ui.components.coui2.PreferenceValue
-import com.dzshzx.zeta.ui.components.coui2.SettingsHue
 import com.dzshzx.zeta.ui.components.coui2.SettingsIcon
 import com.dzshzx.zeta.ui.components.coui2.TextInputDialog
 import com.dzshzx.zeta.ui.components.coui2.ZetaIcons
@@ -142,7 +141,7 @@ internal fun NotifyTriggerEntry(backend: String, onOpen: () -> Unit) {
     val enabled = rules.count { it.enabled }
     ArrowPreference(
         title = Strings.settingsTitleNotifyTriggers(),
-        startAction = { SettingsIcon(ZetaIcons.Bell, SettingsHue.Automation) },
+        startAction = { SettingsIcon(ZetaIcons.Bell) },
         endActions = {
             if (rules.isNotEmpty())
                 PreferenceValue(

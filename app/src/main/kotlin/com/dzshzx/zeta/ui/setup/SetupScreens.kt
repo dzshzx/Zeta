@@ -252,7 +252,9 @@ private fun EnvGroup(
         item {
             BasicComponent(
                 title = Strings.setupStatus(),
-                endActions = { PreferenceValue(setupStateText(hub.environment.setup)) },
+                endActions = {
+                    PreferenceValue(setupStateText(hub.environment.setup), clickable = false)
+                },
             )
         }
         item {
@@ -289,7 +291,7 @@ private fun EnvGroup(
             item {
                 BasicComponent(
                     title = Strings.setupRunUser(),
-                    endActions = { PreferenceValue("${env.user} (${env.uid})") },
+                    endActions = { PreferenceValue("${env.user} (${env.uid})", clickable = false) },
                 )
             }
             item {
@@ -452,7 +454,10 @@ private fun ClaudeGroup(
             BasicComponent(
                 title = Strings.setupVersion(),
                 endActions = {
-                    PreferenceValue(health?.claude?.ifBlank { Strings.setupNotInstalled() } ?: "…")
+                    PreferenceValue(
+                        health?.claude?.ifBlank { Strings.setupNotInstalled() } ?: "…",
+                        clickable = false,
+                    )
                 },
             )
         }
@@ -555,12 +560,16 @@ internal fun EnvInstallScreen(hub: ConversationHub, onBack: () -> Unit, onOpenLo
                 footer = Strings.setupInstallPrepareFooter(),
             ) {
                 item {
+                    // 已有用户、正在装或装完时只读
+                    val editable = existingUser == null && !installer.running && !complete
                     BasicComponent(
                         title = Strings.setupUserName(),
                         summary = Strings.setupUserNameSummary(),
-                        endActions = { PreferenceValue(existingUser ?: userName) },
+                        endActions = {
+                            PreferenceValue(existingUser ?: userName, clickable = editable)
+                        },
                         onClick =
-                            if (existingUser == null && !installer.running && !complete) {
+                            if (editable) {
                                 {
                                     nameDraft = userName
                                     editingName = true
@@ -603,7 +612,7 @@ private fun InstallStepRow(step: InstallStep, installer: EnvInstaller, complete:
     BasicComponent(
         title = step.title,
         summary = if (current) installer.detail.ifBlank { null } else null,
-        endActions = if (value.isEmpty()) null else ({ PreferenceValue(value) }),
+        endActions = if (value.isEmpty()) null else ({ PreferenceValue(value, clickable = false) }),
     )
 }
 
@@ -938,7 +947,7 @@ private fun OptionalToolRow(
             BasicComponent(
                 title = title,
                 summary = Strings.setupOptionalPreinstalled(label),
-                endActions = { PreferenceValue(Strings.setupInstalled()) },
+                endActions = { PreferenceValue(Strings.setupInstalled(), clickable = false) },
             )
     }
 }

@@ -674,7 +674,8 @@ private fun TransferProgressRow(state: TransferState, context: Context) {
         summary =
             Formatter.formatShortFileSize(context, state.done) +
                 (state.total?.let { " / " + Formatter.formatShortFileSize(context, it) } ?: ""),
-        endActions = fraction?.let { f -> { PreferenceValue("${(f * 100).toInt()}%") } },
+        endActions =
+            fraction?.let { f -> { PreferenceValue("${(f * 100).toInt()}%", clickable = false) } },
         bottomAction = {
             LinearProgressIndicator(progress = fraction, modifier = Modifier.fillMaxWidth())
         },

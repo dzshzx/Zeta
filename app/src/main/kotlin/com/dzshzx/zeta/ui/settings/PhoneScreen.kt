@@ -74,7 +74,10 @@ internal fun PhoneScreen(hub: ConversationHub, onBack: () -> Unit) {
                     BasicComponent(
                         title = Strings.settingsPhoneStatus(),
                         endActions = {
-                            PreferenceValue(accessibilityState(connected, working, failed))
+                            PreferenceValue(
+                                accessibilityState(connected, working, failed),
+                                clickable = false,
+                            )
                         },
                     )
                 }

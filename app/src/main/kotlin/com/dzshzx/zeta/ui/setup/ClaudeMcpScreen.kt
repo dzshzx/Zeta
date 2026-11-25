@@ -276,7 +276,11 @@ private fun ConnectorsGroup(connectors: List<McpConnector>) {
                 BasicComponent(
                     title = it.name.removePrefix("claude.ai "),
                     endActions = {
-                        PreferenceValue(stateLabel(it.state), color = stateColor(it.state))
+                        PreferenceValue(
+                            stateLabel(it.state),
+                            color = stateColor(it.state),
+                            clickable = false,
+                        )
                     },
                 )
             }
@@ -613,19 +617,21 @@ private fun ServerInfoGroup(
             BasicComponent(
                 title = Strings.setupStatus(),
                 summary = state?.issue?.ifBlank { null },
-                endActions = { PreferenceValue(stateLabel(state), color = stateColor(state)) },
+                endActions = {
+                    PreferenceValue(stateLabel(state), color = stateColor(state), clickable = false)
+                },
             )
         }
         item {
             BasicComponent(
                 title = Strings.setupMcpScope(),
-                endActions = { PreferenceValue(scopeLabel(server.scope)) },
+                endActions = { PreferenceValue(scopeLabel(server.scope), clickable = false) },
             )
         }
         item {
             BasicComponent(
                 title = Strings.setupMcpType(),
-                endActions = { PreferenceValue(typeLabel(server.type)) },
+                endActions = { PreferenceValue(typeLabel(server.type), clickable = false) },
             )
         }
         if (server.type == "stdio") {
@@ -643,7 +649,7 @@ private fun CardListGroupScope.stdioRows(server: McpServer) {
             BasicComponent(
                 title = Strings.setupMcpEnvKeys(),
                 summary = server.envKeys.joinToString(Strings.setupListSeparator()),
-                endActions = { PreferenceValue(Strings.setupMcpValuesHidden()) },
+                endActions = { PreferenceValue(Strings.setupMcpValuesHidden(), clickable = false) },
             )
         }
     }
@@ -662,7 +668,7 @@ private fun CardListGroupScope.remoteRows(
             BasicComponent(
                 title = Strings.setupMcpHeaders(),
                 summary = server.headerKeys.joinToString(Strings.setupListSeparator()),
-                endActions = { PreferenceValue(Strings.setupMcpValuesHidden()) },
+                endActions = { PreferenceValue(Strings.setupMcpValuesHidden(), clickable = false) },
             )
         }
     }

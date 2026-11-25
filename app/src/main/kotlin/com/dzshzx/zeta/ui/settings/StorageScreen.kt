@@ -36,7 +36,6 @@ import com.dzshzx.zeta.ui.components.coui2.CouiPage
 import com.dzshzx.zeta.ui.components.coui2.IconActionButton
 import com.dzshzx.zeta.ui.components.coui2.PreferenceGroup
 import com.dzshzx.zeta.ui.components.coui2.PreferenceValue
-import com.dzshzx.zeta.ui.components.coui2.SettingsHue
 import com.dzshzx.zeta.ui.components.coui2.SettingsIcon
 import com.dzshzx.zeta.ui.components.coui2.ZetaIcons
 import com.dzshzx.zeta.ui.components.rememberRetained
@@ -63,7 +62,7 @@ internal fun StorageEntry(onClick: () -> Unit) {
     val free = remember { Storage.phoneSpace().first }
     ArrowPreference(
         title = Strings.settingsStorageTitle(),
-        startAction = { SettingsIcon(ZetaIcons.Storage, SettingsHue.Files) },
+        startAction = { SettingsIcon(ZetaIcons.Storage) },
         endActions = {
             if (free > 0) PreferenceValue(Strings.settingsStorageFree(Storage.size(free)))
         },
@@ -304,7 +303,9 @@ internal fun StoragePage(
                             ?.let { Storage.cleanupText(it.cleanupPeriodDays) }
                     BasicComponent(
                         title = Strings.settingsStorageCleanupPeriod(),
-                        endActions = { if (value != null) PreferenceValue(value) },
+                        endActions = {
+                            if (value != null) PreferenceValue(value, clickable = false)
+                        },
                     )
                 }
             }
@@ -370,13 +371,13 @@ private fun SpaceGroup(view: StorageView) {
         item(key = "phone") {
             BasicComponent(
                 title = Strings.settingsStoragePhoneFree(),
-                endActions = { PreferenceValue(phoneSpaceText(view.phone)) },
+                endActions = { PreferenceValue(phoneSpaceText(view.phone), clickable = false) },
             )
         }
         item(key = "rootfs") {
             BasicComponent(
                 title = Strings.settingsStorageDebian(),
-                endActions = { PreferenceValue(rootfsText(view)) },
+                endActions = { PreferenceValue(rootfsText(view), clickable = false) },
             )
         }
     }
@@ -555,7 +556,7 @@ internal fun ProjectSessionsPage(
                     item {
                         BasicComponent(
                             title = Strings.settingsStorageOther(),
-                            endActions = { PreferenceValue(Storage.size(rest)) },
+                            endActions = { PreferenceValue(Storage.size(rest), clickable = false) },
                         )
                     }
                 }

@@ -5,7 +5,6 @@ import androidx.compose.ui.platform.LocalContext
 import com.dzshzx.zeta.i18n.AppLanguage
 import com.dzshzx.zeta.i18n.Strings
 import com.dzshzx.zeta.i18n.UiLanguage
-import com.dzshzx.zeta.ui.components.coui2.SettingsHue
 import com.dzshzx.zeta.ui.components.coui2.SettingsIcon
 import io.github.suqi8.coui.kmp.icon.COUIIcons
 import io.github.suqi8.coui.kmp.icon.extended.Translate
@@ -21,7 +20,7 @@ internal fun LanguageRow() {
     val choices = listOf<String?>(null) + UiLanguage.supported
     OverlayDropdownPreference(
         title = Strings.settingsLanguage(),
-        startAction = { SettingsIcon(COUIIcons.Translate, SettingsHue.System) },
+        startAction = { SettingsIcon(COUIIcons.Translate) },
         items = choices.map { it?.let(UiLanguage::autonym) ?: Strings.settingsLanguageSystem() },
         selectedIndex = choices.indexOf(AppLanguage.choice(context)).coerceAtLeast(0),
         onSelectedIndexChange = { index -> AppLanguage.choose(context, choices[index]) },

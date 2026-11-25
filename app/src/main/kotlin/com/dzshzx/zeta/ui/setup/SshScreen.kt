@@ -88,6 +88,7 @@ private fun SshServiceGroup(hub: ConversationHub, status: SshStatus?, busy: Bool
                             status.running -> Strings.setupSshRunning()
                             else -> Strings.setupSshNotRunning()
                         },
+                        clickable = false,
                     )
                 },
             )
@@ -118,7 +119,10 @@ private fun CardListGroupScope.installedRows(
         BasicComponent(
             title = Strings.setupSshListen(),
             endActions = {
-                PreferenceValue(status.listen.ifBlank { Strings.setupSshPort(status.port) })
+                PreferenceValue(
+                    status.listen.ifBlank { Strings.setupSshPort(status.port) },
+                    clickable = false,
+                )
             },
         )
     }
@@ -149,7 +153,9 @@ private fun SshLoginGroup(status: SshStatus, user: String?, busy: Boolean, onAdd
         item {
             BasicComponent(
                 title = Strings.setupSshAuthorizedKeys(),
-                endActions = { PreferenceValue(Strings.setupSshKeyCount(status.keys)) },
+                endActions = {
+                    PreferenceValue(Strings.setupSshKeyCount(status.keys), clickable = false)
+                },
             )
         }
         item {

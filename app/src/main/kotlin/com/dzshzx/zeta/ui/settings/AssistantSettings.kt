@@ -22,7 +22,6 @@ import com.dzshzx.zeta.i18n.Strings
 import com.dzshzx.zeta.ui.components.coui2.CouiPage
 import com.dzshzx.zeta.ui.components.coui2.PreferenceGroup
 import com.dzshzx.zeta.ui.components.coui2.PreferenceValue
-import com.dzshzx.zeta.ui.components.coui2.SettingsHue
 import com.dzshzx.zeta.ui.components.coui2.SettingsIcon
 import io.github.suqi8.coui.kmp.basic.BasicComponent
 import io.github.suqi8.coui.kmp.icon.COUIIcons
@@ -55,7 +54,7 @@ internal fun AssistantEntry(owner: AssistantOwner? = null, onOpen: () -> Unit) {
     val current = owner ?: rememberAssistantOwner(AssistantRole::owner)
     ArrowPreference(
         title = Strings.settingsAssistantTitle(),
-        startAction = { SettingsIcon(COUIIcons.Mic, SettingsHue.System) },
+        startAction = { SettingsIcon(COUIIcons.Mic) },
         endActions = {
             PreferenceValue(
                 text =
@@ -64,9 +63,6 @@ internal fun AssistantEntry(owner: AssistantOwner? = null, onOpen: () -> Unit) {
                         current.self -> Strings.settingsAssistantIsDefault()
                         else -> Strings.settingsAssistantNotSet()
                     },
-                color =
-                    if (current?.self == true) Color.Unspecified
-                    else COUITheme.colorScheme.labelTertiary,
             )
         },
         onClick = onOpen,
@@ -127,9 +123,6 @@ private fun DefaultAssistantPreference(current: AssistantOwner?) {
         endActions = {
             PreferenceValue(
                 text = current?.summary ?: Strings.commonQuerying(),
-                color =
-                    if (current?.self == true) Color.Unspecified
-                    else COUITheme.colorScheme.labelTertiary,
             )
         },
         onClick = {
@@ -206,6 +199,7 @@ private fun RecognizerPreference(current: AssistantOwner?) {
                     if (broken) Strings.settingsAssistantNotZeta()
                     else current?.recognizerSummary ?: Strings.commonQuerying(),
                 color = if (broken) COUITheme.colorScheme.error else Color.Unspecified,
+                clickable = false,
             )
         },
     )
@@ -222,6 +216,7 @@ private fun PowerKeyPreference(log: PowerKeyStatus?, reading: Boolean) {
                 text = powerKeyValue(log, reading),
                 color =
                     if (log?.installed == false) COUITheme.colorScheme.error else Color.Unspecified,
+                clickable = false,
             )
         },
     )

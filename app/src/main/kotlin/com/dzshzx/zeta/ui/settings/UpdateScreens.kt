@@ -19,7 +19,6 @@ import com.dzshzx.zeta.i18n.Strings
 import com.dzshzx.zeta.ui.components.coui2.CouiPage
 import com.dzshzx.zeta.ui.components.coui2.PreferenceGroup
 import com.dzshzx.zeta.ui.components.coui2.PreferenceValue
-import com.dzshzx.zeta.ui.components.coui2.SettingsHue
 import com.dzshzx.zeta.ui.components.coui2.SettingsIcon
 import com.dzshzx.zeta.ui.markdown.MarkdownTone
 import com.dzshzx.zeta.ui.markdown.StaticMarkdown
@@ -38,7 +37,7 @@ import io.github.suqi8.coui.kmp.theme.COUITheme
 @Composable
 internal fun VersionRow(updates: AppUpdates, onOpenUpdate: () -> Unit) {
     val version = BuildConfig.VERSION_NAME
-    val icon = @Composable { SettingsIcon(COUIIcons.Info, SettingsHue.System) }
+    val icon = @Composable { SettingsIcon(COUIIcons.Info) }
     if (!updates.enabled) {
         BasicComponent(title = Strings.commonVersion(), summary = version, startAction = icon)
         return
@@ -75,7 +74,7 @@ internal fun AutoUpdateSwitch() {
     val settings = Settings.of(LocalContext.current)
     SwitchPreference(
         title = Strings.settingsAutoCheckUpdates(),
-        startAction = { SettingsIcon(COUIIcons.Update, SettingsHue.System) },
+        startAction = { SettingsIcon(COUIIcons.Update) },
         checked = settings.autoUpdateCheck,
         onCheckedChange = { settings.autoUpdateCheck = it },
     )
@@ -116,7 +115,9 @@ internal fun UpdateScreen(onBack: () -> Unit) {
                     item {
                         BasicComponent(
                             title = Strings.updateCurrentVersion(),
-                            endActions = { PreferenceValue(BuildConfig.VERSION_NAME) },
+                            endActions = {
+                                PreferenceValue(BuildConfig.VERSION_NAME, clickable = false)
+                            },
                         )
                     }
                 }

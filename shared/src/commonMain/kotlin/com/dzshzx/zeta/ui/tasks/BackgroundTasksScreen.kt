@@ -255,7 +255,9 @@ private fun TaskRow(task: BackgroundTask, onClick: () -> Unit) {
 private fun ElapsedRow(task: BackgroundTask) {
     BasicComponent(
         title = if (task.running) Strings.tasksElapsedRunning() else Strings.tasksElapsedTook(),
-        endActions = { PreferenceValue(formatElapsed(task.elapsedMs(elapsedNow(task)))) },
+        endActions = {
+            PreferenceValue(formatElapsed(task.elapsedMs(elapsedNow(task))), clickable = false)
+        },
     )
 }
 
@@ -334,7 +336,11 @@ private fun TaskInfoGroup(
             BasicComponent(
                 title = Strings.tasksState(),
                 endActions = {
-                    PreferenceValue(TaskLabels.state(task), color = taskStateColor(task.state))
+                    PreferenceValue(
+                        TaskLabels.state(task),
+                        color = taskStateColor(task.state),
+                        clickable = false,
+                    )
                 },
             )
         }
@@ -377,14 +383,19 @@ internal fun taskStateColor(state: TaskState): Color =
 private fun CardListGroupScope.agentItems(task: BackgroundTask, onOpenSteps: (String) -> Unit) {
     task.agentType?.let { type ->
         item(key = "agent") {
-            BasicComponent(title = Strings.tasksAgentType(), endActions = { PreferenceValue(type) })
+            BasicComponent(
+                title = Strings.tasksAgentType(),
+                endActions = { PreferenceValue(type, clickable = false) },
+            )
         }
     }
     task.toolUses?.let { uses ->
         item(key = "tools") {
             BasicComponent(
                 title = Strings.tasksToolUses(),
-                endActions = { PreferenceValue(Strings.tasksToolUsesCount(uses)) },
+                endActions = {
+                    PreferenceValue(Strings.tasksToolUsesCount(uses), clickable = false)
+                },
             )
         }
     }
