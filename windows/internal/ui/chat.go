@@ -324,6 +324,7 @@ func (a *App) chatHeader(c *ui.Context, p *chatPane) {
 		})
 		b.OnClick(func() { p.cwd.open, p.cwd.value = true, cwd })
 	})
+	ui.Box(c).Absolute().Left(0).Right(0).Top(headerHeight - 1).Height(1).Background(k.Divider)
 }
 
 // newChat：窗格里是还没发过消息的新对话（没有会话号），这时还能换工作目录。
