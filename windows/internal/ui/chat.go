@@ -305,6 +305,7 @@ func (a *App) chatHeader(c *ui.Context, p *chatPane) {
 	}
 	bar.Absolute().Top(0).Left(0).Right(0).Height(headerHeight).Padding(0, widget.EndInset(c, 20), 0, start).Justify(ui.Center).
 		Gap(1).DragWindow().Children(func() {
+		ui.Box(c).Absolute().Left(0).Right(0).Bottom(0).Height(1).Background(k.Divider)
 		ui.Text(c, a.chatTitle(p)).FontSize(widget.SizeBodyM).FontWeight(600).TextColor(k.Text).SingleLine().Ellipsis("…").
 			MaxWidthPercent(100)
 		if !newChat(p) {
@@ -324,7 +325,6 @@ func (a *App) chatHeader(c *ui.Context, p *chatPane) {
 		})
 		b.OnClick(func() { p.cwd.open, p.cwd.value = true, cwd })
 	})
-	ui.Box(c).Absolute().Left(0).Right(0).Top(headerHeight - 1).Height(1).Background(k.Divider)
 }
 
 // newChat：窗格里是还没发过消息的新对话（没有会话号），这时还能换工作目录。

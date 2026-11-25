@@ -51,7 +51,10 @@ func TestCollapseScrolledWorkGroup(t *testing.T) {
 	}
 	tt.ClickAt(r.X+r.W/2, r.Y+r.H/2)
 	tt.Frame()
-	if r, ok := tt.Find(summary); *ch.open["work:w"] || !ok || r.Y < ch.Top || r.Y+r.H > 400 {
+	if _, ok := tt.Find("收起"); ok {
+		t.Fatal("点击后仍显示整组收起按钮")
+	}
+	if r, ok := tt.Find(summary); !ok || r.Y < ch.Top || r.Y+r.H > 400 {
 		t.Fatalf("没在视野内收成一行摘要：%v %v", r, ok)
 	}
 }

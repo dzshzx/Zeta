@@ -38,7 +38,8 @@ func (ch *Chat) workGroup(c *ui.Context, it items.Item, row int) {
 			// 点开最后一张卡时，点的那一行留在原处，不跟着底部往上跑
 			ch.list.HoldPlace()
 		}
-		p.Trigger.MinHeight(42).Padding(0, 14).Gap(10).AlignItems(ui.Center).Cursor(ui.CursorPointer).Children(func() {
+		const summaryHeight = 42
+		p.Trigger.MinHeight(summaryHeight).Padding(0, 14).Gap(10).AlignItems(ui.Center).Cursor(ui.CursorPointer).Children(func() {
 			ic, tint := iconDone, k.icon
 			if running != nil {
 				ic, tint = stepIcon(*running), t.Accent
@@ -53,7 +54,7 @@ func (ch *Chat) workGroup(c *ui.Context, it items.Item, row int) {
 		})
 		if *open {
 			// 按钮与摘要共用一行，但直接属于整张卡：摘要滚走后它还能留在视野里，卡片滚走时一起离开。
-			p.Trigger.Margin(0, 0, -42, 0)
+			p.Trigger.Margin(0, 0, -summaryHeight, 0)
 			b := widget.IconButton(c.Key("collapse-work"), widget.IconChevronUp, locales.ChatCollapse())
 			b.AlignSelf(ui.End).Margin(5, 6, 5, 0).Sticky().Top(ch.Top)
 			if !b.Hovered() && !b.Pressed() {
