@@ -141,7 +141,11 @@ class HelperProgram(
      */
     fun installCommand(binary: ByteArray): String {
         val sha = hex(MessageDigest.getInstance("SHA-256").digest(binary))
-        val link = if (name == ZETA_HELPER) "ln -sfn \"$name-$version\" \"\$d/$name\"; " else ""
+        // 链接先建在临时名字上再改名换过去（rename 是原子的）：几处同时装时 ln -sfn 先删后建，会撞上别人刚建的链接而失败
+        val link =
+            if (name == ZETA_HELPER)
+                "l=\"\$d/${tempPrefix(name)}.link.\$\$\"; ln -sfn \"$name-$version\" \"\$l\" && mv -f \"\$l\" \"\$d/$name\"; "
+            else ""
         return "d=$directory; mkdir -p \"\$d\" && t=\$(mktemp \"\$d/${tempPrefix(name)}.XXXXXX\") || exit 1; " +
             "if cat > \"\$t\" && [ \"\$(sha256sum < \"\$t\")\" = \"$sha  -\" ] && chmod 755 \"\$t\" && mv -f \"\$t\" $file; then " +
             "for o in \"\$d\"/$name-*; do [ \"\$o\" = $file ] || rm -f \"\$o\"; done; " +

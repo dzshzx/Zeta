@@ -68,12 +68,13 @@ func (p *Program) Command(linuxName, sub string, args ...string) string {
 
 // InstallCommand 把经标准输入传来的程序 binary 装上：写进同一目录下的临时文件，核对哈希（传到一半断了的不装），改名成正式的名字，
 // 再删掉这个程序别的版本；zeta-helper 还让不带版本的链接指向它（电脑那边 tmux 窗口、Claude Code 的 hook 用这个固定的名字）。
+// 链接先建在临时名字上再改名换过去（rename 是原子的）：几处同时装时 ln -sfn 先删后建，会撞上别人刚建的链接而失败。
 func (p *Program) InstallCommand(linuxName string, binary []byte) string {
 	sum := sha256.Sum256(binary)
 	file := p.file(linuxName)
 	link := ""
 	if p.Name == ZetaHelper {
-		link = `ln -sfn "` + p.Name + "-" + p.Version + `" "$d/` + p.Name + `"; `
+		link = `l="$d/.` + p.Name + `.link.$$"; ln -sfn "` + p.Name + "-" + p.Version + `" "$l" && mv -f "$l" "$d/` + p.Name + `"; `
 	}
 	return "d=" + p.dir(linuxName) + `; mkdir -p "$d" && t=$(mktemp "$d/.` + p.Name + `.XXXXXX") || exit 1; ` +
 		`if cat > "$t" && [ "$(sha256sum < "$t")" = "` + hex.EncodeToString(sum[:]) + `  -" ] && chmod 755 "$t" && mv -f "$t" ` + file + "; then " +
