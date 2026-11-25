@@ -183,7 +183,7 @@ func TestModelCatalogDoesNotBlockModelWrite(t *testing.T) {
 	selectRelay(t, home)
 	catalog := make(chan accounts.ModelCatalog, 1)
 	go func() {
-		out, _ := accounts.ReadModelCatalog(ctx, home, "")
+		out, _ := accounts.ReadModelCatalog(ctx, home)
 		catalog <- out
 	}()
 	select {

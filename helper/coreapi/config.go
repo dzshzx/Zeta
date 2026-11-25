@@ -63,7 +63,7 @@ func (cl *Client) SetDefaultModel(ctx context.Context, model string) (Defaults, 
 	return get[Defaults](ctx, cl.c, "config.defaults.setModel", params{"value": model})
 }
 
-// SetDefaultPermissionMode 设默认权限模式，不能是 bypassPermissions（config.defaults.setPermissionMode）。
+// SetDefaultPermissionMode 设默认权限模式（config.defaults.setPermissionMode）。
 func (cl *Client) SetDefaultPermissionMode(ctx context.Context, mode string) (Defaults, error) {
 	return get[Defaults](ctx, cl.c, "config.defaults.setPermissionMode", params{"value": mode})
 }

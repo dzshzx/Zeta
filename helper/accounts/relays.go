@@ -105,7 +105,8 @@ func selectedRelay(home string) string {
 // effectiveRelay 和新对话启动一样：先看用户设置，再看登录 shell 传给托管脚本的环境。
 // 只取退出状态，不读取 shell 输出或地址；探测失败时不猜该改哪份配置。
 func effectiveRelay(ctx context.Context, home string) (string, error) {
-	if selectedRelay(home) == "" {
+	name := selectedRelay(home)
+	if name == "" {
 		return "", nil
 	}
 	ctx, cancel := context.WithTimeout(ctx, 5*time.Second)
@@ -119,7 +120,7 @@ func effectiveRelay(ctx context.Context, home string) (string, error) {
 		case 42:
 			return "", nil
 		case 43:
-			return selectedRelay(home), nil
+			return name, nil
 		}
 	}
 	return "", errors.New("无法确认登录环境使用的中转")
@@ -153,10 +154,9 @@ func SetRelayDefaultModel(ctx context.Context, home, model string) (bool, error)
 	}
 	defer unlock()
 	path := targetPath(home, name)
-	var settings map[string]json.RawMessage
-	data, err := os.ReadFile(path)
-	if err != nil || json.Unmarshal(data, &settings) != nil || settings == nil {
-		return true, locales.Err("errRelayUnreadable")
+	settings, err := readTargetObject[json.RawMessage](path)
+	if err != nil {
+		return true, err
 	}
 	if model == "" {
 		delete(settings, "model")
@@ -196,8 +196,7 @@ func ownBaseURL(home string) bool {
 	if json.Unmarshal(data, &s) != nil {
 		return false
 	}
-	v, ok := s.Env["ANTHROPIC_BASE_URL"].(string)
-	return ok && strings.TrimSpace(v) != ""
+	return targetEnv(s.Env, "ANTHROPIC_BASE_URL") != ""
 }
 
 func targetPath(home, name string) string {
@@ -214,6 +213,23 @@ type targetSettings struct {
 	Env          map[string]any `json:"env"`
 	APIKeyHelper string         `json:"apiKeyHelper"`
 	Model        string         `json:"model"`
+}
+
+// envString 是 env 里 name 那一项的字符串原文；没有、不是字符串时为空。
+func envString(env map[string]any, name string) string {
+	v, _ := env[name].(string)
+	return v
+}
+
+// targetEnv 是 env 里 name 那一项去掉首尾空白后的字符串；没有、不是字符串时为空。
+func targetEnv(env map[string]any, name string) string {
+	return strings.TrimSpace(envString(env, name))
+}
+
+// envHasKey 是 env 里写了 ANTHROPIC_API_KEY 或 ANTHROPIC_AUTH_TOKEN（不是 null 就算，不看值）。列中转和改密钥都按它
+// 判断密钥写在 env 里；拉模型列表取密钥另按 targetEnv 要去空白后非空（targetModelAuth）。
+func envHasKey(env map[string]any) bool {
+	return env["ANTHROPIC_API_KEY"] != nil || env["ANTHROPIC_AUTH_TOKEN"] != nil
 }
 
 // keyFile 是 apiKeyHelper `cat <路径>` 里的文件（展开 ~/），只认家目录里的；认不出、在家目录外时为空。
@@ -249,11 +265,9 @@ func readRelay(home, name string, current bool) Relay {
 	if !ok {
 		return r
 	}
-	if v, ok := s.Env["ANTHROPIC_BASE_URL"].(string); ok {
-		r.BaseURL = v
-	}
+	r.BaseURL = envString(s.Env, "ANTHROPIC_BASE_URL")
 	r.Model = s.Model
-	envKey := s.Env["ANTHROPIC_API_KEY"] != nil || s.Env["ANTHROPIC_AUTH_TOKEN"] != nil
+	envKey := envHasKey(s.Env)
 	switch {
 	case strings.TrimSpace(s.APIKeyHelper) == "":
 		r.HasKey, r.KeyEditable = envKey, !envKey
@@ -334,11 +348,8 @@ func (h *Host) SaveRelay(ctx context.Context, in RelayInput) error {
 	path := targetPath(h.Home, in.Name)
 	settings := map[string]any{}
 	if !in.Create {
-		data, err := os.ReadFile(path)
-		dec := json.NewDecoder(bytes.NewReader(data))
-		dec.UseNumber()
-		if err != nil || !json.Valid(data) || dec.Decode(&settings) != nil || settings == nil {
-			return locales.Err("errRelayUnreadable")
+		if settings, err = readTargetObject[any](path); err != nil {
+			return err
 		}
 	}
 	env, _ := settings["env"].(map[string]any)
@@ -360,6 +371,19 @@ func (h *Host) SaveRelay(ctx context.Context, in RelayInput) error {
 	return writeTarget(path, settings)
 }
 
+// readTargetObject 读要改写的目标设置文件：必须整份是一个 JSON 对象，否则报 errRelayUnreadable。数字按原文留着
+// （UseNumber）；V 是 json.RawMessage 时各项连原文一起留着，写回只改动过的那几项。
+func readTargetObject[V any](path string) (map[string]V, error) {
+	var settings map[string]V
+	data, err := os.ReadFile(path)
+	dec := json.NewDecoder(bytes.NewReader(data))
+	dec.UseNumber()
+	if err != nil || !json.Valid(data) || dec.Decode(&settings) != nil || settings == nil {
+		return nil, locales.Err("errRelayUnreadable")
+	}
+	return settings, nil
+}
+
 func writeTarget(path string, settings any) error {
 	data, err := json.Marshal(settings)
 	if err != nil {
@@ -377,7 +401,7 @@ func (h *Host) writeKey(settings, env map[string]any, name, key string) error {
 	helper, _ := settings["apiKeyHelper"].(string)
 	file := keyFile(h.Home, helper)
 	switch {
-	case strings.TrimSpace(helper) == "" && (env["ANTHROPIC_API_KEY"] != nil || env["ANTHROPIC_AUTH_TOKEN"] != nil):
+	case strings.TrimSpace(helper) == "" && envHasKey(env):
 		return locales.Err("errRelayKeyReadOnly")
 	case strings.TrimSpace(helper) == "":
 		settings["apiKeyHelper"] = "cat ~/" + filepath.ToSlash(defaultKeyFile(name))

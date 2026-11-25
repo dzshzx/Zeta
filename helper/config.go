@@ -97,9 +97,13 @@ type valueParams struct {
 }
 
 func readModelCatalog(ctx context.Context, s *claudecfg.Store) (any, error) {
-	// 用户级设置读不到时仍可列出中转，只是没有可继承的模型。
-	d, _ := s.Defaults()
-	return accounts.ReadModelCatalog(ctx, s.Home(), d.Model)
+	out, err := accounts.ReadModelCatalog(ctx, s.Home())
+	if err == nil && out.Relay != "" && out.Model == "" {
+		// 用户级设置读不到时仍可列出中转，只是没有可继承的模型。
+		d, _ := s.Defaults()
+		out.Model = d.Model
+	}
+	return out, err
 }
 
 func readDefaults(ctx context.Context, s *claudecfg.Store) (any, error) {
@@ -119,6 +123,7 @@ func withEffectiveModel(ctx context.Context, s *claudecfg.Store, defaults func()
 }
 
 func setDefaultModel(ctx context.Context, s *claudecfg.Store, p valueParams) (any, error) {
+	// 先读用户设置：读不了就什么都不写，不留下只改了中转的一半。
 	d, err := s.Defaults()
 	if err != nil {
 		return nil, err

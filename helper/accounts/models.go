@@ -26,7 +26,8 @@ type RelayModel struct {
 	DisplayName string `json:"displayName"`
 }
 
-// ModelCatalog 是生效中转的名称、默认模型和上游模型列表。没有生效中转时三个字段都为空。
+// ModelCatalog 是生效中转的名称、默认模型和上游模型列表。没有生效中转时三个字段都为空；中转没设默认模型时 Model 为空，
+// 由调用方填上继承的用户级默认值。
 type ModelCatalog struct {
 	Relay  string       `json:"relay"`
 	Model  string       `json:"model"`
@@ -34,17 +35,16 @@ type ModelCatalog struct {
 }
 
 // ReadModelCatalog 只自动访问生效的已保存中转。拉取失败仍回传已知的默认模型，但不回传网络错误。
-func ReadModelCatalog(ctx context.Context, home, inheritedModel string) (ModelCatalog, error) {
+func ReadModelCatalog(ctx context.Context, home string) (ModelCatalog, error) {
 	out := ModelCatalog{Models: []RelayModel{}}
 	name, err := effectiveRelay(ctx, home)
 	if err != nil || name == "" {
 		return out, err
 	}
-	out.Relay, out.Model = name, inheritedModel
-	model, baseURL, auth := catalogTarget(home, name)
-	if model != "" {
-		out.Model = model
-	}
+	var baseURL string
+	var auth modelAuth
+	out.Relay = name
+	out.Model, baseURL, auth = catalogTarget(home, name)
 	if auth == (modelAuth{}) || validBaseURL(baseURL) != nil {
 		return out, nil
 	}
@@ -73,16 +73,11 @@ func catalogTarget(home, name string) (string, string, modelAuth) {
 	}
 	defer unlock()
 	s, _ := readTarget(home, name)
-	return strings.TrimSpace(s.Model), targetEnv(s, "ANTHROPIC_BASE_URL"), targetModelAuth(home, s)
-}
-
-func targetEnv(s targetSettings, name string) string {
-	v, _ := s.Env[name].(string)
-	return strings.TrimSpace(v)
+	return strings.TrimSpace(s.Model), targetEnv(s.Env, "ANTHROPIC_BASE_URL"), targetModelAuth(home, s)
 }
 
 func targetModelAuth(home string, s targetSettings) modelAuth {
-	auth := modelAuth{apiKey: targetEnv(s, "ANTHROPIC_API_KEY"), token: targetEnv(s, "ANTHROPIC_AUTH_TOKEN")}
+	auth := modelAuth{apiKey: targetEnv(s.Env, "ANTHROPIC_API_KEY"), token: targetEnv(s.Env, "ANTHROPIC_AUTH_TOKEN")}
 	if auth != (modelAuth{}) {
 		return auth
 	}
