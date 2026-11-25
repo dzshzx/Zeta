@@ -4,8 +4,13 @@ import androidx.collection.LruCache
 import androidx.compose.ui.graphics.ImageBitmap
 import java.util.Base64
 import java.util.Collections
+import java.util.concurrent.ConcurrentHashMap
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.CoroutineStart
+import kotlinx.coroutines.Deferred
 import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.withContext
+import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.async
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.buildJsonObject
@@ -43,10 +48,11 @@ object ImageStore {
         allowed[ref.key] = true
     }
 
-    fun cached(ref: ImageRef, backend: String): ImageBitmap? = cache.get(cacheKey(ref, backend))
+    fun cached(ref: ImageRef, backend: String): ImageBitmap? = cache.get(resolvedKey(ref, backend))
 
     /** 取到过的这张图的原始字节；没取过、没取到或已被挤出缓存时为 null。 */
-    fun original(ref: ImageRef, backend: String): ByteArray? = originals.get(cacheKey(ref, backend))
+    fun original(ref: ImageRef, backend: String): ByteArray? =
+        originals.get(resolvedKey(ref, backend))
 
     /** 会话记录、文件里的图片按主机分开缓存；内嵌的、网络上的哪台主机都一样。 */
     private fun cacheKey(ref: ImageRef, backend: String): String =
@@ -57,6 +63,20 @@ object ImageStore {
             else -> ref.key
         }
 
+    /** 读不到、改用了别的图（[load] 的 fallback）的文件图，缓存在代替它的那张图的键下。 */
+    private val substitutes = ConcurrentHashMap<String, ImageRef>()
+
+    private fun resolvedKey(ref: ImageRef, backend: String): String {
+        val key = cacheKey(ref, backend)
+        return substitutes[key]?.let { cacheKey(it, backend) } ?: key
+    }
+
+    /** 正在取的图（按缓存键）：同一张图同时只取一次，几处一起显示时共用结果。 */
+    private val loading = ConcurrentHashMap<String, Deferred<ImageBitmap?>>()
+
+    /** 取图不随界面取消：图片滑出屏幕时取到一半的照样取完、放进缓存，滑回来时直接用。 */
+    private val scope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
+
     /** 内存里缓存的图片一共多少字节（存储页显示）：解码后的图加原始字节。 */
     fun memoryBytes(): Long = cache.size().toLong() + originals.size()
 
@@ -65,18 +85,62 @@ object ImageStore {
         cache.evictAll()
         originals.evictAll()
         failed.clear()
+        substitutes.clear()
     }
 
-    suspend fun load(hub: ConversationHub, ref: ImageRef, backend: String): ImageBitmap? {
+    /**
+     * 取一张图。回答里写的图片文件（[FileImage]）读不到时，改取 [fallback] 给的图（Claude 用 Read 读这个文件时会话记录里留下的那张），
+     * 并记住这个替换，之后不再先去读文件。
+     */
+    suspend fun load(
+        hub: ConversationHub,
+        ref: ImageRef,
+        backend: String,
+        fallback: () -> ImageRef? = { null },
+    ): ImageBitmap? {
         val key = cacheKey(ref, backend)
+        substitutes[key]?.let {
+            return load(hub, it, backend)
+        }
+        loadOnce(hub, ref, backend, key)?.let {
+            return it
+        }
+        if (ref !is FileImage) return null
+        val other = fallback() ?: return null
+        substitutes[key] = other
+        return load(hub, other, backend)
+    }
+
+    private suspend fun loadOnce(
+        hub: ConversationHub,
+        ref: ImageRef,
+        backend: String,
+        key: String,
+    ): ImageBitmap? {
         cache.get(key)?.let {
             return it
         }
         if (key in failed) return null
-        val loaded =
-            withContext(Dispatchers.IO) {
-                runCatching { fetchBytes(hub, ref, backend)?.let { it to decode(it) } }.getOrNull()
+        val job =
+            loading.computeIfAbsent(key) {
+                scope.async(start = CoroutineStart.LAZY) { fetchAndKeep(hub, ref, backend, key) }
             }
+        job.invokeOnCompletion { loading.remove(key, job) }
+        job.start()
+        return job.await()
+    }
+
+    /** 取来、解码、放进缓存；取不到的记进 [failed]。阻塞。 */
+    private fun fetchAndKeep(
+        hub: ConversationHub,
+        ref: ImageRef,
+        backend: String,
+        key: String,
+    ): ImageBitmap? {
+        val loaded = runCatching {
+            fetchBytes(hub, ref, backend)?.let { it to decode(it) }
+        }
+            .getOrNull()
         if (loaded == null) {
             failed.add(key)
             return null

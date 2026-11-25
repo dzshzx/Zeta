@@ -1,9 +1,18 @@
 package com.dzshzx.zeta.ui.chat
 
+import com.dzshzx.zeta.core.ChatItem
 import com.dzshzx.zeta.core.FileImage
 import com.dzshzx.zeta.core.ImageRef
 import com.dzshzx.zeta.core.RemoteImage
+import com.dzshzx.zeta.core.SessionImage
+import com.dzshzx.zeta.core.ToolStatus
+import com.dzshzx.zeta.core.ToolStep
+import com.dzshzx.zeta.core.WorkItem
+import kotlinx.serialization.json.buildJsonObject
+import kotlinx.serialization.json.put
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertNull
+import org.junit.Assert.assertSame
 import org.junit.Test
 
 /** 回答里的图片怎么从正文里取出、怎么分组：只隔空白的连成一组，被正文隔开的各成一组。 */
@@ -81,5 +90,37 @@ class AnswerImagesTest {
         val parts = split(text)
         assertEquals(text, parts.text)
         assertEquals(emptyList<List<ImageRef>>(), parts.groups)
+    }
+
+    private fun read(id: String, path: String, vararg images: ImageRef) =
+        ToolStep(
+            id = id,
+            name = "Read",
+            input = buildJsonObject { put("file_path", path) },
+            status = ToolStatus.Success,
+            result = null,
+            images = images.toList(),
+        )
+
+    @Test
+    fun readImageIsTheLatestReadOfThatPath() {
+        val first = SessionImage("s.jsonl", "1")
+        val latest = SessionImage("s.jsonl", "2")
+        val items =
+            listOf<ChatItem>(
+                WorkItem("w1", listOf(read("a", "/tmp/shot.png", first))),
+                WorkItem(
+                    "w2",
+                    listOf(
+                        read("b", "/tmp/shot.png", latest),
+                        // 读别的文件、读了但结果里没图的不算
+                        read("c", "/tmp/other.png", SessionImage("s.jsonl", "3")),
+                        read("d", "/tmp/shot.png"),
+                    ),
+                ),
+            )
+        assertSame(latest, readImage(items, "/tmp/shot.png"))
+        assertNull(readImage(items, "/tmp/never.png"))
+        assertNull(readImage(emptyList(), "/tmp/shot.png"))
     }
 }

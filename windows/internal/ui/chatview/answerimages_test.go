@@ -1,6 +1,9 @@
 package chatview
 
 import (
+	"bytes"
+	"encoding/base64"
+	"errors"
 	"slices"
 	"strings"
 	"sync"
@@ -162,5 +165,45 @@ func TestRemoteAnswerImageAutoLoads(t *testing.T) {
 	}
 	if tt.HasText("加载图片 · img.example.com") {
 		t.Error("开着时还在问")
+	}
+}
+
+// 回答里写的图片文件读不到（被删了）时，画 Claude 用 Read 读这个文件时结果里的那张图；没读过的照样显示取不到。
+// 看大图里保存用的也是那张。
+func TestAnswerImageFallsBackToReadResult(t *testing.T) {
+	shot := testPNG(t, 160, 100)
+	ch := New()
+	ch.LoadMarkdownImage = func(url string) ([]byte, error) { return nil, errors.New("没有这个文件") }
+	read := func(id, path string, images ...items.Image) items.Step {
+		return items.Step{Kind: items.Tool, ID: id, Name: "Read", Input: map[string]any{"file_path": path}, Status: items.ToolSuccess, Images: images}
+	}
+	ch.SetItems([]items.Item{
+		{Kind: items.Work, ID: "w", Steps: []items.Step{
+			read("r1", "/tmp/shot.png", items.Image{Kind: items.Inline, Key: "old", Data: "不是图"}),
+			read("r2", "/tmp/shot.png", items.Image{Kind: items.Inline, Key: "read-shot", Data: base64.StdEncoding.EncodeToString(shot)}),
+		}},
+		{Kind: items.Answer, ID: "a", Text: "截图：\n\n![首页](/tmp/shot.png)\n\n![没读过](/tmp/never.png)"},
+	})
+	tt := newTester(ch, 700, 900, false)
+	settleImages(ch, tt)
+	entry := func(path string) *imageEntry {
+		return ch.images.entries[items.Image{Kind: items.Linked, URL: path}.CacheKey()]
+	}
+	if e := entry("/tmp/shot.png"); e == nil {
+		t.Fatal("回答里的图没去取")
+	} else if bmp, done, err := e.result(); !done || bmp == nil || err != nil {
+		t.Fatalf("读过的那张：%v %v %v", bmp, done, err)
+	}
+	if e := entry("/tmp/never.png"); e == nil {
+		t.Fatal("没读过的图没去取")
+	} else if bmp, done, err := e.result(); !done || bmp != nil || err == nil {
+		t.Fatalf("没读过的那张该取不到：%v %v %v", bmp, done, err)
+	}
+	data, err := ch.fetcher(items.Image{Kind: items.Linked, URL: "/tmp/shot.png"})()
+	if err != nil || !bytes.Equal(data, shot) {
+		t.Errorf("取原始数据：%d 字节，%v", len(data), err)
+	}
+	if _, err := ch.fetcher(items.Image{Kind: items.Linked, URL: "/tmp/never.png"})(); err == nil {
+		t.Error("没读过的图不该取到")
 	}
 }

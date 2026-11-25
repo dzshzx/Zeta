@@ -82,7 +82,14 @@ fun SubagentScreen(
         remember(conversation.cwd, home) {
             { text: String -> answerImages(text, conversation.cwd, home) }
         }
-    CompositionLocalProvider(LocalBackend provides conversation.backend) {
+    val readImageAt =
+        remember(conversation, toolUseId) {
+            { path: String -> readImage(conversation.subagent(toolUseId)?.items.orEmpty(), path) }
+        }
+    CompositionLocalProvider(
+        LocalBackend provides conversation.backend,
+        LocalReadImage provides readImageAt,
+    ) {
         SubagentPage(
             conversation.subagent(toolUseId) ?: ConvSubagent(toolUseId),
             onBack,

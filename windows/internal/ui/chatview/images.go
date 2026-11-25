@@ -36,8 +36,8 @@ type imageCache struct {
 }
 
 // get 返回一张图：还在载入时 done 为 false，第一次见到时开始载入，载完让窗口重画。
-// fetch 取图的原始数据（在后台 goroutine 上调，见 Chat.imageBytes）。
-func (ic *imageCache) get(c *ui.Context, im items.Image, fetch func(items.Image) ([]byte, error)) (bmp *ui.Bitmap, done bool, err error) {
+// fetcher 在第一次见到这张图时（界面线程上）给出取它原始数据的函数，那个函数在后台 goroutine 上调（见 Chat.fetcher）。
+func (ic *imageCache) get(c *ui.Context, im items.Image, fetcher func(items.Image) func() ([]byte, error)) (bmp *ui.Bitmap, done bool, err error) {
 	key := im.CacheKey()
 	e, ok := ic.entries[key]
 	if !ok {
@@ -46,11 +46,11 @@ func (ic *imageCache) get(c *ui.Context, im items.Image, fetch func(items.Image)
 		}
 		e = &imageEntry{}
 		ic.entries[key] = e
-		services := c.Services()
+		services, fetch := c.Services(), fetcher(im)
 		ic.pending.Add(1)
 		go func() {
 			defer ic.pending.Done()
-			bmp, err := loadImage(im, fetch)
+			bmp, err := loadImage(fetch)
 			e.mu.Lock()
 			e.bmp, e.err, e.done = bmp, err, true
 			e.mu.Unlock()
@@ -92,9 +92,40 @@ func (ch *Chat) imageBytes(im items.Image) ([]byte, error) {
 	return ImageBytes(im, ch.LoadImage, ch.LoadInlineImage)
 }
 
+// fetcher 返回取图 im 原始数据的函数（阻塞，在后台调）。回答里写的主机上的图片文件读不到（被删了、挪走了）时，
+// 改取 Claude 用 Read 读这个文件时结果里的那张图（readImage）：它在会话记录里，跟着会话记录走。条目只在界面线程上读，
+// 所以那张图在这里先找好。
+func (ch *Chat) fetcher(im items.Image) func() ([]byte, error) {
+	read, ok := items.Image{}, false
+	if im.Kind == items.Linked && !im.Remote() {
+		read, ok = ch.readImage(im.URL)
+	}
+	return func() ([]byte, error) {
+		data, err := ch.imageBytes(im)
+		if err != nil && ok {
+			return ch.imageBytes(read)
+		}
+		return data, err
+	}
+}
+
+// readImage 是 Claude 用 Read 读 path 时工具结果里的图，读过几次取最后一次；没读过、结果里没图时 ok 为 false。
+func (ch *Chat) readImage(path string) (items.Image, bool) {
+	for i := len(ch.items) - 1; i >= 0; i-- {
+		steps := ch.items[i].Steps
+		for j := len(steps) - 1; j >= 0; j-- {
+			s := steps[j]
+			if s.Kind == items.Tool && s.Name == "Read" && len(s.Images) > 0 && s.Input["file_path"] == path {
+				return s.Images[0], true
+			}
+		}
+	}
+	return items.Image{}, false
+}
+
 // loadImage 取一张图的数据并解码。
-func loadImage(im items.Image, fetch func(items.Image) ([]byte, error)) (*ui.Bitmap, error) {
-	data, err := fetch(im)
+func loadImage(fetch func() ([]byte, error)) (*ui.Bitmap, error) {
+	data, err := fetch()
 	if err != nil {
 		return nil, err
 	}
@@ -103,7 +134,7 @@ func loadImage(im items.Image, fetch func(items.Image) ([]byte, error)) (*ui.Bit
 
 // thumbnail 是固定大小、裁切填满的小图（用户消息带的图）。
 func (ch *Chat) thumbnail(c *ui.Context, im items.Image, size float32) {
-	bmp, done, err := ch.images.get(c, im, ch.imageBytes)
+	bmp, done, err := ch.images.get(c, im, ch.fetcher)
 	box := ui.Box(c).Size(size, size).Radius(12).Clip().Background(c.Theme().Text.Alpha(0.06))
 	switch {
 	case bmp != nil:
@@ -129,7 +160,7 @@ func (ch *Chat) picture(c *ui.Context, im items.Image) {
 		ch.remotePrompt(c, im)
 		return
 	}
-	bmp, done, err := ch.images.get(c, im, ch.imageBytes)
+	bmp, done, err := ch.images.get(c, im, ch.fetcher)
 	t := c.Theme()
 	switch {
 	case bmp != nil:

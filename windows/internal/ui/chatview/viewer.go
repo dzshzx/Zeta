@@ -129,7 +129,7 @@ func (v *Viewer) step(d int) {
 
 // bitmap 是一张图在来源列表缓存里的载入结果。
 func (v *Viewer) bitmap(c *ui.Context, im items.Image) (*ui.Bitmap, bool, error) {
-	return v.from.images.get(c, im, v.from.imageBytes)
+	return v.from.images.get(c, im, v.from.fetcher)
 }
 
 // 看大图页上下留给两条栏的高度，左右留给翻页键的宽度。
@@ -333,11 +333,11 @@ func barAction(c *ui.Context, icon *ui.SVG, label string, disabled bool) ui.Elem
 func (v *Viewer) run(c *ui.Context, im items.Image, failed func(error string) string, work func(data []byte) (note string, clip []byte, err error)) {
 	s := &task{}
 	v.task = s
-	fetch, services := v.from.imageBytes, c.Services()
+	fetch, services := v.from.fetcher(im), c.Services()
 	go func() {
 		var note string
 		var clip []byte
-		data, err := fetch(im)
+		data, err := fetch()
 		if err == nil {
 			note, clip, err = work(data)
 		}

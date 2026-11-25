@@ -223,6 +223,10 @@ fun ChatScreen(
                             CompositionLocalProvider(
                                 LocalTextFinder provides find,
                                 LocalBackend provides conversation.backend,
+                                LocalReadImage provides
+                                    remember(conversation) {
+                                        { path: String -> readImage(conversation.items, path) }
+                                    },
                                 LocalHub provides hub,
                             ) {
                                 ConversationBody(
