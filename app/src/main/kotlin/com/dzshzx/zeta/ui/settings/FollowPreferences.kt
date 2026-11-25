@@ -91,11 +91,7 @@ internal fun ModelPreference(
         more = choices.older,
         enabled = !hub.modelSourceChanging(backend),
     ) { value ->
-        if (
-            !hub.modelSourceChanging(backend) &&
-                (value == null || hub.modelOptions(backend).any { it.value == value })
-        )
-            onChange(value)
+        if (hub.modelSelectable(backend, value)) onChange(value)
     }
 }
 

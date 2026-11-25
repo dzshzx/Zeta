@@ -58,7 +58,7 @@ private fun rememberDefaultsWriter(
         scope.runConfig({ client.change() }) { result ->
             result
                 .onSuccess {
-                    if (hub.modelEpoch(backend) === epoch && backend in hub.backends)
+                    if (hub.isCurrentModelEpoch(backend, epoch) && backend in hub.backends)
                         hub.updateClaudeDefaults(backend, it)
                     else if (backend in hub.backends) hub.refreshClaudeDefaults(backend)
                 }
@@ -94,11 +94,7 @@ internal fun DefaultModelPreference(hub: ConversationHub, backend: String) {
         summary = notRead.takeIf { defaults == null || changing },
         enabled = defaults != null && !changing,
     ) { value ->
-        if (
-            !hub.modelSourceChanging(backend) &&
-                (value == null || hub.modelOptions(backend).any { it.value == value })
-        )
-            write { setDefaultModel(value) }
+        if (hub.modelSelectable(backend, value)) write { setDefaultModel(value) }
     }
 }
 

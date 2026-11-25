@@ -78,9 +78,7 @@ class Conversation(
         get() = view.state
 
     /** 核心里的那个对话；还没打开、已经放开时为 null。只在请求线程上改。 */
-    private class CoreLink(val conversation: CoreConversation, val modelEpoch: Any?) {
-        val modelReporter = Any()
-    }
+    private class CoreLink(val conversation: CoreConversation, val modelEpoch: Any?)
 
     @Volatile private var coreLink: CoreLink? = null
 
@@ -668,7 +666,7 @@ class Conversation(
     internal fun ensureModelOptions() = hub.ensureModelSource(backend)
 
     internal fun chooseListedModel(value: String) {
-        if (hub.modelOptions(backend).any { it.value == value }) chooseModel(value)
+        if (hub.modelSelectable(backend, value)) chooseModel(value)
     }
 
     /** 思考强度：只管这个对话，null 回到 Claude Code 自己的设置。 */
@@ -861,21 +859,18 @@ class Conversation(
         return true
     }
 
-    private var lastModelReporter: Any? = null
+    /** 上次把模型清单交给 hub 时的那次打开（[CoreLink]）：每次打开都是新的，换了就要再交一次。 */
+    private var lastLink: CoreLink? = null
 
     private fun mirror(next: ConvView, link: CoreLink?) {
         val before = view
-        val reporter = link?.modelReporter
-        if (next === before && lastModelReporter === reporter) return
+        if (next === before && lastLink === link) return
         view = next
         if (next.connected && !before.connected && !next.state.busy) turnRunning = false
         followSession()
         followTitle(before.state, next.state)
-        if (
-            !released &&
-                (lastModelReporter !== reporter || before.state.models != next.state.models)
-        ) {
-            lastModelReporter = reporter
+        if (!released && (lastLink !== link || before.state.models != next.state.models)) {
+            lastLink = link
             hub.rememberHarnessModels(backend, link?.modelEpoch, next.state.models)
         }
         noticeChanges(before.state, next.state, before.connected != next.connected)
