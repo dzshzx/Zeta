@@ -170,6 +170,9 @@ fun ChatScreen(
     val listState = remember(conversation) { LazyListState() }
     // 对话能不能显示：要靠 Debian 的主机等它就绪，直连的远程主机不用
     val usable = hub.usable(conversation.backend)
+    LaunchedEffect(hub, conversation.backend, usable) {
+        if (usable) hub.refreshClaudeDefaults(conversation.backend)
+    }
     val blur = rememberPageBlur()
     // 结束确认框的说明，打开时定下（框开着时对话闲下来，说明也不跟着变）；null 是没开着
     var endSummary by remember(conversation) { mutableStateOf<String?>(null) }
@@ -1006,15 +1009,13 @@ fun MutableList<FileUpload>.addPath(path: String) {
 @Composable
 private fun ChatHeader(conversation: Conversation, host: String?, models: List<ModelOption>) {
     val colors = COUITheme.colorScheme
-    val selected =
-        conversation.model
-            ?: Conversation.DEFAULT_MODEL.takeUnless { conversation.modelFromSession }
+    val selected = conversation.selectedModelForMenu()
     val modelName = conversation.shownModelName(models)
-    var expanded by remember { mutableStateOf(false) }
+    var expanded by remember(conversation) { mutableStateOf(false) }
     val entries =
         remember(models, selected, conversation) {
             val choices = modelChoices(models)
-            choiceEntries(choices.latest, choices.older, selected) { conversation.chooseModel(it) }
+            choiceEntries(choices.latest, choices.older, selected, conversation::chooseListedModel)
         }
     val source = remember { MutableInteractionSource() }
     Box {
@@ -1024,6 +1025,7 @@ private fun ChatHeader(conversation: Conversation, host: String?, models: List<M
                 modifier =
                     Modifier.clip(RoundedCornerShape(COUIRoundCorner.M))
                         .clickable(interactionSource = source, indication = null) {
+                            conversation.ensureModelOptions()
                             expanded = true
                         }
                         .padding(horizontal = 10.dp, vertical = 3.dp),
@@ -1060,6 +1062,7 @@ private fun ChatHeader(conversation: Conversation, host: String?, models: List<M
                         .clip(CircleShape)
                         .background(colors.container4, CircleShape)
                         .clickable(interactionSource = source, indication = null) {
+                            conversation.ensureModelOptions()
                             expanded = true
                         }
                         .padding(start = 12.dp, end = 8.dp, top = 6.dp, bottom = 6.dp),
@@ -1079,7 +1082,11 @@ private fun ChatHeader(conversation: Conversation, host: String?, models: List<M
                 )
             }
         }
-        AnchoredMenu(show = expanded, entries = entries, onDismiss = { expanded = false })
+        AnchoredMenu(
+            show = expanded && models.isNotEmpty(),
+            entries = entries,
+            onDismiss = { expanded = false },
+        )
     }
 }
 

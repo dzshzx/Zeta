@@ -40,22 +40,32 @@ func (p *Page) Sections(c *ui.Context) {
 
 // setDefaults 在后台改一项默认值，写成了换上新的，没写成说一声。
 func (p *Page) setDefaults(change func(ctx context.Context) (coreapi.Defaults, error)) {
+	if p.working || p.defaults == nil {
+		return
+	}
 	p.working = true
+	round := p.defaultsRound
 	p.async(func(ctx context.Context) func() {
 		d, err := change(ctx)
 		return func() {
 			p.working = false
+			if p.defaultsRound != round {
+				return
+			}
 			if err != nil {
 				p.failed(locales.ClaudecfgChangeFailed(), err)
 				return
 			}
 			p.defaults = &d
+			if p.opts.OnDefaultModel != nil {
+				p.opts.OnDefaultModel(d.Model)
+			}
 		}
 	})
 }
 
 func (p *Page) models() []Model {
-	if len(p.opts.Models) > 0 {
+	if len(p.opts.Models) > 0 || !p.modelFallback {
 		return p.opts.Models
 	}
 	return fallbackModels
@@ -76,7 +86,7 @@ func (p *Page) defaultsSection(c *ui.Context) {
 			return
 		}
 		disabled := p.working
-		item(l, locales.ClaudecfgDefaultModel(), "", func() { p.modelChoice(c, *d, disabled) })
+		item(l, locales.ClaudecfgDefaultModel(), "", func() { p.modelChoice(c, *d, disabled || !p.modelSourceKnown) })
 		entry(l, "default-effort", locales.ClaudecfgDefaultEffort(), effortSummary(*d), "", true, func() { p.push(viewEffort) })
 		p.permissionModeRow(l, *d, disabled)
 		p.compactWindowRow(l, *d, disabled)
@@ -104,7 +114,11 @@ func (p *Page) modelChoice(c *ui.Context, d coreapi.Defaults, disabled bool) {
 		unknown := Model{Value: current, Label: readableModel(current)}
 		top, all = append(top, unknown), append(all, unknown)
 	}
-	shown, olderHint := locales.ClaudecfgModelBuiltin(), ""
+	defaultLabel := locales.ClaudecfgModelBuiltin()
+	if !p.modelFallback {
+		defaultLabel = locales.ComposerDefault()
+	}
+	shown, olderHint := defaultLabel, ""
 	for _, m := range all {
 		if m.Value == current {
 			shown = m.Label
@@ -114,7 +128,9 @@ func (p *Page) modelChoice(c *ui.Context, d coreapi.Defaults, disabled bool) {
 		}
 	}
 	set := func(value string) {
-		p.setDefaults(func(ctx context.Context) (coreapi.Defaults, error) { return p.opts.Core.SetDefaultModel(ctx, value) })
+		if !disabled {
+			p.setDefaults(func(ctx context.Context) (coreapi.Defaults, error) { return p.opts.Core.SetDefaultModel(ctx, value) })
+		}
 	}
 	choices := func(m *widget.Menu, list []Model) {
 		for _, mo := range list {
@@ -127,7 +143,7 @@ func (p *Page) modelChoice(c *ui.Context, d coreapi.Defaults, disabled bool) {
 		widget.Dropdown(c, t, shown)
 		t.Label(locales.ClaudecfgDefaultModel()).Disabled(disabled)
 	}, func(m *widget.Menu) {
-		if m.Choice(locales.ClaudecfgModelBuiltin(), current == "") && current != "" {
+		if m.Choice(defaultLabel, current == "") && current != "" {
 			set("")
 		}
 		choices(m, top)
@@ -289,12 +305,22 @@ type effortRow struct {
 // effortRows：设过的模型、模型清单里的完整 ID，最后是「其他模型」。
 func (p *Page) effortRows(d coreapi.Defaults) []effortRow {
 	var rows []effortRow
+	name := func(id string) string {
+		if !p.modelFallback {
+			for _, m := range p.opts.Models {
+				if m.Value == id {
+					return m.Label
+				}
+			}
+		}
+		return readableModel(id)
+	}
 	for _, e := range d.Efforts {
-		rows = append(rows, effortRow{e.Model, readableModel(e.Model), e.Level})
+		rows = append(rows, effortRow{e.Model, name(e.Model), e.Level})
 	}
 	for _, m := range p.opts.Models {
-		if strings.HasPrefix(m.Value, "claude-") && d.EffortOf(m.Value) == "" {
-			rows = append(rows, effortRow{m.Value, readableModel(m.Value), ""})
+		if (!p.modelFallback || strings.HasPrefix(m.Value, "claude-")) && d.EffortOf(m.Value) == "" {
+			rows = append(rows, effortRow{m.Value, name(m.Value), ""})
 		}
 	}
 	return append(rows, effortRow{"", locales.ClaudecfgEffortOtherModels(), d.Effort})

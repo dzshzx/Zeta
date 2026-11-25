@@ -61,8 +61,9 @@ type Service struct {
 	quota *Quota
 	loop  Loop
 
-	state *coreapi.AccountList
-	login *Login // 正在进行的登录，见 login.go
+	state         *coreapi.AccountList
+	login         *Login // 正在进行的登录，见 login.go
+	modelRevision uint64 // 影响有效模型来源的操作成功后递增
 	// working 是正在做的事怎么说，没有时为 nil；problem 是上一件事为什么没做成。都在显示时按界面的语言出字。
 	working func() string
 	problem error
@@ -93,6 +94,9 @@ func (s *Service) State() (st coreapi.AccountList, ok bool) {
 	}
 	return *s.state, true
 }
+
+// ModelRevision 标识这台设备的有效模型来源。切换来源或保存中转后，客户端用它作废旧清单。
+func (s *Service) ModelRevision() uint64 { return s.modelRevision }
 
 // Working 是正在做的事（「正在切换到 …」），没有时为空。
 func (s *Service) Working() string {
@@ -220,8 +224,11 @@ func (s *Service) finish(ctx context.Context, err error, switched bool, done fun
 			s.setState(st)
 		}
 		s.problem = err
-		if switched && s.quota != nil {
-			s.quota.switched()
+		if switched {
+			s.modelRevision++
+			if s.quota != nil {
+				s.quota.switched()
+			}
 		}
 		if err == nil && done != nil {
 			done()

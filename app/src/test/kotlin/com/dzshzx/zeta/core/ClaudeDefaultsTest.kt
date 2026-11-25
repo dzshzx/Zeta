@@ -1,12 +1,17 @@
 package com.dzshzx.zeta.core
 
 import android.app.Application
+import android.os.Looper
 import androidx.test.core.app.ApplicationProvider
+import com.dzshzx.zeta.core.claude.ClaudeConfigCore
 import com.dzshzx.zeta.core.claude.ClaudeDefaults
 import com.dzshzx.zeta.shots.Fixtures
 import com.dzshzx.zeta.ui.settings.effortRows
 import com.dzshzx.zeta.ui.settings.effortSummary
 import com.dzshzx.zeta.ui.settings.hostDefaultsSummary
+import java.util.concurrent.CountDownLatch
+import java.util.concurrent.LinkedBlockingQueue
+import java.util.concurrent.TimeUnit
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonObject
 import org.junit.Assert.assertEquals
@@ -16,6 +21,7 @@ import org.junit.Assert.assertTrue
 import org.junit.Test
 import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
+import org.robolectric.Shadows.shadowOf
 import org.robolectric.annotation.Config
 
 /**
@@ -104,6 +110,54 @@ class ClaudeDefaultsTest {
         hub.updateRemoteHosts(emptyList())
         assertNull(hub.claudeDefaults(remote.id))
         assertEquals("opus", hub.claudeDefaults(Backends.LOCAL)?.model)
+    }
+
+    @Test
+    fun relayModelsStayOnTheirDeviceAndIgnoreRemovedDeviceRequests() {
+        val hub = Fixtures.readyHub(app)
+        val remote = Fixtures.workstation
+        val backend = remote.id
+        hub.updateRemoteHosts(listOf(remote))
+        hub.models = mapOf(Backends.LOCAL to Fixtures.models, backend to Fixtures.models)
+        val started = LinkedBlockingQueue<Thread>()
+        val finishOld = CountDownLatch(1)
+        hub.accounts(backend).config = ClaudeConfigCore { method, params, _ ->
+            assertEquals("config.models.read", method)
+            assertEquals(JsonObject(emptyMap()), params)
+            started.put(Thread.currentThread())
+            check(finishOld.await(5, TimeUnit.SECONDS))
+            Json.parseToJsonElement("""{"relay":"old","model":"old-model","models":[]}""")
+        }
+        hub.refreshModelOptions(backend)
+        val oldWorker = checkNotNull(started.poll(5, TimeUnit.SECONDS))
+        try {
+            assertTrue(hub.modelSourceChanging(backend))
+            assertTrue(hub.modelOptions(backend).isEmpty())
+            assertEquals(Fixtures.models, hub.modelOptions(Backends.LOCAL))
+            hub.updateRemoteHosts(emptyList())
+            hub.updateRemoteHosts(listOf(remote))
+            hub.accounts(backend).config = ClaudeConfigCore { _, _, _ ->
+                started.put(Thread.currentThread())
+                Json.parseToJsonElement(
+                    """{"relay":"new","model":"preset","models":[{"id":"relay-v2","displayName":"Relay V2"}]}""",
+                )
+            }
+            hub.refreshModelOptions(backend)
+            val newWorker = checkNotNull(started.poll(5, TimeUnit.SECONDS))
+            newWorker.join(5_000)
+            assertFalse(newWorker.isAlive)
+            shadowOf(Looper.getMainLooper()).idle()
+            assertTrue(hub.usesRelayModels(backend))
+        } finally {
+            finishOld.countDown()
+            oldWorker.join(5_000)
+        }
+        assertFalse(oldWorker.isAlive)
+        shadowOf(Looper.getMainLooper()).idle()
+        assertEquals(listOf("relay-v2", "preset"), hub.modelOptions(backend).map { it.value })
+        assertEquals("Relay V2", hub.modelOptions(backend).first().displayName)
+        assertEquals("preset", hub.defaultModel(backend))
+        assertEquals(Fixtures.models, hub.modelOptions(Backends.LOCAL))
     }
 
     /** 设置首页一台主机右边的值：默认模型（别名按这台的清单换成完整 ID）和它的思考强度，没单独设时用共用的那一档。 */

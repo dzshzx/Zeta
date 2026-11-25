@@ -47,8 +47,38 @@ import io.github.suqi8.coui.kmp.theme.COUITheme
 /** 中转编辑页上「获取模型列表」那一摊：拉取中、拉到的列表（弹出来挑）、没成的原因。 */
 private class ModelFetch {
     var fetching by mutableStateOf(false)
+        private set
+
     var models by mutableStateOf<List<RelayModel>?>(null)
+
     var error by mutableStateOf<String?>(null)
+        private set
+
+    private var request: Any? = null
+
+    fun load(service: AccountService, draft: RelayDraft) {
+        val pending = Any()
+        request = pending
+        fetching = true
+        error = null
+        service.relayModels(draft) { result ->
+            if (request !== pending) return@relayModels
+            request = null
+            fetching = false
+            result
+                .onSuccess {
+                    if (it.isEmpty()) error = Strings.relayModelsEmpty() else models = it
+                }
+                .onFailure { error = it.message ?: it.javaClass.simpleName }
+        }
+    }
+
+    fun invalidate() {
+        request = null
+        fetching = false
+        models = null
+        error = null
+    }
 }
 
 /** 编辑页的状态：草稿、保存中、没做成的原因、删除确认框、拉模型列表。 */
@@ -75,6 +105,7 @@ private class RelayEditor(val service: AccountService, val original: ClaudeRelay
         get() = failure ?: problem?.takeIf { draft != initial }
 
     fun update(next: RelayDraft) {
+        if (next.baseUrl != draft.baseUrl || next.key != draft.key) fetch.invalidate()
         draft = next
         failure = null
     }
@@ -108,7 +139,7 @@ internal fun RelayScreen(
     original: ClaudeRelay?,
     onBack: () -> Unit,
 ) {
-    val editor = remember { RelayEditor(service, original) }
+    val editor = remember(service, original?.name) { RelayEditor(service, original) }
     val draft = editor.draft
     CouiPage(
         title = if (editor.create) Strings.settingsRelaysAdd() else Strings.relayEditTitle(),
@@ -277,19 +308,7 @@ private fun ModelGroup(
                         if (fetch.fetching) Strings.relayFetchingModels()
                         else Strings.relayFetchModels(),
                     enabled = canFetch,
-                    onClick = {
-                        fetch.fetching = true
-                        fetch.error = null
-                        service.relayModels(draft) { result ->
-                            fetch.fetching = false
-                            result
-                                .onSuccess {
-                                    if (it.isEmpty()) fetch.error = Strings.relayModelsEmpty()
-                                    else fetch.models = it
-                                }
-                                .onFailure { fetch.error = it.message ?: it.javaClass.simpleName }
-                        }
-                    },
+                    onClick = { fetch.load(service, draft) },
                 )
             }
         }

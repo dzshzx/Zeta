@@ -90,7 +90,13 @@ func (s *Service) SwitchRelay(r coreapi.Relay) {
 // 对话进程才用上。保存成了，重读账号后在界面线程上调 saved（可以为 nil）。
 func (s *Service) SaveRelay(d *RelayDraft, saved func()) {
 	in := d.Input()
-	s.relayOp(func() string { return locales.AccountsRelaySaving(in.Name) }, locales.AccountsRelaySaveFailed, saved,
+	done := func() {
+		s.modelRevision++
+		if saved != nil {
+			saved()
+		}
+	}
+	s.relayOp(func() string { return locales.AccountsRelaySaving(in.Name) }, locales.AccountsRelaySaveFailed, done,
 		func(ctx context.Context, program string) error { return s.cl.core.SaveRelay(ctx, program, in) })
 }
 

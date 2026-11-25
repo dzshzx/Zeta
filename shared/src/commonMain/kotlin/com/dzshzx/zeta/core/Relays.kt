@@ -3,6 +3,8 @@ package com.dzshzx.zeta.core
 import androidx.compose.runtime.Immutable
 import com.dzshzx.zeta.i18n.CoreStrings
 import java.net.URI
+import kotlinx.serialization.json.JsonElement
+import kotlinx.serialization.json.JsonObject
 
 /**
  * 一台主机上的一个中转（claude-switch 的非账号目标，docs/core.md「账号与额度」）：一份 Claude Code 设置，地址、读密钥的 apiKeyHelper、
@@ -26,6 +28,12 @@ data class RelayModel(val id: String, val displayName: String) {
     /** 列表里显示的名字：有显示名用显示名，没有用 id。 */
     val title: String
         get() = displayName.ifBlank { id }
+}
+
+internal fun relayModel(item: JsonElement): RelayModel? {
+    val o = item as? JsonObject ?: return null
+    val id = o.str("id")?.ifBlank { null } ?: return null
+    return RelayModel(id, o.str("displayName").orEmpty())
 }
 
 /**

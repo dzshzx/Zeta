@@ -5,8 +5,8 @@ import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.runtime.mutableStateMapOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
-import com.dzshzx.zeta.core.claude.ClaudeConfigCore
 import com.dzshzx.zeta.core.claude.ClaudeDefaults
+import com.dzshzx.zeta.core.claude.ModelSource
 import com.dzshzx.zeta.core.conv.SessionActivity
 import com.dzshzx.zeta.core.ssh.SshLinks
 import com.dzshzx.zeta.i18n.Strings
@@ -252,10 +252,11 @@ class ConversationHub(val platform: HubPlatform) {
         claudeDefaults(backend)?.let { it.permissionMode ?: "default" }
 
     /** 正在读默认值的主机：同一台同时只读一次（设置首页和主机页可能前后脚要读）。只在主线程上碰。 */
-    private val readingDefaults = HashSet<String>()
+    private val readingDefaults = HashMap<String, Any>()
 
     /** 读到或改了主机 [backend] 上 Claude Code 的默认值。在主线程上调用。 */
     fun updateClaudeDefaults(backend: String, defaults: ClaudeDefaults) {
+        readingDefaults.remove(backend)
         defaultsByBackend[backend] = defaults
     }
 
@@ -264,21 +265,24 @@ class ConversationHub(val platform: HubPlatform) {
      * 设置首页上还没读过的主机读一次，打开一台主机的页面时重读那台（默认值可能在终端里改过）。那台正在读就不再读；读不到就照旧。在主线程上调用。
      */
     fun refreshClaudeDefaults(backend: String) {
-        if (backend in readingDefaults || shell(backend) == null) return
-        readingDefaults.add(backend)
-        thread(name = "zeta-defaults", isDaemon = true) {
-            val defaults = runCatching {
-                ClaudeConfigCore.of(this, backend).defaults()
-            }
-                .getOrNull()
-            main.post { onDefaultsRead(backend, defaults) }
-        }
+        refreshModelOptions(backend)
+        readClaudeDefaults(backend)
     }
 
-    /** [refreshClaudeDefaults] 读完（在主线程上）：读到的默认值记下。 */
-    private fun onDefaultsRead(backend: String, defaults: ClaudeDefaults?) {
-        readingDefaults.remove(backend)
-        if (defaults != null && backend in backends) updateClaudeDefaults(backend, defaults)
+    private fun readClaudeDefaults(backend: String) {
+        if (backend in readingDefaults || shell(backend) == null) return
+        val request = Any()
+        readingDefaults[backend] = request
+        val config = accounts(backend).config
+        thread(name = "zeta-defaults", isDaemon = true) {
+            val defaults = runCatching(config::defaults).getOrNull()
+            main.post {
+                if (readingDefaults[backend] === request) {
+                    readingDefaults.remove(backend)
+                    if (defaults != null) defaultsByBackend[backend] = defaults
+                }
+            }
+        }
     }
 
     /**
@@ -373,9 +377,105 @@ class ConversationHub(val platform: HubPlatform) {
      */
     var models by mutableStateOf<Map<String, List<ModelOption>>>(emptyMap())
 
-    /** 主机 [backend] 上选择器里的模型：那台的 Claude Code 报的，还没拿到时是几个常用别名（[FallbackModels]）。 */
-    fun modelOptions(backend: String): List<ModelOption> =
-        models[backend].orEmpty().ifEmpty { FallbackModels }
+    private val modelSources = mutableStateMapOf<String, ModelSource>()
+    private val readingModels = mutableStateMapOf<String, Any>()
+    private val changingModelSources = mutableStateMapOf<String, Boolean>()
+
+    // 会话打开时在请求线程上记下这一版，旧会话随后推来的清单不能填回已清掉的缓存。
+    @Volatile private var modelEpochs = emptyMap<String, Any>()
+
+    fun modelEpoch(backend: String): Any? = modelEpochs[backend]
+
+    fun usesRelayModels(backend: String): Boolean = modelSources[backend]?.relay != null
+
+    fun modelSourceChanging(backend: String): Boolean =
+        backend in changingModelSources ||
+            (modelSources[backend] == null && backend in readingModels)
+
+    internal fun ensureModelSource(backend: String) {
+        if (modelSources[backend] == null) refreshModelOptions(backend)
+    }
+
+    fun defaultModel(backend: String): String? {
+        val defaults = claudeDefaults(backend)
+        return if (defaults != null) defaults.model else modelSources[backend]?.model
+    }
+
+    /** 设备上实际报的清单。不把订阅别名当作中转的模型。 */
+    fun reportedModelOptions(backend: String): List<ModelOption> {
+        if (modelSourceChanging(backend)) return emptyList()
+        val source = modelSources[backend]
+        if (source?.relay == null) return models[backend].orEmpty()
+        val fallback = defaultModel(backend)?.takeUnless { it == Conversation.DEFAULT_MODEL }
+        return (source.models +
+                listOfNotNull(fallback?.let { RelayModel(it, readableModelId(it)) }))
+            .filterNot { it.id == Conversation.DEFAULT_MODEL }
+            .distinctBy { it.id }
+            .map { ModelOption(it.id, it.title, "") }
+    }
+
+    fun modelOptions(backend: String): List<ModelOption> {
+        val reported = reportedModelOptions(backend)
+        return if (usesRelayModels(backend) || modelSourceChanging(backend)) reported
+        else reported.ifEmpty { FallbackModels }
+    }
+
+    fun refreshModelOptions(backend: String) {
+        if (backend in readingModels || !usable(backend)) return
+        val request = Any()
+        readingModels[backend] = request
+        val config = accounts(backend).config
+        thread(name = "zeta-models", isDaemon = true) {
+            val source = runCatching(config::modelSource).getOrNull()
+            main.post {
+                if (readingModels[backend] === request) {
+                    readingModels.remove(backend)
+                    if (source != null) acceptModelSource(backend, source)
+                }
+            }
+        }
+    }
+
+    private fun acceptModelSource(backend: String, source: ModelSource) {
+        val previous = modelSources[backend]
+        if (previous != null && previous.relay != source.relay) {
+            clearModelState(backend)
+            readClaudeDefaults(backend)
+        }
+        modelSources[backend] = source
+        changingModelSources.remove(backend)
+    }
+
+    private fun clearModelState(backend: String) {
+        modelEpochs = modelEpochs + (backend to Any())
+        modelSources.remove(backend)
+        models -= backend
+        readingModels.remove(backend)
+        readingDefaults.remove(backend)
+        defaultsByBackend.remove(backend)
+    }
+
+    /** 切换账号/中转或修改正在用的中转后，两种清单及默认值都不能沿用。 */
+    internal fun accountSourceChanged(backend: String, service: AccountService) {
+        if (accountServices[backend] === service) modelSourceChanged(backend)
+    }
+
+    private fun invalidateModelSource(backend: String) {
+        clearModelState(backend)
+        changingModelSources[backend] = true
+    }
+
+    private fun modelSourceChanged(backend: String) {
+        if (backend !in backends) return
+        invalidateModelSource(backend)
+        refreshClaudeDefaults(backend)
+    }
+
+    internal fun rememberHarnessModels(backend: String, epoch: Any?, reported: List<ModelOption>) {
+        if (backend !in backends || modelEpoch(backend) !== epoch || usesRelayModels(backend))
+            return
+        if (reported.isNotEmpty() && models[backend] != reported) models += backend to reported
+    }
 
     /** 各对话没发出的输入草稿，按会话号保管，Zeta 重开后还在。 */
     val drafts =
@@ -554,7 +654,20 @@ class ConversationHub(val platform: HubPlatform) {
 
     /** 设置页改了远程主机的清单（加、改名、改默认工作目录、删；改连法走 [changeVia]）。在主线程上调用。 */
     fun updateRemoteHosts(hosts: List<RemoteHost>) {
+        val before = settings.remoteHosts.associateBy { it.id }
         settings.remoteHosts = hosts
+        (before.keys - hosts.map { it.id }.toSet()).forEach {
+            clearModelState(it)
+            changingModelSources.remove(it)
+        }
+        hosts.filter { it.id !in before }.forEach { modelEpochs = modelEpochs + (it.id to Any()) }
+        hosts
+            .filter { host ->
+                before[host.id]?.let {
+                    it.connected != host.connected || it.target != host.target || it.via != host.via
+                } == true
+            }
+            .forEach { modelSourceChanged(it.id) }
         onRemoteHostsChanged()
     }
 
@@ -576,6 +689,7 @@ class ConversationHub(val platform: HubPlatform) {
         quotas.keys.retainAll(ids)
         accountServices.keys.retainAll(ids)
         defaultsByBackend.keys.retainAll(ids)
+        modelEpochs = modelEpochs.filterKeys { it in ids }
         settings.remoteClaude = settings.remoteClaude.filterKeys { HostKeys.hostOf(it) in ids }
         platform.hostsRemoved(ids)
         ssh.retain(
@@ -643,6 +757,7 @@ class ConversationHub(val platform: HubPlatform) {
      * 直连的主机上的对话不受影响。在主线程上调用。
      */
     fun dropConversations() {
+        backends.filter(::needsDebian).forEach(::invalidateModelSource)
         val dropped = liveConversations.filter { needsDebian(it.backend) }
         dropped.forEach { it.leave() }
         parked.removeAll(dropped)

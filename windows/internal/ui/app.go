@@ -41,10 +41,10 @@ type App struct {
 	device string // pageDevice、pageAccounts 时看的那台
 	shown  string // 上一帧画的那一页（离开设备页时把改过的设置交给开着的对话）
 
-	cfg        *claudecfg.Page // 设备页上那台的 Claude Code 配置
-	modelLists modelLists      // 各台设备的模型清单（models.go）
-	acct       *uiacct.Page    // 账号与额度页
-	diag       *diag.Page      // 诊断页，打开时建
+	cfg        *claudecfg.Page         // 设备页上那台的 Claude Code 配置
+	modelLists map[string]*modelSource // 各台设备的模型来源（models.go）
+	acct       *uiacct.Page            // 账号与额度页
+	diag       *diag.Page              // 诊断页，打开时建
 	// DiagEnv 是诊断包里这台电脑的几行环境（Windows 版本），由入口给；Zeta 的版本和设备清单诊断页自己取。
 	DiagEnv func() []diag.Line
 	// DiagDir 是这台电脑上 Zeta 自己的诊断目录（设置目录的 diag：运行日志、崩溃记录、安装记录），由入口给；空是没有。

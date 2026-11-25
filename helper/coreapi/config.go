@@ -13,7 +13,19 @@ import (
 
 // ---------- 新对话默认 ----------
 
-// Defaults 是一台主机上新对话的默认值（那台 ~/.claude/settings.json 里的，和终端里 /model、/effort 存为默认的同一份）。
+// ModelCatalog 是生效中转和它的默认模型、模型列表。没有生效中转时三个字段都为空。
+type ModelCatalog struct {
+	Relay  string       `json:"relay"`
+	Model  string       `json:"model"`
+	Models []RelayModel `json:"models"`
+}
+
+// ModelCatalog 读生效中转的模型目录（config.models.read）。拉取失败时仍返回中转和默认模型。
+func (cl *Client) ModelCatalog(ctx context.Context) (ModelCatalog, error) {
+	return get[ModelCatalog](ctx, cl.c, "config.models.read", nil)
+}
+
+// Defaults 是一台主机上新对话的默认值，生效中转的模型优先于 ~/.claude/settings.json 的模型。
 type Defaults struct {
 	Model          string        `json:"model"`          // 空是 Claude Code 内置的默认模型
 	PermissionMode string        `json:"permissionMode"` // 空是逐项确认
@@ -46,7 +58,7 @@ func (cl *Client) Defaults(ctx context.Context) (Defaults, error) {
 	return get[Defaults](ctx, cl.c, "config.defaults.read", nil)
 }
 
-// SetDefaultModel 设默认模型；空是回到 Claude Code 内置的默认（config.defaults.setModel）。
+// SetDefaultModel 设默认模型（config.defaults.setModel）。有生效中转时只改中转，空值继承用户级默认。
 func (cl *Client) SetDefaultModel(ctx context.Context, model string) (Defaults, error) {
 	return get[Defaults](ctx, cl.c, "config.defaults.setModel", params{"value": model})
 }

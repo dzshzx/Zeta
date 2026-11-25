@@ -287,23 +287,37 @@ func modeIcon(k *widget.Colors, mode string) (*ui.SVG, ui.Color) {
 	return widget.IconShieldDefault, ui.Color{}
 }
 
-// modelMenu 是模型：「默认」（Claude Code 的设置）和 Claude Code 报的各系列最新的，旧版本收在「更多模型」的二级菜单里
-// （chat.SplitModels，同设置里的默认模型和手机版），选中的是旧版本时写在那一项右边。
+// modelMenu 按对话所在设备列模型。中转只列具体 ID；Claude Code 的「默认」别名不代表中转默认值。
 func (a *App) modelMenu(c *ui.Context, p *chatPane) {
-	models := p.state.Models
-	if len(models) == 0 {
-		models = chat.FallbackModels
+	id := p.src.Backend
+	s := a.modelSource(id, a.hub.Remote(id), p.modelSource == nil)
+	s.useConversation(p)
+	latest, older := s.choices()
+	available := s.available()
+	harness := available && s.catalog.Relay == ""
+	if harness && len(s.harness.list) == 0 {
+		latest = chat.FallbackModels
+	}
+	state := p.state
+	if s != nil && s.catalog.Relay != "" && (!state.Process || state.ReportedModel == "") {
+		state.ReportedModel = s.catalog.Model
 	}
 	chosen := ""
-	if p.state.Model != nil {
-		chosen = *p.state.Model
+	if state.Model != nil {
+		chosen = *state.Model
 	}
-	label := modelLabel(p.state, models)
-	widget.MenuButton(c.Key("model"), func(t ui.Element) { widget.ToolPill(c, t, nil, label, ui.Color{}) }, func(m *widget.Menu) {
-		if m.Choice(locales.ComposerDefault(), chosen == "" || chosen == chat.DefaultModel) {
+	label := modelLabel(state, latest, older)
+	key := c.Key(fmt.Sprintf("model/%s/%p", id, s))
+	widget.MenuButton(key, func(t ui.Element) {
+		widget.ToolPill(c, t, nil, label, ui.Color{})
+		t.Disabled(!available || !harness && len(latest) == 0)
+	}, func(m *widget.Menu) {
+		if !available {
+			return
+		}
+		if harness && m.Choice(locales.ComposerDefault(), chosen == "" || chosen == chat.DefaultModel) {
 			a.act(func(ctx context.Context, conv *chat.Conversation) error { return conv.SetModel(ctx, nil) })
 		}
-		latest, older := chat.SplitModels(models)
 		a.modelChoices(m, latest, chosen)
 		if len(older) == 0 {
 			return
@@ -339,17 +353,22 @@ func optionName(o chat.ModelOption) string {
 }
 
 // modelLabel 是模型按钮上的字：选了的写它的名字；没选时是「默认」，Claude Code 报了实际用的模型时写在括号里。
-func modelLabel(s chat.State, models []chat.ModelOption) string {
-	if s.Model != nil && *s.Model != "" && *s.Model != chat.DefaultModel {
-		for _, o := range models {
-			if o.Value == *s.Model {
-				return optionName(o)
+func modelLabel(s chat.State, groups ...[]chat.ModelOption) string {
+	name := func(id string) string {
+		for _, models := range groups {
+			for _, o := range models {
+				if o.Value == id && o.DisplayName != "" {
+					return o.DisplayName
+				}
 			}
 		}
-		return readableModel(*s.Model)
+		return readableModel(id)
+	}
+	if s.Model != nil && *s.Model != "" && *s.Model != chat.DefaultModel {
+		return name(*s.Model)
 	}
 	if s.ReportedModel != "" {
-		return locales.ComposerModelDefault(readableModel(s.ReportedModel))
+		return locales.ComposerModelDefault(name(s.ReportedModel))
 	}
 	return locales.ComposerDefault()
 }

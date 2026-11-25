@@ -2,6 +2,7 @@ package com.dzshzx.zeta.core
 
 import android.app.Application
 import androidx.test.core.app.ApplicationProvider
+import com.dzshzx.zeta.core.claude.ClaudeConfigCore
 import com.dzshzx.zeta.core.diag.DiagLog
 import com.dzshzx.zeta.shots.Fixtures
 import com.sun.net.httpserver.HttpServer
@@ -73,6 +74,9 @@ class AccountServiceTest {
             )
         hub = Fixtures.readyHub(app)
         service = hub.accounts(Backends.LOCAL)
+        service.config = ClaudeConfigCore { method, params, timeoutMs ->
+            serve.call(method, params, timeoutMs)
+        }
         service.core =
             AccountsCore(
                 TestHelper.program(HelperProgram.CLAUDE_SWITCH, AppVariant.current.linuxName),
@@ -304,6 +308,18 @@ class AccountServiceTest {
             assertEquals("gw", service.state!!.relay!!.name)
             assertNull(service.state!!.current)
             assertEquals("gw", hub.quota(Backends.LOCAL).relay)
+            awaitMain(60_000) { hub.usesRelayModels(Backends.LOCAL) }
+            assertEquals(
+                listOf("claude-opus-5-5"),
+                hub.modelOptions(Backends.LOCAL).map { it.value },
+            )
+            assertEquals("claude-opus-5-5", hub.defaultModel(Backends.LOCAL))
+
+            // 设备页改默认模型走 config.defaults，不会写回订阅默认；即使清单没有这项也能显示。
+            val changed = service.config.setDefaultModel("relay-custom")
+            hub.updateClaudeDefaults(Backends.LOCAL, changed)
+            assertEquals("relay-custom", hub.defaultModel(Backends.LOCAL))
+            assertTrue(hub.modelOptions(Backends.LOCAL).any { it.value == "relay-custom" })
             // 在用时删不掉，核心说原因
             val refused = awaitCallback { done ->
                 service.removeRelay(service.state!!.relay!!, done)
@@ -315,6 +331,9 @@ class AccountServiceTest {
             awaitMain(60_000) { service.working == null && service.state?.current?.id == "claude" }
             assertNull(service.state!!.relay)
             assertTrue(hub.quota(Backends.LOCAL).subscribed)
+            awaitMain(60_000) { !hub.modelSourceChanging(Backends.LOCAL) }
+            assertEquals(FallbackModels, hub.modelOptions(Backends.LOCAL))
+            assertNull(hub.defaultModel(Backends.LOCAL))
             assertNull(
                 awaitCallback { done ->
                     service.removeRelay(service.state!!.relays.single(), done)

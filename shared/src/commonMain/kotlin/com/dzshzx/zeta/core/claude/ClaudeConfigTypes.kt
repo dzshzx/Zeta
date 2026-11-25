@@ -1,5 +1,6 @@
 package com.dzshzx.zeta.core.claude
 
+import com.dzshzx.zeta.core.RelayModel
 import com.dzshzx.zeta.i18n.Strings
 
 /*
@@ -26,6 +27,9 @@ data class ClaudeDefaults(
      */
     val compactWindow: Long? = null,
 )
+
+/** 非中转时 [relay] 为空，模型清单来自 Claude Code。 */
+data class ModelSource(val relay: String?, val model: String?, val models: List<RelayModel>)
 
 // ---------- 记忆 ----------
 

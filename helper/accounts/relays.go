@@ -14,16 +14,20 @@ package accounts
 // 文件改密钥，别的写法只读。密钥的值只写进密钥文件，拉模型列表时读一次，不回传、不进日志和出错。
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
 	"errors"
 	"io/fs"
 	"net/url"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"regexp"
 	"slices"
 	"strings"
+	"syscall"
+	"time"
 	"unicode"
 
 	"github.com/dzshzx/Zeta/helper/locales"
@@ -84,11 +88,100 @@ func CurrentRelay(home string) string {
 // 的（2.1.330 实测），带上就把用户自己的地址换掉了。和终端里一样（dotfiles 的 shell-environment.sh 给 claude 定义的函数）；
 // 登录环境里的 ANTHROPIC_BASE_URL 核心看不到，由托管脚本和 tmux 窗口自己看（zeta_host.sh、desk.go 的 runResume）。
 func Settings(home string) string {
+	if name := selectedRelay(home); name != "" {
+		return targetPath(home, name)
+	}
+	return ""
+}
+
+func selectedRelay(home string) string {
 	name := CurrentRelay(home)
 	if name == "" || ownBaseURL(home) {
 		return ""
 	}
-	return targetPath(home, name)
+	return name
+}
+
+// effectiveRelay 和新对话启动一样：先看用户设置，再看登录 shell 传给托管脚本的环境。
+// 只取退出状态，不读取 shell 输出或地址；探测失败时不猜该改哪份配置。
+func effectiveRelay(ctx context.Context, home string) (string, error) {
+	if selectedRelay(home) == "" {
+		return "", nil
+	}
+	ctx, cancel := context.WithTimeout(ctx, 5*time.Second)
+	defer cancel()
+	cmd := exec.CommandContext(ctx, "bash", "-lc", `exec env bash -c 'if [ -n "${ANTHROPIC_BASE_URL:-}" ]; then exit 42; fi; exit 43'`)
+	cmd.Dir = home
+	cmd.Env = append(os.Environ(), "HOME="+home)
+	var exit *exec.ExitError
+	if errors.As(cmd.Run(), &exit) {
+		switch exit.ExitCode() {
+		case 42:
+			return "", nil
+		case 43:
+			return selectedRelay(home), nil
+		}
+	}
+	return "", errors.New("无法确认登录环境使用的中转")
+}
+
+// RelayDefaultModel 读生效中转的 model；没配则由调用方继承用户级默认值。
+func RelayDefaultModel(ctx context.Context, home string) (string, error) {
+	name, err := effectiveRelay(ctx, home)
+	if err != nil || name == "" {
+		return "", err
+	}
+	s, _ := readTarget(home, name)
+	return strings.TrimSpace(s.Model), nil
+}
+
+// SetRelayDefaultModel 只改生效目标的 model。没有生效目标时返回 false，由调用方改用户级配置。
+func SetRelayDefaultModel(ctx context.Context, home, model string) (bool, error) {
+	changing.Lock()
+	defer changing.Unlock()
+	name, err := effectiveRelay(ctx, home)
+	if err != nil || name == "" {
+		return false, err
+	}
+	model = strings.TrimSpace(model)
+	if err := validRelayModel(model); err != nil {
+		return true, err
+	}
+	unlock, err := lockRelayFiles(home)
+	if err != nil {
+		return true, err
+	}
+	defer unlock()
+	path := targetPath(home, name)
+	var settings map[string]json.RawMessage
+	data, err := os.ReadFile(path)
+	if err != nil || json.Unmarshal(data, &settings) != nil || settings == nil {
+		return true, locales.Err("errRelayUnreadable")
+	}
+	if model == "" {
+		delete(settings, "model")
+	} else {
+		settings["model"], _ = json.Marshal(model)
+	}
+	return true, writeTarget(path, settings)
+}
+
+// lockRelayFiles 让同一用户的不同 Zeta 核心也串行读改写目标及密钥文件。
+func lockRelayFiles(home string) (func(), error) {
+	path := filepath.Join(home, account.StateDir, "relay-files.lock")
+	writeErr := locales.Err("errRelayWrite", "path", path)
+	if err := os.MkdirAll(filepath.Dir(path), 0o700); err != nil {
+		return nil, writeErr
+	}
+	f, err := os.OpenFile(path, os.O_CREATE|os.O_RDWR, 0o600)
+	if err != nil {
+		return nil, writeErr
+	}
+	if err := syscall.Flock(int(f.Fd()), syscall.LOCK_EX); err != nil {
+		_ = f.Close()
+		return nil, writeErr
+	}
+	return func() { _ = f.Close() }, nil
 }
 
 // ownBaseURL 是 ~/.claude/settings.json 是一个 JSON 对象、env.ANTHROPIC_BASE_URL 是不全是空白的字符串。
@@ -202,7 +295,11 @@ func validRelay(in RelayInput) error {
 	if strings.ContainsAny(in.Key, " \t\r\n") {
 		return locales.Err("errRelayKey")
 	}
-	if len(in.Model) > 200 || strings.ContainsFunc(in.Model, func(r rune) bool { return unicode.IsSpace(r) || unicode.IsControl(r) }) {
+	return validRelayModel(in.Model)
+}
+
+func validRelayModel(model string) error {
+	if len(model) > 200 || strings.ContainsFunc(model, func(r rune) bool { return unicode.IsSpace(r) || unicode.IsControl(r) }) {
 		return locales.Err("errRelayModel")
 	}
 	return nil
@@ -216,6 +313,11 @@ func (h *Host) SaveRelay(ctx context.Context, in RelayInput) error {
 	}
 	changing.Lock()
 	defer changing.Unlock()
+	unlock, err := lockRelayFiles(h.Home)
+	if err != nil {
+		return err
+	}
+	defer unlock()
 	st, err := h.List(ctx)
 	if err != nil {
 		return err
@@ -233,7 +335,9 @@ func (h *Host) SaveRelay(ctx context.Context, in RelayInput) error {
 	settings := map[string]any{}
 	if !in.Create {
 		data, err := os.ReadFile(path)
-		if err != nil || json.Unmarshal(data, &settings) != nil {
+		dec := json.NewDecoder(bytes.NewReader(data))
+		dec.UseNumber()
+		if err != nil || !json.Valid(data) || dec.Decode(&settings) != nil || settings == nil {
 			return locales.Err("errRelayUnreadable")
 		}
 	}
@@ -253,6 +357,10 @@ func (h *Host) SaveRelay(ctx context.Context, in RelayInput) error {
 			return err
 		}
 	}
+	return writeTarget(path, settings)
+}
+
+func writeTarget(path string, settings any) error {
 	data, err := json.Marshal(settings)
 	if err != nil {
 		return err
@@ -287,6 +395,11 @@ func (h *Host) writeKey(settings, env map[string]any, name, key string) error {
 func (h *Host) RemoveRelay(ctx context.Context, name string) error {
 	changing.Lock()
 	defer changing.Unlock()
+	unlock, err := lockRelayFiles(h.Home)
+	if err != nil {
+		return err
+	}
+	defer unlock()
 	st, err := h.List(ctx)
 	if err != nil {
 		return err

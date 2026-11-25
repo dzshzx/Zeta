@@ -297,7 +297,7 @@ fun readableModelId(id: String): String {
 private fun modelSeries(id: String): Pair<String, List<Int>>? {
     val match = ModelId.matchEntire(id) ?: return null
     val (family, version, wide) = match.destructured
-    return family + wide to version.split('-').map { it.toInt() }
+    return family + wide to version.split('-').map { it.toIntOrNull() ?: return null }
 }
 
 private val VersionOrder =

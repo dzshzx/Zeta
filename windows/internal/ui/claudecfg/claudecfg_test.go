@@ -380,13 +380,13 @@ func TestDefaultModelMoreModels(t *testing.T) {
 // 正在要模型清单时说一声、先列常用的别名；要到了换上，说明去掉。
 func TestDefaultModelWhileAskingForModels(t *testing.T) {
 	f := newFixture(t, Options{ModelsPending: true})
-	f.see("正在向这台设备上的 Claude Code 要模型清单，先列出常用的几个。")
+	f.see("正在读取这台设备的模型清单。")
 	f.press("默认模型")
 	f.see("Opus", "Sonnet", "Haiku", "Fable")
 	f.tt.Key(0, ui.KeyEscape)
-	f.page.SetModels([]Model{{Value: "opus", Label: "Opus 5.5"}})
+	f.page.SetModelChoices([]Model{{Value: "opus", Label: "Opus 5.5"}}, true, false, true)
 	f.tt.Frame()
-	if f.tt.HasText("正在向这台设备上的 Claude Code 要模型清单，先列出常用的几个。") {
+	if f.tt.HasText("正在读取这台设备的模型清单。") {
 		t.Fatal("要到了还在说")
 	}
 	f.press("默认模型")

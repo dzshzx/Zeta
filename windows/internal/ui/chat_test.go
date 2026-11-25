@@ -44,6 +44,9 @@ func newChatFixture(t *testing.T) *chatFixture {
 			if r := f.answers[c.Method]; r != "" {
 				return json.RawMessage(r), nil
 			}
+			if c.Method == "config.models.read" {
+				return json.RawMessage(`{}`), nil
+			}
 			return nil, nil
 		})
 	}

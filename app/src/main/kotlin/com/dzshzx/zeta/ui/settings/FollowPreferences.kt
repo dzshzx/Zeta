@@ -1,6 +1,7 @@
 package com.dzshzx.zeta.ui.settings
 
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberUpdatedState
@@ -79,6 +80,8 @@ internal fun ModelPreference(
     model: String?,
     onChange: (String?) -> Unit,
 ) {
+    val usable = hub.usable(backend)
+    LaunchedEffect(hub, backend, usable) { if (usable) hub.refreshClaudeDefaults(backend) }
     val choices = modelChoices(hub.modelOptions(backend))
     FollowDropdownPreference(
         Strings.settingsFollowModel(),
@@ -86,8 +89,14 @@ internal fun ModelPreference(
         model,
         unknown = ::readableModelId,
         more = choices.older,
-        onChange = onChange,
-    )
+        enabled = !hub.modelSourceChanging(backend),
+    ) { value ->
+        if (
+            !hub.modelSourceChanging(backend) &&
+                (value == null || hub.modelOptions(backend).any { it.value == value })
+        )
+            onChange(value)
+    }
 }
 
 /** 「思考强度」：跟随 Claude Code 的默认（按模型存的），或 Claude Code 的几档之一。 */

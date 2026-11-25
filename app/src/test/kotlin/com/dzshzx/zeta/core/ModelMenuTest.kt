@@ -53,6 +53,12 @@ class ModelMenuTest {
     private val reported = ReportedModels
 
     @Test
+    fun upstreamBuildNumberNeedNotFitAnInt() {
+        val build = option("claude-custom-202611250001")
+        assertEquals(listOf(build), modelMenu(listOf(build)).latest)
+    }
+
+    @Test
     fun aliasesOnTopOlderVersionsByFamilyNewestFirst() {
         val menu = modelMenu(reported)
         assertEquals(

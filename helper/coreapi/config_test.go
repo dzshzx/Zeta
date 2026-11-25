@@ -92,6 +92,9 @@ var gh = McpServer{Name: "gh", Scope: "local", Type: "http"}
 func TestConfigMethods(t *testing.T) {
 	agent := &Subagent{File: "rev.md", Name: "rev", SHA: "s1"}
 	runCases(t, []apiCase{
+		{"ModelCatalog", func(cl *Client) (any, error) { return cl.ModelCatalog(ctx) },
+			"config.models.read", `{}`, `{"relay":"gw","model":"custom","models":[{"id":"custom","displayName":"Custom"}]}`,
+			ModelCatalog{Relay: "gw", Model: "custom", Models: []RelayModel{{ID: "custom", DisplayName: "Custom"}}}},
 		{"Defaults", func(cl *Client) (any, error) { return cl.Defaults(ctx) },
 			"config.defaults.read", `{}`, defaultsJSON, defaults},
 		{"SetDefaultModel", func(cl *Client) (any, error) { return cl.SetDefaultModel(ctx, "opus") },

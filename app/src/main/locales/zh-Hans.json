@@ -11143,7 +11143,7 @@
   "@relayModelHint": {
     "description": "默认模型输入框里的占位提示，也是模型列表里清空它的那一项。"
   },
-  "relayModelFooter": "新对话默认用这个模型，盖过这台设备「新对话默认」里的模型；对话里选的又盖过它。",
+  "relayModelFooter": "使用这个中转时，这里和设备页的默认模型是同一项。留空时继承设备设置；对话里选的只管那个对话。",
   "@relayModelFooter": {
     "description": "中转编辑页：默认模型一组下面的说明。"
   },
@@ -11196,7 +11196,7 @@
       "reason": {}
     }
   },
-  "settingsDefaultsFooter": "在这台设备上开新对话时用。存在这台设备上 Claude Code 自己的设置里，和那边终端里 /model、/effort 存为默认的是同一份；对话里选的只管那个对话。思考强度按模型分别存。上下文窗口是会话最多用多少 token，自动压缩按它算，比模型本身的窗口大时按模型的。",
+  "settingsDefaultsFooter": "在这台设备上开新对话时用。使用中转时，默认模型存在中转设置里；对话里选的只管那个对话。思考强度按模型分别存。上下文窗口是会话最多用多少 token，自动压缩按它算，比模型本身的窗口大时按模型的。",
   "@settingsDefaultsFooter": {
     "description": "设备页「新对话默认」一组下面的说明。"
   },

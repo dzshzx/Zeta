@@ -1707,13 +1707,13 @@ func (msgs Messages) ClaudecfgDefaultsTitle() string {
 	return Catalog.Format(msgs.locale, "claudecfgDefaultsTitle", nil)
 }
 
-// ClaudecfgDefaultsFooter says "在这台设备上开新对话时用。存在这台设备上 Claude Code 自己的设置里，和那边终端里 /mod…"
+// ClaudecfgDefaultsFooter says "…"
 // in the language the app shows.
 //
 // 新对话默认一组下面的说明。
 func ClaudecfgDefaultsFooter() string { return In(i18n.Locale()).ClaudecfgDefaultsFooter() }
 
-// ClaudecfgDefaultsFooter says "在这台设备上开新对话时用。存在这台设备上 Claude Code 自己的设置里，和那边终端里 /mod…"
+// ClaudecfgDefaultsFooter says "…"
 // in the language of msgs.
 //
 // 新对话默认一组下面的说明。
@@ -5071,13 +5071,13 @@ func (msgs Messages) CommonClose() string {
 	return Catalog.Format(msgs.locale, "commonClose", nil)
 }
 
-// ClaudecfgModelsPending says "正在向这台设备上的 Claude Code 要模型清单，先列出常用的几个。"
+// ClaudecfgModelsPending says "正在读取这台设备的模型清单。"
 // in the language the app shows.
 //
 // 新对话默认一组下面的说明：模型清单还没要到。
 func ClaudecfgModelsPending() string { return In(i18n.Locale()).ClaudecfgModelsPending() }
 
-// ClaudecfgModelsPending says "正在向这台设备上的 Claude Code 要模型清单，先列出常用的几个。"
+// ClaudecfgModelsPending says "正在读取这台设备的模型清单。"
 // in the language of msgs.
 //
 // 新对话默认一组下面的说明：模型清单还没要到。

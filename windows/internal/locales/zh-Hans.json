@@ -726,7 +726,7 @@
   "@claudecfgDefaultsTitle": {
     "description": "设备页上一组的标题。"
   },
-  "claudecfgDefaultsFooter": "在这台设备上开新对话时用。存在这台设备上 Claude Code 自己的设置里，和那边终端里 /model、/effort 存为默认的是同一份；对话里选的只管那个对话。思考强度按模型分别存。上下文窗口是会话最多用多少 token，自动压缩按它算，比模型本身的窗口大时按模型的。",
+  "claudecfgDefaultsFooter": "在这台设备上开新对话时用。使用中转时，默认模型存在中转设置里；对话里选的只管那个对话。思考强度按模型分别存。上下文窗口是会话最多用多少 token，自动压缩按它算，比模型本身的窗口大时按模型的。",
   "@claudecfgDefaultsFooter": {
     "description": "新对话默认一组下面的说明。"
   },
@@ -1924,7 +1924,7 @@
   "@commonClose": {
     "description": "关掉对话框、编辑页的按钮。"
   },
-  "claudecfgModelsPending": "正在向这台设备上的 Claude Code 要模型清单，先列出常用的几个。",
+  "claudecfgModelsPending": "正在读取这台设备的模型清单。",
   "@claudecfgModelsPending": {
     "description": "新对话默认一组下面的说明：模型清单还没要到。"
   },
@@ -6123,7 +6123,7 @@
   "@accountsRelayModel": {
     "description": "中转编辑页：默认模型一组的标题和输入框的读屏名字。"
   },
-  "accountsRelayModelFooter": "写进这个中转的设置，盖过这台设备的新对话默认模型；对话里选的模型又盖过它。留空是不设。",
+  "accountsRelayModelFooter": "使用这个中转时，这里和设备页的默认模型是同一项。留空时继承设备设置；对话里选的只管那个对话。",
   "@accountsRelayModelFooter": {
     "description": "中转编辑页：默认模型一组底下的说明。"
   },

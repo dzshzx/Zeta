@@ -25,8 +25,9 @@ type Options struct {
 	OpenZip func() (name string, data []byte, err error)
 	// Models 是默认模型下拉里的选项（Claude Code 报的模型清单，Older 的收进「更多模型」）；没有时列几个常用的别名。
 	Models []Model
-	// ModelsPending：正在向那台的 Claude Code 要模型清单，到了用 SetModels 换上。
-	ModelsPending bool
+	// ModelsPending：还在读取设备的模型清单。
+	ModelsPending  bool
+	OnDefaultModel func(string) // 成功保存默认模型后通知聊天菜单；可以为 nil
 }
 
 // Model 是一个可选的模型：Value 写进 settings.json，Label 给人看；Older 是旧版本，收在「更多模型」里。
@@ -35,9 +36,10 @@ type Model struct {
 	Older        bool
 }
 
-// SetModels 换上要到的模型清单（空的是没要到，照旧列常用的别名），不再说正在要。
-func (p *Page) SetModels(models []Model) {
-	p.opts.Models, p.opts.ModelsPending = models, false
+// SetModelChoices 更新当前设备的模型选择；只在确认使用账号时补上 Claude Code 的常用别名。
+func (p *Page) SetModelChoices(models []Model, fallback, pending, known bool) {
+	p.opts.Models, p.opts.ModelsPending = models, pending
+	p.modelFallback, p.modelSourceKnown = fallback, known
 }
 
 // 子页。
@@ -61,11 +63,14 @@ type Page struct {
 	opts  Options
 	stack []view // 点进去的子页，最后一个在显示
 
-	defaults    *coreapi.Defaults
-	defaultsErr string
-	working     bool // 正在改新对话默认
-	idle        *int // 这台主机的闲置超时（分钟），还没读到时是 nil
-	claude      claudeState
+	defaults         *coreapi.Defaults
+	defaultsErr      string
+	defaultsRound    uint64
+	modelFallback    bool
+	modelSourceKnown bool
+	working          bool // 正在改新对话默认
+	idle             *int // 这台主机的闲置超时（分钟），还没读到时是 nil
+	claude           claudeState
 
 	notice *notice
 
@@ -87,22 +92,12 @@ func New(opts Options) *Page {
 	if opts.OpenZip == nil {
 		opts.OpenZip = openZipDialog
 	}
-	return &Page{opts: opts}
+	return &Page{opts: opts, modelFallback: true, modelSourceKnown: true}
 }
 
 // Load 读这台的新对话默认（可能在那边的终端里改过）和闲置超时：打开设备页时调。读不到闲置超时（那边的 Zeta 服务比这个旧）时那一项灰着。
 func (p *Page) Load() {
-	p.defaultsErr = ""
-	p.async(func(ctx context.Context) func() {
-		d, err := p.opts.Core.Defaults(ctx)
-		return func() {
-			if err != nil {
-				p.defaultsErr = err.Error()
-				return
-			}
-			p.defaults = &d
-		}
-	})
+	p.RefreshDefaults()
 	p.loadClaude()
 	p.async(func(ctx context.Context) func() {
 		m, err := p.opts.Core.IdleMinutes(ctx)
@@ -110,6 +105,26 @@ func (p *Page) Load() {
 			if err == nil {
 				p.idle = &m
 			}
+		}
+	})
+}
+
+// RefreshDefaults 重读生效的默认值；较早的读取或写入回包不能覆盖它。
+func (p *Page) RefreshDefaults() {
+	p.defaults, p.defaultsErr = nil, ""
+	p.defaultsRound++
+	round := p.defaultsRound
+	p.async(func(ctx context.Context) func() {
+		d, err := p.opts.Core.Defaults(ctx)
+		return func() {
+			if p.defaultsRound != round {
+				return
+			}
+			if err != nil {
+				p.defaultsErr = err.Error()
+				return
+			}
+			p.defaults = &d
 		}
 	})
 }

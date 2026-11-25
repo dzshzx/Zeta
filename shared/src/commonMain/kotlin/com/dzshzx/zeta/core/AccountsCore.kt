@@ -134,11 +134,7 @@ class AccountsCore(
     /** 用草稿里的地址和密钥拉中转的模型列表（核心两个鉴权头一起带）；密钥为空时核心用已保存的中转 [RelayDraft.name] 的密钥。 */
     fun relayModels(draft: RelayDraft): List<RelayModel> {
         val result = requestWith("accounts.relay_models", relayParams(draft)) as? JsonObject
-        return (result?.get("models") as? JsonArray).orEmpty().mapNotNull { item ->
-            val o = item as? JsonObject ?: return@mapNotNull null
-            val id = o.str("id")?.ifBlank { null } ?: return@mapNotNull null
-            RelayModel(id, o.str("displayName").orEmpty())
-        }
+        return (result?.get("models") as? JsonArray).orEmpty().mapNotNull(::relayModel)
     }
 
     private fun relayParams(draft: RelayDraft): Map<String, JsonPrimitive> =

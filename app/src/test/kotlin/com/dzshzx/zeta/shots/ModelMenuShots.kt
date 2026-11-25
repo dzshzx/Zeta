@@ -7,20 +7,33 @@ import com.dzshzx.zeta.core.ConversationHub
 import com.dzshzx.zeta.core.FakeCore
 import com.dzshzx.zeta.core.ReportedModels
 import com.dzshzx.zeta.core.awaitCore
+import com.dzshzx.zeta.core.claude.ClaudeConfigCore
 import com.dzshzx.zeta.core.claude.ClaudeDefaults
 import com.dzshzx.zeta.core.core
 import com.dzshzx.zeta.ui.app.ZetaTheme
 import com.dzshzx.zeta.ui.chat.ChatScreen
 import com.dzshzx.zeta.ui.settings.DefaultEffortScreen
 import com.dzshzx.zeta.ui.settings.HostSettingsScreen
+import kotlinx.serialization.json.Json
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
 import org.junit.Test
 
 /** 模型菜单只直接列各系列最新的，旧版本在「更多模型」二级菜单里；清单是 Claude Code 2.1.329 实际报的那 14 项。 */
 class ModelMenuShots : ShotTest() {
-    private fun hub(): ConversationHub =
-        Fixtures.readyHub(app).also { it.models = mapOf(Backends.LOCAL to ReportedModels) }
+    private fun hub(): ConversationHub {
+        val hub = Fixtures.readyHub(app)
+        val backend = Backends.LOCAL
+        hub.accounts(backend).config = ClaudeConfigCore { method, _, _ ->
+            if (method == "config.models.read")
+                Json.parseToJsonElement("""{"relay":"","model":"","models":[]}""")
+            else null
+        }
+        hub.refreshModelOptions(backend)
+        awaitCore { !hub.modelSourceChanging(backend) }
+        hub.models = mapOf(backend to ReportedModels)
+        return hub
+    }
 
     /** 顶栏的模型菜单：默认和四个系列最新的，最后是「更多模型」。 */
     @Test

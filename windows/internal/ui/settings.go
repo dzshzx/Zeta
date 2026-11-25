@@ -298,21 +298,26 @@ func (a *App) openChatDeviceSettings(p *chatPane, permissions bool) bool {
 // startDeviceConfig 打开设备页时建那台的 Claude Code 配置部分，数据等显示对应页面时再读。
 func (a *App) startDeviceConfig(x sshlink.Host) {
 	a.edit.loaded = false
+	a.edit.models, a.edit.probed = nil, nil
 	r := a.hub.Remote(x.ID)
+	a.edit.remote = r
 	if r == nil {
+		delete(a.modelLists, x.ID)
 		a.cfg = nil
 		return
 	}
-	models := a.models(x.ID)
 	a.cfg = claudecfg.New(claudecfg.Options{
 		Core:   r.Core,
 		Cwd:    x.DefaultCwd,
 		Device: cfg.DeviceSettings(a.hub.Settings().Store(), x.ID),
 		Run:    a.run,
 		Post:   a.post,
-		Models: models,
-		// 还没有清单时去要一次，要到了换上（models.go）
-		ModelsPending: len(models) == 0,
+		OnDefaultModel: func(model string) {
+			s := a.modelLists[x.ID]
+			if s != nil && s.remote == r && s.revision == r.Accounts.ModelRevision() {
+				s.catalog.Model = model
+			}
+		},
 	})
 }
 

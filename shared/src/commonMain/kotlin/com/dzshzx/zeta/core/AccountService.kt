@@ -3,6 +3,7 @@ package com.dzshzx.zeta.core
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
+import com.dzshzx.zeta.core.claude.ClaudeConfigCore
 import com.dzshzx.zeta.i18n.Strings
 import kotlin.concurrent.thread
 
@@ -31,6 +32,9 @@ class AccountService(private val hub: ConversationHub, private val backend: Stri
                     ?: throw ServeError(hub.unavailable(backend) ?: Strings.coreNoLinuxEnv())
             },
         )
+
+    /** 这台设备的模型来源、清单和新对话默认；测试与 [core] 一起接到临时 HOME。 */
+    var config = ClaudeConfigCore.of(hub, backend)
 
     var state by mutableStateOf<AccountsState?>(null)
         private set
@@ -153,6 +157,7 @@ class AccountService(private val hub: ConversationHub, private val backend: Stri
      * Code；缺了才去问它。在主线程上调用。
      */
     fun switched() {
+        hub.accountSourceChanged(backend, this)
         hub.quota(backend).forget()
         refresh { listed ->
             // 读到账号以后再问额度：换到中转时没有订阅额度，不单起 Claude Code 去问（QuotaService.refresh 看它的 relay）
@@ -181,11 +186,18 @@ class AccountService(private val hub: ConversationHub, private val backend: Stri
      */
     fun saveRelay(draft: RelayDraft, create: Boolean, onDone: (String?) -> Unit) {
         if (!usable) return onDone(hub.unavailable(backend) ?: Strings.coreNoLinuxEnv())
+        val active = state?.relay?.name == draft.name
         background("zeta-relays") { core ->
             val saved = runCatching { core.saveRelay(draft, create) }
             val listed = runCatching { core.list() }.getOrNull()
             main.post {
                 listed?.let { state = it }
+                if (
+                    saved.isSuccess &&
+                        !create &&
+                        (active || listed == null || listed.relay?.name == draft.name)
+                )
+                    hub.accountSourceChanged(backend, this)
                 onDone(saved.exceptionOrNull()?.let { it.message ?: it.javaClass.simpleName })
             }
         }
@@ -221,6 +233,7 @@ class AccountService(private val hub: ConversationHub, private val backend: Stri
      * 去问（登录命令这时开着，两个 Claude Code 同时读写 `~/.claude.json`）。登录成功后由 [switched] 再刷新。在主线程上调用。
      */
     internal fun loggedOut() {
+        hub.accountSourceChanged(backend, this)
         hub.quota(backend).forget()
         refresh()
         if (backend == Backends.LOCAL) hub.platform.local?.showLoggedOut()

@@ -4,7 +4,9 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"strings"
 
+	"github.com/dzshzx/Zeta/helper/accounts"
 	"github.com/dzshzx/Zeta/helper/claudecfg"
 )
 
@@ -19,7 +21,8 @@ var errConfigParams = errors.New("参数不对")
 
 // configMethods 是各方法：拿到这台的配置和解好的参数，返回 result。
 var configMethods = map[string]func(context.Context, *claudecfg.Store, json.RawMessage) (any, error){
-	"config.defaults.read":              noParams(func(_ context.Context, s *claudecfg.Store) (any, error) { return s.Defaults() }),
+	"config.models.read":                noParams(readModelCatalog),
+	"config.defaults.read":              noParams(readDefaults),
 	"config.defaults.setModel":          withParams(setDefaultModel),
 	"config.defaults.setPermissionMode": withParams(setDefaultPermissionMode),
 	"config.defaults.setEffort":         withParams(setDefaultEffort),
@@ -93,28 +96,64 @@ type valueParams struct {
 	Value string `json:"value"`
 }
 
-func setDefaultModel(_ context.Context, s *claudecfg.Store, p valueParams) (any, error) {
-	return s.SetDefaultModel(p.Value)
+func readModelCatalog(ctx context.Context, s *claudecfg.Store) (any, error) {
+	// 用户级设置读不到时仍可列出中转，只是没有可继承的模型。
+	d, _ := s.Defaults()
+	return accounts.ReadModelCatalog(ctx, s.Home(), d.Model)
 }
 
-func setDefaultPermissionMode(_ context.Context, s *claudecfg.Store, p valueParams) (any, error) {
+func readDefaults(ctx context.Context, s *claudecfg.Store) (any, error) {
+	return withEffectiveModel(ctx, s, s.Defaults)
+}
+
+func withEffectiveModel(ctx context.Context, s *claudecfg.Store, defaults func() (claudecfg.Defaults, error)) (any, error) {
+	model, err := accounts.RelayDefaultModel(ctx, s.Home())
+	if err != nil {
+		return nil, err
+	}
+	d, err := defaults()
+	if model != "" {
+		d.Model = model
+	}
+	return d, err
+}
+
+func setDefaultModel(ctx context.Context, s *claudecfg.Store, p valueParams) (any, error) {
+	d, err := s.Defaults()
+	if err != nil {
+		return nil, err
+	}
+	changed, err := accounts.SetRelayDefaultModel(ctx, s.Home(), p.Value)
+	if err != nil {
+		return nil, err
+	}
+	if !changed {
+		return s.SetDefaultModel(p.Value)
+	}
+	if model := strings.TrimSpace(p.Value); model != "" {
+		d.Model = model
+	}
+	return d, nil
+}
+
+func setDefaultPermissionMode(ctx context.Context, s *claudecfg.Store, p valueParams) (any, error) {
 	if p.Value == "" {
 		return nil, errConfigParams
 	}
-	return s.SetDefaultPermissionMode(p.Value)
+	return withEffectiveModel(ctx, s, func() (claudecfg.Defaults, error) { return s.SetDefaultPermissionMode(p.Value) })
 }
 
-func setDefaultEffort(_ context.Context, s *claudecfg.Store, p struct {
+func setDefaultEffort(ctx context.Context, s *claudecfg.Store, p struct {
 	Model string `json:"model"`
 	Value string `json:"value"`
 }) (any, error) {
-	return s.SetDefaultEffort(p.Model, p.Value)
+	return withEffectiveModel(ctx, s, func() (claudecfg.Defaults, error) { return s.SetDefaultEffort(p.Model, p.Value) })
 }
 
-func setCompactWindow(_ context.Context, s *claudecfg.Store, p struct {
+func setCompactWindow(ctx context.Context, s *claudecfg.Store, p struct {
 	Value int64 `json:"value"`
 }) (any, error) {
-	return s.SetCompactWindow(p.Value)
+	return withEffectiveModel(ctx, s, func() (claudecfg.Defaults, error) { return s.SetCompactWindow(p.Value) })
 }
 
 // ---------- 记忆 ----------

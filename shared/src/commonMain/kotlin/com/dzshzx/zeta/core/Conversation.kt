@@ -78,7 +78,14 @@ class Conversation(
         get() = view.state
 
     /** 核心里的那个对话；还没打开、已经放开时为 null。只在请求线程上改。 */
-    @Volatile private var core: CoreConversation? = null
+    private class CoreLink(val conversation: CoreConversation, val modelEpoch: Any?) {
+        val modelReporter = Any()
+    }
+
+    @Volatile private var coreLink: CoreLink? = null
+
+    private val core: CoreConversation?
+        get() = coreLink?.conversation
 
     /** 打开过一次（之后断线才算离线）。 */
     private var everOpened by mutableStateOf(false)
@@ -205,7 +212,7 @@ class Conversation(
      * 换成它指向的那个。那台还没起过进程、清单没到时，默认模型说不出是哪个，才写「默认」。
      */
     fun shownModelName(models: List<ModelOption>): String =
-        modelName(shownModel ?: hub.claudeDefaults(backend)?.model ?: DEFAULT_MODEL, models)
+        modelName(shownModel ?: hub.defaultModel(backend) ?: DEFAULT_MODEL, models)
             ?: Strings.coreModelDefault()
 
     /** 用户在这个对话里的权限模式；null 是还没选过、也还没报过。 */
@@ -322,6 +329,7 @@ class Conversation(
             return it
         }
         main.post { opening = true }
+        val modelEpoch = hub.modelEpoch(backend)
         val opened =
             try {
                 forkResult() ?: hub.convLinks.open(this, spec())
@@ -329,12 +337,13 @@ class Conversation(
                 main.post { opening = false }
                 throw e
             }
-        core = opened
+        coreLink = CoreLink(opened, modelEpoch)
         main.post {
+            if (opened !== core) return@post
             opening = false
             released = false
             everOpened = true
-            mirror(opened.view)
+            mirrorFrom(opened)
         }
         return opened
     }
@@ -447,7 +456,7 @@ class Conversation(
         phoneSession?.detach()
         enqueue {
             val target = core ?: return@enqueue
-            core = null
+            coreLink = null
             hub.convLinks.close(target, end)
         }
         hub.onActivityChanged()
@@ -488,7 +497,7 @@ class Conversation(
                 val target = open()
                 request(target)
                 main.post {
-                    if (target === core) mirror(target.view)
+                    mirrorFrom(target)
                     done()
                 }
             } catch (e: Exception) {
@@ -648,6 +657,20 @@ class Conversation(
     /** 用户在这个对话里选了模型（[value] 是选择器里的值，null 或 "default" 是默认模型），只管这个对话。 */
     fun chooseModel(value: String?) = call { it.setModel(value) }
 
+    internal fun selectedModelForMenu(): String? =
+        model
+            ?: when {
+                modelFromSession -> null
+                hub.usesRelayModels(backend) -> reportedModel ?: hub.defaultModel(backend)
+                else -> DEFAULT_MODEL
+            }
+
+    internal fun ensureModelOptions() = hub.ensureModelSource(backend)
+
+    internal fun chooseListedModel(value: String) {
+        if (hub.modelOptions(backend).any { it.value == value }) chooseModel(value)
+    }
+
     /** 思考强度：只管这个对话，null 回到 Claude Code 自己的设置。 */
     fun chooseEffort(value: String?) = call { it.setEffort(value) }
 
@@ -765,7 +788,7 @@ class Conversation(
         main.postDelayed(
             {
                 drainScheduled.set(false)
-                if (source === core) mirror(source.view)
+                mirrorFrom(source)
             },
             DRAIN_DELAY_MS,
         )
@@ -774,8 +797,7 @@ class Conversation(
     /** 一轮开始或结束了：先把核心那份照上，再交给 hub 提醒。 */
     internal fun coreTurn(source: CoreConversation, turn: ConvTurn) {
         main.post {
-            if (source !== core) return@post
-            mirror(source.view)
+            if (!mirrorFrom(source)) return@post
             if (turn.finished) turnFinished(turn) else turnStarted()
         }
     }
@@ -831,14 +853,31 @@ class Conversation(
      * 把核心那份 [next] 照到界面上（主线程）。核心说的变化里有几样要告诉别处：会话号换了（按会话登记的跟着换）、等着的请求换了（提醒）、
      * 忙闲变了（前台服务、胶囊）、模型清单（按主机记下，下次还没起进程时先用）。测试和截图也经它摆出对话的样子。
      */
-    fun mirror(next: ConvView) {
+    fun mirror(next: ConvView) = mirror(next, null)
+
+    private fun mirrorFrom(source: CoreConversation): Boolean {
+        val link = coreLink?.takeIf { it.conversation === source } ?: return false
+        mirror(source.view, link)
+        return true
+    }
+
+    private var lastModelReporter: Any? = null
+
+    private fun mirror(next: ConvView, link: CoreLink?) {
         val before = view
-        if (next === before) return
+        val reporter = link?.modelReporter
+        if (next === before && lastModelReporter === reporter) return
         view = next
         if (next.connected && !before.connected && !next.state.busy) turnRunning = false
         followSession()
         followTitle(before.state, next.state)
-        rememberModels(next.state)
+        if (
+            !released &&
+                (lastModelReporter !== reporter || before.state.models != next.state.models)
+        ) {
+            lastModelReporter = reporter
+            hub.rememberHarnessModels(backend, link?.modelEpoch, next.state.models)
+        }
         noticeChanges(before.state, next.state, before.connected != next.connected)
     }
 
@@ -853,12 +892,6 @@ class Conversation(
     private fun followTitle(before: ConvState, next: ConvState) {
         if (next.title == before.title || next.title.isEmpty()) return
         sessionId?.let { hub.sessionList.titled(it, next.title) }
-    }
-
-    /** 按主机记：各台主机上的 Claude Code 版本不一样，可选的模型也不一样。 */
-    private fun rememberModels(next: ConvState) {
-        if (next.models.isNotEmpty() && hub.models[backend] != next.models)
-            hub.models += backend to next.models
     }
 
     private fun noticeChanges(before: ConvState, next: ConvState, linkChanged: Boolean) {

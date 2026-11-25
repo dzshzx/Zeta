@@ -2,9 +2,16 @@ package ui
 
 import (
 	"encoding/json"
+	"errors"
+	"fmt"
+	"net/http"
+	"net/http/httptest"
 	"slices"
 	"testing"
+	"time"
 
+	"github.com/dzshzx/Zeta/helper/coreapi"
+	"github.com/dzshzx/Zeta/windows/internal/accounts"
 	"github.com/dzshzx/Zeta/windows/internal/hubtest"
 )
 
@@ -63,7 +70,7 @@ func TestDefaultModelUsesTheDevicesModels(t *testing.T) {
 	if want := []string{"conv.open", "conv.prepare", "conv.end", "conv.close"}; !slices.Equal(convCalls(), want) {
 		t.Fatalf("要清单发的：%q，要 %q", convCalls(), want)
 	}
-	f.notSee(t, "正在向这台设备上的 Claude Code 要模型清单，先列出常用的几个。")
+	f.notSee(t, "正在读取这台设备的模型清单。")
 
 	f.press(t, "默认模型")
 	f.see(t, "Claude Code 内置的默认", "Opus 5.5", "更多模型")
@@ -90,18 +97,173 @@ func TestDefaultModelWhenTheDeviceCannotReport(t *testing.T) {
 	f.click(t, "设置")
 	f.clickButton(t, "box", 0)
 	f.until(t, "读到新对话默认、没要到清单", func() bool {
-		return f.shows("Claude Code 内置的默认") && !f.tt.HasText("正在向这台设备上的 Claude Code 要模型清单")
+		return f.shows("Claude Code 内置的默认") && !f.tt.HasText("正在读取这台设备的模型清单。")
 	})
 	f.press(t, "默认模型")
 	f.see(t, "Opus", "Sonnet", "Haiku", "Fable")
 	f.notSee(t, "更多模型")
 }
 
+func TestDefaultModelUsesActiveRelay(t *testing.T) {
+	f := newSettingsFixture(t)
+	methods := withPrepare(f)
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path != "/v1/models" {
+			http.NotFound(w, r)
+			return
+		}
+		_, _ = fmt.Fprint(w, `{"data":[{"id":"custom-a","display_name":"Custom A"},{"id":"custom-b","display_name":"Custom B"}]}`)
+	}))
+	t.Cleanup(srv.Close)
+	f.serve.Write(t, ".claude/settings.json", `{"model":"sonnet"}`)
+	f.serve.Write(t, ".local/state/claude-switch/current", "gw\n")
+	f.serve.Write(t, ".config/claude-switch/targets/gw.json", fmt.Sprintf(`{"env":{"ANTHROPIC_BASE_URL":%q,"ANTHROPIC_API_KEY":"fixture"},"model":"custom-a"}`, srv.URL))
+	f.withHosts(t, "box")
+	f.tt.SetSize(1280, 1600)
+	f.click(t, "设置")
+	f.clickButton(t, "box", 0)
+	f.until(t, "读到中转列表和默认模型", func() bool { return f.shows("Custom A") })
+	f.press(t, "默认模型")
+	f.see(t, "Custom B")
+	f.notSee(t, "Opus 5.5", "Sonnet", "Claude Code 内置的默认")
+	f.click(t, "Custom B")
+	f.until(t, "中转默认模型已更新", func() bool { return f.shows("Custom B") })
+	if slices.Contains(*methods, "conv.prepare") {
+		t.Fatal("在用中转时不该启动 Claude Code 探清单")
+	}
+	f.click(t, "默认思考强度")
+	f.see(t, "Custom A", "Custom B")
+	f.serve.Write(t, ".local/state/claude-switch/current", "claude\n")
+	f.click(t, "常规")
+	f.clickButton(t, "box", 0)
+	f.until(t, "换回账号后仍用原来的用户级默认", func() bool { return f.shows("Sonnet 5.5") })
+}
+
+func TestLateCatalogCannotReplaceCurrentSource(t *testing.T) {
+	f := newFixture(t)
+	f.devices.OnChat = func(l *hubtest.ChatLink) { l.Connect() }
+	hosts := f.withHosts(t, "box", "lab")
+	x, y := hosts[0], hosts[1]
+	// 两台设备的回包按相反顺序应用；box 另外还保留切换和保存前的回包。
+	var apply []func()
+	f.app.post = func(fn func()) { apply = append(apply, fn) }
+	r := f.hub.Remote(x.ID)
+	catalog := `{"relay":"before"}`
+	f.devices.Chat(x.ID).OnCall(func(c hubtest.Call) (json.RawMessage, error) {
+		switch c.Method {
+		case "config.models.read":
+			return json.RawMessage(catalog), nil
+		case "accounts.list":
+			return json.RawMessage(`{}`), nil
+		case "accounts.switch":
+			catalog = `{"relay":"after"}`
+		case "accounts.relay_save":
+			catalog = `{"relay":"after","models":[{"id":"new-id"}]}`
+		}
+		return nil, nil
+	})
+	otherRemote := f.hub.Remote(y.ID)
+	f.devices.Chat(y.ID).OnCall(func(hubtest.Call) (json.RawMessage, error) {
+		return json.RawMessage(`{"relay":"other"}`), nil
+	})
+	old := f.app.modelSource(x.ID, r, false)
+	other := f.app.modelSource(y.ID, otherRemote, false)
+	r.Accounts.SwitchRelay(coreapi.Relay{Name: "after"})
+	switched := f.app.modelSource(x.ID, r, false)
+	r.Accounts.SaveRelay(accounts.EditRelayDraft(coreapi.Relay{Name: "after", BaseURL: "https://example.com"}), nil)
+	current := f.app.modelSource(x.ID, r, false)
+	if len(apply) != 4 {
+		t.Fatalf("切换和编辑应该各启动一次新请求，两台设备共四个回包，拿到 %d 个", len(apply))
+	}
+	for i := len(apply) - 1; i >= 0; i-- {
+		apply[i]()
+	}
+	if old.catalog.Relay != "before" || switched.catalog.Relay != "after" {
+		t.Fatal("测试没有收到新旧中转的回包")
+	}
+	if got := f.app.modelSource(y.ID, otherRemote, false); got != other || got.catalog.Relay != "other" {
+		t.Fatal("另一台设备的中转回包被覆盖")
+	}
+	if got := f.app.modelSource(x.ID, r, false); got != current || len(got.catalog.Models) != 1 || got.catalog.Models[0].ID != "new-id" {
+		t.Fatal("过时的中转回包污染了当前模型清单")
+	}
+}
+
+func TestFailedModelCatalogRetriesOnReopen(t *testing.T) {
+	f := newFixture(t)
+	f.devices.OnChat = func(l *hubtest.ChatLink) { l.Connect() }
+	x := f.withHosts(t, "box")[0]
+	r := f.hub.Remote(x.ID)
+	calls := 0
+	f.devices.Chat(x.ID).OnCall(func(c hubtest.Call) (json.RawMessage, error) {
+		if c.Method != "config.models.read" {
+			t.Fatalf("意外调用：%s", c.Method)
+		}
+		calls++
+		if calls == 1 {
+			return nil, errors.New("temporary")
+		}
+		return json.RawMessage(`{"relay":"gw"}`), nil
+	})
+	if s := f.app.modelSource(x.ID, r, false); s.ready {
+		t.Fatal("RPC 失败时不能当成 Claude Code 订阅")
+	}
+	if s := f.app.modelSource(x.ID, r, false); s.ready || calls != 1 {
+		t.Fatal("不应在每一帧重试")
+	}
+	if s := f.app.modelSource(x.ID, r, true); !s.ready || s.catalog.Relay != "gw" || calls != 2 {
+		t.Fatal("重开时应重试读取模型来源")
+	}
+}
+
+func TestRelayModelsExpire(t *testing.T) {
+	f := newFixture(t)
+	f.devices.OnChat = func(l *hubtest.ChatLink) { l.Connect() }
+	x := f.withHosts(t, "box")[0]
+	r := f.hub.Remote(x.ID)
+	clock := now
+	f.app.now = func() time.Time { return clock }
+	calls := 0
+	f.devices.Chat(x.ID).OnCall(func(hubtest.Call) (json.RawMessage, error) {
+		calls++
+		return json.RawMessage(fmt.Sprintf(`{"relay":"gw","models":[{"id":"model-%d"}]}`, calls)), nil
+	})
+	first := f.app.modelSource(x.ID, r, false)
+	clock = now.Add(modelsTTL - time.Nanosecond)
+	if got := f.app.modelSource(x.ID, r, false); got != first {
+		t.Fatal("还没过期不应重查")
+	}
+	clock = now.Add(modelsTTL)
+	second := f.app.modelSource(x.ID, r, false)
+	if calls != 2 || len(second.catalog.Models) != 1 || second.catalog.Models[0].ID != "model-2" {
+		t.Fatal("过期后应更新仍在用的中转清单")
+	}
+}
+
+func TestComposerUsesRelayModelIDs(t *testing.T) {
+	f := newChatFixture(t)
+	f.answers["config.models.read"] = `{"relay":"gw","model":"relay-a","models":[{"id":"relay-a","displayName":"Relay A"},{"id":"relay-b","displayName":"Relay B"}]}`
+	f.newChat(t)
+	f.push(`"models":` + reportedModels)
+	f.click(t, "默认（Relay A）")
+	f.see(t, "Relay A", "Relay B")
+	f.notSee(t, "Opus 5.5", "Sonnet 5.5", "更多模型")
+	f.clickMenuItem(t, "Relay B")
+	if got := f.sent("conv.model"); !slices.Equal(got, []string{`{"conv":"w1","value":"relay-b"}`}) {
+		t.Fatalf("中转模型应该按 ID 选择：%q", got)
+	}
+}
+
 // 输入栏的模型菜单也分两层（同设置里的默认模型）：上层是各系列最新的，旧版本在「更多模型」里；选了旧版本，那一项右边写着它。
 func TestComposerModelMenuSplitsOlder(t *testing.T) {
 	f := newChatFixture(t)
 	f.newChat(t)
+	// 空白对话停留到模型目录重读后，启动 Claude Code 仍能收下它报来的清单。
+	f.app.now = func() time.Time { return now.Add(modelsTTL) }
 	f.push(`"process":true,"models":` + reportedModels)
+	if calls := f.sent("config.models.read"); len(calls) != 1 {
+		t.Fatalf("模型目录过期后未重读：%q", calls)
+	}
 	f.click(t, "默认")
 	f.see(t, "Opus 5.5", "Sonnet 5.5", "更多模型")
 	f.notSee(t, "Opus 4.6")

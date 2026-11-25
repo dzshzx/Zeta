@@ -54,9 +54,14 @@ private fun rememberDefaultsWriter(
     val scope = rememberCoroutineScope()
     val context = LocalContext.current
     return { change ->
+        val epoch = hub.modelEpoch(backend)
         scope.runConfig({ client.change() }) { result ->
             result
-                .onSuccess { hub.updateClaudeDefaults(backend, it) }
+                .onSuccess {
+                    if (hub.modelEpoch(backend) === epoch && backend in hub.backends)
+                        hub.updateClaudeDefaults(backend, it)
+                    else if (backend in hub.backends) hub.refreshClaudeDefaults(backend)
+                }
                 .onFailure {
                     Toast.makeText(
                             context,
@@ -69,11 +74,12 @@ private fun rememberDefaultsWriter(
     }
 }
 
-/** 「默认模型」：settings.json 的 model；跟随是删掉它，用 Claude Code 内置的默认。 */
+/** 「默认模型」由核心按来源写入；跟随是清除当前来源的覆盖。 */
 @Composable
 internal fun DefaultModelPreference(hub: ConversationHub, backend: String) {
     val write = rememberDefaultsWriter(hub, backend)
     val defaults = hub.claudeDefaults(backend)
+    val changing = hub.modelSourceChanging(backend)
     val choices = modelChoices(hub.modelOptions(backend))
     FollowDropdownPreference(
         title = Strings.settingsDefaultsModel(),
@@ -82,11 +88,17 @@ internal fun DefaultModelPreference(hub: ConversationHub, backend: String) {
         more = choices.older,
         value = defaults?.model?.takeIf { it != Conversation.DEFAULT_MODEL },
         unknown = ::readableModelId,
-        followLabel = Strings.settingsDefaultsModelBuiltin(),
-        summary = notRead.takeIf { defaults == null },
-        enabled = defaults != null,
+        followLabel =
+            if (hub.usesRelayModels(backend)) Strings.commonFollowClaudeCode()
+            else Strings.settingsDefaultsModelBuiltin(),
+        summary = notRead.takeIf { defaults == null || changing },
+        enabled = defaults != null && !changing,
     ) { value ->
-        write { setDefaultModel(value) }
+        if (
+            !hub.modelSourceChanging(backend) &&
+                (value == null || hub.modelOptions(backend).any { it.value == value })
+        )
+            write { setDefaultModel(value) }
     }
 }
 
@@ -154,10 +166,14 @@ internal fun DefaultEffortEntry(hub: ConversationHub, backend: String, onOpen: (
 internal fun DefaultEffortScreen(hub: ConversationHub, backend: String, onBack: () -> Unit) {
     val write = rememberDefaultsWriter(hub, backend)
     val defaults = hub.claudeDefaults(backend)
-    val models = hub.models[backend].orEmpty()
-    val waiting = models.isEmpty()
+    val models = hub.reportedModelOptions(backend)
+    val relay = hub.usesRelayModels(backend)
+    val waiting = models.isEmpty() && !relay
     var showOlder by remember { mutableStateOf(false) }
-    LaunchedEffect(waiting) { if (waiting && hub.current.backend == backend) hub.current.prepare() }
+    val changing = hub.modelSourceChanging(backend)
+    LaunchedEffect(hub, backend, waiting, changing) {
+        if (waiting && !changing && hub.current.backend == backend) hub.current.prepare()
+    }
     CouiPage(title = Strings.settingsDefaultsEffort(), onBack = onBack) {
         item(key = "efforts") {
             PreferenceGroup(
@@ -169,7 +185,7 @@ internal fun DefaultEffortScreen(hub: ConversationHub, backend: String, onBack: 
                     item { ArrowPreference(title = notRead, enabled = false) }
                 } else {
                     effortItems(
-                        effortRows(models, defaults),
+                        effortRows(models, defaults, relay),
                         showOlder,
                         { showOlder = true },
                         write,
@@ -227,8 +243,12 @@ internal data class EffortRow(
  * 只列一次（「默认」和它指向的那个是同一个），档位只列这个模型支持的；不支持思考强度、也没设过的不列。 没设过的旧版本标上 [EffortRow.older]。settings.json
  * 里设过、清单里没有的（下线的模型）接在后面，好让人改掉或删掉。 顶层设过一档时最后一行是「其他模型」。
  */
-internal fun effortRows(models: List<ModelOption>, defaults: ClaudeDefaults): List<EffortRow> {
-    val menu = modelMenu(models)
+internal fun effortRows(
+    models: List<ModelOption>,
+    defaults: ClaudeDefaults,
+    relay: Boolean = false,
+): List<EffortRow> {
+    val menu = modelMenu(if (relay) models.map { it.copy(resolvedModel = it.value) } else models)
     val olderIds = menu.older.mapNotNullTo(HashSet()) { it.resolvedModel }
     val listed =
         (menu.latest + menu.older)
@@ -244,7 +264,7 @@ internal fun effortRows(models: List<ModelOption>, defaults: ClaudeDefaults): Li
         else
             EffortRow(
                 id,
-                readableModelId(id),
+                if (relay) option.displayName else readableModelId(id),
                 choices,
                 value,
                 older = id in olderIds && value == null,

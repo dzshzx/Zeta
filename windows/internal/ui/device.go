@@ -7,6 +7,7 @@ import (
 
 	"github.com/dzshzx/Zeta/client/sshlink"
 	"github.com/dzshzx/Zeta/windows/internal/host"
+	"github.com/dzshzx/Zeta/windows/internal/hub"
 	"github.com/dzshzx/Zeta/windows/internal/locales"
 	"github.com/dzshzx/Zeta/windows/internal/ui/widget"
 	"github.com/egoist/mygo/ui"
@@ -15,6 +16,9 @@ import (
 // editing 是一台设备的页面上的状态。
 type editing struct {
 	loaded     bool          // 已加载设备首页；直达子页时不读首页数据
+	remote     *hub.Remote   // 配置页绑定的设备连接
+	models     *modelSource  // 配置页显示的模型来源
+	probed     *modelSource  // 本次打开首页已经向 Claude Code 要过清单的来源
 	name       string        // 名称输入框
 	cwd        string        // 默认工作目录输入框
 	checking   bool          // 正在检查连接
@@ -52,7 +56,6 @@ func (a *App) loadDeviceHome(x sshlink.Host) {
 	a.edit.loaded = true
 	if a.cfg != nil {
 		a.cfg.Load()
-		a.askModels(x, a.hub.Remote(x.ID))
 	}
 	a.async(func() func() {
 		keys := a.hub.Keys()
@@ -69,10 +72,14 @@ func (a *App) devicePage(c *ui.Context) {
 		return
 	}
 	if a.cfg != nil && a.cfg.Open() {
+		if a.edit.loaded {
+			a.syncDeviceModels(x)
+		}
 		a.cfg.SubPage(c)
 		return
 	}
 	a.loadDeviceHome(x)
+	a.syncDeviceModels(x)
 	widget.Header(c, x.Name(), nil)
 	widget.Body(c, "device", func() {
 		a.connectionSection(c, x)

@@ -53,7 +53,7 @@ func TestEmptyChatPicksTheDevice(t *testing.T) {
 	if c := f.hub.Chat(); c == nil || c.Backend != lab.ID || c.Session.Cwd != "/home/lab" || !c.Fresh() {
 		t.Fatalf("换到 lab 的新对话：%+v", c)
 	}
-	if open := f.devices.Chat(lab.ID).Took(); len(open) != 1 || open[0].Method != "conv.open" || open[0].Str("cwd") != "/home/lab" {
+	if open := f.devices.Chat(lab.ID).Took(); len(open) != 2 || open[0].Method != "conv.open" || open[0].Str("cwd") != "/home/lab" || open[1].Method != "config.models.read" {
 		t.Fatalf("lab 上的打开：%+v", open)
 	}
 	if !f.hub.AllHosts() {

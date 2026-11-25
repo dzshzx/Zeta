@@ -33,7 +33,6 @@ const (
 var literalExceptions = []literalException{
 	{"internal/ui/drafts.go", "zeta: 读草稿：%v", whyLog},
 	{"internal/ui/drafts.go", "zeta: 存草稿：%v", whyLog},
-	{"internal/ui/models.go", "host: 没要到「%s」上 Claude Code 的模型清单：%v", whyLog},
 	{"internal/hub/chat.go", "zeta: 关掉对话：%v", whyLog},
 	{"internal/hub/chat.go", "zeta: 重连后重新打开对话：%v", whyLog},
 	{"internal/hub/hub.go", "zeta: 设置没存上：%v", whyLog},

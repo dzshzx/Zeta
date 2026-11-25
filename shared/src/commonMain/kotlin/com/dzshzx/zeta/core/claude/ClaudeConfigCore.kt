@@ -9,6 +9,7 @@ import com.dzshzx.zeta.core.int
 import com.dzshzx.zeta.core.jsonStrings
 import com.dzshzx.zeta.core.long
 import com.dzshzx.zeta.core.obj
+import com.dzshzx.zeta.core.relayModel
 import com.dzshzx.zeta.core.str
 import com.dzshzx.zeta.i18n.Strings
 import java.util.Base64
@@ -69,11 +70,23 @@ class ClaudeConfigCore(
     private fun list(method: String, params: JsonObjectBuilder.() -> Unit = {}): List<JsonObject> =
         (request(method, TIMEOUT_MS, params) as? JsonArray).objects()
 
+    /** 当前来源和中转清单；订阅的清单仍由 Claude Code 的 initialize 提供。 */
+    fun modelSource(): ModelSource {
+        val o = result("config.models.read")
+        val relay =
+            o.str("relay") ?: throw ServeError(Strings.coreConfigBadReply("config.models.read"))
+        return ModelSource(
+            relay.ifBlank { null },
+            o.str("model")?.ifBlank { null },
+            o.arr("models").orEmpty().mapNotNull(::relayModel),
+        )
+    }
+
     // ---------- 新对话默认 ----------
 
     fun defaults(): ClaudeDefaults = parseDefaults(result("config.defaults.read"))
 
-    /** 默认模型；null 是删掉，用 Claude Code 内置的默认模型。 */
+    /** 默认模型由核心按来源写入；null 是删掉当前来源的覆盖。 */
     fun setDefaultModel(value: String?): ClaudeDefaults =
         parseDefaults(result("config.defaults.setModel") { put("value", value.orEmpty()) })
 

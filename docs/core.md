@@ -135,8 +135,9 @@ Zeta 的逻辑往 Go 写的核心里搬：核心是每台主机（手机的 Debi
 
 | 方法 | 参数 | 结果 |
 |---|---|---|
-| `config.defaults.read` | | 新对话默认 `{model, permissionMode, efforts: [{model, level}], effort, compactWindow}`（settings.json 的 model、permissions.defaultMode、modelSettings.*.effortLevel、effortLevel、autoCompactWindow；没设的是空串、0） |
-| `config.defaults.setModel` | `value`（空串是删掉） | 同上 |
+| `config.models.read` | | `{relay, model, models: [{id, displayName}]}`。使用已保存的中转时，返回中转名、有效默认模型和上游清单；拉不到清单时保留中转名和默认模型，不把官方别名当作上游返回的模型。`relay` 为空时由客户端用 Claude Code 的 initialize 清单。 |
+| `config.defaults.read` | | 新对话默认 `{model, permissionMode, efforts: [{model, level}], effort, compactWindow}`。中转设置里的 `model` 优先，没设时继承设备的 `settings.json`；其他字段对应设备设置里的 `permissions.defaultMode`、`modelSettings.*.effortLevel`、`effortLevel`、`autoCompactWindow`。 |
+| `config.defaults.setModel` | `value`（空串是删掉） | 修改当前来源的默认模型，返回同上。清除中转的模型只恢复继承，不清除设备的模型。 |
 | `config.defaults.setPermissionMode` | `value`（不能为空；`bypassPermissions` 是完全放行，写入设备的 Claude Code 用户设置，对新对话生效） | 同上 |
 | `config.defaults.setEffort` | `model`（完整模型 ID，空串是顶层那一档）、`value`（空串是删掉） | 同上 |
 | `config.defaults.setCompactWindow` | `value`（token 数，0 是删掉，最小 100000） | 同上 |
