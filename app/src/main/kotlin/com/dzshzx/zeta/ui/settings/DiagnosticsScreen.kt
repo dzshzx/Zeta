@@ -249,10 +249,7 @@ private fun EnvironmentGroup(hub: ConversationHub, probe: LinuxProbe?, probing: 
         Diagnostics.environment(context, hub, probe, probing).forEach { entry ->
             item {
                 if (entry.value.length <= 14) {
-                    BasicComponent(
-                        title = entry.label,
-                        endActions = { PreferenceValue(entry.value, clickable = false) },
-                    )
+                    ValueRow(entry.label, entry.value)
                 } else {
                     BasicComponent(title = entry.label, summary = entry.value)
                 }
@@ -267,16 +264,7 @@ private fun PermissionsGroup(snapshot: PermissionSnapshot?, hub: ConversationHub
     PreferenceGroup(title = Strings.diagPermissions(), footer = Strings.diagPermissionsFooter()) {
         PermissionHealth.items(snapshot, hub).forEach { entry ->
             item(key = entry.id) {
-                BasicComponent(
-                    title = entry.title,
-                    endActions = {
-                        PreferenceValue(
-                            entry.value,
-                            color = statusColor(entry.status),
-                            clickable = false,
-                        )
-                    },
-                )
+                ValueRow(entry.title, entry.value, color = statusColor(entry.status))
             }
         }
     }

@@ -19,7 +19,7 @@ import com.dzshzx.zeta.ui.components.coui2.CouiPage
 import com.dzshzx.zeta.ui.components.coui2.DropdownValuePreference
 import com.dzshzx.zeta.ui.components.coui2.PreferenceGroup
 import com.dzshzx.zeta.ui.components.coui2.PreferenceValue
-import io.github.suqi8.coui.kmp.basic.BasicComponent
+import com.dzshzx.zeta.ui.settings.ValueRow
 import io.github.suqi8.coui.kmp.basic.CardListGroupScope
 import io.github.suqi8.coui.kmp.basic.DropdownEntry
 import io.github.suqi8.coui.kmp.basic.DropdownItem
@@ -223,10 +223,10 @@ private fun CardListGroupScope.memoryLocationRows(
     if (customDir != null) {
         // settings.json 里设了 autoMemoryDirectory：所有项目共用这一个目录，没有项目可选
         item {
-            BasicComponent(
-                title = Strings.setupMemoryDir(),
+            ValueRow(
+                Strings.setupMemoryDir(),
+                Strings.setupMemorySharedDir(),
                 summary = shortPath(customDir, home),
-                endActions = { PreferenceValue(Strings.setupMemorySharedDir(), clickable = false) },
             )
         }
     } else if (o.projects.isNotEmpty()) {

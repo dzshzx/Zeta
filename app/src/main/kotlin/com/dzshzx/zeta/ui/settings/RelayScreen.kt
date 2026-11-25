@@ -29,7 +29,6 @@ import com.dzshzx.zeta.ui.components.coui2.DialogContentPadding
 import com.dzshzx.zeta.ui.components.coui2.FlatIconButton
 import com.dzshzx.zeta.ui.components.coui2.PageDialog
 import com.dzshzx.zeta.ui.components.coui2.PreferenceGroup
-import com.dzshzx.zeta.ui.components.coui2.PreferenceValue
 import io.github.suqi8.coui.kmp.basic.BasicComponent
 import io.github.suqi8.coui.kmp.basic.BasicComponentDefaults
 import io.github.suqi8.coui.kmp.basic.InputView
@@ -237,12 +236,7 @@ private fun DeleteGroup(relay: ClaudeRelay, enabled: Boolean, onClick: () -> Uni
 private fun NameField(draft: RelayDraft, create: Boolean, update: (RelayDraft) -> Unit) {
     if (!create) {
         PreferenceGroup {
-            item {
-                BasicComponent(
-                    title = Strings.relayName(),
-                    endActions = { PreferenceValue(draft.name, clickable = false) },
-                )
-            }
+            item { ValueRow(Strings.relayName(), draft.name) }
         }
         return
     }

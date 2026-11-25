@@ -819,12 +819,6 @@ internal fun LastRunRow(
     }
 }
 
-/** 点了开对话框的一行：标题和右边的当前值。 */
-@Composable
-internal fun ValueRow(title: String, value: String, onClick: () -> Unit) {
-    BasicComponent(title = title, endActions = { PreferenceValue(value) }, onClick = onClick)
-}
-
 /** 编辑页里的一个输入框（COUI 的卡片输入 InputView，标题在卡片里）和它下面的说明， 左右和设置分组的卡片对齐，和下一张卡片隔 16dp。 */
 @Composable
 internal fun FieldCard(footer: String? = null, field: @Composable () -> Unit) {

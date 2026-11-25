@@ -5,6 +5,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.graphics.Color
 import com.dzshzx.zeta.core.ConversationHub
 import com.dzshzx.zeta.core.RemoteHosts
 import com.dzshzx.zeta.i18n.Strings
@@ -15,7 +16,31 @@ import io.github.suqi8.coui.kmp.basic.BasicComponentDefaults
 import io.github.suqi8.coui.kmp.preference.ArrowPreference
 import io.github.suqi8.coui.kmp.theme.COUITheme
 
-// 设置里几处共用的行：删除行、设备名一行和改名对话框。
+// 设置里几处共用的行：标题加当前值的一行、删除行、设备名一行和改名对话框。
+
+/**
+ * 标题和右边当前值（[PreferenceValue]）的一行。值的颜色跟着行走：能点（[enabled] 且有 [onClick]）是实色，只读或禁用是虚色，调用方不另说。
+ * 按状态上色（出错）时给 [color]。
+ */
+@Composable
+fun ValueRow(
+    title: String,
+    value: String,
+    summary: String? = null,
+    color: Color = Color.Unspecified,
+    enabled: Boolean = true,
+    onClick: (() -> Unit)? = null,
+) {
+    BasicComponent(
+        title = title,
+        summary = summary,
+        endActions = {
+            PreferenceValue(value, color = color, clickable = enabled && onClick != null)
+        },
+        enabled = enabled,
+        onClick = onClick,
+    )
+}
 
 /** 编辑页最下面的“删除…”：错误色的标题，点了弹确认框。 */
 @Composable

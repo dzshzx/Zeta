@@ -48,6 +48,7 @@ import com.dzshzx.zeta.ui.components.coui2.PreferenceValue
 import com.dzshzx.zeta.ui.components.pingPong
 import com.dzshzx.zeta.ui.components.rememberIndicatorClock
 import com.dzshzx.zeta.ui.components.rememberNow
+import com.dzshzx.zeta.ui.settings.ValueRow
 import io.github.suqi8.coui.kmp.basic.BasicComponent
 import io.github.suqi8.coui.kmp.basic.BasicComponentDefaults
 import io.github.suqi8.coui.kmp.basic.CardListGroupScope
@@ -253,11 +254,9 @@ private fun TaskRow(task: BackgroundTask, onClick: () -> Unit) {
 /** 详情里的“已运行”或“用时”。 */
 @Composable
 private fun ElapsedRow(task: BackgroundTask) {
-    BasicComponent(
-        title = if (task.running) Strings.tasksElapsedRunning() else Strings.tasksElapsedTook(),
-        endActions = {
-            PreferenceValue(formatElapsed(task.elapsedMs(elapsedNow(task))), clickable = false)
-        },
+    ValueRow(
+        if (task.running) Strings.tasksElapsedRunning() else Strings.tasksElapsedTook(),
+        formatElapsed(task.elapsedMs(elapsedNow(task))),
     )
 }
 
@@ -333,15 +332,10 @@ private fun TaskInfoGroup(
             )
         }
         item(key = "state") {
-            BasicComponent(
-                title = Strings.tasksState(),
-                endActions = {
-                    PreferenceValue(
-                        TaskLabels.state(task),
-                        color = taskStateColor(task.state),
-                        clickable = false,
-                    )
-                },
+            ValueRow(
+                Strings.tasksState(),
+                TaskLabels.state(task),
+                color = taskStateColor(task.state),
             )
         }
         item(key = "elapsed") { ElapsedRow(task) }
@@ -382,22 +376,10 @@ internal fun taskStateColor(state: TaskState): Color =
 /** 子代理才有的几行：类型、工具调用次数、（运行中）在做什么，和进它的步骤。 */
 private fun CardListGroupScope.agentItems(task: BackgroundTask, onOpenSteps: (String) -> Unit) {
     task.agentType?.let { type ->
-        item(key = "agent") {
-            BasicComponent(
-                title = Strings.tasksAgentType(),
-                endActions = { PreferenceValue(type, clickable = false) },
-            )
-        }
+        item(key = "agent") { ValueRow(Strings.tasksAgentType(), type) }
     }
     task.toolUses?.let { uses ->
-        item(key = "tools") {
-            BasicComponent(
-                title = Strings.tasksToolUses(),
-                endActions = {
-                    PreferenceValue(Strings.tasksToolUsesCount(uses), clickable = false)
-                },
-            )
-        }
+        item(key = "tools") { ValueRow(Strings.tasksToolUses(), Strings.tasksToolUsesCount(uses)) }
     }
     if (task.running)
         task.progress?.let { progress ->

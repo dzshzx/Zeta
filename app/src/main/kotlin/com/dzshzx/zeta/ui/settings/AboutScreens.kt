@@ -110,12 +110,7 @@ internal fun LicenseScreen(onBack: () -> Unit) {
         item(key = "zeta") {
             PreferenceGroup(footer = ZetaInfo.legalNotice.joinToString("\n")) {
                 item { BasicComponent(title = "Zeta", summary = ZetaInfo.COPYRIGHT) }
-                item {
-                    BasicComponent(
-                        title = Strings.aboutLicense(),
-                        endActions = { PreferenceValue("GPL-3.0", clickable = false) },
-                    )
-                }
+                item { ValueRow(Strings.aboutLicense(), "GPL-3.0") }
             }
         }
         licenseText("GPL-3.0-only", text)
@@ -186,12 +181,7 @@ internal fun ComponentScreen(component: Component, onBack: () -> Unit) {
     CouiPage(title = component.name, onBack = onBack) {
         item(key = "info") {
             PreferenceGroup(footer = component.note) {
-                item {
-                    BasicComponent(
-                        title = Strings.commonVersion(),
-                        endActions = { PreferenceValue(component.version, clickable = false) },
-                    )
-                }
+                item { ValueRow(Strings.commonVersion(), component.version) }
                 item { BasicComponent(title = Strings.aboutLicense(), summary = component.license) }
                 component.url?.let { url ->
                     item {

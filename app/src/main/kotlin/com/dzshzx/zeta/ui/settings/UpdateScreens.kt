@@ -112,14 +112,7 @@ internal fun UpdateScreen(onBack: () -> Unit) {
             }
             item(key = "current") {
                 PreferenceGroup {
-                    item {
-                        BasicComponent(
-                            title = Strings.updateCurrentVersion(),
-                            endActions = {
-                                PreferenceValue(BuildConfig.VERSION_NAME, clickable = false)
-                            },
-                        )
-                    }
+                    item { ValueRow(Strings.updateCurrentVersion(), BuildConfig.VERSION_NAME) }
                 }
             }
         }

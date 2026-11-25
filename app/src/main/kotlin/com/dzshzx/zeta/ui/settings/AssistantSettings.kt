@@ -23,7 +23,6 @@ import com.dzshzx.zeta.ui.components.coui2.CouiPage
 import com.dzshzx.zeta.ui.components.coui2.PreferenceGroup
 import com.dzshzx.zeta.ui.components.coui2.PreferenceValue
 import com.dzshzx.zeta.ui.components.coui2.SettingsIcon
-import io.github.suqi8.coui.kmp.basic.BasicComponent
 import io.github.suqi8.coui.kmp.icon.COUIIcons
 import io.github.suqi8.coui.kmp.icon.extended.Mic
 import io.github.suqi8.coui.kmp.preference.ArrowPreference
@@ -190,35 +189,24 @@ private fun assistantFootnote(
 @Composable
 private fun RecognizerPreference(current: AssistantOwner?) {
     val broken = current?.keepsOnBoot == false
-    BasicComponent(
+    ValueRow(
         title = Strings.settingsAssistantRecognizer(),
+        value =
+            if (broken) Strings.settingsAssistantNotZeta()
+            else current?.recognizerSummary ?: Strings.commonQuerying(),
         summary = Strings.settingsAssistantRecognizerBroken().takeIf { broken },
-        endActions = {
-            PreferenceValue(
-                text =
-                    if (broken) Strings.settingsAssistantNotZeta()
-                    else current?.recognizerSummary ?: Strings.commonQuerying(),
-                color = if (broken) COUITheme.colorScheme.error else Color.Unspecified,
-                clickable = false,
-            )
-        },
+        color = if (broken) COUITheme.colorScheme.error else Color.Unspecified,
     )
 }
 
 /** 长按电源键接管：模块装没装上（没装上时说明怎么装）。 */
 @Composable
 private fun PowerKeyPreference(log: PowerKeyStatus?, reading: Boolean) {
-    BasicComponent(
+    ValueRow(
         title = Strings.settingsAssistantPowerKey(),
+        value = powerKeyValue(log, reading),
         summary = log?.installNote?.takeIf { log.installed == false },
-        endActions = {
-            PreferenceValue(
-                text = powerKeyValue(log, reading),
-                color =
-                    if (log?.installed == false) COUITheme.colorScheme.error else Color.Unspecified,
-                clickable = false,
-            )
-        },
+        color = if (log?.installed == false) COUITheme.colorScheme.error else Color.Unspecified,
     )
 }
 

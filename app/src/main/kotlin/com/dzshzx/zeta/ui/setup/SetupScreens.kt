@@ -44,6 +44,7 @@ import com.dzshzx.zeta.ui.components.coui2.DropdownValuePreference
 import com.dzshzx.zeta.ui.components.coui2.PreferenceGroup
 import com.dzshzx.zeta.ui.components.coui2.PreferenceValue
 import com.dzshzx.zeta.ui.components.coui2.TextInputDialog
+import com.dzshzx.zeta.ui.settings.ValueRow
 import io.github.suqi8.coui.kmp.basic.BasicComponent
 import io.github.suqi8.coui.kmp.basic.ButtonDefaults
 import io.github.suqi8.coui.kmp.basic.DropdownEntry
@@ -250,12 +251,7 @@ private fun EnvGroup(
 ) {
     PreferenceGroup(title = Strings.setupEnvGroup(), footer = Strings.setupEnvFooter()) {
         item {
-            BasicComponent(
-                title = Strings.setupStatus(),
-                endActions = {
-                    PreferenceValue(setupStateText(hub.environment.setup), clickable = false)
-                },
-            )
+            ValueRow(Strings.setupStatus(), setupStateText(hub.environment.setup))
         }
         item {
             val choose: (String) -> Unit = { target ->
@@ -289,10 +285,7 @@ private fun EnvGroup(
         item { BasicComponent(title = Strings.setupPath(), summary = current) }
         if (env != null) {
             item {
-                BasicComponent(
-                    title = Strings.setupRunUser(),
-                    endActions = { PreferenceValue("${env.user} (${env.uid})", clickable = false) },
-                )
+                ValueRow(Strings.setupRunUser(), "${env.user} (${env.uid})")
             }
             item {
                 BasicComponent(
@@ -451,14 +444,9 @@ private fun ClaudeGroup(
     val account = hub.environment.account
     PreferenceGroup(title = "Claude Code") {
         item {
-            BasicComponent(
-                title = Strings.setupVersion(),
-                endActions = {
-                    PreferenceValue(
-                        health?.claude?.ifBlank { Strings.setupNotInstalled() } ?: "…",
-                        clickable = false,
-                    )
-                },
+            ValueRow(
+                Strings.setupVersion(),
+                health?.claude?.ifBlank { Strings.setupNotInstalled() } ?: "…",
             )
         }
         item {
@@ -560,16 +548,13 @@ internal fun EnvInstallScreen(hub: ConversationHub, onBack: () -> Unit, onOpenLo
                 footer = Strings.setupInstallPrepareFooter(),
             ) {
                 item {
-                    // 已有用户、正在装或装完时只读
-                    val editable = existingUser == null && !installer.running && !complete
-                    BasicComponent(
-                        title = Strings.setupUserName(),
+                    ValueRow(
+                        Strings.setupUserName(),
+                        existingUser ?: userName,
                         summary = Strings.setupUserNameSummary(),
-                        endActions = {
-                            PreferenceValue(existingUser ?: userName, clickable = editable)
-                        },
+                        // 已有用户、正在装或装完时只读
                         onClick =
-                            if (editable) {
+                            if (existingUser == null && !installer.running && !complete) {
                                 {
                                     nameDraft = userName
                                     editingName = true
@@ -905,18 +890,12 @@ private fun OptionalToolRow(
             else -> "$title $version"
         }
     when {
-        health == null ->
-            BasicComponent(
-                title = title,
-                summary = pitch,
-                endActions = { PreferenceValue("…") },
-                enabled = false,
-            )
+        health == null -> ValueRow(title, "…", summary = pitch, enabled = false)
         version.isBlank() ->
-            BasicComponent(
-                title = title,
+            ValueRow(
+                title,
+                Strings.setupOptionalInstall(),
                 summary = pitch,
-                endActions = { PreferenceValue(Strings.setupOptionalInstall()) },
                 enabled = enabled,
                 onClick = onInstall,
             )
@@ -944,10 +923,10 @@ private fun OptionalToolRow(
                     ),
             )
         else ->
-            BasicComponent(
-                title = title,
+            ValueRow(
+                title,
+                Strings.setupInstalled(),
                 summary = Strings.setupOptionalPreinstalled(label),
-                endActions = { PreferenceValue(Strings.setupInstalled(), clickable = false) },
             )
     }
 }

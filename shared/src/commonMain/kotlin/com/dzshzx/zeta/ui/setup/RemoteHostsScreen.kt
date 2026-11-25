@@ -31,12 +31,12 @@ import com.dzshzx.zeta.ui.components.coui2.CouiPage
 import com.dzshzx.zeta.ui.components.coui2.DialogTextField
 import com.dzshzx.zeta.ui.components.coui2.NoticeDialog
 import com.dzshzx.zeta.ui.components.coui2.PreferenceGroup
-import com.dzshzx.zeta.ui.components.coui2.PreferenceValue
 import com.dzshzx.zeta.ui.components.coui2.TextInputDialog
 import com.dzshzx.zeta.ui.components.rememberRetained
 import com.dzshzx.zeta.ui.settings.DangerRow
 import com.dzshzx.zeta.ui.settings.DeviceNameDialog
 import com.dzshzx.zeta.ui.settings.DeviceNameRow
+import com.dzshzx.zeta.ui.settings.ValueRow
 import io.github.suqi8.coui.kmp.basic.BasicComponent
 import io.github.suqi8.coui.kmp.basic.SegmentButton
 import io.github.suqi8.coui.kmp.basic.SegmentButtonDefaults
@@ -742,23 +742,13 @@ private fun ConnectionGroup(
         }
         item { DeviceNameRow(hub, host.id) { onRename() } }
         item {
-            BasicComponent(
-                title = Strings.setupRemoteAddress(),
-                endActions = {
-                    PreferenceValue(RemoteHosts.displayTarget(host.target), clickable = false)
-                },
-            )
+            ValueRow(Strings.setupRemoteAddress(), RemoteHosts.displayTarget(host.target))
         }
         item { ViaChoice(host, switching, enabled = switching == null && !checking, onSwitch) }
         host.fingerprint?.let { fingerprint ->
             item { BasicComponent(title = Strings.setupRemoteFingerprint(), summary = fingerprint) }
         }
-        item {
-            BasicComponent(
-                title = Strings.setupRemoteHome(),
-                endActions = { PreferenceValue(host.home, clickable = false) },
-            )
-        }
+        item { ValueRow(Strings.setupRemoteHome(), host.home) }
         item {
             ArrowPreference(
                 title = Strings.setupDefaultCwd(),

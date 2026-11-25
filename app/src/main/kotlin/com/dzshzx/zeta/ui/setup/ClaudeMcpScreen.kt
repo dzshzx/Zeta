@@ -33,6 +33,7 @@ import com.dzshzx.zeta.ui.components.coui2.DialogTextField
 import com.dzshzx.zeta.ui.components.coui2.IconActionButton
 import com.dzshzx.zeta.ui.components.coui2.PreferenceGroup
 import com.dzshzx.zeta.ui.components.coui2.PreferenceValue
+import com.dzshzx.zeta.ui.settings.ValueRow
 import io.github.suqi8.coui.kmp.basic.BasicComponent
 import io.github.suqi8.coui.kmp.basic.BasicComponentDefaults
 import io.github.suqi8.coui.kmp.basic.CardListGroupScope
@@ -273,15 +274,10 @@ private fun ConnectorsGroup(connectors: List<McpConnector>) {
     ) {
         connectors.forEach {
             item(key = it.name) {
-                BasicComponent(
-                    title = it.name.removePrefix("claude.ai "),
-                    endActions = {
-                        PreferenceValue(
-                            stateLabel(it.state),
-                            color = stateColor(it.state),
-                            clickable = false,
-                        )
-                    },
+                ValueRow(
+                    it.name.removePrefix("claude.ai "),
+                    stateLabel(it.state),
+                    color = stateColor(it.state),
                 )
             }
         }
@@ -614,26 +610,15 @@ private fun ServerInfoGroup(
 ) {
     PreferenceGroup(title = Strings.setupMcpServer()) {
         item {
-            BasicComponent(
-                title = Strings.setupStatus(),
+            ValueRow(
+                Strings.setupStatus(),
+                stateLabel(state),
                 summary = state?.issue?.ifBlank { null },
-                endActions = {
-                    PreferenceValue(stateLabel(state), color = stateColor(state), clickable = false)
-                },
+                color = stateColor(state),
             )
         }
-        item {
-            BasicComponent(
-                title = Strings.setupMcpScope(),
-                endActions = { PreferenceValue(scopeLabel(server.scope), clickable = false) },
-            )
-        }
-        item {
-            BasicComponent(
-                title = Strings.setupMcpType(),
-                endActions = { PreferenceValue(typeLabel(server.type), clickable = false) },
-            )
-        }
+        item { ValueRow(Strings.setupMcpScope(), scopeLabel(server.scope)) }
+        item { ValueRow(Strings.setupMcpType(), typeLabel(server.type)) }
         if (server.type == "stdio") {
             stdioRows(server)
         } else {
@@ -646,10 +631,10 @@ private fun CardListGroupScope.stdioRows(server: McpServer) {
     item { BasicComponent(title = Strings.setupMcpTypeCommand(), summary = server.target()) }
     if (server.envKeys.isNotEmpty()) {
         item {
-            BasicComponent(
-                title = Strings.setupMcpEnvKeys(),
+            ValueRow(
+                Strings.setupMcpEnvKeys(),
+                Strings.setupMcpValuesHidden(),
                 summary = server.envKeys.joinToString(Strings.setupListSeparator()),
-                endActions = { PreferenceValue(Strings.setupMcpValuesHidden(), clickable = false) },
             )
         }
     }
@@ -665,10 +650,10 @@ private fun CardListGroupScope.remoteRows(
     item { BasicComponent(title = Strings.setupMcpAddress(), summary = server.url) }
     if (server.headerKeys.isNotEmpty()) {
         item {
-            BasicComponent(
-                title = Strings.setupMcpHeaders(),
+            ValueRow(
+                Strings.setupMcpHeaders(),
+                Strings.setupMcpValuesHidden(),
                 summary = server.headerKeys.joinToString(Strings.setupListSeparator()),
-                endActions = { PreferenceValue(Strings.setupMcpValuesHidden(), clickable = false) },
             )
         }
     }

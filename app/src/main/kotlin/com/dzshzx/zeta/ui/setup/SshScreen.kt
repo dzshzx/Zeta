@@ -12,8 +12,8 @@ import com.dzshzx.zeta.core.environment
 import com.dzshzx.zeta.i18n.Strings
 import com.dzshzx.zeta.ui.components.coui2.CouiPage
 import com.dzshzx.zeta.ui.components.coui2.PreferenceGroup
-import com.dzshzx.zeta.ui.components.coui2.PreferenceValue
 import com.dzshzx.zeta.ui.components.coui2.TextInputDialog
+import com.dzshzx.zeta.ui.settings.ValueRow
 import io.github.suqi8.coui.kmp.basic.BasicComponent
 import io.github.suqi8.coui.kmp.basic.CardListGroupScope
 import io.github.suqi8.coui.kmp.preference.SwitchPreference
@@ -78,18 +78,13 @@ internal fun SshScreen(hub: ConversationHub, onBack: () -> Unit) {
 private fun SshServiceGroup(hub: ConversationHub, status: SshStatus?, busy: Boolean) {
     PreferenceGroup(title = Strings.setupSshService(), footer = Strings.setupSshServiceFooter()) {
         item {
-            BasicComponent(
-                title = Strings.setupStatus(),
-                endActions = {
-                    PreferenceValue(
-                        when {
-                            status == null -> Strings.setupStateChecking()
-                            !status.installed -> Strings.setupNotInstalled()
-                            status.running -> Strings.setupSshRunning()
-                            else -> Strings.setupSshNotRunning()
-                        },
-                        clickable = false,
-                    )
+            ValueRow(
+                Strings.setupStatus(),
+                when {
+                    status == null -> Strings.setupStateChecking()
+                    !status.installed -> Strings.setupNotInstalled()
+                    status.running -> Strings.setupSshRunning()
+                    else -> Strings.setupSshNotRunning()
                 },
             )
         }
@@ -116,14 +111,9 @@ private fun CardListGroupScope.installedRows(
     busy: Boolean,
 ) {
     item {
-        BasicComponent(
-            title = Strings.setupSshListen(),
-            endActions = {
-                PreferenceValue(
-                    status.listen.ifBlank { Strings.setupSshPort(status.port) },
-                    clickable = false,
-                )
-            },
+        ValueRow(
+            Strings.setupSshListen(),
+            status.listen.ifBlank { Strings.setupSshPort(status.port) },
         )
     }
     item {
@@ -151,12 +141,7 @@ private fun SshLoginGroup(status: SshStatus, user: String?, busy: Boolean, onAdd
         footer = sshLoginFooter(status, user),
     ) {
         item {
-            BasicComponent(
-                title = Strings.setupSshAuthorizedKeys(),
-                endActions = {
-                    PreferenceValue(Strings.setupSshKeyCount(status.keys), clickable = false)
-                },
-            )
+            ValueRow(Strings.setupSshAuthorizedKeys(), Strings.setupSshKeyCount(status.keys))
         }
         item {
             BasicComponent(

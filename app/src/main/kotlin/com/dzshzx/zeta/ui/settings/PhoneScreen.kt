@@ -12,7 +12,6 @@ import com.dzshzx.zeta.i18n.Strings
 import com.dzshzx.zeta.phone.AccessibilityGuard
 import com.dzshzx.zeta.ui.components.coui2.CouiPage
 import com.dzshzx.zeta.ui.components.coui2.PreferenceGroup
-import com.dzshzx.zeta.ui.components.coui2.PreferenceValue
 import io.github.suqi8.coui.kmp.basic.BasicComponent
 import io.github.suqi8.coui.kmp.preference.ArrowPreference
 import io.github.suqi8.coui.kmp.preference.SwitchPreference
@@ -71,14 +70,9 @@ internal fun PhoneScreen(hub: ConversationHub, onBack: () -> Unit) {
                 footer = Strings.settingsPhoneA11yFooter(),
             ) {
                 item {
-                    BasicComponent(
-                        title = Strings.settingsPhoneStatus(),
-                        endActions = {
-                            PreferenceValue(
-                                accessibilityState(connected, working, failed),
-                                clickable = false,
-                            )
-                        },
+                    ValueRow(
+                        Strings.settingsPhoneStatus(),
+                        accessibilityState(connected, working, failed),
                     )
                 }
                 if (connected) {

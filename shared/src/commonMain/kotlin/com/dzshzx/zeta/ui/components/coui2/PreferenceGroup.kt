@@ -44,7 +44,8 @@ fun PreferenceGroup(
 /**
  * 设置行右侧显示的当前值，放进行的 endActions：`endActions = { PreferenceValue("跟随系统") }`。 要按状态上色（出错）时给 [color]。
  * [color] 为 Unspecified 时按这一行能不能点上色：能点进去或点了能调整的行用实色 `labelSecondary`（和 COUI
- * 下拉行右侧的值同色）；点不了的只读行（版本号、路径、大小、统计这类纯展示）传 `clickable = false`，用虚色 `labelTertiary`。
+ * 下拉行右侧的值同色）；点不了的行（只读或禁用）用虚色 `labelTertiary`。标题加值的一行用 `ValueRow`，它按行的 enabled 和 onClick 自己传
+ * [clickable]；自己拼的行按行的可点条件传。
  */
 @Composable
 fun PreferenceValue(

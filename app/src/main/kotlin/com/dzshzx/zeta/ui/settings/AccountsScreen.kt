@@ -345,11 +345,7 @@ private fun AccountRow(
     onRemove: (ClaudeAccount) -> Unit,
 ) {
     if (isCurrent) {
-        BasicComponent(
-            title = account.title,
-            summary = summary,
-            endActions = { PreferenceValue(Strings.commonCurrent(), clickable = false) },
-        )
+        ValueRow(account.title, Strings.commonCurrent(), summary = summary)
         return
     }
     OverlayDropdownMenu(

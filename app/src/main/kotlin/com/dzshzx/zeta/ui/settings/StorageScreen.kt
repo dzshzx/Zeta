@@ -331,15 +331,16 @@ private fun KindRow(kind: StorageKind, view: StorageView, onAsk: (StorageKind) -
     val usage = view.usageOf(kind)
     val unavailable = kind.inLinux && !view.ready
     val value = usage?.takeUnless { it.failed }?.let { Storage.size(it.bytes) }
+    val usable = !unavailable && usage != null && view.cleaning == null
     BasicComponent(
         title = kind.title,
         summary =
             if (unavailable) Strings.settingsStorageNeedsLinux() else Storage.summary(kind, usage),
         endActions = {
             if (view.cleaning == kind) InfiniteProgressIndicator(size = 20.dp)
-            if (value != null) PreferenceValue(value)
+            if (value != null) PreferenceValue(value, clickable = usable)
         },
-        enabled = !unavailable && usage != null && view.cleaning == null,
+        enabled = usable,
         onClick = { onAsk(kind) },
     )
 }
@@ -369,17 +370,9 @@ private fun CleanConfirmDialog(
 private fun SpaceGroup(view: StorageView) {
     PreferenceGroup {
         item(key = "phone") {
-            BasicComponent(
-                title = Strings.settingsStoragePhoneFree(),
-                endActions = { PreferenceValue(phoneSpaceText(view.phone), clickable = false) },
-            )
+            ValueRow(Strings.settingsStoragePhoneFree(), phoneSpaceText(view.phone))
         }
-        item(key = "rootfs") {
-            BasicComponent(
-                title = Strings.settingsStorageDebian(),
-                endActions = { PreferenceValue(rootfsText(view), clickable = false) },
-            )
-        }
+        item(key = "rootfs") { ValueRow(Strings.settingsStorageDebian(), rootfsText(view)) }
     }
 }
 
@@ -553,12 +546,7 @@ internal fun ProjectSessionsPage(
         if (rest > 0) {
             item(key = "rest") {
                 PreferenceGroup(footer = Strings.settingsStorageRestFooter()) {
-                    item {
-                        BasicComponent(
-                            title = Strings.settingsStorageOther(),
-                            endActions = { PreferenceValue(Storage.size(rest), clickable = false) },
-                        )
-                    }
+                    item { ValueRow(Strings.settingsStorageOther(), Storage.size(rest)) }
                 }
             }
         }

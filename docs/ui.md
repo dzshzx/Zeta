@@ -13,8 +13,8 @@ COUI 2 没有的才在 `ui/components/coui2` 补，页面文件里不各写一�
 
 - `CouiPage`（列表页）、`CouiPageScaffold`（内容随意）：页面骨架。顶栏带 COUI 17 光晕，页面录进背景图给弹出的东西做毛玻璃，宽屏时内容居中、顶栏变小，键盘弹出时让位。
 - `CouiBlur.kt`：毛玻璃接线。页面骨架用 `rememberPageBlur()` 建这一页的毛玻璃，`Modifier.pageBlurSource(blur)` 标出录进背景图的范围，`PageBlurHost(blur) { }` 包住要弹东西的槽位（顶栏、内容），四处骨架（`CouiPageScaffold`、聊天页、侧栏容器、浏览器）都这么接；盖在录制范围上面、从屏幕底边往上淡掉的毛玻璃用 `Modifier.bottomBarGlass(backdrop, isDark)`（和顶栏光晕 `TopAppBarGlow` 对称，看大图的底栏这么画）；`LocalCouiBlurEnabled`（截图测试里关掉）、`panelBlur(...)`（对话框、底部面板的面板模糊）。
-- `PreferenceGroup`、`PreferenceValue`：设置页的一组（分类标题、卡片、卡片下的说明），设置行右侧的值（状态色用 `color`）。能点进去或点了能调整的行，值用实色（`labelSecondary`，默认）；点不了的只读行（版本号、路径、大小、统计）传 `clickable = false`，显虚色（`labelTertiary`）。
-- `SettingsIcon(图标)`：设置首页行首的图标，放进行的 `startAction`；颜色见下面「设置页」。
+- `PreferenceGroup`、`PreferenceValue`：设置页的一组（分类标题、卡片、卡片下的说明），设置行右侧的值（状态色用 `color`）。标题加当前值的一行用 `ValueRow`（`ui/settings/SettingsRows.kt`），值的颜色跟着行能不能点走，规则见 `PreferenceValue` 的注释。
+- `SettingsIcon(图标)`：设置首页行首的图标，放进行的 `startAction`。
 - `CardListSegment`：几百行的长列表逐行放进 LazyColumn 时，仍画成一整张卡片；行首有图标时自己给 `dividerStart`。
 - `DropdownValuePreference`：右边显示这一行自己的值，点开弹出操作菜单。
 - `IconActionButton`、`FlatIconButton`、`CopyIconButton`（`IconActionButton.kt`）：只放一个图标的按钮。`IconActionButton` 参数照 COUI 的 `IconButton`（顶栏的新建、刷新、返回）；`FlatIconButton(size, iconSize)` 是平的小圆钮（查找栏、消息下方、排队条）；`CopyIconButton` 是点了复制、短暂显示对勾的复制键。图标按钮都从这三个建，不直接用 COUI 的 `IconButton`。
@@ -36,8 +36,8 @@ COUI 2 没有的才在 `ui/components/coui2` 补，页面文件里不各写一�
     - 这台在用中转时没有订阅额度，界面只看核心推来的 `relay`（`QuotaService.relay`），不各自判断：额度组只说一句没有订阅额度，设备页「账号与额度」一行右侧不写百分比、摘要写中转名，聊天页用量弹窗里没有额度段，也不去问额度。换回账号后照常显示。
   - 手机与工具（手机操作、数字助理、浏览器、权限健康）、通用（外观、屏幕常亮、网络图片、朗读、存储、备份）、关于：Zeta 自己的设置，哪台主机都一样。
   - 新入口按管什么归进这几组，不为一两行另开一组。同一个设置项只放一处，别的页面用得到时在说明里指过去，不再放一份能改的。
-- 首页每行行首一个 `SettingsIcon`，颜色一律是全局强调色（`colorScheme.primary`），不按类别分色。行不能用时图标跟着 `enabled = false` 变灰。
-- 首页的行只写当前状态：右侧值（`PreferenceValue`，普通值是 `labelSecondary`，和「语言」这类下拉行的值同色；设备用不了这类出错才红字，权限健康的「几项需关注」不算出错，用普通值颜色）或一行状态摘要（账号、下次运行时间），不写这一项是干什么的；也不加组下说明，只有「关于」组下留一行非官方声明（Claude 是 Anthropic 的商标，Zeta 不是 Anthropic 的产品，`ZetaInfo.UNOFFICIAL`）。
+- 首页每行行首一个 `SettingsIcon`。
+- 首页的行只写当前状态：右侧值（`PreferenceValue`，出错时红字）或一行状态摘要（账号、下次运行时间），不写这一项是干什么的；也不加组下说明，只有「关于」组下留一行非官方声明（Claude 是 Anthropic 的商标，Zeta 不是 Anthropic 的产品，`ZetaInfo.UNOFFICIAL`）。
 - 子页的行不放图标。摘要最多一行，说这一项是什么或当前状态；要讲清楚的放组下说明（`PreferenceGroup(footer = …)`），一段两三句。
 - 首页上的开关、下拉直接改；要配几项的东西做成子页（`SettingsSubPage` 加一项，在 `SettingsScreen` 子页的 `when` 里加一个分支），首页只留一个带状态的入口。
 

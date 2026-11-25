@@ -39,21 +39,20 @@ internal fun ClaudeCodeUpdateRow(hub: ConversationHub, backend: String, ready: B
             }
         }
     }
+    val usable = ready && loaded && !updating
     BasicComponent(
         title = "Claude Code",
         summary =
             if (updating) Strings.settingsClaudeUpdateUpdating()
             else note ?: Strings.settingsClaudeUpdateHint(),
-        startAction = {
-            SettingsIcon(
-                COUIIcons.Update,
-                enabled = ready && loaded && !updating,
+        startAction = { SettingsIcon(COUIIcons.Update, enabled = usable) },
+        endActions = {
+            PreferenceValue(
+                if (!loaded) "…" else version ?: Strings.commonNotInstalled(),
+                clickable = usable,
             )
         },
-        endActions = {
-            PreferenceValue(if (!loaded) "…" else version ?: Strings.commonNotInstalled())
-        },
-        enabled = ready && loaded && !updating,
+        enabled = usable,
         onClick = {
             updating = true
             scope.runConfig({ hub.convLinks.updateClaude(backend) }) { result ->

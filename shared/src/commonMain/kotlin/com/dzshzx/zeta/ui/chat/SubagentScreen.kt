@@ -39,9 +39,9 @@ import com.dzshzx.zeta.ui.components.SlideInPage
 import com.dzshzx.zeta.ui.components.coui2.CardListSegment
 import com.dzshzx.zeta.ui.components.coui2.CouiPage
 import com.dzshzx.zeta.ui.components.coui2.PreferenceGroup
-import com.dzshzx.zeta.ui.components.coui2.PreferenceValue
 import com.dzshzx.zeta.ui.components.whileStarted
 import com.dzshzx.zeta.ui.markdown.StreamingMarkdownStateCache
+import com.dzshzx.zeta.ui.settings.ValueRow
 import com.dzshzx.zeta.ui.tasks.TaskLabels
 import com.dzshzx.zeta.ui.tasks.taskStateColor
 import io.github.suqi8.coui.kmp.basic.BasicComponent
@@ -157,38 +157,16 @@ private fun SubagentSummary(log: ConvSubagent) {
             )
         }
         item(key = "state") {
-            BasicComponent(
-                title = Strings.chatStatus(),
-                endActions = {
-                    val (text, color) = stateLabel(log.state)
-                    PreferenceValue(text, color = color, clickable = false)
-                },
-            )
+            val (text, color) = stateLabel(log.state)
+            ValueRow(Strings.chatStatus(), text, color = color)
         }
         meta?.agentType?.let { value ->
-            item(key = "type") {
-                BasicComponent(
-                    title = Strings.chatSubagentType(),
-                    endActions = { PreferenceValue(value, clickable = false) },
-                )
-            }
+            item(key = "type") { ValueRow(Strings.chatSubagentType(), value) }
         }
-        meta?.model?.let { value ->
-            item(key = "model") {
-                BasicComponent(
-                    title = Strings.chatModel(),
-                    endActions = { PreferenceValue(value, clickable = false) },
-                )
-            }
-        }
+        meta?.model?.let { value -> item(key = "model") { ValueRow(Strings.chatModel(), value) } }
         if (log.toolUses > 0)
             item(key = "tools") {
-                BasicComponent(
-                    title = Strings.chatToolCalls(),
-                    endActions = {
-                        PreferenceValue(Strings.chatTimes(log.toolUses), clickable = false)
-                    },
-                )
+                ValueRow(Strings.chatToolCalls(), Strings.chatTimes(log.toolUses))
             }
     }
 }
