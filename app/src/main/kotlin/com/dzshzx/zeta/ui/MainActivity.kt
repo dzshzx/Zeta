@@ -34,11 +34,13 @@ import com.dzshzx.zeta.core.offerIntake
 import com.dzshzx.zeta.core.update.AppUpdates
 import com.dzshzx.zeta.ui.app.ZetaTheme
 import com.dzshzx.zeta.ui.chat.ChatScreen
+import com.dzshzx.zeta.ui.chat.ClaudeConfigCommand
 import com.dzshzx.zeta.ui.chat.IntakeChooser
 import com.dzshzx.zeta.ui.chat.SubagentScreen
 import com.dzshzx.zeta.ui.components.ConversationSidePaneScaffold
 import com.dzshzx.zeta.ui.pane.SessionPane
 import com.dzshzx.zeta.ui.pane.SessionReveal
+import com.dzshzx.zeta.ui.settings.HostSettingsScreen
 import com.dzshzx.zeta.ui.settings.SettingsLink
 import com.dzshzx.zeta.ui.settings.SettingsScreen
 import com.dzshzx.zeta.ui.setup.EnvInstallScreen
@@ -46,6 +48,7 @@ import com.dzshzx.zeta.ui.setup.LinuxScreen
 import com.dzshzx.zeta.ui.setup.LoginScreen
 import com.dzshzx.zeta.ui.setup.RemoteHostsScreen
 import com.dzshzx.zeta.ui.setup.SshScreen
+import com.dzshzx.zeta.ui.setup.ToolPermissionsScreen
 import com.dzshzx.zeta.ui.tasks.AllConversations
 import com.dzshzx.zeta.ui.tasks.BackgroundTasksScreen
 import java.lang.ref.WeakReference
@@ -268,6 +271,10 @@ private fun ZetaApp(hub: ConversationHub, conversationRequests: Int) {
                 pages.open(AppPage.Subagent(conversation, use))
             },
             paneOpen = paneOpen,
+            onOpenClaudeConfig = { conversation, command ->
+                val cwd = conversation.cwd.takeIf { command == ClaudeConfigCommand.Permissions }
+                pages.open(AppPage.ClaudeConfig(conversation.backend, cwd))
+            },
         )
     }
     // 返回键关最上面那页。放在页面前面注册：页面里自己的返回键处理器（关子页）后注册，先收到返回键
@@ -291,6 +298,8 @@ private fun ZetaApp(hub: ConversationHub, conversationRequests: Int) {
                     },
                     onShowChat = { showChat() },
                 )
+            is AppPage.ClaudeConfig ->
+                ClaudeConfigPage(hub, pages, page, onShowChat = { showChat() })
             AppPage.Linux ->
                 LinuxScreen(
                     hub = hub,
@@ -329,4 +338,26 @@ private fun ZetaApp(hub: ConversationHub, conversationRequests: Int) {
         }
     }
     IntakeChooser(hub)
+}
+
+@Composable
+private fun ClaudeConfigPage(
+    hub: ConversationHub,
+    pages: PageStack,
+    page: AppPage.ClaudeConfig,
+    onShowChat: () -> Unit,
+) {
+    val close = { pages.close(page) }
+    val cwd = page.permissionsCwd
+    if (cwd != null) {
+        ToolPermissionsScreen(hub, page.backend, onBack = close, cwd = cwd)
+    } else {
+        HostSettingsScreen(
+            hub = hub,
+            backend = page.backend,
+            onBack = close,
+            onOpenLinux = { pages.open(AppPage.Linux) },
+            onShowChat = onShowChat,
+        )
+    }
 }

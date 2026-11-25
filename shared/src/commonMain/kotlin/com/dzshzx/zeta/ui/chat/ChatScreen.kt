@@ -162,6 +162,7 @@ fun ChatScreen(
     onOpenSubagent: (String, String) -> Unit = { _, _ -> },
     /** 侧栏开着：聊天页被推到一边，等用户回应的请求先不弹，收起侧栏后再弹。 */
     paneOpen: Boolean = false,
+    onOpenClaudeConfig: ((Conversation, ClaudeConfigCommand) -> Unit)? = null,
 ) {
     val conversation = hub.current
     val colors = COUITheme.colorScheme
@@ -230,6 +231,7 @@ fun ChatScreen(
                                     find,
                                     onOpenTasks,
                                     onOpenSubagent,
+                                    onOpenClaudeConfig,
                                 )
                             }
                         }
@@ -425,6 +427,7 @@ private fun ConversationBody(
     find: ChatFindState,
     onOpenTasks: (String) -> Unit,
     onOpenSubagent: (String, String) -> Unit,
+    onOpenClaudeConfig: ((Conversation, ClaudeConfigCommand) -> Unit)?,
 ) {
     // 回答流式输出时条目每秒变好几次；界面看不见时这一整页不跟着重组、测量（贴底跟随还会强制测量列表）
     val items = whileStarted { conversation.items }
@@ -562,6 +565,7 @@ private fun ConversationBody(
                 onPickFiles = pickers::pickFiles,
                 onOpenTasks = onOpenTasks,
                 composerFocus = composerFocus,
+                onOpenClaudeConfig = onOpenClaudeConfig,
                 modifier = bottomModifier,
             )
     }
@@ -814,6 +818,7 @@ private fun ConversationInput(
     onPickFiles: () -> Unit,
     onOpenTasks: (String) -> Unit,
     composerFocus: FocusRequester,
+    onOpenClaudeConfig: ((Conversation, ClaudeConfigCommand) -> Unit)?,
     modifier: Modifier = Modifier,
 ) {
     val input = draft.input
@@ -852,13 +857,14 @@ private fun ConversationInput(
             modifier = Modifier.padding(bottom = 6.dp),
         )
         val voice = rememberHoldToTalk()
+        val openConfig = onOpenClaudeConfig?.takeIf { actions.editing == null }
         Composer(
             state = input,
             busy = conversation.busy,
             enabled = !conversation.loadingHistory && !conversation.rewinding,
             attachments = attachments,
             files = uploads,
-            commands = conversation.commands,
+            commands = ClaudeConfigCommand.suggestions(conversation.commands, openConfig != null),
             onPickImages = onPickImages,
             onPickFiles = onPickFiles,
             // 手机上的文件夹只有手机本机的 Debian 绑得进去
@@ -869,8 +875,7 @@ private fun ConversationInput(
             onRemoveFile = { uploads.remove(it) },
             onSlashTyped = conversation::prepare,
             onSend = { text ->
-                follow.followTurn()
-                sendDraft(text, hub, conversation, draft, actions)
+                sendDraft(text, hub, conversation, draft, actions, follow, openConfig)
             },
             onStop = conversation::interrupt,
             tools = {
@@ -918,7 +923,17 @@ private fun sendDraft(
     conversation: Conversation,
     draft: ComposerDraft,
     actions: MessageActions,
+    follow: FollowBottom,
+    openConfig: ((Conversation, ClaudeConfigCommand) -> Unit)?,
 ) {
+    if (openConfig != null) {
+        ClaudeConfigCommand.from(text)?.let {
+            hub.drafts.save(draft)
+            openConfig(conversation, it)
+            return
+        }
+    }
+    follow.followTurn()
     val images = draft.outgoingImages()
     val files = draft.outgoingFiles()
     if (actions.editing == null) {

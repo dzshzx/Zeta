@@ -24,6 +24,10 @@ import kotlinx.serialization.json.Json
 sealed interface AppPage {
     @Serializable data object Settings : AppPage
 
+    /** 对话所在设备的设置；[permissionsCwd] 非空时打开工具权限页。 */
+    @Serializable
+    data class ClaudeConfig(val backend: String, val permissionsCwd: String? = null) : AppPage
+
     @Serializable data object Linux : AppPage
 
     @Serializable data object Ssh : AppPage

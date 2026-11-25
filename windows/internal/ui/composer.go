@@ -216,7 +216,7 @@ func thumbTile(c *ui.Context, thumb *ui.Bitmap, label, tooltip string, overlay f
 	})
 }
 
-// send 发出输入框里的 text 和待发的附件：没东西可发、对话没打开或起不了进程时不发，返回 false（输入框不清）。
+// send 处理裸设置命令，或发出输入框里的 text 和待发的附件：没东西可发、对话没打开或起不了进程时不发，返回 false（输入框不清）。
 // 发出去的附件从输入栏拿掉；没发出去时原因显示在输入栏上方，字和附件放回输入栏。
 func (a *App) send(text string) bool {
 	p := a.pane
@@ -225,6 +225,9 @@ func (a *App) send(text string) bool {
 	}
 	if p.acts.editing != nil {
 		return a.submitEdit(p, text)
+	}
+	if cmd := settingsCommand(p, text); cmd != "" {
+		return a.openChatDeviceSettings(p, cmd == permissionsCommand)
 	}
 	m := coreapi.Message{Text: text, Images: p.att.pictures(), Files: p.att.entries()}
 	p.att.clear()

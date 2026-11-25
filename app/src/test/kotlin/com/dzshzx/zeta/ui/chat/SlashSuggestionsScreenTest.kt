@@ -4,6 +4,7 @@ import androidx.compose.ui.test.assertCountEquals
 import androidx.compose.ui.test.assertTextEquals
 import androidx.compose.ui.test.hasSetTextAction
 import androidx.compose.ui.test.onAllNodesWithText
+import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performTextInput
@@ -12,9 +13,11 @@ import androidx.compose.ui.text.TextRange
 import com.dzshzx.zeta.core.Conversation
 import com.dzshzx.zeta.core.SlashCommand
 import com.dzshzx.zeta.core.core
+import com.dzshzx.zeta.i18n.Strings
 import com.dzshzx.zeta.shots.Fixtures
 import com.dzshzx.zeta.shots.ShotTest
 import com.dzshzx.zeta.ui.app.ZetaTheme
+import org.junit.Assert.assertEquals
 import org.junit.Test
 
 /** 输入栏的斜杠命令提示：句中空一格再打 / 也出（同 Claude Code 终端界面），点一条只换掉光标处那个词。借截图测试的 Robolectric 环境，不出图。 */
@@ -24,9 +27,10 @@ class SlashSuggestionsScreenTest : ShotTest() {
             SlashCommand("compact", "压缩上下文", "<说明>"),
             SlashCommand("clear", "清空对话", ""),
             SlashCommand("review", "审查改动", ""),
+            SlashCommand("config", "Claude Code 配置", "key=value"),
         )
 
-    private fun show() {
+    private fun show(onOpenClaudeConfig: ((Conversation, ClaudeConfigCommand) -> Unit)? = null) {
         val hub = Fixtures.readyHub(app)
         compose.runOnUiThread {
             val conversation =
@@ -43,6 +47,7 @@ class SlashSuggestionsScreenTest : ShotTest() {
                     onOpenSettings = {},
                     onOpenInstall = {},
                     onOpenLogin = {},
+                    onOpenClaudeConfig = onOpenClaudeConfig,
                 )
             }
         }
@@ -50,6 +55,24 @@ class SlashSuggestionsScreenTest : ShotTest() {
 
     private val field
         get() = compose.onNode(hasSetTextAction())
+
+    @Test
+    fun localConfigCommandsAreSuggestedAndOpenForTheCurrentConversation() {
+        val opened = mutableListOf<Pair<String, ClaudeConfigCommand>>()
+        show { conversation, command -> opened += conversation.key to command }
+        for ((prefix, name, command) in
+            listOf(
+                Triple("/conf", "/config", ClaudeConfigCommand.Config),
+                Triple("/perm", "/permissions", ClaudeConfigCommand.Permissions),
+            )) {
+            field.performTextInput(prefix)
+            compose.onNodeWithText(name).performClick()
+            field.assertTextEquals("$name ")
+            compose.onNodeWithContentDescription(Strings.composerSend()).performClick()
+            compose.runOnIdle { assertEquals("s-a" to command, opened.last()) }
+        }
+        compose.runOnIdle { assertEquals(2, opened.size) }
+    }
 
     @Test
     fun suggestsMidTextAndReplacesTheWord() {

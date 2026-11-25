@@ -26,13 +26,13 @@ func (p *Page) Sections(c *ui.Context) {
 			{"skills", "Skills", viewSkills, p.openSkills},
 			{"mcp", locales.ClaudecfgMcpServers(), viewMcp, p.openMcp},
 			{"agents", locales.ClaudecfgSubagents(), viewAgents, p.openAgents},
-			{"permissions", locales.ClaudecfgPermissions(), viewPermissions, p.openPermissions},
 		} {
 			entry(l, e.key, e.label, "", "", true, func() {
 				p.push(e.v)
 				e.open()
 			})
 		}
+		entry(l, "permissions", locales.ClaudecfgPermissions(), "", "", true, func() { p.OpenPermissions(p.opts.Cwd) })
 	})
 	p.noticeDialog(c)
 }

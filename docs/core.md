@@ -129,6 +129,8 @@ Zeta 的逻辑往 Go 写的核心里搬：核心是每台主机（手机的 Debi
 
 ## Claude Code 配置
 
+在聊天输入栏单独发送 `/config`，打开当前对话所在设备的设置；单独发送 `/permissions`，打开工具权限页，用当前对话的工作目录查 MCP 服务器，权限规则仍只读写设备上的用户设置。两条命令是客户端导航，不发给 Claude Code。带参数的 `/config key=value` 仍交给 Claude Code 执行。
+
 设置里各设备页上的新对话默认和「Claude Code 配置」各页（记忆、Skills、MCP、Subagent、工具权限）读写的是那台主机上 Claude Code 自己的配置（`~/.claude`、`~/.claude.json`），那边终端里的 `claude` 同样生效。逻辑在 `helper/claudecfg`，核心的 `config.` 方法（`helper/config.go`）把它交给客户端：每个请求在自己的 goroutine 里做，做完回复，结果在应答的 `result` 里；失败时 `error` 是给人看的中文说明（不含 Token）。参数和 `id`、`method` 平级。`cwd` 是默认工作目录，省掉时是家目录。标「慢」的要跑 `claude` 或连 MCP 服务器，十几秒到一分钟。
 
 | 方法 | 参数 | 结果 |

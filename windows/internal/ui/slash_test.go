@@ -1,10 +1,13 @@
 package ui
 
 import (
+	"slices"
 	"strings"
 	"testing"
 	"time"
 
+	"github.com/dzshzx/Zeta/windows/internal/chat/items"
+	"github.com/dzshzx/Zeta/windows/internal/locales"
 	"github.com/egoist/mygo/ui"
 )
 
@@ -154,5 +157,105 @@ func TestSlashPreparesTheProcess(t *testing.T) {
 	f.tt.Type("/")
 	if got := f.link().Methods(); len(got) != 1 || got[0] != "conv.prepare" {
 		t.Fatalf("进程结束后再打 /：%v", got)
+	}
+}
+
+func TestSlashSettingsSuggestions(t *testing.T) {
+	f := newChatFixture(t)
+	f.newChat(t)
+	p := f.app.pane
+	_, got := f.app.suggestions(p, "/", 1)
+	if len(got) != 2 || got[0].Name != "config" || got[1].Name != "permissions" {
+		t.Fatalf("核心没报命令时的补全：%+v", got)
+	}
+	f.push(`"commands":[{"name":"config","description":"native config"},{"name":"permissions","description":"native permissions"}]`)
+	_, got = f.app.suggestions(p, "/", 1)
+	if len(got) != 2 || got[0].Name != "config" || got[0].Description != locales.ClaudecfgConfigTitle() ||
+		got[1].Name != "permissions" || got[1].Description != locales.ClaudecfgPermissions() {
+		t.Fatalf("同名时应只列本地补全：%+v", got)
+	}
+}
+
+func TestSlashSettingsOpenForCurrentChat(t *testing.T) {
+	for _, tc := range []struct {
+		name, input string
+		permissions bool
+	}{
+		{name: "config", input: "/config"},
+		{name: "permissions", input: "  /permissions  ", permissions: true},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			f := newChatFixture(t)
+			f.app.device = f.withHosts(t, "other")[0].ID
+			f.answers["config.permissions.read"] = `{"servers":[{"name":"test-mcp","scope":"local"}]}`
+			f.answers["config.mcp.tools"] = `[]`
+			f.click(t, "修登录页")
+			f.push(`"cwd":"/home/box/this-chat"`)
+			p := f.app.pane
+			file := &draftFile{id: 1, name: "note.txt", entry: "/home/box/note.txt"}
+			p.att.files = []*draftFile{file}
+			f.tt.Frame()
+			f.link().Took()
+			f.click(t, "消息")
+			f.tt.Type(tc.input)
+			if tc.permissions {
+				f.click(t, locales.ComposerSend())
+			} else {
+				f.tt.Key(0, ui.KeyEnter)
+			}
+			if f.app.page != pageDevice || f.app.device != f.id || f.app.cfg == nil || f.app.cfg.Open() != tc.permissions {
+				t.Fatalf("应打开当前对话设备的设置，实际为 %q %q", f.app.page, f.app.device)
+			}
+			var requests []string
+			if tc.permissions {
+				f.see(t, locales.ClaudecfgPermReload())
+				f.click(t, "test-mcp")
+				requests = []string{"config.permissions.read", "config.mcp.tools", "config.permissions.read"}
+			}
+			f.checkSlashSettingsCalls(t, requests)
+			f.click(t, locales.SettingsBackToApp())
+			if f.app.pane != p || p.draft != "" || len(p.att.files) != 1 || p.att.files[0] != file {
+				t.Fatal("只应清除命令文字，保留对话与附件")
+			}
+		})
+	}
+}
+
+func (f *chatFixture) checkSlashSettingsCalls(t *testing.T, want []string) {
+	t.Helper()
+	var got []string
+	for _, c := range f.link().Took() {
+		switch c.Method {
+		case "conv.send":
+			t.Fatal("裸命令不应发给 Claude Code")
+		case "config.permissions.read", "config.mcp.tools":
+			got = append(got, c.Method)
+			if cwd := c.Str("cwd"); cwd != "/home/box/this-chat" {
+				t.Errorf("%s 用了工作目录 %q", c.Method, cwd)
+			}
+		}
+	}
+	if !slices.Equal(got, want) {
+		t.Errorf("权限页请求 %v，预期 %v", got, want)
+	}
+}
+
+func TestSlashSettingsPreserveNormalSendAndEdit(t *testing.T) {
+	f := newChatFixture(t)
+	f.newChat(t)
+	for _, text := range []string{"/config theme=dark", "/permissions extra", "看看 /config 怎么用"} {
+		if !f.app.send(text) || f.app.page != pageHome {
+			t.Fatalf("没有按原路径发送 %q", text)
+		}
+		if got := f.sent("conv.send"); len(got) != 1 || !strings.Contains(got[0], `"text":"`+text+`"`) {
+			t.Fatalf("发送请求：%v", got)
+		}
+	}
+	f.app.pane.acts.editing = &edit{user: items.Item{ID: "u1"}}
+	if !f.app.send("/permissions") || f.app.page != pageHome {
+		t.Fatal("编辑旧消息时不应打开设置")
+	}
+	if got := f.sent("conv.rewrite"); len(got) != 1 || !strings.Contains(got[0], `"text":"/permissions"`) {
+		t.Fatalf("编辑请求：%v", got)
 	}
 }

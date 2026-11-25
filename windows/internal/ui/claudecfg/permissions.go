@@ -14,6 +14,7 @@ import (
 // 服务器能整体设成允许、询问、拒绝；带参数的规则和认不出的写法列在“规则”里，可以改、删、加。每个状态都由那边按规则算好。
 
 type permState struct {
+	cwd      string // MCP 查询用的目录，不改变持久权限规则的用户级作用域
 	data     *coreapi.Permissions
 	loadErr  string
 	working  bool
@@ -58,21 +59,23 @@ func choiceLabels() []string {
 	return out
 }
 
-func (p *Page) openPermissions() {
-	p.perm = permState{}
+// OpenPermissions 打开工具权限页，按 cwd 查 MCP 服务器和工具。
+func (p *Page) OpenPermissions(cwd string) {
+	p.push(viewPermissions)
+	p.perm = permState{cwd: cwd}
 	p.reloadPermissions()
 }
 
-// permView 是权限页怎么算：MCP 服务器按默认工作目录列；在一个 MCP 服务器的页上时另算它的工具。
+// permView 是权限页怎么算：按打开时指定的工作目录列 MCP 服务器；在单个服务器页上时另算它的工具。
 func (p *Page) permView() coreapi.PermissionView {
 	if p.top() != viewPermServer || p.perm.tools == nil {
-		return coreapi.PermissionView{Cwd: p.opts.Cwd}
+		return coreapi.PermissionView{Cwd: p.perm.cwd}
 	}
 	names := make([]string, 0, len(p.perm.tools))
 	for _, t := range p.perm.tools {
 		names = append(names, t.Name)
 	}
-	return coreapi.PermissionView{Cwd: p.opts.Cwd, Server: p.perm.server.Name, Tools: names}
+	return coreapi.PermissionView{Cwd: p.perm.cwd, Server: p.perm.server.Name, Tools: names}
 }
 
 func (p *Page) reloadPermissions() {
@@ -434,9 +437,10 @@ func (p *Page) openPermServer(sv coreapi.ServerView) {
 func (p *Page) loadServerTools() {
 	s := &p.perm
 	server := coreapi.McpServer{Name: s.server.Name, Scope: s.server.Scope}
+	cwd := s.cwd
 	s.toolsBusy, s.toolsErr = true, ""
 	p.async(func(ctx context.Context) func() {
-		tools, err := p.opts.Core.McpTools(ctx, p.opts.Cwd, server)
+		tools, err := p.opts.Core.McpTools(ctx, cwd, server)
 		return func() {
 			s.toolsBusy = false
 			if err != nil {

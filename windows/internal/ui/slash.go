@@ -2,6 +2,7 @@ package ui
 
 import (
 	"context"
+	"strings"
 	"unicode/utf8"
 
 	"github.com/dzshzx/Zeta/windows/internal/chat"
@@ -10,9 +11,27 @@ import (
 	"github.com/egoist/mygo/ui"
 )
 
+const (
+	configCommand      = "config"
+	permissionsCommand = "permissions"
+)
+
+// settingsCommand 只接管单独发送的裸命令；编辑旧消息时，文字仍是那条消息的内容。
+func settingsCommand(p *chatPane, text string) string {
+	if p.acts.editing == nil {
+		switch strings.TrimSpace(text) {
+		case "/" + configCommand:
+			return configCommand
+		case "/" + permissionsCommand:
+			return permissionsCommand
+		}
+	}
+	return ""
+}
+
 // 斜杠命令（同 Composer.kt 的 SlashSuggestions）：光标前那个词是「/名字」（在开头或空白后面，见 chat.SlashAt）时，输入框上方列出
-// Claude Code 报的命令，按打的字过滤；上下键换选中的那条，回车、Tab 或点一下把那个词换成「/命令 」，Esc 收起（再打字又出来）。
-// 命令是这个对话的 conv.state 报的：还没起过进程时核心给它记着的这个工作目录（或这台设备）上次那份，打开对话就有；
+// Claude Code 报的命令和 Zeta 的设置命令，按打的字过滤；上下键换选中的那条，回车、Tab 或点一下把那个词换成「/命令 」，Esc 收起（再打字又出来）。
+// Claude Code 的命令是这个对话的 conv.state 报的：还没起过进程时核心给它记着的这个工作目录（或这台设备）上次那份，打开对话就有；
 // 开始打 / 时让核心先把进程起好（prepareForSlash），起好后换成 Claude Code 这次报的。
 
 // slashMenu 是一个对话输入栏里斜杠命令提示的状态。
@@ -38,7 +57,23 @@ func (a *App) suggestions(p *chatPane, text string, caret int) (chat.Slash, []ch
 	if !ok || text == p.slash.dismissed || p.src.Conv == nil {
 		return s, nil
 	}
-	return s, chat.Suggest(p.state.Commands, s.Prefix)
+	if p.acts.editing != nil {
+		return s, chat.Suggest(p.state.Commands, s.Prefix)
+	}
+	commands := make([]chat.Command, 0, len(p.state.Commands)+2)
+	for _, cmd := range p.state.Commands {
+		switch strings.ToLower(cmd.Name) {
+		case configCommand, permissionsCommand:
+			// 裸命令打开 Zeta 的页面，补全只列本地的说明。
+		default:
+			commands = append(commands, cmd)
+		}
+	}
+	commands = append(commands,
+		chat.Command{Name: configCommand, Description: locales.ClaudecfgConfigTitle()},
+		chat.Command{Name: permissionsCommand, Description: locales.ClaudecfgPermissions()},
+	)
+	return s, chat.Suggest(commands, s.Prefix)
 }
 
 // caretIn 是输入框里是 text 时的光标：上一帧记下的光标加上这之后多打（或删掉）的字数。
@@ -62,6 +97,9 @@ func (a *App) slashKey(p *chatPane, tk ui.TextKey) bool {
 		return false
 	}
 	text := tk.Text()
+	if tk.Key == ui.KeyEnter && settingsCommand(p, text) != "" {
+		return false // 已经打完裸命令，回车打开页面，不再填一次补全。
+	}
 	s, list := a.suggestions(p, text, p.slash.caretIn(text))
 	if len(list) == 0 {
 		return false

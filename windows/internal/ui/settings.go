@@ -1,6 +1,7 @@
 package ui
 
 import (
+	"cmp"
 	"strconv"
 	"time"
 
@@ -278,6 +279,20 @@ func (a *App) aboutPage(c *ui.Context) {
 		a.About.View(c)
 		ui.Text(c, locales.SettingsUnofficial()).FontSize(widget.SizeBodyXS).LineHeight(1.4).TextColor(widget.Of(c).Secondary).Padding(0, 32)
 	})
+}
+
+// openChatDeviceSettings 从对话打开它所在设备的设置，不用侧栏所选的设备。
+func (a *App) openChatDeviceSettings(p *chatPane, permissions bool) bool {
+	x, ok := a.hub.Host(p.src.Backend)
+	if !ok || (permissions && x.Off) {
+		return false
+	}
+	a.device = x.ID
+	a.open(pageDevice)
+	if permissions {
+		a.cfg.OpenPermissions(cmp.Or(p.state.Cwd, p.src.Session.Cwd, x.DefaultCwd))
+	}
+	return true
 }
 
 // startDeviceConfig 打开设备页时建那台的 Claude Code 配置部分，读一遍新对话默认。

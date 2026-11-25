@@ -127,10 +127,14 @@ private fun ToolRow(
  * mcp__服务器名。读、改和每一行的状态都由那台的核心算好（config.permissions.*）。
  */
 @Composable
-internal fun ToolPermissionsScreen(hub: ConversationHub, backend: String, onBack: () -> Unit) {
+internal fun ToolPermissionsScreen(
+    hub: ConversationHub,
+    backend: String,
+    onBack: () -> Unit,
+    cwd: String = hub.defaultCwd(backend),
+) {
     val client = rememberConfigClient(hub, backend)
     val scope = rememberCoroutineScope()
-    val cwd = hub.defaultCwd(backend)
     val phoneTools = remember { PhoneToolCatalog.labels }
     // 这一页另要核心算手机工具 phone 整体和它每个工具的状态
     val query =
