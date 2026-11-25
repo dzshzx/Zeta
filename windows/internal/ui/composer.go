@@ -242,23 +242,10 @@ func (a *App) send(text string) bool {
 	return true
 }
 
-// permissionModes 是权限模式的选项，和手机版一样的说法。
-// label 按界面当前的语言出字，所以存取字函数。
-var permissionModes = []struct {
-	value string
-	label func() string
-}{
-	{"default", locales.ClaudecfgModeDefault},
-	{"acceptEdits", locales.ClaudecfgModeAcceptEdits},
-	{"plan", locales.ClaudecfgModePlan},
-	{"auto", locales.ClaudecfgModeAuto},
-	{"bypassPermissions", locales.ComposerModeBypass},
-}
-
 func modeLabel(mode string) string {
-	for _, m := range permissionModes {
-		if m.value == mode {
-			return m.label()
+	for _, m := range chat.PermissionModes {
+		if m.Value == mode {
+			return m.Label()
 		}
 	}
 	if mode == "" {
@@ -275,9 +262,9 @@ func (a *App) modeMenu(c *ui.Context, p *chatPane) {
 	}
 	icon, tint := modeIcon(widget.Of(c), current)
 	widget.MenuButton(c.Key("mode"), func(t ui.Element) { widget.ToolPill(c, t, icon, modeLabel(current), tint) }, func(m *widget.Menu) {
-		for _, mode := range permissionModes {
-			if m.Choice(mode.label(), mode.value == current) {
-				value := mode.value
+		for _, mode := range chat.PermissionModes {
+			if m.Choice(mode.Label(), mode.Value == current) {
+				value := mode.Value
 				a.act(func(ctx context.Context, conv *chat.Conversation) error { return conv.SetMode(ctx, &value) })
 			}
 		}

@@ -47,22 +47,6 @@ func effortLabel(v string) string {
 	return v
 }
 
-// permissionModes 是能设成默认的权限模式。
-var permissionModes = []option{
-	{"default", locales.ClaudecfgModeDefault}, {"acceptEdits", locales.ClaudecfgModeAcceptEdits},
-	{"plan", locales.ClaudecfgModePlan}, {"auto", locales.ClaudecfgModeAuto},
-	{"bypassPermissions", locales.ComposerModeBypass},
-}
-
-func permissionModeLabel(v string) string {
-	for _, m := range permissionModes {
-		if m.value == v {
-			return m.label()
-		}
-	}
-	return v
-}
-
 // compactWindows 是上下文窗口下拉里的几档（token 数）。
 var compactWindows = []int64{200_000, 300_000, 400_000, 500_000, 600_000, 800_000, 1_000_000}
 

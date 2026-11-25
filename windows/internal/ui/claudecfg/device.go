@@ -6,6 +6,7 @@ import (
 	"strings"
 
 	"github.com/dzshzx/Zeta/helper/coreapi"
+	"github.com/dzshzx/Zeta/windows/internal/chat"
 	cfg "github.com/dzshzx/Zeta/windows/internal/claudecfg"
 	"github.com/dzshzx/Zeta/windows/internal/locales"
 	"github.com/dzshzx/Zeta/windows/internal/ui/widget"
@@ -139,23 +140,25 @@ func (p *Page) modelChoice(c *ui.Context, d coreapi.Defaults, disabled bool) {
 func (p *Page) permissionModeRow(l *widget.List, d coreapi.Defaults, disabled bool) {
 	c := l.Context()
 	var labels []string
-	selected := 0
-	for i, m := range permissionModes {
-		labels = append(labels, m.label())
-		if m.value == d.PermissionMode {
+	selected := -1
+	for i, m := range chat.PermissionModes {
+		labels = append(labels, m.Label())
+		if m.Value == d.PermissionMode {
 			selected = i
 		}
 	}
-	if d.PermissionMode != "" && !slices.ContainsFunc(permissionModes, func(m option) bool { return m.value == d.PermissionMode }) {
-		labels = append(labels, permissionModeLabel(d.PermissionMode))
+	if d.PermissionMode == "" {
+		selected = 0
+	} else if selected < 0 {
+		labels = append(labels, d.PermissionMode)
 		selected = len(labels) - 1
 	}
 	item(l, locales.ClaudecfgDefaultMode(), "", func() {
 		choice(c, "default-mode", locales.ClaudecfgDefaultMode(), labels, selected, disabled, func(i int) {
-			if i >= len(permissionModes) {
+			if i >= len(chat.PermissionModes) {
 				return
 			}
-			mode := permissionModes[i].value
+			mode := chat.PermissionModes[i].Value
 			p.setDefaults(func(ctx context.Context) (coreapi.Defaults, error) {
 				return p.opts.Core.SetDefaultPermissionMode(ctx, mode)
 			})

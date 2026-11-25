@@ -155,11 +155,10 @@ func TestDefaults(t *testing.T) {
 	if _, err = c.SetCompactWindow(50_000); err == nil {
 		t.Error("tiny window accepted")
 	}
-	if d, err = c.SetDefaultPermissionMode("acceptEdits"); err != nil || d.PermissionMode != "acceptEdits" {
-		t.Errorf("mode %+v", d)
-	}
-	if d, err = c.SetDefaultPermissionMode("bypassPermissions"); err != nil || d.PermissionMode != "bypassPermissions" {
-		t.Errorf("mode %+v: %v", d, err)
+	for _, mode := range []string{"acceptEdits", "bypassPermissions"} {
+		if d, err = c.SetDefaultPermissionMode(mode); err != nil || d.PermissionMode != mode {
+			t.Errorf("set mode %q: %+v, %v", mode, d, err)
+		}
 	}
 	if d, err = c.SetDefaultModel(""); err != nil || d.Model != "" || strings.Contains(read(t, path), `"model"`) {
 		t.Errorf("model removed %+v", d)

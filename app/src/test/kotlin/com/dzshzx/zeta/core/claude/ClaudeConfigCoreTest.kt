@@ -44,14 +44,15 @@ class ClaudeConfigCoreTest {
         assertEquals(ClaudeDefaults(null, null, emptyMap(), null, null), client.defaults())
         write(".claude/settings.json", "{\n  \"env\": {\n    \"A\": \"1\"\n  }\n}\n")
         client.setDefaultModel("claude-opus-5-5")
-        client.setDefaultPermissionMode("acceptEdits")
+        val bypass = client.setDefaultPermissionMode("bypassPermissions")
+        assertEquals("bypassPermissions", bypass.permissionMode)
         client.setDefaultEffort("claude-opus-5-5", "high")
         client.setDefaultEffort(null, "low")
         val all = client.setCompactWindow(400_000)
         assertEquals(
             ClaudeDefaults(
                 "claude-opus-5-5",
-                "acceptEdits",
+                "bypassPermissions",
                 mapOf("claude-opus-5-5" to "high"),
                 "low",
                 400_000,
@@ -66,11 +67,7 @@ class ClaudeConfigCoreTest {
         client.setDefaultModel(null)
         client.setDefaultEffort("claude-opus-5-5", null)
         val cleared = client.setCompactWindow(null)
-        assertEquals(ClaudeDefaults(null, "acceptEdits", emptyMap(), "low", null), cleared)
-
-        val bypass = client.setDefaultPermissionMode("bypassPermissions")
-        assertEquals("bypassPermissions", bypass.permissionMode)
-        assertEquals(bypass, client.defaults())
+        assertEquals(ClaudeDefaults(null, "bypassPermissions", emptyMap(), "low", null), cleared)
 
         // 核心拒绝的原因原样交给界面
         val small = assertThrows(ServeError::class.java) { client.setCompactWindow(50_000) }
