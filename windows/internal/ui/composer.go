@@ -3,7 +3,6 @@ package ui
 import (
 	"context"
 	"fmt"
-	"regexp"
 	"strconv"
 	"strings"
 
@@ -290,14 +289,11 @@ func modeIcon(k *widget.Colors, mode string) (*ui.SVG, ui.Color) {
 // modelMenu 按对话所在设备列模型。中转只列具体 ID；Claude Code 的「默认」别名不代表中转默认值。
 func (a *App) modelMenu(c *ui.Context, p *chatPane) {
 	id := p.src.Backend
-	s := a.modelSource(id, a.hub.Remote(id), p.modelSource == nil)
+	s := a.modelSource(id, a.hub.Remote(id), p.harness == nil)
 	s.useConversation(p)
 	latest, older := s.choices()
 	available := s.available()
 	harness := available && s.catalog.Relay == ""
-	if harness && len(s.harness.list) == 0 {
-		latest = chat.FallbackModels
-	}
 	state := p.state
 	if s != nil && s.catalog.Relay != "" && (!state.Process || state.ReportedModel == "") {
 		state.ReportedModel = s.catalog.Model
@@ -307,8 +303,11 @@ func (a *App) modelMenu(c *ui.Context, p *chatPane) {
 		chosen = *state.Model
 	}
 	label := modelLabel(state, latest, older)
-	key := c.Key(fmt.Sprintf("model/%s/%p", id, s))
-	widget.MenuButton(key, func(t ui.Element) {
+	key := "model/" + id
+	if s != nil {
+		key = s.key
+	}
+	widget.MenuButton(c.Key(key), func(t ui.Element) {
 		widget.ToolPill(c, t, nil, label, ui.Color{})
 		t.Disabled(!available || !harness && len(latest) == 0)
 	}, func(m *widget.Menu) {
@@ -325,7 +324,7 @@ func (a *App) modelMenu(c *ui.Context, p *chatPane) {
 		hint := ""
 		for _, o := range older {
 			if o.Value == chosen {
-				hint = optionName(o)
+				hint = o.Name()
 			}
 		}
 		m.Sub(locales.CommonMoreModels(), hint, func(m *widget.Menu) { a.modelChoices(m, older, chosen) })
@@ -338,54 +337,22 @@ func (a *App) modelChoices(m *widget.Menu, models []chat.ModelOption, chosen str
 		if o.Value == chat.DefaultModel {
 			continue
 		}
-		if m.Choice(optionName(o), o.Value == chosen) {
+		if m.Choice(o.Name(), o.Value == chosen) {
 			value := o.Value
 			a.act(func(ctx context.Context, conv *chat.Conversation) error { return conv.SetModel(ctx, &value) })
 		}
 	}
 }
 
-func optionName(o chat.ModelOption) string {
-	if o.DisplayName != "" {
-		return o.DisplayName
-	}
-	return readableModel(o.Value)
-}
-
 // modelLabel 是模型按钮上的字：选了的写它的名字；没选时是「默认」，Claude Code 报了实际用的模型时写在括号里。
 func modelLabel(s chat.State, groups ...[]chat.ModelOption) string {
-	name := func(id string) string {
-		for _, models := range groups {
-			for _, o := range models {
-				if o.Value == id && o.DisplayName != "" {
-					return o.DisplayName
-				}
-			}
-		}
-		return readableModel(id)
-	}
 	if s.Model != nil && *s.Model != "" && *s.Model != chat.DefaultModel {
-		return name(*s.Model)
+		return chat.ModelName(*s.Model, groups...)
 	}
 	if s.ReportedModel != "" {
-		return locales.ComposerModelDefault(name(s.ReportedModel))
+		return locales.ComposerModelDefault(chat.ModelName(s.ReportedModel, groups...))
 	}
 	return locales.ComposerDefault()
-}
-
-var modelID = regexp.MustCompile(`^claude-([a-z]+)-(\d+(?:-\d{1,2})*)(?:-\d{8})?(\[1m\])?$`)
-
-// readableModel 把完整的模型 ID 写成人看的名字（claude-opus-5-5 → Opus 5.5），认不出的原样。
-func readableModel(id string) string {
-	m := modelID.FindStringSubmatch(id)
-	if m == nil {
-		return id
-	}
-	name := strings.ToUpper(m[1][:1]) + m[1][1:] + " " + strings.ReplaceAll(m[2], "-", ".")
-	if m[3] != "" {
-		name += " (1M)"
-	}
-	return name
 }
 
 // effortLevels 是思考强度的几档（Claude Code 的 effort）。
@@ -580,7 +547,7 @@ func contextNotes(u usage.Usage) []string {
 	}
 	var meta []string
 	if u.Model != "" {
-		meta = append(meta, readableModel(u.Model))
+		meta = append(meta, chat.ReadableModel(u.Model))
 	}
 	if u.AppliedEffort != "" {
 		meta = append(meta, locales.ComposerEffortMeta(effortLabel(u.AppliedEffort)))

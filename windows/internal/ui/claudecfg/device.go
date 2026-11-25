@@ -64,20 +64,13 @@ func (p *Page) setDefaults(change func(ctx context.Context) (coreapi.Defaults, e
 	})
 }
 
-func (p *Page) models() []Model {
-	if len(p.opts.Models) > 0 || !p.modelFallback {
-		return p.opts.Models
-	}
-	return fallbackModels
-}
-
 func (p *Page) defaultsSection(c *ui.Context) {
 	d := p.defaults
 	footer := locales.ClaudecfgDefaultsFooter()
 	if p.defaultsErr != "" {
 		footer = locales.ClaudecfgLoadFailed(p.defaultsErr) + "\n\n" + footer
 	}
-	if p.opts.ModelsPending {
+	if p.modelsPending {
 		footer = locales.ClaudecfgModelsPending() + "\n\n" + footer
 	}
 	widget.Group(c, locales.ClaudecfgDefaultsTitle(), footer, func(l *widget.List) {
@@ -86,7 +79,7 @@ func (p *Page) defaultsSection(c *ui.Context) {
 			return
 		}
 		disabled := p.working
-		item(l, locales.ClaudecfgDefaultModel(), "", func() { p.modelChoice(c, *d, disabled || !p.modelSourceKnown) })
+		item(l, locales.ClaudecfgDefaultModel(), "", func() { p.modelChoice(c, *d, disabled || p.modelSource == ModelSourceUnknown) })
 		entry(l, "default-effort", locales.ClaudecfgDefaultEffort(), effortSummary(*d), "", true, func() { p.push(viewEffort) })
 		p.permissionModeRow(l, *d, disabled)
 		p.compactWindowRow(l, *d, disabled)
@@ -102,7 +95,7 @@ func (p *Page) modelChoice(c *ui.Context, d coreapi.Defaults, disabled bool) {
 		current = ""
 	}
 	var top, older []Model
-	for _, m := range p.models() {
+	for _, m := range p.models {
 		if m.Older {
 			older = append(older, m)
 		} else {
@@ -111,11 +104,11 @@ func (p *Page) modelChoice(c *ui.Context, d coreapi.Defaults, disabled bool) {
 	}
 	all := append(slices.Clone(top), older...)
 	if current != "" && !slices.ContainsFunc(all, func(m Model) bool { return m.Value == current }) {
-		unknown := Model{Value: current, Label: readableModel(current)}
+		unknown := Model{Value: current, Label: chat.ReadableModel(current)}
 		top, all = append(top, unknown), append(all, unknown)
 	}
 	defaultLabel := locales.ClaudecfgModelBuiltin()
-	if !p.modelFallback {
+	if p.modelSource != ModelSourceHarness {
 		defaultLabel = locales.ComposerDefault()
 	}
 	shown, olderHint := defaultLabel, ""
@@ -211,7 +204,7 @@ func (p *Page) compactWindowRow(l *widget.List, d coreapi.Defaults, disabled boo
 func effortSummary(d coreapi.Defaults) string {
 	var parts []string
 	for _, e := range d.Efforts {
-		parts = append(parts, locales.ClaudecfgEffortModelLevel(readableModel(e.Model), effortLabel(e.Level)))
+		parts = append(parts, locales.ClaudecfgEffortModelLevel(chat.ReadableModel(e.Model), effortLabel(e.Level)))
 	}
 	switch {
 	case len(parts) == 0 && d.Effort == "":
@@ -305,21 +298,19 @@ type effortRow struct {
 // effortRows：设过的模型、模型清单里的完整 ID，最后是「其他模型」。
 func (p *Page) effortRows(d coreapi.Defaults) []effortRow {
 	var rows []effortRow
+	// 中转的 ID 没有统一写法，用它报的名字；Claude Code 的完整 ID 按 ID 写。
+	harness := p.modelSource == ModelSourceHarness
 	name := func(id string) string {
-		if !p.modelFallback {
-			for _, m := range p.opts.Models {
-				if m.Value == id {
-					return m.Label
-				}
-			}
+		if i := slices.IndexFunc(p.models, func(m Model) bool { return m.Value == id }); i >= 0 && !harness {
+			return p.models[i].Label
 		}
-		return readableModel(id)
+		return chat.ReadableModel(id)
 	}
 	for _, e := range d.Efforts {
 		rows = append(rows, effortRow{e.Model, name(e.Model), e.Level})
 	}
-	for _, m := range p.opts.Models {
-		if (!p.modelFallback || strings.HasPrefix(m.Value, "claude-")) && d.EffortOf(m.Value) == "" {
+	for _, m := range p.models {
+		if (!harness || strings.HasPrefix(m.Value, "claude-")) && d.EffortOf(m.Value) == "" {
 			rows = append(rows, effortRow{m.Value, name(m.Value), ""})
 		}
 	}

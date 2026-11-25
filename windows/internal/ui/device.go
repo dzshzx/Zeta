@@ -19,6 +19,7 @@ type editing struct {
 	remote     *hub.Remote   // 配置页绑定的设备连接
 	models     *modelSource  // 配置页显示的模型来源
 	probed     *modelSource  // 本次打开首页已经向 Claude Code 要过清单的来源
+	fed        *modelFeed    // 上次交给配置页的模型来源
 	name       string        // 名称输入框
 	cwd        string        // 默认工作目录输入框
 	checking   bool          // 正在检查连接

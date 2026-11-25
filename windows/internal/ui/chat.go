@@ -22,10 +22,11 @@ import (
 // chatPane 是聊天窗格的界面状态：跟着中枢的一个对话（src），换了对话就换一个新的。对话的状态和条目每一帧开头从
 // 协议层 Take 下来（主线程上），条目的变化依次套给聊天列表。
 type chatPane struct {
-	src         *hub.Chat
-	list        *chatview.Chat
-	state       chat.State
-	modelSource *modelSource // 第一次看到这份对话状态时的模型来源
+	src   *hub.Chat
+	list  *chatview.Chat
+	state chat.State
+	// harness 是第一次看到这份对话状态时那台设备的 Claude Code 模型清单；还是它时才拿对话报的清单去更新（models.go）。
+	harness *harnessModels
 	// connected：对话开着、连接在；断线重连期间为假，照旧显示，操作会失败。
 	connected bool
 

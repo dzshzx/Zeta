@@ -126,3 +126,35 @@ func compareVersions(a, b []int) int {
 	}
 	return len(a) - len(b)
 }
+
+// ReadableModel 把完整模型 ID（claude-opus-5-5、claude-haiku-4-5-20251001、claude-opus-5-5[1m]）写成人看的名字
+// （Opus 5.5、Haiku 4.5、Opus 5.5 (1M)）；别名和认不出的原样。
+func ReadableModel(id string) string {
+	m := fullModelID.FindStringSubmatch(id)
+	if m == nil {
+		return id
+	}
+	name := strings.ToUpper(m[1][:1]) + m[1][1:] + " " + strings.ReplaceAll(m[2], "-", ".")
+	if m[3] != "" {
+		name += " (1M)"
+	}
+	return name
+}
+
+// Name 是菜单里给人看的名字：Claude Code 报了显示名就用它，没报时按 ID 写（ReadableModel）。
+func (o ModelOption) Name() string {
+	if o.DisplayName != "" {
+		return o.DisplayName
+	}
+	return ReadableModel(o.Value)
+}
+
+// ModelName 是模型 id 给人看的名字：在 lists 里找到就用那一项的 Name，找不到按 ID 写。
+func ModelName(id string, lists ...[]ModelOption) string {
+	for _, models := range lists {
+		if i := slices.IndexFunc(models, func(o ModelOption) bool { return o.Value == id }); i >= 0 {
+			return models[i].Name()
+		}
+	}
+	return ReadableModel(id)
+}

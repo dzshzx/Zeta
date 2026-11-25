@@ -80,3 +80,11 @@ func TestSplitModelsOlderFirstInList(t *testing.T) {
 		t.Fatalf("%q %q", values(latest), values(older))
 	}
 }
+
+func TestReadableModel(t *testing.T) {
+	for id, want := range map[string]string{"claude-opus-5-5": "Opus 5.5", "claude-haiku-4-5-20251001": "Haiku 4.5", "claude-opus-5-5[1m]": "Opus 5.5 (1M)", "gpt": "gpt"} {
+		if got := ReadableModel(id); got != want {
+			t.Errorf("%s：%s，要 %s", id, got, want)
+		}
+	}
+}

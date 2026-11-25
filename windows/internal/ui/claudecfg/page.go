@@ -22,11 +22,7 @@ type Options struct {
 	Run    func(func())    // 在后台跑
 	Post   func(func())    // 交回主线程跑（窗口的 Update）
 	// OpenZip 让用户选一个 Skill 的 ZIP，返回文件名和内容；取消时 name 为空。nil 时用系统的文件对话框。
-	OpenZip func() (name string, data []byte, err error)
-	// Models 是默认模型下拉里的选项（Claude Code 报的模型清单，Older 的收进「更多模型」）；没有时列几个常用的别名。
-	Models []Model
-	// ModelsPending：还在读取设备的模型清单。
-	ModelsPending  bool
+	OpenZip        func() (name string, data []byte, err error)
 	OnDefaultModel func(string) // 成功保存默认模型后通知聊天菜单；可以为 nil
 }
 
@@ -36,10 +32,18 @@ type Model struct {
 	Older        bool
 }
 
-// SetModelChoices 更新当前设备的模型选择；只在确认使用账号时补上 Claude Code 的常用别名。
-func (p *Page) SetModelChoices(models []Model, fallback, pending, known bool) {
-	p.opts.Models, p.opts.ModelsPending = models, pending
-	p.modelFallback, p.modelSourceKnown = fallback, known
+// ModelSourceKind 是这台设备的模型从哪来，决定默认模型下拉和思考强度页怎么列。
+type ModelSourceKind int
+
+const (
+	ModelSourceUnknown ModelSourceKind = iota // 还不知道（没连上、正在读、读不到）：默认模型不能改
+	ModelSourceHarness                        // Claude Code（账号）：清单是 Claude Code 报的或常用的别名，「默认」是它内置的默认
+	ModelSourceRelay                          // 中转：清单是中转报的具体 ID
+)
+
+// SetModelChoices 换上默认模型下拉的选项（Older 的收进「更多模型」）、模型来源和是否还在读清单。
+func (p *Page) SetModelChoices(models []Model, src ModelSourceKind, pending bool) {
+	p.models, p.modelSource, p.modelsPending = models, src, pending
 }
 
 // 子页。
@@ -63,14 +67,15 @@ type Page struct {
 	opts  Options
 	stack []view // 点进去的子页，最后一个在显示
 
-	defaults         *coreapi.Defaults
-	defaultsErr      string
-	defaultsRound    uint64
-	modelFallback    bool
-	modelSourceKnown bool
-	working          bool // 正在改新对话默认
-	idle             *int // 这台主机的闲置超时（分钟），还没读到时是 nil
-	claude           claudeState
+	defaults      *coreapi.Defaults
+	defaultsErr   string
+	defaultsRound uint64
+	models        []Model         // 默认模型下拉的选项（SetModelChoices）
+	modelSource   ModelSourceKind // 模型从哪来
+	modelsPending bool            // 还在读设备的模型清单
+	working       bool            // 正在改新对话默认
+	idle          *int            // 这台主机的闲置超时（分钟），还没读到时是 nil
+	claude        claudeState
 
 	notice *notice
 
@@ -92,7 +97,7 @@ func New(opts Options) *Page {
 	if opts.OpenZip == nil {
 		opts.OpenZip = openZipDialog
 	}
-	return &Page{opts: opts, modelFallback: true, modelSourceKnown: true}
+	return &Page{opts: opts, modelSource: ModelSourceHarness}
 }
 
 // Load 读这台的新对话默认（可能在那边的终端里改过）和闲置超时：打开设备页时调。读不到闲置超时（那边的 Zeta 服务比这个旧）时那一项灰着。

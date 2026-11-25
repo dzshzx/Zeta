@@ -62,14 +62,13 @@ func (a *App) suggestions(p *chatPane, text string, caret int) (chat.Slash, []ch
 	if !ok || text == p.slash.dismissed || p.src.Conv == nil {
 		return s, nil
 	}
-	if p.acts.editing != nil {
-		return s, chat.Suggest(p.state.Commands, s.Prefix)
+	var local []chat.Command
+	if p.acts.editing == nil {
+		for _, cmd := range settingsCommands {
+			local = append(local, chat.Command{Name: cmd.name, Description: cmd.label()})
+		}
 	}
-	var local [len(settingsCommands)]chat.Command
-	for i, cmd := range settingsCommands {
-		local[i] = chat.Command{Name: cmd.name, Description: cmd.label()}
-	}
-	return s, chat.Suggest(p.state.Commands, s.Prefix, local[:]...)
+	return s, chat.Suggest(p.state.Commands, s.Prefix, local...)
 }
 
 // caretIn 是输入框里是 text 时的光标：上一帧记下的光标加上这之后多打（或删掉）的字数。

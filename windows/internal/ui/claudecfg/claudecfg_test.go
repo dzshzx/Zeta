@@ -349,10 +349,11 @@ func TestStripFrontmatter(t *testing.T) {
 // 默认模型的下拉：上层是不设和各系列最新的，旧版本收在「更多模型」的二级菜单里；选了旧版本写进 settings.json，
 // 之后下拉上写它、「更多模型」右边也写它。
 func TestDefaultModelMoreModels(t *testing.T) {
-	f := newFixture(t, Options{Models: []Model{
+	f := newFixture(t, Options{})
+	f.page.SetModelChoices([]Model{
 		{Value: "opus", Label: "Opus 5.5"}, {Value: "sonnet", Label: "Sonnet 5.5"},
 		{Value: "claude-opus-4-6", Label: "Opus 4.6", Older: true}, {Value: "claude-sonnet-4-6", Label: "Sonnet 4.6", Older: true},
-	}})
+	}, ModelSourceHarness, false)
 	f.see(locales.ClaudecfgModelBuiltin())
 	f.press("默认模型")
 	f.see("Opus 5.5", "Sonnet 5.5", "更多模型")
@@ -377,14 +378,16 @@ func TestDefaultModelMoreModels(t *testing.T) {
 	}
 }
 
-// 正在要模型清单时说一声、先列常用的别名；要到了换上，说明去掉。
+// 正在要 Claude Code 的模型清单时说一声、先列给的常用别名（备用别名由调用方给，见 ui 包的 modelSource.choices）；
+// 要到了换上，说明去掉。
 func TestDefaultModelWhileAskingForModels(t *testing.T) {
-	f := newFixture(t, Options{ModelsPending: true})
+	f := newFixture(t, Options{})
+	f.page.SetModelChoices([]Model{{Value: "opus", Label: "Opus"}, {Value: "haiku", Label: "Haiku"}}, ModelSourceHarness, true)
 	f.see("正在读取这台设备的模型清单。")
 	f.press("默认模型")
-	f.see("Opus", "Sonnet", "Haiku", "Fable")
+	f.see("Opus", "Haiku")
 	f.tt.Key(0, ui.KeyEscape)
-	f.page.SetModelChoices([]Model{{Value: "opus", Label: "Opus 5.5"}}, true, false, true)
+	f.page.SetModelChoices([]Model{{Value: "opus", Label: "Opus 5.5"}}, ModelSourceHarness, false)
 	f.tt.Frame()
 	if f.tt.HasText("正在读取这台设备的模型清单。") {
 		t.Fatal("要到了还在说")

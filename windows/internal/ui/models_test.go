@@ -238,6 +238,9 @@ func TestRelayModelsExpire(t *testing.T) {
 	if calls != 2 || len(second.catalog.Models) != 1 || second.catalog.Models[0].ID != "model-2" {
 		t.Fatal("过期后应更新仍在用的中转清单")
 	}
+	if second != first {
+		t.Fatal("同一来源到期重查应原地更新，不换对象（设备页见换了对象会重读默认值）")
+	}
 }
 
 func TestComposerUsesRelayModelIDs(t *testing.T) {

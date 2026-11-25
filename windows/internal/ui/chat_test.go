@@ -373,14 +373,7 @@ func TestEarlierHistory(t *testing.T) {
 	f.notSee(t, "点按重试")
 }
 
-// token 数的写法由 helper/usage 的 FormatTokens 管，测试在那边。
-func TestReadableModel(t *testing.T) {
-	for id, want := range map[string]string{"claude-opus-5-5": "Opus 5.5", "claude-haiku-4-5-20251001": "Haiku 4.5", "claude-opus-5-5[1m]": "Opus 5.5 (1M)", "gpt": "gpt"} {
-		if got := readableModel(id); got != want {
-			t.Errorf("%s：%s，要 %s", id, got, want)
-		}
-	}
-}
+// token 数的写法由 helper/usage 的 FormatTokens 管，模型名的写法由 chat.ReadableModel 管，测试都在那边。
 
 // clickField 点名叫 name 的输入框（旁边写着同样字的说明时，按名字找会先找到说明）。
 func (f *chatFixture) clickField(t *testing.T, name string) {

@@ -1,6 +1,7 @@
 package chat
 
 import (
+	"slices"
 	"strings"
 	"unicode"
 	"unicode/utf8"
@@ -67,14 +68,10 @@ func Suggest(commands []Command, prefix string, local ...Command) []Command {
 			contains = append(contains, c)
 		}
 	}
-native:
 	for _, c := range commands {
-		for _, l := range local {
-			if strings.EqualFold(c.Name, l.Name) {
-				continue native
-			}
+		if !slices.ContainsFunc(local, func(l Command) bool { return strings.EqualFold(c.Name, l.Name) }) {
+			add(c)
 		}
-		add(c)
 	}
 	for _, c := range local {
 		add(c)

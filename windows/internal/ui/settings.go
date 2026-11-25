@@ -298,7 +298,7 @@ func (a *App) openChatDeviceSettings(p *chatPane, permissions bool) bool {
 // startDeviceConfig 打开设备页时建那台的 Claude Code 配置部分，数据等显示对应页面时再读。
 func (a *App) startDeviceConfig(x sshlink.Host) {
 	a.edit.loaded = false
-	a.edit.models, a.edit.probed = nil, nil
+	a.edit.models, a.edit.probed, a.edit.fed = nil, nil, nil
 	r := a.hub.Remote(x.ID)
 	a.edit.remote = r
 	if r == nil {
@@ -313,8 +313,7 @@ func (a *App) startDeviceConfig(x sshlink.Host) {
 		Run:    a.run,
 		Post:   a.post,
 		OnDefaultModel: func(model string) {
-			s := a.modelLists[x.ID]
-			if s != nil && s.remote == r && s.revision == r.Accounts.ModelRevision() {
+			if s := a.modelLists[x.ID]; s.current(r) {
 				s.catalog.Model = model
 			}
 		},

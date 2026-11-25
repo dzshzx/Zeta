@@ -10,21 +10,11 @@ import (
 	"strings"
 
 	"github.com/dzshzx/Zeta/helper/coreapi"
-	"github.com/dzshzx/Zeta/windows/internal/chat"
 	"github.com/dzshzx/Zeta/windows/internal/locales"
 	"github.com/egoist/mygo"
 )
 
 // 界面上的说法：模型、思考强度、权限模式、权限规则的表、闲置超时、token 数、文件大小。
-
-// fallbackModels 是还没拿到 Claude Code 的模型清单时，默认模型下拉里的几个别名。
-var fallbackModels = func() []Model {
-	models := make([]Model, len(chat.FallbackModels))
-	for i, m := range chat.FallbackModels {
-		models[i] = Model{Value: m.Value, Label: m.DisplayName}
-	}
-	return models
-}()
 
 // option 是下拉里的一项：value 写进配置，label 是按界面当前的语言给人看的说法。
 type option struct {
@@ -49,21 +39,6 @@ func effortLabel(v string) string {
 
 // compactWindows 是上下文窗口下拉里的几档（token 数）。
 var compactWindows = []int64{200_000, 300_000, 400_000, 500_000, 600_000, 800_000, 1_000_000}
-
-var modelID = regexp.MustCompile(`^claude-([a-z]+)-(\d+(?:-\d{1,2})*)(?:-\d{8})?(\[1m\])?$`)
-
-// readableModel 把完整模型 ID（claude-opus-5-5、claude-haiku-4-5-20251001、claude-opus-5-5[1m]）写成人看的名字；认不出的原样。
-func readableModel(id string) string {
-	m := modelID.FindStringSubmatch(id)
-	if m == nil {
-		return id
-	}
-	name := strings.ToUpper(m[1][:1]) + m[1][1:] + " " + strings.ReplaceAll(m[2], "-", ".")
-	if m[3] != "" {
-		name += " (1M)"
-	}
-	return name
-}
 
 // formatTokens：1234 → 1.2K，400000 → 400K，1000000 → 1M。
 func formatTokens(v int64) string {
