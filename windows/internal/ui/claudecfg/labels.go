@@ -10,6 +10,7 @@ import (
 	"strings"
 
 	"github.com/dzshzx/Zeta/helper/coreapi"
+	"github.com/dzshzx/Zeta/windows/internal/chat"
 	"github.com/dzshzx/Zeta/windows/internal/locales"
 	"github.com/egoist/mygo"
 )
@@ -17,8 +18,13 @@ import (
 // 界面上的说法：模型、思考强度、权限模式、权限规则的表、闲置超时、token 数、文件大小。
 
 // fallbackModels 是还没拿到 Claude Code 的模型清单时，默认模型下拉里的几个别名。
-var fallbackModels = []Model{{Value: "opus", Label: "Opus"}, {Value: "sonnet", Label: "Sonnet"}, {Value: "haiku", Label: "Haiku"},
-	{Value: "fable", Label: "Fable"}}
+var fallbackModels = func() []Model {
+	var models []Model
+	for _, m := range chat.FallbackModels {
+		models = append(models, Model{Value: m.Value, Label: m.DisplayName})
+	}
+	return models
+}()
 
 // option 是下拉里的一项：value 写进配置，label 是按界面当前的语言给人看的说法。
 type option struct {

@@ -7,6 +7,14 @@ import (
 	"strings"
 )
 
+// FallbackModels 是 Claude Code 还没报清单时，输入栏和设备设置共用的模型别名。
+var FallbackModels = []ModelOption{
+	{Value: "fable", DisplayName: "Fable"},
+	{Value: "opus", DisplayName: "Opus"},
+	{Value: "sonnet", DisplayName: "Sonnet"},
+	{Value: "haiku", DisplayName: "Haiku"},
+}
+
 // SplitModels 是模型菜单怎么分两层（同手机版 ChatModels.kt 的 modelMenu，用例同 ModelMenuTest）：和 Claude 应用一样只直接列
 // 各系列最新的。「默认」和 Claude Code 报的别名（opus、fable、sonnet、haiku 等，总是指向那个系列最新的）照它给的顺序放上层
 // latest；钉死版本的完整 ID（claude-opus-4-6）是旧版本，收进 older（菜单里的「更多模型」），按系列（上层的顺序）、版本从新到旧排。

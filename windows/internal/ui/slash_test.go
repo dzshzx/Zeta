@@ -120,8 +120,11 @@ func TestSlashPreparesTheProcess(t *testing.T) {
 	f.newChat(t)
 	f.push(`"process":false,"commands":null,"models":null`)
 	f.click(t, "默认")
-	f.see(t, "Opus", "Sonnet", "Haiku") // 还没报清单时的后备
-	f.tt.CloseMenu()
+	f.see(t, "Fable", "Opus", "Sonnet", "Haiku") // 还没报清单时的后备
+	f.clickMenuItem(t, "Fable")
+	if got := f.link().Took(); len(got) != 1 || got[0].Method != "conv.model" || got[0].JSON() != `{"conv":"w1","value":"fable"}` {
+		t.Fatalf("新对话选 Fable：%+v", got)
+	}
 	f.click(t, "消息")
 	f.tt.Type("看一下")
 	if got := f.link().Methods(); len(got) != 0 {
@@ -143,7 +146,7 @@ func TestSlashPreparesTheProcess(t *testing.T) {
 	}
 	f.click(t, "默认")
 	f.see(t, "Opus 5.5", "Sonnet 5")
-	f.notSee(t, "Haiku")
+	f.notSee(t, "Fable", "Haiku")
 	f.tt.CloseMenu()
 	// 进程结束了（/exit、主机上闲置超时）：光标停在「/c」后面时不自己问（不然放着的草稿会让进程一直起着），下一个 / 才问
 	f.click(t, "消息")

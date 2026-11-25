@@ -300,15 +300,12 @@ func modeIcon(k *widget.Colors, mode string) (*ui.SVG, ui.Color) {
 	return widget.IconShieldDefault, ui.Color{}
 }
 
-// fallbackModels 是进程还没起、Claude Code 还没报模型清单时给的几个常用别名（它自己认）。
-var fallbackModels = []chat.ModelOption{{Value: "opus", DisplayName: "Opus"}, {Value: "sonnet", DisplayName: "Sonnet"}, {Value: "haiku", DisplayName: "Haiku"}}
-
 // modelMenu 是模型：「默认」（Claude Code 的设置）和 Claude Code 报的各系列最新的，旧版本收在「更多模型」的二级菜单里
 // （chat.SplitModels，同设置里的默认模型和手机版），选中的是旧版本时写在那一项右边。
 func (a *App) modelMenu(c *ui.Context, p *chatPane) {
 	models := p.state.Models
 	if len(models) == 0 {
-		models = fallbackModels
+		models = chat.FallbackModels
 	}
 	chosen := ""
 	if p.state.Model != nil {
