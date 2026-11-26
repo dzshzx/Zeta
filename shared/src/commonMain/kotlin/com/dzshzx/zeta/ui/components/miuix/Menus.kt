@@ -144,7 +144,8 @@ private fun MenuPopup(
         enableBackHandler = false,
         renderInRootScaffold = true,
     ) {
-        // Miuix 的弹层只避开状态栏和导航栏，不避开输入法，但会把菜单收在宿主里：宿主底下让出键盘的高度，键盘升起时菜单就往上弹，不被盖住
+        // Miuix
+        // 的弹层只避开状态栏和导航栏，不避开输入法，但会把菜单收在宿主里：宿主底下让出键盘的高度，键盘升起时菜单就往上弹，不被盖住（回归：tools/phone-tests/ime-menu.sh）
         val imeBottom = with(LocalDensity.current) { WindowInsets.ime.getBottom(this).toDp() }
         Box(Modifier.fillMaxSize().padding(bottom = imeBottom)) {
             GlassPopup(
