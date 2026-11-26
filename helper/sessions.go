@@ -81,12 +81,17 @@ const liteBytes = 64 * 1024
 // 开头读到第一句真正的话为止，首句是斜杠命令时再往后找，过了 liteBytes 就不找了，预览用那条斜杠命令；
 // 结尾读最后 liteBytes 取标题：Claude Code 补写元数据时把改过的名字、自动起的标题再追加到末尾，最新的标题总在那里。
 // 中间剪切过（剪到第一条消息之前）的会话，剪切记号不在头尾时预览还是剪掉之前的那句。
-// 只要标题、预览的调用方用它：replied 只看头尾，不准，会话列表用 summarizeAfter。
-func summarize(path string) (summary, bool, error) { return summarizeAfter(path, nil) }
+// 只要标题、预览的调用方用它，不填 replied；会话列表用 summarizeAfter。
+func summarize(path string) (summary, bool, error) { return scanSummary(path, nil) }
 
-// summarizeAfter 同 summarize，另把最新回答时间找准：结尾那段里没有回答时往回找（findReply）。known 是上次读这份记录时的
-// replyMark：文件只是变长了时只往回找到 known.size，再往前的用 known.at；没有上次的给零值。known 为 nil 时不往回找。
-func summarizeAfter(path string, known *replyMark) (summary, bool, error) {
+// summarizeAfter 同 summarize，另填上最新回答时间 replied：结尾那段里没有回答时往回找（findReply）。known 是上次读这份记录时的
+// replyMark：文件只是变长了时只往回找到 known.size，再往前的用 known.at；没有上次的（从头找）给零值。
+func summarizeAfter(path string, known replyMark) (summary, bool, error) {
+	return scanSummary(path, &known)
+}
+
+// scanSummary 读头尾得出概要；known 不为 nil 时再定下 replied（findReply）。
+func scanSummary(path string, known *replyMark) (summary, bool, error) {
 	f, err := openFile(path)
 	if err != nil {
 		return summary{}, false, err
@@ -108,7 +113,7 @@ func summarizeAfter(path string, known *replyMark) (summary, bool, error) {
 		return summary{}, false, err
 	}
 	if known == nil {
-		s.replied = cmp.Or(s.replied, headReply)
+		s.replied = 0
 	} else if err := s.findReply(f, read, tailStart, headReply, *known, fi.Size()); err != nil {
 		return summary{}, false, err
 	}
@@ -291,7 +296,7 @@ func previewText(text string) string {
 func cmdList(e *env, o *emitter) error {
 	marks := e.sessionMarks()
 	for _, path := range listedFiles(e, marks.pinned) {
-		s, ok, err := summarizeAfter(path, &replyMark{})
+		s, ok, err := summarizeAfter(path, replyMark{})
 		if err == nil && ok {
 			o.out(s.item(marks))
 		}
@@ -336,7 +341,7 @@ func lookupSessions(e *env, ids []string) []obj {
 	items := []obj{}
 	for _, id := range ids {
 		for _, path := range e.sessionFilesNamed(id) {
-			s, ok, err := summarizeAfter(path, &replyMark{})
+			s, ok, err := summarizeAfter(path, replyMark{})
 			if err == nil && ok {
 				items = append(items, s.item(marks))
 				break

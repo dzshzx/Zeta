@@ -178,18 +178,16 @@ class SessionList constructor(private val hub: ConversationHub) {
     ) {
         if (full) return listedOn(backend, upsert)
         val dropped = remove.toHashSet().apply { upsert.mapTo(this) { it.id } }
-        listed(byTime(upsert + sessions.filterNot { it.backend == backend && it.id in dropped }))
+        listed(upsert + sessions.filterNot { it.backend == backend && it.id in dropped })
     }
 
     private fun noted(backend: String, why: String?) {
         problems = if (why == null) problems - backend else problems + (backend to why)
     }
 
-    /** 读到了主机 [backend] 的整份列表：换掉列表里它的那些，别的主机的留着，合起来按时间从新到旧排。在主线程上调用。 */
+    /** 读到了主机 [backend] 的整份列表：换掉列表里它的那些，别的主机的留着。在主线程上调用。 */
     fun listedOn(backend: String, list: List<SessionSummary>) {
-        val others = sessions.filter { it.backend != backend }
-        // 只有这一台时照助手给的顺序，不重排
-        if (others.isEmpty()) listed(list) else listed(byTime(list + others))
+        listed(list + sessions.filter { it.backend != backend })
     }
 
     /** 只留主机 [backend] 的：换成只列它时，已经读到的不用等重读。在主线程上调用。 */
@@ -199,10 +197,10 @@ class SessionList constructor(private val hub: ConversationHub) {
         problems = problems.filterKeys { it == backend }
     }
 
-    /** 按修改时刻从新到旧排；侧栏的先后另按设置里选的时间排（SessionPane 的 withFarSessions）。 */
-    private fun byTime(list: List<SessionSummary>) = list.sortedByDescending { it.updated }
-
-    /** 读到了整份列表。自动起的标题：读到了就不再替它补；这份列表要是在标题写进去之前读的，先用记着的。在主线程上调用。 */
+    /**
+     * 读到了整份列表。先后不保证：侧栏按设置里选的时间自己排（SessionPane 的
+     * withFarSessions）。自动起的标题：读到了就不再替它补；这份列表要是在标题写进去之前读的，先用记着的。在主线程上调用。
+     */
     fun listed(list: List<SessionSummary>) {
         sessions = list.map { s ->
             val fresh = freshTitles[s.id] ?: return@map s
@@ -224,10 +222,10 @@ class SessionList constructor(private val hub: ConversationHub) {
         }
     }
 
-    /** 重读了其中几项（[found]）：换掉列表里的同一会话，没有的加进去，照旧按时间从新到旧排。在主线程上调用。 */
+    /** 重读了其中几项（[found]）：换掉列表里的同一会话，没有的加进去。在主线程上调用。 */
     fun merged(found: List<SessionSummary>) {
         val ids = found.mapTo(HashSet()) { it.id }
-        listed(byTime(found + sessions.filterNot { it.id in ids }))
+        listed(found + sessions.filterNot { it.id in ids })
     }
 
     /** Claude Code 给会话 [sessionId] 起好了标题（已经写进会话记录）：列表里只改这一项，不整份重读。在主线程上调用。 */

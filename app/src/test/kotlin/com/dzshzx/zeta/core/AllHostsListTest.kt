@@ -40,10 +40,10 @@ class AllHostsListTest {
             listOf(session("p2", Backends.LOCAL, 40), session("p1", Backends.LOCAL, 10)),
         )
         list.listedOn(remote, listOf(session("w2", remote, 30), session("w1", remote, 20)))
-        assertEquals(listOf("p2", "w2", "w1", "p1"), list.sessions.map { it.id })
+        assertEquals(listOf("p1", "p2", "w1", "w2"), list.sessions.map { it.id }.sorted())
         // 重读其中一台：只换它的，另一台的留着
         list.listedOn(remote, listOf(session("w3", remote, 50)))
-        assertEquals(listOf("w3", "p2", "p1"), list.sessions.map { it.id })
+        assertEquals(listOf("p1", "p2", "w3"), list.sessions.map { it.id }.sorted())
     }
 
     /** 一台推来的变化（zeta-helper serve）：只换、只删那台的项，别的主机上同 id 的不动，照时间排。 */
@@ -64,15 +64,18 @@ class AllHostsListTest {
             listOf(session("w1", remote, 20), session("p1", remote, 5)),
             emptyList(),
         )
-        assertEquals(listOf("p2", "w1", "p1", "p1"), list.sessions.map { it.id })
+        assertEquals(listOf("p1", "p1", "p2", "w1"), list.sessions.map { it.id }.sorted())
         list.received(
             Backends.LOCAL,
             false,
             listOf(session("p1", Backends.LOCAL, 60)),
             listOf("p2"),
         )
-        assertEquals(listOf("p1", "w1", "p1"), list.sessions.map { it.id })
-        assertEquals(listOf(Backends.LOCAL, remote, remote), list.sessions.map { it.backend })
+        assertEquals(listOf("p1", "p1", "w1"), list.sessions.map { it.id }.sorted())
+        assertEquals(
+            listOf(Backends.LOCAL, remote, remote).sorted(),
+            list.sessions.map { it.backend }.sorted(),
+        )
     }
 
     @Test

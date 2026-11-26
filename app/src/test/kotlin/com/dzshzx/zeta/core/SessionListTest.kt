@@ -78,7 +78,7 @@ class SessionListTest {
         assertEquals("用户改的", list.sessions.single().title)
     }
 
-    /** 答完一轮只重读那一个会话：换掉同一会话的旧项、新会话加进来，照时间排；刚起好的标题照样替它补。 */
+    /** 答完一轮只重读那一个会话：换掉同一会话的旧项、新会话加进来；刚起好的标题照样替它补。 */
     @Test
     fun mergedReplacesOnlyTheReadSessions() {
         val list = Fixtures.readyHub(app).sessionList
@@ -90,11 +90,11 @@ class SessionListTest {
         )
         list.titled("a", "起好的标题")
         list.merged(listOf(summary("a", "你好").copy(preview = "新的一轮", updated = 30, replied = 30)))
-        assertEquals(listOf("a", "b"), list.sessions.map { it.id })
-        assertEquals("新的一轮", list.sessions.first().preview)
-        assertEquals("起好的标题", list.sessions.first().title)
+        assertEquals(listOf("a", "b"), list.sessions.map { it.id }.sorted())
+        assertEquals("新的一轮", list.sessions.first { it.id == "a" }.preview)
+        assertEquals("起好的标题", list.sessions.first { it.id == "a" }.title)
         list.merged(listOf(summary("c").copy(updated = 25, replied = 25)))
-        assertEquals(listOf("a", "c", "b"), list.sessions.map { it.id })
+        assertEquals(listOf("a", "b", "c"), list.sessions.map { it.id }.sorted())
     }
 
     @Test

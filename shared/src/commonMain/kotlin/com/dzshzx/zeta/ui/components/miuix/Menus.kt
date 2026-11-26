@@ -313,7 +313,7 @@ fun IconMenuButton(
     modifier: Modifier = Modifier,
     size: Dp = IconButtonDefaults.MinWidth,
     iconSize: Dp = 24.dp,
-    stateDescription: String? = null,
+    stateDescription: String = "",
 ) {
     var expanded by remember { mutableStateOf(false) }
     Box(modifier) {
@@ -323,8 +323,9 @@ fun IconMenuButton(
             size = size,
             iconSize = iconSize,
             modifier =
-                if (stateDescription == null) Modifier
-                else Modifier.semantics { this.stateDescription = stateDescription },
+                Modifier.semantics {
+                    if (stateDescription.isNotEmpty()) this.stateDescription = stateDescription
+                },
             holdDownState = expanded,
             tint = MiuixTheme.colorScheme.onBackgroundVariant,
             onClick = { expanded = true },

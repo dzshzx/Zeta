@@ -304,7 +304,7 @@ func (w *sessionWatch) summaryOf(path string) (cached, bool) {
 	if c, ok := w.cache[path]; ok && c.ok && c.size < size {
 		known = replyMark{size: c.size, at: c.s.replied}
 	}
-	s, ok, err := summarizeAfter(path, &known)
+	s, ok, err := summarizeAfter(path, known)
 	if err != nil {
 		return cached{}, false
 	}
