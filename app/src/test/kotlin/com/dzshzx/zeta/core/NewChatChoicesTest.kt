@@ -77,6 +77,32 @@ class NewChatChoicesTest {
         assertEquals("plan", fresh.choice("mode"))
     }
 
+    /** 核心交班的那一下：选模型的请求被旧核心答「对话已关闭」，接着连接断开；重连后新核心里没有它，新开的那次带上选的模型。 */
+    @Test
+    fun choiceRejectedDuringHandoverReachesTheNewCore() {
+        val hub = Fixtures.readyHub(app)
+        val core = FakeCore().install(hub)
+        val chat = conversation(hub)
+        chat.prepare()
+        core.next("conv.prepare")
+        awaitMain { chat.view.state.key.isNotEmpty() }
+        core.respond = { call ->
+            when {
+                call.method == "conv.model" -> throw ServeError("对话已关闭")
+                call.method == "conv.open" && call.str("key") != null ->
+                    throw ServeError("不在了", "conversation_gone")
+                else -> core.defaultReply(call)
+            }
+        }
+        chat.chooseModel("sonnet")
+        core.next("conv.model")
+        core.drop()
+        awaitCore { chat.offline }
+        core.reconnect()
+        assertNotNull(core.next("conv.open").str("key"))
+        assertEquals("sonnet", core.next("conv.open").choice("model"))
+    }
+
     /** 选回默认也要记着：模型写 default，思考强度写空串，不然核心按更早送到的那次留着。 */
     @Test
     fun choosingTheDefaultIsRemembered() {

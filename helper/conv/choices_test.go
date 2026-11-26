@@ -1,6 +1,8 @@
 package conv
 
 import (
+	"encoding/json"
+	"errors"
 	"slices"
 	"testing"
 )
@@ -92,5 +94,17 @@ func TestChoicesIgnoredWithSession(t *testing.T) {
 	h.settle(h.conv(1, "a"))
 	if h.state(1, "model") != nil || h.state(1, "effort") != nil || h.state(1, "model_from_session") != true {
 		t.Fatalf("模型 %v，思考强度 %v", h.state(1, "model"), h.state(1, "effort"))
+	}
+}
+
+// 交班窗口：旧核心放开全部对话（Release）以后、这条连接断开以前，客户端发来的 conv.model 还找得到对话，但它已经关了，
+// 答出错。这时选择没落到任何核心里，要靠连接断开后客户端带着 choices 重新打开补回来（TestModelChoiceSurvivesHandover）。
+func TestModelChoiceRejectedDuringHandover(t *testing.T) {
+	h := newHarness(t)
+	h.call(1, "conv.open", map[string]any{"conv": "a", "cwd": "/w"})
+	h.m.Release()
+	b, _ := json.Marshal(map[string]any{"conv": "a", "value": "sonnet"})
+	if _, err := h.m.Request(1, "conv.model", b); !errors.Is(err, errClosed) {
+		t.Fatalf("交班后选模型：%v", err)
 	}
 }
