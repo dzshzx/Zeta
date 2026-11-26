@@ -38,7 +38,7 @@ gradle_blind() {
     scripts/gatelib.sh | scripts/format.sh) ;;
     .github/* | .gitignore | .gitleaks-test-values.toml) ;;
     tools/phone-tests/* | tools/emu | tools/phone-lock | tools/phone-run | tools/install.sh | tools/config.sh) ;;
-    tools/shots | tools/vd | tools/vdisplay/* | tools/migrate-workspace.sh | tools/release/*) ;;
+    tools/shots | tools/vd | tools/vdisplay/* | tools/release/*) ;;
     windows/*) ;;
     *) return 1 ;;
   esac

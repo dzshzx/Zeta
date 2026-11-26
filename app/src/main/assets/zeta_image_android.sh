@@ -10,7 +10,7 @@
 #
 #   status                   镜像的状态（每行 键=值）
 #   mount                    还没挂上就先检查（e2fsck -p）再挂上
-#   boot                     开机时：mount，写好开机脚本，再 fstrim
+#   boot                     开机时：mount，写好开机脚本，再 fstrim；工作区的标签不对时按规则重贴
 #   trim                     fstrim：把 Debian 里删掉的文件占的空间还给手机
 #   start <操作> [参数]       在后台做一项维护，进度写进状态：
 #       convert <GB>         把普通目录的环境转成镜像（上限 GB），原目录改名为 rootfs.old 留作回退
@@ -43,6 +43,7 @@ BOOT=/data/adb/service.d/89-zeta-image.sh
 NEW_IN=/.zeta-image-new
 NEW=$R$NEW_IN
 LABEL=u:object_r:system_data_file:s0
+WORKSPACE=/data/local/zeta/workspace
 GB=1073741824
 OP=
 ON_FAIL=
@@ -136,6 +137,17 @@ write_boot() {
     echo 'for BB in /data/adb/ksu/bin/busybox /data/adb/magisk/busybox /data/adb/ap/bin/busybox; do [ -x "$BB" ] && break; done'
     echo "[ -f $SELF ] && [ -f $IMG ] && \"\$BB\" sh $SELF \"\$BB\" boot > /dev/null 2>&1 &"
   } > "$BOOT.new" && "$BB" chmod 0755 "$BOOT.new" && "$BB" mv "$BOOT.new" "$BOOT"
+}
+
+# 工作区（LinuxEnv.WORKSPACE）里在 Android 一侧改名、mv 进来的文件带着原来的标签（比如 /data/local/tmp 的 shell_data_file）。
+# 开机的 restorecon 改不动它们（init 没有 relabelfrom），一个失败就整个 /data 都记不上摘要、每次开机全量重扫。
+# 开机时看一眼目录本身，不对就整棵按规则重贴；目录本身对、里面个别文件不对的看不出来
+fix_workspace_label() {
+  [ -d "$WORKSPACE" ] || return 0
+  /system/bin/restorecon -n -v "$WORKSPACE" 2>&1 | "$BB" grep -q Relabeling || return 0
+  log "工作区的标签不对，按规则重贴"
+  # -F：不看目录上的摘要（security.sehash）。标签是改名、mv 带进来的，摘要可能也是，看摘要就整棵跳过了
+  /system/bin/restorecon -R -F "$WORKSPACE" >> "$LOG" 2>&1 || log "重贴工作区的标签没有成功"
 }
 
 trim() {
@@ -387,6 +399,7 @@ boot)
   do_mount
   write_boot
   trim > /dev/null
+  fix_workspace_label
   ;;
 
 trim)
