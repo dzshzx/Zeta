@@ -58,6 +58,14 @@ func (t *Tokens) UnmarshalJSON(data []byte) error {
 	return nil
 }
 
+// APITokens 是 usage 里的四项，按 API 的键名读写（zeta-helper history 的 subagent_usage 行就是这个形状）；字段同 Tokens，可以直接转换。
+type APITokens struct {
+	Input      int64 `json:"input_tokens"`
+	Output     int64 `json:"output_tokens"`
+	CacheRead  int64 `json:"cache_read_input_tokens"`
+	CacheWrite int64 `json:"cache_creation_input_tokens"`
+}
+
 // apiUsage 是 API 的 usage 形状：assistant 消息、stream_event、result 行都是它。
 type apiUsage struct {
 	InputTokens              *int64 `json:"input_tokens"`

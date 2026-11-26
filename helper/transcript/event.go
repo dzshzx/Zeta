@@ -8,7 +8,7 @@ import (
 // Message 是 assistant、user 事件里（和会话记录里）的一条消息。
 type Message struct {
 	ID string `json:"id"`
-	// Model 是回答用的模型（assistant 才有；子代理查看页显示它）
+	// Model 是回答用的模型（assistant 才有）
 	Model   string  `json:"model"`
 	Content Content `json:"content"`
 }

@@ -232,12 +232,12 @@ func dispatchHandoff(e *env, o *emitter, command string, rest []string) error {
 // history <文件> 或 history <文件> <到哪条为止> <核对用的 uuid|-> [all]
 func dispatchHistory(e *env, o *emitter, rest []string) error {
 	if len(rest) == 1 && e.insideRoot(rest[0]) {
-		return cmdHistory(o, rest[0], historyPos{})
+		return cmdHistory(e, o, rest[0], historyPos{})
 	}
 	if (len(rest) == 3 || len(rest) == 4) && e.insideRoot(rest[0]) && isDigits(rest[1]) &&
 		historyAnchor.MatchString(rest[2]) && (len(rest) == 3 || rest[3] == "all") {
 		pos := historyPos{given: true, end: parseCount(rest[1]), anchor: rest[2], rest: len(rest) == 4}
-		return cmdHistory(o, rest[0], pos)
+		return cmdHistory(e, o, rest[0], pos)
 	}
 	return errUsage
 }

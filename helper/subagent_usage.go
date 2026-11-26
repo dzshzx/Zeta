@@ -5,7 +5,6 @@ import (
 	"encoding/json/jsontext"
 	jsonv2 "encoding/json/v2"
 	"maps"
-	"path/filepath"
 	"slices"
 	"strconv"
 	"strings"
@@ -24,10 +23,15 @@ import (
 // subagentUsages 是一个会话的子代理：发起它的调用 → 记录文件。
 type subagentUsages map[string]string
 
-// newSubagentUsages 读会话记录 path 旁边的 subagents 目录里各子代理的 meta（只认真实路径在会话目录里的）；没有时为 nil。
-func newSubagentUsages(path string) subagentUsages {
-	dir := strings.TrimSuffix(path, ".jsonl") + "/subagents"
-	if !lexists(dir) || !isDirFollow(dir) || !strings.HasPrefix(realPath(dir), realPath(filepath.Dir(path))+"/") {
+// newSubagentUsages 读会话记录 path 的会话目录（sessionDir）里 subagents 下各子代理的 meta（只认真实路径在会话目录里的）；
+// 没有时为 nil。
+func newSubagentUsages(e *env, path string) subagentUsages {
+	session, ok := e.sessionDir(path)
+	if !ok {
+		return nil
+	}
+	dir := joinPath(session, "subagents")
+	if !isDirFollow(dir) || !strings.HasPrefix(realPath(dir), session+"/") {
 		return nil
 	}
 	s := subagentUsages{}
@@ -49,12 +53,7 @@ func (s subagentUsages) event(toolUse string) obj {
 	}
 	var list []any
 	for _, m := range slices.Sorted(maps.Keys(models)) {
-		t := models[m]
-		usage := obj{}
-		for i, n := range []int64{t.Input, t.Output, t.CacheRead, t.CacheWrite} {
-			usage[usageKeys[i]] = n
-		}
-		list = append(list, obj{"model": m, "usage": usage})
+		list = append(list, obj{"model": m, "usage": ctxusage.APITokens(models[m])})
 	}
 	return obj{"type": "subagent_usage", "tool_use_id": toolUse, "models": list}
 }
@@ -74,15 +73,10 @@ func (s subagentUsages) total(toolUse string, into map[string]ctxusage.Tokens, s
 // agentLine 是子代理记录里一条 assistant 行用得着的部分。
 type agentLine struct {
 	Message struct {
-		ID    string `json:"id"`
-		Model string `json:"model"`
-		Usage *struct {
-			Input      int64 `json:"input_tokens"`
-			Output     int64 `json:"output_tokens"`
-			CacheRead  int64 `json:"cache_read_input_tokens"`
-			CacheWrite int64 `json:"cache_creation_input_tokens"`
-		} `json:"usage"`
-		Content jsontext.Value `json:"content"`
+		ID      string              `json:"id"`
+		Model   string              `json:"model"`
+		Usage   *ctxusage.APITokens `json:"usage"`
+		Content jsontext.Value      `json:"content"`
 	} `json:"message"`
 }
 
@@ -118,8 +112,7 @@ func (s subagentUsages) readAgent(file string, into map[string]ctxusage.Tokens) 
 		if id == "" {
 			id = "#" + strconv.Itoa(n)
 		}
-		byID[id] = counted{m.Model, ctxusage.Tokens{Input: m.Usage.Input, Output: m.Usage.Output,
-			CacheRead: m.Usage.CacheRead, CacheWrite: m.Usage.CacheWrite}}
+		byID[id] = counted{m.Model, ctxusage.Tokens(*m.Usage)}
 	}
 	for _, c := range byID {
 		into[c.model] = into[c.model].Add(c.tokens)
@@ -127,34 +120,44 @@ func (s subagentUsages) readAgent(file string, into map[string]ctxusage.Tokens) 
 	return children
 }
 
-// calls 是回答内容里发起了子代理的工具调用（内容还没解开）。
+// calls 是回答内容里发起了子代理的工具调用（内容还没解开）。只解每块的类型和 id：工具参数可能很大（写入的整个文件），不解开它。
 func (s subagentUsages) calls(content jsontext.Value) []string {
 	if !bytes.Contains(content, []byte(`"tool_use"`)) {
 		return nil
 	}
-	var blocks []any
+	var blocks []struct {
+		Type string `json:"type"`
+		ID   string `json:"id"`
+	}
 	if jsonv2.Unmarshal(content, &blocks) != nil {
 		return nil
 	}
-	return s.callsIn(blocks)
+	var out []string
+	for _, b := range blocks {
+		if s.isCall(b.Type, b.ID) {
+			out = append(out, b.ID)
+		}
+	}
+	return out
 }
 
 // subagentCalls 是一条 history 事件（assistant）里发起了子代理的工具调用。
 func (s subagentUsages) subagentCalls(e obj) []string {
-	if s == nil || e["type"] != "assistant" {
+	if e["type"] != "assistant" {
 		return nil
 	}
-	return s.callsIn(asList(asObj(e["message"])["content"]))
-}
-
-// callsIn 是内容块里 id 登记过子代理的工具调用。
-func (s subagentUsages) callsIn(blocks []any) []string {
 	var out []string
-	for _, b := range blocks {
+	for _, b := range asList(asObj(e["message"])["content"]) {
 		m := asObj(b)
-		if _, ok := s[asString(m["id"])]; ok && m["type"] == "tool_use" {
-			out = append(out, asString(m["id"]))
+		if id := asString(m["id"]); s.isCall(asString(m["type"]), id) {
+			out = append(out, id)
 		}
 	}
 	return out
+}
+
+// isCall：这个内容块是发起了子代理（登记过）的工具调用。
+func (s subagentUsages) isCall(kind, id string) bool {
+	_, ok := s[id]
+	return ok && kind == "tool_use"
 }

@@ -405,7 +405,7 @@ type historyPos struct {
 	rest   bool
 }
 
-func cmdHistory(o *emitter, path string, pos historyPos) error {
+func cmdHistory(e *env, o *emitter, path string, pos historyPos) error {
 	t, err := readEvents(path)
 	if err != nil {
 		return err
@@ -439,7 +439,7 @@ func cmdHistory(o *emitter, path string, pos historyPos) error {
 		header["switched_model"] = name
 	}
 	o.out(header)
-	subagents := newSubagentUsages(path)
+	subagents := newSubagentUsages(e, path)
 	for _, e := range t.events[start:end] {
 		o.out(e)
 		for _, call := range subagents.subagentCalls(e) {
