@@ -23,7 +23,7 @@ Miuix 没有的才在 `ui/components/miuix` 补，页面文件里不各写一份
 - `MenuItem`、`MenuEntry`、`AnchoredMenu`、`GlassMenu`、`TopBarMoreMenu`、`RowMoreMenu`（`Menus.kt`）、`LongPressMenu`：菜单的一项和一组；挂在胶囊、按钮、标题上的玻璃菜单（照 Eta：Miuix 的 `GlassPopup` 和 `GlassPopupItem`，图标在文字前，警示项文字和图标都是红色，二级菜单是 `GlassSecondaryPopup`）；顶栏和列表行里的「更多」；长按内容弹出的菜单（不吃掉普通点按）。
 - `PageDialog`、`ConfirmDialog`、`NoticeDialog`、`TextInputDialog`、`DialogTextField`、`DialogButtonBar`（`Dialogs.kt`）：玻璃对话框（模糊页面背景），对话框里带标题的输入框，对话框底部平分整行的按钮栏（`DialogButtonBarAction`：`recommended` 主题色、`destructive` 红色）。
 - `TextField`（`TextFields.kt`）：参数照 Miuix 的 `TextField`，加了 `showClearButton`，光标由 Zeta 管（见「补上游缺口」）；应用代码里的输入框都用它。
-- `CompactButton`、`TopBarTextButton`、`LinkText`：卡片里、列表行里的小号文字按钮；顶栏右边的文字按钮（保存）；一句可点的主题色文字（对话框、卡片里不值得占一个按钮的次要操作）。
+- `CompactButton`、`TopBarTextButton`、`LinkText`：卡片里、列表行里的小号文字按钮；顶栏右边的文字按钮（保存、清除已结束；在玻璃顶栏里是一直显出底色的胶囊，带返回钮那档阴影）；一句可点的主题色文字（对话框、卡片里不值得占一个按钮的次要操作）。
 - `SquircleShape(半径)`、`ZetaCorner`（`SquircleShape.kt`）：要拿 Shape 的地方用的超椭圆圆角（Miuix 只给修饰符和路径），圆角的几档。
 - `ZetaIcons`：Miuix 没有的图标，照它的画法自己画（见下面「图标」）；`ZetaIcons.gauge(档位, 格数)` 是刻度表。
 - 配色补充（`ui/components/ZetaColors.kt`）：Miuix 配色里没有的槽，写成配色对象的扩展：`isDark`、`success`、`StatusWarning`、半透明中性底 `fill4`/`fill8`/`fill16`、`textHighlight`、几种强调色 `accentBlue` 等。
