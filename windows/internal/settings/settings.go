@@ -57,7 +57,7 @@ func Load(dir string) (*Settings, error) {
 
 // Hosts 是设备清单。
 func (s *Settings) Hosts() []sshlink.Host {
-	text, _ := s.store.String(keyHosts)
+	text := s.store.StringOr(keyHosts, "")
 	return sshlink.DecodeHosts(text)
 }
 
@@ -70,7 +70,7 @@ func (s *Settings) SetHosts(hosts []sshlink.Host) error {
 	for _, h := range hosts {
 		kept[h.ID] = true
 	}
-	entries, _ := s.store.Strings(keyRemoteClaude)
+	entries := s.store.StringsOr(keyRemoteClaude, nil)
 	var left []string
 	for _, entry := range entries {
 		name, _, _ := strings.Cut(entry, "=")
@@ -86,10 +86,7 @@ func (s *Settings) SetHosts(hosts []sshlink.Host) error {
 
 // Backend 是侧栏正看着的设备编号；没存过是 Local。
 func (s *Settings) Backend() string {
-	if v, ok := s.store.String(keyBackend); ok {
-		return v
-	}
-	return Local
+	return s.store.StringOr(keyBackend, Local)
 }
 
 // SetBackend 存侧栏正看着的设备。
@@ -97,8 +94,7 @@ func (s *Settings) SetBackend(id string) error { return s.store.SetString(keyBac
 
 // PaneAll 是侧栏列全部设备的会话（不只列 Backend 那台）。
 func (s *Settings) PaneAll() bool {
-	v, _ := s.store.Bool(keyPaneAll)
-	return v
+	return s.store.BoolOr(keyPaneAll, false)
 }
 
 // SetPaneAll 存侧栏列不列全部设备。
@@ -106,7 +102,7 @@ func (s *Settings) SetPaneAll(all bool) error { return s.store.SetBool(keyPaneAl
 
 // Pins 是置顶的会话（PinKey），按存的先后。
 func (s *Settings) Pins() []string {
-	pins, _ := s.store.Strings(keyPins)
+	pins := s.store.StringsOr(keyPins, nil)
 	return pins
 }
 
@@ -138,10 +134,7 @@ const (
 
 // AutoUpdateCheck 是每天最多自动检查一次新版本，没设过是开着。
 func (s *Settings) AutoUpdateCheck() bool {
-	if v, ok := s.store.Bool(keyAutoUpdateCheck); ok {
-		return v
-	}
-	return true
+	return s.store.BoolOr(keyAutoUpdateCheck, true)
 }
 
 // SetAutoUpdateCheck 存自动检查的开关。
@@ -149,8 +142,8 @@ func (s *Settings) SetAutoUpdateCheck(on bool) { logSave(s.store.SetBool(keyAuto
 
 // UpdateCheckedAt 是上次检查更新的时间（手动、自动都算）；没查过是零值。
 func (s *Settings) UpdateCheckedAt() time.Time {
-	ms, ok := s.store.Int(keyUpdateCheckedAt)
-	if !ok || ms == 0 {
+	ms := s.store.IntOr(keyUpdateCheckedAt, 0)
+	if ms == 0 {
 		return time.Time{}
 	}
 	return time.UnixMilli(ms)
@@ -163,7 +156,7 @@ func (s *Settings) SetUpdateCheckedAt(t time.Time) {
 
 // UpdateNotified 是已经提示过的新版本；0 是还没提示过。
 func (s *Settings) UpdateNotified() int {
-	v, _ := s.store.Int(keyUpdateNotified)
+	v := s.store.IntOr(keyUpdateNotified, 0)
 	return int(v)
 }
 
@@ -201,8 +194,7 @@ const keyAutoLoadRemoteImages = "autoLoadRemoteImages"
 
 // AutoLoadRemoteImages 是回答里的网络图片不等点击就加载。
 func (s *Settings) AutoLoadRemoteImages() bool {
-	v, _ := s.store.Bool(keyAutoLoadRemoteImages)
-	return v
+	return s.store.BoolOr(keyAutoLoadRemoteImages, false)
 }
 
 // SetAutoLoadRemoteImages 存自动加载网络图片的开关。
@@ -215,8 +207,7 @@ const keyTranslucent = "desktopTranslucent"
 
 // Translucent 是毛玻璃透出底下的界面。
 func (s *Settings) Translucent() bool {
-	v, set := s.store.Bool(keyTranslucent)
-	return v || !set
+	return s.store.BoolOr(keyTranslucent, true)
 }
 
 // SetTranslucent 存半透明的开关。
@@ -235,7 +226,7 @@ const DefaultSidebarWidth = 280
 
 // SidebarWidth 是侧栏的宽度，没拖过时是 DefaultSidebarWidth。
 func (s *Settings) SidebarWidth() float32 {
-	if v, ok := s.store.Int(keySidebarWidth); ok && v > 0 {
+	if v := s.store.IntOr(keySidebarWidth, 0); v > 0 {
 		return float32(v)
 	}
 	return DefaultSidebarWidth
@@ -246,8 +237,7 @@ func (s *Settings) SetSidebarWidth(w float32) { logSave(s.store.SetInt(keySideba
 
 // SidebarHidden 是侧栏收起来了。
 func (s *Settings) SidebarHidden() bool {
-	v, _ := s.store.Bool(keySidebarHidden)
-	return v
+	return s.store.BoolOr(keySidebarHidden, false)
 }
 
 // SetSidebarHidden 存侧栏收没收起来。
@@ -268,7 +258,7 @@ const (
 
 // SessionSort 是侧栏会话列表的排序，没存过或存的不认识时是最新回答。
 func (s *Settings) SessionSort() SessionSort {
-	if v, _ := s.store.String(keySessionSort); SessionSort(v) == SortCreated || SessionSort(v) == SortManual {
+	if v := s.store.StringOr(keySessionSort, ""); SessionSort(v) == SortCreated || SessionSort(v) == SortManual {
 		return SessionSort(v)
 	}
 	return SortReplied
@@ -284,7 +274,7 @@ const keyZoom = "desktopZoom"
 
 // Zoom 是界面缩放的百分数，没存过或存坏了是 100。
 func (s *Settings) Zoom() int {
-	if v, ok := s.store.Int(keyZoom); ok && v > 0 {
+	if v := s.store.IntOr(keyZoom, 0); v > 0 {
 		return int(v)
 	}
 	return 100

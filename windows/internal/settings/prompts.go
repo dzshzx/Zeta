@@ -31,7 +31,7 @@ type SavedPrompt struct {
 
 // Prompts 是常用指令的清单；坏的条目跳过，不让一条坏数据弄丢全部。
 func (s *Settings) Prompts() []SavedPrompt {
-	text, _ := s.store.String(keyPrompts)
+	text := s.store.StringOr(keyPrompts, "")
 	return DecodePrompts(text)
 }
 

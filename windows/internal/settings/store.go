@@ -79,10 +79,20 @@ func (s *Store) value(key string, v any, types ...string) bool {
 	return false
 }
 
+// 读取：只要值的用 XxxOr（没设过、类型不对、读不出时给默认值）；要分设没设过的（比如「跟随系统」）才用带 ok 的 Xxx。
+
 // String 是字符串项 key；没有时 ok 为 false。
 func (s *Store) String(key string) (v string, ok bool) {
 	ok = s.value(key, &v, typeString)
 	return v, ok
+}
+
+// StringOr 是字符串项 key；没有或读不出时是 def。
+func (s *Store) StringOr(key, def string) string {
+	if v, ok := s.String(key); ok {
+		return v
+	}
+	return def
 }
 
 // Bool 是真假项 key。
@@ -91,16 +101,40 @@ func (s *Store) Bool(key string) (v bool, ok bool) {
 	return v, ok
 }
 
+// BoolOr 是真假项 key；没有或读不出时是 def。
+func (s *Store) BoolOr(key string, def bool) bool {
+	if v, ok := s.Bool(key); ok {
+		return v
+	}
+	return def
+}
+
 // Int 是整数项 key（i、l 两种都算）。
 func (s *Store) Int(key string) (v int64, ok bool) {
 	ok = s.value(key, &v, typeInt, typeLong)
 	return v, ok
 }
 
+// IntOr 是整数项 key；没有或读不出时是 def。
+func (s *Store) IntOr(key string, def int64) int64 {
+	if v, ok := s.Int(key); ok {
+		return v
+	}
+	return def
+}
+
 // Strings 是字符串集合项 key，按文件里的先后。
 func (s *Store) Strings(key string) (v []string, ok bool) {
 	ok = s.value(key, &v, typeSet)
 	return v, ok
+}
+
+// StringsOr 是字符串集合项 key；没有或读不出时是 def。
+func (s *Store) StringsOr(key string, def []string) []string {
+	if v, ok := s.Strings(key); ok {
+		return v
+	}
+	return def
 }
 
 // SetString 存字符串项。

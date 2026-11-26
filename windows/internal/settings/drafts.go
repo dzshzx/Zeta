@@ -37,7 +37,7 @@ func (s *Settings) DraftsDir() string { return filepath.Dir(s.store.path) }
 
 // Load 读出存着的草稿。
 func (d *Drafts) Load() []drafts.Draft {
-	text, _ := d.store.String(keyDrafts)
+	text := d.store.StringOr(keyDrafts, "")
 	return drafts.Decode(text)
 }
 

@@ -12,12 +12,12 @@ import (
 // Prefs 是客户端本地存的设置（%APPDATA%\Zeta 下的设置文件，格式见 settings 包），方法和 *settings.Store 的一样，
 // 可以直接把它传进来。键和取值照 shared/…/core/Settings.kt。
 type Prefs interface {
-	// Bool 是布尔值，没设过时 ok 为 false。
-	Bool(key string) (v bool, ok bool)
-	// Int 是整数，没设过时 ok 为 false。
-	Int(key string) (v int64, ok bool)
-	// Strings 是字符串集合，没设过时 ok 为 false。
-	Strings(key string) (v []string, ok bool)
+	// BoolOr 是布尔值，没设过时是 def。
+	BoolOr(key string, def bool) bool
+	// IntOr 是整数，没设过时是 def。
+	IntOr(key string, def int64) int64
+	// StringsOr 是字符串集合，没设过时是 def。
+	StringsOr(key string, def []string) []string
 	// SetStrings 整个换掉一个字符串集合，存到文件里。
 	SetStrings(key string, v []string) error
 }
@@ -48,7 +48,7 @@ func DeviceSettings(p Prefs, backend string) Device { return Device{p, backend} 
 
 func (d Device) remote() map[string]string {
 	m := map[string]string{}
-	entries, _ := d.prefs.Strings(prefRemoteClaude)
+	entries := d.prefs.StringsOr(prefRemoteClaude, nil)
 	for _, entry := range entries {
 		if k, v, ok := strings.Cut(entry, "="); ok {
 			m[k] = v
@@ -79,10 +79,7 @@ func (d Device) boolean(item string, def bool) bool {
 	case "false":
 		return false
 	}
-	if v, ok := d.prefs.Bool(item); ok {
-		return v
-	}
-	return def
+	return d.prefs.BoolOr(item, def)
 }
 
 // AutoCompact：让 Claude Code 自动压缩上下文。
@@ -101,7 +98,7 @@ func (d Device) CompactPercent() int {
 		}
 		return 0
 	}
-	if p, ok := d.prefs.Int(prefCompactPercent); ok && p >= 1 && p <= 100 {
+	if p := d.prefs.IntOr(prefCompactPercent, 0); p >= 1 && p <= 100 {
 		return int(p)
 	}
 	return 0

@@ -98,11 +98,13 @@ type fakePrefs struct {
 	strings map[string][]string
 }
 
-func (p *fakePrefs) Bool(string) (bool, bool) { return false, false }
-func (p *fakePrefs) Int(string) (int64, bool) { return 0, false }
-func (p *fakePrefs) Strings(key string) ([]string, bool) {
-	v, ok := p.strings[key]
-	return v, ok
+func (p *fakePrefs) BoolOr(_ string, def bool) bool  { return def }
+func (p *fakePrefs) IntOr(_ string, def int64) int64 { return def }
+func (p *fakePrefs) StringsOr(key string, def []string) []string {
+	if v, ok := p.strings[key]; ok {
+		return v
+	}
+	return def
 }
 
 func (p *fakePrefs) SetStrings(key string, v []string) error {

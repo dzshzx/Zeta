@@ -38,6 +38,9 @@ func Fragment(dst vec4, pos vec2) vec4 {
 }
 `)
 
+// frostTint 是着色器的 Tint，包初始化时查一次（名字写错就 panic，不像 Options.Uniforms 那样悄悄忽略）。
+var frostTint = frostShader.Uniform("Tint")
+
 // PaintMaterial 画这块毛玻璃，四角按 radii 的第一个圆角（Zeta 的平滑圆角由 Surface 按轮廓裁）。
 func (f Frost) PaintMaterial(p *ui.Painter, box ui.Rect, radii [4]float32) {
 	if !translucent.Load() {
@@ -46,5 +49,5 @@ func (f Frost) PaintMaterial(p *ui.Painter, box ui.Rect, radii [4]float32) {
 		p.FillRadii(box, radii, t)
 		return
 	}
-	frostShader.Draw(p, box, shader.Options{BackdropBlur: f.Blur, Radius: radii[0], Uniforms: map[string]any{"Tint": f.Tint}})
+	frostShader.Draw(p, box, shader.Options{BackdropBlur: f.Blur, Radius: radii[0], Values: frostShader.NewValues().Color(frostTint, f.Tint)})
 }

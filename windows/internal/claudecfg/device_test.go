@@ -14,9 +14,27 @@ type fakePrefs struct {
 	strings map[string][]string
 }
 
-func (f *fakePrefs) Bool(k string) (bool, bool)            { v, ok := f.bools[k]; return v, ok }
-func (f *fakePrefs) Int(k string) (int64, bool)            { v, ok := f.ints[k]; return v, ok }
-func (f *fakePrefs) Strings(k string) ([]string, bool)     { v, ok := f.strings[k]; return v, ok }
+func (f *fakePrefs) BoolOr(k string, def bool) bool {
+	if v, ok := f.bools[k]; ok {
+		return v
+	}
+	return def
+}
+
+func (f *fakePrefs) IntOr(k string, def int64) int64 {
+	if v, ok := f.ints[k]; ok {
+		return v
+	}
+	return def
+}
+
+func (f *fakePrefs) StringsOr(k string, def []string) []string {
+	if v, ok := f.strings[k]; ok {
+		return v
+	}
+	return def
+}
+
 func (f *fakePrefs) SetStrings(k string, v []string) error { f.strings[k] = v; return nil }
 
 // 每台设备的自动压缩、自动标题存在 remoteClaude，没设过的照手机本机的那几项。
