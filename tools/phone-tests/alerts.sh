@@ -30,13 +30,10 @@ step() { echo "[$(date +%T)] $*"; }
 
 # snap <名字>：记下手机主屏真实的样子（超级岛、横幅都画在主屏上，虚拟屏上看不到）和屏幕状态（亮没亮、锁没锁），
 # 存成产物目录里的 main-<名字>.png
-MAIN_DISPLAY=''
 snap() {
-  [[ -n $MAIN_DISPLAY ]] ||
-    MAIN_DISPLAY=$(android "dumpsys SurfaceFlinger --display-id" | grep -m1 -oE '^Display [0-9]+' | cut -d' ' -f2)
   local state
   state=$(android "dumpsys power 2>/dev/null | grep -m1 -oE 'mWakefulness=[A-Za-z]+'; dumpsys window 2>/dev/null | grep -m1 -oE 'isKeyguardShowing=[a-z]+'" | tr '\n' ' ')
-  android "screencap -d $MAIN_DISPLAY -p | base64" | base64 -d >"main-$1.png"
+  main_shot "main-$1.png"
   echo "[$(date +%T)] 主屏 $1：$state→ main-$1.png"
 }
 

@@ -5,10 +5,9 @@ import androidx.compose.animation.ExitTransition
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxScope
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.ime
+import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.Immutable
@@ -148,9 +147,9 @@ private fun MenuPopup(
         renderInRootScaffold = true,
     ) {
         // Miuix 的弹层只避开状态栏和导航栏，不避开输入法，但会把菜单收在宿主里：
-        // 宿主底下让出键盘的高度，键盘升起时菜单就往上弹，不被盖住（回归：tools/phone-tests/ime-menu.sh）
+        // 宿主底下让出键盘的高度，键盘升起时菜单就往上弹，不被盖住（回归：tools/phone-tests/ime-menu.sh）。
+        // 用 imePadding 不手算：设置类页面的最外层 Scaffold 已经让出过键盘（MiuixPage），这里只补还没让出的那部分
         val density = LocalDensity.current
-        val imeBottom = with(density) { WindowInsets.ime.getBottom(this).toDp() }
         // 锚比菜单还宽（整行、整段内容）时和它的右边对齐，否则（胶囊、按钮）和它水平居中；贴着屏幕边的由 Miuix 收回窗口里
         val alignment =
             if (anchorBounds.width > with(density) { MenuSizing.maxWidth.toPx() }) Alignment.End
@@ -160,7 +159,7 @@ private fun MenuPopup(
         // GlassPopup 的进度改成从 0 起步、或首次组合就打开也有弹出动画后，删掉 entered
         var entered by remember { mutableStateOf(false) }
         LaunchedEffect(Unit) { entered = true }
-        Box(Modifier.fillMaxSize().padding(bottom = imeBottom)) {
+        Box(Modifier.fillMaxSize().imePadding()) {
             GlassPopup(
                 show = show && entered,
                 onDismissRequest = onDismiss,

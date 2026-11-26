@@ -17,7 +17,7 @@ func TestParse(t *testing.T) {
 		{"swipe", "1", "2", "3", "4"}, {"swipe", "1", "2", "3", "4", "300"}, {"text", "hi"}, {"key", "KEYCODE_BACK"},
 		{"prefs", "a", "b_c"}, {"prefs-set", "cwd=/tmp", "phoneDisplay:int=3"}, {"fake", "x.jsonl"}, {"fake", "--off"}, {"fake", "--mark", "paused"},
 		{"status"}, {"stop"}, {"--release", "stop"}, {"sh", "ls"}, {"sh", "--stdin", "cat"}, {"debian", "--stdin", "cat"},
-		{"nodes"}, {"nodes", "^继续$"}, {"tap-text", "结束"},
+		{"nodes"}, {"nodes", "^继续$"}, {"nodes", "--main"}, {"nodes", "--main", "^图片$"}, {"tap-text", "结束"}, {"tap-text", "--main", "结束"},
 	}
 	for _, argv := range good {
 		if _, err := parse(argv); err != nil {
@@ -28,7 +28,7 @@ func TestParse(t *testing.T) {
 		{}, {"nope"}, {"start", "1"}, {"start", "1", "2"}, {"tap", "1"}, {"tap", "1", "x"}, {"swipe", "1", "2", "3"},
 		{"key", "3; reboot"}, {"prefs"}, {"prefs", "a=b"}, {"prefs-set", "a b=c"}, {"prefs-set", "n:int=x"},
 		{"--release", "prefs-set", "a=b"}, {"--release", "fake", "x"}, {"fake", "--mark"}, {"fake", "x.jsonl", "y"}, {"fake", "--mark", "a b"}, {"sh"}, {"sh", "--stdin"}, {"sh", "a", "b"},
-		{"tap-text"}, {"nodes", "("}, {"--release", "nodes"}, {"status", "extra"},
+		{"tap-text"}, {"tap-text", "--main"}, {"nodes", "--main", "a", "b"}, {"nodes", "("}, {"--release", "nodes"}, {"status", "extra"},
 	}
 	for _, argv := range bad {
 		if _, err := parse(argv); err == nil {
@@ -207,5 +207,15 @@ func TestCommandsTable(t *testing.T) {
 			t.Errorf("%s: 缺说明或执行，或名字重复", s.name)
 		}
 		seen[s.name] = true
+	}
+}
+
+func TestParseMain(t *testing.T) {
+	c, _ := parse([]string{"tap-text", "--main", "^图片$"})
+	if !c.main || c.match.String() != "^图片$" {
+		t.Errorf("tap-text --main: %+v", c)
+	}
+	if c, _ := parse([]string{"nodes", "^--main$"}); c.main {
+		t.Error("--main only counts as the first argument")
 	}
 }

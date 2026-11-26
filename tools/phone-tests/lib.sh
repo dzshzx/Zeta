@@ -93,6 +93,14 @@ send() {
 # 设备忙时脚本慢多少都不影响结果
 mark() { vd fake --mark "$1" >/dev/null; }
 
+# main_shot <文件>：截设备的主屏（测试屏用 vd shot）。screencap -d 要的是物理屏号，先向 SurfaceFlinger 查一次；PNG 经 base64 传回
+MAIN_DISPLAY=''
+main_shot() {
+  [[ -n $MAIN_DISPLAY ]] ||
+    MAIN_DISPLAY=$(android "dumpsys SurfaceFlinger --display-id" | grep -m1 -oE '^Display [0-9]+' | cut -d' ' -f2)
+  android "screencap -d $MAIN_DISPLAY -p | base64" | base64 -d >"$1"
+}
+
 # wait_text <正则> <最多等几秒>：等测试屏上出现文字或说明对得上的控件（vd nodes）；没等到返回 1（要不要截图、退出由脚本定）
 wait_text() {
   local i

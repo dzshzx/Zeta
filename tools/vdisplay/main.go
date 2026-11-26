@@ -34,6 +34,7 @@ type spec struct {
 	local        bool                   // 只在本机做，不碰设备
 	pipesStdin   bool                   // 认 --stdin：把本地的标准输入交给远端
 	devOnly      bool                   // 只给测试版用：带了 --release 就拒绝
+	onMain       bool                   // 认 --main：读、点设备的主屏（屏号 0），不是虚拟屏
 	check        func(c *command) error // 核对参数；只看个数的不写
 	run          func(v *vd, c *command)
 }
@@ -54,14 +55,14 @@ var commands = []spec{
 		run: func(v *vd, c *command) { v.input("text " + shQuote(c.args[0])) }},
 	{name: "key", params: "键码", min: 1, max: 1, check: checkKey, help: "按一个键，比如 KEYCODE_BACK",
 		run: func(v *vd, c *command) { v.input("keyevent " + c.args[0]) }},
-	{name: "nodes", params: "[正则]", max: 1, check: compileMatch, devOnly: true,
-		help: `虚拟屏上看得见、带文字或说明的控件，含 Zeta 自己的悬浮层（胶囊、结果卡片），最上层窗口的在前；
+	{name: "nodes", params: "[--main] [正则]", max: 1, check: compileMatch, devOnly: true, onMain: true,
+		help: `虚拟屏（带 --main 时是设备的主屏，只在模拟器上用：手机的主屏是用户在用的）上看得见、带文字或说明的控件，含 Zeta 自己的悬浮层（胶囊、结果卡片），最上层窗口的在前；
 一行一个：中心 x、y、文字、说明，以制表符分隔。给了正则时只列文字或说明对得上的。
 经测试版自己的无障碍服务读（core/diag/UiNodes），只给测试版用`,
-		run: func(v *vd, c *command) { v.nodes(c.match) }},
-	{name: "tap-text", params: "正则", min: 1, max: 1, check: compileMatch, devOnly: true,
-		help: "点虚拟屏上第一个文字或说明对得上的控件的中心；没有就以退出码 1 失败",
-		run:  func(v *vd, c *command) { v.tapText(c.match) }},
+		run: func(v *vd, c *command) { v.nodes(c.match, c.main) }},
+	{name: "tap-text", params: "[--main] 正则", min: 1, max: 1, check: compileMatch, devOnly: true, onMain: true,
+		help: "点虚拟屏（带 --main 时是主屏）上第一个文字或说明对得上的控件的中心；没有就以退出码 1 失败",
+		run:  func(v *vd, c *command) { v.tapText(c.match, c.main) }},
 	{name: "prefs", params: "键名…", min: 1, max: -1, check: checkPrefs,
 		help: "读 Zeta 设置（shared_prefs/zeta.xml）里这几项，只按键名取，不整份输出",
 		run:  func(v *vd, c *command) { v.prefs(c.args) }},
@@ -118,6 +119,7 @@ type command struct {
 	args    []string
 	release bool
 	stdin   bool           // sh、debian 带了 --stdin
+	main    bool           // nodes、tap-text 带了 --main
 	match   *regexp.Regexp // nodes、tap-text 的正则
 }
 
@@ -147,6 +149,9 @@ func parse(argv []string) (command, error) {
 	}
 	if c.pipesStdin && len(c.args) > 0 && c.args[0] == "--stdin" {
 		c.stdin, c.args = true, c.args[1:]
+	}
+	if c.onMain && len(c.args) > 0 && c.args[0] == "--main" {
+		c.main, c.args = true, c.args[1:]
 	}
 	switch {
 	case len(c.args) < c.min || (c.max >= 0 && len(c.args) > c.max):
