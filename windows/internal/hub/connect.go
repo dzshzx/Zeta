@@ -33,9 +33,6 @@ func (h *Hub) SetConnected(id string, on bool) error {
 	}
 	// 两个方向都换掉连接：开着时连着的要断开，关着时留下的是答已断开的假连接
 	h.dropLinks(id)
-	if on {
-		delete(h.problems, id)
-	}
 	h.Refresh()
 	if here && on {
 		h.reopen(c)
