@@ -89,6 +89,8 @@ import com.dzshzx.zeta.ui.components.miuix.SquircleShape
 import com.dzshzx.zeta.ui.components.miuix.ZetaCorner
 import com.dzshzx.zeta.ui.components.miuix.ZetaIcons
 import com.dzshzx.zeta.ui.markdown.EditorialLineHeightStyle
+import com.dzshzx.zeta.ui.markdown.MarkdownTone
+import com.dzshzx.zeta.ui.markdown.rememberMarkdownStyle
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import top.yukonga.miuix.kmp.basic.HorizontalDivider
@@ -483,6 +485,9 @@ private fun ComposerField(
     focus: FocusRequester,
 ) {
     val colors = MiuixTheme.colorScheme
+    // 配色取回答的 Markdown 样式（它按会变的配色值记忆，切深浅色时跟着换）
+    val answer = rememberMarkdownStyle(MarkdownTone.Answer)
+    val markdown = remember(answer) { ComposerMarkdownStyle(answer) }
     Box(
         modifier =
             Modifier.fillMaxWidth()
@@ -512,6 +517,7 @@ private fun ComposerField(
             modifier = Modifier.fillMaxWidth().focusRequester(focus),
             enabled = enabled,
             textStyle = textStyle,
+            outputTransformation = markdown,
             cursorBrush = SolidColor(colors.primary),
             keyboardOptions = KeyboardOptions(imeAction = ImeAction.Default),
             lineLimits = TextFieldLineLimits.MultiLine(minHeightInLines = 1, maxHeightInLines = 6),

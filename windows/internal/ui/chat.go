@@ -31,6 +31,8 @@ type chatPane struct {
 	connected bool
 
 	draft string
+	// marks 是输入框里 Markdown 的显示样式，按 draft 缓存（composermd.go）。
+	marks draftMarks
 	// failed 是上次操作没成的原因（显示时用 locales.ErrorText 说），下次操作成了或换了对话时清掉。
 	failed error
 	// taking：正在取撤回放回输入框的那条；took 是取过的最后一条（uuid）。

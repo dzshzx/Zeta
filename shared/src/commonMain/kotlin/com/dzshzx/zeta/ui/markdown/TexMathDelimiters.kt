@@ -37,7 +37,7 @@ object TexMathDelimiters {
     }
 
     /** 看完这一行后开着的围栏：没开着时这一行可能开启一个，开着时只有同种、不短于开头、后面没别的字的记号才闭合它。 */
-    private fun fenceAfterLine(open: String?, line: String): String? {
+    internal fun fenceAfterLine(open: String?, line: String): String? {
         val marker = fenceMarker(line)
         if (open == null) return marker
         val closes =

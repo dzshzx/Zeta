@@ -338,11 +338,15 @@ tasks.withType<Test>().configureEach {
         .file(hostScriptFile)
         .withPropertyName("hostScript")
         .withPathSensitivity(PathSensitivity.NONE)
-    // HelperProgramTest 拿安装命令和桌面版那份的对照比：只改了它时也要重跑
+    // 单元测试和 Go 那边对照用的共用用例（client、helper 下的 testdata，如安装命令、输入框的 Markdown 用例、会话记录）：
+    // 只改了用例时也要重跑，新加的用例不用再来这里登记
     inputs
-        .file("../client/hostlink/testdata/install-command.txt")
-        .withPropertyName("installCommand")
-        .withPathSensitivity(PathSensitivity.NONE)
+        .files(
+            fileTree("../client") { include("**/testdata/**") },
+            fileTree("../helper") { include("**/testdata/**") },
+        )
+        .withPropertyName("goTestdata")
+        .withPathSensitivity(PathSensitivity.RELATIVE)
     // zeta-helper、claude-switch 也一样：测试在临时 HOME 上直接跑本机架构的那一份（[com.dzshzx.zeta.core.TestHelper]），
     // 目录经 zeta.programs.<程序名> 传进去
     goPrograms.forEach { (name, task) ->

@@ -4,6 +4,8 @@ import (
 	"strings"
 	"unicode"
 	"unicode/utf8"
+
+	"github.com/dzshzx/Zeta/client/mdmarks"
 )
 
 // mathSource 把回答里的公式写法换成 mygo 的 Markdown 认的，哪些算公式照手机版
@@ -71,7 +73,7 @@ func (s *mathScan) scan() {
 		}
 		line := s.src[start:end]
 		open := fence
-		fence = fenceAfter(open, line)
+		fence = mdmarks.FenceAfter(open, line)
 		switch {
 		case open != "" || fence != "":
 			s.block++ // 围栏的开头、结尾和里面整行跳过
@@ -240,29 +242,6 @@ func startsBlock(line string) bool {
 	return n > 0 && n < len(t) && (t[n] == '.' || t[n] == ')') && (n+1 == len(t) || t[n+1] == ' ')
 }
 
-// fenceAfter 是看完这一行后开着的代码围栏（同手机版 TexMathDelimiters.fenceAfterLine）。
-func fenceAfter(open, line string) string {
-	marker := fenceMarker(line)
-	if open == "" {
-		return marker
-	}
-	if marker != "" && marker[0] == open[0] && len(marker) >= len(open) && strings.TrimSpace(line) == marker {
-		return ""
-	}
-	return open
-}
-
-func fenceMarker(line string) string {
-	t := strings.TrimLeft(line, " ")
-	if len(line)-len(t) > 3 || t == "" || t[0] != '`' && t[0] != '~' {
-		return ""
-	}
-	if run := runOf(t, 0, t[0]); run >= 3 {
-		return t[:run]
-	}
-	return ""
-}
-
 func runOf(s string, i int, c byte) int {
 	n := 0
 	for i+n < len(s) && s[i+n] == c {
@@ -308,7 +287,7 @@ func closeOf(s string, from int, closer byte, blankLines bool) int {
 	for i := from; i < len(s)-1; {
 		switch {
 		case s[i] == '\n':
-			if !blankLines && blankAfter(s, i) || fenceMarker(s[i+1:lineEnd(s, i+1)]) != "" {
+			if !blankLines && blankAfter(s, i) || mdmarks.FenceMarker(s[i+1:lineEnd(s, i+1)]) != "" {
 				return -1
 			}
 			i++

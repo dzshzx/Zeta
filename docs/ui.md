@@ -30,6 +30,8 @@ Miuix 没有的才在 `ui/components/miuix` 补，页面文件里不各写一份
 
 聊天页输入栏的底栏另有 `BarButton`、`BarMenuButton`（`ui/chat/BarButtons.kt`）：只放图标的定宽按钮，一句说明同时当读屏说明和长按提示，配色取 `barChipColors`。底栏不写字，档位、百分比都在这句说明、菜单和用量弹窗里；新按钮放进 `Composer` 的 `tools` 或 `status`，间距由 `Composer` 统一给。
 
+输入框里的 Markdown 只改显示（`ui/chat/ComposerMarkdown.kt`，接在 `outputTransformation` 上）：标记符号留在文字里、调淡，内容显示成加粗、斜体、删除线、等宽代码（行内的带底色，代码块只换字体）、标题、引用、列表，发出去的还是原文。认哪些写法和桌面版共用 `client/mdmarks` 的规则与用例（`testdata/cases.json`），改规则时两边一起改。
+
 ## 设置页
 
 照 Eta 的设置页：首页是一张按「管什么」分组的入口清单，说明文字放进子页。

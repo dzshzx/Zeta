@@ -1,0 +1,415 @@
+[
+  {
+    "spans": [
+      {
+        "at": 4,
+        "kind": "marker",
+        "text": "**"
+      },
+      {
+        "at": 4,
+        "kind": "bold",
+        "text": "**超时时间**"
+      },
+      {
+        "at": 10,
+        "kind": "marker",
+        "text": "**"
+      },
+      {
+        "at": 16,
+        "kind": "marker",
+        "text": "*"
+      },
+      {
+        "at": 16,
+        "kind": "italic",
+        "text": "*30 秒*"
+      },
+      {
+        "at": 21,
+        "kind": "marker",
+        "text": "*"
+      },
+      {
+        "at": 27,
+        "kind": "marker",
+        "text": "`"
+      },
+      {
+        "at": 27,
+        "kind": "code",
+        "text": "`retry_count`"
+      },
+      {
+        "at": 39,
+        "kind": "marker",
+        "text": "`"
+      }
+    ],
+    "text": "帮我把 **超时时间** 改成 *30 秒*，不要动 `retry_count`"
+  },
+  {
+    "spans": [
+      {
+        "at": 0,
+        "kind": "marker",
+        "text": "##"
+      },
+      {
+        "at": 0,
+        "kind": "heading",
+        "text": "## 改一下登录页"
+      },
+      {
+        "at": 10,
+        "kind": "bullet",
+        "text": "-"
+      },
+      {
+        "at": 16,
+        "kind": "marker",
+        "text": "~~"
+      },
+      {
+        "at": 16,
+        "kind": "strike",
+        "text": "~~每次重连~~"
+      },
+      {
+        "at": 22,
+        "kind": "marker",
+        "text": "~~"
+      },
+      {
+        "at": 28,
+        "kind": "marker",
+        "text": "\u003e"
+      },
+      {
+        "at": 28,
+        "kind": "quote",
+        "text": "\u003e 参考上周的讨论"
+      },
+      {
+        "at": 38,
+        "kind": "bullet",
+        "text": "12."
+      }
+    ],
+    "text": "## 改一下登录页\n- 旧逻辑 ~~每次重连~~ 删掉\n\u003e 参考上周的讨论\n12. 第二步"
+  },
+  {
+    "spans": [
+      {
+        "at": 9,
+        "kind": "codeBlock",
+        "text": "```go"
+      },
+      {
+        "at": 9,
+        "kind": "marker",
+        "text": "```go"
+      },
+      {
+        "at": 15,
+        "kind": "codeBlock",
+        "text": "fmt.Println(**x**)"
+      },
+      {
+        "at": 34,
+        "kind": "codeBlock",
+        "text": "```"
+      },
+      {
+        "at": 34,
+        "kind": "marker",
+        "text": "```"
+      },
+      {
+        "at": 41,
+        "kind": "marker",
+        "text": "*"
+      },
+      {
+        "at": 41,
+        "kind": "italic",
+        "text": "*好*"
+      },
+      {
+        "at": 43,
+        "kind": "marker",
+        "text": "*"
+      }
+    ],
+    "text": "这段为什么报错：\n```go\nfmt.Println(**x**)\n```\n后面 *好*"
+  },
+  {
+    "spans": [
+      {
+        "at": 9,
+        "kind": "codeBlock",
+        "text": "~~~"
+      },
+      {
+        "at": 9,
+        "kind": "marker",
+        "text": "~~~"
+      },
+      {
+        "at": 13,
+        "kind": "codeBlock",
+        "text": "*不算*"
+      }
+    ],
+    "text": "还没写完的代码块\n~~~\n*不算*"
+  },
+  {
+    "spans": [
+      {
+        "at": 0,
+        "kind": "marker",
+        "text": "**"
+      },
+      {
+        "at": 0,
+        "kind": "bold",
+        "text": "**a *b* c**"
+      },
+      {
+        "at": 4,
+        "kind": "marker",
+        "text": "*"
+      },
+      {
+        "at": 4,
+        "kind": "italic",
+        "text": "*b*"
+      },
+      {
+        "at": 6,
+        "kind": "marker",
+        "text": "*"
+      },
+      {
+        "at": 9,
+        "kind": "marker",
+        "text": "**"
+      },
+      {
+        "at": 14,
+        "kind": "marker",
+        "text": "__"
+      },
+      {
+        "at": 14,
+        "kind": "bold",
+        "text": "__粗__"
+      },
+      {
+        "at": 17,
+        "kind": "marker",
+        "text": "__"
+      },
+      {
+        "at": 22,
+        "kind": "marker",
+        "text": "_"
+      },
+      {
+        "at": 22,
+        "kind": "italic",
+        "text": "_斜_"
+      },
+      {
+        "at": 24,
+        "kind": "marker",
+        "text": "_"
+      }
+    ],
+    "text": "**a *b* c** 和 __粗__ 和 _斜_"
+  },
+  {
+    "spans": [
+      {
+        "at": 49,
+        "kind": "marker",
+        "text": "`"
+      },
+      {
+        "at": 49,
+        "kind": "code",
+        "text": "`a*b*c`"
+      },
+      {
+        "at": 55,
+        "kind": "marker",
+        "text": "`"
+      },
+      {
+        "at": 59,
+        "kind": "marker",
+        "text": "`"
+      },
+      {
+        "at": 59,
+        "kind": "code",
+        "text": "`代码`"
+      },
+      {
+        "at": 62,
+        "kind": "marker",
+        "text": "`"
+      }
+    ],
+    "text": "snake_case_name 和 2 * 3 * 4 和 \\*转义\\* 和 ** 空 ** 和 `a*b*c` *跨`代码`*"
+  },
+  {
+    "spans": [],
+    "text": "#不是标题 和 ###### 是标题\n####### 不是"
+  },
+  {
+    "spans": [
+      {
+        "at": 2,
+        "kind": "marker",
+        "text": "**"
+      },
+      {
+        "at": 2,
+        "kind": "bold",
+        "text": "**表情后面**"
+      },
+      {
+        "at": 8,
+        "kind": "marker",
+        "text": "**"
+      }
+    ],
+    "text": "😀 **表情后面** 也对"
+  },
+  {
+    "spans": [
+      {
+        "at": 0,
+        "kind": "codeBlock",
+        "text": "````md"
+      },
+      {
+        "at": 0,
+        "kind": "marker",
+        "text": "````md"
+      },
+      {
+        "at": 7,
+        "kind": "codeBlock",
+        "text": "```go"
+      },
+      {
+        "at": 13,
+        "kind": "codeBlock",
+        "text": "不关"
+      },
+      {
+        "at": 16,
+        "kind": "codeBlock",
+        "text": "```"
+      },
+      {
+        "at": 20,
+        "kind": "codeBlock",
+        "text": "````"
+      },
+      {
+        "at": 20,
+        "kind": "marker",
+        "text": "````"
+      },
+      {
+        "at": 28,
+        "kind": "marker",
+        "text": "**"
+      },
+      {
+        "at": 28,
+        "kind": "bold",
+        "text": "**粗**"
+      },
+      {
+        "at": 31,
+        "kind": "marker",
+        "text": "**"
+      }
+    ],
+    "text": "````md\n```go\n不关\n```\n````\n外面 **粗**"
+  },
+  {
+    "spans": [
+      {
+        "at": 0,
+        "kind": "codeBlock",
+        "text": "```"
+      },
+      {
+        "at": 0,
+        "kind": "marker",
+        "text": "```"
+      },
+      {
+        "at": 4,
+        "kind": "codeBlock",
+        "text": "```go 不算闭合"
+      },
+      {
+        "at": 15,
+        "kind": "codeBlock",
+        "text": "```"
+      },
+      {
+        "at": 15,
+        "kind": "marker",
+        "text": "```"
+      }
+    ],
+    "text": "```\n```go 不算闭合\n```"
+  },
+  {
+    "spans": [
+      {
+        "at": 2,
+        "kind": "marker",
+        "text": "``"
+      },
+      {
+        "at": 2,
+        "kind": "code",
+        "text": "``a`b``"
+      },
+      {
+        "at": 7,
+        "kind": "marker",
+        "text": "``"
+      },
+      {
+        "at": 12,
+        "kind": "marker",
+        "text": "``"
+      },
+      {
+        "at": 12,
+        "kind": "code",
+        "text": "`` ` ``"
+      },
+      {
+        "at": 17,
+        "kind": "marker",
+        "text": "``"
+      }
+    ],
+    "text": "用 ``a`b`` 和 `` ` `` 还有 ``没关"
+  },
+  {
+    "spans": [],
+    "text": "*a *a *a *a"
+  }
+]

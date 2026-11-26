@@ -34,6 +34,7 @@ func (a *App) composer(c *ui.Context, p *chatPane) {
 		_, natural := c.MeasureText(0, ui.Span{Text: "M", Size: composerFontSize})
 		in := ui.TextAreaBase(c.Key("draft"), &p.draft).Placeholder(hint).PlaceholderColor(k.Tertiary).Label(locales.ComposerMessage()).FillWidth().
 			Lines(composerMinLines, composerMaxLines(winH, natural)).Padding(5, 6).FontSize(composerFontSize).LineHeight(composerLeading).Disabled(!ready).
+			TextRanges(p.marks.of(k, p.draft)...).
 			OnPaste(func(string) bool { return a.paste(c, p) }).
 			OnTextKey(func(tk ui.TextKey) bool {
 				if a.slashKey(p, tk) {
