@@ -40,8 +40,9 @@ func startShell(h *harness, command string) (*Conversation, *fakeLink, string) {
 	return c, l, cmds[0]["uuid"].(string)
 }
 
-// ! 命令：Claude Code 回放出输出时，命令和输出照原样作为 shouldQuery 为假的用户消息交回去并进上下文；
-// 它们的 lifecycle、init 和 result 不算一轮，不改忙闲、不推一轮的起止，init 报的会话号照记。
+// ! 命令：Claude Code 回放出输出时，照终端版把命令和输出交回去：命令那行 shouldQuery 为假，只并进上下文，
+// 它的 lifecycle、init 和 result 不算一轮，不改忙闲、不推一轮的起止，init 报的会话号照记；
+// 输出那行是普通的用户消息，模型照它回一轮，这一轮照常开始、结束。
 func TestShellCommandJoinsContext(t *testing.T) {
 	h := newHarness(t)
 	c, l, id := startShell(h, "echo hi")
@@ -56,19 +57,34 @@ func TestShellCommandJoinsContext(t *testing.T) {
 	if len(users) != 2 {
 		t.Fatalf("交回去的：%v", users)
 	}
-	turns, items := len(h.client(1).turns), h.texts(1)
-	for i, want := range []string{input, output} {
-		u := users[i]
-		if u["shouldQuery"] != false || u["message"].(map[string]any)["content"] != want {
-			t.Fatalf("第 %d 条交回去的：%v", i, u)
-		}
-		h.feed(c, l, noteEvents("s1", u["uuid"].(string))...)
-		if h.state(1, "busy") != false {
-			t.Fatalf("交回上下文的第 %d 条让对话忙了", i)
-		}
+	note, ask := users[0], users[1]
+	if note["shouldQuery"] != false || note["message"].(map[string]any)["content"] != input {
+		t.Fatalf("命令那行：%v", note)
 	}
-	if h.state(1, "session") != "s1" || len(h.client(1).turns) != turns || !reflect.DeepEqual(h.texts(1), items) {
-		t.Fatalf("会话 %v，一轮的起止 %v，条目 %v（原来 %v）", h.state(1, "session"), h.client(1).turns[turns:], h.texts(1), items)
+	if _, set := ask["shouldQuery"]; set || ask["message"].(map[string]any)["content"] != output {
+		t.Fatalf("输出那行：%v", ask)
+	}
+	turns, items := len(h.client(1).turns), h.texts(1)
+	h.feed(c, l, noteEvents("s1", note["uuid"].(string))...)
+	if h.state(1, "busy") != false || h.state(1, "session") != "s1" || len(h.client(1).turns) != turns || !reflect.DeepEqual(h.texts(1), items) {
+		t.Fatalf("命令那行：忙 %v，会话 %v，一轮的起止 %v，条目 %v（原来 %v）", h.state(1, "busy"), h.state(1, "session"),
+			h.client(1).turns[turns:], h.texts(1), items)
+	}
+	askID := ask["uuid"].(string)
+	h.feed(c, l, lifecycle(askID, "queued"), lifecycle(askID, "started"), initLine("s1"))
+	if h.state(1, "busy") != true {
+		t.Fatal("输出交回去以后没开始回答")
+	}
+	h.feed(c, l, answerLines("m1", "看到了")...)
+	h.feed(c, l, resultFor(askID), lifecycle(askID, "completed"))
+	if h.state(1, "busy") != false {
+		t.Fatal("回答完了还在忙")
+	}
+	if ts := h.client(1).turns; ts[len(ts)-1]["outcome"] != "done" {
+		t.Fatalf("一轮的起止：%v", ts)
+	}
+	if got := h.texts(1); got[len(got)-1] != "answer:看到了" {
+		t.Fatalf("条目：%v", got)
 	}
 	if v, _ := c.Call(func() (any, error) { return len(c.contextNotes), nil }); v != 0 {
 		t.Fatalf("记号没收掉：%v", v)

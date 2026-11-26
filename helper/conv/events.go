@@ -192,7 +192,7 @@ func (c *Conversation) handleInit(e event) {
 	c.sendNow = slices.Contains(e.Capabilities, "interrupt_send_now_v1")
 	// 每一轮开头都有 init。闲着时来的是 Claude Code 自己起的一轮：后台任务跑完（或后台子代理交回结果）后
 	// 它会接着处理，这一轮没有 Zeta 发的消息，也没有 command_lifecycle，同样以 result 结束。
-	// 交回去只进上下文的 ! 命令和输出也各有一个 init（带它们的 uuid），它们不算一轮
+	// 交回去只进上下文的 ! 命令那一行也有一个 init（带它的 uuid），它不算一轮
 	if !c.onlyContextNotes(e.UserMessageUUIDs) {
 		c.setBusy()
 	}
@@ -263,10 +263,11 @@ func (c *Conversation) handleLifecycle(e event) bool {
 	return false
 }
 
-// shellIntoContext 把 ! 命令和它的输出照终端版并进上下文：终端里两行都是会话记录里的用户消息，下一轮模型看得到；
-// stream-json 的 bash_command 只回放给客户端看，不进上下文、不写会话记录（2.1.330，ClaudeInteractionContractTest 钉住，
-// 那边改成自己并进上下文时那个用例失败，这段连同 contextNotes 一起删掉）。等到输出时把回放的两行原样交回去，
-// shouldQuery 为假：只并进上下文和会话记录，不请求模型；各出一个 num_turns 为 0 的 result，不算一轮。
+// shellIntoContext 照终端版处理 ! 命令的结果：终端里命令和输出是会话记录里的两条用户消息，写完接着请求模型，
+// 模型看了输出回一轮（2.1.332 终端实测）。stream-json 的 bash_command 只回放给客户端看，不进上下文、不写会话记录、
+// 不请求模型（2.1.330，ClaudeInteractionContractTest 钉住，那边改成自己并进上下文时那个用例失败，这段连同
+// contextNotes 一起删掉）。所以等到输出时把回放的两行原样交回去：命令那行 shouldQuery 为假，只并进上下文和会话记录，
+// 出一个 num_turns 为 0 的 result，不算一轮；输出那行是普通的用户消息，模型照它回一轮（回答进行中时并进那一轮）。
 func (c *Conversation) shellIntoContext(text string) {
 	if strings.HasPrefix(strings.TrimSpace(text), "<bash-input>") {
 		c.shellInput = text
@@ -277,17 +278,16 @@ func (c *Conversation) shellIntoContext(text string) {
 	if input == "" {
 		return
 	}
-	for _, line := range []string{input, text} {
-		id := newUUID()
-		c.contextNotes[id] = true
-		m := userMessage(id, line)
-		m["shouldQuery"] = false
-		b, _ := json.Marshal(m)
-		c.proc.link.Send(b)
-	}
+	id := newUUID()
+	c.contextNotes[id] = true
+	m := userMessage(id, input)
+	m["shouldQuery"] = false
+	b, _ := json.Marshal(m)
+	c.proc.link.Send(b)
+	c.proc.link.Send(userLine(newUUID(), text))
 }
 
-// onlyContextNotes：这个 init 或 result 是不是只为交回去进上下文的 ! 命令或输出出的。和别的消息并成一轮的不算。
+// onlyContextNotes：这个 init 或 result 是不是只为交回去进上下文的 ! 命令那一行出的。和别的消息并成一轮的不算。
 func (c *Conversation) onlyContextNotes(ids []string) bool {
 	return len(ids) > 0 && !slices.ContainsFunc(ids, func(id string) bool { return !c.contextNotes[id] })
 }

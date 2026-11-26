@@ -65,7 +65,7 @@ type Conversation struct {
 	interruptRequested bool
 	shellCommands      map[string]bool // 在跑的 ! 命令（bash_command 的 uuid）：它们没有 result
 	shellInput         string          // 回放出来、还没等到输出的 ! 命令那一行（<bash-input>…）
-	contextNotes       map[string]bool // 交回去只进上下文的 ! 命令和输出（shouldQuery 为假的用户消息的 uuid）：它们不算一轮
+	contextNotes       map[string]bool // 交回去只进上下文的 ! 命令那一行（shouldQuery 为假的用户消息的 uuid）：它不算一轮
 	unsent             []*outgoing     // 交给了新起的进程、还没见它有任何输出的消息
 	prompts            []*prompt.Prompt
 	launchHint         string
