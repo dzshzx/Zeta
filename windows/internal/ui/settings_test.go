@@ -191,24 +191,29 @@ func TestDevicePageOpensItsAccounts(t *testing.T) {
 	f.clickButton(t, "lab", 0)
 	f.see(t, "账号与额度", "检查连接")
 	f.click(t, "账号与额度")
-	if f.app.page != pageAccounts || f.app.device != hosts[1].ID {
+	if f.app.page != pageDevice || f.app.acct == nil || f.app.device != hosts[1].ID {
 		t.Fatalf("page %q, device %q", f.app.page, f.app.device)
 	}
 	f.until(t, "账号页读完", func() bool { return f.shows("b@example.com") && f.shows("每周 · 全部模型") })
 	f.see(t, "lab · 账号与额度", "订阅额度", "每周 · 全部模型", "当前", "切换", "刷新")
 	f.notSee(t, "Esc") // 这里 Esc 回设备页，「返回应用」旁边不标
 
-	// 返回键和 Esc 都回到那台的设备页，设备页上再按 Esc 才回到对话
+	// 返回键和 Esc 都回到那台的设备页（设备页的状态留着，不重新读），设备页上再按 Esc 才回到对话
+	cfg := f.app.cfg
 	f.click(t, "返回")
-	if f.app.page != pageDevice || f.app.device != hosts[1].ID {
+	if f.app.page != pageDevice || f.app.acct != nil || f.app.device != hosts[1].ID {
 		t.Fatalf("返回到了 page %q, device %q", f.app.page, f.app.device)
 	}
+	if f.app.cfg != cfg {
+		t.Fatal("返回设备页时重建了设备页")
+	}
+	f.see(t, "检查连接")
 	f.see(t, "Esc")
 	f.click(t, "账号与额度")
 	f.tt.Key(0, ui.KeyEscape)
 	f.tt.Frame()
-	if f.app.page != pageDevice {
-		t.Fatalf("Esc 以后在 %q", f.app.page)
+	if f.app.page != pageDevice || f.app.acct != nil {
+		t.Fatalf("Esc 以后在 %q，账号页开着：%v", f.app.page, f.app.acct != nil)
 	}
 	f.tt.Key(0, ui.KeyEscape)
 	f.tt.Frame()

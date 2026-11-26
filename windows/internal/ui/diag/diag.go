@@ -146,14 +146,14 @@ func (p *Page) Nested() bool { return p.open != nil || p.log.open }
 
 // Back 从看文件、看运行日志回到清单；都没在看时返回假（设置页拿 Esc 的时候用）。
 func (p *Page) Back() bool {
-	switch {
-	case p.open != nil:
+	if p.open != nil {
 		p.open = nil
-	case p.log.open:
-		p.log.open = false
-	default:
+		return true
+	}
+	if !p.Nested() {
 		return false
 	}
+	p.log.open = false
 	return true
 }
 

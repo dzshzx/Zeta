@@ -47,6 +47,7 @@ type editing struct {
 func (a *App) startEditing() {
 	x, _ := a.hub.Host(a.device)
 	a.edit = editing{name: x.CustomName, cwd: x.DefaultCwd}
+	a.acct = nil
 	a.startDeviceConfig(x)
 }
 
@@ -70,6 +71,10 @@ func (a *App) devicePage(c *ui.Context) {
 	x, ok := a.hub.Host(a.device)
 	if !ok {
 		a.open(pageSettings)
+		return
+	}
+	if a.acct != nil {
+		a.accountsPage(c, x)
 		return
 	}
 	if a.cfg != nil && a.cfg.Open() {
@@ -148,7 +153,7 @@ func (a *App) accountsEntry(c *ui.Context, x sshlink.Host) {
 		row := widget.Row{Title: locales.SettingsAccounts(), Value: a.accountsHint(c, x)}
 		if a.hub.Remote(x.ID) != nil {
 			row.Arrow = true
-			row.OnClick = func() { a.open(pageAccounts) }
+			row.OnClick = a.openAccounts
 		}
 		l.Row(row)
 	})

@@ -41,7 +41,7 @@ func (a *App) startAdding() {
 
 // devicesPage 是添加远程设备：私钥、从 SSH 配置导入、手动添加。加好的各台列在设置页上。
 func (a *App) devicesPage(c *ui.Context) {
-	a.subPage(c, locales.DevicesTitle(), "devices", func() { a.addSection(c) })
+	a.subPage(c, locales.DevicesTitle(), "devices", nil, func() { a.addSection(c) })
 }
 
 // addSection 是添加设备：私钥、从 SSH 配置导入、手动添加。

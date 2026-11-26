@@ -48,29 +48,25 @@ func (a *App) inSettings() bool { return a.page != pageHome && a.page != pageTas
 // leaveSettings 回到对话。
 func (a *App) leaveSettings() { a.page = pageHome }
 
-// escapeSettings 是设置里按 Esc：诊断页点开着一个日志文件时先回到清单，账号页同它的返回键，别的时候回到对话。
+// escapeSettings 是设置里按 Esc：页里点开着一层时先退回那一层（escBack），别的时候回到对话。
 func (a *App) escapeSettings() {
-	switch {
-	case a.page == pageAccounts:
-		a.accountsBack()
-	case a.page == pageDiag && a.diag != nil:
-		if !a.diag.Back() {
-			a.leaveSettings()
-		}
-	default:
-		a.leaveSettings()
+	if back := a.escBack(); back != nil {
+		back()
+		return
 	}
+	a.leaveSettings()
 }
 
-// escLeaves：这时按 Esc 回到对话（同 escapeSettings 的判断）。「返回应用」旁边只在这时标 Esc。
-func (a *App) escLeaves() bool {
+// escBack 是这时按 Esc 先退回的那一层：设备页里开着账号与额度、诊断页点开着日志；没有时是 nil，Esc 回到对话，
+// 「返回应用」旁边也只在这时标 Esc。
+func (a *App) escBack() func() {
 	switch {
-	case a.page == pageAccounts:
-		return false
-	case a.page == pageDiag && a.diag != nil:
-		return !a.diag.Nested()
+	case a.page == pageDevice && a.acct != nil:
+		return a.accountsBack
+	case a.page == pageDiag && a.diag != nil && a.diag.Nested():
+		return func() { a.diag.Back() }
 	}
-	return true
+	return nil
 }
 
 // settingsNav 是在设置里时的侧栏：顶上一行「返回应用」同时是标题栏，下面一类一行，选中的那类是白底。
@@ -78,7 +74,7 @@ func (a *App) settingsNav(c *ui.Context) {
 	k := widget.Of(c)
 	c.OnWindowShortcut(0, ui.KeyEscape, a.escapeSettings)
 	esc := ""
-	if a.escLeaves() {
+	if a.escBack() == nil {
 		esc = "Esc"
 	}
 	ui.Column(c).Fill().Background(k.Sidebar).Children(func() {
@@ -96,8 +92,7 @@ func (a *App) settingsCategories(c *ui.Context) {
 	widget.NavItem(c, widget.IconSettings, locales.SettingsGeneral(), "", a.page == pageSettings).OnClick(func() { a.open(pageSettings) })
 	navTitle(c, locales.SettingsDevices())
 	for _, x := range a.hub.Hosts() {
-		selected := (a.page == pageDevice || a.page == pageAccounts) && a.device == x.ID
-		widget.NavItem(c.Key("device/"+x.ID), widget.IconServer, x.Name(), a.accountsHint(c, x), selected).
+		widget.NavItem(c.Key("device/"+x.ID), widget.IconServer, x.Name(), a.accountsHint(c, x), a.page == pageDevice && a.device == x.ID).
 			OnClick(func() {
 				a.device = x.ID
 				a.open(pageDevice)
@@ -140,7 +135,7 @@ func navTitle(c *ui.Context, title string) {
 
 // settingsPage 是设置的「常规」：外观、对话、快捷键。
 func (a *App) settingsPage(c *ui.Context) {
-	a.subPage(c, locales.SettingsGeneral(), "settings", func() {
+	a.subPage(c, locales.SettingsGeneral(), "settings", nil, func() {
 		a.appearanceSection(c)
 		a.chatSection(c)
 		shortcutsSection(c)
@@ -247,29 +242,22 @@ func (a *App) dark(system bool) bool {
 	return system
 }
 
-// subPage 是设置的一页：顶上标题（同时是标题栏），下面是 fn 画的、能滚动的卡片。
-func (a *App) subPage(c *ui.Context, title, key string, fn func()) {
-	widget.Header(c, title, nil)
+// subPage 是设置的一页：顶上标题（同时是标题栏；back 不为空时带返回键），下面是 fn 画的、能滚动的卡片。
+func (a *App) subPage(c *ui.Context, title, key string, back, fn func()) {
+	widget.Header(c, title, back)
 	widget.Body(c, key, fn)
 }
 
-// startAccounts 打开 a.device 那台的账号与额度页。
-func (a *App) startAccounts() {
-	r := a.hub.Remote(a.device)
-	if r == nil {
-		a.acct = nil
-		return
+// openAccounts 在设备页里打开 a.device 那台的账号与额度；「连接」关着（没有 serve 连接）时不开。
+func (a *App) openAccounts() {
+	if r := a.hub.Remote(a.device); r != nil {
+		a.acct = &uiacct.Page{Accounts: r.Accounts, Quota: r.Quota}
 	}
-	a.acct = &uiacct.Page{Accounts: r.Accounts, Quota: r.Quota}
 }
 
-// accountsPage 是一台的账号与额度，设备页里的一页：返回键和 Esc 回到设备页（在编辑中转时先回到账号页）。几台设备时标题带设备名。
-func (a *App) accountsPage(c *ui.Context) {
-	x, ok := a.hub.Host(a.device)
-	if !ok || a.acct == nil {
-		a.open(pageSettings)
-		return
-	}
+// accountsPage 是一台的账号与额度，设备页里的一层（a.acct 不为空时设备页画它）：返回键和 Esc 回到设备页，
+// 在编辑中转时先回到账号页。几台设备时标题带设备名。
+func (a *App) accountsPage(c *ui.Context, x sshlink.Host) {
 	title := locales.SettingsAccounts()
 	switch {
 	case a.acct.Title() != "": // 在编辑中转
@@ -277,21 +265,19 @@ func (a *App) accountsPage(c *ui.Context) {
 	case len(a.hub.Hosts()) > 1:
 		title = locales.SettingsAccountsOnDevice(x.Name())
 	}
-	widget.Header(c, title, a.accountsBack)
-	widget.Body(c, "accounts", func() { a.acct.View(c) })
+	a.subPage(c, title, "accounts", a.accountsBack, func() { a.acct.View(c) })
 }
 
-// accountsBack 是账号页的返回：在编辑中转时回到账号页，不然回到那台的设备页。
+// accountsBack 是账号页的返回：在编辑中转时回到账号页，不然回到设备页（设备页的状态还在，不重新读）。
 func (a *App) accountsBack() {
-	if a.acct != nil && a.acct.Back() {
-		return
+	if !a.acct.Back() {
+		a.acct = nil
 	}
-	a.open(pageDevice)
 }
 
 // aboutPage 是关于：版本、检查更新、新版本的下载安装、开源许可。
 func (a *App) aboutPage(c *ui.Context) {
-	a.subPage(c, locales.SettingsAbout(), "about", func() {
+	a.subPage(c, locales.SettingsAbout(), "about", nil, func() {
 		a.About.View(c)
 		ui.Text(c, locales.SettingsUnofficial()).FontSize(widget.SizeBodyXS).LineHeight(1.4).TextColor(widget.Of(c).Secondary).Padding(0, 32)
 	})

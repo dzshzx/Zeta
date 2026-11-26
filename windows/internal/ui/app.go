@@ -23,9 +23,8 @@ import (
 const (
 	pageHome     = ""
 	pageSettings = "settings"
-	pageDevices  = "devices"  // 添加远程设备
-	pageDevice   = "device"   // App.device 那一台
-	pageAccounts = "accounts" // App.device 那一台的账号与额度
+	pageDevices  = "devices" // 添加远程设备
+	pageDevice   = "device"  // App.device 那一台
 	pageAbout    = "about"
 	pageDiag     = "diag" // 诊断：Zeta 的运行日志、环境，各台设备上 Claude Code 的日志
 )
@@ -38,7 +37,7 @@ type App struct {
 	now  func() time.Time
 
 	page   string
-	device string // pageDevice、pageAccounts 时看的那台
+	device string // pageDevice 时看的那台
 	shown  string // 上一帧画的那一页（离开设备页时把改过的设置交给开着的对话）
 
 	cfg        *claudecfg.Page         // 设备页上那台的 Claude Code 配置
@@ -168,8 +167,6 @@ func (a *App) View(c *ui.Context) {
 				a.devicesPage(c)
 			case a.page == pageDevice:
 				a.devicePage(c)
-			case a.page == pageAccounts:
-				a.accountsPage(c)
 			case a.page == pageAbout:
 				a.aboutPage(c)
 			case a.page == pageDiag:
@@ -220,8 +217,6 @@ func (a *App) open(page string) {
 		a.startAdding()
 	case pageDevice:
 		a.startEditing()
-	case pageAccounts:
-		a.startAccounts()
 	case pageDiag:
 		a.startDiag()
 	}

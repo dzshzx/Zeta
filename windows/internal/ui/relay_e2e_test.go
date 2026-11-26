@@ -42,7 +42,8 @@ func TestRelayThroughServe(t *testing.T) {
 	r := f.hub.Remote(f.host.ID)
 	f.until(t, "读到账号", func() bool { _, ok := r.Accounts.State(); return ok || r.Accounts.Problem() != "" })
 	f.app.device = f.host.ID
-	f.app.open(pageAccounts)
+	f.app.open(pageDevice)
+	f.app.openAccounts()
 	f.until(t, "账号页", func() bool { return f.shows("添加中转") && !r.Quota.Refreshing() })
 
 	f.click(t, "添加中转")

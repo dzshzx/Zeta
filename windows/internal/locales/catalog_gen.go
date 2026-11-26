@@ -9050,13 +9050,13 @@ func (msgs Messages) SettingsAddDevice() string {
 // SettingsAccounts says "账号与额度"
 // in the language the app shows.
 //
-// 设置侧栏里各台账号与额度上面的小标题，也是只有一台设备时账号与额度页的标题。
+// 设备页里进账号与额度的那一行，也是只有一台设备时账号与额度页的标题。
 func SettingsAccounts() string { return In(i18n.Locale()).SettingsAccounts() }
 
 // SettingsAccounts says "账号与额度"
 // in the language of msgs.
 //
-// 设置侧栏里各台账号与额度上面的小标题，也是只有一台设备时账号与额度页的标题。
+// 设备页里进账号与额度的那一行，也是只有一台设备时账号与额度页的标题。
 func (msgs Messages) SettingsAccounts() string {
 	return Catalog.Format(msgs.locale, "settingsAccounts", nil)
 }
@@ -9122,13 +9122,13 @@ func (msgs Messages) SettingsUpdateHint(version string) string {
 // SettingsQuotaUsed says "已用 {percent}%"
 // in the language the app shows.
 //
-// 设置侧栏一台设备的账号与额度右边的小字：最要紧的额度窗口用了多少。
+// 设置侧栏一台设备右边、设备页「账号与额度」一行右边的小字：最要紧的额度窗口用了多少。
 func SettingsQuotaUsed(percent int) string { return In(i18n.Locale()).SettingsQuotaUsed(percent) }
 
 // SettingsQuotaUsed says "已用 {percent}%"
 // in the language of msgs.
 //
-// 设置侧栏一台设备的账号与额度右边的小字：最要紧的额度窗口用了多少。
+// 设置侧栏一台设备右边、设备页「账号与额度」一行右边的小字：最要紧的额度窗口用了多少。
 func (msgs Messages) SettingsQuotaUsed(percent int) string {
 	return Catalog.Format(msgs.locale, "settingsQuotaUsed", map[string]any{"percent": percent})
 }
@@ -15166,13 +15166,13 @@ func (msgs Messages) AccountsRelaySwitchMessage() string {
 // SettingsAccountsRelay says "中转 {name}"
 // in the language the app shows.
 //
-// 设置侧栏一台设备的账号与额度右边的小字：这台在用中转。
+// 设置侧栏一台设备右边、设备页「账号与额度」一行右边的小字：这台在用中转。
 func SettingsAccountsRelay(name string) string { return In(i18n.Locale()).SettingsAccountsRelay(name) }
 
 // SettingsAccountsRelay says "中转 {name}"
 // in the language of msgs.
 //
-// 设置侧栏一台设备的账号与额度右边的小字：这台在用中转。
+// 设置侧栏一台设备右边、设备页「账号与额度」一行右边的小字：这台在用中转。
 func (msgs Messages) SettingsAccountsRelay(name string) string {
 	return Catalog.Format(msgs.locale, "settingsAccountsRelay", map[string]any{"name": name})
 }

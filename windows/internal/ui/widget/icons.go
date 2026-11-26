@@ -48,10 +48,9 @@ var (
 	IconFavorites = icon("favorites")
 	IconLink      = icon("link")
 	IconPin       = icon("pin")
-	IconUnfold    = icon("unfold")        // 下拉值旁边的上下箭头（照 COUI 下拉行的样子画的）
-	IconContacts  = icon("contacts-book") // 设置里的账号与额度
-	IconTheme     = icon("theme")         // 设置里的外观
-	IconDownload  = icon("download")      // 看大图的保存
+	IconUnfold    = icon("unfold")   // 下拉值旁边的上下箭头（照 COUI 下拉行的样子画的）
+	IconTheme     = icon("theme")    // 设置里的外观
+	IconDownload  = icon("download") // 看大图的保存
 )
 
 // Zeta 自己画的：

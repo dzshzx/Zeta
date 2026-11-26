@@ -3502,7 +3502,7 @@
   },
   "settingsAccounts": "账号与额度",
   "@settingsAccounts": {
-    "description": "设置侧栏里各台账号与额度上面的小标题，也是只有一台设备时账号与额度页的标题。"
+    "description": "设备页里进账号与额度的那一行，也是只有一台设备时账号与额度页的标题。"
   },
   "settingsAccountsOnDevice": "{device} · 账号与额度",
   "@settingsAccountsOnDevice": {
@@ -3534,7 +3534,7 @@
   },
   "settingsQuotaUsed": "已用 {percent}%",
   "@settingsQuotaUsed": {
-    "description": "设置侧栏一台设备的账号与额度右边的小字：最要紧的额度窗口用了多少。",
+    "description": "设置侧栏一台设备右边、设备页「账号与额度」一行右边的小字：最要紧的额度窗口用了多少。",
     "placeholders": {
       "percent": {
         "type": "int",
@@ -6067,7 +6067,7 @@
   },
   "settingsAccountsRelay": "中转 {name}",
   "@settingsAccountsRelay": {
-    "description": "设置侧栏一台设备的账号与额度右边的小字：这台在用中转。",
+    "description": "设置侧栏一台设备右边、设备页「账号与额度」一行右边的小字：这台在用中转。",
     "placeholders": {
       "name": {
         "type": "String"
