@@ -45,7 +45,8 @@ sealed interface HelperResult {
  *
  * 程序不随每条命令传过去：第一次用时装到那边用户的 `~/.cache/<目录名>/bin/<程序名>-<版本>`（[relativePath]），之后的命令直接执行装好的。 [command]
  * 先看装没装，没装就报出那台机器的 CPU 架构、以 [MISSING] 退出；[run] 这才把对应的一份经标准输入传过去装上
- * （[install]），再跑一次。版本是两份程序内容的哈希，应用升级换了程序就装新的、删掉同名程序的旧版本。 两个命令同时去装也不要紧：各自写自己的临时文件，核对完整再改名。
+ * （[install]），再跑一次。版本是两份程序内容的哈希，应用升级换了程序就装新的、删掉同名程序更早的版本（留最近装的 [KEPT_VERSIONS] 份）。
+ * 两个命令同时去装也不要紧：各自写自己的临时文件，核对完整再改名。
  */
 class HelperProgram(
     private val read: (String) -> ByteArray,
@@ -135,13 +136,13 @@ class HelperProgram(
     }
 
     /**
-     * 把经标准输入传来的程序 [binary] 装上：写进同一目录下的临时文件，核对哈希（传到一半断了的不装），改名成正式的名字， 再删掉这个程序别的版本（别的程序的不动）， 最后让不带版本的
-     * `<程序名>` 链接指向它：Zeta 之外要调它的（电脑那边 tmux 窗口里的 zeta-helper desk、Claude Code 的 SessionStart
-     * hook）用这个固定的名字。
+     * 把经标准输入传来的程序 [binary] 装上：写进同一目录下的临时文件，核对哈希（传到一半断了的不装），改名成正式的名字， 再删掉这个程序更早的版本、只留最近装的
+     * [KEPT_VERSIONS] 份（别的程序的不动）， 最后让不带版本的 `<程序名>` 链接指向它：Zeta 之外要调它的（电脑那边 tmux 窗口里的 zeta-helper
+     * desk、Claude Code 的 SessionStart hook）用这个固定的名字。
      */
     fun installCommand(binary: ByteArray): String {
         val sha = hex(MessageDigest.getInstance("SHA-256").digest(binary))
-        // 和桌面版 client/hostlink 的 InstallCommand 是同一段命令（链接为什么先建在临时名字上见那里），两份都要拼成
+        // 和桌面版 client/hostlink 的 InstallCommand 是同一段命令（为什么留两份、链接为什么先建在临时名字上见那里），两份都要拼成
         // client/hostlink/testdata/install-command.txt（HelperProgramTest 核对）
         val link =
             if (name == ZETA_HELPER)
@@ -149,7 +150,7 @@ class HelperProgram(
             else ""
         return "d=$directory; mkdir -p \"\$d\" && t=\$(mktemp \"\$d/${tempPrefix(name)}.XXXXXX\") || exit 1; " +
             "if cat > \"\$t\" && [ \"\$(sha256sum < \"\$t\")\" = \"$sha  -\" ] && chmod 755 \"\$t\" && mv -f \"\$t\" $file; then " +
-            "for o in \"\$d\"/$name-*; do [ \"\$o\" = $file ] || rm -f \"\$o\"; done; " +
+            "ls -t \"\$d\"/$name-* | tail -n +${KEPT_VERSIONS + 1} | while read -r o; do [ \"\$o\" = $file ] || rm -f \"\$o\"; done; " +
             link +
             "else rm -f \"\$t\"; echo '$name 没有完整传过去' >&2; exit 1; fi"
     }
@@ -172,6 +173,9 @@ class HelperProgram(
         /** APK 里带的程序：名字也是 assets 里的目录名和装好的文件名的前缀，彼此不能是对方的前缀（装新版时按前缀删旧版）。 */
         const val ZETA_HELPER = "zeta-helper"
         const val CLAUDE_SWITCH = "claude-switch"
+
+        /** 装新版时每个程序留几份（连刚装的在内，按装的先后留最近的；同 client/hostlink 的 KeptVersions）。 */
+        const val KEPT_VERSIONS = 2
 
         /** 没装时 [command] 的退出码；标准错误里有一行 `<程序名>-missing` 加 `uname -m`。 */
         const val MISSING = 97

@@ -85,7 +85,15 @@ func TestPosixZone(t *testing.T) {
 func TestHelperInstallsOnceByContentHash(t *testing.T) {
 	b := newBox(t)
 	program := testHelper()
-	stale := b.file(t, ".cache/"+testName+"/bin/zeta-helper-0123456789abcdef", "old", 0o755)
+	// 两份旧版本：装完留最近装的 KeptVersions 份（连新装的），删掉装得最早的
+	oldest := b.file(t, ".cache/"+testName+"/bin/zeta-helper-0123456789abcdef", "oldest", 0o755)
+	older := b.file(t, ".cache/"+testName+"/bin/zeta-helper-fedcba9876543210", "older", 0o755)
+	for path, age := range map[string]time.Duration{oldest: 2 * time.Hour, older: time.Hour} {
+		at := time.Now().Add(-age)
+		if err := os.Chtimes(path, at, at); err != nil {
+			t.Fatal(err)
+		}
+	}
 	other := b.file(t, ".cache/"+testName+"/bin/claude-switch-0123456789abcdef", "other program", 0o755)
 	b.session(t, "11111111-2222-3333-4444-555555555555", "你好")
 	out, err := b.shell.Helper(program, 30*time.Second, "list")
@@ -97,8 +105,11 @@ func TestHelperInstallsOnceByContentHash(t *testing.T) {
 	if err != nil || info.Mode().Perm() != 0o755 {
 		t.Fatalf("installed %v %v", info, err)
 	}
-	if _, err := os.Stat(stale); !os.IsNotExist(err) {
-		t.Error("the old version was kept")
+	if _, err := os.Stat(oldest); !os.IsNotExist(err) {
+		t.Error("the oldest version was kept")
+	}
+	if _, err := os.Stat(older); err != nil {
+		t.Error("the newer old version was removed")
 	}
 	if _, err := os.Stat(other); err != nil {
 		t.Error("another program's version was removed")

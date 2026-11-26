@@ -84,14 +84,23 @@ class HelperProgramTest {
     }
 
     @Test
-    fun newVersionReplacesOld() {
+    fun newVersionInstallsBesideOld() {
         val old = program("v1")
         old.run(exec(), "list")
+        age(old, hours = 1)
         val new = program("v2")
         assertFalse(old.version == new.version)
         assertTrue(new.run(exec(), "list")!!.stdout.startsWith("v2 "))
-        // 不带版本的 zeta-helper 链接跟着指向新版本（Zeta 之外的入口经它调）
-        assertEquals(listOf("zeta-helper", "zeta-helper-" + new.version), installed)
+        // 旧版本留着（留最近装的 KEPT_VERSIONS 份）：还在用旧版本的客户端不用重传
+        assertEquals(
+            listOf("zeta-helper", "zeta-helper-" + new.version, "zeta-helper-" + old.version)
+                .sorted(),
+            installed,
+        )
+        commands.clear()
+        assertTrue(old.run(exec(), "list")!!.stdout.startsWith("v1 "))
+        assertEquals(1, commands.size)
+        // 不带版本的 zeta-helper 链接指向最后装的（Zeta 之外的入口经它调）
         assertEquals(
             "zeta-helper-" + new.version,
             Files.readSymbolicLink(File(home, ".cache/zeta/bin/zeta-helper").toPath()).toString(),
@@ -105,19 +114,34 @@ class HelperProgramTest {
         assertEquals(".cache/zeta/bin/claude-switch-" + switch.version, switch.relativePath)
         assertEquals("claude-switch/linux-arm64", switch.asset("arm64"))
         helper.run(exec(), "list")
+        age(helper, hours = 9) // 比 claude-switch 的哪一版都早，也不会被它删掉
         assertTrue(switch.run(exec(), "--json")!!.stdout.startsWith("s1 "))
-        // 换了 claude-switch 的版本：只删它自己的旧版本，zeta-helper 留着
+        age(switch, hours = 2)
+        // 换了两次 claude-switch 的版本：只删它自己装得最早的那份，zeta-helper 留着
         val newer = program("s2", HelperProgram.CLAUDE_SWITCH)
         assertTrue(newer.run(exec(), "--json")!!.stdout.startsWith("s2 "))
+        age(newer, hours = 1)
+        val newest = program("s3", HelperProgram.CLAUDE_SWITCH)
+        assertTrue(newest.run(exec(), "--json")!!.stdout.startsWith("s3 "))
         assertEquals(
             listOf(
-                "claude-switch-" + newer.version,
-                "zeta-helper",
-                "zeta-helper-" + helper.version,
-            ),
+                    "claude-switch-" + newer.version,
+                    "claude-switch-" + newest.version,
+                    "zeta-helper",
+                    "zeta-helper-" + helper.version,
+                )
+                .sorted(),
             installed,
         )
         assertTrue(helper.run(exec(), "hosts")!!.stdout.startsWith("h1 "))
+    }
+
+    /** 把装好的 [program] 的修改时间往前拨 [hours] 小时：装的先后按修改时间算，测试不靠两次安装之间的时钟。 */
+    private fun age(program: HelperProgram, hours: Long) {
+        val file = File(home, program.relativePath)
+        assertTrue(
+            file.setLastModified(System.currentTimeMillis() - TimeUnit.HOURS.toMillis(hours)),
+        )
     }
 
     @Test

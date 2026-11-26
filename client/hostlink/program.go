@@ -17,6 +17,9 @@ const (
 	ClaudeSwitch = "claude-switch"
 )
 
+// KeptVersions 是装新版时每个程序留几份（连刚装的在内，按装的先后留最近的，见 InstallCommand；同 HelperProgram.KEPT_VERSIONS）。
+const KeptVersions = 2
+
 // Missing 是没装时 Program.Command 的退出码；标准错误里有一行“<程序名>-missing <uname -m>”。
 const Missing = 97
 
@@ -67,7 +70,9 @@ func (p *Program) Command(linuxName, sub string, args ...string) string {
 }
 
 // InstallCommand 把经标准输入传来的程序 binary 装上：写进同一目录下的临时文件，核对哈希（传到一半断了的不装），改名成正式的名字，
-// 再删掉这个程序别的版本；zeta-helper 还让不带版本的链接指向它（电脑那边 tmux 窗口、Claude Code 的 hook 用这个固定的名字）。
+// 再删掉这个程序更早的版本，只留最近装的 KeptVersions 份；zeta-helper 还让不带版本的链接指向它（电脑那边 tmux 窗口、
+// Claude Code 的 hook 用这个固定的名字）。
+// 留两份：同一台主机上两个版本的客户端（手机升级了、桌面版还没升）各用各的，不会互相删掉对方的版本、每次调用都重传一遍。
 // 链接先建在临时名字上再改名换过去（rename 是原子的）：几处同时装时 ln -sfn 先删后建，会撞上别人刚建的链接而失败。
 // 手机版 shared 的 HelperProgram.installCommand 是同一段命令，两份都要拼成 testdata/install-command.txt（两边的测试各自核对）。
 func (p *Program) InstallCommand(linuxName string, binary []byte) string {
@@ -79,7 +84,7 @@ func (p *Program) InstallCommand(linuxName string, binary []byte) string {
 	}
 	return "d=" + p.dir(linuxName) + `; mkdir -p "$d" && t=$(mktemp "$d/.` + p.Name + `.XXXXXX") || exit 1; ` +
 		`if cat > "$t" && [ "$(sha256sum < "$t")" = "` + hex.EncodeToString(sum[:]) + `  -" ] && chmod 755 "$t" && mv -f "$t" ` + file + "; then " +
-		`for o in "$d"/` + p.Name + "-*; do [ \"$o\" = " + file + ` ] || rm -f "$o"; done; ` +
+		`ls -t "$d"/` + p.Name + "-* | tail -n +" + fmt.Sprint(KeptVersions+1) + ` | while read -r o; do [ "$o" = ` + file + ` ] || rm -f "$o"; done; ` +
 		link +
 		`else rm -f "$t"; echo '` + p.Name + ` 没有完整传过去' >&2; exit 1; fi`
 }
