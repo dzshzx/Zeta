@@ -97,5 +97,5 @@ Miuix 没有的才在 `ui/components/miuix` 补，页面文件里不各写一份
 - `PreferenceGroup` 的花括号里不是 composable，`remember`、取字这类调用要写进 `item { }`。
 - 浮层（对话框、胶囊、弹窗这类面板）上不用卡片配色 `surfaceContainer`：深色下它和面板底色一样，分不出层次。按钮底用 `secondaryVariant`，输入框底 `secondaryContainer`，提示字 `onSecondaryContainer`。
 - 换主题时 Miuix 就地改同一个配色对象，`remember(colorScheme)` 会拿到旧颜色；要按具体的颜色值做键。
-- 截图测试画不出：平滑圆角（着色器裁剪，块会整块空白，截图里可以临时关掉 `LocalSquircleEnabled`）、毛玻璃和玻璃顶栏的渐进模糊、公式。这些上真机看。`ScheduleStore`、`NotifyRuleStore` 是进程级单例，同一个 JVM 里前面测试留下的数据会串到后面，用到的测试先清空。
+- 截图测试画不出：平滑圆角（着色器裁剪，块会整块空白，截图里可以临时关掉 `LocalSquircleEnabled`）、毛玻璃和玻璃顶栏的渐进模糊、公式。这些装到设备上看。`ScheduleStore`、`NotifyRuleStore` 是进程级单例，同一个 JVM 里前面测试留下的数据会串到后面，用到的测试先清空。
 - 一直循环的提示动画（转圈、呼吸、闪烁的点）用 `ui/components/IndicatorClock.kt` 的 `rememberIndicatorClock()`，配 `turn`、`pingPong` 换算，值只在绘制阶段读；不用 `rememberInfiniteTransition`、`infiniteRepeatable`（`IndicatorClockTest` 拦着）：它们每帧要一次新画面，回答进行中整窗按刷新率一直重画，耗电。Miuix 的 `InfiniteProgressIndicator` 只用在短暂的加载里。
