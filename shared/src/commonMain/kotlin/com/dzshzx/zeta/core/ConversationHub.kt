@@ -856,7 +856,7 @@ class ConversationHub(val platform: HubPlatform) {
             followBackend(running.backend)
             return
         }
-        sessionList.sessions.firstOrNull { it.id == key }?.let(::open)
+        sessionList.sessions.filter { it.id == key }.maxByOrNull { it.updated }?.let(::open)
             ?: sessionList.lookup(key, ::open)
     }
 

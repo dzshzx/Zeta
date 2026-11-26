@@ -71,15 +71,19 @@ data class MenuItem(
 
 /**
  * 挂在旁边元素（胶囊、按钮、标题、设置行）上的下拉菜单，点一项就收起。和那个元素放进同一个 Box：`Box { 元素; AnchoredMenu(show, entries,
- * onDismiss) }`，菜单以那个 Box 为锚弹出。项可以带二级菜单（[MenuItem.children]），点那一项在旁边弹出下一层。 [alignEnd]
- * 为真时不管锚多宽都和它右边对齐、向左展开（行尾、靠右的图标按钮，居中会伸出所在的面板）。
+ * onDismiss) }`，菜单以那个 Box 为锚弹出。项可以带二级菜单（[MenuItem.children]），点那一项在旁边弹出下一层。 对齐由锚定（MenuPopup）：调用方不选。
  */
 @Composable
-fun BoxScope.AnchoredMenu(
+fun BoxScope.AnchoredMenu(show: Boolean, entries: List<MenuEntry>, onDismiss: () -> Unit) =
+    anchoredMenu(show, entries, onDismiss, alignEnd = false)
+
+/** [AnchoredMenu] 本身；[alignEnd] 只给本文件的图标按钮（[IconMenuButton]）用：它们在行尾，菜单向左展开，居中会伸出所在的面板。 */
+@Composable
+private fun BoxScope.anchoredMenu(
     show: Boolean,
     entries: List<MenuEntry>,
     onDismiss: () -> Unit,
-    alignEnd: Boolean = false,
+    alignEnd: Boolean,
 ) {
     val anchor = remember { MenuAnchor() }
     Box(Modifier.matchParentSize().onPlaced { anchor.coordinates = it })
@@ -160,7 +164,7 @@ private fun MenuPopup(
         // 宿主底下让出键盘的高度，键盘升起时菜单就往上弹，不被盖住（回归：tools/phone-tests/ime-menu.sh）。
         // 用 imePadding 不手算：设置类页面的最外层 Scaffold 已经让出过键盘（MiuixPage），这里只补还没让出的那部分
         val density = LocalDensity.current
-        // 锚比菜单还宽（整行、整段内容）或要求向左展开（alignEnd）时和它的右边对齐，否则（胶囊、按钮）和它水平居中；
+        // 图标按钮（alignEnd）和比菜单还宽的锚（整行、整段内容）和它的右边对齐、向左展开，其余（胶囊、底栏按钮）和它水平居中；
         // 贴着屏幕边的由 Miuix 收回窗口里
         val alignment =
             if (alignEnd || anchorBounds.width > with(density) { MenuSizing.maxWidth.toPx() })
@@ -334,14 +338,13 @@ fun IconMenuButton(
             size = size,
             iconSize = iconSize,
             modifier =
-                Modifier.semantics {
-                    if (stateDescription.isNotEmpty()) this.stateDescription = stateDescription
-                },
+                if (stateDescription.isEmpty()) Modifier
+                else Modifier.semantics { this.stateDescription = stateDescription },
             holdDownState = expanded,
             tint = MiuixTheme.colorScheme.onBackgroundVariant,
             onClick = { expanded = true },
         )
-        AnchoredMenu(
+        anchoredMenu(
             show = expanded,
             entries = entries,
             onDismiss = { expanded = false },

@@ -81,7 +81,7 @@ const liteBytes = 64 * 1024
 // 开头读到第一句真正的话为止，首句是斜杠命令时再往后找，过了 liteBytes 就不找了，预览用那条斜杠命令；
 // 结尾读最后 liteBytes 取标题：Claude Code 补写元数据时把改过的名字、自动起的标题再追加到末尾，最新的标题总在那里。
 // 中间剪切过（剪到第一条消息之前）的会话，剪切记号不在头尾时预览还是剪掉之前的那句。
-// 只要标题、预览的调用方用它，不填 replied；会话列表用 summarizeAfter。
+// 只要标题、预览的调用方用它：replied 只看了头尾，不准；会话列表用 summarizeAfter。
 func summarize(path string) (summary, bool, error) { return scanSummary(path, nil) }
 
 // summarizeAfter 同 summarize，另填上最新回答时间 replied：结尾那段里没有回答时往回找（findReply）。known 是上次读这份记录时的
@@ -112,10 +112,10 @@ func scanSummary(path string, known *replyMark) (summary, bool, error) {
 	if err != nil {
 		return summary{}, false, err
 	}
-	if known == nil {
-		s.replied = 0
-	} else if err := s.findReply(f, read, tailStart, headReply, *known, fi.Size()); err != nil {
-		return summary{}, false, err
+	if known != nil {
+		if err := s.findReply(f, read, tailStart, headReply, *known, fi.Size()); err != nil {
+			return summary{}, false, err
+		}
 	}
 	if s.first == "" {
 		return summary{}, false, nil
