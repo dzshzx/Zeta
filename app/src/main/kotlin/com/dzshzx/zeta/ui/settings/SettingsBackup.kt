@@ -4,6 +4,7 @@ import com.dzshzx.zeta.core.EffortLevels
 import com.dzshzx.zeta.core.SavedPrompt
 import com.dzshzx.zeta.core.SavedPrompts
 import com.dzshzx.zeta.core.SessionIdPattern
+import com.dzshzx.zeta.core.SessionSort
 import com.dzshzx.zeta.core.SharedFolder
 import com.dzshzx.zeta.core.SharedFolders
 import com.dzshzx.zeta.core.notify.NotifyRule
@@ -16,6 +17,7 @@ import com.dzshzx.zeta.ui.app.MAX_INTERFACE_SCALE
 import com.dzshzx.zeta.ui.app.MIN_INTERFACE_SCALE
 import com.dzshzx.zeta.ui.app.normalizeInterfaceScale
 import com.dzshzx.zeta.ui.chat.PermissionModes
+import com.dzshzx.zeta.ui.pane.sessionSortLabel
 import java.time.Instant
 import java.time.ZoneId
 import java.util.UUID
@@ -240,6 +242,16 @@ internal object SettingsBackup {
                         ?.takeIf { it > 0 }
                         ?.let(Strings::settingsBackupPinnedCount) ?: Strings.commonNone()
                 },
+            ),
+            BackupItem(
+                key = "sessionSort",
+                labelOf = Strings::settingsBackupSessionSort,
+                read = { prefs ->
+                    JsonPrimitive(SessionSort.of(prefs["sessionSort"] as? String).key)
+                },
+                check = { v -> choice(v, SessionSort.entries.map { it.key }) },
+                write = { v -> v.text() },
+                show = { v -> sessionSortLabel(SessionSort.of(v.text())) },
             ),
             BackupItem(
                 key = "sharedFolders",

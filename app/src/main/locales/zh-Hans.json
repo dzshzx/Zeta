@@ -2652,6 +2652,18 @@
   "@sidebarEarlier": {
     "description": "侧栏会话列表一组的标题。"
   },
+  "sidebarSort": "排序",
+  "@sidebarSort": {
+    "description": "侧栏会话列表第一组标题右边的排序按钮的无障碍说明。"
+  },
+  "sidebarSortReplied": "最新回答",
+  "@sidebarSortReplied": {
+    "description": "侧栏排序菜单的一项：按最后一次回答完的时间排（默认）；也是备份确认清单里这一项的值。"
+  },
+  "sidebarSortCreated": "发起时间",
+  "@sidebarSortCreated": {
+    "description": "侧栏排序菜单的一项：按会话发起的时间排；也是备份确认清单里这一项的值。"
+  },
   "sidebarArchivedCount": "已归档 · {count}",
   "@sidebarArchivedCount": {
     "description": "看归档时会话列表那组的标题，也是侧栏底部进归档的按钮的无障碍说明：count 是几个。",
@@ -9475,6 +9487,10 @@
   },
   "settingsBackupPinned": "置顶的对话",
   "@settingsBackupPinned": {
+    "description": "备份确认清单里的设置项名。"
+  },
+  "settingsBackupSessionSort": "侧栏对话的排序",
+  "@settingsBackupSessionSort": {
     "description": "备份确认清单里的设置项名。"
   },
   "settingsBackupPinnedCount": "{count, plural, other {{count} 个}}",

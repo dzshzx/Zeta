@@ -470,7 +470,7 @@ private fun ProjectSessionsScreen(
         }
         sessions = result.first
         rest = result.second
-        // 不在侧栏最近 300 个里的，按 id 取一次标题（最多取前 100 个）
+        // 不在侧栏最近 100 个里的，按 id 取一次标题（最多取前 100 个）
         val missing = result.first.map { it.id }.filter { it !in summaries }.take(100)
         if (missing.isNotEmpty()) {
             val found =

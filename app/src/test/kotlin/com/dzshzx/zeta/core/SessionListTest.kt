@@ -82,13 +82,18 @@ class SessionListTest {
     @Test
     fun mergedReplacesOnlyTheReadSessions() {
         val list = Fixtures.readyHub(app).sessionList
-        list.listed(listOf(summary("b").copy(updated = 20), summary("a", "你好").copy(updated = 10)))
+        list.listed(
+            listOf(
+                summary("b").copy(updated = 20, replied = 20),
+                summary("a", "你好").copy(updated = 10, replied = 10),
+            ),
+        )
         list.titled("a", "起好的标题")
-        list.merged(listOf(summary("a", "你好").copy(preview = "新的一轮", updated = 30)))
+        list.merged(listOf(summary("a", "你好").copy(preview = "新的一轮", updated = 30, replied = 30)))
         assertEquals(listOf("a", "b"), list.sessions.map { it.id })
         assertEquals("新的一轮", list.sessions.first().preview)
         assertEquals("起好的标题", list.sessions.first().title)
-        list.merged(listOf(summary("c").copy(updated = 25)))
+        list.merged(listOf(summary("c").copy(updated = 25, replied = 25)))
         assertEquals(listOf("a", "c", "b"), list.sessions.map { it.id })
     }
 

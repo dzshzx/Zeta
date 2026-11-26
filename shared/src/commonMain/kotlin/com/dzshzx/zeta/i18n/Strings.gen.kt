@@ -3333,6 +3333,27 @@ object Strings {
     fun sidebarEarlier(): String = catalog.say("sidebarEarlier")
 
     /**
+     * 「排序」
+     *
+     * 侧栏会话列表第一组标题右边的排序按钮的无障碍说明。
+     */
+    fun sidebarSort(): String = catalog.say("sidebarSort")
+
+    /**
+     * 「最新回答」
+     *
+     * 侧栏排序菜单的一项：按最后一次回答完的时间排（默认）；也是备份确认清单里这一项的值。
+     */
+    fun sidebarSortReplied(): String = catalog.say("sidebarSortReplied")
+
+    /**
+     * 「发起时间」
+     *
+     * 侧栏排序菜单的一项：按会话发起的时间排；也是备份确认清单里这一项的值。
+     */
+    fun sidebarSortCreated(): String = catalog.say("sidebarSortCreated")
+
+    /**
      * 「已归档 · {count}」
      *
      * 看归档时会话列表那组的标题，也是侧栏底部进归档的按钮的无障碍说明：count 是几个。
@@ -12270,6 +12291,13 @@ object Strings {
      * 备份确认清单里的设置项名。
      */
     fun settingsBackupPinned(): String = catalog.say("settingsBackupPinned")
+
+    /**
+     * 「侧栏对话的排序」
+     *
+     * 备份确认清单里的设置项名。
+     */
+    fun settingsBackupSessionSort(): String = catalog.say("settingsBackupSessionSort")
 
     /**
      * 「{count, plural, other {{count} 个}}」

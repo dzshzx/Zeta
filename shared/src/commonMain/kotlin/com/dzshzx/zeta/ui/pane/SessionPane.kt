@@ -67,6 +67,7 @@ import androidx.compose.ui.unit.dp
 import com.dzshzx.zeta.core.AppPackage
 import com.dzshzx.zeta.core.Backends
 import com.dzshzx.zeta.core.ConversationHub
+import com.dzshzx.zeta.core.SessionSort
 import com.dzshzx.zeta.core.SessionStatus
 import com.dzshzx.zeta.core.SessionSummary
 import com.dzshzx.zeta.i18n.Strings
@@ -184,7 +185,7 @@ fun SessionPane(
     // 置顶存在设置里，各台主机的都在一起（[SessionSummary.pinKey]）；从备份导入设置时也会变，所以用 hub 上那份可观察的
     val pins = hub.settings.pinnedSessions
     val savePins: (Set<String>) -> Unit = { hub.settings.pinnedSessions = it }
-    // 列着的各台主机上置顶的会话不在 list 给的最近 300 个里时单独取来（[syncFarPinned]）。按缺的那些来触发：
+    // 列着的各台主机上置顶的会话不在 list 给的最近 100 个里时单独取来（[syncFarPinned]）。按缺的那些来触发：
     // 列表只是时间、预览变了时不重取
     var farPinned by remember { mutableStateOf<List<SessionSummary>>(emptyList()) }
     val missingPins = remember(sessions, pins) { missingPinned(sessions, pins) }
@@ -193,11 +194,13 @@ fun SessionPane(
             savePins(hub.settings.pinnedSessions - gone)
         }
     }
-    // 存储页要定位的会话不在最近 300 个里时，也单独取来放进列表
+    // 存储页要定位的会话不在最近 100 个里时，也单独取来放进列表
     var farRevealed by remember { mutableStateOf<List<SessionSummary>>(emptyList()) }
+    // 按哪个时间排是这一端的设置；换了马上重排
+    val sort = hub.settings.sessionSort
     val all =
-        remember(sessions, farPinned, farRevealed) {
-            withFarSessions(sessions, farPinned + farRevealed)
+        remember(sessions, farPinned, farRevealed, sort) {
+            withFarSessions(sessions, farPinned + farRevealed, sort)
         }
 
     // 搜索：标题、首句当场比对；对话内容交给助手，换了关键词就把上一次的停掉
@@ -236,8 +239,8 @@ fun SessionPane(
     // 归档的会话收在底部的入口里，点进去单独看
     var showArchived by remember { mutableStateOf(false) }
     val groups =
-        remember(all, pins, showArchived, todayStart) {
-            SessionGroups(all, pins, showArchived, todayStart)
+        remember(all, pins, showArchived, todayStart, sort) {
+            SessionGroups(all, pins, showArchived, todayStart, sort)
         }
     if (groups.archived.isEmpty()) showArchived = false
     // 多选：全选管的是眼前这份列表（搜索结果、归档或主列表）；选中的按列表里的顺序取，已经不在的不算
@@ -308,7 +311,9 @@ fun SessionPane(
                 state = listState,
                 contentPadding = PaddingValues(bottom = 12.dp),
             ) {
-                paneItems(searching, results, search, groups, hub.sessionList.problem, rows)
+                paneItems(searching, results, search, groups, hub.sessionList.problem, rows) {
+                    hub.settings.sessionSort = it
+                }
             }
         }
 
@@ -423,13 +428,14 @@ private fun startOfToday(): Long =
         }
         .timeInMillis
 
-/** 列表加上单独取来的 [far]（已经在列表里的不重复），按更新时间排。 */
+/** 列表加上单独取来的 [far]（已经在列表里的不重复），按 [sort] 选的时间从新到旧排。 */
 private fun withFarSessions(
     sessions: List<SessionSummary>,
     far: List<SessionSummary>,
+    sort: SessionSort,
 ): List<SessionSummary> {
     val extra = far.distinctBy { it.id }.filter { extra -> sessions.none { it.id == extra.id } }
-    return if (extra.isEmpty()) sessions else (sessions + extra).sortedByDescending { it.updated }
+    return sort.ordered(sessions + extra)
 }
 
 /** 列着的各台主机（[sessions] 里出现的）上置顶的会话里，不在 [sessions] 里的那些的 id，按主机；没有缺的主机不在里面。 */
@@ -517,9 +523,10 @@ private fun LazyListScope.paneItems(
     groups: SessionGroups,
     problem: String?,
     rows: RowContext,
+    onSort: (SessionSort) -> Unit,
 ) {
     if (searching) searchItems(results, search.hits, search.progress, rows)
-    else groupItems(groups, problem, rows)
+    else groupItems(groups, problem, rows, onSort)
 }
 
 /** 让助手在对话内容里找 [needle]，边找边交给 [onHit]；找完报 [onProgress]。所在的协程被取消时停掉。 */
@@ -578,20 +585,24 @@ private fun searchResults(
                 it.shownPreview.contains(needle, ignoreCase = true)
         }
 
-/** 侧栏眼前这份列表的分组：主列表分“置顶 / 今天 / 更早”，看归档时只有一组（照常按时间排，只带个图钉）。 [archived] 是全部归档的会话，底部的入口看它。 */
+/**
+ * 侧栏眼前这份列表的分组：主列表分“置顶 / 今天 / 更早”，看归档时只有一组（照常按时间排，只带个图钉）；分组和组内先后都按 [sort] 选的时间。 [archived]
+ * 是全部归档的会话，底部的入口看它。
+ */
 private class SessionGroups(
     all: List<SessionSummary>,
     pins: Set<String>,
     val showArchived: Boolean,
     todayStart: Long,
+    val sort: SessionSort,
 ) {
     val archived = all.filter { it.archived }
     val visible = all.filter { it.archived == showArchived }
     // 置顶只在主列表里单独成组
     val pinned = if (showArchived) emptyList() else visible.filter { it.pinKey in pins }
     private val unpinned = if (pinned.isEmpty()) visible else visible - pinned.toSet()
-    val today = if (showArchived) emptyList() else unpinned.filter { it.updated >= todayStart }
-    val earlier = if (showArchived) unpinned else unpinned.filter { it.updated < todayStart }
+    val today = if (showArchived) emptyList() else unpinned.filter { sort.timeOf(it) >= todayStart }
+    val earlier = if (showArchived) unpinned else unpinned.filter { sort.timeOf(it) < todayStart }
 
     /** 列表里自上而下的几组，定位会话时按它算位置。 */
     val listed: List<List<SessionSummary>>
@@ -659,16 +670,19 @@ private fun SessionItem(session: SessionSummary, rows: RowContext, snippet: Stri
     )
 }
 
-/** 一组会话：标题一行，下面各个会话；空的不列。 */
+/** 一组会话：标题一行，下面各个会话；空的不列。列表的第一组（[first]）标题右边放 [sortButton]。 */
 private fun LazyListScope.sessionGroup(
     key: String,
     label: String,
     first: Boolean,
     list: List<SessionSummary>,
     rows: RowContext,
+    sortButton: @Composable () -> Unit,
 ) {
     if (list.isEmpty()) return
-    item(key = "h-$key") { SectionHeader(label, first = first) }
+    item(key = "h-$key") {
+        SectionHeader(label, first = first, trailing = sortButton.takeIf { first })
+    }
     items(list, key = { it.id }) { SessionItem(it, rows) }
 }
 
@@ -701,8 +715,14 @@ private fun searchFooterText(progress: SearchProgress): String? =
         else -> null
     }
 
-/** 平时的列表：列不出来时的说明，或“置顶 / 今天 / 更早”（看归档时是“已归档”）几组。 */
-private fun LazyListScope.groupItems(groups: SessionGroups, problem: String?, rows: RowContext) {
+/** 平时的列表：列不出来时的说明，或“置顶 / 今天 / 更早”（看归档时是“已归档”）几组；第一组的标题右边是排序按钮，选了交给 [onSort]。 */
+private fun LazyListScope.groupItems(
+    groups: SessionGroups,
+    problem: String?,
+    rows: RowContext,
+    onSort: (SessionSort) -> Unit,
+) {
+    val sortButton: @Composable () -> Unit = { SessionSortButton(groups.sort, onSort) }
     if (problem != null) {
         item(key = "problem") { PaneMessage(problem) }
     } else if (groups.visible.isEmpty() && !groups.showArchived) {
@@ -710,13 +730,21 @@ private fun LazyListScope.groupItems(groups: SessionGroups, problem: String?, ro
     }
     val pinned = groups.pinned
     val today = groups.today
-    sessionGroup("pinned", Strings.sidebarPinned(), first = true, list = pinned, rows = rows)
+    sessionGroup(
+        "pinned",
+        Strings.sidebarPinned(),
+        first = true,
+        list = pinned,
+        rows = rows,
+        sortButton = sortButton,
+    )
     sessionGroup(
         "today",
         Strings.sidebarToday(),
         first = pinned.isEmpty(),
         list = today,
         rows = rows,
+        sortButton = sortButton,
     )
     sessionGroup(
         "earlier",
@@ -725,6 +753,7 @@ private fun LazyListScope.groupItems(groups: SessionGroups, problem: String?, ro
         first = pinned.isEmpty() && today.isEmpty(),
         list = groups.earlier,
         rows = rows,
+        sortButton = sortButton,
     )
 }
 
@@ -1029,19 +1058,36 @@ private fun SearchCapsule(
     )
 }
 
+/** 分组标题；[trailing]（排序按钮）靠右、和标题文字大致同一条中线，图标右边对齐会话行的文字，不撑高这一行。 */
 @Composable
-private fun SectionHeader(label: String, first: Boolean) {
-    SmallTitle(
-        text = label,
-        modifier = Modifier.fillMaxWidth(),
-        insideMargin =
-            PaddingValues(
-                start = PaneHorizontalPadding + RowHorizontalPadding,
-                end = PaneHorizontalPadding + RowHorizontalPadding,
-                top = if (first) 8.dp else 20.dp,
-                bottom = 6.dp,
-            ),
-    )
+private fun SectionHeader(
+    label: String,
+    first: Boolean,
+    trailing: (@Composable () -> Unit)? = null,
+) {
+    Box(Modifier.fillMaxWidth()) {
+        SmallTitle(
+            text = label,
+            modifier = Modifier.fillMaxWidth(),
+            insideMargin =
+                PaddingValues(
+                    start = PaneHorizontalPadding + RowHorizontalPadding,
+                    end = PaneHorizontalPadding + RowHorizontalPadding,
+                    top = if (first) 8.dp else 20.dp,
+                    bottom = 6.dp,
+                ),
+        )
+        if (trailing != null) {
+            // 按钮比图标每边多出一圈，往外让出这一圈，图标的边才落在会话行文字的缩进上
+            val inset = (SortButtonSize - SortIconSize) / 2
+            Box(
+                Modifier.align(Alignment.BottomEnd)
+                    .padding(end = PaneHorizontalPadding + RowHorizontalPadding - inset),
+            ) {
+                trailing()
+            }
+        }
+    }
 }
 
 @Composable

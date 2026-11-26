@@ -92,6 +92,7 @@ class SettingsBackupTest {
             "dark" to true,
             "interfaceScale" to 0.9f,
             "pinnedSessions" to setOf("0a1b2c3d-0000-4000-8000-000000000001"),
+            "sessionSort" to "created",
             "sharedFolders" to
                 "[{\"name\":\"Download\",\"source\":\"/storage/emulated/0/Download\"}]",
             "keepScreenOn" to false,
@@ -229,6 +230,8 @@ class SettingsBackupTest {
         assertEquals("opus", writes["assistantModel"])
         assertEquals("/workspace/claude", writes["cwd"])
         assertEquals(setOf("0a1b2c3d-0000-4000-8000-000000000001"), writes["pinnedSessions"])
+        assertEquals("created", writes["sessionSort"])
+        assertEquals("发起时间", changed.getValue("sessionSort").to)
         assertEquals(
             "[{\"name\":\"Download\",\"source\":\"/storage/emulated/0/Download\"}]",
             writes["sharedFolders"],
@@ -466,6 +469,8 @@ class SettingsBackupTest {
                         put("cwd", "relative/dir")
                         put("keepScreenOn", JsonNull)
                         put("pinnedSessions", buildJsonArray { add(JsonPrimitive("../../etc")) })
+                        // 手动排序是桌面版的，手机版不认
+                        put("sessionSort", "rank")
                         put(
                             "sharedFolders",
                             buildJsonArray {
@@ -514,6 +519,7 @@ class SettingsBackupTest {
                 "cwd",
                 "keepScreenOn",
                 "pinnedSessions",
+                "sessionSort",
                 "sharedFolders",
                 "uid",
                 "rootfs",

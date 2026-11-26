@@ -8,6 +8,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.test.hasSetTextAction
 import androidx.compose.ui.test.junit4.AndroidComposeTestRule
 import androidx.compose.ui.test.longClick
+import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performTextInput
@@ -153,6 +154,13 @@ class SessionPaneShots : ShotTest() {
     fun menu() {
         val hub = hub()
         shoot("pane-menu", prepare = { longPress("整理下载目录") }) { Pane() }
+    }
+
+    /** 第一组标题右边的排序按钮点开：两种排法，当前的「最新回答」打勾。 */
+    @Test
+    fun sort() {
+        val hub = hub()
+        shoot("pane-sort", prepare = { tapNode(onNodeWithContentDescription("排序")) }) { Pane() }
     }
 
     @Test

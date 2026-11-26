@@ -183,6 +183,13 @@ class Settings(private val prefs: PrefStore, private val owner: Any) {
     /** 侧栏里置顶的会话（会话 id）。只是应用这边的标记，会话记录不动。 */
     var pinnedSessions: Set<String> by stringSet("pinnedSessions")
 
+    /** 侧栏的会话列表按哪个时间排（最新回答或发起时间），是这一端自己的设置。 */
+    var sessionSort: SessionSort by
+        pref(
+            read = { SessionSort.of(getString("sessionSort", null)) },
+            write = { putString("sessionSort", it.key) },
+        )
+
     /** 外观：界面缩放比例（1 为系统默认大小）。界面读写时按 normalizeInterfaceScale 收到允许的范围里。 */
     var interfaceScale: Float by pref("interfaceScale", 1f)
 

@@ -187,9 +187,8 @@ class SessionList constructor(private val hub: ConversationHub) {
 
     /** 读到了主机 [backend] 的整份列表：换掉列表里它的那些，别的主机的留着，合起来按时间从新到旧排。在主线程上调用。 */
     fun listedOn(backend: String, list: List<SessionSummary>) {
-        val others = sessions.filter { it.backend != backend }
-        // 只有这一台时照助手给的顺序，不重排
-        if (others.isEmpty()) listed(list) else listed(byTime(list + others))
+        // 只有这一台时也重排：助手按记录文件的修改时刻给，侧栏按设置里选的时间排
+        listed(byTime(list + sessions.filter { it.backend != backend }))
     }
 
     /** 只留主机 [backend] 的：换成只列它时，已经读到的不用等重读。在主线程上调用。 */
@@ -199,7 +198,8 @@ class SessionList constructor(private val hub: ConversationHub) {
         problems = problems.filterKeys { it == backend }
     }
 
-    private fun byTime(list: List<SessionSummary>) = list.sortedByDescending { it.updated }
+    /** 按设置里选的时间（[Settings.sessionSort]）从新到旧排；换了排法时侧栏自己重排（见 SessionPane）。 */
+    private fun byTime(list: List<SessionSummary>) = hub.settings.sessionSort.ordered(list)
 
     /** 读到了整份列表。自动起的标题：读到了就不再替它补；这份列表要是在标题写进去之前读的，先用记着的。在主线程上调用。 */
     fun listed(list: List<SessionSummary>) {
@@ -236,7 +236,7 @@ class SessionList constructor(private val hub: ConversationHub) {
     }
 
     /**
-     * 在主机 [backend] 上按 id 查会话概要（核心的 `sessions.lookup`）：列表里可能没有（最近 300 个之外的，或者列表还没读出来）。
+     * 在主机 [backend] 上按 id 查会话概要（核心的 `sessions.lookup`）：列表里可能没有（最近 100 个之外的，或者列表还没读出来）。
      * 返回找到的那些；没查成（那台用不了、出错或超时、连不上）返回 null，这时不能当作“都不在了”。界面在后台时也会调（答完一轮、定时任务），
      * 那时没有订阅着的连接，[ConversationHub.callCore] 单起一条。耗时，别在主线程调用。
      */
