@@ -166,6 +166,48 @@ func (f *fixture) darkestInk(t *testing.T, text string) int {
 	return darkest
 }
 
+// 行尾「…」只在悬停时出现；点开它的菜单后鼠标移到菜单上、或移出行和菜单，菜单都还开着（按钮不随悬停消失，
+// 不然 mygo 连菜单一起收掉）；Esc 关掉后不再记着这一行。
+func TestRowMoreMenuStaysOpenOffRow(t *testing.T) {
+	f := newChatFixture(t)
+	f.devices.Push(f.id, hostlink.SessionsUpdate{Upsert: []hostlink.Session{
+		{ID: "s4", File: "/home/box/.claude/projects/-w/s4.jsonl", Title: "别的对话", Cwd: "/w", Updated: at(13)},
+	}})
+	f.tt.Frame()
+	r, ok := f.tt.Find("别的对话")
+	if !ok {
+		t.Fatalf("没有这一行：%q", f.tt.Texts())
+	}
+	f.tt.Move(r.X+r.W/2, r.Y+r.H/2)
+	f.tt.Frame()
+	if err := f.tt.Click("会话操作"); err != nil {
+		t.Fatal(err)
+	}
+	f.tt.Frame()
+	item, ok := f.tt.Find("重命名")
+	if !ok {
+		t.Fatalf("菜单没打开：%q", f.tt.Texts())
+	}
+	for _, at := range []struct {
+		where string
+		x, y  float32
+	}{
+		{"菜单上", item.X + item.W/2, item.Y + item.H/2},
+		{"行和菜单之外", item.X + item.W/2, r.Y - 40},
+	} {
+		f.tt.Move(at.x, at.y)
+		f.tt.Frame()
+		if len(f.tt.Menu()) == 0 {
+			t.Fatalf("鼠标移到%s，菜单没了", at.where)
+		}
+	}
+	f.tt.Key(0, ui.KeyEscape)
+	f.tt.Frame()
+	if len(f.tt.Menu()) != 0 || f.app.ops.moreOpen != "" {
+		t.Fatalf("Esc 后菜单 %q，记着的行 %q", f.tt.Menu(), f.app.ops.moreOpen)
+	}
+}
+
 // 鼠标停在会话行上一会儿，右边出一张卡片：标题、目录、设备、别处在运行；行尾只有图标（读屏名是那几个字），目录平时不出现。
 func TestRowHoverCard(t *testing.T) {
 	f := newChatFixture(t)

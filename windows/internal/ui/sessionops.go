@@ -26,6 +26,9 @@ type sessionOps struct {
 	selected map[string]bool // 多选选中的（hub.Key）
 	anchor   string          // 上次不带 Shift 点的那个（hub.Key），Shift+点击从它选起
 	archived bool            // 侧栏在看归档
+	// moreOpen 是行尾「…」的菜单开着的那一行（hub.Key）：按钮平时只在悬停时出现，菜单开着时也要照建，
+	// 不然鼠标一移到菜单上行就不算悬停，按钮不建，mygo 连菜单一起收掉
+	moreOpen string
 
 	renaming struct {
 		target hostlink.Session

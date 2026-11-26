@@ -242,8 +242,17 @@ func (a *App) sessionRow(c *ui.Context, s hostlink.Session, snippet string) {
 		} else if pinned && !hovered {
 			ui.Icon(c, widget.IconPin).Size(14, 14).TextColor(k.Tertiary).Shrink(0).Label(locales.SidebarPinned())
 		}
-		if hovered || current || chosen {
-			more := ui.ButtonBase(c.Key("more")).PopoverMenuButton(func(m *ui.Menu) { a.sessionMenu(m, s) })
+		if key := hub.Key(s); hovered || current || chosen || a.ops.moreOpen == key {
+			// 菜单开着时照建按钮（见 sessionOps.moreOpen）
+			open := a.ops.moreOpen == key
+			more := ui.ButtonBase(c.Key("more")).PopoverMenuButton(func(m *ui.Menu) { a.sessionMenu(m, s) },
+				ui.PopoverMenuButtonOptions{Open: &open})
+			switch {
+			case open:
+				a.ops.moreOpen = key
+			case a.ops.moreOpen == key:
+				a.ops.moreOpen = ""
+			}
 			widget.FlatButtonOf(c, more, widget.IconMore, locales.SidebarRowActions(), 24, 16)
 		}
 	})
