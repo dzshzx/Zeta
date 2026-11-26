@@ -88,10 +88,13 @@ type agentCall struct {
 	Description string `json:"description"`
 	AgentType   string `json:"subagent_type"`
 	Prompt      string `json:"prompt"`
+	Model       string `json:"model"`  // 指定的模型（可能是 sonnet 这样的别名），没指定时空着
+	Effort      string `json:"effort"` // 指定的思考强度
 }
 
-// fillSubagentStatus 填上 status 的 meta：记录旁的 meta 读到了就用它，其中空着的说明、类型用发起它的 Agent 调用的参数补上；
-// 还没读到时先整份用调用的参数填，交给它的任务也一样，查看页一打开就有概要。
+// fillSubagentStatus 填上 status 的 meta：记录旁的 meta 读到了就用它，其中空着的说明、类型、模型、思考强度用发起它的
+// Agent 调用的参数补上；还没读到时先整份用调用的参数填，交给它的任务也一样，查看页一打开就有概要。
+// 记录里有了回答时，模型和思考强度换成回答实际用的。
 func (c *Conversation) fillSubagentStatus(l *subagentLog, status *subagentStatus) {
 	call := c.agentCallOf(l)
 	if l.t.meta != nil {
@@ -99,6 +102,11 @@ func (c *Conversation) fillSubagentStatus(l *subagentLog, status *subagentStatus
 		if call != nil {
 			meta.Description = cmp.Or(meta.Description, call.Description)
 			meta.AgentType = cmp.Or(meta.AgentType, call.AgentType)
+			meta.Model = cmp.Or(meta.Model, call.Model)
+			meta.Effort = cmp.Or(meta.Effort, call.Effort)
+		}
+		if l.t.model != "" {
+			meta.Model, meta.Effort = l.t.model, cmp.Or(l.t.effort, meta.Effort)
 		}
 		status.Meta = &meta
 		return
@@ -106,7 +114,8 @@ func (c *Conversation) fillSubagentStatus(l *subagentLog, status *subagentStatus
 	if call == nil {
 		return
 	}
-	status.Meta = &subagentMeta{AgentType: call.AgentType, Description: call.Description}
+	status.Meta = &subagentMeta{AgentType: call.AgentType, Description: call.Description, Model: call.Model,
+		Effort: call.Effort}
 	if status.Prompt == "" {
 		status.Prompt = call.Prompt
 	}

@@ -18,6 +18,8 @@ import "strconv"
 //     全新会话的进程从零开始累计；用 --resume 续上旧会话时 Claude Code 会把上次进程的累计带过来，接上后台进程时也不知道之前读到哪，
 //     这两种情况第一轮的基线未知：token 改用 result.usage（只含这一轮），费用只在累计与这一轮完全对得上时才算。
 //   - 会话记录里没有费用，从记录恢复的轮次按各条消息的模型和 token 数估（prices）；实时的一轮算不出来时也这样估。
+//     子代理的消息不在主记录里：zeta-helper history 在发起子代理的回答后面跟一行 subagent_usage（它和它又派的子代理各模型的
+//     token 数），算进那一轮。
 type Tracker struct {
 	contextTokens *int64
 	// estimated：contextTokens 不是请求实测的（还没有、或是压缩后的数），Claude Code 的估算到了就换上。
@@ -111,6 +113,9 @@ type event struct {
 	TotalCostUSD *float64              `json:"total_cost_usd"`
 	Usage        *apiUsage             `json:"usage"`
 	DurationMs   *int64                `json:"duration_ms"`
+	// subagent_usage 行（zeta-helper history 跟在发起子代理的回答后面的，见 helper/subagent_usage.go）
+	ToolUseID string          `json:"tool_use_id"`
+	Models    []subagentModel `json:"models"`
 }
 
 // Observe 处理一行实时输出事件，返回用量有没有变化。
@@ -321,6 +326,8 @@ func (t *Tracker) ObserveHistory(line []byte) {
 		}
 	case "assistant":
 		t.historyMessage(e.Message)
+	case "subagent_usage":
+		t.historySubagent(e.ToolUseID, e.Models)
 	case "system":
 		if e.Subtype == "compact_boundary" {
 			t.compactions++
@@ -358,16 +365,42 @@ func (t *Tracker) historyMessage(m *message) {
 	if id == "" {
 		id = "m" + strconv.Itoa(len(t.historyTurn))
 	}
-	msg := historyMessage{tokens, cost}
+	t.addHistoryMessage(id, historyMessage{tokens, cost})
+	if tokens.Total() > 0 {
+		t.contextTokens = ptr(tokens.Total())
+		t.estimated = false
+	}
+}
+
+// subagentModel 是 subagent_usage 行里一个模型的 token 数。
+type subagentModel struct {
+	Model string    `json:"model"`
+	Usage *apiUsage `json:"usage"`
+}
+
+// historySubagent 把一次 Agent 调用发起的子代理（连同它又派的）的用量算进这一轮，按各自的模型估费用；
+// 上下文占用只看主对话，不动。
+func (t *Tracker) historySubagent(toolUseID string, models []subagentModel) {
+	for _, m := range models {
+		tokens, ok := m.Usage.tokens()
+		if !ok {
+			continue
+		}
+		var cost *float64
+		if usd, ok := estimateCost(m.Model, m.Usage); ok {
+			cost = ptr(usd)
+		}
+		t.addHistoryMessage("subagent:"+toolUseID+":"+m.Model, historyMessage{tokens, cost})
+	}
+}
+
+// addHistoryMessage 记下这一轮里的一条消息；同一个 id 再来时替换。
+func (t *Tracker) addHistoryMessage(id string, msg historyMessage) {
 	if i, seen := t.historyIndex[id]; seen {
 		t.historyTurn[i] = msg
 	} else {
 		t.historyIndex[id] = len(t.historyTurn)
 		t.historyTurn = append(t.historyTurn, msg)
-	}
-	if tokens.Total() > 0 {
-		t.contextTokens = ptr(tokens.Total())
-		t.estimated = false
 	}
 }
 

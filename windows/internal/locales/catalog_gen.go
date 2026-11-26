@@ -5935,13 +5935,13 @@ func (msgs Messages) ComposerCompactions(count int) string {
 	return Catalog.Format(msgs.locale, "composerCompactions", map[string]any{"count": count})
 }
 
-// UsageCostEstimated says "带 ≈ 的是按 token 数和 API 标价估的：会话记录里没有费用，子代理的用量不在其中。"
+// UsageCostEstimated says "带 ≈ 的是按 token 数和 API …"
 // in the language the app shows.
 //
 // 用量弹出框累计一节下面的说明：费用是估的。
 func UsageCostEstimated() string { return In(i18n.Locale()).UsageCostEstimated() }
 
-// UsageCostEstimated says "带 ≈ 的是按 token 数和 API 标价估的：会话记录里没有费用，子代理的用量不在其中。"
+// UsageCostEstimated says "带 ≈ 的是按 token 数和 API …"
 // in the language of msgs.
 //
 // 用量弹出框累计一节下面的说明：费用是估的。
@@ -12157,6 +12157,22 @@ func SubagentModel(model string) string { return In(i18n.Locale()).SubagentModel
 // 子代理页概要的一项：模型。
 func (msgs Messages) SubagentModel(model string) string {
 	return Catalog.Format(msgs.locale, "subagentModel", map[string]any{"model": model})
+}
+
+// SubagentEffort says "思考强度 {level}"
+// in the language the app shows.
+//
+// 子代理页概要的一项：子代理实际用的思考强度，level
+// 是强度的名字（低、中、高等）。
+func SubagentEffort(level string) string { return In(i18n.Locale()).SubagentEffort(level) }
+
+// SubagentEffort says "思考强度 {level}"
+// in the language of msgs.
+//
+// 子代理页概要的一项：子代理实际用的思考强度，level
+// 是强度的名字（低、中、高等）。
+func (msgs Messages) SubagentEffort(level string) string {
+	return Catalog.Format(msgs.locale, "subagentEffort", map[string]any{"level": level})
 }
 
 // SubagentToolUses says "工具调用 {count} 次"

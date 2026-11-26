@@ -27,10 +27,12 @@ type subagentMeta struct {
 	AgentID     string `json:"agent_id"`
 	AgentType   string `json:"agent_type,omitempty"`
 	Description string `json:"description,omitempty"`
-	Model       string `json:"model,omitempty"`
-	Finished    bool   `json:"finished"` // 做完了：Claude Code 在子代理结束时写 finished
-	Stopped     bool   `json:"stopped"`  // 被停下了：stoppedByUser
-	Background  *bool  `json:"background"`
+	// Model、Effort 是模型和思考强度：记录里最近一次回答实际用的；还没有回答时是派它时指定的（没指定时空着）
+	Model      string `json:"model,omitempty"`
+	Effort     string `json:"effort,omitempty"`
+	Finished   bool   `json:"finished"` // 做完了：Claude Code 在子代理结束时写 finished
+	Stopped    bool   `json:"stopped"`  // 被停下了：stoppedByUser
+	Background *bool  `json:"background"`
 }
 
 // subagentHead 是 zeta-helper subagent 输出的第一行（见 helper/subagent.go 的 cmdSubagent）。
@@ -43,6 +45,7 @@ type subagentHead struct {
 		AgentType     string  `json:"agentType"`
 		Description   string  `json:"description"`
 		Model         string  `json:"model"`
+		Effort        string  `json:"effort"`
 		Finished      bool    `json:"finished"`
 		StoppedByUser bool    `json:"stoppedByUser"`
 		RequestShape  *string `json:"requestShape"` // 起的时候放没放后台；没有时不知道
@@ -57,7 +60,7 @@ type subagentHead struct {
 
 func (h *subagentHead) meta() *subagentMeta {
 	m := &subagentMeta{AgentID: h.AgentID, AgentType: h.Meta.AgentType, Description: h.Meta.Description,
-		Model: h.Meta.Model, Finished: h.Meta.Finished, Stopped: h.Meta.StoppedByUser}
+		Model: h.Meta.Model, Effort: h.Meta.Effort, Finished: h.Meta.Finished, Stopped: h.Meta.StoppedByUser}
 	if h.Meta.RequestShape != nil {
 		background := *h.Meta.RequestShape == "background"
 		m.Background = &background
@@ -69,6 +72,8 @@ func (h *subagentHead) meta() *subagentMeta {
 type subagentEvent struct {
 	Type          string                    `json:"type"`
 	Prompt        bool                      `json:"prompt"` // 交给它的指令（记录的第一行）
+	Model         string                    `json:"model"`  // assistant：这次回答实际用的模型
+	Effort        string                    `json:"effort"` // assistant：和思考强度
 	Message       transcript.Message        `json:"message"`
 	ToolUseResult *transcript.ToolUseResult `json:"tool_use_result"`
 }
@@ -85,6 +90,8 @@ type subagentTranscript struct {
 	loaded  bool          // 读到过记录（不管有没有找到）
 	idleMs  int64         // 上次读的时候，记录已经多久没写了
 	skipped int           // 没留下的更早的记录事件数
+	model   string        // 记录里最近一次回答实际用的模型和思考强度，meta 里的是派它时指定的
+	effort  string
 
 	fileEvents []subagentEvent
 	liveEvents []subagentEvent
@@ -149,6 +156,7 @@ func (t *subagentTranscript) reset() {
 	t.fileMessages, t.fileToolUses, t.fileResults = nil, nil, nil
 	t.prompt = ""
 	t.skipped = 0
+	t.model, t.effort = "", ""
 }
 
 // appendFileEvents：开头的指令单独记，其余的收下，只留最后 subagentKeep 条。
@@ -157,6 +165,9 @@ func (t *subagentTranscript) appendFileEvents(events []subagentEvent) {
 		if e.Prompt {
 			t.prompt = promptText(e.Message)
 			continue
+		}
+		if e.Model != "" {
+			t.model, t.effort = e.Model, e.Effort
 		}
 		t.fileEvents = append(t.fileEvents, e)
 		t.index(e)

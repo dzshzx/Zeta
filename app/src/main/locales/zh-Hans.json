@@ -749,6 +749,10 @@
   "@chatModel": {
     "description": "子代理查看页的一行。"
   },
+  "chatEffort": "思考强度",
+  "@chatEffort": {
+    "description": "子代理查看页的一行：子代理实际用的思考强度。"
+  },
   "chatToolCalls": "工具调用",
   "@chatToolCalls": {
     "description": "子代理查看页的一行：调了几次工具。"
@@ -1643,7 +1647,7 @@
   "@composerCost": {
     "description": "用量对话框的一行：按 API 标价算的费用。"
   },
-  "composerCostEstimatedNote": "带 ≈ 的是按 token 数和 API 标价估的：会话记录里没有费用，子代理的用量不在其中。",
+  "composerCostEstimatedNote": "带 ≈ 的是按 token 数和 API 标价估的：会话记录里没有费用。续上会话或接上后台进程后的第一轮只算得出主对话的，子代理的不在其中。",
   "@composerCostEstimatedNote": {
     "description": "用量对话框累计一节下的注：费用是估的。"
   },

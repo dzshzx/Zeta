@@ -34,6 +34,7 @@ import com.dzshzx.zeta.core.UserItem
 import com.dzshzx.zeta.core.WorkItem
 import com.dzshzx.zeta.core.conv.ConvSubagent
 import com.dzshzx.zeta.core.conv.SubagentState
+import com.dzshzx.zeta.core.effortLabel
 import com.dzshzx.zeta.i18n.Strings
 import com.dzshzx.zeta.ui.components.SlideInPage
 import com.dzshzx.zeta.ui.components.miuix.CardListSegment
@@ -153,7 +154,7 @@ fun SubagentPage(
     }
 }
 
-/** 概要：说明、状态、子代理类型、模型和工具调用次数（知道的才列）。 */
+/** 概要：说明、状态、子代理类型、模型、思考强度和工具调用次数（知道的才列）。 */
 @Composable
 private fun SubagentSummary(log: ConvSubagent) {
     val meta = log.meta
@@ -171,6 +172,9 @@ private fun SubagentSummary(log: ConvSubagent) {
             item(key = "type") { ValueRow(Strings.chatSubagentType(), value) }
         }
         meta?.model?.let { value -> item(key = "model") { ValueRow(Strings.chatModel(), value) } }
+        effortLabel(meta?.effort)?.let { value ->
+            item(key = "effort") { ValueRow(Strings.chatEffort(), value) }
+        }
         if (log.toolUses > 0)
             item(key = "tools") {
                 ValueRow(Strings.chatToolCalls(), Strings.chatTimes(log.toolUses))

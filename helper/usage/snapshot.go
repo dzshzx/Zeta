@@ -8,7 +8,8 @@ type Turn struct {
 	// CostUSD 是按 API 标价折算的费用，算不出来时没有。
 	CostUSD    *float64 `json:"cost_usd,omitempty"`
 	DurationMs *int64   `json:"duration_ms,omitempty"`
-	// CostEstimated：费用不是 Claude Code 报的，是按 token 数和价目表估的，不含子代理。
+	// CostEstimated：费用不是 Claude Code 报的，是按 token 数和价目表估的。从会话记录恢复的含子代理（各按自己的模型估）；
+	// 基线未知的实时一轮（续上会话、接上后台进程后的第一轮）只有主对话的，不含子代理。
 	CostEstimated bool `json:"cost_estimated,omitempty"`
 }
 

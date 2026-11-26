@@ -87,6 +87,7 @@ class SubagentShots : ShotTest() {
                     agentType = "general-purpose",
                     description = "审查面板排版",
                     model = "claude-opus-5-5",
+                    effort = "high",
                     finished = state == SubagentState.Completed,
                     stopped = state == SubagentState.Stopped,
                     background = true,

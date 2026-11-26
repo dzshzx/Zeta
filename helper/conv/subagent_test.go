@@ -9,6 +9,8 @@ import (
 	"sync"
 	"testing"
 	"time"
+
+	"github.com/dzshzx/Zeta/helper/transcript"
 )
 
 // fakeSubagent 扮 zeta-helper subagent：记下每次的参数，按 reply 给输出。
@@ -521,5 +523,32 @@ func TestSubagentState(t *testing.T) {
 		if got := subagentState(c.s); got != c.want {
 			t.Errorf("%+v：%q，要 %q", c.s, got, c.want)
 		}
+	}
+}
+
+// 查看页的模型和思考强度：记录里有回答时用回答实际用的；还没有时用 meta 里、再是 Agent 调用参数里指定的；
+// 连 meta 都没读到时整份用调用的参数。
+func TestSubagentShowsTheModelAndEffortItActuallyUsed(t *testing.T) {
+	c := &Conversation{r: transcript.New("t")}
+	l := &subagentLog{toolUseID: "toolu_1", call: &agentCall{Model: "opus", Effort: "high"}}
+	meta := func() *subagentMeta {
+		var s subagentStatus
+		c.fillSubagentStatus(l, &s)
+		return s.Meta
+	}
+	if m := meta(); m == nil || m.Model != "opus" || m.Effort != "high" {
+		t.Fatalf("还没读到记录：%+v", m)
+	}
+	head := foundHead(10, 1, false, 0)
+	head["meta"] = map[string]any{"model": "sonnet"}
+	l.t.applyRead(subagentRead(head, promptEvent))
+	if m := meta(); m.Model != "sonnet" || m.Effort != "high" {
+		t.Fatalf("只有 meta：%+v", m)
+	}
+	l.t.applyRead(subagentRead(foundHead(20, 2, false, 0),
+		`{"type":"assistant","model":"claude-sonnet-5-5","effort":"medium","message":{"id":"m1","content":[{"type":"text","text":"x"}]}}`,
+		reportEvent))
+	if m := meta(); m.Model != "claude-sonnet-5-5" || m.Effort != "medium" {
+		t.Fatalf("有了回答：%+v", m)
 	}
 }

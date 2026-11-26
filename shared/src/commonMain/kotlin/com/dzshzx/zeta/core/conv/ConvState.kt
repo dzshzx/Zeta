@@ -437,7 +437,9 @@ data class SubagentMeta(
     val agentId: String,
     val agentType: String? = null,
     val description: String? = null,
+    /** 模型和思考强度：记录里最近一次回答实际用的；还没有回答时是派它时指定的（没指定时为 null）。 */
     val model: String? = null,
+    val effort: String? = null,
     /** 做完了：Claude Code 在子代理结束时写 finished。 */
     val finished: Boolean = false,
     /** 被停下了：stoppedByUser。 */
@@ -509,6 +511,7 @@ private fun subagentMetaOf(o: JsonObject): SubagentMeta =
         agentType = o.textOrNull("agent_type"),
         description = o.textOrNull("description"),
         model = o.textOrNull("model"),
+        effort = o.textOrNull("effort"),
         finished = o.bool("finished") == true,
         stopped = o.bool("stopped") == true,
         background = o.bool("background"),

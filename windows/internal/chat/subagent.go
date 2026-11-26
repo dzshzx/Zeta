@@ -55,6 +55,8 @@ type SubagentMeta struct {
 	AgentType   string `json:"agent_type"`
 	Description string `json:"description"`
 	Model       string `json:"model"`
+	// Effort 是思考强度（low、medium 这些）：Model、Effort 是记录里最近一次回答实际用的，还没有回答时是派它时指定的。
+	Effort string `json:"effort"`
 	// Finished：做完了；Stopped：被停下了。
 	Finished   bool  `json:"finished"`
 	Stopped    bool  `json:"stopped"`

@@ -16,7 +16,7 @@ import (
 
 const subagentChunk = 4 * 1024 * 1024 // 一次最多读这么多字节，余下的下次接着读
 
-var subagentMetaKeys = []string{"agentType", "description", "model", "finished", "stoppedByUser", "requestShape"}
+var subagentMetaKeys = []string{"agentType", "description", "model", "effort", "finished", "stoppedByUser", "requestShape"}
 
 type subagentRequest struct {
 	offset, line int64  // 从记录的这个字节（第几行）起读
@@ -96,7 +96,16 @@ func subagentEvent(o obj, number int64) obj {
 		if len(blocks) == 0 {
 			return nil
 		}
-		return obj{"type": "assistant", "message": obj{"id": message["id"], "content": blocks}}
+		e := obj{"type": "assistant", "message": obj{"id": message["id"], "content": blocks}}
+		// 这次回答实际用的模型和思考强度（meta 里的是派它时指定的，可能是 sonnet 这样的别名，或者没有）；
+		// Claude Code 合成的回答（模型是 <synthetic>）不算
+		if model := asString(message["model"]); model != "" && !strings.HasPrefix(model, "<") {
+			e["model"] = model
+			if effort := asString(o["effort"]); effort != "" {
+				e["effort"] = effort
+			}
+		}
+		return e
 	}
 	if hasToolResult(content) {
 		return toolResultEvent(o, asList(content), int(number))

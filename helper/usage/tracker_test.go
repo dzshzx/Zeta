@@ -459,3 +459,31 @@ func TestUsageRoundTripsThroughJSON(t *testing.T) {
 		t.Fatalf("读回来是 %+v，要 %+v", back, u)
 	}
 }
+
+// 子代理的用量（history 跟在发起它的回答后面的 subagent_usage）算进那一轮，各按自己的模型估费用；上下文占用只看主对话。
+func TestHistorySubagentUsageCountsInItsTurn(t *testing.T) {
+	lines := append([]string(nil), historyLines[:3]...)
+	lines = append(lines, `{"type":"subagent_usage","tool_use_id":"t1","models":[`+
+		`{"model":"claude-sonnet-5-5","usage":{"input_tokens":10,"output_tokens":100,"cache_read_input_tokens":1000,"cache_creation_input_tokens":0}},`+
+		`{"model":"claude-unknown","usage":{"input_tokens":1,"output_tokens":0,"cache_read_input_tokens":0,"cache_creation_input_tokens":0}}]}`)
+	lines = append(lines, historyLines[3:]...)
+	restored := readHistory(lines).Snapshot(nil)
+	eqPtr(t, "context", restored.ContextTokens, 181)
+	if len(restored.Turns) != 2 {
+		t.Fatalf("turns = %d，应为 2", len(restored.Turns))
+	}
+	eq(t, "turn 0", restored.Turns[0].Tokens, Tokens{3 + 11, 45 + 100, 250 + 1000, 30})
+	// 有一个模型不在价目表里：这一轮估不出费用
+	if restored.Turns[0].CostUSD != nil {
+		t.Fatalf("turn 0 cost = %v，应估不出来", *restored.Turns[0].CostUSD)
+	}
+
+	priced := append([]string(nil), historyLines[:3]...)
+	priced = append(priced, `{"type":"subagent_usage","tool_use_id":"t1","models":[`+
+		`{"model":"claude-sonnet-5-5","usage":{"input_tokens":10,"output_tokens":100,"cache_read_input_tokens":1000,"cache_creation_input_tokens":0}}]}`)
+	priced = append(priced, historyLines[3:]...)
+	turn := readHistory(priced).Snapshot(nil).Turns[0]
+	// 主对话的 1202e-6，加上 Sonnet 5.5 的 10×2 + 100×10 + 1000×0.1 = 1120（每百万）
+	near(t, "turn 0 cost", turn.CostUSD, 1202e-6+1120e-6, 1e-12)
+	eq(t, "estimated", turn.CostEstimated, true)
+}

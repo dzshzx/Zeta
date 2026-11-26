@@ -439,8 +439,14 @@ func cmdHistory(o *emitter, path string, pos historyPos) error {
 		header["switched_model"] = name
 	}
 	o.out(header)
+	subagents := newSubagentUsages(path)
 	for _, e := range t.events[start:end] {
 		o.out(e)
+		for _, call := range subagents.subagentCalls(e) {
+			if u := subagents.event(call); u != nil {
+				o.out(u)
+			}
+		}
 	}
 	return nil
 }

@@ -128,11 +128,12 @@ func (a *App) subagentPage(c *ui.Context, p *chatPane, v *subagentView) {
 // subagentHead 是步骤上面的部分：概要、交给它的指令和「步骤」这个分组标题。
 func subagentHead(c *ui.Context, v *subagentView, s chat.Subagent) {
 	// 概要由核心给：记录旁的 meta 还没读到时它先用发起子代理的 Agent 调用的参数填上
-	var description, kind, model string
-	if m := s.Meta; m != nil {
-		description, kind, model = m.Description, m.AgentType, m.Model
+	var meta chat.SubagentMeta
+	if s.Meta != nil {
+		meta = *s.Meta
 	}
-	subagentSummary(c, s, cmp.Or(description, locales.SubagentTitle()), kind, model)
+	meta.Description = cmp.Or(meta.Description, locales.SubagentTitle())
+	subagentSummary(c, s, meta)
 	if s.Prompt != "" {
 		promptBlock(c, v, s.Prompt)
 	}
@@ -143,16 +144,20 @@ func subagentHead(c *ui.Context, v *subagentView, s chat.Subagent) {
 	ui.Text(c, title).FontSize(widget.SizeBodyXS).FontWeight(widget.Medium).TextColor(widget.Of(c).Secondary).Padding(8, 32, 8, 32)
 }
 
-// subagentSummary 是概要卡片：第一行说明和状态，第二行类型、模型、工具调用次数（知道的才列）。手机版一项一行，
+// subagentSummary 是概要卡片：第一行说明和状态，第二行类型、模型、思考强度、工具调用次数（知道的才列）。手机版一项一行，
 // 桌面版宽，压成两行。
-func subagentSummary(c *ui.Context, s chat.Subagent, description, kind, model string) {
+func subagentSummary(c *ui.Context, s chat.Subagent, meta chat.SubagentMeta) {
 	k := widget.Of(c)
+	description := meta.Description
 	var facts []string
-	if kind != "" {
-		facts = append(facts, locales.SubagentKind(kind))
+	if meta.AgentType != "" {
+		facts = append(facts, locales.SubagentKind(meta.AgentType))
 	}
-	if model != "" {
-		facts = append(facts, locales.SubagentModel(model))
+	if meta.Model != "" {
+		facts = append(facts, locales.SubagentModel(meta.Model))
+	}
+	if meta.Effort != "" {
+		facts = append(facts, locales.SubagentEffort(effortLabel(meta.Effort)))
 	}
 	if s.ToolUses > 0 {
 		facts = append(facts, locales.SubagentToolUses(s.ToolUses))

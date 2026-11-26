@@ -876,6 +876,13 @@ object Strings {
     fun chatModel(): String = catalog.say("chatModel")
 
     /**
+     * 「思考强度」
+     *
+     * 子代理查看页的一行：子代理实际用的思考强度。
+     */
+    fun chatEffort(): String = catalog.say("chatEffort")
+
+    /**
      * 「工具调用」
      *
      * 子代理查看页的一行：调了几次工具。
@@ -2066,7 +2073,7 @@ object Strings {
     fun composerCost(): String = catalog.say("composerCost")
 
     /**
-     * 「带 ≈ 的是按 token 数和 API 标价估的：会话记录里没有费用，子代理的用量不在其中。」
+     * 「带 ≈ 的是按 token 数和 API 标价估的：会话记录里没有费用。续上会话或接上后台进程后的第一轮只算得出主对话的，子代理的不在其中。」
      *
      * 用量对话框累计一节下的注：费用是估的。
      */
