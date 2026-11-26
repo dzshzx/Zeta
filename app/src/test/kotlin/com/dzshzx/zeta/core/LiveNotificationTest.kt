@@ -30,8 +30,8 @@ import org.robolectric.Shadows.shadowOf
 import org.robolectric.annotation.Config
 
 /**
- * 常驻通知（Robolectric 上用真的 Notification.Builder）：提升时带上实时通知要的字段、系统认它可以提升，不提升时照旧；
- * 胶囊那句当前步骤分出的类别（状态栏小胶囊上的词据此取）。系统是否真的接受提升要上真机看 dumpsys。
+ * 常驻通知（Robolectric 上用真的 Notification.Builder）：有对话在回答时显示当前步骤、带超级岛的焦点参数，不申请 Android 16 的实时通知 （带了的话
+ * HyperOS 通知栏里的卡片时有时无，见 AgentService）；没在回答时照旧。胶囊那句当前步骤分出的类别（大岛左边的词据此取）。 岛和卡片的样子要上真机看。
  */
 @RunWith(RobolectricTestRunner::class)
 @Config(sdk = [37])
@@ -53,7 +53,7 @@ class LiveNotificationTest {
         )
 
     @Test
-    fun promotedCarriesLiveFields() {
+    fun liveCarriesStepWithoutPromotion() {
         val n =
             service()
                 .notification(
@@ -64,16 +64,9 @@ class LiveNotificationTest {
                         live = live(),
                     ),
                 )
-        assertTrue(n.extras.getBoolean(Notification.EXTRA_REQUEST_PROMOTED_ONGOING))
-        assertTrue("系统据此决定能不能提升", n.hasPromotableCharacteristics())
-        // 对照：不常驻的通知系统不认，上面这条检查不是摆设
-        assertFalse(
-            Notification.Builder(app, Notifier.CHANNEL_STATUS)
-                .setContentTitle("x")
-                .build()
-                .hasPromotableCharacteristics(),
-        )
-        assertEquals("执行中", n.shortCriticalText)
+        assertFalse(n.extras.getBoolean(Notification.EXTRA_REQUEST_PROMOTED_ONGOING))
+        assertNull(n.shortCriticalText)
+        assertEquals("执行中", focus(n)["aodTitle"]!!.jsonPrimitive.content)
         assertEquals(
             AppVariant.current.notificationTitle("修 bug"),
             n.extras.getCharSequence(Notification.EXTRA_TITLE).toString(),
@@ -100,7 +93,7 @@ class LiveNotificationTest {
         )
     }
 
-    /** 停下来等用户时，实时通知（超级岛展开时也是它）正文是具体的命令，按钮换成允许、拒绝；照样能提升。 */
+    /** 停下来等用户时，常驻通知（超级岛展开时也是它）正文是具体的命令，按钮换成允许、拒绝。 */
     @Test
     fun waitingCarriesReplies() {
         val bash =
@@ -133,8 +126,7 @@ class LiveNotificationTest {
         assertEquals(0, n.flags and Notification.FLAG_ONLY_ALERT_ONCE)
         val again = service.notification(StatusNotice(true, true, listOf("修 bug"), waiting))
         assertTrue(again.flags and Notification.FLAG_ONLY_ALERT_ONCE != 0)
-        assertTrue(n.hasPromotableCharacteristics())
-        assertEquals("待确认", n.shortCriticalText)
+        assertEquals("待确认", focus(n)["aodTitle"]!!.jsonPrimitive.content)
         assertEquals("需要你确认：建文件", n.extras.getCharSequence(Notification.EXTRA_TEXT).toString())
         assertEquals(listOf("允许", "拒绝"), n.actions.map { it.title.toString() })
         assertEquals(listOf(true, false), n.actions.map { it.isAuthenticationRequired })
@@ -169,7 +161,7 @@ class LiveNotificationTest {
                 todo = null,
             )
         val plain = service.notification(StatusNotice(true, true, listOf("修 bug"), controlling))
-        assertEquals("实时通知平时不带停止、截屏", 0, plain.actions?.size ?: 0)
+        assertEquals("显示当前步骤时不带停止、截屏", 0, plain.actions?.size ?: 0)
         assertNull(focus(plain)["textButton"])
     }
 
@@ -218,7 +210,7 @@ class LiveNotificationTest {
         )
         assertEquals(2, n.extras.getInt(Notification.EXTRA_PROGRESS))
         assertEquals(5, n.extras.getInt(Notification.EXTRA_PROGRESS_MAX))
-        assertTrue(n.hasPromotableCharacteristics())
+        assertFalse(n.extras.getBoolean(Notification.EXTRA_REQUEST_PROMOTED_ONGOING))
         // 超级岛上同一份进度（百分比）；没在等用户，岛不自己展开
         val focus = focus(n)
         assertEquals(40, focus["progressInfo"]!!.jsonObject["progress"]!!.jsonPrimitive.int)
@@ -226,7 +218,7 @@ class LiveNotificationTest {
     }
 
     @Test
-    fun notPromotedKeepsOldLook() {
+    fun idleKeepsOldLook() {
         val n =
             service()
                 .notification(
@@ -239,7 +231,7 @@ class LiveNotificationTest {
                 )
         assertFalse(n.extras.getBoolean(Notification.EXTRA_REQUEST_PROMOTED_ONGOING))
         assertNull(n.shortCriticalText)
-        assertNull("不提升时不上超级岛", n.extras.getString(FocusParam.EXTRA))
+        assertNull("没有当前步骤时不上超级岛", n.extras.getString(FocusParam.EXTRA))
         assertEquals(
             AppVariant.current.notificationTitle("Claude 正在工作"),
             n.extras.getCharSequence(Notification.EXTRA_TITLE).toString(),

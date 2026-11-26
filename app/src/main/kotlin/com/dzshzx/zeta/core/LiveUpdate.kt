@@ -4,12 +4,12 @@ import androidx.compose.runtime.Immutable
 import com.dzshzx.zeta.i18n.Strings
 
 /*
- * 运行状态进状态栏和锁屏：有对话在回答时，常驻通知申请提升为实时通知（Android 16 起的 Live Updates），
- * 正文是当前步骤（和顶部胶囊同一句），状态栏的小胶囊上是一个很短的词，有任务清单时带进度条。
+ * 运行状态上超级岛：有对话在回答时，常驻通知显示那个对话的当前步骤（和顶部胶囊同一句）并上小米超级岛（[FocusParam]），
+ * 大岛左边是一个很短的词，有任务清单时带进度条。
  * 这里是不碰 Android 的部分：挑哪个对话、写什么字、多久更新一次。发通知在 AgentService。
  */
 
-/** 胶囊上那句当前步骤的类别。[short] 是状态栏小胶囊上的词，只放得下几个字。 */
+/** 胶囊上那句当前步骤的类别。[short] 是超级岛大岛左边、息屏上的词，只放得下几个字。 */
 enum class StepKind(private val shortText: () -> String) {
     FINISHED(Strings::coreStepShortFinished),
     CONTROLLING(Strings::coreStepShortControlling),
@@ -26,7 +26,7 @@ enum class StepKind(private val shortText: () -> String) {
     TOOL(Strings::coreStepShortTool),
     THINKING(Strings::coreStepShortThinking);
 
-    /** 状态栏小胶囊上的词，只放得下几个字。 */
+    /** 超级岛大岛左边、息屏上的词，只放得下几个字。 */
     val short: String
         get() = shortText()
 
@@ -38,7 +38,7 @@ enum class StepKind(private val shortText: () -> String) {
 /** 胶囊上的一句当前步骤和它的类别。 */
 @Immutable data class Step(val text: String, val kind: StepKind)
 
-/** 挑实时通知显示哪个对话时，一个正在回答的对话的样子。 */
+/** 挑常驻通知显示哪个对话时，一个正在回答的对话的样子。 */
 internal data class LiveCandidate(
     /** 打开这个对话用的标识（会话号，新对话是它的 key）。 */
     val key: String,
@@ -61,7 +61,7 @@ internal data class LiveCandidate(
 /** 任务清单的进度。 */
 @Immutable data class TodoProgress(val done: Int, val total: Int)
 
-/** 实时通知上的内容。 */
+/** 常驻通知（超级岛）上的内容。 */
 @Immutable
 data class LiveStatus(
     /** 点通知打开的对话。 */
@@ -83,7 +83,7 @@ data class LiveStatus(
     /** 超级岛右边那句：等用户时是等的是什么（[WaitingNotice.subject]），否则就是 [text]。 */
     val subject: String = text,
 ) {
-    /** 状态栏小胶囊上的词。 */
+    /** 超级岛大岛左边的词。 */
     val short: String
         get() = kind.short
 
@@ -97,8 +97,8 @@ internal object LiveUpdate {
     const val MAX_SEGMENTS = 12
 
     /**
-     * 显示哪个对话：顶部胶囊要显示的那个（[focusKey]）在回答就用它。胶囊显示着时实时通知不提升，用到它的是胶囊退场
-     * （锁屏、息屏）的时候：锁屏上的实时通知接着说胶囊在说的那个对话。没有时照胶囊挑对话的规则排：接管着的优先，其次是停下来等用户的，再是用过手机的里最近用的，再是 Zeta
+     * 显示哪个对话：顶部胶囊要显示的那个（[focusKey]）在回答就用它。胶囊显示着时不上岛，用到它的是胶囊退场
+     * （锁屏、息屏）的时候：锁屏上的岛和通知接着说胶囊在说的那个对话。没有时照胶囊挑对话的规则排：接管着的优先，其次是停下来等用户的，再是用过手机的里最近用的，再是 Zeta
      * 里正显示着的，最后是最近开始的。
      */
     fun pick(candidates: List<LiveCandidate>, focusKey: String?): LiveCandidate? {
@@ -159,14 +159,14 @@ internal object LiveUpdate {
     }
 }
 
-/** 常驻通知要显示的状态：有进程在就常驻，[busy] 时持有唤醒锁，[running] 是正在回答的对话；[live] 不为 null 时提升为实时通知。 */
+/** 常驻通知要显示的状态：有进程在就常驻，[busy] 时持有唤醒锁，[running] 是正在回答的对话；[live] 不为 null 时显示当前步骤、上超级岛。 */
 internal data class StatusNotice(
     val active: Boolean,
     val busy: Boolean,
     val running: List<String>,
     val live: LiveStatus?,
 ) {
-    /** 和 [old] 比只是实时通知上的步骤、进度变了，其余都一样：这种更新要节流。 */
+    /** 和 [old] 比只是常驻通知上的步骤、进度变了，其余都一样：这种更新要节流。 */
     fun minorAfter(old: StatusNotice): Boolean =
         active == old.active &&
             busy == old.busy &&

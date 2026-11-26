@@ -13,7 +13,7 @@ import com.dzshzx.zeta.ui.overlay.ScreenLock
 
 /**
  * 对话在 Zeta 之外怎么让用户知道：顶部状态胶囊显示哪个对话（[overlayFocus]）、一轮结束时的完成提醒和屏幕底部的结果卡片、
- * 需要确认的提醒、回答自动朗读，以及常驻通知提升成实时通知时显示哪个对话（[liveStatus]）。 对话的事件由 [hub]
+ * 需要确认的提醒、回答自动朗读，以及常驻通知上岛时显示哪个对话（[liveStatus]）。 对话的事件由 [hub]
  * 转过来（一轮就要结束、结束了、等确认）；挑对话只读可观察的状态，在主线程上调用。
  */
 class TurnAlerts internal constructor(private val hub: ConversationHub) : TurnEvents {
@@ -142,11 +142,11 @@ class TurnAlerts internal constructor(private val hub: ConversationHub) : TurnEv
         syncAll()
     }
 
-    /** 实时通知刚更新过（[ConversationHub.onActivityChanged]）：它显示的对话可能换了，各对话的提醒跟着对一遍。 */
+    /** 常驻通知刚更新过（[ConversationHub.onActivityChanged]）：它显示的对话可能换了，各对话的提醒跟着对一遍。 */
     internal fun syncAll() = hub.liveConversations.forEach(::syncWaiting)
 
     /**
-     * 对话在等用户、用户又没看着它时怎么提醒：实时通知上正显示着这个请求的，超级岛弹出时自己响铃震动、按钮也在， 不另发提醒（有的话撤掉）；
+     * 对话在等用户、用户又没看着它时怎么提醒：常驻通知上正显示着这个请求的，超级岛弹出时自己响铃震动、按钮也在， 不另发提醒（有的话撤掉）；
      * 否则它的那条提醒换成在等什么，能在通知上回答的带上按钮（见 [AlertNotice.replies]）。同一个请求只响一次。后台运行的由 ScheduleRunner 提醒。
      */
     private fun syncWaiting(conversation: Conversation) {
@@ -266,23 +266,23 @@ class TurnAlerts internal constructor(private val hub: ConversationHub) : TurnEv
         if (answer.text.isNotBlank()) ReadAloud.speak(app, answer.id, answer.text)
     }
 
-    /** 正在回答的对话这一轮从什么时候开始（墙上时钟），实时通知上走秒用。 */
+    /** 正在回答的对话这一轮从什么时候开始（墙上时钟），常驻通知上走秒用。 */
     private val turnStarts = HashMap<Conversation, Long>()
 
-    /** 有对话在回答（不全是在等用户）、系统允许实时通知时每秒看一次当前步骤：步骤变了不会调 [ConversationHub.onActivityChanged]。 */
+    /** 有对话在回答（不全是在等用户）时每秒看一次当前步骤：步骤变了不会调 [ConversationHub.onActivityChanged]。 */
     private val liveTick = Runnable { hub.onActivityChanged() }
 
     /**
-     * 实时通知上显示什么（挑法见 [LiveUpdate.pick]）；没有对话在回答（空闲保持着的不算）、系统不允许提升，
+     * 常驻通知上显示哪个对话的当前步骤、上超级岛（挑法见 [LiveUpdate.pick]）；没有对话在回答（空闲保持着的不算），
      * 或顶部胶囊正显示着（[OverlayBridge.capsuleBounds] 不为 null；照 Eta，不让顶部同时出现两个说同一件事的胶囊）时为 null，
-     * 通知照旧。胶囊显示着也照样每秒再看一次，胶囊一退场（比如锁屏）下一秒就提升。
+     * 通知照旧。胶囊显示着也照样每秒再看一次，胶囊一退场（比如锁屏）下一秒就上岛。
      */
     internal fun liveStatus(answering: List<Conversation>): LiveStatus? {
         val now = System.currentTimeMillis()
         turnStarts.keys.retainAll(answering.toSet())
         answering.forEach { turnStarts.getOrPut(it) { now } }
         main.removeCallbacks(liveTick)
-        if (answering.isEmpty() || !AgentService.canPromote(app)) return null
+        if (answering.isEmpty()) return null
         val capsule = OverlayBridge.capsuleBounds != null
         // 都停下来等用户时步骤不会自己变（请求来了、没了另有 onActivityChanged），不必每秒再看；胶囊显示着时照看，好在它退场时接上
         if (capsule || answering.any { it.pending == null })

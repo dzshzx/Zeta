@@ -19,7 +19,6 @@ import android.os.IBinder
 import android.os.Looper
 import android.os.PowerManager
 import android.os.SystemClock
-import androidx.annotation.RequiresApi
 import com.dzshzx.zeta.R
 import com.dzshzx.zeta.i18n.Strings
 import com.dzshzx.zeta.phone.ScreenCapture
@@ -42,7 +41,7 @@ internal object Notifier {
     const val ID_ACCESSIBILITY = 4
     const val ID_UPDATE = 5
 
-    /** 响过的请求号：同一个请求不管从实时通知还是提醒发出，只响一次。在主线程上用。 */
+    /** 响过的请求号：同一个请求不管从常驻通知还是提醒发出，只响一次。在主线程上用。 */
     private val rung = HashSet<String>()
 
     /** 请求 [requestId] 还没响过就记下、返回 true（这次该响）；响过返回 false。 */
@@ -217,8 +216,9 @@ internal object Notifier {
 }
 
 /**
- * 只为保活：Claude Code 进程是本应用的子进程，应用被回收它也会结束。 常驻通知在有对话回答时申请提升为实时通知（状态栏、锁屏上的 Live Updates，内容见
- * [LiveStatus]）；系统不允许时照旧。
+ * 只为保活：Claude Code 进程是本应用的子进程，应用被回收它也会结束。 常驻通知在有对话回答时显示那个对话的当前步骤并上小米超级岛（内容见 [LiveStatus]， 岛的参数见
+ * [FocusParam]）。不申请 Android 16 的实时通知（promoted ongoing）：HyperOS 的通知栏只给不带这个标记的焦点通知直接挂上插件画的卡片 （系统界面的
+ * `RowContentBindStage.requestRebind`），带着它的卡片在通知栏里时有时无（实测在 Zeta 前台时是空白的）。
  */
 class AgentService : Service() {
     private var wakeLock: PowerManager.WakeLock? = null
@@ -285,9 +285,9 @@ class AgentService : Service() {
         Notifier.ensureChannels(this)
         val live = state.live
         val builder = statusBuilder(live)
-        if (live != null && Build.VERSION.SDK_INT >= Build.VERSION_CODES.BAKLAVA) {
-            promote(builder, live)
-            // 实时通知（超级岛展开时也是它）只在停下来等用户时带按钮，是替用户回答的那几个；“停止”“截屏”在岛上用不着
+        if (live != null) {
+            liveContent(builder, live)
+            // 显示当前步骤的通知（超级岛展开时也是它）只在停下来等用户时带按钮，是替用户回答的那几个；“停止”“截屏”在岛上用不着
             val replies = replyActions(live)
             replies.forEach(builder::addAction)
             Notifier.island(this, builder, FocusParam.of(live), replies)
@@ -347,13 +347,11 @@ class AgentService : Service() {
 
     /**
      * 常驻通知的骨架，在“运行状态”渠道。一轮里要更新很多次，平时只在第一次发出时提醒（用户把这个渠道调成会弹横幅时，不然每次更新都再弹一次）。
-     * 实时通知上显示的对话停下来等用户、这个请求第一次出现时提醒一次，弹不弹、响不响照用户给这个渠道的设置。 Zeta 的 LSPosed 模块在系统界面里生效时， 岛按 Zeta
-     * 自己的焦点参数自己展开（[FocusParam.of]）；没生效时 HyperOS 把实时通知转成岛，转出来的参数里 enableFloat、islandFirstFloat 都是
-     * false，岛弹出来靠这次提醒（手机上实测：另建一个重要度“高”的渠道，岛不展开；用户调高过的“运行状态”渠道能展开）。
+     * 通知上显示的对话停下来等用户、这个请求第一次出现时提醒一次，弹不弹、响不响照用户给这个渠道的设置。 Zeta 的 LSPosed 模块在系统界面里生效时，岛按 Zeta
+     * 自己的焦点参数自己展开（[FocusParam.of]）；没生效时不上岛，是一条普通的常驻通知。
      */
     private fun statusBuilder(live: LiveStatus?): Notification.Builder {
-        val waiting =
-            live?.requestId?.takeIf { Build.VERSION.SDK_INT >= Build.VERSION_CODES.BAKLAVA }
+        val waiting = live?.requestId
         return Notification.Builder(this, Notifier.CHANNEL_STATUS)
             .setSmallIcon(R.drawable.ic_stat_zeta)
             .setOngoing(true)
@@ -368,20 +366,18 @@ class AgentService : Service() {
         }
     }
 
-    /** 实时通知：标题是对话标题，正文是当前步骤（和顶部胶囊同一句），状态栏小胶囊上一个短词，从这一轮开始走秒； 有没做完的任务清单时用进度条样式。点开回到这个对话。 */
-    @RequiresApi(Build.VERSION_CODES.BAKLAVA)
-    private fun promote(builder: Notification.Builder, live: LiveStatus) {
+    /** 显示当前步骤的通知：标题是对话标题，正文是当前步骤（和顶部胶囊同一句），从这一轮开始走秒；有没做完的任务清单时用进度条样式。点开回到这个对话。 */
+    private fun liveContent(builder: Notification.Builder, live: LiveStatus) {
         builder
             .setContentTitle(AppVariant.current.notificationTitle(live.title))
             .setContentText(live.text)
             .setSubText(live.note)
             .setContentIntent(Notifier.conversationOpen(this, live.key))
-            .setShortCriticalText(live.short)
             .setWhen(live.startedAt)
             .setShowWhen(true)
             .setUsesChronometer(true)
         val progress = live.progress
-        if (progress != null) {
+        if (progress != null && Build.VERSION.SDK_INT >= Build.VERSION_CODES.BAKLAVA) {
             builder.setStyle(
                 Notification.ProgressStyle()
                     .setProgressSegments(
@@ -393,12 +389,6 @@ class AgentService : Service() {
             )
         } else {
             builder.setStyle(Notification.BigTextStyle().bigText(live.detail ?: live.text))
-        }
-        if (Build.VERSION.SDK_INT_FULL >= Build.VERSION_CODES_FULL.BAKLAVA_1) {
-            builder.setRequestPromotedOngoing(true)
-        } else {
-            // 36.0 上还没有这个方法，系统认的是同一个 extra
-            builder.extras.putBoolean("android.requestPromotedOngoing", true)
         }
     }
 
@@ -418,7 +408,7 @@ class AgentService : Service() {
         private val ACTION_STOP = AppVariant.current.action("STOP")
         private val ACTION_CAPTURE = AppVariant.current.action("CAPTURE")
 
-        /** 实时通知上只是步骤、进度变了时，两次更新至少隔这么久（一轮里步骤一秒变好几次）。 */
+        /** 常驻通知上只是步骤、进度变了时，两次更新至少隔这么久（一轮里步骤一秒变好几次）。 */
         private const val LIVE_INTERVAL_MS = 2_000L
 
         /** 正在运行的服务；停掉时（[update] 里）就清空，不等 onDestroy。只在主线程上碰，下同。 */
@@ -438,22 +428,12 @@ class AgentService : Service() {
             throttle.poll(SystemClock.elapsedRealtime())?.let { publish(context, it) }
         }
 
-        /** 实时通知上正显示着、等用户回答的那个请求号（超级岛上能直接回答它）；没有时为 null。在主线程上读。 */
+        /** 常驻通知（超级岛）上正显示着、等用户回答的那个请求号（超级岛上能直接回答它）；没有时为 null。在主线程上读。 */
         internal val liveRequestId: String?
             get() = throttle.published?.live?.requestId
 
-        /** 系统允许把常驻通知提升为实时通知（Android 16 起，用户也没在设置里关掉这个应用的实时通知）。 */
-        fun canPromote(context: Context): Boolean =
-            Build.VERSION.SDK_INT >= Build.VERSION_CODES.BAKLAVA &&
-                runCatching {
-                        context
-                            .getSystemService(NotificationManager::class.java)
-                            .canPostPromotedNotifications()
-                    }
-                    .getOrDefault(false)
-
         /**
-         * [running] 是正在回答的对话标题，非空时通知上带“停止”；[live] 是实时通知的内容，null 时是普通的常驻通知。 在主线程上调用。只是 [live]
+         * [running] 是正在回答的对话标题，非空时通知上带“停止”；[live] 是当前步骤（上超级岛），null 时是普通的常驻通知。 在主线程上调用。只是 [live]
          * 的步骤变了时节流（见 [LIVE_INTERVAL_MS]），其余的变化马上更新。
          */
         fun update(

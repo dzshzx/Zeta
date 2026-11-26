@@ -39,7 +39,7 @@ internal class ConversationFocus(private val hub: ConversationHub, val conversat
     override val step: String
         get() = stepState.value.text
 
-    /** [step] 和它的类别（实时通知的状态栏小胶囊据此写一个词）。 */
+    /** [step] 和它的类别（超级岛大岛左边据此写一个词）。 */
     val stepInfo: Step
         get() = stepState.value
 

@@ -979,9 +979,9 @@ class ConversationHub(val platform: HubPlatform) {
         )
     }
 
-    /** 对话等着用户回答的请求变了（来了、处理掉了、撤回了）：提醒交给 [alerts]，胶囊和实时通知跟着更新。在主线程上调用。 */
+    /** 对话等着用户回答的请求变了（来了、处理掉了、撤回了）：提醒交给 [alerts]，胶囊和常驻通知跟着更新。在主线程上调用。 */
     fun onPendingChanged(conversation: Conversation) {
-        // 先更新实时通知：提醒要据此判断超级岛上是不是已经能回答这个请求
+        // 先更新常驻通知：提醒要据此判断超级岛上是不是已经能回答这个请求
         onActivityChanged()
         platform.alerts.pendingChanged(conversation)
     }

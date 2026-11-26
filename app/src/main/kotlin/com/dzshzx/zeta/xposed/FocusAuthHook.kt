@@ -11,31 +11,25 @@ import java.util.WeakHashMap
 /**
  * 让本包的通知按 Zeta 自己写的焦点参数上小米超级岛（通知 extras 里的 `miui.focus.param`，见 core/FocusParam.kt）。
  *
- * HyperOS
- * 的焦点通知插件（miui.systemui.plugin，跑在系统界面进程里）收到通知时（`FocusNotificationController.onNotificationPosted`）有两道关，
- * 这里各拦一处，查的是本包时答「是」，别的包原样交给系统：
- * - 实时通知（Android 的 Live Updates）不在 `NotificationSettingsManager.isDynamicIslandLiveUpdateBlackList`
- *   里时，插件清掉应用写的焦点参数， 换成从实时通知转出的（岛不自己展开、没有应用的按钮）。本包算在名单里，插件就用 Zeta 的参数。这个方法只有这一处调用。
- * - 鉴权（`fetchAuthResult`）：国行系统上不带自定义视图的焦点通知先看
- *   `SignatureChecker.checkSignatures(packageName)`，和系统界面同签名才放行， 否则交给 `AuthManager`
- *   去小米服务器核对申请过的权限，没申请过就不上岛。
+ * HyperOS 的焦点通知插件（miui.systemui.plugin，跑在系统界面进程里）鉴权时（`fetchAuthResult`），国行系统上不带自定义视图的焦点通知先看
+ * `SignatureChecker.checkSignatures(packageName)`，和系统界面同签名才放行，否则交给 `AuthManager` 去小米服务器核对申请过的权限，
+ * 没申请过就不上岛。这里拦它，查的是本包时答「是」，别的包原样交给系统。
  *
- * 两处都在插件的 ClassLoader 里，插件晚于系统界面加载，所以先在系统界面的 ClassLoader 里找，找不到就等
- * `PluginInstance$PluginFactory.createPluginContext` 建出插件的 Context 再装。模块没启用或装不上时通知照常是实时通知，系统自己转成岛。
- * 装没装上、第一次放行写进 LSPosed 的模块日志和 logcat，标签 [AppVariant.islandTag]。
+ * Zeta 的通知不申请 Android 16 的实时通知（见 core/AgentService.kt），所以插件不会拿系统转出的参数换掉 Zeta 的，不用再拦
+ * `NotificationSettingsManager.isDynamicIslandLiveUpdateBlackList`。
+ *
+ * 它在插件的 ClassLoader 里，插件晚于系统界面加载，所以先在系统界面的 ClassLoader 里找，找不到就等
+ * `PluginInstance$PluginFactory.createPluginContext` 建出插件的 Context 再装。模块没启用或装不上时不上岛。 装没装上、第一次放行写进
+ * LSPosed 的模块日志和 logcat，标签 [AppVariant.islandTag]。
  */
 internal object FocusAuthHook {
     const val PROCESS = "com.android.systemui"
     private const val PLUGIN_FACTORY =
         "com.android.systemui.shared.plugins.PluginInstance\$PluginFactory"
 
-    /** 要拦的两处：类、方法，都是 `boolean 方法(String packageName)`。 */
+    /** 要拦的：类、方法，都是 `boolean 方法(String packageName)`。 */
     private val targets =
-        listOf(
-            "miui.systemui.notification.NotificationSettingsManager" to
-                "isDynamicIslandLiveUpdateBlackList",
-            "miui.systemui.notification.focus.SignatureChecker" to "checkSignatures",
-        )
+        listOf("miui.systemui.notification.focus.SignatureChecker" to "checkSignatures")
 
     private val installed =
         Collections.synchronizedSet(Collections.newSetFromMap(WeakHashMap<ClassLoader, Boolean>()))
@@ -73,9 +67,7 @@ internal object FocusAuthHook {
         }
     }
 
-    /**
-     * [loader] 是焦点通知插件的（找得到第一个类）就把两处都装上，返回是不是；同一个 ClassLoader 只装一次。 别的插件的 ClassLoader 里没有这些类，不记日志。
-     */
+    /** [loader] 是焦点通知插件的（找得到第一个类）就都装上，返回是不是；同一个 ClassLoader 只装一次。 别的插件的 ClassLoader 里没有这些类，不记日志。 */
     private fun installInto(
         module: XposedModule,
         loader: ClassLoader,

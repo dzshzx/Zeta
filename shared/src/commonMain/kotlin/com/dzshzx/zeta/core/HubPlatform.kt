@@ -45,7 +45,7 @@ interface HubPlatform {
     /** 手机本机这台的 Linux 环境（Debian）。 */
     val local: LocalEnvironment?
 
-    /** 一轮的进展怎么提醒用户（完成、等确认、胶囊、实时通知）。 */
+    /** 一轮的进展怎么提醒用户（完成、等确认、胶囊、常驻通知）。 */
     val alerts: TurnEvents
 
     /** 主机 [backend] 上会话 [key] 的手机工具：登记过就接着用原来那份；没有时是 null。 */
@@ -106,7 +106,7 @@ interface LocalEnvironment {
     fun refreshAccount()
 }
 
-/** 一轮的进展交给谁提醒（手机上是 TurnAlerts：胶囊、结果卡片、完成与确认提醒、实时通知）。 */
+/** 一轮的进展交给谁提醒（手机上是 TurnAlerts：胶囊、结果卡片、完成与确认提醒、常驻通知）。 */
 interface TurnEvents {
     /** 界面上的当前对话或前后台变了：正看着的那个的提醒不必留着。 */
     fun watchChanged()

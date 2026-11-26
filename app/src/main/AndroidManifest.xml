@@ -7,8 +7,6 @@
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE_SPECIAL_USE" />
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
-    <!-- 对话在回答时常驻通知提升为实时通知（Android 16 起的 Live Updates，状态栏和锁屏上显示） -->
-    <uses-permission android:name="android.permission.POST_PROMOTED_NOTIFICATIONS" />
     <uses-permission android:name="android.permission.WAKE_LOCK" />
     <!-- 定时任务：到点准时（setAlarmClock 要它），开机后重排闹钟 -->
     <uses-permission android:name="android.permission.SCHEDULE_EXACT_ALARM" />

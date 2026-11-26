@@ -1,7 +1,7 @@
 #!/bin/bash
 # 提醒通知（渠道“完成与确认提醒”）：测试版在后台时，假 Claude 停下来等批准、提问、进程意外退出。核对每个对话一条提醒
 # （tag 是会话号）、等批准时带“允许”“拒绝”、单选题的选项是按钮；按钮回答后这一轮接着跑完，提醒换成“已完成”；
-# 系统提升了常驻通知时，“在等你”显示在实时通知（超级岛）上，带同样的按钮、换到出声的渠道，不另发提醒；回到前台看着这个对话时提醒撤掉；请求在看着时来、随后离开的照样提醒；进程意外退出时提醒“已中断”。等的时候顺带记下常驻通知有没有提升为实时通知、小胶囊上的字。
+# 常驻通知显示着这个对话的当前步骤时，“在等你”显示在常驻通知（超级岛）上，带同样的按钮、换到出声的渠道，不另发提醒；回到前台看着这个对话时提醒撤掉；请求在看着时来、随后离开的照样提醒；进程意外退出时提醒“已中断”。常驻通知不该带 Android 16 的实时通知标记（PROMOTED_ONGOING）。
 # 按钮由 root 直接发给 AlertReplyReceiver（和按钮的 PendingIntent 里是同一个 Intent）；通知栏上真点一下、锁屏上先要解锁，要人看。
 # 等你、回答后几个时刻截下主屏的真实样子（main-*.png），看超级岛弹没弹。
 # 用法：ZETA_PHONE_OWNER=<任务名> [ZETA_DEVICE=phone] tools/phone-run tools/phone-tests/alerts.sh
@@ -44,7 +44,7 @@ alert() {
   awk '/NotificationRecord\(/ { keep = index($0, " id=1 ") > 0 && !done; if (keep) done = 1 } keep' all.txt >status.txt
 }
 
-# wait_waiting <名字> <正文的开头>：等“在等你”出现（最多 40 秒）。系统提升了常驻通知时出现在实时通知上（WHERE=live，
+# wait_waiting <名字> <正文的开头>：等“在等你”出现（最多 40 秒）。常驻通知显示着这个对话时出现在常驻通知上（WHERE=live，
 # 超级岛上就能回答，不该另有提醒）；否则出现在提醒上（WHERE=alert）。记录存进 alert-<名字>.txt、status-<名字>.txt
 WHERE=''
 wait_waiting() {
@@ -52,7 +52,7 @@ wait_waiting() {
   for ((i = 0; i < 80; i++)); do
     alert >"alert-$1.txt"
     cp status.txt "status-$1.txt"
-    if grep -q PROMOTED_ONGOING "status-$1.txt" && grep -qF "android.text=String ($2" "status-$1.txt"; then
+    if grep -q 'miui\.focus\.pics=' "status-$1.txt" && grep -qF "android.text=String ($2" "status-$1.txt"; then
       WHERE=live
       return 0
     fi
@@ -66,15 +66,16 @@ wait_waiting() {
   return 1
 }
 
-# check_waiting <名字> <按钮，逗号隔开>：在等你的那条（实时通知或提醒）上的按钮；实时通知上时还核对渠道、没有另发提醒
+# check_waiting <名字> <按钮，逗号隔开>：在等你的那条（常驻通知或提醒）上的按钮；常驻通知上时还核对渠道、没有另发提醒；常驻通知没带实时通知标记
 check_waiting() {
   if [[ $WHERE == live ]]; then
-    check "$1：实时通知（超级岛）上的按钮" "$(buttons "status-$1.txt" | paste -sd,)" "$2"
-    check "$1：实时通知在运行状态渠道" "$(grep -m1 -oE 'channel=[a-z_]+' "status-$1.txt")" "channel=status"
+    check "$1：常驻通知（超级岛）上的按钮" "$(buttons "status-$1.txt" | paste -sd,)" "$2"
+    check "$1：常驻通知在运行状态渠道" "$(grep -m1 -oE 'channel=[a-z_]+' "status-$1.txt")" "channel=status"
     check "$1：超级岛能回答时不另发提醒" "$(grep -c NotificationRecord "alert-$1.txt" || true)" "0"
   else
     check "$1：提醒上的按钮" "$(buttons "alert-$1.txt" | paste -sd,)" "$2"
   fi
+  check "$1：常驻通知没带实时通知标记" "$(grep -c PROMOTED_ONGOING "status-$1.txt" || true)" "0"
 }
 
 # wait_alert <名字> <正文的开头>：等提醒的正文变成这样（最多 40 秒），记录存进 alert-<名字>.txt
@@ -107,12 +108,12 @@ wait_gone() {
 # 记录里的按钮文字，一行一个
 buttons() { grep -oE '^ +\[[0-9]+\] "[^"]*"' "$1" | sed -E 's/^ +\[[0-9]+\] "(.*)"$/\1/' || true; }
 
-# 常驻通知：提升了没有、小胶囊上的字
+# 常驻通知：flags、大岛左边的字
 status_line() {
   local flags short
   flags=$(grep -m1 -E '^ +flags=' "$1" | sed 's/^ *flags=//' || true)
-  short=$(grep -m1 -oE 'android\.shortCriticalText=.*' "$1" | sed 's/.*String (\(.*\))$/\1/' || true)
-  echo "常驻通知 flags=$flags 小胶囊=${short:-无}"
+  short=$(grep -m1 -oE '"aodTitle":"[^"]*"' "$1" | sed 's/.*:"\(.*\)"$/\1/' || true)
+  echo "常驻通知 flags=$flags 大岛左边=${short:-无}"
 }
 
 # press <第几个按钮>：照通知上那个按钮发给 AlertReplyReceiver。会话号、请求号取日志里的会话和最近的 can_use_tool

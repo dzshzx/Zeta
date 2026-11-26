@@ -25,7 +25,7 @@ import org.robolectric.Shadows.shadowOf
 import org.robolectric.annotation.Config
 
 /**
- * [TurnAlerts]：完成和确认提醒只在用户没看着这个对话时发，每个对话一条，等的请求没了就撤，用户叫停的不提醒；没人用手机时胶囊不显示、实时通知没有内容。 结果卡片弹不弹、留不留由
+ * [TurnAlerts]：完成和确认提醒只在用户没看着这个对话时发，每个对话一条，等的请求没了就撤，用户叫停的不提醒；没人用手机时胶囊不显示、常驻通知上没有当前步骤。 结果卡片弹不弹、留不留由
  * ResultCardShots 走一轮结束的真实路径验。
  */
 @RunWith(RobolectricTestRunner::class)

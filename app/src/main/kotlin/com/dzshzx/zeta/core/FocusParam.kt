@@ -9,10 +9,9 @@ import kotlinx.serialization.json.putJsonObject
 /*
  * 小米超级岛（焦点通知）的参数：通知的 extras 里放 [FocusParam.EXTRA]（JSON）、[FocusParam.PICS]（图标）、
  * [FocusParam.ACTIONS]（按钮），HyperOS 照它画岛和通知栏里的焦点卡片。小米只给申请过权限的应用画，Zeta 的 LSPosed 模块在系统界面里
- * 放行本包、并让实时通知也用 Zeta 自己的参数（xposed/FocusAuthHook.kt）；模块没启用时系统不认这几项，实时通知照常由系统转成岛，
- * 提醒照常是横幅。字段照 HyperOS 3、4 的焦点通知协议（param_v2）。
+ * 放行本包（xposed/FocusAuthHook.kt）；模块没启用时系统不认这几项，常驻通知是普通通知、不上岛，提醒照常是横幅。字段照 HyperOS 3、4 的焦点通知协议（param_v2）。
  *
- * 用在两处（发通知在 AgentService.kt 的 Notifier）：常驻的实时通知（[of]，停下来等用户时岛自己展开、带回答按钮），
+ * 用在两处（发通知在 AgentService.kt 的 Notifier）：常驻通知（[of]，停下来等用户时岛自己展开、带回答按钮），
  * 对话的提醒（跑完、中断、等你，[alert]：岛弹出来停 [ALERT_ISLAND_SECONDS] 秒后收起，通知留在通知栏）。这里是不碰 Android 的部分。
  */
 
@@ -49,7 +48,7 @@ internal object FocusParam {
     /** 提醒的岛弹出来停几秒。 */
     const val ALERT_ISLAND_SECONDS = 5
 
-    /** 常驻的实时通知：停下来等用户时岛自己展开。 */
+    /** 常驻通知：停下来等用户时岛自己展开。 */
     fun of(live: LiveStatus) =
         IslandContent(
             title = live.title,

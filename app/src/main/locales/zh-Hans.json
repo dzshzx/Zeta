@@ -3562,31 +3562,31 @@
   },
   "coreStepYouControl": "你在接管",
   "@coreStepYouControl": {
-    "description": "顶部胶囊、实时通知上的当前步骤：用户正在接管后台屏幕。"
+    "description": "顶部胶囊、常驻通知上的当前步骤：用户正在接管后台屏幕。"
   },
   "coreStepPaused": "已暂停",
   "@coreStepPaused": {
-    "description": "顶部胶囊、实时通知上的当前步骤：手机操作暂停了。"
+    "description": "顶部胶囊、常驻通知上的当前步骤：手机操作暂停了。"
   },
   "coreStepAnswering": "正在回答",
   "@coreStepAnswering": {
-    "description": "顶部胶囊、实时通知上的当前步骤：Claude 正在写回答。"
+    "description": "顶部胶囊、常驻通知上的当前步骤：Claude 正在写回答。"
   },
   "coreStepThinking": "正在思考",
   "@coreStepThinking": {
-    "description": "顶部胶囊、实时通知上的当前步骤：Claude 在想。"
+    "description": "顶部胶囊、常驻通知上的当前步骤：Claude 在想。"
   },
   "coreStepNeedsAnswer": "需要你回答",
   "@coreStepNeedsAnswer": {
-    "description": "顶部胶囊、实时通知和提醒上的当前步骤：Claude 提了问题或 MCP 服务器要填表。"
+    "description": "顶部胶囊、常驻通知和提醒上的当前步骤：Claude 提了问题或 MCP 服务器要填表。"
   },
   "coreStepNeedsApproval": "需要你确认",
   "@coreStepNeedsApproval": {
-    "description": "顶部胶囊、实时通知和提醒上的当前步骤：Claude 要用工具，等用户批准。"
+    "description": "顶部胶囊、常驻通知和提醒上的当前步骤：Claude 要用工具，等用户批准。"
   },
   "coreStepWithDetail": "{step}：{detail}",
   "@coreStepWithDetail": {
-    "description": "提醒和实时通知收起时的一行：当前步骤加具体的问题或工具标题。",
+    "description": "提醒和常驻通知收起时的一行：当前步骤加具体的问题或工具标题。",
     "placeholders": {
       "step": {
         "type": "String",
@@ -3634,47 +3634,47 @@
   },
   "coreStepShortFinished": "已完成",
   "@coreStepShortFinished": {
-    "description": "状态栏小胶囊上的词（只放得下几个字）：这一轮结束了。"
+    "description": "超级岛大岛左边、息屏上的短词（只放得下几个字）：这一轮结束了。"
   },
   "coreStepShortControlling": "接管中",
   "@coreStepShortControlling": {
-    "description": "状态栏小胶囊上的词：用户在接管后台屏幕。"
+    "description": "超级岛大岛左边、息屏上的短词：用户在接管后台屏幕。"
   },
   "coreStepShortPaused": "已暂停",
   "@coreStepShortPaused": {
-    "description": "状态栏小胶囊上的词：暂停了。"
+    "description": "超级岛大岛左边、息屏上的短词：暂停了。"
   },
   "coreStepShortAsking": "待回答",
   "@coreStepShortAsking": {
-    "description": "状态栏小胶囊上的词：等用户回答。"
+    "description": "超级岛大岛左边、息屏上的短词：等用户回答。"
   },
   "coreStepShortConfirming": "待确认",
   "@coreStepShortConfirming": {
-    "description": "状态栏小胶囊上的词：等用户批准。"
+    "description": "超级岛大岛左边、息屏上的短词：等用户批准。"
   },
   "coreStepShortStatus": "处理中",
   "@coreStepShortStatus": {
-    "description": "状态栏小胶囊上的词：重试、压缩上下文这类临时状态。"
+    "description": "超级岛大岛左边、息屏上的短词：重试、压缩上下文这类临时状态。"
   },
   "coreStepShortAnswering": "回答中",
   "@coreStepShortAnswering": {
-    "description": "状态栏小胶囊上的词：正在写回答。"
+    "description": "超级岛大岛左边、息屏上的短词：正在写回答。"
   },
   "coreStepShortPhone": "操作中",
   "@coreStepShortPhone": {
-    "description": "状态栏小胶囊上的词：在用手机工具。"
+    "description": "超级岛大岛左边、息屏上的短词：在用手机工具。"
   },
   "coreStepShortTool": "执行中",
   "@coreStepShortTool": {
-    "description": "状态栏小胶囊上的词：在跑工具。"
+    "description": "超级岛大岛左边、息屏上的短词：在跑工具。"
   },
   "coreStepShortThinking": "思考中",
   "@coreStepShortThinking": {
-    "description": "状态栏小胶囊上的词：在想。"
+    "description": "超级岛大岛左边、息屏上的短词：在想。"
   },
   "coreLiveOthers": "另有 {count} 个对话在回答",
   "@coreLiveOthers": {
-    "description": "实时通知标题旁的一句：除了显示的这个，还有几个对话在回答。",
+    "description": "常驻通知标题旁的一句：除了显示的这个，还有几个对话在回答。",
     "placeholders": {
       "count": {
         "type": "int"

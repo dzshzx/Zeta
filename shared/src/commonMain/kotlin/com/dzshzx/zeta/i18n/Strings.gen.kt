@@ -4483,49 +4483,49 @@ object Strings {
     /**
      * 「你在接管」
      *
-     * 顶部胶囊、实时通知上的当前步骤：用户正在接管后台屏幕。
+     * 顶部胶囊、常驻通知上的当前步骤：用户正在接管后台屏幕。
      */
     fun coreStepYouControl(): String = catalog.say("coreStepYouControl")
 
     /**
      * 「已暂停」
      *
-     * 顶部胶囊、实时通知上的当前步骤：手机操作暂停了。
+     * 顶部胶囊、常驻通知上的当前步骤：手机操作暂停了。
      */
     fun coreStepPaused(): String = catalog.say("coreStepPaused")
 
     /**
      * 「正在回答」
      *
-     * 顶部胶囊、实时通知上的当前步骤：Claude 正在写回答。
+     * 顶部胶囊、常驻通知上的当前步骤：Claude 正在写回答。
      */
     fun coreStepAnswering(): String = catalog.say("coreStepAnswering")
 
     /**
      * 「正在思考」
      *
-     * 顶部胶囊、实时通知上的当前步骤：Claude 在想。
+     * 顶部胶囊、常驻通知上的当前步骤：Claude 在想。
      */
     fun coreStepThinking(): String = catalog.say("coreStepThinking")
 
     /**
      * 「需要你回答」
      *
-     * 顶部胶囊、实时通知和提醒上的当前步骤：Claude 提了问题或 MCP 服务器要填表。
+     * 顶部胶囊、常驻通知和提醒上的当前步骤：Claude 提了问题或 MCP 服务器要填表。
      */
     fun coreStepNeedsAnswer(): String = catalog.say("coreStepNeedsAnswer")
 
     /**
      * 「需要你确认」
      *
-     * 顶部胶囊、实时通知和提醒上的当前步骤：Claude 要用工具，等用户批准。
+     * 顶部胶囊、常驻通知和提醒上的当前步骤：Claude 要用工具，等用户批准。
      */
     fun coreStepNeedsApproval(): String = catalog.say("coreStepNeedsApproval")
 
     /**
      * 「{step}：{detail}」
      *
-     * 提醒和实时通知收起时的一行：当前步骤加具体的问题或工具标题。
+     * 提醒和常驻通知收起时的一行：当前步骤加具体的问题或工具标题。
      */
     fun coreStepWithDetail(step: String, detail: String): String = catalog.say("coreStepWithDetail", mapOf("step" to step, "detail" to detail))
 
@@ -4574,77 +4574,77 @@ object Strings {
     /**
      * 「已完成」
      *
-     * 状态栏小胶囊上的词（只放得下几个字）：这一轮结束了。
+     * 超级岛大岛左边、息屏上的短词（只放得下几个字）：这一轮结束了。
      */
     fun coreStepShortFinished(): String = catalog.say("coreStepShortFinished")
 
     /**
      * 「接管中」
      *
-     * 状态栏小胶囊上的词：用户在接管后台屏幕。
+     * 超级岛大岛左边、息屏上的短词：用户在接管后台屏幕。
      */
     fun coreStepShortControlling(): String = catalog.say("coreStepShortControlling")
 
     /**
      * 「已暂停」
      *
-     * 状态栏小胶囊上的词：暂停了。
+     * 超级岛大岛左边、息屏上的短词：暂停了。
      */
     fun coreStepShortPaused(): String = catalog.say("coreStepShortPaused")
 
     /**
      * 「待回答」
      *
-     * 状态栏小胶囊上的词：等用户回答。
+     * 超级岛大岛左边、息屏上的短词：等用户回答。
      */
     fun coreStepShortAsking(): String = catalog.say("coreStepShortAsking")
 
     /**
      * 「待确认」
      *
-     * 状态栏小胶囊上的词：等用户批准。
+     * 超级岛大岛左边、息屏上的短词：等用户批准。
      */
     fun coreStepShortConfirming(): String = catalog.say("coreStepShortConfirming")
 
     /**
      * 「处理中」
      *
-     * 状态栏小胶囊上的词：重试、压缩上下文这类临时状态。
+     * 超级岛大岛左边、息屏上的短词：重试、压缩上下文这类临时状态。
      */
     fun coreStepShortStatus(): String = catalog.say("coreStepShortStatus")
 
     /**
      * 「回答中」
      *
-     * 状态栏小胶囊上的词：正在写回答。
+     * 超级岛大岛左边、息屏上的短词：正在写回答。
      */
     fun coreStepShortAnswering(): String = catalog.say("coreStepShortAnswering")
 
     /**
      * 「操作中」
      *
-     * 状态栏小胶囊上的词：在用手机工具。
+     * 超级岛大岛左边、息屏上的短词：在用手机工具。
      */
     fun coreStepShortPhone(): String = catalog.say("coreStepShortPhone")
 
     /**
      * 「执行中」
      *
-     * 状态栏小胶囊上的词：在跑工具。
+     * 超级岛大岛左边、息屏上的短词：在跑工具。
      */
     fun coreStepShortTool(): String = catalog.say("coreStepShortTool")
 
     /**
      * 「思考中」
      *
-     * 状态栏小胶囊上的词：在想。
+     * 超级岛大岛左边、息屏上的短词：在想。
      */
     fun coreStepShortThinking(): String = catalog.say("coreStepShortThinking")
 
     /**
      * 「另有 {count} 个对话在回答」
      *
-     * 实时通知标题旁的一句：除了显示的这个，还有几个对话在回答。
+     * 常驻通知标题旁的一句：除了显示的这个，还有几个对话在回答。
      */
     fun coreLiveOthers(count: Int): String = catalog.say("coreLiveOthers", mapOf("count" to count))
 
