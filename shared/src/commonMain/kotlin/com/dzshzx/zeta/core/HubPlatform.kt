@@ -45,7 +45,7 @@ interface HubPlatform {
     /** 手机本机这台的 Linux 环境（Debian）。 */
     val local: LocalEnvironment?
 
-    /** 一轮的进展怎么提醒用户（完成、等确认、胶囊、常驻通知）。 */
+    /** 一轮的进展怎么提醒用户（对话那条通知、胶囊）。 */
     val alerts: TurnEvents
 
     /** 主机 [backend] 上会话 [key] 的手机工具：登记过就接着用原来那份；没有时是 null。 */
@@ -63,7 +63,7 @@ interface HubPlatform {
     /** 新建了对话 [conversation]（它还没初始化完，只记下它）：返回给它附的东西，存在 [Conversation.platformState]。 */
     fun attachConversation(conversation: Conversation): Any?
 
-    /** 对话的活动变了（起进程、一轮开始结束、等确认）：前台服务、常驻通知、胶囊跟着更新。 */
+    /** 对话的活动变了（起进程、一轮开始结束、等确认）：前台服务、对话那条通知、胶囊跟着更新。 */
     fun activityChanged()
 
     /** 外面送进来的一个文件地址 [uri]（分享来的 content://）。 */
@@ -106,7 +106,7 @@ interface LocalEnvironment {
     fun refreshAccount()
 }
 
-/** 一轮的进展交给谁提醒（手机上是 TurnAlerts：胶囊、结果卡片、完成与确认提醒、常驻通知）。 */
+/** 一轮的进展交给谁提醒（手机上是 TurnAlerts：胶囊、结果卡片、对话那条通知）。 */
 interface TurnEvents {
     /** 界面上的当前对话或前后台变了：正看着的那个的提醒不必留着。 */
     fun watchChanged()

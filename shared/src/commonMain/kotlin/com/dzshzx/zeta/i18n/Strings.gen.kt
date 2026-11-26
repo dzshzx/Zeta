@@ -4418,16 +4418,16 @@ object Strings {
     fun coreStorageAptFailedReason(reason: String): String = catalog.say("coreStorageAptFailedReason", mapOf("reason" to reason))
 
     /**
-     * 「运行状态」
+     * 「后台运行」
      *
-     * 通知渠道名（系统设置的通知类别里显示）：对话在跑时的常驻通知。
+     * 通知渠道名（系统设置的通知类别里显示）：Zeta 有对话在跑时为保活常驻的那条通知（最低重要度，折叠在通知栏底部）。
      */
     fun coreChannelStatus(): String = catalog.say("coreChannelStatus")
 
     /**
-     * 「完成与确认提醒」
+     * 「对话进展」
      *
-     * 通知渠道名：对话答完、等用户确认或回答时的提醒。
+     * 通知渠道名：每个对话一条的通知，回答进行中、等你确认、已完成都在这一条上更新（上超级岛）。
      */
     fun coreChannelAlert(): String = catalog.say("coreChannelAlert")
 
@@ -4483,49 +4483,49 @@ object Strings {
     /**
      * 「你在接管」
      *
-     * 顶部胶囊、常驻通知上的当前步骤：用户正在接管后台屏幕。
+     * 顶部胶囊、对话那条通知上的当前步骤：用户正在接管后台屏幕。
      */
     fun coreStepYouControl(): String = catalog.say("coreStepYouControl")
 
     /**
      * 「已暂停」
      *
-     * 顶部胶囊、常驻通知上的当前步骤：手机操作暂停了。
+     * 顶部胶囊、对话那条通知上的当前步骤：手机操作暂停了。
      */
     fun coreStepPaused(): String = catalog.say("coreStepPaused")
 
     /**
      * 「正在回答」
      *
-     * 顶部胶囊、常驻通知上的当前步骤：Claude 正在写回答。
+     * 顶部胶囊、对话那条通知上的当前步骤：Claude 正在写回答。
      */
     fun coreStepAnswering(): String = catalog.say("coreStepAnswering")
 
     /**
      * 「正在思考」
      *
-     * 顶部胶囊、常驻通知上的当前步骤：Claude 在想。
+     * 顶部胶囊、对话那条通知上的当前步骤：Claude 在想。
      */
     fun coreStepThinking(): String = catalog.say("coreStepThinking")
 
     /**
      * 「需要你回答」
      *
-     * 顶部胶囊、常驻通知和提醒上的当前步骤：Claude 提了问题或 MCP 服务器要填表。
+     * 顶部胶囊、对话那条通知上的当前步骤：Claude 提了问题或 MCP 服务器要填表。
      */
     fun coreStepNeedsAnswer(): String = catalog.say("coreStepNeedsAnswer")
 
     /**
      * 「需要你确认」
      *
-     * 顶部胶囊、常驻通知和提醒上的当前步骤：Claude 要用工具，等用户批准。
+     * 顶部胶囊、对话那条通知上的当前步骤：Claude 要用工具，等用户批准。
      */
     fun coreStepNeedsApproval(): String = catalog.say("coreStepNeedsApproval")
 
     /**
      * 「{step}：{detail}」
      *
-     * 提醒和常驻通知收起时的一行：当前步骤加具体的问题或工具标题。
+     * 对话那条通知收起时的一行：当前步骤加具体的问题或工具标题。
      */
     fun coreStepWithDetail(step: String, detail: String): String = catalog.say("coreStepWithDetail", mapOf("step" to step, "detail" to detail))
 
@@ -4640,13 +4640,6 @@ object Strings {
      * 超级岛大岛左边、息屏上的短词：在想。
      */
     fun coreStepShortThinking(): String = catalog.say("coreStepShortThinking")
-
-    /**
-     * 「另有 {count} 个对话在回答」
-     *
-     * 常驻通知标题旁的一句：除了显示的这个，还有几个对话在回答。
-     */
-    fun coreLiveOthers(count: Int): String = catalog.say("coreLiveOthers", mapOf("count" to count))
 
     /**
      * 「新对话」

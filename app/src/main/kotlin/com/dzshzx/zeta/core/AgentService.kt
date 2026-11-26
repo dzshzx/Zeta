@@ -14,22 +14,23 @@ import android.content.pm.ServiceInfo
 import android.graphics.drawable.Icon
 import android.os.Build
 import android.os.Bundle
-import android.os.Handler
 import android.os.IBinder
-import android.os.Looper
 import android.os.PowerManager
-import android.os.SystemClock
 import com.dzshzx.zeta.R
 import com.dzshzx.zeta.i18n.Strings
 import com.dzshzx.zeta.phone.ScreenCapture
 import com.dzshzx.zeta.ui.MainActivity
 
 internal object Notifier {
-    const val CHANNEL_STATUS = "status"
+    /** 前台服务那条只为保活的通知：最低重要度，折叠在通知栏底部，不上锁屏、不上状态栏。 */
+    const val CHANNEL_SERVICE = "service"
     const val CHANNEL_ALERT = "alert"
 
-    /** 测试版上试过、已经不用的渠道（等用户时常驻通知临时换过去的），还在就删掉。 */
-    private val RETIRED_CHANNELS = listOf("waiting", "island_waiting")
+    /**
+     * 已经不用的渠道，还在就删掉：“waiting”“island_waiting”是测试版上等用户时常驻通知临时换过去的；“status”是常驻通知上岛时的
+     * 渠道（低重要度，锁屏上也显示），每个对话改成各发一条以后保活的那条换到 [CHANNEL_SERVICE]。
+     */
+    private val RETIRED_CHANNELS = listOf("waiting", "island_waiting", "status")
 
     /** 有新版本（core/update/AppUpdates.kt）：同一个版本只发一次。 */
     const val CHANNEL_UPDATE = "update"
@@ -41,7 +42,7 @@ internal object Notifier {
     const val ID_ACCESSIBILITY = 4
     const val ID_UPDATE = 5
 
-    /** 响过的请求号：同一个请求不管从常驻通知还是提醒发出，只响一次。在主线程上用。 */
+    /** 响过的请求号：同一个请求只响一次（离开再回来、对话那条重发时不再响）。在主线程上用。 */
     private val rung = HashSet<String>()
 
     /** 请求 [requestId] 还没响过就记下、返回 true（这次该响）；响过返回 false。 */
@@ -59,9 +60,9 @@ internal object Notifier {
         val manager = context.getSystemService(NotificationManager::class.java)
         manager.createNotificationChannel(
             NotificationChannel(
-                CHANNEL_STATUS,
+                CHANNEL_SERVICE,
                 Strings.coreChannelStatus(),
-                NotificationManager.IMPORTANCE_LOW,
+                NotificationManager.IMPORTANCE_MIN,
             ),
         )
         // 测试版的提醒不出声：测试时对话跑完、等确认，不该打扰正在用手机的人
@@ -159,13 +160,43 @@ internal object Notifier {
         builder.extras.putBundle(FocusParam.ACTIONS, buttons)
     }
 
+    /**
+     * 对话 [key] 那条通知写成“进行中”（[live]）：标题是对话标题，正文是当前步骤，从这一轮开始走秒；有没做完的任务清单时用进度条样式。
+     * 不响不弹（一轮里要更新很多次），上超级岛（[FocusParam.of]）。和完成、等你的提醒是同一条（同一个 tag），照小爱在原地更新。
+     */
+    fun progress(context: Context, live: LiveStatus) =
+        post(
+            context,
+            live.key,
+            ID_ALERT,
+            live.title,
+            live.text,
+            conversationOpen(context, live.key),
+            silent = true,
+            island = FocusParam.of(live),
+        ) {
+            setWhen(live.startedAt).setShowWhen(true).setUsesChronometer(true)
+            val progress = live.progress
+            if (progress != null && Build.VERSION.SDK_INT >= Build.VERSION_CODES.BAKLAVA)
+                setStyle(
+                    Notification.ProgressStyle()
+                        .setProgressSegments(
+                            LiveUpdate.segments(progress.total).map {
+                                Notification.ProgressStyle.Segment(it)
+                            },
+                        )
+                        .setProgress(progress.done),
+                )
+        }
+
     /** 撤掉对话 [key] 的提醒（用户看到了，或等的请求已经处理掉）。 */
     fun clearAlert(context: Context, key: String) = cancel(context, key, ID_ALERT)
 
     /**
      * 发一条提醒（默认渠道“完成与确认提醒”，[channel] 可换，点开后自动收起）：没有通知权限就不发；测试版的标题前注明“测试版”。 [tag] 和 [id]
      * 一起认出这一条，同一条再发就替换；有 [bigText] 时展开能看到这段全文。 [silent]：这一条不响铃、不振动、不横幅弹出，只进通知栏（屏幕底部已经弹了结果卡片）。
-     * [actions] 是通知上的按钮（系统最多画三个）。[island] 不为 null 时也上超级岛（见 [island]）。
+     * [actions] 是通知上的按钮（系统最多画三个）。[island] 不为 null 时也上超级岛（见 [island]）。[extra] 在发出前再改一下通知（[progress]
+     * 的走秒、进度条）。
      */
     fun post(
         context: Context,
@@ -179,6 +210,7 @@ internal object Notifier {
         channel: String = CHANNEL_ALERT,
         actions: List<Notification.Action> = emptyList(),
         island: IslandContent? = null,
+        extra: Notification.Builder.() -> Unit = {},
     ) {
         if (
             context.checkSelfPermission(Manifest.permission.POST_NOTIFICATIONS) !=
@@ -206,6 +238,7 @@ internal object Notifier {
                 .setContentIntent(open)
                 .setAutoCancel(true)
                 .apply { island?.let { island(context, this, it, actions) } }
+                .apply(extra)
                 .build()
         context.getSystemService(NotificationManager::class.java).notify(tag, id, notification)
     }
@@ -216,9 +249,8 @@ internal object Notifier {
 }
 
 /**
- * 只为保活：Claude Code 进程是本应用的子进程，应用被回收它也会结束。 常驻通知在有对话回答时显示那个对话的当前步骤并上小米超级岛（内容见 [LiveStatus]， 岛的参数见
- * [FocusParam]）。不申请 Android 16 的实时通知（promoted ongoing）：HyperOS 的通知栏只给不带这个标记的焦点通知直接挂上插件画的卡片 （系统界面的
- * `RowContentBindStage.requestRebind`），带着它的卡片在通知栏里时有时无（实测在 Zeta 前台时是空白的）。
+ * 只为保活：Claude Code 进程是本应用的子进程，应用被回收它也会结束。前台服务的那条通知在最低重要度的渠道里，只写“Claude 正在工作”和“停止”“截屏”；
+ * 对话的进度、等你、已完成照小爱各自一条（[Notifier.progress]、[Notifier.alert]，由 [TurnAlerts] 发），上小米超级岛。
  */
 class AgentService : Service() {
     private var wakeLock: PowerManager.WakeLock? = null
@@ -238,16 +270,14 @@ class AgentService : Service() {
         if (intent?.action == ACTION_CAPTURE) {
             ScreenCapture.start(this)
             // 没有对话进程时（只是被这个按钮叫起来）不留着
-            if (throttle.published?.active != true) {
+            if (published?.active != true) {
                 if (instance === this) instance = null
                 stopSelf(startId)
             }
             return START_NOT_STICKY
         }
         starting = false
-        val state =
-            throttle.published
-                ?: StatusNotice(active = true, busy = false, running = emptyList(), live = null)
+        val state = published ?: StatusNotice(active = true, busy = false, running = emptyList())
         // 叫起服务以后、到这里以前对话又都结束了（比如远程主机连不上，进程一起来就退出）：
         // 系统要求 startForegroundService 叫起的服务先进前台，所以照样进一下前台再停掉，否则整个应用被系统结束
         show(state.takeIf { it.active } ?: state.copy(active = true, busy = false))
@@ -259,7 +289,7 @@ class AgentService : Service() {
         return START_NOT_STICKY
     }
 
-    /** 按 [state] 发常驻通知（前台服务的那条），一轮进行中持有唤醒锁。在主线程上调用。 */
+    /** 按 [state] 发前台服务那条保活的通知，一轮进行中持有唤醒锁。在主线程上调用。 */
     private fun show(state: StatusNotice) {
         startForeground(
             Notifier.ID_STATUS,
@@ -279,33 +309,26 @@ class AgentService : Service() {
         }
     }
 
-    /** 常驻通知本身。 */
+    /** 前台服务那条通知本身。 */
     internal fun notification(state: StatusNotice): Notification {
         val running = state.running
         Notifier.ensureChannels(this)
-        val live = state.live
-        val builder = statusBuilder(live)
-        if (live != null) {
-            liveContent(builder, live)
-            // 显示当前步骤的通知（超级岛展开时也是它）只在停下来等用户时带按钮，是替用户回答的那几个；“停止”“截屏”在岛上用不着
-            val replies = replyActions(live)
-            replies.forEach(builder::addAction)
-            Notifier.island(this, builder, FocusParam.of(live), replies)
-            return builder.build()
-        } else {
-            builder
-                .setContentTitle(
-                    AppVariant.current.notificationTitle(
-                        if (state.busy) Strings.coreStatusWorking()
-                        else Strings.coreStatusHolding(),
-                    ),
-                )
-                .setContentIntent(Notifier.openAppIntent(this))
-            when (running.size) {
-                0 -> Unit
-                1 -> builder.setContentText(running.first())
-                else -> builder.setContentText(Strings.coreStatusRunningCount(running.size))
-            }
+        val builder =
+            Notification.Builder(this, Notifier.CHANNEL_SERVICE)
+                .setSmallIcon(R.drawable.ic_stat_zeta)
+                .setOngoing(true)
+                .setOnlyAlertOnce(true)
+        builder
+            .setContentTitle(
+                AppVariant.current.notificationTitle(
+                    if (state.busy) Strings.coreStatusWorking() else Strings.coreStatusHolding(),
+                ),
+            )
+            .setContentIntent(Notifier.openAppIntent(this))
+        when (running.size) {
+            0 -> Unit
+            1 -> builder.setContentText(running.first())
+            else -> builder.setContentText(Strings.coreStatusRunningCount(running.size))
         }
         // 只有对话在跑时才给“停止”；安装、维护脚本不从这里打断
         if (running.isNotEmpty()) {
@@ -345,53 +368,6 @@ class AgentService : Service() {
         return builder.build()
     }
 
-    /**
-     * 常驻通知的骨架，在“运行状态”渠道。一轮里要更新很多次，平时只在第一次发出时提醒（用户把这个渠道调成会弹横幅时，不然每次更新都再弹一次）。
-     * 通知上显示的对话停下来等用户、这个请求第一次出现时提醒一次，弹不弹、响不响照用户给这个渠道的设置。 Zeta 的 LSPosed 模块在系统界面里生效时，岛按 Zeta
-     * 自己的焦点参数自己展开（[FocusParam.of]）；没生效时不上岛，是一条普通的常驻通知。
-     */
-    private fun statusBuilder(live: LiveStatus?): Notification.Builder {
-        val waiting = live?.requestId
-        return Notification.Builder(this, Notifier.CHANNEL_STATUS)
-            .setSmallIcon(R.drawable.ic_stat_zeta)
-            .setOngoing(true)
-            .setOnlyAlertOnce(waiting == null || !Notifier.firstRing(waiting))
-    }
-
-    /** [live] 上替用户回答的按钮（允许、拒绝、选项），和提醒上的一样经 [AlertReplyReceiver] 回答；没在等用户时是空的。 */
-    private fun replyActions(live: LiveStatus): List<Notification.Action> {
-        val requestId = live.requestId ?: return emptyList()
-        return live.replies.mapIndexed { index, reply ->
-            AlertReplyReceiver.action(this, live.key, requestId, index, reply)
-        }
-    }
-
-    /** 显示当前步骤的通知：标题是对话标题，正文是当前步骤（和顶部胶囊同一句），从这一轮开始走秒；有没做完的任务清单时用进度条样式。点开回到这个对话。 */
-    private fun liveContent(builder: Notification.Builder, live: LiveStatus) {
-        builder
-            .setContentTitle(AppVariant.current.notificationTitle(live.title))
-            .setContentText(live.text)
-            .setSubText(live.note)
-            .setContentIntent(Notifier.conversationOpen(this, live.key))
-            .setWhen(live.startedAt)
-            .setShowWhen(true)
-            .setUsesChronometer(true)
-        val progress = live.progress
-        if (progress != null && Build.VERSION.SDK_INT >= Build.VERSION_CODES.BAKLAVA) {
-            builder.setStyle(
-                Notification.ProgressStyle()
-                    .setProgressSegments(
-                        LiveUpdate.segments(progress.total).map {
-                            Notification.ProgressStyle.Segment(it)
-                        },
-                    )
-                    .setProgress(progress.done),
-            )
-        } else {
-            builder.setStyle(Notification.BigTextStyle().bigText(live.detail ?: live.text))
-        }
-    }
-
     override fun onDestroy() {
         starting = false
         if (instance === this) instance = null
@@ -408,9 +384,6 @@ class AgentService : Service() {
         private val ACTION_STOP = AppVariant.current.action("STOP")
         private val ACTION_CAPTURE = AppVariant.current.action("CAPTURE")
 
-        /** 常驻通知上只是步骤、进度变了时，两次更新至少隔这么久（一轮里步骤一秒变好几次）。 */
-        private const val LIVE_INTERVAL_MS = 2_000L
-
         /** 正在运行的服务；停掉时（[update] 里）就清空，不等 onDestroy。只在主线程上碰，下同。 */
         private var instance: AgentService? = null
 
@@ -419,38 +392,16 @@ class AgentService : Service() {
          * 按最新状态处理。
          */
         private var starting = false
-        private val main = Handler(Looper.getMainLooper())
-        private val throttle =
-            Throttle<StatusNotice>(LIVE_INTERVAL_MS) { old, new -> new.minorAfter(old) }
-        private var appContext: Context? = null
-        private val flush = Runnable {
-            val context = appContext ?: return@Runnable
-            throttle.poll(SystemClock.elapsedRealtime())?.let { publish(context, it) }
-        }
 
-        /** 常驻通知（超级岛）上正显示着、等用户回答的那个请求号（超级岛上能直接回答它）；没有时为 null。在主线程上读。 */
-        internal val liveRequestId: String?
-            get() = throttle.published?.live?.requestId
+        /** 最近发出的状态。 */
+        private var published: StatusNotice? = null
 
-        /**
-         * [running] 是正在回答的对话标题，非空时通知上带“停止”；[live] 是当前步骤（上超级岛），null 时是普通的常驻通知。 在主线程上调用。只是 [live]
-         * 的步骤变了时节流（见 [LIVE_INTERVAL_MS]），其余的变化马上更新。
-         */
-        fun update(
-            context: Context,
-            active: Boolean,
-            busy: Boolean,
-            running: List<String>,
-            live: LiveStatus? = null,
-        ) {
-            val now = SystemClock.elapsedRealtime()
-            val app = context.applicationContext
-            main.removeCallbacks(flush)
-            throttle.offer(StatusNotice(active, busy, running, live), now)?.let { publish(app, it) }
-            throttle.dueIn(now)?.let { delay ->
-                appContext = app
-                main.postDelayed(flush, delay)
-            }
+        /** [running] 是正在回答的对话标题，非空时通知上带“停止”。和上次一样就不动。在主线程上调用。 */
+        fun update(context: Context, active: Boolean, busy: Boolean, running: List<String>) {
+            val state = StatusNotice(active, busy, running)
+            if (state == published) return
+            published = state
+            publish(context.applicationContext, state)
         }
 
         private fun publish(context: Context, state: StatusNotice) {

@@ -110,8 +110,8 @@ interface OverlayFocus {
 /** 悬浮窗口和无障碍服务共用的状态。 */
 object OverlayBridge {
     /**
-     * 胶囊此刻在主屏上占的位置（屏幕像素）；没显示时为 null（锁屏、息屏时退场，放大成全屏的动画期间也是 null）。
-     * 由胶囊窗口更新。无障碍服务按它让开触摸，ConversationHub 按它决定常驻通知要不要上超级岛。
+     * 胶囊此刻在主屏上占的位置（屏幕像素）；没显示时为 null（锁屏、息屏时退场，放大成全屏的动画期间也是 null）。 由胶囊窗口更新。无障碍服务按它让开触摸，TurnAlerts
+     * 按它决定胶囊显示着的那个对话发不发通知、上不上超级岛。
      */
     @Volatile var capsuleBounds: Rect? = null
 

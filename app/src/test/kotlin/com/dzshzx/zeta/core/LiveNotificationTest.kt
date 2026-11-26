@@ -1,5 +1,6 @@
 package com.dzshzx.zeta.core
 
+import android.Manifest
 import android.app.Application
 import android.app.Notification
 import android.app.NotificationChannel
@@ -14,7 +15,6 @@ import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.boolean
 import kotlinx.serialization.json.buildJsonObject
 import kotlinx.serialization.json.int
-import kotlinx.serialization.json.jsonArray
 import kotlinx.serialization.json.jsonObject
 import kotlinx.serialization.json.jsonPrimitive
 import kotlinx.serialization.json.put
@@ -22,6 +22,7 @@ import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
+import org.junit.Before
 import org.junit.Test
 import org.junit.runner.RunWith
 import org.robolectric.Robolectric
@@ -30,8 +31,9 @@ import org.robolectric.Shadows.shadowOf
 import org.robolectric.annotation.Config
 
 /**
- * 常驻通知（Robolectric 上用真的 Notification.Builder）：有对话在回答时显示当前步骤、带超级岛的焦点参数，不申请 Android 16 的实时通知 （带了的话
- * HyperOS 通知栏里的卡片时有时无，见 AgentService）；没在回答时照旧。胶囊那句当前步骤分出的类别（大岛左边的词据此取）。 岛和卡片的样子要上真机看。
+ * 通知（Robolectric 上用真的 Notification.Builder）：回答中的对话那条通知显示当前步骤、带超级岛的焦点参数，不申请 Android 16 的实时通知 （带了的话
+ * HyperOS 通知栏里的卡片时有时无，见 docs/assistant.md「超级岛」）；前台服务那条只为保活，不上岛。胶囊那句当前步骤分出的类别
+ * （大岛左边的词据此取）。岛和卡片的样子要上真机看。
  */
 @RunWith(RobolectricTestRunner::class)
 @Config(sdk = [37])
@@ -39,47 +41,41 @@ class LiveNotificationTest {
     private val app: Application
         get() = ApplicationProvider.getApplicationContext()
 
+    @Before
+    fun grantNotifications() =
+        shadowOf(app).grantPermissions(Manifest.permission.POST_NOTIFICATIONS)
+
     private fun service() = Robolectric.buildService(AgentService::class.java).create().get()
 
     private fun live(progress: TodoProgress? = null) =
-        LiveStatus(
-            "s1",
-            "修 bug",
-            "运行 ls",
-            StepKind.TOOL,
-            startedAt = 1_000L,
-            progress = progress,
-            others = 1,
-        )
+        LiveStatus("s1", "修 bug", "运行 ls", StepKind.TOOL, startedAt = 1_000L, progress = progress)
+
+    /** [Notifier.progress] 发出的那条（对话 s1 的）。 */
+    private fun progress(live: LiveStatus): Notification {
+        Notifier.progress(app, live)
+        return shadowOf(app.getSystemService(NotificationManager::class.java))
+            .getNotification(live.key, Notifier.ID_ALERT)!!
+    }
 
     @Test
-    fun liveCarriesStepWithoutPromotion() {
-        val n =
-            service()
-                .notification(
-                    StatusNotice(
-                        active = true,
-                        busy = true,
-                        running = listOf("修 bug", "别的"),
-                        live = live(),
-                    ),
-                )
+    fun progressCarriesStepWithoutPromotion() {
+        val n = progress(live())
         assertFalse(n.extras.getBoolean(Notification.EXTRA_REQUEST_PROMOTED_ONGOING))
         assertNull(n.shortCriticalText)
         assertEquals("执行中", focus(n)["aodTitle"]!!.jsonPrimitive.content)
+        // 和完成、等你的提醒同一个渠道、同一条；一轮里更新很多次，不响不弹
+        assertEquals(Notifier.CHANNEL_ALERT, n.channelId)
+        assertEquals("silent", n.group)
         assertEquals(
             AppVariant.current.notificationTitle("修 bug"),
             n.extras.getCharSequence(Notification.EXTRA_TITLE).toString(),
         )
         assertEquals("运行 ls", n.extras.getCharSequence(Notification.EXTRA_TEXT).toString())
-        assertEquals(
-            "另有 1 个对话在回答",
-            n.extras.getCharSequence(Notification.EXTRA_SUB_TEXT).toString(),
-        )
         assertEquals(1_000L, n.`when`)
         assertTrue(n.extras.getBoolean(Notification.EXTRA_SHOW_CHRONOMETER))
-        assertTrue(n.flags and Notification.FLAG_ONGOING_EVENT != 0)
-        assertTrue("更新不再弹横幅", n.flags and Notification.FLAG_ONLY_ALERT_ONCE != 0)
+        assertEquals("进行中没有按钮", 0, n.actions?.size ?: 0)
+        assertNull(focus(n)["textButton"])
+        assertTrue(n.extras.getBundle(FocusParam.PICS)!!.containsKey(FocusParam.PIC_APP))
         // 点开回到这个对话
         assertEquals(
             "s1",
@@ -87,82 +83,38 @@ class LiveNotificationTest {
                 .savedIntent
                 .getStringExtra("com.dzshzx.zeta.extra.CONVERSATION"),
         )
-        assertEquals(
-            Notification.BigTextStyle::class.java.name,
-            n.extras.getString(Notification.EXTRA_TEMPLATE),
-        )
     }
 
-    /** 停下来等用户时，常驻通知（超级岛展开时也是它）正文是具体的命令，按钮换成允许、拒绝。 */
+    /** 前台服务那条只为保活：最低重要度的渠道，不带焦点参数，写“Claude 正在工作”，带停止、截屏。 */
     @Test
-    fun waitingCarriesReplies() {
-        val bash =
-            PermissionRequest(
-                "r1",
-                "Bash",
-                buildJsonObject {
-                    put("command", "touch a")
-                    put("description", "建文件")
-                },
-                emptyList(),
-            )
-        val candidate =
-            LiveCandidate(
-                "s1",
-                "修 bug",
-                AlertNotice.waitingStep(bash),
-                controlling = false,
-                engaged = false,
-                engagedAt = 0L,
-                current = false,
-                startedAt = 1_000L,
-                request = bash,
-            )
-        val waiting = LiveUpdate.status(candidate, running = 1, todo = null)
-        val service = service()
-        val n = service.notification(StatusNotice(true, true, listOf("修 bug"), waiting))
-        // 这个请求第一次出现：这次更新要提醒（照“运行状态”渠道的设置弹、响）；同一个请求再发就不再提醒
-        assertEquals(Notifier.CHANNEL_STATUS, n.channelId)
-        assertEquals(0, n.flags and Notification.FLAG_ONLY_ALERT_ONCE)
-        val again = service.notification(StatusNotice(true, true, listOf("修 bug"), waiting))
-        assertTrue(again.flags and Notification.FLAG_ONLY_ALERT_ONCE != 0)
-        assertEquals("待确认", focus(n)["aodTitle"]!!.jsonPrimitive.content)
-        assertEquals("需要你确认：建文件", n.extras.getCharSequence(Notification.EXTRA_TEXT).toString())
-        assertEquals(listOf("允许", "拒绝"), n.actions.map { it.title.toString() })
-        assertEquals(listOf(true, false), n.actions.map { it.isAuthenticationRequired })
-        // 超级岛的焦点参数：等用户时岛自己展开，按钮是同一批回答，键对得上放进 extras 的按钮
-        val focus = focus(n)
-        assertEquals(true, focus["enableFloat"]?.jsonPrimitive?.boolean)
-        assertEquals(true, focus["islandFirstFloat"]?.jsonPrimitive?.boolean)
-        // 岛左边是短词，右边是等的是什么（从请求里取，不从“需要你确认：…”那句切）
-        assertEquals("待确认", big(focus, "imageTextInfoLeft"))
-        assertEquals("建文件", big(focus, "imageTextInfoRight"))
-        val buttons = focus["textButton"]!!.jsonArray.map { it.jsonObject }
-        assertEquals(listOf("允许", "拒绝"), buttons.map { it["actionTitle"]!!.jsonPrimitive.content })
-        val actions = n.extras.getBundle(FocusParam.ACTIONS)!!
+    fun serviceNoticeOnlyKeepsAlive() {
+        val n =
+            service()
+                .notification(
+                    StatusNotice(active = true, busy = true, running = listOf("修 bug")),
+                )
+        assertEquals(Notifier.CHANNEL_SERVICE, n.channelId)
+        assertFalse(n.extras.getBoolean(Notification.EXTRA_REQUEST_PROMOTED_ONGOING))
+        assertNull("不上超级岛", n.extras.getString(FocusParam.EXTRA))
+        assertTrue(n.flags and Notification.FLAG_ONGOING_EVENT != 0)
         assertEquals(
-            listOf("允许", "拒绝"),
-            buttons.map {
-                actions
-                    .getParcelable(
-                        it["action"]!!.jsonPrimitive.content,
-                        Notification.Action::class.java,
-                    )!!
-                    .title
-                    .toString()
-            },
+            AppVariant.current.notificationTitle("Claude 正在工作"),
+            n.extras.getCharSequence(Notification.EXTRA_TITLE).toString(),
         )
-        assertTrue(n.extras.getBundle(FocusParam.PICS)!!.containsKey(FocusParam.PIC_APP))
-        // 接管着时胶囊上是“你在接管”，没有回答的按钮
-        val controlling =
-            LiveUpdate.status(
-                candidate.copy(step = Step("你在接管", StepKind.CONTROLLING), controlling = true),
-                running = 1,
-                todo = null,
-            )
-        val plain = service.notification(StatusNotice(true, true, listOf("修 bug"), controlling))
-        assertEquals("显示当前步骤时不带停止、截屏", 0, plain.actions?.size ?: 0)
-        assertNull(focus(plain)["textButton"])
+        assertEquals("修 bug", n.extras.getCharSequence(Notification.EXTRA_TEXT).toString())
+        assertEquals(listOf("停止", "截屏"), n.actions.map { it.title.toString() })
+        val idle =
+            service().notification(StatusNotice(active = true, busy = false, running = emptyList()))
+        assertEquals(
+            AppVariant.current.notificationTitle("Claude 会话保持中"),
+            idle.extras.getCharSequence(Notification.EXTRA_TITLE).toString(),
+        )
+        assertEquals(
+            NotificationManager.IMPORTANCE_MIN,
+            app.getSystemService(NotificationManager::class.java)
+                .getNotificationChannel(Notifier.CHANNEL_SERVICE)
+                .importance,
+        )
     }
 
     /** 大岛 [side] 那边的字。 */
@@ -181,29 +133,29 @@ class LiveNotificationTest {
             .jsonObject["param_v2"]!!
             .jsonObject
 
-    /** 测试版上试过的两个渠道还在就删掉，不在时不去删（删渠道会顺带清一遍这个应用的通知）。 */
+    /** 不用了的渠道还在就删掉（含旧的常驻通知渠道“status”），不在时不去删（删渠道会顺带清一遍这个应用的通知）。 */
     @Test
     fun retiredChannelsGo() {
         val manager = app.getSystemService(NotificationManager::class.java)
         manager.createNotificationChannel(
             NotificationChannel("island_waiting", "x", NotificationManager.IMPORTANCE_HIGH),
         )
+        manager.createNotificationChannel(
+            NotificationChannel("status", "x", NotificationManager.IMPORTANCE_LOW),
+        )
         Notifier.ensureChannels(app)
         assertNull(manager.getNotificationChannel("island_waiting"))
         assertNull(manager.getNotificationChannel("waiting"))
+        assertNull(manager.getNotificationChannel("status"))
         assertEquals(
-            listOf("alert", "status", "update"),
+            listOf("alert", "service", "update"),
             manager.notificationChannels.map { it.id }.sorted(),
         )
     }
 
     @Test
     fun todoListBecomesProgressBar() {
-        val n =
-            service()
-                .notification(
-                    StatusNotice(true, true, listOf("修 bug"), live(progress = TodoProgress(2, 5))),
-                )
+        val n = progress(live(progress = TodoProgress(2, 5)))
         assertEquals(
             Notification.ProgressStyle::class.java.name,
             n.extras.getString(Notification.EXTRA_TEMPLATE),
@@ -215,38 +167,6 @@ class LiveNotificationTest {
         val focus = focus(n)
         assertEquals(40, focus["progressInfo"]!!.jsonObject["progress"]!!.jsonPrimitive.int)
         assertEquals(false, focus["enableFloat"]?.jsonPrimitive?.boolean)
-    }
-
-    @Test
-    fun idleKeepsOldLook() {
-        val n =
-            service()
-                .notification(
-                    StatusNotice(
-                        active = true,
-                        busy = true,
-                        running = listOf("修 bug"),
-                        live = null,
-                    ),
-                )
-        assertFalse(n.extras.getBoolean(Notification.EXTRA_REQUEST_PROMOTED_ONGOING))
-        assertNull(n.shortCriticalText)
-        assertNull("没有当前步骤时不上超级岛", n.extras.getString(FocusParam.EXTRA))
-        assertEquals(
-            AppVariant.current.notificationTitle("Claude 正在工作"),
-            n.extras.getCharSequence(Notification.EXTRA_TITLE).toString(),
-        )
-        assertEquals("修 bug", n.extras.getCharSequence(Notification.EXTRA_TEXT).toString())
-        val idle =
-            service()
-                .notification(
-                    StatusNotice(active = true, busy = false, running = emptyList(), live = null),
-                )
-        assertEquals(
-            AppVariant.current.notificationTitle("Claude 会话保持中"),
-            idle.extras.getCharSequence(Notification.EXTRA_TITLE).toString(),
-        )
-        assertFalse(idle.extras.getBoolean(Notification.EXTRA_REQUEST_PROMOTED_ONGOING))
     }
 
     /** 对话的提醒上超级岛：不静音的弹出来、停几秒收起，大岛左右两边照给的放、右边太长就截短；静音的不弹。 */

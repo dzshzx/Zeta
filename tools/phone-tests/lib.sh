@@ -305,6 +305,23 @@ ours() {
     keep { if (match($0, /[^ ]/) <= ind) keep = 0; else print }'
 }
 
+# notice <id>：本包 id 为 <id> 的通知记录（1 是前台服务保活的那条，2 是对话那条；几个对话时有几条），没有时是空的。
+# 系统替几条通知自动建的组摘要（tag 里带 g:Aggregate_，id 也可能是 1）不算
+notice() { ours | awk -v id=" id=$1 " '/NotificationRecord\(/ { keep = index($0, id) > 0 && index($0, "g:Aggregate_") == 0 } keep'; }
+
+# 把测试版压到后台：测试屏上开另一个应用（NEW_TASK | EXCLUDE_FROM_RECENTS，不在「最近任务」里留记录），确认测试版不在前台了。
+# 「系统跟踪」要开着开发者选项，否则一启动就退出，压不住
+background() {
+  local i
+  for i in 1 2 3; do
+    android "am start --display $DISPLAY_ID -f 0x10800000 -n com.android.traceur/.MainActivity >/dev/null 2>&1"
+    sleep 1
+    [[ -z $(resumed) ]] && return 0
+  done
+  echo "测试版退不到后台：$(resumed)（开发者选项开着吗？）"
+  return 1
+}
+
 # seed_session <会话号> <工作目录> <问> <答>：在 Debian 里摆一份一问一答的测试会话（工作目录和 ~/.claude/projects 下对应的目录都建好）
 seed_session() {
   local project=.claude/projects/${2//\//-}

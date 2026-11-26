@@ -55,7 +55,7 @@ internal object AlertNotice {
     /** 展开后的细节最多这么多字，命令、问题再长就点开对话看。 */
     private const val DETAIL_CHARS = 400
 
-    /** 胶囊、常驻通知和提醒共用的那一句：提问和 MCP 表单是“需要你回答”，别的是“需要你确认”。 */
+    /** 胶囊和对话那条通知共用的那一句：提问和 MCP 表单是“需要你回答”，别的是“需要你确认”。 */
     fun waitingStep(prompt: UserPrompt): Step =
         if (prompt.asksInput) Step(Strings.coreStepNeedsAnswer(), StepKind.ASKING)
         else Step(Strings.coreStepNeedsApproval(), StepKind.CONFIRMING)

@@ -266,7 +266,7 @@ object OverlayHost {
 
     /**
      * 胶囊窗口在屏上的范围（整个窗口：透明的部分也吞触摸）；没显示、在放大动画里时为 null。 不只给 Claude 的手势让路用：ConversationHub 看它是不是 null
-     * 决定常驻通知要不要上超级岛（胶囊显示着就不上）。
+     * 决定胶囊显示着的那个对话发不发通知、上不上超级岛（胶囊显示着就不发）。
      */
     private fun publishBounds() {
         val view = capsule?.view

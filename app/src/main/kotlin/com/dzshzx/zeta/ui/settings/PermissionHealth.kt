@@ -134,7 +134,7 @@ internal object PermissionHealth {
                 notifications?.areNotificationsEnabled() != false
         // 渠道是第一次发通知时才建的，还没建的不算被关
         val blocked =
-            listOf(Notifier.CHANNEL_STATUS, Notifier.CHANNEL_ALERT).mapNotNull { id ->
+            listOf(Notifier.CHANNEL_SERVICE, Notifier.CHANNEL_ALERT).mapNotNull { id ->
                 notifications
                     ?.getNotificationChannel(id)
                     ?.takeIf { it.importance == NotificationManager.IMPORTANCE_NONE }

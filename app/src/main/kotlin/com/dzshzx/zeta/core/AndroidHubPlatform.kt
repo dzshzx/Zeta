@@ -113,7 +113,7 @@ class AndroidHubPlatform(
     override val local: LocalEnvironment
         get() = environment
 
-    /** 胶囊、结果卡片、完成与确认提醒、常驻通知显示哪个对话。 */
+    /** 胶囊、结果卡片、对话那条通知。 */
     override val alerts: TurnAlerts by lazy { TurnAlerts(hub) }
 
     override fun attachConversation(conversation: Conversation): Any =
@@ -347,7 +347,8 @@ class AndroidHubPlatform(
                 Strings.coreStatusRunningInBackground(title, it)
             } ?: title
         }
-        AgentService.update(app, active, busy, running, alerts.liveStatus(answering))
+        AgentService.update(app, active, busy, running)
+        alerts.syncProgress(answering)
         alerts.syncAll()
     }
 
@@ -406,7 +407,7 @@ val ConversationHub.context: Application
 val ConversationHub.environment: EnvController
     get() = android.environment
 
-/** 胶囊、结果卡片、完成与确认提醒、常驻通知显示哪个对话。 */
+/** 胶囊、结果卡片、对话那条通知。 */
 val ConversationHub.alerts: TurnAlerts
     get() = android.alerts
 

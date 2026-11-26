@@ -979,14 +979,14 @@ class ConversationHub(val platform: HubPlatform) {
         )
     }
 
-    /** 对话等着用户回答的请求变了（来了、处理掉了、撤回了）：提醒交给 [alerts]，胶囊和常驻通知跟着更新。在主线程上调用。 */
+    /** 对话等着用户回答的请求变了（来了、处理掉了、撤回了）：提醒交给 [alerts]，胶囊和对话那条通知跟着更新。在主线程上调用。 */
     fun onPendingChanged(conversation: Conversation) {
-        // 先更新常驻通知：提醒要据此判断超级岛上是不是已经能回答这个请求
-        onActivityChanged()
+        // 先换提醒：请求没了时先撤掉“在等你”，再由 onActivityChanged 把同一条写回“进行中”（反过来会把刚写回的又撤掉）
         platform.alerts.pendingChanged(conversation)
+        onActivityChanged()
     }
 
-    /** 对话的活动变了：交给平台（手机上据此保持前台服务、更新常驻通知和胶囊）。 */
+    /** 对话的活动变了：交给平台（手机上据此保持前台服务、更新对话那条通知和胶囊）。 */
     fun onActivityChanged() = platform.activityChanged()
 
     init {

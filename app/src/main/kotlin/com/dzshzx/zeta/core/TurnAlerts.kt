@@ -1,5 +1,6 @@
 package com.dzshzx.zeta.core
 
+import android.os.SystemClock
 import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -13,7 +14,7 @@ import com.dzshzx.zeta.ui.overlay.ScreenLock
 
 /**
  * 对话在 Zeta 之外怎么让用户知道：顶部状态胶囊显示哪个对话（[overlayFocus]）、一轮结束时的完成提醒和屏幕底部的结果卡片、
- * 需要确认的提醒、回答自动朗读，以及常驻通知上岛时显示哪个对话（[liveStatus]）。 对话的事件由 [hub]
+ * 需要确认的提醒、回答自动朗读，以及回答中的对话各自那条通知（[syncProgress]）。照小爱，一个对话只有一条通知，进行中、等你、已完成都在这一条上更新。 对话的事件由 [hub]
  * 转过来（一轮就要结束、结束了、等确认）；挑对话只读可观察的状态，在主线程上调用。
  */
 class TurnAlerts internal constructor(private val hub: ConversationHub) : TurnEvents {
@@ -103,20 +104,25 @@ class TurnAlerts internal constructor(private val hub: ConversationHub) : TurnEv
                 stopped = stopped,
             )
         endingWithPhone = null
+        val key = conversation.openKey
+        progressShown.remove(key)
         // 后台运行起的对话由 ScheduleRunner 自己提醒（任务名和回答开头，点了打开这个对话）
         if (!stopped && !hub.isWatching(conversation) && conversation.unattended == null) {
             // 弹了结果卡片就不再响铃，免得打扰两次；后台还有任务时活还没干完，也不响铃（等它们做完、Claude Code 答完最后一轮再响）。
             // 通知照样留在通知栏里
-            waitingShown.remove(conversation.openKey)
+            waitingShown.remove(key)
             Notifier.alert(
                 app,
-                conversation.openKey,
+                key,
                 title(conversation),
                 endText(conversation, text),
                 short = text,
                 right = title(conversation),
                 silent = showed || conversation.backgroundTasks > 0,
             )
+        } else {
+            // 不提醒的（叫停、看着、后台运行起的）：可能还留着的那条“进行中”撤掉。syncProgress 可能已经先看到它不在回答了，留给这里撤
+            clearAlert(key)
         }
         if (!stopped) autoRead(conversation)
     }
@@ -142,23 +148,20 @@ class TurnAlerts internal constructor(private val hub: ConversationHub) : TurnEv
         syncAll()
     }
 
-    /** 常驻通知刚更新过（[ConversationHub.onActivityChanged]）：它显示的对话可能换了，各对话的提醒跟着对一遍。 */
+    /** 对话的状态变了（[ConversationHub.onActivityChanged]）：各对话的等你提醒跟着对一遍。 */
     internal fun syncAll() = hub.liveConversations.forEach(::syncWaiting)
 
     /**
-     * 对话在等用户、用户又没看着它时怎么提醒：常驻通知上正显示着这个请求的，超级岛弹出时自己响铃震动、按钮也在， 不另发提醒（有的话撤掉）；
-     * 否则它的那条提醒换成在等什么，能在通知上回答的带上按钮（见 [AlertNotice.replies]）。同一个请求只响一次。后台运行的由 ScheduleRunner 提醒。
+     * 对话在等用户、用户又没看着它时怎么提醒：它的那条通知（进行中的话就是那一条）换成在等什么，能在通知上回答的带上按钮 （见
+     * [AlertNotice.replies]），超级岛弹出来。同一个请求只响一次。 后台运行的由 ScheduleRunner 提醒。
      */
     private fun syncWaiting(conversation: Conversation) {
         val request = conversation.pending ?: return
         if (hub.isWatching(conversation) || conversation.unattended != null) return
         val key = conversation.openKey
-        if (AgentService.liveRequestId == request.requestId) {
-            if (key in waitingShown) clearAlert(key)
-            return
-        }
         if (waitingShown[key] == request.requestId) return
         waitingShown[key] = request.requestId
+        progressShown.remove(key)
         val notice = AlertNotice.waiting(request)
         Notifier.alert(
             app,
@@ -178,6 +181,7 @@ class TurnAlerts internal constructor(private val hub: ConversationHub) : TurnEv
 
     private fun clearAlert(key: String) {
         waitingShown.remove(key)
+        progressShown.remove(key)
         Notifier.clearAlert(app, key)
     }
 
@@ -266,51 +270,85 @@ class TurnAlerts internal constructor(private val hub: ConversationHub) : TurnEv
         if (answer.text.isNotBlank()) ReadAloud.speak(app, answer.id, answer.text)
     }
 
-    /** 正在回答的对话这一轮从什么时候开始（墙上时钟），常驻通知上走秒用。 */
+    /** 正在回答的对话这一轮从什么时候开始（墙上时钟），通知上走秒用。 */
     private val turnStarts = HashMap<Conversation, Long>()
+
+    /** 正显示着“进行中”的对话：openKey → 它那条通知的节流（一轮里步骤一秒变好几次）。换成等你、已完成或撤掉时去掉。 */
+    private val progressShown = HashMap<String, Throttle<LiveStatus>>()
 
     /** 有对话在回答（不全是在等用户）时每秒看一次当前步骤：步骤变了不会调 [ConversationHub.onActivityChanged]。 */
     private val liveTick = Runnable { hub.onActivityChanged() }
 
+    /** 节流记下的那几份到点了就发。 */
+    private val flushProgress = Runnable { flush(SystemClock.elapsedRealtime()) }
+
     /**
-     * 常驻通知上显示哪个对话的当前步骤、上超级岛（挑法见 [LiveUpdate.pick]）；没有对话在回答（空闲保持着的不算），
-     * 或顶部胶囊正显示着（[OverlayBridge.capsuleBounds] 不为 null；照 Eta，不让顶部同时出现两个说同一件事的胶囊）时为 null，
-     * 通知照旧。胶囊显示着也照样每秒再看一次，胶囊一退场（比如锁屏）下一秒就上岛。
+     * 回答中的对话（[answering]）各自那条通知上写“进行中”：标题是对话标题，正文是当前步骤（和顶部胶囊同一句），从这一轮开始走秒，
+     * 有没做完的任务清单时带进度条，上超级岛（[FocusParam.of]）。照小爱，一个对话只有一条通知：等你确认、已完成也发在这一条上（同一个 tag）， 所以停下来等请求的交给
+     * [syncWaiting]，结束的交给 [turnFinished]。用户正看着的、后台运行起的（和提醒一样）不发；顶部胶囊正显示着的那个也不发 （照
+     * Eta，不让顶部同时出现两个说同一件事的胶囊）， 胶囊照样每秒再看一次，它一退场（比如锁屏）下一秒就发。在主线程上调用。
      */
-    internal fun liveStatus(answering: List<Conversation>): LiveStatus? {
+    internal fun syncProgress(answering: List<Conversation>) {
         val now = System.currentTimeMillis()
         turnStarts.keys.retainAll(answering.toSet())
         answering.forEach { turnStarts.getOrPut(it) { now } }
         main.removeCallbacks(liveTick)
-        if (answering.isEmpty()) return null
         val capsule = OverlayBridge.capsuleBounds != null
         // 都停下来等用户时步骤不会自己变（请求来了、没了另有 onActivityChanged），不必每秒再看；胶囊显示着时照看，好在它退场时接上
-        if (capsule || answering.any { it.pending == null })
+        if (answering.isNotEmpty() && (capsule || answering.any { it.pending == null }))
             main.postDelayed(liveTick, LIVE_TICK_MS)
-        if (capsule) return null
-        val focusKey = (overlayFocus as? ConversationFocus)?.conversation?.openKey
-        val candidates = answering.map { conversation ->
-            val phone = conversation.phone
-            conversation to
-                LiveCandidate(
-                    key = conversation.openKey,
-                    title = conversation.title,
-                    step = conversation.overlay.stepInfo,
-                    controlling = phone.userControlling,
-                    engaged = phone.userControlling || phone.paused || phone.engagedThisTurn,
-                    engagedAt = phone.engagedAt,
-                    current = conversation === hub.current,
-                    startedAt = turnStarts.getValue(conversation),
-                    request = conversation.pending,
-                )
+        val capsuleKey =
+            (overlayFocus as? ConversationFocus)?.conversation?.openKey?.takeIf { capsule }
+        val shown = answering.filter {
+            it.pending == null &&
+                !hub.isWatching(it) &&
+                it.unattended == null &&
+                it.openKey != capsuleKey
         }
-        val chosen = LiveUpdate.pick(candidates.map { it.second }, focusKey) ?: return null
-        val conversation = candidates.first { it.second === chosen }.first
-        return LiveUpdate.status(
-            chosen,
-            answering.size,
-            conversation.todos,
-        )
+        val keys = shown.mapTo(HashSet()) { it.openKey }
+        progressShown.keys
+            .filter { it !in keys }
+            .forEach { key ->
+                progressShown.remove(key)
+                // 停下来等请求的，那条通知马上换成等什么（syncWaiting）；结束了的由 turnFinished 换成结束的那句。其余（看着了、胶囊接过去了、对话没了）撤掉
+                val conversation = answering.firstOrNull { it.openKey == key }
+                val replaced =
+                    conversation?.pending != null ||
+                        (conversation == null && hub.findConversation(key) != null)
+                if (!replaced) Notifier.clearAlert(app, key)
+            }
+        val clock = SystemClock.elapsedRealtime()
+        shown.forEach { conversation ->
+            val status =
+                LiveUpdate.status(
+                    conversation.openKey,
+                    conversation.title,
+                    conversation.overlay.stepInfo,
+                    turnStarts.getValue(conversation),
+                    conversation.todos,
+                )
+            val throttle =
+                progressShown.getOrPut(conversation.openKey) {
+                    Throttle(LIVE_INTERVAL_MS, LiveUpdate::minorChange)
+                }
+            throttle.offer(status, clock)?.let { Notifier.progress(app, it) }
+        }
+        scheduleFlush(clock)
+    }
+
+    private fun flush(now: Long) {
+        progressShown.values.forEach { throttle ->
+            throttle.poll(now)?.let { Notifier.progress(app, it) }
+        }
+        scheduleFlush(now)
+    }
+
+    private fun scheduleFlush(now: Long) {
+        main.removeCallbacks(flushProgress)
+        progressShown.values
+            .mapNotNull { it.dueIn(now) }
+            .minOrNull()
+            ?.let { main.postDelayed(flushProgress, it) }
     }
 
     /** 胶囊的一个候选：[usedAt] 是它最近一次用手机的时间（墙上时钟）。 */
@@ -325,8 +363,11 @@ class TurnAlerts internal constructor(private val hub: ConversationHub) : TurnEv
                 )
                 ?.focus
 
-        /** 对话在回答时多久看一次当前步骤（发不发通知另由 AgentService 节流）。 */
+        /** 对话在回答时多久看一次当前步骤（发不发通知另由 [LIVE_INTERVAL_MS] 节流）。 */
         private const val LIVE_TICK_MS = 1_000L
+
+        /** 同一个对话的通知上只是步骤、进度变了时，两次更新至少隔这么久。 */
+        private const val LIVE_INTERVAL_MS = 2_000L
 
         /** 一轮结束后胶囊停留显示“已完成”多久。 */
         private const val FINISHED_LINGER_MS = 2_000L

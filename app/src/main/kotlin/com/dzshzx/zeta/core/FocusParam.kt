@@ -9,10 +9,11 @@ import kotlinx.serialization.json.putJsonObject
 /*
  * 小米超级岛（焦点通知）的参数：通知的 extras 里放 [FocusParam.EXTRA]（JSON）、[FocusParam.PICS]（图标）、
  * [FocusParam.ACTIONS]（按钮），HyperOS 照它画岛和通知栏里的焦点卡片。小米只给申请过权限的应用画，Zeta 的 LSPosed 模块在系统界面里
- * 放行本包（xposed/FocusAuthHook.kt）；模块没启用时系统不认这几项，常驻通知是普通通知、不上岛，提醒照常是横幅。字段照 HyperOS 3、4 的焦点通知协议（param_v2）。
+ * 放行本包（xposed/FocusAuthHook.kt）；模块没启用时系统不认这几项，对话那条是普通通知、不上岛，跑完和等你照常是横幅。字段照 HyperOS 3、4 的焦点通知协议（param_v2）。
  *
- * 用在两处（发通知在 AgentService.kt 的 Notifier）：常驻通知（[of]，停下来等用户时岛自己展开、带回答按钮），
- * 对话的提醒（跑完、中断、等你，[alert]：岛弹出来停 [ALERT_ISLAND_SECONDS] 秒后收起，通知留在通知栏）。这里是不碰 Android 的部分。
+ * 照小爱，每个对话一条通知，两种样子都在它上面（发通知在 AgentService.kt 的 Notifier，什么时候发在 TurnAlerts）：
+ * 回答进行中（[of]，接管、暂停时岛自己展开），跑完、中断、等你（[alert]：岛弹出来停 [ALERT_ISLAND_SECONDS] 秒后收起，
+ * 通知留在通知栏；等你时带回答按钮）。这里是不碰 Android 的部分。
  */
 
 /**
@@ -24,7 +25,6 @@ internal data class IslandContent(
     val text: String,
     val short: String,
     val right: String,
-    val note: String? = null,
     val replies: List<String> = emptyList(),
     val progress: TodoProgress? = null,
     val float: Boolean = false,
@@ -48,15 +48,13 @@ internal object FocusParam {
     /** 提醒的岛弹出来停几秒。 */
     const val ALERT_ISLAND_SECONDS = 5
 
-    /** 常驻通知：停下来等用户时岛自己展开。 */
+    /** 回答进行中：接管、暂停这类停下来等用户的步骤岛自己展开。 */
     fun of(live: LiveStatus) =
         IslandContent(
             title = live.title,
             text = live.text,
             short = live.short,
-            right = live.subject,
-            note = live.note,
-            replies = live.replies.map { it.label },
+            right = live.text,
             progress = live.progress,
             float = live.kind.needsUser,
         )
@@ -101,7 +99,7 @@ internal object FocusParam {
                     put("title", content.title)
                     put("colorTitle", "#000000")
                     put("colorTitleDark", "#FFFFFF")
-                    put("content", content.note?.let { "$it · ${content.text}" } ?: content.text)
+                    put("content", content.text)
                     putJsonObject("animIconInfo") {
                         put("type", 0)
                         put("src", PIC_APP)

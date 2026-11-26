@@ -805,11 +805,7 @@
   "chatTodoNext": "下一项：{item}",
   "@chatTodoNext": {
     "description": "任务清单条：没在做的项时说下一项。",
-    "placeholders": {
-      "item": {
-        "type": "String"
-      }
-    }
+    "placeholders": { "item": { "type": "String" } }
   },
   "chatTodoCollapse": "收起任务清单",
   "@chatTodoCollapse": {
@@ -3519,13 +3515,13 @@
       }
     }
   },
-  "coreChannelStatus": "运行状态",
+  "coreChannelStatus": "后台运行",
   "@coreChannelStatus": {
-    "description": "通知渠道名（系统设置的通知类别里显示）：对话在跑时的常驻通知。"
+    "description": "通知渠道名（系统设置的通知类别里显示）：Zeta 有对话在跑时为保活常驻的那条通知（最低重要度，折叠在通知栏底部）。"
   },
-  "coreChannelAlert": "完成与确认提醒",
+  "coreChannelAlert": "对话进展",
   "@coreChannelAlert": {
-    "description": "通知渠道名：对话答完、等用户确认或回答时的提醒。"
+    "description": "通知渠道名：每个对话一条的通知，回答进行中、等你确认、已完成都在这一条上更新（上超级岛）。"
   },
   "coreChannelUpdate": "版本更新",
   "@coreChannelUpdate": {
@@ -3562,31 +3558,31 @@
   },
   "coreStepYouControl": "你在接管",
   "@coreStepYouControl": {
-    "description": "顶部胶囊、常驻通知上的当前步骤：用户正在接管后台屏幕。"
+    "description": "顶部胶囊、对话那条通知上的当前步骤：用户正在接管后台屏幕。"
   },
   "coreStepPaused": "已暂停",
   "@coreStepPaused": {
-    "description": "顶部胶囊、常驻通知上的当前步骤：手机操作暂停了。"
+    "description": "顶部胶囊、对话那条通知上的当前步骤：手机操作暂停了。"
   },
   "coreStepAnswering": "正在回答",
   "@coreStepAnswering": {
-    "description": "顶部胶囊、常驻通知上的当前步骤：Claude 正在写回答。"
+    "description": "顶部胶囊、对话那条通知上的当前步骤：Claude 正在写回答。"
   },
   "coreStepThinking": "正在思考",
   "@coreStepThinking": {
-    "description": "顶部胶囊、常驻通知上的当前步骤：Claude 在想。"
+    "description": "顶部胶囊、对话那条通知上的当前步骤：Claude 在想。"
   },
   "coreStepNeedsAnswer": "需要你回答",
   "@coreStepNeedsAnswer": {
-    "description": "顶部胶囊、常驻通知和提醒上的当前步骤：Claude 提了问题或 MCP 服务器要填表。"
+    "description": "顶部胶囊、对话那条通知上的当前步骤：Claude 提了问题或 MCP 服务器要填表。"
   },
   "coreStepNeedsApproval": "需要你确认",
   "@coreStepNeedsApproval": {
-    "description": "顶部胶囊、常驻通知和提醒上的当前步骤：Claude 要用工具，等用户批准。"
+    "description": "顶部胶囊、对话那条通知上的当前步骤：Claude 要用工具，等用户批准。"
   },
   "coreStepWithDetail": "{step}：{detail}",
   "@coreStepWithDetail": {
-    "description": "提醒和常驻通知收起时的一行：当前步骤加具体的问题或工具标题。",
+    "description": "对话那条通知收起时的一行：当前步骤加具体的问题或工具标题。",
     "placeholders": {
       "step": {
         "type": "String",
@@ -3671,15 +3667,6 @@
   "coreStepShortThinking": "思考中",
   "@coreStepShortThinking": {
     "description": "超级岛大岛左边、息屏上的短词：在想。"
-  },
-  "coreLiveOthers": "另有 {count} 个对话在回答",
-  "@coreLiveOthers": {
-    "description": "常驻通知标题旁的一句：除了显示的这个，还有几个对话在回答。",
-    "placeholders": {
-      "count": {
-        "type": "int"
-      }
-    }
   },
   "coreUntitledConversation": "新对话",
   "@coreUntitledConversation": {

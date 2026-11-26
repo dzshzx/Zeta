@@ -25,8 +25,8 @@ import org.robolectric.Shadows.shadowOf
 import org.robolectric.annotation.Config
 
 /**
- * [TurnAlerts]：完成和确认提醒只在用户没看着这个对话时发，每个对话一条，等的请求没了就撤，用户叫停的不提醒；没人用手机时胶囊不显示、常驻通知上没有当前步骤。 结果卡片弹不弹、留不留由
- * ResultCardShots 走一轮结束的真实路径验。
+ * [TurnAlerts]：完成和确认提醒只在用户没看着这个对话时发，每个对话一条，等的请求没了就撤，用户叫停的不提醒；没人用手机时胶囊不显示；回答中的对话那条通知照小爱在原地变成等你、已完成。
+ * 结果卡片弹不弹、留不留由 ResultCardShots 走一轮结束的真实路径验。
  */
 @RunWith(RobolectricTestRunner::class)
 @Config(sdk = [37])
@@ -304,7 +304,60 @@ class TurnAlertsTest {
     fun nothingToShowWhenNobodyUsesThePhone() {
         val hub = Fixtures.readyHub(app)
         assertNull(hub.alerts.overlayFocus)
-        assertNull(hub.alerts.liveStatus(emptyList()))
         assertNull(hub.alerts.resultCard)
+    }
+
+    /** 照小爱，一个对话只有一条通知：进行中、等你确认、又进行中、已完成都在这一条上更新；看着它时、叫停时撤掉。 */
+    @Test
+    fun oneNotificationFollowsTheTurn() {
+        val hub = Fixtures.readyHub(app)
+        hub.foreground = false
+        val chat = hub.current
+        val key = chat.openKey
+        chat.core { it.copy(busy = true) }
+        hub.alerts.syncProgress(listOf(chat))
+        val progress = notification(key)!!
+        assertEquals(chat.overlay.stepInfo.text, text(key))
+        assertEquals("进行中不响", "silent", progress.group)
+        assertTrue(progress.extras.getBoolean(Notification.EXTRA_SHOW_CHRONOMETER))
+        assertTrue(progress.extras.containsKey(FocusParam.EXTRA))
+        assertEquals(1, alerts().size)
+
+        chat.ask(bash("one-r1"))
+        hub.alerts.syncProgress(listOf(chat))
+        val waiting = notification(key)!!
+        assertEquals("需要你确认：列出文件", text(key))
+        assertEquals(listOf("允许", "拒绝"), waiting.actions.map { it.title.toString() })
+        // 超级岛上的按钮对得上通知上的那批
+        val buttons = waiting.extras.getBundle(FocusParam.ACTIONS)!!
+        assertEquals(2, buttons.size())
+        assertEquals(1, alerts().size)
+
+        chat.withdraw("one-r1")
+        hub.alerts.syncProgress(listOf(chat))
+        assertEquals("请求没了，接着显示进行中", chat.overlay.stepInfo.text, text(key))
+
+        chat.core { it.copy(busy = false) }
+        hub.alerts.turnFinished(chat, stopped = false)
+        hub.alerts.syncProgress(emptyList())
+        assertEquals(listOf("已完成"), alerts())
+
+        // 叫停：进行中的那条撤掉
+        clear()
+        chat.core { it.copy(busy = true) }
+        hub.alerts.syncProgress(listOf(chat))
+        assertEquals(1, alerts().size)
+        chat.core { it.copy(busy = false) }
+        hub.alerts.turnFinished(chat, stopped = true)
+        hub.alerts.syncProgress(emptyList())
+        assertEquals(emptyList<String>(), alerts())
+
+        // 看着这个对话时不发，回到前台看着它时撤掉
+        chat.core { it.copy(busy = true) }
+        hub.alerts.syncProgress(listOf(chat))
+        assertEquals(1, alerts().size)
+        hub.foreground = true
+        hub.alerts.syncProgress(listOf(chat))
+        assertEquals(emptyList<String>(), alerts())
     }
 }

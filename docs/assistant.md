@@ -44,13 +44,13 @@ HyperOS 长按电源键由 system_server 直接拉起小爱，不看默认数字
 
 ## 超级岛
 
-同一个模块还让 Zeta 的通知按 Zeta 自己写的参数上小米超级岛（焦点通知：通知 extras 里的 `miui.focus.param`、`miui.focus.pics`、`miui.focus.actions`，拼法在 `core/FocusParam.kt`）。两种通知都带：常驻通知在有对话回答时（停下来等用户时岛自己展开，带回答按钮），对话的提醒（跑完、中断、等你；不静音的弹出来停 5 秒收起，通知留在通知栏）。
+同一个模块还让 Zeta 的通知按 Zeta 自己写的参数上小米超级岛（焦点通知：通知 extras 里的 `miui.focus.param`、`miui.focus.pics`、`miui.focus.actions`，拼法在 `core/FocusParam.kt`）。带它的是对话那条通知：每个对话一条（tag 是会话号），回答进行中（不响、不弹，写当前步骤、走秒，有任务清单时带进度条）、等你确认或回答（岛自己展开，带回答按钮）、跑完或中断（不静音的弹出来停 5 秒收起，通知留在通知栏）都在这一条上原地更新。用户正看着的对话不发，顶部胶囊正显示着的对话也不发。前台服务的那条只为保活，在最低重要度的「后台运行」渠道里，不上岛、不上锁屏。
 
-照小爱的做法（`com.miui.voiceassist` 替用户操作手机、深度思考的通知）：只发普通通知加焦点参数，不申请 Android 16 的实时通知（promoted ongoing，`setRequestPromotedOngoing`）。带了这个标记，系统界面不把插件画好的卡片挂进通知栏那一行（`RowContentBindStage.requestRebind` 只挂不带它的焦点通知），卡片在通知栏里时有时无，实测 Zeta 在前台时是空白的；插件还会拿系统从实时通知转出的参数换掉 Zeta 写的。
+照小爱的做法（`com.miui.voiceassist` 替用户操作手机、深度思考的通知）：一件事一条通知、固定的 id 原地更新，不和保活的前台服务通知混在一起；只发普通通知加焦点参数，不申请 Android 16 的实时通知（promoted ongoing，`setRequestPromotedOngoing`）。带了这个标记，系统界面不把插件画好的卡片挂进通知栏那一行（`RowContentBindStage.requestRebind` 只挂不带它的焦点通知），卡片在通知栏里时有时无，实测 Zeta 在前台时是空白的；插件还会拿系统从实时通知转出的参数换掉 Zeta 写的。
 
 焦点通知插件（`miui.systemui.plugin`，跑在系统界面进程里）鉴权时，国行系统上不带自定义视图的焦点通知要过 `SignatureChecker.checkSignatures(packageName)`（和系统界面同签名），否则去小米服务器核对申请过的权限，没申请过不上岛。模块在系统界面里拦它，查的是本包时答是（`xposed/FocusAuthHook.kt`）。
 
-这个类在插件的 ClassLoader 里，插件晚于系统界面加载，模块等 `PluginInstance$PluginFactory.createPluginContext` 建出插件的 Context 再装。模块没启用时不上岛：常驻通知是普通通知，提醒照常是横幅。
+这个类在插件的 ClassLoader 里，插件晚于系统界面加载，模块等 `PluginInstance$PluginFactory.createPluginContext` 建出插件的 Context 再装。模块没启用时不上岛：对话那条是普通通知，跑完和等你照常是横幅。
 
 诊断：装没装上和第一次放行写进 LSPosed 的模块日志和 logcat，标签正式版 `ZetaIsland`、测试版 `ZetaDevIsland`。命令行：`logcat -d -s ZetaIsland ZetaDevIsland`；岛用了谁的参数看 `logcat -d -s DynamicIslandEventCoordinator` 里本包那条的 `tickerData`（图标是 `miui.focus.pic_app_icon` 的是 Zeta 的）。重装后的旧 APK 路径问题（上面「长按电源键」末段）在系统界面里一样：重装后系统界面按旧路径加载失败，重启手机后才装上。
 
