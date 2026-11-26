@@ -33,19 +33,19 @@ import com.dzshzx.zeta.core.SavedPrompt
 import com.dzshzx.zeta.core.SavedPrompts
 import com.dzshzx.zeta.i18n.Strings
 import com.dzshzx.zeta.ui.components.LocalHub
-import com.dzshzx.zeta.ui.components.coui2.ConfirmDialog
-import com.dzshzx.zeta.ui.components.coui2.RowMoreMenu
-import com.dzshzx.zeta.ui.components.coui2.TextField
-import com.dzshzx.zeta.ui.components.coui2.ZetaIcons
-import com.dzshzx.zeta.ui.components.coui2.menuItem
+import com.dzshzx.zeta.ui.components.miuix.ConfirmDialog
+import com.dzshzx.zeta.ui.components.miuix.RowMoreMenu
+import com.dzshzx.zeta.ui.components.miuix.TextField
+import com.dzshzx.zeta.ui.components.miuix.ZetaIcons
+import com.dzshzx.zeta.ui.components.miuix.menuItem
 import com.dzshzx.zeta.ui.components.rememberRetained
-import io.github.suqi8.coui.kmp.basic.DropdownEntry
-import io.github.suqi8.coui.kmp.basic.Text
-import io.github.suqi8.coui.kmp.icon.COUIIcons
-import io.github.suqi8.coui.kmp.icon.extended.Delete
-import io.github.suqi8.coui.kmp.icon.extended.Edit
-import io.github.suqi8.coui.kmp.theme.COUITheme
 import java.util.UUID
+import top.yukonga.miuix.kmp.basic.DropdownEntry
+import top.yukonga.miuix.kmp.basic.Text
+import top.yukonga.miuix.kmp.icon.MiuixIcons
+import top.yukonga.miuix.kmp.icon.extended.Delete
+import top.yukonga.miuix.kmp.icon.extended.Edit
+import top.yukonga.miuix.kmp.theme.MiuixTheme
 
 /*
  * 常用指令：用户存下来的提问，点一下填进输入框，改一改再发。入口在输入框的“+”菜单里；
@@ -180,7 +180,7 @@ fun insertPrompt(input: TextFieldState, text: String) {
     }
 }
 
-/** 常用指令的列表、编辑和删除确认。COUI 2 的对话框，要在它的 Scaffold 里才显示。 */
+/** 常用指令的列表、编辑和删除确认。Miuix 的对话框，要在它的 Scaffold 里才显示。 */
 @Composable
 fun SavedPromptsDialogs(ui: PromptsUi) {
     PromptListDialog(ui)
@@ -239,7 +239,7 @@ private fun PromptListDialog(ui: PromptsUi) {
 
 @Composable
 private fun PromptRow(prompt: SavedPrompt, first: Boolean, last: Boolean, ui: PromptsUi) {
-    val colors = COUITheme.colorScheme
+    val colors = MiuixTheme.colorScheme
     val current by rememberUpdatedState(prompt)
     val entries =
         remember(first, last, ui) {
@@ -249,7 +249,7 @@ private fun PromptRow(prompt: SavedPrompt, first: Boolean, last: Boolean, ui: Pr
                         listOf(
                             menuItem(
                                 Strings.composerEdit(),
-                                COUIIcons.Edit,
+                                MiuixIcons.Edit,
                                 { ui.startEdit(current) },
                             ),
                             menuItem(
@@ -271,7 +271,7 @@ private fun PromptRow(prompt: SavedPrompt, first: Boolean, last: Boolean, ui: Pr
                         listOf(
                             menuItem(
                                 Strings.composerDelete(),
-                                COUIIcons.Delete,
+                                MiuixIcons.Delete,
                                 { ui.askDelete(current) },
                                 alert = true,
                             ),
@@ -293,20 +293,24 @@ private fun PromptRow(prompt: SavedPrompt, first: Boolean, last: Boolean, ui: Pr
             Text(
                 text = if (named) prompt.name.trim() else prompt.text.trim(),
                 style =
-                    COUITheme.textStyles.bodyM.copy(
+                    MiuixTheme.textStyles.body2.copy(
                         fontSize = 14.5.sp,
                         lineHeight = 20.sp,
                         fontWeight = FontWeight.Medium,
                     ),
-                color = colors.labelPrimary,
+                color = colors.onBackground,
                 maxLines = if (named) 1 else 2,
                 overflow = TextOverflow.Ellipsis,
             )
             if (named) {
                 Text(
                     text = prompt.text.trim(),
-                    style = COUITheme.textStyles.bodyS.copy(fontSize = 12.5.sp, lineHeight = 17.sp),
-                    color = colors.labelSecondary,
+                    style =
+                        MiuixTheme.textStyles.footnote1.copy(
+                            fontSize = 12.5.sp,
+                            lineHeight = 17.sp,
+                        ),
+                    color = colors.onBackgroundVariant,
                     maxLines = 2,
                     overflow = TextOverflow.Ellipsis,
                 )
@@ -335,7 +339,7 @@ private fun PromptEditorDialog(ui: PromptsUi) {
         onConfirm = { ui.save(name, text) },
         onDismissRequest = ui::cancelEdit,
     ) {
-        // COUI 的输入框只有一个提示文字：用作浮动标题（框里有字或在输入时浮到上面）
+        // Miuix 的输入框只有一个提示文字：用作浮动标题（框里有字或在输入时浮到上面）
         Column(modifier = Modifier.fillMaxWidth()) {
             TextField(
                 value = name,
@@ -357,8 +361,8 @@ private fun PromptEditorDialog(ui: PromptsUi) {
             if (problem != null && text.isNotEmpty()) {
                 Text(
                     text = problem,
-                    style = COUITheme.textStyles.bodyM,
-                    color = COUITheme.colorScheme.error,
+                    style = MiuixTheme.textStyles.body2,
+                    color = MiuixTheme.colorScheme.error,
                     modifier = Modifier.padding(top = 8.dp),
                 )
             }

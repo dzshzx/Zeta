@@ -25,19 +25,14 @@ import com.dzshzx.zeta.core.ThoughtItem
 import com.dzshzx.zeta.core.UserItem
 import com.dzshzx.zeta.i18n.Strings
 import com.dzshzx.zeta.ui.components.BackHandler
-import com.dzshzx.zeta.ui.components.coui2.FlatIconButton
-import com.dzshzx.zeta.ui.components.coui2.ZetaIcons
+import com.dzshzx.zeta.ui.components.miuix.FlatIconButton
+import com.dzshzx.zeta.ui.components.miuix.ZetaIcons
 import com.dzshzx.zeta.ui.markdown.MarkdownInlineStyle
 import com.dzshzx.zeta.ui.markdown.MarkdownTone
 import com.dzshzx.zeta.ui.markdown.StreamingGfmParserSession
 import com.dzshzx.zeta.ui.markdown.findSegments
 import com.dzshzx.zeta.ui.markdown.rememberMarkdownStyle
 import com.dzshzx.zeta.ui.markdown.staticMarkdownDocumentCache
-import io.github.suqi8.coui.kmp.basic.InputField
-import io.github.suqi8.coui.kmp.basic.Text
-import io.github.suqi8.coui.kmp.icon.COUIIcons
-import io.github.suqi8.coui.kmp.icon.extended.Close
-import io.github.suqi8.coui.kmp.theme.COUITheme
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.conflate
@@ -45,6 +40,11 @@ import kotlinx.coroutines.flow.filterNotNull
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.withContext
 import kotlinx.coroutines.withTimeoutOrNull
+import top.yukonga.miuix.kmp.basic.InputField
+import top.yukonga.miuix.kmp.basic.Text
+import top.yukonga.miuix.kmp.icon.MiuixIcons
+import top.yukonga.miuix.kmp.icon.extended.Close
+import top.yukonga.miuix.kmp.theme.MiuixTheme
 
 /** 聊天列表在根坐标里的范围，查找跳转时据此判断命中处在不在视野里。 */
 fun Modifier.findViewport(find: ChatFindState): Modifier = onGloballyPositioned {
@@ -182,8 +182,8 @@ private suspend fun scrollToMatch(
 }
 
 /**
- * 查找栏：查找时顶替输入栏。COUI 的搜索输入胶囊，后面是命中计数和上一个、下一个、关闭；下面一行说明查的范围。
- * 查的是整个对话：打开查找栏时界面把还没载入的更早记录一次载完，[earlierLeft] 是还剩几条没载入， [earlierProblem] 是载不下去时的说明（这时只查载入了的）。
+ * 查找栏：查找时顶替输入栏。搜索输入胶囊，后面是命中计数和上一个、下一个、关闭；下面一行说明查的范围。 查的是整个对话：打开查找栏时界面把还没载入的更早记录一次载完，[earlierLeft]
+ * 是还剩几条没载入， [earlierProblem] 是载不下去时的说明（这时只查载入了的）。
  */
 @Composable
 fun ChatFindBar(
@@ -192,7 +192,7 @@ fun ChatFindBar(
     earlierProblem: String?,
     modifier: Modifier = Modifier,
 ) {
-    val colors = COUITheme.colorScheme
+    val colors = MiuixTheme.colorScheme
     BackHandler(onBack = find::close)
     val count = find.matches.size
     Column(modifier = modifier.fillMaxWidth()) {
@@ -206,13 +206,14 @@ fun ChatFindBar(
                 onExpandedChange = {},
                 modifier = Modifier.weight(1f),
                 label = Strings.chatFindInChat(),
-                material = false,
             )
             if (find.query.isNotEmpty()) {
                 Text(
                     text = matchCountText(find.index, count, earlierLeft, earlierProblem),
-                    style = COUITheme.textStyles.bodyS,
-                    color = if (count == 0) colors.labelTertiary else colors.labelSecondary,
+                    style = MiuixTheme.textStyles.footnote1,
+                    color =
+                        if (count == 0) colors.onSurfaceVariantActions
+                        else colors.onBackgroundVariant,
                     maxLines = 1,
                     modifier = Modifier.padding(start = 8.dp, end = 2.dp),
                 )
@@ -230,7 +231,7 @@ fun ChatFindBar(
                 onClick = find::next,
             )
             BarButton(
-                COUIIcons.Close,
+                MiuixIcons.Close,
                 Strings.chatCloseFind(),
                 enabled = true,
                 onClick = find::close,
@@ -244,8 +245,8 @@ fun ChatFindBar(
                     earlierLeft > 0 -> Strings.chatFindHintEarlierLoading(earlierLeft)
                     else -> Strings.chatFindHint()
                 },
-            style = COUITheme.textStyles.bodyXS,
-            color = colors.labelSecondary,
+            style = MiuixTheme.textStyles.footnote2,
+            color = colors.onBackgroundVariant,
             modifier = Modifier.padding(start = 14.dp, end = 14.dp, top = 6.dp),
         )
     }

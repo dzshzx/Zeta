@@ -22,21 +22,21 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.dzshzx.zeta.ui.chat.EffortGauges
-import com.dzshzx.zeta.ui.components.coui2.ZetaIcons
-import io.github.suqi8.coui.kmp.basic.Icon
-import io.github.suqi8.coui.kmp.basic.Text
-import io.github.suqi8.coui.kmp.icon.COUIIcons
-import io.github.suqi8.coui.kmp.icon.extended.Copy
-import io.github.suqi8.coui.kmp.icon.extended.File
-import io.github.suqi8.coui.kmp.icon.extended.Folder
-import io.github.suqi8.coui.kmp.icon.extended.Search
-import io.github.suqi8.coui.kmp.theme.COUITheme
+import com.dzshzx.zeta.ui.components.miuix.ZetaIcons
 import java.lang.reflect.Modifier as JavaModifier
 import org.junit.Assert.assertTrue
 import org.junit.Test
+import top.yukonga.miuix.kmp.basic.Icon
+import top.yukonga.miuix.kmp.basic.Text
+import top.yukonga.miuix.kmp.icon.MiuixIcons
+import top.yukonga.miuix.kmp.icon.extended.Copy
+import top.yukonga.miuix.kmp.icon.extended.File
+import top.yukonga.miuix.kmp.icon.extended.Folder
+import top.yukonga.miuix.kmp.icon.extended.Search
+import top.yukonga.miuix.kmp.theme.MiuixTheme
 
 /**
- * 自画图标（[ZetaIcons]）一览：每个都画出来，最后一行是思考强度刻度表的各种样子（0 是不知道档位）， 开头几个是 COUI
+ * 自画图标（[ZetaIcons]）一览：每个都画出来，最后一行是思考强度刻度表的各种样子（0 是不知道档位）， 开头几个是 Miuix
  * 自带的图标，用来比粗细、大小。新加的图标不用登记，按反射列出来；图形边界由 [drawnIconsStayInsideTheMargin] 核对。
  */
 class IconsShots : ShotTest() {
@@ -57,16 +57,16 @@ class IconsShots : ShotTest() {
     fun icons() {
         val reference =
             listOf(
-                "COUI 复制" to COUIIcons.Copy,
-                "COUI 文件" to COUIIcons.File,
-                "COUI 文件夹" to COUIIcons.Folder,
-                "COUI 搜索" to COUIIcons.Search,
+                "Miuix 复制" to MiuixIcons.Copy,
+                "Miuix 文件" to MiuixIcons.File,
+                "Miuix 文件夹" to MiuixIcons.Folder,
+                "Miuix 搜索" to MiuixIcons.Search,
             )
         val efforts = EffortGauges.mapIndexed { level, icon -> "强度 $level" to icon }
         val all = reference + drawn() + efforts
         shoot("zeta-icons") {
             Column(
-                Modifier.fillMaxWidth().background(COUITheme.colorScheme.background).padding(12.dp),
+                Modifier.fillMaxWidth().background(MiuixTheme.colorScheme.surface).padding(12.dp),
                 verticalArrangement = Arrangement.spacedBy(10.dp),
             ) {
                 all.chunked(6).forEach { row ->
@@ -80,13 +80,13 @@ class IconsShots : ShotTest() {
                                     imageVector = icon,
                                     contentDescription = name,
                                     modifier = Modifier.size(24.dp),
-                                    tint = COUITheme.colorScheme.labelPrimary,
+                                    tint = MiuixTheme.colorScheme.onBackground,
                                 )
                                 Text(
                                     text = name,
                                     modifier = Modifier.padding(top = 3.dp),
-                                    style = COUITheme.textStyles.bodyS.copy(fontSize = 9.sp),
-                                    color = COUITheme.colorScheme.labelSecondary,
+                                    style = MiuixTheme.textStyles.footnote1.copy(fontSize = 9.sp),
+                                    color = MiuixTheme.colorScheme.onBackgroundVariant,
                                     textAlign = TextAlign.Center,
                                     maxLines = 1,
                                 )

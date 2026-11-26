@@ -1,7 +1,7 @@
 package com.dzshzx.zeta.shots
 
 import androidx.compose.ui.test.hasSetTextAction
-import androidx.compose.ui.test.hasText
+import androidx.compose.ui.test.isFocused
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.onRoot
 import androidx.compose.ui.test.performClick
@@ -204,7 +204,7 @@ class NotifyTriggerShots : ShotTest() {
                 onNodeWithText("搜索应用名或包名").performClick()
                 mainClock.advanceTimeBy(600)
                 waitForIdle()
-                onNode(hasSetTextAction() and hasText("搜索应用名或包名")).performTextInput("com.example")
+                onNode(hasSetTextAction() and isFocused()).performTextInput("com.example")
             },
         ) {
             NotifyTriggerScreen(

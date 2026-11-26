@@ -12,12 +12,12 @@ import androidx.compose.ui.platform.LocalContext
 import com.dzshzx.zeta.core.ConversationHub
 import com.dzshzx.zeta.core.notify.NotifyRules
 import com.dzshzx.zeta.i18n.Strings
-import com.dzshzx.zeta.ui.components.coui2.SettingsIcon
+import com.dzshzx.zeta.ui.components.miuix.SettingsIcon
 import com.dzshzx.zeta.ui.setup.problem
 import com.dzshzx.zeta.ui.setup.runConfig
-import io.github.suqi8.coui.kmp.icon.COUIIcons
-import io.github.suqi8.coui.kmp.icon.extended.Timer
-import io.github.suqi8.coui.kmp.preference.OverlayDropdownPreference
+import top.yukonga.miuix.kmp.icon.MiuixIcons
+import top.yukonga.miuix.kmp.icon.extended.Timer
+import top.yukonga.miuix.kmp.preference.OverlayDropdownPreference
 
 /** 「闲置超时」可选的几档（分钟），0 是不自动结束。 */
 private val IdleChoices = listOf(5, 10, 30, 60, 120, 0)
@@ -44,7 +44,7 @@ internal fun IdleEndPreference(hub: ConversationHub, backend: String, ready: Boo
     OverlayDropdownPreference(
         title = Strings.settingsIdleTimeout(),
         startAction = {
-            SettingsIcon(COUIIcons.Timer, enabled = current != null)
+            SettingsIcon(MiuixIcons.Timer, enabled = current != null)
         },
         items = choices.map(::idleLabel),
         selectedIndex = choices.indexOf(current).coerceAtLeast(0),

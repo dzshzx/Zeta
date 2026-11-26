@@ -18,17 +18,17 @@ import com.dzshzx.zeta.core.SetupState
 import com.dzshzx.zeta.core.environment
 import com.dzshzx.zeta.i18n.Strings
 import com.dzshzx.zeta.ui.components.SlideInPage
-import com.dzshzx.zeta.ui.components.coui2.CouiPage
-import com.dzshzx.zeta.ui.components.coui2.PreferenceGroup
-import com.dzshzx.zeta.ui.components.coui2.PreferenceValue
+import com.dzshzx.zeta.ui.components.miuix.MiuixPage
+import com.dzshzx.zeta.ui.components.miuix.PreferenceGroup
+import com.dzshzx.zeta.ui.components.miuix.PreferenceValue
 import com.dzshzx.zeta.ui.setup.ClaudeAgentsScreen
 import com.dzshzx.zeta.ui.setup.ClaudeMcpScreen
 import com.dzshzx.zeta.ui.setup.ClaudeMemoryScreen
 import com.dzshzx.zeta.ui.setup.ClaudeSkillsScreen
 import com.dzshzx.zeta.ui.setup.RemoteHostScreen
 import com.dzshzx.zeta.ui.setup.ToolPermissionsScreen
-import io.github.suqi8.coui.kmp.preference.ArrowPreference
-import io.github.suqi8.coui.kmp.theme.COUITheme
+import top.yukonga.miuix.kmp.preference.ArrowPreference
+import top.yukonga.miuix.kmp.theme.MiuixTheme
 
 /** 主机页往下的一层：这台主机上的默认思考强度、账号、定时任务、通知触发和 Claude Code 自己的配置。 */
 private enum class HostPage {
@@ -139,7 +139,7 @@ private fun LocalHostScreen(
     claude: LazyListScope.() -> Unit,
 ) {
     var renaming by remember { mutableStateOf(false) }
-    CouiPage(
+    MiuixPage(
         title = hub.backendName(Backends.LOCAL),
         onBack = onBack,
         dialogs = {
@@ -160,7 +160,8 @@ private fun LocalHostScreen(
                         endActions = {
                             PreferenceValue(
                                 value,
-                                color = if (bad) COUITheme.colorScheme.error else Color.Unspecified,
+                                color =
+                                    if (bad) MiuixTheme.colorScheme.error else Color.Unspecified,
                             )
                         },
                         onClick = onOpenLinux,

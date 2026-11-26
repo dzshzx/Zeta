@@ -47,17 +47,18 @@ import com.dzshzx.zeta.core.str
 import com.dzshzx.zeta.i18n.Strings
 import com.dzshzx.zeta.ui.components.FoldEnter
 import com.dzshzx.zeta.ui.components.FoldExit
-import com.dzshzx.zeta.ui.components.coui2.ZetaIcons
-import io.github.suqi8.coui.kmp.basic.HorizontalDivider
-import io.github.suqi8.coui.kmp.basic.Icon
-import io.github.suqi8.coui.kmp.basic.Text
-import io.github.suqi8.coui.kmp.icon.COUIIcons
-import io.github.suqi8.coui.kmp.icon.extended.Close
-import io.github.suqi8.coui.kmp.icon.extended.Ok
-import io.github.suqi8.coui.kmp.squircle.SquircleShape
-import io.github.suqi8.coui.kmp.theme.COUITheme
+import com.dzshzx.zeta.ui.components.miuix.SquircleShape
+import com.dzshzx.zeta.ui.components.miuix.ZetaIcons
+import com.dzshzx.zeta.ui.components.success
 import kotlinx.serialization.json.JsonArray
 import kotlinx.serialization.json.JsonObject
+import top.yukonga.miuix.kmp.basic.HorizontalDivider
+import top.yukonga.miuix.kmp.basic.Icon
+import top.yukonga.miuix.kmp.basic.Text
+import top.yukonga.miuix.kmp.icon.MiuixIcons
+import top.yukonga.miuix.kmp.icon.extended.Close
+import top.yukonga.miuix.kmp.icon.extended.Ok
+import top.yukonga.miuix.kmp.theme.MiuixTheme
 
 /**
  * 输入卡片上方的任务清单（样子照排队条）：一行显示做到第几项、正在做哪一项，点开是整份清单。 清单是核心从 Claude 的清单工具调用归并好的（conv.state 的
@@ -75,7 +76,7 @@ fun TodoStrip(list: TodoList?, busy: Boolean, modifier: Modifier = Modifier) {
     var dismissed by rememberSaveable { mutableStateOf<Int?>(null) }
     if (dismissed == signature || (list.allDone && !busy)) return
 
-    val colors = COUITheme.colorScheme
+    val colors = MiuixTheme.colorScheme
     val shape = remember { SquircleShape(ChatStripCorner) }
     var expanded by rememberSaveable { mutableStateOf(false) }
     val chevron by
@@ -112,7 +113,7 @@ fun TodoStrip(list: TodoList?, busy: Boolean, modifier: Modifier = Modifier) {
             Text(
                 text = "$position/${list.total}",
                 style =
-                    COUITheme.textStyles.bodyS.copy(
+                    MiuixTheme.textStyles.footnote1.copy(
                         fontWeight = FontWeight.Medium,
                         fontFeatureSettings = "tnum",
                     ),
@@ -121,8 +122,8 @@ fun TodoStrip(list: TodoList?, busy: Boolean, modifier: Modifier = Modifier) {
             Spacer(Modifier.width(8.dp))
             Text(
                 text = summary,
-                style = COUITheme.textStyles.bodyM,
-                color = colors.labelPrimary,
+                style = MiuixTheme.textStyles.body2,
+                color = colors.onBackground,
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis,
                 modifier = Modifier.weight(1f).padding(vertical = 5.dp),
@@ -131,9 +132,9 @@ fun TodoStrip(list: TodoList?, busy: Boolean, modifier: Modifier = Modifier) {
                 ZetaIcons.ChevronDown,
                 contentDescription = null,
                 modifier = Modifier.padding(start = 4.dp).size(16.dp).rotate(chevron),
-                tint = colors.labelSecondary,
+                tint = colors.onBackgroundVariant,
             )
-            ActionIcon(COUIIcons.Close, Strings.chatTodoDismiss(), colors.labelSecondary) {
+            ActionIcon(MiuixIcons.Close, Strings.chatTodoDismiss(), colors.onBackgroundVariant) {
                 dismissed = signature
             }
         }
@@ -150,7 +151,7 @@ fun TodoStrip(list: TodoList?, busy: Boolean, modifier: Modifier = Modifier) {
             ) {
                 HorizontalDivider(
                     modifier = Modifier.padding(horizontal = 12.dp),
-                    color = colors.divider,
+                    color = colors.dividerLine,
                 )
                 list.entries.forEach { entry -> TodoRow(entry) }
             }
@@ -160,7 +161,7 @@ fun TodoStrip(list: TodoList?, busy: Boolean, modifier: Modifier = Modifier) {
 
 @Composable
 private fun TodoRow(entry: TodoEntry) {
-    val colors = COUITheme.colorScheme
+    val colors = MiuixTheme.colorScheme
     Row(
         modifier =
             Modifier.fillMaxWidth().padding(start = 14.dp, end = 14.dp, top = 6.dp, bottom = 2.dp),
@@ -175,7 +176,7 @@ private fun TodoRow(entry: TodoEntry) {
                 if (entry.status == TodoStatus.InProgress) entry.activeFormSaid()
                 else entry.contentSaid(),
             style =
-                COUITheme.textStyles.bodyS.copy(
+                MiuixTheme.textStyles.footnote1.copy(
                     fontWeight =
                         if (entry.status == TodoStatus.InProgress) FontWeight.Medium
                         else FontWeight.Normal,
@@ -185,9 +186,9 @@ private fun TodoRow(entry: TodoEntry) {
                 ),
             color =
                 when (entry.status) {
-                    TodoStatus.Completed -> colors.labelTertiary
-                    TodoStatus.InProgress -> colors.labelPrimary
-                    TodoStatus.Pending -> colors.labelPrimaryVariant
+                    TodoStatus.Completed -> colors.onSurfaceVariantActions
+                    TodoStatus.InProgress -> colors.onBackground
+                    TodoStatus.Pending -> colors.onBackground
                 },
             modifier = Modifier.weight(1f),
         )
@@ -197,7 +198,7 @@ private fun TodoRow(entry: TodoEntry) {
 /** 完成：绿底对勾；进行中：主题色圆圈里一个实心点；待做：空心圆圈。 */
 @Composable
 private fun StatusMark(status: TodoStatus) {
-    val colors = COUITheme.colorScheme
+    val colors = MiuixTheme.colorScheme
     when (status) {
         TodoStatus.Completed ->
             Box(
@@ -205,10 +206,10 @@ private fun StatusMark(status: TodoStatus) {
                 contentAlignment = Alignment.Center,
             ) {
                 Icon(
-                    COUIIcons.Ok,
+                    MiuixIcons.Ok,
                     contentDescription = Strings.chatDone(),
                     modifier = Modifier.size(11.dp),
-                    tint = colors.labelOnColor,
+                    tint = colors.onPrimary,
                 )
             }
         TodoStatus.InProgress ->
@@ -219,7 +220,7 @@ private fun StatusMark(status: TodoStatus) {
                 Box(Modifier.size(6.dp).clip(CircleShape).background(colors.primary))
             }
         TodoStatus.Pending ->
-            Box(Modifier.size(15.dp).border(1.2.dp, colors.labelTertiary, CircleShape))
+            Box(Modifier.size(15.dp).border(1.2.dp, colors.onSurfaceVariantActions, CircleShape))
     }
 }
 
@@ -228,20 +229,20 @@ private fun StatusMark(status: TodoStatus) {
 private fun ProgressRing(done: Int, total: Int, allDone: Boolean) {
     if (allDone) {
         Box(
-            Modifier.size(16.dp).clip(CircleShape).background(COUITheme.colorScheme.success),
+            Modifier.size(16.dp).clip(CircleShape).background(MiuixTheme.colorScheme.success),
             contentAlignment = Alignment.Center,
         ) {
             Icon(
-                COUIIcons.Ok,
+                MiuixIcons.Ok,
                 contentDescription = null,
                 modifier = Modifier.size(11.dp),
-                tint = COUITheme.colorScheme.labelOnColor,
+                tint = MiuixTheme.colorScheme.onPrimary,
             )
         }
         return
     }
-    val track = COUITheme.colorScheme.container12
-    val primary = COUITheme.colorScheme.primary
+    val track = MiuixTheme.colorScheme.secondaryContainer
+    val primary = MiuixTheme.colorScheme.primary
     val fraction by
         animateFloatAsState(
             if (total == 0) 0f else done.toFloat() / total,

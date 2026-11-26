@@ -23,25 +23,26 @@ import com.dzshzx.zeta.core.RelayDraft
 import com.dzshzx.zeta.core.RelayModel
 import com.dzshzx.zeta.i18n.CoreStrings
 import com.dzshzx.zeta.i18n.Strings
-import com.dzshzx.zeta.ui.components.coui2.ConfirmDialog
-import com.dzshzx.zeta.ui.components.coui2.CouiPage
-import com.dzshzx.zeta.ui.components.coui2.DialogContentPadding
-import com.dzshzx.zeta.ui.components.coui2.FlatIconButton
-import com.dzshzx.zeta.ui.components.coui2.PageDialog
-import com.dzshzx.zeta.ui.components.coui2.PreferenceGroup
-import io.github.suqi8.coui.kmp.basic.BasicComponent
-import io.github.suqi8.coui.kmp.basic.BasicComponentDefaults
-import io.github.suqi8.coui.kmp.basic.InputView
-import io.github.suqi8.coui.kmp.basic.ToolbarTextButton
-import io.github.suqi8.coui.kmp.icon.COUIIcons
-import io.github.suqi8.coui.kmp.icon.extended.Hide
-import io.github.suqi8.coui.kmp.icon.extended.Show
-import io.github.suqi8.coui.kmp.layout.DialogButtonBar
-import io.github.suqi8.coui.kmp.layout.DialogButtonBarAction
-import io.github.suqi8.coui.kmp.preference.PagerFooterPreference
-import io.github.suqi8.coui.kmp.preference.RadioButtonLocation
-import io.github.suqi8.coui.kmp.preference.RadioButtonPreference
-import io.github.suqi8.coui.kmp.theme.COUITheme
+import com.dzshzx.zeta.ui.components.miuix.ConfirmDialog
+import com.dzshzx.zeta.ui.components.miuix.DialogButtonBar
+import com.dzshzx.zeta.ui.components.miuix.DialogButtonBarAction
+import com.dzshzx.zeta.ui.components.miuix.DialogContentPadding
+import com.dzshzx.zeta.ui.components.miuix.FieldGroup
+import com.dzshzx.zeta.ui.components.miuix.FlatIconButton
+import com.dzshzx.zeta.ui.components.miuix.FooterHint
+import com.dzshzx.zeta.ui.components.miuix.MiuixPage
+import com.dzshzx.zeta.ui.components.miuix.PageDialog
+import com.dzshzx.zeta.ui.components.miuix.PreferenceGroup
+import com.dzshzx.zeta.ui.components.miuix.TextField
+import com.dzshzx.zeta.ui.components.miuix.TopBarTextButton
+import top.yukonga.miuix.kmp.basic.BasicComponent
+import top.yukonga.miuix.kmp.basic.BasicComponentDefaults
+import top.yukonga.miuix.kmp.icon.MiuixIcons
+import top.yukonga.miuix.kmp.icon.extended.Hide
+import top.yukonga.miuix.kmp.icon.extended.Show
+import top.yukonga.miuix.kmp.preference.RadioButtonLocation
+import top.yukonga.miuix.kmp.preference.RadioButtonPreference
+import top.yukonga.miuix.kmp.theme.MiuixTheme
 
 /** 中转编辑页上「获取模型列表」那一摊：拉取中、拉到的列表（弹出来挑）、没成的原因。 */
 private class ModelFetch {
@@ -140,11 +141,11 @@ internal fun RelayScreen(
 ) {
     val editor = remember(service, original?.name) { RelayEditor(service, original) }
     val draft = editor.draft
-    CouiPage(
+    MiuixPage(
         title = if (editor.create) Strings.settingsRelaysAdd() else Strings.relayEditTitle(),
         onBack = onBack,
         actions = {
-            ToolbarTextButton(
+            TopBarTextButton(
                 text = if (editor.saving) Strings.relaySaving() else Strings.commonSave(),
                 enabled = editor.canSave,
                 onClick = { editor.save(onBack) },
@@ -166,7 +167,7 @@ internal fun RelayScreen(
         }
         editor.notice?.let { text ->
             item(key = "problem") {
-                PagerFooterPreference(summary = text, summaryColor = COUITheme.colorScheme.error)
+                FooterHint(summary = text, summaryColor = MiuixTheme.colorScheme.error)
             }
         }
         original?.let { relay ->
@@ -205,12 +206,12 @@ private fun RelayDialogs(editor: RelayEditor, onBack: () -> Unit) {
 /** 地址：要说 Anthropic Messages（Claude Code 会说的唯一协议），框下说明 OpenAI 上游怎么接。 */
 @Composable
 private fun UrlField(draft: RelayDraft, update: (RelayDraft) -> Unit) {
-    FieldCard(footer = Strings.relayBaseUrlFooter()) {
-        InputView(
+    FieldGroup(title = Strings.relayBaseUrl(), footer = Strings.relayBaseUrlFooter()) {
+        TextField(
             value = draft.baseUrl,
             onValueChange = { update(draft.copy(baseUrl = it.trim())) },
-            title = Strings.relayBaseUrl(),
             label = "https://",
+            singleLine = true,
             keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Uri),
         )
     }
@@ -223,7 +224,8 @@ private fun DeleteGroup(relay: ClaudeRelay, enabled: Boolean, onClick: () -> Uni
         item {
             BasicComponent(
                 title = Strings.relayDelete(),
-                titleColor = BasicComponentDefaults.titleColor(color = COUITheme.colorScheme.error),
+                titleColor =
+                    BasicComponentDefaults.titleColor(color = MiuixTheme.colorScheme.error),
                 enabled = enabled && !relay.current,
                 onClick = onClick,
             )
@@ -240,12 +242,12 @@ private fun NameField(draft: RelayDraft, create: Boolean, update: (RelayDraft) -
         }
         return
     }
-    FieldCard(footer = Strings.relayNameFooter()) {
-        InputView(
+    FieldGroup(title = Strings.relayName(), footer = Strings.relayNameFooter()) {
+        TextField(
             value = draft.name,
             onValueChange = { update(draft.copy(name = it.trim().lowercase())) },
-            title = Strings.relayName(),
             label = Strings.relayNameHint(),
+            singleLine = true,
             keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Ascii),
         )
     }
@@ -256,13 +258,16 @@ private fun NameField(draft: RelayDraft, create: Boolean, update: (RelayDraft) -
 private fun KeyField(draft: RelayDraft, original: ClaudeRelay?, update: (RelayDraft) -> Unit) {
     var visible by remember { mutableStateOf(false) }
     val editable = original?.keyEditable ?: true
-    FieldCard(footer = if (editable) null else CoreStrings.errRelayKeyReadOnly()) {
-        InputView(
+    FieldGroup(
+        title = Strings.relayKey(),
+        footer = if (editable) null else CoreStrings.errRelayKeyReadOnly(),
+    ) {
+        TextField(
             value = draft.key,
             onValueChange = { update(draft.copy(key = it.trim())) },
-            title = Strings.relayKey(),
             label = if (original?.hasKey == true) Strings.relayKeyKeep() else "sk-…",
             enabled = editable,
+            singleLine = true,
             keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password),
             visualTransformation =
                 if (visible) VisualTransformation.None else PasswordVisualTransformation(),
@@ -282,12 +287,12 @@ private fun ModelGroup(
     update: (RelayDraft) -> Unit,
 ) {
     Column {
-        FieldCard {
-            InputView(
+        FieldGroup(title = Strings.relayModel()) {
+            TextField(
                 value = draft.model,
                 onValueChange = { update(draft.copy(model = it.trim())) },
-                title = Strings.relayModel(),
                 label = Strings.relayModelHint(),
+                singleLine = true,
                 keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Ascii),
             )
         }
@@ -359,11 +364,11 @@ private fun ModelPicker(
 @Composable
 private fun KeyToggle(visible: Boolean, onToggle: () -> Unit) {
     FlatIconButton(
-        icon = if (visible) COUIIcons.Hide else COUIIcons.Show,
+        icon = if (visible) MiuixIcons.Hide else MiuixIcons.Show,
         contentDescription = if (visible) Strings.relayKeyHide() else Strings.relayKeyShow(),
         size = 32.dp,
         iconSize = 18.dp,
-        tint = COUITheme.colorScheme.labelSecondary,
+        tint = MiuixTheme.colorScheme.onBackgroundVariant,
         onClick = onToggle,
     )
 }

@@ -18,22 +18,21 @@ import com.dzshzx.zeta.core.environment
 import com.dzshzx.zeta.i18n.Strings
 import com.dzshzx.zeta.ui.browser.BrowserActivity
 import com.dzshzx.zeta.ui.components.SlideInPage
-import com.dzshzx.zeta.ui.components.coui2.CouiPage
-import com.dzshzx.zeta.ui.components.coui2.CouiTopBarStyle
-import com.dzshzx.zeta.ui.components.coui2.PreferenceGroup
-import com.dzshzx.zeta.ui.components.coui2.PreferenceValue
-import com.dzshzx.zeta.ui.components.coui2.SettingsIcon
-import com.dzshzx.zeta.ui.components.coui2.ZetaIcons
+import com.dzshzx.zeta.ui.components.miuix.MiuixPage
+import com.dzshzx.zeta.ui.components.miuix.PreferenceGroup
+import com.dzshzx.zeta.ui.components.miuix.PreferenceValue
+import com.dzshzx.zeta.ui.components.miuix.SettingsIcon
+import com.dzshzx.zeta.ui.components.miuix.ZetaIcons
 import com.dzshzx.zeta.ui.pane.hostIcon
 import com.dzshzx.zeta.ui.setup.RemoteHostsScreen
-import io.github.suqi8.coui.kmp.icon.COUIIcons
-import io.github.suqi8.coui.kmp.icon.extended.Add
-import io.github.suqi8.coui.kmp.icon.extended.Image
-import io.github.suqi8.coui.kmp.icon.extended.Theme
-import io.github.suqi8.coui.kmp.icon.extended.VolumeUp
-import io.github.suqi8.coui.kmp.preference.ArrowPreference
-import io.github.suqi8.coui.kmp.preference.SwitchPreference
-import io.github.suqi8.coui.kmp.theme.COUITheme
+import top.yukonga.miuix.kmp.icon.MiuixIcons
+import top.yukonga.miuix.kmp.icon.extended.Add
+import top.yukonga.miuix.kmp.icon.extended.Image
+import top.yukonga.miuix.kmp.icon.extended.Theme
+import top.yukonga.miuix.kmp.icon.extended.VolumeUp
+import top.yukonga.miuix.kmp.preference.ArrowPreference
+import top.yukonga.miuix.kmp.preference.SwitchPreference
+import top.yukonga.miuix.kmp.theme.MiuixTheme
 
 @Composable
 internal fun SettingsScreen(
@@ -120,10 +119,9 @@ private fun SettingsHome(
     onOpenSubPage: (SettingsSubPage) -> Unit,
 ) {
     val context = LocalContext.current
-    CouiPage(
+    MiuixPage(
         title = Strings.settingsHomeTitle(),
         onBack = onBack,
-        topBarStyle = CouiTopBarStyle.SettingsHome,
     ) {
         item(key = "hosts") {
             PreferenceGroup(title = Strings.settingsHomeDevices()) {
@@ -133,7 +131,7 @@ private fun SettingsHome(
                 item {
                     ArrowPreference(
                         title = Strings.settingsHomeAddRemote(),
-                        startAction = { SettingsIcon(COUIIcons.Add) },
+                        startAction = { SettingsIcon(MiuixIcons.Add) },
                         onClick = { onOpenSubPage(SettingsSubPage.RemoteHosts) },
                     )
                 }
@@ -173,7 +171,7 @@ private fun SettingsHome(
                 item {
                     ArrowPreference(
                         title = Strings.settingsTitleAppearance(),
-                        startAction = { SettingsIcon(COUIIcons.Theme) },
+                        startAction = { SettingsIcon(MiuixIcons.Theme) },
                         endActions = {
                             PreferenceValue(
                                 when (hub.settings.darkTheme) {
@@ -199,7 +197,7 @@ private fun SettingsHome(
                     // 关着的时候，回答里的网络图片先显示成一个“加载图片”的小条，点一下才去取
                     SwitchPreference(
                         title = Strings.settingsHomeAutoLoadImages(),
-                        startAction = { SettingsIcon(COUIIcons.Image) },
+                        startAction = { SettingsIcon(MiuixIcons.Image) },
                         checked = hub.settings.autoLoadRemoteImages,
                         onCheckedChange = { hub.settings.autoLoadRemoteImages = it },
                     )
@@ -208,7 +206,7 @@ private fun SettingsHome(
                     // 一轮回答完了用系统的朗读引擎念出来，锁屏也接着读
                     SwitchPreference(
                         title = Strings.settingsHomeAutoRead(),
-                        startAction = { SettingsIcon(COUIIcons.VolumeUp) },
+                        startAction = { SettingsIcon(MiuixIcons.VolumeUp) },
                         checked = hub.settings.autoReadAnswers,
                         onCheckedChange = { hub.settings.autoReadAnswers = it },
                     )
@@ -260,7 +258,7 @@ private fun HostEntry(hub: ConversationHub, backend: String, onOpen: () -> Unit)
                     PreferenceValue(
                         problem.first,
                         color =
-                            if (problem.second) COUITheme.colorScheme.error else Color.Unspecified,
+                            if (problem.second) MiuixTheme.colorScheme.error else Color.Unspecified,
                     )
                 defaults != null ->
                     PreferenceValue(hostDefaultsSummary(defaults, hub.modelOptions(backend)))

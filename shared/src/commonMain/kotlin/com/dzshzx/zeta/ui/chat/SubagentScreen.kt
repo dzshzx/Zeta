@@ -36,19 +36,19 @@ import com.dzshzx.zeta.core.conv.ConvSubagent
 import com.dzshzx.zeta.core.conv.SubagentState
 import com.dzshzx.zeta.i18n.Strings
 import com.dzshzx.zeta.ui.components.SlideInPage
-import com.dzshzx.zeta.ui.components.coui2.CardListSegment
-import com.dzshzx.zeta.ui.components.coui2.CouiPage
-import com.dzshzx.zeta.ui.components.coui2.PreferenceGroup
+import com.dzshzx.zeta.ui.components.miuix.CardListSegment
+import com.dzshzx.zeta.ui.components.miuix.FooterHint
+import com.dzshzx.zeta.ui.components.miuix.MiuixPage
+import com.dzshzx.zeta.ui.components.miuix.PreferenceGroup
 import com.dzshzx.zeta.ui.components.whileStarted
 import com.dzshzx.zeta.ui.markdown.StreamingMarkdownStateCache
 import com.dzshzx.zeta.ui.settings.ValueRow
 import com.dzshzx.zeta.ui.tasks.TaskLabels
 import com.dzshzx.zeta.ui.tasks.taskStateColor
-import io.github.suqi8.coui.kmp.basic.BasicComponent
-import io.github.suqi8.coui.kmp.basic.Text
-import io.github.suqi8.coui.kmp.preference.PagerFooterPreference
-import io.github.suqi8.coui.kmp.preference.PreferenceCategory
-import io.github.suqi8.coui.kmp.theme.COUITheme
+import top.yukonga.miuix.kmp.basic.BasicComponent
+import top.yukonga.miuix.kmp.basic.SmallTitle
+import top.yukonga.miuix.kmp.basic.Text
+import top.yukonga.miuix.kmp.theme.MiuixTheme
 
 /**
  * 子代理查看页：聊天里点开发起子代理的那一步、后台任务面板里点子代理进来。[conversationKey] 是所在对话的 key， [toolUseId]
@@ -63,7 +63,7 @@ fun SubagentScreen(
 ) {
     val conversation = hub.liveConversations.firstOrNull { it.key == conversationKey }
     if (conversation == null) {
-        CouiPage(title = Strings.chatSubagent(), onBack = onBack) {
+        MiuixPage(title = Strings.chatSubagent(), onBack = onBack) {
             item(key = "gone") {
                 PreferenceGroup {
                     item { BasicComponent(title = Strings.chatChatClosed(), enabled = false) }
@@ -121,10 +121,10 @@ fun SubagentPage(
     rememberFollowBottom(listState, following = false)
     // 子代理还在跑时步骤随时变；界面看不见时这一页不跟着重组、测量
     val items = whileStarted { log.items }
-    CouiPage(title = Strings.chatSubagent(), onBack = onBack, listState = listState) {
+    MiuixPage(title = Strings.chatSubagent(), onBack = onBack, listState = listState) {
         item(key = "info") { SubagentSummary(log) }
         prompt?.let { text -> item(key = "prompt") { PromptBlock(text) } }
-        item(key = "steps-title") { PreferenceCategory(title = Strings.chatSteps()) }
+        item(key = "steps-title") { SmallTitle(text = Strings.chatSteps()) }
         if (log.skipped > 0)
             item(key = "skipped") {
                 NoticeRow(
@@ -134,20 +134,20 @@ fun SubagentPage(
         val tail = log.state == SubagentState.Running
         val count = items.size + if (tail) 1 else 0
         if (count == 0) {
-            item(key = "empty") { PagerFooterPreference(summary = noStepsText(log)) }
+            item(key = "empty") { FooterHint(summary = noStepsText(log)) }
         }
         itemsIndexed(
             items,
             key = { _, item -> item.id },
             contentType = { _, item -> item::class },
         ) { index, item ->
-            CardListSegment(index, count, dividerStart = null) {
+            CardListSegment(index, count) {
                 SubagentStep(index, count, item, markdownCache, imagesOf, onOpenSubagent)
             }
         }
         if (tail) {
             item(key = "working") {
-                CardListSegment(items.size, count, dividerStart = null) { WorkingRow() }
+                CardListSegment(items.size, count) { WorkingRow() }
             }
         }
     }
@@ -246,8 +246,8 @@ private fun WorkingRow() {
         Spacer(Modifier.width(10.dp))
         Text(
             text = Strings.chatWorking(),
-            style = COUITheme.textStyles.bodyS,
-            color = COUITheme.colorScheme.labelSecondary,
+            style = MiuixTheme.textStyles.footnote1,
+            color = MiuixTheme.colorScheme.onBackgroundVariant,
         )
     }
 }
@@ -267,8 +267,8 @@ private fun PromptBlock(text: String) {
 private fun PromptText(text: String, long: Boolean, expanded: Boolean, onToggle: () -> Unit) {
     Text(
         text = text,
-        style = COUITheme.textStyles.bodyM.copy(fontSize = 14.sp, lineHeight = 21.sp),
-        color = COUITheme.colorScheme.labelPrimary,
+        style = MiuixTheme.textStyles.body2.copy(fontSize = 14.sp, lineHeight = 21.sp),
+        color = MiuixTheme.colorScheme.onBackground,
         maxLines = if (expanded || !long) Int.MAX_VALUE else 5,
         overflow = TextOverflow.Ellipsis,
         modifier =

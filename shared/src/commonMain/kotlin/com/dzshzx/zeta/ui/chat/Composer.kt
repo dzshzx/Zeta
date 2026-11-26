@@ -76,26 +76,32 @@ import com.dzshzx.zeta.core.voice.SpeechPhase
 import com.dzshzx.zeta.core.voice.SpeechState
 import com.dzshzx.zeta.i18n.Strings
 import com.dzshzx.zeta.i18n.UiLanguage
-import com.dzshzx.zeta.ui.components.coui2.ZetaIcons
-import com.dzshzx.zeta.ui.components.coui2.menuItem
+import com.dzshzx.zeta.ui.components.accentBlue
+import com.dzshzx.zeta.ui.components.accentCyan
+import com.dzshzx.zeta.ui.components.accentPurple
+import com.dzshzx.zeta.ui.components.fill4
+import com.dzshzx.zeta.ui.components.fill8
+import com.dzshzx.zeta.ui.components.isDark
+import com.dzshzx.zeta.ui.components.miuix.SquircleShape
+import com.dzshzx.zeta.ui.components.miuix.ZetaCorner
+import com.dzshzx.zeta.ui.components.miuix.ZetaIcons
+import com.dzshzx.zeta.ui.components.miuix.menuItem
 import com.dzshzx.zeta.ui.markdown.EditorialLineHeightStyle
-import io.github.suqi8.coui.kmp.basic.DropdownEntry
-import io.github.suqi8.coui.kmp.basic.DropdownItem
-import io.github.suqi8.coui.kmp.basic.HorizontalDivider
-import io.github.suqi8.coui.kmp.basic.Icon
-import io.github.suqi8.coui.kmp.basic.Text
-import io.github.suqi8.coui.kmp.icon.COUIIcons
-import io.github.suqi8.coui.kmp.icon.extended.Close
-import io.github.suqi8.coui.kmp.icon.extended.Edit
-import io.github.suqi8.coui.kmp.icon.extended.Favorites
-import io.github.suqi8.coui.kmp.icon.extended.Folder
-import io.github.suqi8.coui.kmp.icon.extended.Image
-import io.github.suqi8.coui.kmp.icon.extended.Mic
-import io.github.suqi8.coui.kmp.squircle.SquircleShape
-import io.github.suqi8.coui.kmp.theme.COUIRoundCorner
-import io.github.suqi8.coui.kmp.theme.COUITheme
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
+import top.yukonga.miuix.kmp.basic.DropdownEntry
+import top.yukonga.miuix.kmp.basic.DropdownItem
+import top.yukonga.miuix.kmp.basic.HorizontalDivider
+import top.yukonga.miuix.kmp.basic.Icon
+import top.yukonga.miuix.kmp.basic.Text
+import top.yukonga.miuix.kmp.icon.MiuixIcons
+import top.yukonga.miuix.kmp.icon.extended.Close
+import top.yukonga.miuix.kmp.icon.extended.Edit
+import top.yukonga.miuix.kmp.icon.extended.Favorites
+import top.yukonga.miuix.kmp.icon.extended.Folder
+import top.yukonga.miuix.kmp.icon.extended.Image
+import top.yukonga.miuix.kmp.icon.extended.Mic
+import top.yukonga.miuix.kmp.theme.MiuixTheme
 
 /** 权限模式的值和按界面语言的名字；每次取时出字，界面语言变了也对。 */
 val PermissionModes: List<Pair<String, String>>
@@ -112,21 +118,21 @@ fun permissionModeLabel(mode: String?): String =
     PermissionModes.firstOrNull { it.first == mode }?.second ?: mode ?: Strings.composerModeUnset()
 
 /** 输入栏一带的面板（输入卡片、它上方的几种条、说明卡）的圆角。 */
-val ChatPanelCorner = COUIRoundCorner.XXL
+val ChatPanelCorner = ZetaCorner.XXL
 
 /** 输入栏上方几种条的圆角。 */
-val ChatStripCorner = COUIRoundCorner.XL
+val ChatStripCorner = ZetaCorner.XL
 
 /**
- * 输入栏一带的面板：页面底色上一层浅灰（COUI container4 叠在页面底色上，不透明，阴影不会透出来），同色细边，平滑圆角。
+ * 输入栏一带的面板：页面底色上一层浅灰（fill4 叠在页面底色上，不透明，阴影不会透出来），同色细边，平滑圆角。
  * 输入卡片、查找栏旁的条、排队条、任务清单、编辑提示条、后台屏幕条、“会话在别处运行”的说明卡都用它。
  */
 @Composable
 fun Modifier.chatPanel(shape: Shape): Modifier {
-    val colors = COUITheme.colorScheme
+    val colors = MiuixTheme.colorScheme
     return clip(shape)
-        .background(colors.container4.compositeOver(colors.background), shape)
-        .border(0.5.dp, colors.container4, shape)
+        .background(colors.fill4.compositeOver(colors.background), shape)
+        .border(0.5.dp, colors.fill4, shape)
 }
 
 /**
@@ -166,7 +172,7 @@ fun Composer(
     /** 挂在输入框上的焦点，调用方用它把焦点给输入框。 */
     focus: FocusRequester = remember { FocusRequester() },
 ) {
-    val colors = COUITheme.colorScheme
+    val colors = MiuixTheme.colorScheme
     val dark = colors.isDark
     val shape = remember { SquircleShape(ChatPanelCorner) }
     val canSend = hasSomethingToSend(enabled, state.text, attachments, files)
@@ -181,8 +187,8 @@ fun Composer(
             label = "talk-border",
         )
     val textStyle =
-        COUITheme.textStyles.bodyXL.copy(
-            color = colors.labelPrimary,
+        MiuixTheme.textStyles.body1.copy(
+            color = colors.onBackground,
             lineHeight = 22.sp,
             lineHeightStyle = EditorialLineHeightStyle,
         )
@@ -248,7 +254,7 @@ fun Composer(
 /** 输入卡片描边的目标颜色：说话时是主题色，滑进取消区换成红色，平时透明。 */
 @Composable
 private fun talkBorderTarget(talking: Boolean, cancelling: Boolean): Color {
-    val colors = COUITheme.colorScheme
+    val colors = MiuixTheme.colorScheme
     return when {
         cancelling -> colors.error.copy(alpha = 0.6f)
         talking -> colors.primary.copy(alpha = 0.5f)
@@ -308,7 +314,7 @@ private fun slashSuggestions(slash: String, commands: List<SlashCommand>): List<
 /** 输入框上方的斜杠命令提示，点一条把命令填进输入框（[onPick]）。 */
 @Composable
 private fun SlashSuggestions(suggestions: List<SlashCommand>, onPick: (String) -> Unit) {
-    val colors = COUITheme.colorScheme
+    val colors = MiuixTheme.colorScheme
     LazyColumn(
         modifier = Modifier.fillMaxWidth().heightIn(max = 232.dp).padding(bottom = 4.dp),
     ) {
@@ -318,7 +324,7 @@ private fun SlashSuggestions(suggestions: List<SlashCommand>, onPick: (String) -
     }
     HorizontalDivider(
         modifier = Modifier.padding(horizontal = 6.dp),
-        color = colors.divider,
+        color = colors.dividerLine,
     )
     Spacer(Modifier.height(4.dp))
 }
@@ -326,18 +332,18 @@ private fun SlashSuggestions(suggestions: List<SlashCommand>, onPick: (String) -
 /** 一条斜杠命令提示：命令名和参数提示一行，说明在下一行。 */
 @Composable
 private fun SlashSuggestionRow(command: SlashCommand, onClick: () -> Unit) {
-    val colors = COUITheme.colorScheme
+    val colors = MiuixTheme.colorScheme
     Column(
         modifier =
             Modifier.fillMaxWidth()
-                .clip(RoundedCornerShape(COUIRoundCorner.M))
+                .clip(RoundedCornerShape(ZetaCorner.M))
                 .clickable(onClick = onClick)
                 .padding(horizontal = 8.dp, vertical = 7.dp),
     ) {
         Row(verticalAlignment = Alignment.CenterVertically) {
             Text(
                 text = "/${command.name}",
-                style = COUITheme.textStyles.buttonM,
+                style = MiuixTheme.textStyles.button,
                 color = colors.primary,
                 maxLines = 1,
             )
@@ -345,8 +351,8 @@ private fun SlashSuggestionRow(command: SlashCommand, onClick: () -> Unit) {
                 Spacer(Modifier.width(8.dp))
                 Text(
                     text = command.argumentHint,
-                    style = COUITheme.textStyles.bodyXS,
-                    color = colors.labelSecondary,
+                    style = MiuixTheme.textStyles.footnote2,
+                    color = colors.onBackgroundVariant,
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis,
                 )
@@ -355,8 +361,8 @@ private fun SlashSuggestionRow(command: SlashCommand, onClick: () -> Unit) {
         if (command.description.isNotBlank()) {
             Text(
                 text = command.description,
-                style = COUITheme.textStyles.bodyXS,
-                color = colors.labelSecondary,
+                style = MiuixTheme.textStyles.footnote2,
+                color = colors.onBackgroundVariant,
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis,
             )
@@ -394,14 +400,14 @@ private fun ComposerAttachments(
                 folder = AttachedPaths.isFolder(file.path.orEmpty()),
             ) {
                 Icon(
-                    COUIIcons.Close,
+                    MiuixIcons.Close,
                     contentDescription = Strings.composerRemove(),
                     modifier =
                         Modifier.size(22.dp)
                             .clip(CircleShape)
                             .clickable { onRemoveFile(file) }
                             .padding(4.dp),
-                    tint = COUITheme.colorScheme.labelSecondary,
+                    tint = MiuixTheme.colorScheme.onBackgroundVariant,
                 )
             }
         }
@@ -451,24 +457,24 @@ private fun RemovableThumbnail(
     modifier: Modifier = Modifier,
     content: @Composable () -> Unit,
 ) {
-    val colors = COUITheme.colorScheme
+    val colors = MiuixTheme.colorScheme
     Box(modifier) {
-        Box(Modifier.size(64.dp).clip(RoundedCornerShape(COUIRoundCorner.M))) { content() }
+        Box(Modifier.size(64.dp).clip(RoundedCornerShape(ZetaCorner.M))) { content() }
         Box(
             modifier =
                 Modifier.align(Alignment.TopEnd)
                     .padding(3.dp)
                     .size(20.dp)
                     .clip(CircleShape)
-                    .background(colors.mask)
+                    .background(colors.windowDimming)
                     .clickable(onClick = onRemove),
             contentAlignment = Alignment.Center,
         ) {
             Icon(
-                COUIIcons.Close,
+                MiuixIcons.Close,
                 contentDescription = Strings.composerRemove(),
                 modifier = Modifier.size(13.dp),
-                tint = colors.labelOnColor,
+                tint = colors.onPrimary,
             )
         }
     }
@@ -484,7 +490,7 @@ private fun ComposerField(
     textStyle: TextStyle,
     focus: FocusRequester,
 ) {
-    val colors = COUITheme.colorScheme
+    val colors = MiuixTheme.colorScheme
     Box(
         modifier =
             Modifier.fillMaxWidth()
@@ -498,7 +504,7 @@ private fun ComposerField(
                 Text(
                     text = talk.text.ifEmpty { listeningText(talk.phase) },
                     style = textStyle,
-                    color = if (talk.text.isEmpty()) colors.primaryText else colors.labelPrimary,
+                    color = if (talk.text.isEmpty()) colors.primary else colors.onBackground,
                     maxLines = 6,
                     overflow = TextOverflow.Ellipsis,
                 )
@@ -506,7 +512,7 @@ private fun ComposerField(
                 Text(
                     text = if (busy) Strings.composerHintBusy() else Strings.composerHintIdle(),
                     style = textStyle,
-                    color = colors.hintNeutral,
+                    color = colors.onSecondaryContainer,
                 )
         }
         BasicTextField(
@@ -537,24 +543,26 @@ private fun attachMenu(
         DropdownEntry(
             items =
                 listOfNotNull(
-                    menuItem(Strings.composerMenuImages(), COUIIcons.Image, onPickImages),
+                    menuItem(Strings.composerMenuImages(), MiuixIcons.Image, onPickImages),
                     menuItem(Strings.composerMenuFiles(), ZetaIcons.Paperclip, onPickFiles),
                     onPickFolder?.let {
-                        menuItem(Strings.composerMenuFolder(), COUIIcons.Folder, it)
+                        menuItem(Strings.composerMenuFolder(), MiuixIcons.Folder, it)
                     },
-                    menuItem(Strings.composerMenuEnterPath(), COUIIcons.Edit, onEnterPath),
+                    menuItem(Strings.composerMenuEnterPath(), MiuixIcons.Edit, onEnterPath),
                 ),
         ),
         DropdownEntry(
             items =
-                listOf(menuItem(Strings.composerMenuPrompts(), COUIIcons.Favorites, onOpenPrompts)),
+                listOf(
+                    menuItem(Strings.composerMenuPrompts(), MiuixIcons.Favorites, onOpenPrompts),
+                ),
         ),
     )
 
 /** 说话时底栏的提示：松开发送、上滑取消，滑进取消区时标红。 */
 @Composable
 private fun TalkHint(talk: SpeechState, cancelling: Boolean, modifier: Modifier) {
-    val colors = COUITheme.colorScheme
+    val colors = MiuixTheme.colorScheme
     Text(
         text =
             when {
@@ -562,8 +570,8 @@ private fun TalkHint(talk: SpeechState, cancelling: Boolean, modifier: Modifier)
                 cancelling -> Strings.composerTalkReleaseCancel()
                 else -> Strings.composerTalkReleaseSend()
             },
-        style = COUITheme.textStyles.bodyS,
-        color = if (cancelling) colors.error else colors.labelSecondary,
+        style = MiuixTheme.textStyles.footnote1,
+        color = if (cancelling) colors.error else colors.onBackgroundVariant,
         modifier = modifier,
         maxLines = 1,
     )
@@ -582,7 +590,7 @@ private fun SendButton(
     onSend: (String) -> Unit,
     onStop: () -> Unit,
 ) {
-    val colors = COUITheme.colorScheme
+    val colors = MiuixTheme.colorScheme
     val talking = talk.active
     val showStop = busy && !canSend
     // 没东西可发、也没在跑时（或正说着话），发送键换成按住说话的麦克风
@@ -662,13 +670,13 @@ private fun sendButtonTarget(
     showStop: Boolean,
     canSend: Boolean,
 ): Color {
-    val colors = COUITheme.colorScheme
+    val colors = MiuixTheme.colorScheme
     return when {
         cancelling -> colors.error
         talking -> colors.primary
-        showStop -> colors.labelPrimary
+        showStop -> colors.onBackground
         canSend -> colors.primary
-        else -> colors.container8
+        else -> colors.fill8
     }
 }
 
@@ -698,11 +706,11 @@ private fun sendOrStop(
 /** 发送键上的图标：麦克风、停止或向上的箭头。 */
 @Composable
 private fun SendFaceIcon(shown: SendFace, talking: Boolean, canSend: Boolean) {
-    val colors = COUITheme.colorScheme
+    val colors = MiuixTheme.colorScheme
     Icon(
         imageVector =
             when (shown) {
-                SendFace.Mic -> COUIIcons.Mic
+                SendFace.Mic -> MiuixIcons.Mic
                 SendFace.Stop -> ZetaIcons.Stop
                 SendFace.Send -> ZetaIcons.ArrowUp
             },
@@ -723,10 +731,10 @@ private fun SendFaceIcon(shown: SendFace, talking: Boolean, canSend: Boolean) {
         tint =
             when {
                 shown == SendFace.Mic && talking -> colors.onPrimary
-                shown == SendFace.Mic -> colors.labelSecondary
+                shown == SendFace.Mic -> colors.onBackgroundVariant
                 shown == SendFace.Stop -> colors.background
                 canSend -> colors.onPrimary
-                else -> colors.labelTertiary
+                else -> colors.onSurfaceVariantActions
             },
     )
 }
@@ -747,12 +755,12 @@ private val IdleTalk: StateFlow<SpeechState> = MutableStateFlow(SpeechState())
  */
 @Composable
 fun PermissionModeChip(mode: String?, onChange: (String) -> Unit) {
-    val colors = COUITheme.colorScheme
+    val colors = MiuixTheme.colorScheme
     val (icon, tone) =
         when (mode) {
-            "auto" -> ZetaIcons.ShieldA to colors.blue
-            "plan" -> ZetaIcons.ShieldP to colors.cyan
-            "acceptEdits" -> ZetaIcons.ShieldE to colors.purple
+            "auto" -> ZetaIcons.ShieldA to colors.accentBlue
+            "plan" -> ZetaIcons.ShieldP to colors.accentCyan
+            "acceptEdits" -> ZetaIcons.ShieldE to colors.accentPurple
             "bypassPermissions" -> ZetaIcons.ShieldAlert to colors.error
             else -> ZetaIcons.ShieldM to null
         }

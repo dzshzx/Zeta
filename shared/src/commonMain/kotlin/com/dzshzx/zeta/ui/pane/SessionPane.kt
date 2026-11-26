@@ -73,33 +73,17 @@ import com.dzshzx.zeta.i18n.Strings
 import com.dzshzx.zeta.ui.components.BackHandler
 import com.dzshzx.zeta.ui.components.LocalHub
 import com.dzshzx.zeta.ui.components.conversationPaneContainerColor
-import com.dzshzx.zeta.ui.components.coui2.ConfirmDialog
-import com.dzshzx.zeta.ui.components.coui2.IconActionButton
-import com.dzshzx.zeta.ui.components.coui2.NoticeDialog
-import com.dzshzx.zeta.ui.components.coui2.TextInputDialog
-import com.dzshzx.zeta.ui.components.coui2.ZetaIcons
-import com.dzshzx.zeta.ui.components.coui2.menuItem
+import com.dzshzx.zeta.ui.components.isDark
+import com.dzshzx.zeta.ui.components.miuix.ConfirmDialog
+import com.dzshzx.zeta.ui.components.miuix.IconActionButton
+import com.dzshzx.zeta.ui.components.miuix.LongPressMenu
+import com.dzshzx.zeta.ui.components.miuix.NoticeDialog
+import com.dzshzx.zeta.ui.components.miuix.SquircleShape
+import com.dzshzx.zeta.ui.components.miuix.TextInputDialog
+import com.dzshzx.zeta.ui.components.miuix.ZetaIcons
+import com.dzshzx.zeta.ui.components.miuix.menuItem
 import com.dzshzx.zeta.ui.components.rememberRetained
 import com.dzshzx.zeta.ui.tasks.BackgroundTasksEntry
-import io.github.suqi8.coui.kmp.basic.Checkbox
-import io.github.suqi8.coui.kmp.basic.DropdownEntry
-import io.github.suqi8.coui.kmp.basic.Icon
-import io.github.suqi8.coui.kmp.basic.InputField
-import io.github.suqi8.coui.kmp.basic.SmallTitle
-import io.github.suqi8.coui.kmp.basic.Text
-import io.github.suqi8.coui.kmp.icon.COUIIcons
-import io.github.suqi8.coui.kmp.icon.extended.Back
-import io.github.suqi8.coui.kmp.icon.extended.Delete
-import io.github.suqi8.coui.kmp.icon.extended.Download
-import io.github.suqi8.coui.kmp.icon.extended.Pin
-import io.github.suqi8.coui.kmp.icon.extended.Rename
-import io.github.suqi8.coui.kmp.icon.extended.SelectAll
-import io.github.suqi8.coui.kmp.icon.extended.Settings
-import io.github.suqi8.coui.kmp.icon.extended.Share
-import io.github.suqi8.coui.kmp.icon.extended.Unpin
-import io.github.suqi8.coui.kmp.menu.OverlayContextMenu
-import io.github.suqi8.coui.kmp.squircle.SquircleShape
-import io.github.suqi8.coui.kmp.theme.COUITheme
 import java.util.Calendar
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.async
@@ -108,9 +92,26 @@ import kotlinx.coroutines.awaitCancellation
 import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.withContext
+import top.yukonga.miuix.kmp.basic.Checkbox
+import top.yukonga.miuix.kmp.basic.DropdownEntry
+import top.yukonga.miuix.kmp.basic.Icon
+import top.yukonga.miuix.kmp.basic.InputField
+import top.yukonga.miuix.kmp.basic.SmallTitle
+import top.yukonga.miuix.kmp.basic.Text
+import top.yukonga.miuix.kmp.icon.MiuixIcons
+import top.yukonga.miuix.kmp.icon.extended.Back
+import top.yukonga.miuix.kmp.icon.extended.Delete
+import top.yukonga.miuix.kmp.icon.extended.Download
+import top.yukonga.miuix.kmp.icon.extended.Pin
+import top.yukonga.miuix.kmp.icon.extended.Rename
+import top.yukonga.miuix.kmp.icon.extended.SelectAll
+import top.yukonga.miuix.kmp.icon.extended.Settings
+import top.yukonga.miuix.kmp.icon.extended.Share
+import top.yukonga.miuix.kmp.icon.extended.Unpin
+import top.yukonga.miuix.kmp.theme.MiuixTheme
 
 private val PaneHorizontalPadding = 16.dp
-// 行内文字离卡片边 16dp，和 COUI 卡片里的内容同一个缩进；分组标题因此离侧栏边 32dp，和 SmallTitle 默认一致
+// 行内文字离卡片边 16dp，和 Miuix 卡片里的内容同一个缩进；分组标题因此离侧栏边 32dp，和 SmallTitle 默认一致
 private val RowHorizontalPadding = 16.dp
 
 /** 内容搜索进行到哪了。 */
@@ -730,7 +731,7 @@ private fun LazyListScope.groupItems(groups: SessionGroups, problem: String?, ro
 /** 侧栏顶上：品牌标、应用名和新对话键。 */
 @Composable
 private fun PaneBrandHeader(onNewChat: () -> Unit) {
-    val colors = COUITheme.colorScheme
+    val colors = MiuixTheme.colorScheme
     val dark = colors.isDark
     Row(
         modifier =
@@ -768,8 +769,8 @@ private fun PaneBrandHeader(onNewChat: () -> Unit) {
         Spacer(Modifier.width(10.dp))
         Text(
             text = AppPackage.current.appName,
-            style = COUITheme.textStyles.headlineM.copy(fontWeight = FontWeight.SemiBold),
-            color = colors.labelPrimary,
+            style = MiuixTheme.textStyles.title3.copy(fontWeight = FontWeight.SemiBold),
+            color = colors.onBackground,
             modifier = Modifier.weight(1f),
         )
         PaneCircleButton(
@@ -849,7 +850,7 @@ private fun PaneBottomBar(
         if (!searching) ArchiveToggle(showArchived, archivedCount, onShowArchived)
         Spacer(Modifier.width(8.dp))
         PaneCircleButton(
-            icon = COUIIcons.Settings,
+            icon = MiuixIcons.Settings,
             description = Strings.sidebarSettings(),
             onClick = onOpenSettings,
         )
@@ -867,7 +868,7 @@ private fun ArchiveToggle(
         showArchived -> {
             Spacer(Modifier.width(8.dp))
             PaneCircleButton(
-                icon = COUIIcons.Back,
+                icon = MiuixIcons.Back,
                 description = Strings.sidebarBackToAll(),
                 onClick = { onShowArchived(false) },
             )
@@ -910,7 +911,7 @@ private fun confirmDelete(
 
 /**
  * 单条删除和批量删除同一个规矩：正在进行的、别处的 Claude Code 开着的，都不删。
- * 只提示还是确认删除在打开时定下（DeletePrompt），框开着时对话结束了也不会把“知道了”换成“删除”。 对话框是 COUI 的 Overlay
+ * 只提示还是确认删除在打开时定下（DeletePrompt），框开着时对话结束了也不会把“知道了”换成“删除”。 对话框是 Miuix 的 Overlay
  * 组件，由外层推移容器（ConversationSidePaneScaffold）里的 Scaffold 盖满整个屏幕显示。
  */
 @Composable
@@ -942,7 +943,7 @@ private fun DeleteDialogs(
     )
 }
 
-/** 结束一个或几个对话的确认框（COUI 的 ConfirmDialog，同聊天页顶栏的结束对话）：标题和说明在打开时定下（[EndPrompt]）， 确认后交给 [onConfirm]。 */
+/** 结束一个或几个对话的确认框（ConfirmDialog，同聊天页顶栏的结束对话）：标题和说明在打开时定下（[EndPrompt]）， 确认后交给 [onConfirm]。 */
 @Composable
 private fun EndDialog(
     ending: EndPrompt?,
@@ -986,7 +987,7 @@ private fun BatchDeleteDialog(
     )
 }
 
-/** 侧栏里的圆形图标按钮：COUI 17 顶栏按钮的样子（材质底、阴影、按下缩放）。 */
+/** 侧栏里的圆形图标按钮。 */
 @Composable
 fun PaneCircleButton(
     icon: ImageVector,
@@ -1004,7 +1005,7 @@ fun PaneCircleButton(
         onClick = onClick,
     )
 
-/** 底部的搜索框：COUI 的搜索胶囊，自带搜索图标和清空键。键盘上的“搜索”只收起键盘，结果随打字出来。 */
+/** 底部的搜索框：搜索胶囊，自带搜索图标和清空键。键盘上的“搜索”只收起键盘，结果随打字出来。 */
 @Composable
 private fun SearchCapsule(
     query: String,
@@ -1048,8 +1049,8 @@ private fun PaneMessage(text: String) {
     Box(Modifier.fillMaxWidth().padding(vertical = 36.dp), contentAlignment = Alignment.Center) {
         Text(
             text = text,
-            style = COUITheme.textStyles.bodyM,
-            color = COUITheme.colorScheme.labelSecondary,
+            style = MiuixTheme.textStyles.body2,
+            color = MiuixTheme.colorScheme.onBackgroundVariant,
         )
     }
 }
@@ -1058,8 +1059,8 @@ private fun PaneMessage(text: String) {
 private fun SearchFooter(text: String) {
     Text(
         text = text,
-        style = COUITheme.textStyles.bodyXS,
-        color = COUITheme.colorScheme.labelSecondary,
+        style = MiuixTheme.textStyles.footnote2,
+        color = MiuixTheme.colorScheme.onBackgroundVariant,
         modifier =
             Modifier.fillMaxWidth()
                 .padding(
@@ -1102,7 +1103,7 @@ private fun SessionRow(
     checked: Boolean,
     actions: RowActions,
 ) {
-    val colors = COUITheme.colorScheme
+    val colors = MiuixTheme.colorScheme
     val shape = remember { SquircleShape(16.dp) }
     val haptic = LocalHapticFeedback.current
     // 菜单项的点击读最新的那组操作（RowActions 每次重组都是新的，不拿它当记忆的键）
@@ -1112,14 +1113,14 @@ private fun SessionRow(
         modifier =
             Modifier.fillMaxWidth().padding(horizontal = PaneHorizontalPadding, vertical = 1.5.dp),
     ) {
-        // 长按弹出 COUI 的长按菜单（在按下的位置）；多选时长按改成勾选这一行，不弹菜单
-        OverlayContextMenu(entries = menu, enabled = !selecting) {
+        // 长按弹出菜单；多选时长按改成勾选这一行，不弹菜单
+        LongPressMenu(entries = menu, enabled = !selecting) {
             Row(
                 modifier =
                     Modifier.fillMaxWidth()
                         .heightIn(min = 44.dp)
                         .clip(shape)
-                        .background(if (selected) colors.cardBackground else Color.Transparent)
+                        .background(if (selected) colors.surfaceContainer else Color.Transparent)
                         .combinedClickable(
                             interactionSource = remember { MutableInteractionSource() },
                             indication = LocalIndication.current,
@@ -1166,25 +1167,29 @@ private fun sessionMenu(
                 listOfNotNull(
                     menuItem(
                         Strings.sidebarSelect(),
-                        COUIIcons.SelectAll,
+                        MiuixIcons.SelectAll,
                         { actions().select(session) },
                     ),
                     menuItem(
                         if (pinned) Strings.sidebarUnpin() else Strings.sidebarPin(),
-                        if (pinned) COUIIcons.Unpin else COUIIcons.Pin,
+                        if (pinned) MiuixIcons.Unpin else MiuixIcons.Pin,
                         { actions().togglePin(session) },
                     ),
                     menuItem(
                         Strings.sidebarRename(),
-                        COUIIcons.Rename,
+                        MiuixIcons.Rename,
                         { actions().rename(session) },
                     ),
                     menuItem(
                         Strings.sidebarExport(),
-                        COUIIcons.Download,
+                        MiuixIcons.Download,
                         { actions().export(session) },
                     ),
-                    menuItem(Strings.sidebarShare(), COUIIcons.Share, { actions().share(session) }),
+                    menuItem(
+                        Strings.sidebarShare(),
+                        MiuixIcons.Share,
+                        { actions().share(session) },
+                    ),
                     menuItem(
                         if (session.archived) Strings.sidebarUnarchive()
                         else Strings.sidebarArchive(),
@@ -1200,7 +1205,7 @@ private fun sessionMenu(
                 listOf(
                     menuItem(
                         Strings.sidebarDelete(),
-                        COUIIcons.Delete,
+                        MiuixIcons.Delete,
                         { actions().delete(session) },
                         alert = true,
                     ),
@@ -1217,7 +1222,7 @@ private fun RowScope.SessionRowText(
     snippet: String?,
     highlight: String,
 ) {
-    val colors = COUITheme.colorScheme
+    val colors = MiuixTheme.colorScheme
     val title = session.title.ifBlank { session.shownPreview }.ifBlank { Strings.sidebarUntitled() }
     // 已结束（没有活着的 Claude Code 进程）的会话灰着显示：一眼看出哪些还占着机器
     val ended = !session.live
@@ -1232,10 +1237,10 @@ private fun RowScope.SessionRowText(
                 if (highlight.isEmpty()) AnnotatedString(title)
                 else highlighted(title, highlight, colors.primary),
             style =
-                COUITheme.textStyles.bodyL.copy(
+                MiuixTheme.textStyles.body1.copy(
                     fontWeight = if (selected) FontWeight.Medium else FontWeight.Normal,
                 ),
-            color = if (ended) colors.labelTertiary else colors.labelPrimary,
+            color = if (ended) colors.onSurfaceVariantActions else colors.onBackground,
             maxLines = 1,
             overflow = TextOverflow.Ellipsis,
         )
@@ -1251,10 +1256,11 @@ private fun SessionSubtitle(
     snippet: String?,
     highlight: String,
 ) {
-    val colors = COUITheme.colorScheme
-    val subtitleStyle = COUITheme.textStyles.bodyXS
+    val colors = MiuixTheme.colorScheme
+    val subtitleStyle = MiuixTheme.textStyles.footnote2
     // 已结束的会话这一行也灰着（草稿的红字照旧：没发出的东西要显眼）
-    val subtitleColor = if (!session.live) colors.labelTertiary else colors.labelSecondary
+    val subtitleColor =
+        if (!session.live) colors.onSurfaceVariantActions else colors.onBackgroundVariant
     when {
         snippet != null ->
             Text(
@@ -1328,10 +1334,10 @@ private fun SessionRowMark(status: SessionStatus?, showPin: Boolean) {
         showPin -> {
             Spacer(Modifier.width(6.dp))
             Icon(
-                imageVector = COUIIcons.Pin,
+                imageVector = MiuixIcons.Pin,
                 contentDescription = Strings.sidebarPinnedMark(),
                 modifier = Modifier.size(16.dp),
-                tint = COUITheme.colorScheme.labelSecondaryVariant,
+                tint = MiuixTheme.colorScheme.onSurfaceVariantSummary,
             )
         }
     }

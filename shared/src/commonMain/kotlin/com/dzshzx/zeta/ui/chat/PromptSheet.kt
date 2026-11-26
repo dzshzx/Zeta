@@ -27,24 +27,25 @@ import com.dzshzx.zeta.core.Question
 import com.dzshzx.zeta.core.UserPrompt
 import com.dzshzx.zeta.i18n.Strings
 import com.dzshzx.zeta.ui.components.MonoFont
-import com.dzshzx.zeta.ui.components.coui2.DialogContentPadding
-import com.dzshzx.zeta.ui.components.coui2.DialogTextField
-import com.dzshzx.zeta.ui.components.coui2.PageDialog
+import com.dzshzx.zeta.ui.components.fill4
+import com.dzshzx.zeta.ui.components.miuix.DialogButtonBar
+import com.dzshzx.zeta.ui.components.miuix.DialogButtonBarAction
+import com.dzshzx.zeta.ui.components.miuix.DialogContentPadding
+import com.dzshzx.zeta.ui.components.miuix.DialogTextField
+import com.dzshzx.zeta.ui.components.miuix.PageDialog
+import com.dzshzx.zeta.ui.components.miuix.ZetaCorner
 import com.dzshzx.zeta.ui.components.rememberRetained
 import com.dzshzx.zeta.ui.markdown.MarkdownTone
 import com.dzshzx.zeta.ui.markdown.StaticMarkdown
-import io.github.suqi8.coui.kmp.basic.Text
-import io.github.suqi8.coui.kmp.layout.DialogButtonBar
-import io.github.suqi8.coui.kmp.layout.DialogButtonBarAction
-import io.github.suqi8.coui.kmp.preference.CheckboxPreference
-import io.github.suqi8.coui.kmp.preference.RadioButtonLocation
-import io.github.suqi8.coui.kmp.preference.RadioButtonPreference
-import io.github.suqi8.coui.kmp.theme.COUIRoundCorner
-import io.github.suqi8.coui.kmp.theme.COUITheme
+import top.yukonga.miuix.kmp.basic.Text
+import top.yukonga.miuix.kmp.preference.CheckboxPreference
+import top.yukonga.miuix.kmp.preference.RadioButtonLocation
+import top.yukonga.miuix.kmp.preference.RadioButtonPreference
+import top.yukonga.miuix.kmp.theme.MiuixTheme
 
 /**
  * Claude Code 等用户回应时从底部弹出，和终端版的几个对话框一一对应（选项和交回去的应答见 core/Prompts.kt）： 工具确认、计划审批、AskUserQuestion，以及
- * MCP 服务器的表单（[ElicitationSheet]）。一次只弹一个，答完弹下一个。 只有明确点按钮才算回应：误触外面或按返回不替用户做决定。要放在 COUI 的 Scaffold
+ * MCP 服务器的表单（[ElicitationSheet]）。一次只弹一个，答完弹下一个。 只有明确点按钮才算回应：误触外面或按返回不替用户做决定。要放在 Miuix 的 Scaffold
  * 里（聊天页的内容里），对话框才显示得出来。
  */
 @Composable
@@ -218,18 +219,18 @@ private fun PlanSheet(
 
 @Composable
 fun DetailBlock(text: String) {
-    val shape = RoundedCornerShape(COUIRoundCorner.M)
-    val colors = COUITheme.colorScheme
+    val shape = RoundedCornerShape(ZetaCorner.M)
+    val colors = MiuixTheme.colorScheme
     Text(
         text = if (text.length > 4000) text.take(4000) + "\n…" else text,
-        style = COUITheme.textStyles.bodyXS.copy(fontFamily = MonoFont),
-        color = colors.labelPrimaryVariant,
+        style = MiuixTheme.textStyles.footnote2.copy(fontFamily = MonoFont),
+        color = colors.onBackground,
         modifier =
             Modifier.fillMaxWidth()
                 .padding(vertical = 4.dp)
                 .heightIn(max = 260.dp)
                 .clip(shape)
-                .background(colors.container4, shape)
+                .background(colors.fill4, shape)
                 .verticalScroll(rememberScrollState())
                 .horizontalScroll(rememberScrollState())
                 .padding(horizontal = 12.dp, vertical = 10.dp),
@@ -288,8 +289,8 @@ private fun QuestionSheet(
                     if (single == null) {
                         Text(
                             text = question.question,
-                            style = COUITheme.textStyles.bodyM,
-                            color = COUITheme.colorScheme.labelSecondary,
+                            style = MiuixTheme.textStyles.body2,
+                            color = MiuixTheme.colorScheme.onBackgroundVariant,
                             modifier =
                                 Modifier.padding(
                                     start = DialogContentPadding,
@@ -303,8 +304,8 @@ private fun QuestionSheet(
                 }
                 Text(
                     text = Strings.composerQuestionClarify(),
-                    style = COUITheme.textStyles.bodyS,
-                    color = COUITheme.colorScheme.primary,
+                    style = MiuixTheme.textStyles.footnote1,
+                    color = MiuixTheme.colorScheme.primary,
                     modifier =
                         Modifier.padding(horizontal = DialogContentPadding, vertical = 12.dp)
                             .clickable {
@@ -331,7 +332,7 @@ private fun QuestionSheet(
     }
 }
 
-/** 一个问题的选项：单选题是 COUI 单选行，多选题是复选行，最后一行是自己写；行的左右和对话框标题对齐。 */
+/** 一个问题的选项：单选题是 Miuix 单选行，多选题是复选行，最后一行是自己写；行的左右和对话框标题对齐。 */
 @Composable
 private fun QuestionOptions(question: Question, answer: QuestionAnswer) {
     val multi = question.multiSelect

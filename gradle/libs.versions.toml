@@ -1,8 +1,8 @@
 [versions]
 agp = "9.5.1"
 kotlin = "2.4.21"
-# COUI 2：ColorOS 17 风格的完整组件库（Miuix 的分支），https://github.com/suqi8/coui
-coui2 = "2.1.0"
+# Miuix：HyperOS 风格的 Compose Multiplatform 组件库，https://github.com/compose-miuix-ui/miuix
+miuix = "0.9.5-rc01"
 activityCompose = "1.13.0"
 androidx-lifecycle = "2.11.0"
 androidx-navigationevent = "1.2.0"
@@ -16,8 +16,8 @@ healthConnect = "1.1.0"
 libxposedApi = "102.0.0"
 # 只在测试里用：测试里的 SSH 服务器（Apache MINA SSHD）靠它认 Ed25519 密钥
 bouncycastle = "1.86"
-# shared/ 模块用的 Compose Multiplatform；在 Android 上映射到 androidx 的 Compose，版本跟 COUI 2 用的一致
-compose-multiplatform = "1.11.1"
+# shared/ 模块用的 Compose Multiplatform；在 Android 上映射到 androidx 的 Compose，版本跟 Miuix 用的一致
+compose-multiplatform = "1.13.0-rc01"
 junit = "4.13.2"
 # 测试里的 SSH 服务器：在 JVM 里起一个，直连的远程主机连它
 apache-sshd = "2.20.1"
@@ -37,15 +37,19 @@ licensee = "1.14.1"
 
 [libraries]
 kotlin-gradle-plugin = { group = "org.jetbrains.kotlin", name = "kotlin-gradle-plugin", version.ref = "kotlin" }
-coui2-ui = { group = "io.github.suqi8.coui.kmp", name = "coui-ui-android", version.ref = "coui2" }
-coui2-preference = { group = "io.github.suqi8.coui.kmp", name = "coui-preference-android", version.ref = "coui2" }
-coui2-icons = { group = "io.github.suqi8.coui.kmp", name = "coui-icons-android", version.ref = "coui2" }
-coui2-blur = { group = "io.github.suqi8.coui.kmp", name = "coui-blur-android", version.ref = "coui2" }
+miuix-ui = { group = "top.yukonga.miuix.kmp", name = "miuix-ui-android", version.ref = "miuix" }
+miuix-preference = { group = "top.yukonga.miuix.kmp", name = "miuix-preference-android", version.ref = "miuix" }
+miuix-icons = { group = "top.yukonga.miuix.kmp", name = "miuix-icons-android", version.ref = "miuix" }
+miuix-blur = { group = "top.yukonga.miuix.kmp", name = "miuix-blur-android", version.ref = "miuix" }
+miuix-glass = { group = "top.yukonga.miuix.kmp", name = "miuix-glass-android", version.ref = "miuix" }
+miuix-glass-icons = { group = "top.yukonga.miuix.kmp", name = "miuix-glass-icons-android", version.ref = "miuix" }
 # shared/ 模块按 Gradle 元数据取 Android 的变体
-coui2-ui-kmp = { group = "io.github.suqi8.coui.kmp", name = "coui-ui", version.ref = "coui2" }
-coui2-preference-kmp = { group = "io.github.suqi8.coui.kmp", name = "coui-preference", version.ref = "coui2" }
-coui2-icons-kmp = { group = "io.github.suqi8.coui.kmp", name = "coui-icons", version.ref = "coui2" }
-coui2-blur-kmp = { group = "io.github.suqi8.coui.kmp", name = "coui-blur", version.ref = "coui2" }
+miuix-ui-kmp = { group = "top.yukonga.miuix.kmp", name = "miuix-ui", version.ref = "miuix" }
+miuix-preference-kmp = { group = "top.yukonga.miuix.kmp", name = "miuix-preference", version.ref = "miuix" }
+miuix-icons-kmp = { group = "top.yukonga.miuix.kmp", name = "miuix-icons", version.ref = "miuix" }
+miuix-blur-kmp = { group = "top.yukonga.miuix.kmp", name = "miuix-blur", version.ref = "miuix" }
+miuix-glass-kmp = { group = "top.yukonga.miuix.kmp", name = "miuix-glass", version.ref = "miuix" }
+miuix-glass-icons-kmp = { group = "top.yukonga.miuix.kmp", name = "miuix-glass-icons", version.ref = "miuix" }
 compose-mp-runtime = { group = "org.jetbrains.compose.runtime", name = "runtime", version.ref = "compose-multiplatform" }
 compose-mp-foundation = { group = "org.jetbrains.compose.foundation", name = "foundation", version.ref = "compose-multiplatform" }
 kotlinx-coroutines-core = { group = "org.jetbrains.kotlinx", name = "kotlinx-coroutines-core", version.ref = "kotlinx-coroutines" }

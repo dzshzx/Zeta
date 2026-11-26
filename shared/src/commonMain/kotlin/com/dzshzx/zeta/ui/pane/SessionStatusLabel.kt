@@ -19,10 +19,11 @@ import com.dzshzx.zeta.core.SessionStatus.Activity
 import com.dzshzx.zeta.i18n.Strings
 import com.dzshzx.zeta.ui.components.StatusWarning
 import com.dzshzx.zeta.ui.components.rememberIndicatorClock
+import com.dzshzx.zeta.ui.components.success
 import com.dzshzx.zeta.ui.components.turn
-import io.github.suqi8.coui.kmp.basic.Text
-import io.github.suqi8.coui.kmp.theme.COUITheme
 import kotlin.math.roundToInt
+import top.yukonga.miuix.kmp.basic.Text
+import top.yukonga.miuix.kmp.theme.MiuixTheme
 
 /** 状态记号的大小：五种记号都是这一样大的圆，里面的笔画不同。 */
 private val MarkSize = 12.dp
@@ -45,9 +46,9 @@ private fun statusColor(activity: Activity): Color =
     when (activity) {
         Activity.Waiting -> StatusWarning
         Activity.Answering,
-        Activity.Background -> COUITheme.colorScheme.primary
-        Activity.Unread -> COUITheme.colorScheme.success
-        Activity.Idle -> COUITheme.colorScheme.labelSecondaryVariant
+        Activity.Background -> MiuixTheme.colorScheme.primary
+        Activity.Unread -> MiuixTheme.colorScheme.success
+        Activity.Idle -> MiuixTheme.colorScheme.onSurfaceVariantSummary
     }
 
 /** 会话列表行尾的状态：一个记号加两三个字，颜色跟着状态走。记号的圆心对着文字字形的中线。 */
@@ -55,7 +56,7 @@ private fun statusColor(activity: Activity): Color =
 fun SessionStatusLabel(status: SessionStatus) {
     val color = statusColor(status.activity)
     // 字重用常规：中文、英文和数字在各种字体下都是同一个粗细
-    val style = COUITheme.textStyles.bodyXS.copy(fontWeight = FontWeight.Normal)
+    val style = MiuixTheme.textStyles.footnote2.copy(fontWeight = FontWeight.Normal)
     Layout(
         content = {
             StatusMark(status.activity, color)

@@ -61,7 +61,7 @@ class SessionPaneShots : ShotTest() {
 
     private val sessions =
         listOf(
-            session("s1", "/workspace/claude/zeta", "侧栏迁到 COUI 2", todayStart + 3 * 60_000),
+            session("s1", "/workspace/claude/zeta", "侧栏迁到 Miuix", todayStart + 3 * 60_000),
             session("s2", "/workspace/claude/zeta", "修复登录页的布局", todayStart + 2 * 60_000),
             session("s3", "/workspace/claude", "整理下载目录", todayStart + 60_000, external = true),
             session("s4", "/workspace/claude/ops", "排查 web-01 磁盘告警", todayStart - 3 * 86_400_000L),
@@ -194,7 +194,7 @@ class SessionPaneShots : ShotTest() {
         shoot(
             "pane-end-many",
             prepare = {
-                longPress("侧栏迁到 COUI 2")
+                longPress("侧栏迁到 Miuix")
                 onNodeWithText("选择").performClick()
                 mainClock.advanceTimeBy(1_000)
                 onNodeWithText("排查 web-01 磁盘告警").performClick()

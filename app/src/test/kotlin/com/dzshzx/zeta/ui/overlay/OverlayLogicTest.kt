@@ -1,12 +1,12 @@
 package com.dzshzx.zeta.ui.overlay
 
 import com.dzshzx.zeta.phone.OverlayPhase
-import io.github.suqi8.coui.kmp.theme.darkColorScheme
-import io.github.suqi8.coui.kmp.theme.lightColorScheme
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Test
+import top.yukonga.miuix.kmp.theme.darkColorScheme
+import top.yukonga.miuix.kmp.theme.lightColorScheme
 
 class OverlayLogicTest {
     @Test

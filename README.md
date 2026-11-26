@@ -124,7 +124,7 @@ Bug 和功能建议请提 [Issue](https://github.com/dzshzx/Zeta/issues)，安�
 ## 鸣谢
 
 - [Eta](https://github.com/Mangi-11/Eta)：Zeta 的功能和交互照它设计，Markdown 渲染、侧栏骨架等代码来自它（GPL-3.0）。
-- [COUI 2](https://github.com/suqi8/coui) 和它的上游 [Miuix](https://github.com/compose-miuix-ui/miuix)：界面组件库。
+- [Miuix](https://github.com/compose-miuix-ui/miuix)：界面组件库；长按菜单的手势代码取自 [COUI 2](https://github.com/suqi8/coui)。
 - [Claude Code](https://github.com/anthropics/claude-code)：Zeta 就是它在手机上的客户端。
 
 ## 许可证

@@ -42,7 +42,6 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.dzshzx.zeta.core.Backends
@@ -58,39 +57,39 @@ import com.dzshzx.zeta.i18n.Strings
 import com.dzshzx.zeta.ui.chat.ChatImage
 import com.dzshzx.zeta.ui.components.MonoFont
 import com.dzshzx.zeta.ui.components.SlideInPage
-import com.dzshzx.zeta.ui.components.coui2.CardListSegment
-import com.dzshzx.zeta.ui.components.coui2.CouiPage
-import com.dzshzx.zeta.ui.components.coui2.PreferenceGroup
-import com.dzshzx.zeta.ui.components.coui2.PreferenceValue
-import com.dzshzx.zeta.ui.components.coui2.TopBarMoreMenu
-import com.dzshzx.zeta.ui.components.coui2.ZetaIcons
-import com.dzshzx.zeta.ui.components.coui2.menuItem
-import io.github.suqi8.coui.kmp.basic.BasicComponent
-import io.github.suqi8.coui.kmp.basic.BasicComponentDefaults
-import io.github.suqi8.coui.kmp.basic.DropdownEntry
-import io.github.suqi8.coui.kmp.basic.Icon
-import io.github.suqi8.coui.kmp.basic.InfiniteProgressIndicator
-import io.github.suqi8.coui.kmp.basic.LinearProgressIndicator
-import io.github.suqi8.coui.kmp.basic.Text
-import io.github.suqi8.coui.kmp.icon.COUIIcons
-import io.github.suqi8.coui.kmp.icon.extended.Copy
-import io.github.suqi8.coui.kmp.icon.extended.Download
-import io.github.suqi8.coui.kmp.icon.extended.File
-import io.github.suqi8.coui.kmp.icon.extended.Folder
-import io.github.suqi8.coui.kmp.icon.extended.GridView
-import io.github.suqi8.coui.kmp.icon.extended.Image
-import io.github.suqi8.coui.kmp.icon.extended.Import
-import io.github.suqi8.coui.kmp.icon.extended.Link
-import io.github.suqi8.coui.kmp.icon.extended.Refresh
-import io.github.suqi8.coui.kmp.menu.OverlayContextMenu
-import io.github.suqi8.coui.kmp.preference.ArrowPreference
-import io.github.suqi8.coui.kmp.preference.PagerFooterPreference
-import io.github.suqi8.coui.kmp.theme.COUITheme
+import com.dzshzx.zeta.ui.components.miuix.CardListSegment
+import com.dzshzx.zeta.ui.components.miuix.FooterHint
+import com.dzshzx.zeta.ui.components.miuix.LongPressMenu
+import com.dzshzx.zeta.ui.components.miuix.MiuixPage
+import com.dzshzx.zeta.ui.components.miuix.PreferenceGroup
+import com.dzshzx.zeta.ui.components.miuix.PreferenceValue
+import com.dzshzx.zeta.ui.components.miuix.TopBarMoreMenu
+import com.dzshzx.zeta.ui.components.miuix.ZetaIcons
+import com.dzshzx.zeta.ui.components.miuix.menuItem
 import java.time.Instant
 import java.time.ZoneId
 import java.time.format.DateTimeFormatter
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
+import top.yukonga.miuix.kmp.basic.BasicComponent
+import top.yukonga.miuix.kmp.basic.BasicComponentDefaults
+import top.yukonga.miuix.kmp.basic.DropdownEntry
+import top.yukonga.miuix.kmp.basic.Icon
+import top.yukonga.miuix.kmp.basic.InfiniteProgressIndicator
+import top.yukonga.miuix.kmp.basic.LinearProgressIndicator
+import top.yukonga.miuix.kmp.basic.Text
+import top.yukonga.miuix.kmp.icon.MiuixIcons
+import top.yukonga.miuix.kmp.icon.extended.Copy
+import top.yukonga.miuix.kmp.icon.extended.Download
+import top.yukonga.miuix.kmp.icon.extended.File
+import top.yukonga.miuix.kmp.icon.extended.Folder
+import top.yukonga.miuix.kmp.icon.extended.GridView
+import top.yukonga.miuix.kmp.icon.extended.Image
+import top.yukonga.miuix.kmp.icon.extended.Import
+import top.yukonga.miuix.kmp.icon.extended.Link
+import top.yukonga.miuix.kmp.icon.extended.Refresh
+import top.yukonga.miuix.kmp.preference.ArrowPreference
+import top.yukonga.miuix.kmp.theme.MiuixTheme
 
 /** Linux 环境页下面的两个子页。 */
 internal enum class LinuxFilesPage {
@@ -221,7 +220,7 @@ internal fun LinuxFilesScreen(hub: ConversationHub, onBack: () -> Unit) {
 
     val shown = preview
     // 列表和预览共用一个页面骨架（顶栏标题随之变），列表状态分开记，从预览回来还在原来的位置
-    CouiPage(
+    MiuixPage(
         title = shown?.entry?.name ?: Strings.setupLinuxFilesTitle(),
         onBack = back,
         listState = if (shown != null) previewState else listState,
@@ -332,11 +331,11 @@ private fun BrowserMenu(
                     listOf(
                         menuItem(
                             Strings.setupLinuxFilesImportHere(),
-                            COUIIcons.Import,
+                            MiuixIcons.Import,
                             onImport,
                             enabled = !LinuxTransfers.running,
                         ),
-                        menuItem(Strings.setupLinuxFilesRefresh(), COUIIcons.Refresh, onRefresh),
+                        menuItem(Strings.setupLinuxFilesRefresh(), MiuixIcons.Refresh, onRefresh),
                     ),
             ),
             DropdownEntry(
@@ -348,7 +347,7 @@ private fun BrowserMenu(
                             { onGo(start) },
                         ),
                         menuItem(Strings.setupLinuxFilesHome(), ZetaIcons.Home, { onGo(home) }),
-                        menuItem("/workspace", COUIIcons.GridView, { onGo("/workspace") }),
+                        menuItem("/workspace", MiuixIcons.GridView, { onGo("/workspace") }),
                         menuItem(Strings.setupLinuxFilesRoot(), ZetaIcons.Storage, { onGo("/") }),
                     ),
             ),
@@ -357,7 +356,7 @@ private fun BrowserMenu(
                     listOf(
                         menuItem(
                             Strings.setupLinuxFilesCopyCurrentPath(),
-                            COUIIcons.Copy,
+                            MiuixIcons.Copy,
                             onCopyPath,
                         ),
                     ),
@@ -376,12 +375,12 @@ private fun PreviewMenu(exportable: Boolean, onExport: () -> Unit, onCopyPath: (
                     listOfNotNull(
                         menuItem(
                                 Strings.setupLinuxFilesExport(),
-                                COUIIcons.Download,
+                                MiuixIcons.Download,
                                 onExport,
                                 enabled = !LinuxTransfers.running,
                             )
                             .takeIf { exportable },
-                        menuItem(Strings.setupLinuxFilesCopyPath(), COUIIcons.Copy, onCopyPath),
+                        menuItem(Strings.setupLinuxFilesCopyPath(), MiuixIcons.Copy, onCopyPath),
                     ),
             ),
         ),
@@ -403,11 +402,11 @@ private fun LazyListScope.browserItems(
     val count = offset + entries.size
     if (parent != null) {
         item(key = "..") {
-            CardListSegment(index = 0, count = count, dividerStart = RowDividerStartWithIcon) {
+            CardListSegment(index = 0, count = count) {
                 ArrowPreference(
                     title = Strings.setupLinuxFilesParent(),
                     summary = parent,
-                    startAction = { RowIcon(ZetaIcons.FolderOpen, COUITheme.colorScheme.primary) },
+                    startAction = { RowIcon(ZetaIcons.FolderOpen, MiuixTheme.colorScheme.primary) },
                     onClick = { onNavigate(parent) },
                 )
             }
@@ -422,11 +421,7 @@ private fun LazyListScope.browserItems(
             itemsIndexed(entries, key = { index, entry -> "e$index:" + entry.name }) { index, entry
                 ->
                 val target = LinuxFiles.child(path, entry.name)
-                CardListSegment(
-                    index = offset + index,
-                    count = count,
-                    dividerStart = RowDividerStartWithIcon,
-                ) {
+                CardListSegment(index = offset + index, count = count) {
                     EntryRow(
                         entry = entry,
                         summary = entrySummary(context, entry),
@@ -458,13 +453,13 @@ private fun LazyListScope.previewItems(
         ) {
             Text(
                 text = shown.path,
-                style = COUITheme.textStyles.bodyS.copy(fontFamily = MonoFont),
-                color = COUITheme.colorScheme.labelSecondary,
+                style = MiuixTheme.textStyles.footnote1.copy(fontFamily = MonoFont),
+                color = MiuixTheme.colorScheme.onBackgroundVariant,
             )
             Text(
                 text = entrySummary(context, shown.entry),
-                style = COUITheme.textStyles.bodyS,
-                color = COUITheme.colorScheme.labelSecondary,
+                style = MiuixTheme.textStyles.footnote1,
+                color = MiuixTheme.colorScheme.onBackgroundVariant,
             )
         }
     }
@@ -492,7 +487,7 @@ private fun LazyListScope.previewItems(
             if (parts.isEmpty()) item(key = "blank") { Hint(Strings.setupLinuxFilesEmptyFile()) }
             itemsIndexed(parts, key = { index, _ -> "t:$index" }) { index, part ->
                 // 几段连成一张卡片，中间不画分隔线
-                CardListSegment(index = index, count = parts.size, dividerStart = null) {
+                CardListSegment(index = index, count = parts.size) {
                     TextSlice(part, isFirst = index == 0, isLast = index == parts.lastIndex)
                 }
             }
@@ -513,12 +508,12 @@ private fun TextSlice(text: String, isFirst: Boolean, isLast: Boolean) {
             Text(
                 text = text,
                 style =
-                    COUITheme.textStyles.bodyS.copy(
+                    MiuixTheme.textStyles.footnote1.copy(
                         fontFamily = MonoFont,
                         fontSize = 12.sp,
                         lineHeight = 17.sp,
                     ),
-                color = COUITheme.colorScheme.labelPrimary,
+                color = MiuixTheme.colorScheme.onBackground,
             )
         }
     }
@@ -544,8 +539,8 @@ private fun Breadcrumb(path: String, onNavigate: (String) -> Unit) {
             if (index > 0)
                 Text(
                     "/",
-                    style = COUITheme.textStyles.bodyM.copy(fontFamily = MonoFont),
-                    color = COUITheme.colorScheme.labelSecondary,
+                    style = MiuixTheme.textStyles.body2.copy(fontFamily = MonoFont),
+                    color = MiuixTheme.colorScheme.onBackgroundVariant,
                 )
             val target = "/" + segments.take(index + 1).joinToString("/")
             Crumb(segment, current = index == segments.lastIndex) { onNavigate(target) }
@@ -557,8 +552,9 @@ private fun Breadcrumb(path: String, onNavigate: (String) -> Unit) {
 private fun Crumb(label: String, current: Boolean, onClick: () -> Unit) {
     Text(
         text = label,
-        style = COUITheme.textStyles.bodyM.copy(fontFamily = MonoFont),
-        color = if (current) COUITheme.colorScheme.labelPrimary else COUITheme.colorScheme.primary,
+        style = MiuixTheme.textStyles.body2.copy(fontFamily = MonoFont),
+        color =
+            if (current) MiuixTheme.colorScheme.onBackground else MiuixTheme.colorScheme.primary,
         maxLines = 1,
         modifier =
             Modifier.clip(CircleShape)
@@ -569,10 +565,6 @@ private fun Crumb(label: String, current: Boolean, onClick: () -> Unit) {
 
 /** 行首图标的大小。 */
 private val RowIconSize = 24.dp
-
-/** 行首有图标时分隔线的起点，和 CardListGroup 画的一样从标题开始：行的左内边距、图标、图标和标题的间距。 */
-private val RowDividerStartWithIcon: Dp =
-    16.dp + RowIconSize + BasicComponentDefaults.StartActionSpacing
 
 /** 行首的图标。 */
 @Composable
@@ -594,31 +586,31 @@ private fun EntryRow(
     onCopyPath: () -> Unit,
     onExport: (() -> Unit)?,
 ) {
-    val colors = COUITheme.colorScheme
+    val colors = MiuixTheme.colorScheme
     val icon =
         when {
-            entry.directory -> COUIIcons.Folder
+            entry.directory -> MiuixIcons.Folder
             entry.broken -> ZetaIcons.LinkOff
-            entry.link != null && !entry.regular -> COUIIcons.Link
-            LinuxFiles.isImage(entry.name) -> COUIIcons.Image
-            else -> COUIIcons.File
+            entry.link != null && !entry.regular -> MiuixIcons.Link
+            LinuxFiles.isImage(entry.name) -> MiuixIcons.Image
+            else -> MiuixIcons.File
         }
     val actions =
         listOfNotNull(
-            menuItem(Strings.setupLinuxFilesCopyPath(), COUIIcons.Copy, onCopyPath),
+            menuItem(Strings.setupLinuxFilesCopyPath(), MiuixIcons.Copy, onCopyPath),
             onExport?.let {
                 menuItem(
                     Strings.setupLinuxFilesExport(),
-                    COUIIcons.Download,
+                    MiuixIcons.Download,
                     it,
                     enabled = !LinuxTransfers.running,
                 )
             },
         )
     val startAction: @Composable () -> Unit = {
-        RowIcon(icon, if (entry.directory) colors.primary else colors.labelSecondary)
+        RowIcon(icon, if (entry.directory) colors.primary else colors.onBackgroundVariant)
     }
-    OverlayContextMenu(entries = listOf(DropdownEntry(items = actions))) {
+    LongPressMenu(entries = listOf(DropdownEntry(items = actions))) {
         // 目录点进去是下一层，带箭头；文件点开是预览
         if (entry.directory) {
             ArrowPreference(
@@ -655,7 +647,8 @@ private fun TransferGroup(state: TransferState) {
                     title = state.message.orEmpty(),
                     titleColor =
                         if (state.ok) BasicComponentDefaults.titleColor()
-                        else BasicComponentDefaults.titleColor(color = COUITheme.colorScheme.error),
+                        else
+                            BasicComponentDefaults.titleColor(color = MiuixTheme.colorScheme.error),
                     summary = Strings.setupLinuxFilesTapToDismiss(),
                     onClick = LinuxTransfers::dismiss,
                 )
@@ -693,8 +686,8 @@ private fun transferTitle(state: TransferState): String {
 /** 卡片之间的一句说明或报错。 */
 @Composable
 private fun Hint(text: String, error: Boolean = false) {
-    if (error) PagerFooterPreference(summary = text, summaryColor = COUITheme.colorScheme.error)
-    else PagerFooterPreference(summary = text)
+    if (error) FooterHint(summary = text, summaryColor = MiuixTheme.colorScheme.error)
+    else FooterHint(summary = text)
 }
 
 @Composable

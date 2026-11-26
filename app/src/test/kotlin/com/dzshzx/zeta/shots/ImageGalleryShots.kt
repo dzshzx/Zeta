@@ -24,11 +24,11 @@ import com.dzshzx.zeta.core.awaitMain
 import com.dzshzx.zeta.ui.chat.AnswerBlock
 import com.dzshzx.zeta.ui.chat.answerImages
 import com.dzshzx.zeta.ui.markdown.StreamingMarkdownStateCache
-import io.github.suqi8.coui.kmp.basic.Scaffold
-import io.github.suqi8.coui.kmp.theme.COUITheme
 import java.io.ByteArrayOutputStream
 import java.util.Base64
 import org.junit.Test
+import top.yukonga.miuix.kmp.basic.Scaffold
+import top.yukonga.miuix.kmp.theme.MiuixTheme
 
 /** 一张纯色、中间写着 [label] 的 PNG，写成回答里能直接引用的 data: 地址（截图测试里没有 Linux 环境可取文件）。 */
 internal fun testPicture(width: Int, height: Int, color: Int, label: String): String {
@@ -69,7 +69,7 @@ internal fun AndroidComposeTestRule<*, *>.awaitImages() =
 class ImageGalleryShots : ShotTest() {
     @Composable
     private fun Answer(text: String) {
-        Scaffold(containerColor = COUITheme.colorScheme.background) { padding ->
+        Scaffold(containerColor = MiuixTheme.colorScheme.surface) { padding ->
             Column(Modifier.fillMaxSize().padding(padding)) {
                 AnswerBlock(
                     AnswerItem("a1", text, streaming = false),

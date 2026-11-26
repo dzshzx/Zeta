@@ -19,16 +19,16 @@ import com.dzshzx.zeta.core.AppVariant
 import com.dzshzx.zeta.core.Backends
 import com.dzshzx.zeta.core.ConversationHub
 import com.dzshzx.zeta.i18n.Strings
-import com.dzshzx.zeta.ui.components.coui2.CouiPage
-import com.dzshzx.zeta.ui.components.coui2.PreferenceGroup
-import com.dzshzx.zeta.ui.components.coui2.PreferenceValue
-import com.dzshzx.zeta.ui.components.coui2.SettingsIcon
-import io.github.suqi8.coui.kmp.icon.COUIIcons
-import io.github.suqi8.coui.kmp.icon.extended.Mic
-import io.github.suqi8.coui.kmp.preference.ArrowPreference
-import io.github.suqi8.coui.kmp.theme.COUITheme
+import com.dzshzx.zeta.ui.components.miuix.MiuixPage
+import com.dzshzx.zeta.ui.components.miuix.PreferenceGroup
+import com.dzshzx.zeta.ui.components.miuix.PreferenceValue
+import com.dzshzx.zeta.ui.components.miuix.SettingsIcon
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
+import top.yukonga.miuix.kmp.icon.MiuixIcons
+import top.yukonga.miuix.kmp.icon.extended.Mic
+import top.yukonga.miuix.kmp.preference.ArrowPreference
+import top.yukonga.miuix.kmp.theme.MiuixTheme
 
 /** 默认数字助理现在是谁；每次回到页面（从系统设置回来）重新查。 */
 @Composable
@@ -53,7 +53,7 @@ internal fun AssistantEntry(owner: AssistantOwner? = null, onOpen: () -> Unit) {
     val current = owner ?: rememberAssistantOwner(AssistantRole::owner)
     ArrowPreference(
         title = Strings.settingsAssistantTitle(),
-        startAction = { SettingsIcon(COUIIcons.Mic) },
+        startAction = { SettingsIcon(MiuixIcons.Mic) },
         endActions = {
             PreferenceValue(
                 text =
@@ -80,7 +80,7 @@ internal fun AssistantSettingsScreen(
     val current = owner ?: rememberAssistantOwner(AssistantRole::owner)
     var model by remember { mutableStateOf(hub.settings.assistantModel) }
     var effort by remember { mutableStateOf(hub.settings.assistantEffort) }
-    CouiPage(title = Strings.settingsAssistantTitle(), onBack = onBack) {
+    MiuixPage(title = Strings.settingsAssistantTitle(), onBack = onBack) {
         // HyperOS 的长按电源键默认直接拉起小爱，要靠 Zeta 自带的 LSPosed 模块交给
         // Zeta；模块装没装上、最近的记录在诊断页（AssistantDiagnosticsGroup）
         item(key = "owner") {
@@ -195,7 +195,7 @@ private fun RecognizerPreference(current: AssistantOwner?) {
             if (broken) Strings.settingsAssistantNotZeta()
             else current?.recognizerSummary ?: Strings.commonQuerying(),
         summary = Strings.settingsAssistantRecognizerBroken().takeIf { broken },
-        color = if (broken) COUITheme.colorScheme.error else Color.Unspecified,
+        color = if (broken) MiuixTheme.colorScheme.error else Color.Unspecified,
     )
 }
 
@@ -206,7 +206,7 @@ private fun PowerKeyPreference(log: PowerKeyStatus?, reading: Boolean) {
         title = Strings.settingsAssistantPowerKey(),
         value = powerKeyValue(log, reading),
         summary = log?.installNote?.takeIf { log.installed == false },
-        color = if (log?.installed == false) COUITheme.colorScheme.error else Color.Unspecified,
+        color = if (log?.installed == false) MiuixTheme.colorScheme.error else Color.Unspecified,
     )
 }
 

@@ -15,16 +15,16 @@ import com.dzshzx.zeta.core.claude.MemoryOverview
 import com.dzshzx.zeta.core.clipLine
 import com.dzshzx.zeta.i18n.Strings
 import com.dzshzx.zeta.ui.components.SlideInPage
-import com.dzshzx.zeta.ui.components.coui2.CouiPage
-import com.dzshzx.zeta.ui.components.coui2.DropdownValuePreference
-import com.dzshzx.zeta.ui.components.coui2.PreferenceGroup
-import com.dzshzx.zeta.ui.components.coui2.PreferenceValue
+import com.dzshzx.zeta.ui.components.miuix.DropdownValuePreference
+import com.dzshzx.zeta.ui.components.miuix.MiuixPage
+import com.dzshzx.zeta.ui.components.miuix.PreferenceGroup
+import com.dzshzx.zeta.ui.components.miuix.PreferenceGroupScope
+import com.dzshzx.zeta.ui.components.miuix.PreferenceValue
 import com.dzshzx.zeta.ui.settings.ValueRow
-import io.github.suqi8.coui.kmp.basic.CardListGroupScope
-import io.github.suqi8.coui.kmp.basic.DropdownEntry
-import io.github.suqi8.coui.kmp.basic.DropdownItem
-import io.github.suqi8.coui.kmp.preference.ArrowPreference
-import io.github.suqi8.coui.kmp.preference.SwitchPreference
+import top.yukonga.miuix.kmp.basic.DropdownEntry
+import top.yukonga.miuix.kmp.basic.DropdownItem
+import top.yukonga.miuix.kmp.preference.ArrowPreference
+import top.yukonga.miuix.kmp.preference.SwitchPreference
 
 /** 编辑器里打开的是哪个文件。 */
 private data class MemoryTarget(
@@ -79,7 +79,7 @@ internal fun ClaudeMemoryScreen(hub: ConversationHub, backend: String, onBack: (
     val reload: () -> Unit = { reloads++ }
 
     val o = overview
-    CouiPage(
+    MiuixPage(
         title = Strings.setupMemoryTitle(),
         onBack = onBack,
         dialogs = { ConfigNoticeDialog(notice) { notice = null } },
@@ -214,7 +214,7 @@ private fun AutoMemoryGroup(
 }
 
 /** 记忆放在哪：设了 autoMemoryDirectory 时是那个目录，否则是可选的项目。 */
-private fun CardListGroupScope.memoryLocationRows(
+private fun PreferenceGroupScope.memoryLocationRows(
     o: MemoryOverview,
     home: String?,
     onSelectProject: (String) -> Unit,
@@ -264,7 +264,10 @@ private fun CardListGroupScope.memoryLocationRows(
     }
 }
 
-private fun CardListGroupScope.memoryIndexRow(index: ConfigFile?, onOpen: (MemoryTarget) -> Unit) {
+private fun PreferenceGroupScope.memoryIndexRow(
+    index: ConfigFile?,
+    onOpen: (MemoryTarget) -> Unit,
+) {
     if (index == null) return
     item {
         ArrowPreference(

@@ -18,7 +18,6 @@ import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.shrinkHorizontally
 import androidx.compose.foundation.background
-import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.Box
@@ -77,26 +76,26 @@ import com.dzshzx.zeta.i18n.Strings
 import com.dzshzx.zeta.phone.browser.AgentBrowser
 import com.dzshzx.zeta.phone.browser.BrowserUrls
 import com.dzshzx.zeta.ui.app.ZetaTheme
-import com.dzshzx.zeta.ui.components.coui2.ConfirmDialog
-import com.dzshzx.zeta.ui.components.coui2.FlatIconButton
-import com.dzshzx.zeta.ui.components.coui2.IconActionButton
-import com.dzshzx.zeta.ui.components.coui2.PageBlurHost
-import com.dzshzx.zeta.ui.components.coui2.TopBarMoreMenu
-import com.dzshzx.zeta.ui.components.coui2.ZetaIcons
-import com.dzshzx.zeta.ui.components.coui2.pageBlurSource
-import com.dzshzx.zeta.ui.components.coui2.rememberPageBlur
-import io.github.suqi8.coui.kmp.basic.DropdownEntry
-import io.github.suqi8.coui.kmp.basic.DropdownItem
-import io.github.suqi8.coui.kmp.basic.Icon
-import io.github.suqi8.coui.kmp.basic.Scaffold
-import io.github.suqi8.coui.kmp.basic.Text
-import io.github.suqi8.coui.kmp.icon.COUIIcons
-import io.github.suqi8.coui.kmp.icon.extended.Back
-import io.github.suqi8.coui.kmp.icon.extended.Close
-import io.github.suqi8.coui.kmp.icon.extended.Forward
-import io.github.suqi8.coui.kmp.icon.extended.Lock
-import io.github.suqi8.coui.kmp.icon.extended.Refresh
-import io.github.suqi8.coui.kmp.theme.COUITheme
+import com.dzshzx.zeta.ui.components.miuix.ConfirmDialog
+import com.dzshzx.zeta.ui.components.miuix.FlatIconButton
+import com.dzshzx.zeta.ui.components.miuix.IconActionButton
+import com.dzshzx.zeta.ui.components.miuix.PageBlurHost
+import com.dzshzx.zeta.ui.components.miuix.TopBarMoreMenu
+import com.dzshzx.zeta.ui.components.miuix.ZetaIcons
+import com.dzshzx.zeta.ui.components.miuix.pageBlurSource
+import com.dzshzx.zeta.ui.components.miuix.rememberPageBlur
+import top.yukonga.miuix.kmp.basic.DropdownEntry
+import top.yukonga.miuix.kmp.basic.DropdownItem
+import top.yukonga.miuix.kmp.basic.Icon
+import top.yukonga.miuix.kmp.basic.Scaffold
+import top.yukonga.miuix.kmp.basic.Text
+import top.yukonga.miuix.kmp.icon.MiuixIcons
+import top.yukonga.miuix.kmp.icon.extended.Back
+import top.yukonga.miuix.kmp.icon.extended.Close
+import top.yukonga.miuix.kmp.icon.extended.Forward
+import top.yukonga.miuix.kmp.icon.extended.Lock
+import top.yukonga.miuix.kmp.icon.extended.Refresh
+import top.yukonga.miuix.kmp.theme.MiuixTheme
 
 /**
  * 浏览器页：显示 Claude 在用的那个页面（[AgentBrowser] 的 WebView 挂过来），有地址栏、前进后退、刷新和清除数据。 用户在页面上点按就是接管，Claude
@@ -142,7 +141,7 @@ private class TakeOverFrame(context: Context) : FrameLayout(context) {
 @Composable
 internal fun BrowserScreen(onExit: () -> Unit) {
     val context = LocalContext.current
-    val colors = COUITheme.colorScheme
+    val colors = MiuixTheme.colorScheme
     val keyboard = LocalSoftwareKeyboardController.current
     val focus = LocalFocusManager.current
     var address by remember { mutableStateOf(TextFieldValue("")) }
@@ -280,16 +279,16 @@ private fun BrowserToolbar(
 private fun BackForwardButtons(onExit: () -> Unit) {
     Row {
         IconActionButton(
-            icon = COUIIcons.Back,
+            icon = MiuixIcons.Back,
             contentDescription =
                 if (AgentBrowser.canGoBack) Strings.browserBack() else Strings.browserClose(),
             onClick = {
                 if (AgentBrowser.canGoBack) AgentBrowser.backByUser() else onExit()
             },
         )
-        // COUI 没有“前进”箭头，用后退箭头左右翻过来，两个箭头一个样式
+        // Miuix 的 Forward 是转发图标，不是前进箭头：用后退箭头左右翻过来，两个箭头一个样式
         IconActionButton(
-            COUIIcons.Back,
+            MiuixIcons.Back,
             Strings.browserForward(),
             iconModifier = Modifier.graphicsLayer { scaleX = -1f },
             enabled = AgentBrowser.canGoForward,
@@ -303,7 +302,7 @@ private fun BackForwardButtons(onExit: () -> Unit) {
 @Composable
 private fun ReloadOrStopButton() {
     IconActionButton(
-        icon = if (AgentBrowser.loading) COUIIcons.Close else COUIIcons.Refresh,
+        icon = if (AgentBrowser.loading) MiuixIcons.Close else MiuixIcons.Refresh,
         contentDescription =
             if (AgentBrowser.loading) Strings.browserStop() else Strings.browserReload(),
         enabled = AgentBrowser.hasPage(),
@@ -315,7 +314,7 @@ private fun ReloadOrStopButton() {
 /** 放 WebView 的区域：没有页面时的提示，浮在底部的状态条。 */
 @Composable
 private fun BrowserPage(modifier: Modifier) {
-    val colors = COUITheme.colorScheme
+    val colors = MiuixTheme.colorScheme
     Box(modifier) {
         AndroidView(
             factory = { ctx -> TakeOverFrame(ctx).also { AgentBrowser.attach(it, ctx) } },
@@ -325,8 +324,8 @@ private fun BrowserPage(modifier: Modifier) {
         if (!AgentBrowser.hasPage() && !AgentBrowser.loading) {
             Text(
                 text = Strings.browserEmpty(),
-                style = COUITheme.textStyles.bodyM,
-                color = colors.labelSecondary,
+                style = MiuixTheme.textStyles.body2,
+                color = colors.onBackgroundVariant,
                 textAlign = TextAlign.Center,
                 modifier = Modifier.align(Alignment.Center).padding(32.dp),
             )
@@ -339,15 +338,15 @@ private fun BrowserPage(modifier: Modifier) {
 }
 
 /**
- * 浏览器页的 COUI 骨架：菜单和对话框画在 Scaffold 的弹窗层里，没有它就弹不出来。 工具栏是自己的，不用
- * [com.dzshzx.zeta.ui.components.coui2.CouiPageScaffold] 的顶栏；
- * 照它把页面录成背景图（[com.dzshzx.zeta.ui.components.coui2.PageBlur]），菜单和对话框拿它做毛玻璃。系统栏和键盘的留白由内容自己处理。
+ * 浏览器页的 Miuix 骨架：菜单和对话框画在 Scaffold 的弹窗层里，没有它就弹不出来。 工具栏是自己的，不用
+ * [com.dzshzx.zeta.ui.components.miuix.MiuixPageScaffold] 的顶栏；
+ * 照它把页面录成背景图（[com.dzshzx.zeta.ui.components.miuix.PageBlur]），菜单和对话框拿它做毛玻璃。系统栏和键盘的留白由内容自己处理。
  */
 @Composable
 private fun BrowserScaffold(content: @Composable () -> Unit) {
     val blur = rememberPageBlur()
     Scaffold(
-        containerColor = COUITheme.colorScheme.background,
+        containerColor = MiuixTheme.colorScheme.surface,
         contentWindowInsets = WindowInsets(0),
     ) {
         Box(Modifier.fillMaxSize().pageBlurSource(blur)) { PageBlurHost(blur, content) }
@@ -357,7 +356,7 @@ private fun BrowserScaffold(content: @Composable () -> Unit) {
 /** 浮在页面底部的提示：接管时说 Claude 在等并带“交还”，Claude 操作时说它在做什么。 */
 @Composable
 private fun StatusPill(modifier: Modifier = Modifier) {
-    val colors = COUITheme.colorScheme
+    val colors = MiuixTheme.colorScheme
     val controlling = AgentBrowser.userControlling
     val action = AgentBrowser.agentAction
     if (!controlling && action == null) return
@@ -372,9 +371,8 @@ private fun StatusPill(modifier: Modifier = Modifier) {
                     spotColor = Color.Black.copy(alpha = 0.2f),
                 )
                 .clip(CircleShape)
-                // 和 COUI 的 Snackbar 一样：最上层浮层的底色，按钮字用浮层上的主题色
-                .background(colors.backgroundTop)
-                .border(0.5.dp, colors.labelQuaternary, CircleShape)
+                // 配色照 Miuix 的 Snackbar：深底浅字（深色主题下反过来），“交还”是主题色的小按钮
+                .background(colors.onSecondaryVariant)
                 .padding(start = 16.dp, end = 6.dp)
                 .heightIn(min = 44.dp),
         verticalAlignment = Alignment.CenterVertically,
@@ -385,8 +383,8 @@ private fun StatusPill(modifier: Modifier = Modifier) {
             text =
                 if (controlling) Strings.browserUserControlling()
                 else Strings.browserClaudeActing(action.orEmpty()),
-            style = COUITheme.textStyles.bodyS,
-            color = colors.labelPrimary,
+            style = MiuixTheme.textStyles.footnote1,
+            color = colors.secondaryVariant,
             maxLines = 1,
             overflow = TextOverflow.Ellipsis,
             modifier = Modifier.weight(1f).padding(vertical = 12.dp),
@@ -394,12 +392,13 @@ private fun StatusPill(modifier: Modifier = Modifier) {
         if (controlling) {
             Text(
                 text = Strings.browserHandBack(),
-                style = COUITheme.textStyles.bodyS.copy(fontWeight = FontWeight.Medium),
-                color = colors.primaryTextOnPopup,
+                style = MiuixTheme.textStyles.footnote1.copy(fontWeight = FontWeight.Medium),
+                color = colors.onPrimary,
                 modifier =
                     Modifier.clip(CircleShape)
+                        .background(colors.primary)
                         .clickable { AgentBrowser.handBackByUser() }
-                        .padding(horizontal = 12.dp, vertical = 10.dp),
+                        .padding(horizontal = 12.dp, vertical = 6.dp),
             )
         }
     }
@@ -412,7 +411,7 @@ private fun LoadingLine(visible: Boolean, progress: Int) {
             Box(
                 Modifier.fillMaxHeight()
                     .fillMaxWidth(progress.coerceIn(5, 100) / 100f)
-                    .background(COUITheme.colorScheme.primary),
+                    .background(MiuixTheme.colorScheme.primary),
             )
         }
     }
@@ -427,29 +426,29 @@ private fun AddressField(
     onGo: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
-    val colors = COUITheme.colorScheme
+    val colors = MiuixTheme.colorScheme
     Row(
         modifier =
             modifier
                 .height(40.dp)
                 .clip(CircleShape)
-                .background(colors.fillSolid)
+                .background(colors.secondaryContainer)
                 .padding(start = 12.dp, end = 12.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
         Icon(
-            imageVector = if (secure) COUIIcons.Lock else ZetaIcons.Globe,
+            imageVector = if (secure) MiuixIcons.Lock else ZetaIcons.Globe,
             contentDescription = null,
             modifier = Modifier.size(15.dp),
-            tint = colors.labelSecondary,
+            tint = colors.onBackgroundVariant,
         )
         Spacer(Modifier.width(8.dp))
         Box(Modifier.weight(1f), contentAlignment = Alignment.CenterStart) {
             if (value.text.isEmpty()) {
                 Text(
                     Strings.browserAddressHint(),
-                    style = COUITheme.textStyles.bodyM,
-                    color = colors.labelSecondary,
+                    style = MiuixTheme.textStyles.body2,
+                    color = colors.onBackgroundVariant,
                     maxLines = 1,
                 )
             }
@@ -457,7 +456,7 @@ private fun AddressField(
                 value = value,
                 onValueChange = onValueChange,
                 singleLine = true,
-                textStyle = COUITheme.textStyles.bodyM.copy(color = colors.labelPrimary),
+                textStyle = MiuixTheme.textStyles.body2.copy(color = colors.onBackground),
                 cursorBrush = SolidColor(colors.primary),
                 keyboardOptions =
                     KeyboardOptions(keyboardType = KeyboardType.Uri, imeAction = ImeAction.Go),
@@ -473,12 +472,12 @@ private fun AddressField(
 internal fun BrowserStepButton() {
     val context = LocalContext.current
     FlatIconButton(
-        icon = COUIIcons.Forward,
+        icon = MiuixIcons.Forward,
         contentDescription = Strings.browserViewInBrowser(),
         size = 26.dp,
         iconSize = 16.dp,
         modifier = Modifier.padding(start = 6.dp),
-        tint = COUITheme.colorScheme.primary,
+        tint = MiuixTheme.colorScheme.primary,
     ) {
         BrowserActivity.open(context)
     }

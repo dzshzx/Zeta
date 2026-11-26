@@ -93,28 +93,28 @@ import com.dzshzx.zeta.phone.OverlayFocus
 import com.dzshzx.zeta.phone.OverlayPhase
 import com.dzshzx.zeta.phone.TouchMark
 import com.dzshzx.zeta.phone.VirtualScreen
-import com.dzshzx.zeta.ui.components.coui2.ZetaIcons
+import com.dzshzx.zeta.ui.components.isDark
+import com.dzshzx.zeta.ui.components.miuix.CompactButton
+import com.dzshzx.zeta.ui.components.miuix.SquircleShape
+import com.dzshzx.zeta.ui.components.miuix.ZetaIcons
 import com.dzshzx.zeta.ui.components.pingPong
 import com.dzshzx.zeta.ui.components.rememberIndicatorClock
 import com.dzshzx.zeta.ui.components.turn
-import io.github.suqi8.coui.kmp.basic.ButtonDefaults
-import io.github.suqi8.coui.kmp.basic.Icon
-import io.github.suqi8.coui.kmp.basic.Text
-import io.github.suqi8.coui.kmp.basic.TextButton
-import io.github.suqi8.coui.kmp.icon.COUIIcons
-import io.github.suqi8.coui.kmp.icon.extended.ChevronForward
-import io.github.suqi8.coui.kmp.icon.extended.Edit
-import io.github.suqi8.coui.kmp.icon.extended.Pause
-import io.github.suqi8.coui.kmp.icon.extended.Play
-import io.github.suqi8.coui.kmp.squircle.SquircleShape
-import io.github.suqi8.coui.kmp.theme.COUITheme
-import io.github.suqi8.coui.kmp.utils.SinkFeedback
-import io.github.suqi8.coui.kmp.utils.pressable
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
+import top.yukonga.miuix.kmp.basic.Icon
+import top.yukonga.miuix.kmp.basic.Text
+import top.yukonga.miuix.kmp.icon.MiuixIcons
+import top.yukonga.miuix.kmp.icon.extended.ChevronForward
+import top.yukonga.miuix.kmp.icon.extended.Edit
+import top.yukonga.miuix.kmp.icon.extended.Pause
+import top.yukonga.miuix.kmp.icon.extended.Play
+import top.yukonga.miuix.kmp.theme.MiuixTheme
+import top.yukonga.miuix.kmp.utils.SinkFeedback
+import top.yukonga.miuix.kmp.utils.pressable
 
 /**
- * 顶部状态胶囊（照 Eta 的 COUI 样式）：收起时一句当前步骤 + 思考尾句，后台屏幕在用时右侧镶一块 18×32dp 的实时微缩画面；
+ * 顶部状态胶囊（照 Eta）：收起时一句当前步骤 + 思考尾句，后台屏幕在用时右侧镶一块 18×32dp 的实时微缩画面；
  * 点一下原地展开：后台屏幕的画廊式展开画面（可以直接点、滑来接管）、“全屏”，以及补充 / 暂停·继续 / 停止。 位置固定在状态栏下方居中，不跟着 Claude
  * 的点按位置走，免得和目标控件重叠。
  */
@@ -315,7 +315,7 @@ private fun CapsuleCard(
     controls: CapsuleControls,
     content: @Composable ColumnScope.() -> Unit,
 ) {
-    val colors = COUITheme.colorScheme
+    val colors = MiuixTheme.colorScheme
     val dark = colors.isDark
     val shape = SquircleShape(motion.corner)
     Box(
@@ -356,7 +356,7 @@ private fun CapsuleCard(
                     .clip(shape)
                     // 浮层面板底色，留一点点透明；描边用最淡的一档中性色
                     .background(colors.surface.copy(alpha = if (dark) 0.96f else 0.99f), shape)
-                    .border(0.6.dp, colors.labelQuaternary, shape),
+                    .border(0.6.dp, colors.disabledOnSecondaryVariant, shape),
             content = content,
         )
     }
@@ -443,8 +443,8 @@ private fun StepText(step: String) {
     ) { text ->
         Text(
             text = text,
-            color = COUITheme.colorScheme.labelPrimary,
-            style = COUITheme.textStyles.bodyS,
+            color = MiuixTheme.colorScheme.onBackground,
+            style = MiuixTheme.textStyles.footnote1,
             fontWeight = FontWeight.Medium,
             maxLines = 1,
             overflow = TextOverflow.Ellipsis,
@@ -502,7 +502,7 @@ private fun CapsulePanel(
 
 @Composable
 private fun ActionRow(focus: OverlayFocus, phase: OverlayPhase, onSupplement: () -> Unit) {
-    val colors = COUITheme.colorScheme
+    val colors = MiuixTheme.colorScheme
     Row(
         Modifier.fillMaxWidth(),
         horizontalArrangement = Arrangement.spacedBy(10.dp, Alignment.CenterHorizontally),
@@ -510,23 +510,23 @@ private fun ActionRow(focus: OverlayFocus, phase: OverlayPhase, onSupplement: ()
         // 外部客户端没有一轮对话可补充
         if (focus.inZeta)
             CapsuleAction(
-                COUIIcons.Edit,
+                MiuixIcons.Edit,
                 Strings.overlaySupplement(),
-                colors.labelPrimary,
+                colors.onBackground,
                 onSupplement,
             )
         when (phase) {
             OverlayPhase.RUNNING ->
-                CapsuleAction(COUIIcons.Pause, Strings.overlayPause(), colors.labelPrimary) {
+                CapsuleAction(MiuixIcons.Pause, Strings.overlayPause(), colors.onBackground) {
                     focus.pause()
                 }
             // 点了暂停的就继续；接管着的交还给 Claude
             OverlayPhase.PAUSED ->
-                CapsuleAction(COUIIcons.Play, Strings.overlayResume(), colors.primary) {
+                CapsuleAction(MiuixIcons.Play, Strings.overlayResume(), colors.primary) {
                     focus.resume()
                 }
             OverlayPhase.CONTROLLING ->
-                CapsuleAction(COUIIcons.Play, Strings.overlayHandBack(), colors.primary) {
+                CapsuleAction(MiuixIcons.Play, Strings.overlayHandBack(), colors.primary) {
                     focus.resumeAuto()
                 }
             OverlayPhase.FINISHED -> Unit
@@ -591,7 +591,7 @@ private fun ThoughtLine(thought: String) {
     if (shown) last = thought
     Text(
         text = last,
-        color = COUITheme.colorScheme.labelSecondary,
+        color = MiuixTheme.colorScheme.onBackgroundVariant,
         fontSize = 11.sp,
         lineHeight = 14.sp,
         maxLines = 1,
@@ -603,13 +603,13 @@ private fun ThoughtLine(thought: String) {
 /** 展开时右上角的对话标题：Zeta 可以同时开好几个对话，点它回到 Zeta 的这个对话。 */
 @Composable
 private fun TitlePill(title: String, onClick: () -> Unit) {
-    val colors = COUITheme.colorScheme
+    val colors = MiuixTheme.colorScheme
     Row(
         modifier =
             Modifier.height(24.dp)
                 .widthIn(max = TitlePillMaxWidth)
                 .clip(CircleShape)
-                .background(colors.secondaryButton)
+                .background(colors.secondaryVariant)
                 .clickable(
                     role = Role.Button,
                     onClickLabel = Strings.overlayOpenInZeta(),
@@ -620,7 +620,7 @@ private fun TitlePill(title: String, onClick: () -> Unit) {
     ) {
         Text(
             text = title.ifBlank { Strings.overlayNewConversation() },
-            color = colors.labelSecondary,
+            color = colors.onBackgroundVariant,
             fontSize = 11.sp,
             fontWeight = FontWeight.Medium,
             maxLines = 1,
@@ -628,10 +628,10 @@ private fun TitlePill(title: String, onClick: () -> Unit) {
             modifier = Modifier.weight(1f, fill = false),
         )
         Icon(
-            COUIIcons.ChevronForward,
+            MiuixIcons.ChevronForward,
             contentDescription = null,
             modifier = Modifier.size(13.dp),
-            tint = colors.labelSecondary,
+            tint = colors.onBackgroundVariant,
         )
     }
 }
@@ -642,10 +642,10 @@ private fun CapsuleAction(icon: ImageVector, label: String, tint: Color, onClick
     Box(
         modifier =
             Modifier.size(width = 42.dp, height = 34.dp)
-                // 按下时整个按钮下沉，再叠 COUI 的按压色
+                // 按下时整个按钮下沉，再叠 Miuix 的按压色
                 .pressable(source, SinkFeedback(), delay = null)
                 .clip(CircleShape)
-                .background(COUITheme.colorScheme.secondaryButton, CircleShape)
+                .background(MiuixTheme.colorScheme.secondaryVariant, CircleShape)
                 .clickable(
                     source,
                     indication = LocalIndication.current,
@@ -673,7 +673,7 @@ private fun SupplementInput(
 ) {
     val focusRequester = remember { FocusRequester() }
     val keyboard = LocalSoftwareKeyboardController.current
-    val colors = COUITheme.colorScheme
+    val colors = MiuixTheme.colorScheme
     val cancel by rememberUpdatedState(onCancel)
 
     LaunchedEffect(Unit) {
@@ -707,15 +707,15 @@ private fun SupplementInput(
                 Modifier.fillMaxWidth()
                     .heightIn(min = 44.dp, max = 112.dp)
                     .clip(RoundedCornerShape(14.dp))
-                    .background(colors.fillThin)
+                    .background(colors.secondaryContainer)
                     .padding(horizontal = 12.dp, vertical = 10.dp),
             contentAlignment = Alignment.TopStart,
         ) {
-            val textStyle = COUITheme.textStyles.bodyM.copy(lineHeight = 18.sp)
+            val textStyle = MiuixTheme.textStyles.body2.copy(lineHeight = 18.sp)
             if (value.isEmpty()) {
                 Text(
                     text = Strings.overlaySupplementHint(),
-                    color = colors.hintNeutral,
+                    color = colors.onSecondaryContainer,
                     style = textStyle,
                 )
             }
@@ -723,7 +723,7 @@ private fun SupplementInput(
                 value = value,
                 onValueChange = onValueChange,
                 modifier = Modifier.fillMaxWidth().focusRequester(focusRequester),
-                textStyle = textStyle.copy(color = colors.labelPrimary),
+                textStyle = textStyle.copy(color = colors.onBackground),
                 keyboardOptions = KeyboardOptions.Default,
                 cursorBrush = SolidColor(colors.primary),
                 maxLines = 4,
@@ -734,25 +734,14 @@ private fun SupplementInput(
             horizontalArrangement = Arrangement.End,
             verticalAlignment = Alignment.CenterVertically,
         ) {
-            // COUI 的小号按钮，高度放到 32dp，悬浮层上好点
-            TextButton(
-                text = Strings.commonCancel(),
-                onClick = onCancel,
-                minWidth = ButtonDefaults.MinWidthSmall,
-                minHeight = 32.dp,
-                insideMargin = ButtonDefaults.InsideMarginSmall,
-                textStyle = ButtonDefaults.textStyleSmall(),
-            )
+            // 悬浮层里地方小，用压低了的小按钮
+            CompactButton(text = Strings.commonCancel(), onClick = onCancel)
             Spacer(Modifier.width(8.dp))
-            TextButton(
+            CompactButton(
                 text = Strings.overlaySend(),
                 onClick = onSend,
                 enabled = value.isNotBlank(),
-                minWidth = ButtonDefaults.MinWidthSmall,
-                minHeight = 32.dp,
-                colors = ButtonDefaults.textButtonColorsPrimary(),
-                insideMargin = ButtonDefaults.InsideMarginSmall,
-                textStyle = ButtonDefaults.textStyleSmall(),
+                primary = true,
             )
         }
     }

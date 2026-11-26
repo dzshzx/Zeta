@@ -1,5 +1,6 @@
-package com.dzshzx.zeta.ui.components.coui2
+package com.dzshzx.zeta.ui.components.miuix
 
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.runtime.Composable
@@ -13,33 +14,34 @@ import androidx.compose.ui.text.TextRange
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.input.TextFieldValue
 import androidx.compose.ui.text.input.VisualTransformation
-import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.DpSize
-import io.github.suqi8.coui.kmp.basic.TextField as CouiTextField
-import io.github.suqi8.coui.kmp.basic.TextFieldColors
-import io.github.suqi8.coui.kmp.basic.TextFieldDefaults
-import io.github.suqi8.coui.kmp.basic.TextFieldMode
+import androidx.compose.ui.unit.dp
+import com.dzshzx.zeta.i18n.Strings
+import top.yukonga.miuix.kmp.basic.TextField as MiuixTextField
+import top.yukonga.miuix.kmp.basic.TextFieldColors
+import top.yukonga.miuix.kmp.basic.TextFieldDefaults
+import top.yukonga.miuix.kmp.icon.MiuixIcons
+import top.yukonga.miuix.kmp.icon.extended.Clear
+import top.yukonga.miuix.kmp.theme.MiuixTheme
 
 /**
- * COUI 2 的输入框，文字按 String 传进传出，参数和 COUI 的同名参数一样。
+ * Miuix 的输入框（HyperOS 的圆角填充框），文字按 String 传进传出，参数和 Miuix 的同名参数一样；[showClearButton] 时有字就在末尾放一个清除键。
  *
- * 光标由这里管，不用 COUI 自己的 String 版本：那一版建输入状态时光标在开头，文字从外面改了（清除按钮、调用方重设）以后 光标也不跟到末尾（suqi8/coui#20）。这里用
- * COUI 的 TextFieldValue 版本：自己打字时光标和输入法的组合区照常保留； 第一次显示、文字从外面变了时，光标放到末尾。
+ * 光标由这里管，用 Miuix 的 TextFieldValue 版本：自己打字时光标和输入法的组合区照常保留；第一次显示、文字从外面变了时（清除键、调用方重设），
+ * 光标放到末尾。`TextFieldCursorTest` 钉住这几种情况。
  */
 @Composable
 fun TextField(
     value: String,
     onValueChange: (String) -> Unit,
     modifier: Modifier = Modifier,
-    backgroundMode: TextFieldMode = TextFieldMode.Line,
-    insideMargin: DpSize = TextFieldDefaults.insideMargin(backgroundMode),
+    insideMargin: DpSize = TextFieldDefaults.InsideMargin,
     colors: TextFieldColors = TextFieldDefaults.textFieldColors(),
-    minHeight: Dp = TextFieldDefaults.minHeight(backgroundMode),
     label: String = "",
     useLabelAsPlaceholder: Boolean = true,
     enabled: Boolean = true,
     showClearButton: Boolean = false,
-    textStyle: TextStyle = TextFieldDefaults.textStyle(backgroundMode),
+    textStyle: TextStyle = MiuixTheme.textStyles.main,
     keyboardOptions: KeyboardOptions = KeyboardOptions.Default,
     keyboardActions: KeyboardActions = KeyboardActions.Default,
     trailingIcon: (@Composable () -> Unit)? = null,
@@ -57,7 +59,23 @@ fun TextField(
         beforeEdit[0] = null
         typed = shown
     }
-    CouiTextField(
+    val clear: (@Composable () -> Unit)? =
+        if (showClearButton && enabled && value.isNotEmpty()) {
+            {
+                FlatIconButton(
+                    icon = MiuixIcons.Clear,
+                    contentDescription = Strings.commonClear(),
+                    size = 40.dp,
+                    iconSize = 20.dp,
+                    tint = MiuixTheme.colorScheme.onSurfaceVariantActions,
+                ) {
+                    onValueChange("")
+                }
+            }
+        } else {
+            null
+        }
+    MiuixTextField(
         value = shown,
         onValueChange = { new ->
             typed = new
@@ -67,18 +85,15 @@ fun TextField(
             }
         },
         modifier = modifier,
-        backgroundMode = backgroundMode,
         insideMargin = insideMargin,
         colors = colors,
-        minHeight = minHeight,
         label = label,
         useLabelAsPlaceholder = useLabelAsPlaceholder,
         enabled = enabled,
-        showClearButton = showClearButton,
         textStyle = textStyle,
         keyboardOptions = keyboardOptions,
         keyboardActions = keyboardActions,
-        trailingIcon = trailingIcon,
+        trailingIcon = clear ?: trailingIcon,
         singleLine = singleLine,
         maxLines = maxLines,
         minLines = minLines,

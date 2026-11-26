@@ -10,13 +10,13 @@ import androidx.compose.runtime.setValue
 import com.dzshzx.zeta.core.ConversationHub
 import com.dzshzx.zeta.core.conv.ClaudeUpdate
 import com.dzshzx.zeta.i18n.Strings
-import com.dzshzx.zeta.ui.components.coui2.PreferenceValue
-import com.dzshzx.zeta.ui.components.coui2.SettingsIcon
+import com.dzshzx.zeta.ui.components.miuix.PreferenceValue
+import com.dzshzx.zeta.ui.components.miuix.SettingsIcon
 import com.dzshzx.zeta.ui.setup.problem
 import com.dzshzx.zeta.ui.setup.runConfig
-import io.github.suqi8.coui.kmp.basic.BasicComponent
-import io.github.suqi8.coui.kmp.icon.COUIIcons
-import io.github.suqi8.coui.kmp.icon.extended.Update
+import top.yukonga.miuix.kmp.basic.BasicComponent
+import top.yukonga.miuix.kmp.icon.MiuixIcons
+import top.yukonga.miuix.kmp.icon.extended.Update
 
 /**
  * 远程主机页「Claude Code」：右边是那台主机上的版本，点按在那台上跑 claude update（docs/core.md「主机」的 system.claude、
@@ -45,7 +45,7 @@ internal fun ClaudeCodeUpdateRow(hub: ConversationHub, backend: String, ready: B
         summary =
             if (updating) Strings.settingsClaudeUpdateUpdating()
             else note ?: Strings.settingsClaudeUpdateHint(),
-        startAction = { SettingsIcon(COUIIcons.Update, enabled = usable) },
+        startAction = { SettingsIcon(MiuixIcons.Update, enabled = usable) },
         endActions = {
             PreferenceValue(
                 if (!loaded) "…" else version ?: Strings.commonNotInstalled(),

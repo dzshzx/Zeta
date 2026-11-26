@@ -1,4 +1,4 @@
-package com.dzshzx.zeta.ui.components.coui2
+package com.dzshzx.zeta.ui.components.miuix
 
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.SolidColor
@@ -14,7 +14,7 @@ import kotlin.math.cos
 import kotlin.math.sin
 
 /**
- * COUI 2 没有的图标，照它的画法（ColorOS 17 的图标）自己画，和 COUI 图标放在一起粗细、大小一致。规格只写在这里：
+ * Miuix 没有的图标，照它的画法自己画，和 Miuix 图标放在一起粗细、大小一致。规格只写在这里：
  * - 24×24 的画布，图形落在 2–22 之内（四周留 2，算描边中线，不算线宽）；`IconsShots` 逐个核对。
  * - 描边一律用 [line]（线宽 1.7，圆头圆角），实心部分用 [solid]；圆角按部件大小取，大框 2.5–3.5，小部件可以更小。
  * - 路径用 SVG 的写法。颜色由 Icon 的 tint 决定；淡的部分（刻度表没亮的格）用半透明，tint 以后仍是淡的。 新图标写成 `val 名字 by lazy { icon { …
@@ -235,7 +235,7 @@ object ZetaIcons {
         }
     }
 
-    /** 加号：添加。COUI 的加号线细，放在输入栏底栏上和别的图标粗细不一，底栏用这个。 */
+    /** 加号：添加。Miuix 的加号线细，放在输入栏底栏上和别的图标粗细不一，底栏用这个。 */
     val Plus: ImageVector by lazy { icon { line("M12 4.5v15M4.5 12h15") } }
 
     /** 带加号的文件：新建文件。 */
@@ -343,7 +343,7 @@ object ZetaIcons {
         }
     }
 
-    /** 线条的房子：主目录（COUI 的 Home 是实心的，和一排线条图标放不到一起）。 */
+    /** 线条的房子：主目录（Miuix 的 Home 是实心的，和一排线条图标放不到一起）。 */
     val Home: ImageVector by lazy {
         icon {
             line(

@@ -1,11 +1,22 @@
 package com.dzshzx.zeta.ui.settings
 
+import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.widthIn
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.drawBehind
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.unit.dp
 import com.dzshzx.zeta.BuildConfig
 import com.dzshzx.zeta.core.Settings
@@ -16,28 +27,27 @@ import com.dzshzx.zeta.core.update.UpdateInstaller
 import com.dzshzx.zeta.core.update.UpdateState
 import com.dzshzx.zeta.core.update.UpdateStep
 import com.dzshzx.zeta.i18n.Strings
-import com.dzshzx.zeta.ui.components.coui2.CouiPage
-import com.dzshzx.zeta.ui.components.coui2.PreferenceGroup
-import com.dzshzx.zeta.ui.components.coui2.PreferenceValue
-import com.dzshzx.zeta.ui.components.coui2.SettingsIcon
+import com.dzshzx.zeta.ui.components.miuix.MiuixPage
+import com.dzshzx.zeta.ui.components.miuix.PreferenceGroup
+import com.dzshzx.zeta.ui.components.miuix.PreferenceValue
+import com.dzshzx.zeta.ui.components.miuix.SettingsIcon
 import com.dzshzx.zeta.ui.markdown.MarkdownTone
 import com.dzshzx.zeta.ui.markdown.StaticMarkdown
-import io.github.suqi8.coui.kmp.basic.BasicComponent
-import io.github.suqi8.coui.kmp.basic.BasicComponentDefaults
-import io.github.suqi8.coui.kmp.basic.InfiniteProgressIndicator
-import io.github.suqi8.coui.kmp.basic.InstallLoadState
-import io.github.suqi8.coui.kmp.icon.COUIIcons
-import io.github.suqi8.coui.kmp.icon.extended.Info
-import io.github.suqi8.coui.kmp.icon.extended.Update
-import io.github.suqi8.coui.kmp.preference.LoadInstallProgressPreference
-import io.github.suqi8.coui.kmp.preference.SwitchPreference
-import io.github.suqi8.coui.kmp.theme.COUITheme
+import top.yukonga.miuix.kmp.basic.BasicComponent
+import top.yukonga.miuix.kmp.basic.BasicComponentDefaults
+import top.yukonga.miuix.kmp.basic.InfiniteProgressIndicator
+import top.yukonga.miuix.kmp.basic.Text
+import top.yukonga.miuix.kmp.icon.MiuixIcons
+import top.yukonga.miuix.kmp.icon.extended.Info
+import top.yukonga.miuix.kmp.icon.extended.Update
+import top.yukonga.miuix.kmp.preference.SwitchPreference
+import top.yukonga.miuix.kmp.theme.MiuixTheme
 
 /** 「关于」里的版本一行：正式版点它检查更新，右边写结果；有新版本时点它进「版本更新」页。 不检查更新的包（测试版、别人自己编的）只显示版本。 */
 @Composable
 internal fun VersionRow(updates: AppUpdates, onOpenUpdate: () -> Unit) {
     val version = BuildConfig.VERSION_NAME
-    val icon = @Composable { SettingsIcon(COUIIcons.Info) }
+    val icon = @Composable { SettingsIcon(MiuixIcons.Info) }
     if (!updates.enabled) {
         BasicComponent(title = Strings.commonVersion(), summary = version, startAction = icon)
         return
@@ -55,12 +65,12 @@ internal fun VersionRow(updates: AppUpdates, onOpenUpdate: () -> Unit) {
                 is UpdateState.CheckFailed ->
                     PreferenceValue(
                         Strings.updateCheckFailed(),
-                        color = COUITheme.colorScheme.error,
+                        color = MiuixTheme.colorScheme.error,
                     )
                 is UpdateState.Available ->
                     PreferenceValue(
                         Strings.updateAvailable(state.manifest.versionName),
-                        color = COUITheme.colorScheme.primary,
+                        color = MiuixTheme.colorScheme.primary,
                     )
             }
         },
@@ -74,7 +84,7 @@ internal fun AutoUpdateSwitch() {
     val settings = Settings.of(LocalContext.current)
     SwitchPreference(
         title = Strings.settingsAutoCheckUpdates(),
-        startAction = { SettingsIcon(COUIIcons.Update) },
+        startAction = { SettingsIcon(MiuixIcons.Update) },
         checked = settings.autoUpdateCheck,
         onCheckedChange = { settings.autoUpdateCheck = it },
     )
@@ -86,7 +96,7 @@ internal fun UpdateScreen(onBack: () -> Unit) {
     val updates = AppUpdates.get(LocalContext.current)
     LaunchedEffect(Unit) { if (updates.state == UpdateState.Idle) updates.check() }
     val available = updates.state as? UpdateState.Available
-    CouiPage(title = Strings.updateTitle(), onBack = onBack) {
+    MiuixPage(title = Strings.updateTitle(), onBack = onBack) {
         if (available == null) {
             item(key = "current") {
                 PreferenceGroup { item { VersionRow(updates, onOpenUpdate = {}) } }
@@ -147,46 +157,81 @@ private fun ReleaseRow(updates: AppUpdates, available: UpdateState.Available) {
             is UpdateStep.Failed -> step.reason
         }
     val (label, look, progress) = capsule(step, manifest.size)
-    LoadInstallProgressPreference(
+    val onCapsuleClick = {
+        when (step) {
+            UpdateStep.Ready,
+            is UpdateStep.Failed -> updates.start()
+            is UpdateStep.Downloading,
+            UpdateStep.WaitingIdle -> updates.cancel()
+            UpdateStep.Downloaded -> updates.installNow()
+            UpdateStep.NeedsPermission ->
+                if (UpdateInstaller.canRequestInstalls(context)) updates.installNow()
+                else UpdateInstaller.openInstallPermission(context)
+            UpdateStep.Verifying,
+            is UpdateStep.Installing -> Unit
+        }
+    }
+    BasicComponent(
         title = "Zeta ${manifest.versionName}",
         summary = summary,
         summaryColor =
             if (step is UpdateStep.Failed)
-                BasicComponentDefaults.summaryColor(color = COUITheme.colorScheme.error)
+                BasicComponentDefaults.summaryColor(color = MiuixTheme.colorScheme.error)
             else BasicComponentDefaults.summaryColor(),
-        progressText = label,
-        state = look,
-        progress = progress,
-        onProgressClick = {
-            when (step) {
-                UpdateStep.Ready,
-                is UpdateStep.Failed -> updates.start()
-                is UpdateStep.Downloading,
-                UpdateStep.WaitingIdle -> updates.cancel()
-                UpdateStep.Downloaded -> updates.installNow()
-                UpdateStep.NeedsPermission ->
-                    if (UpdateInstaller.canRequestInstalls(context)) updates.installNow()
-                    else UpdateInstaller.openInstallPermission(context)
-                UpdateStep.Verifying,
-                is UpdateStep.Installing -> Unit
-            }
-        },
+        endActions = { ProgressCapsule(label, look, progress, onCapsuleClick) },
     )
 }
 
 /** 胶囊按钮的字（两个字放得下）、样子和进度：点了做什么见 [ReleaseRow]。 */
-private fun capsule(step: UpdateStep, size: Long): Triple<String, InstallLoadState, Float> =
+private fun capsule(step: UpdateStep, size: Long): Triple<String, CapsuleLook, Float> =
     when (step) {
-        UpdateStep.Ready -> Triple(Strings.updateActionUpdate(), InstallLoadState.Idle, 0f)
+        UpdateStep.Ready -> Triple(Strings.updateActionUpdate(), CapsuleLook.Idle, 0f)
         is UpdateStep.Downloading -> {
             val fraction = (step.done.toFloat() / size).coerceIn(0f, 1f)
-            Triple("${(fraction * 100).toInt()}%", InstallLoadState.Loading, fraction)
+            Triple("${(fraction * 100).toInt()}%", CapsuleLook.Loading, fraction)
         }
-        UpdateStep.Verifying -> Triple(Strings.updateActionVerify(), InstallLoadState.Loading, 1f)
-        UpdateStep.WaitingIdle -> Triple(Strings.updateActionWait(), InstallLoadState.Paused, 1f)
-        UpdateStep.NeedsPermission -> Triple(Strings.updateActionAllow(), InstallLoadState.Idle, 0f)
-        UpdateStep.Downloaded -> Triple(Strings.updateActionInstall(), InstallLoadState.Idle, 0f)
-        is UpdateStep.Installing ->
-            Triple(Strings.updateActionInstall(), InstallLoadState.Loading, 1f)
-        is UpdateStep.Failed -> Triple(Strings.commonRetry(), InstallLoadState.Failed, 0f)
+        UpdateStep.Verifying -> Triple(Strings.updateActionVerify(), CapsuleLook.Loading, 1f)
+        UpdateStep.WaitingIdle -> Triple(Strings.updateActionWait(), CapsuleLook.Paused, 1f)
+        UpdateStep.NeedsPermission -> Triple(Strings.updateActionAllow(), CapsuleLook.Idle, 0f)
+        UpdateStep.Downloaded -> Triple(Strings.updateActionInstall(), CapsuleLook.Idle, 0f)
+        is UpdateStep.Installing -> Triple(Strings.updateActionInstall(), CapsuleLook.Loading, 1f)
+        is UpdateStep.Failed -> Triple(Strings.commonRetry(), CapsuleLook.Failed, 0f)
     }
+
+/** 进度胶囊的样子：空闲（主题色淡底主题色字）、进行中（按进度填主题色）、暂停（满格但变淡）、失败（红字）。 */
+private enum class CapsuleLook {
+    Idle,
+    Loading,
+    Paused,
+    Failed,
+}
+
+/** 新版本一行右边的胶囊按钮：两个字或百分比，进行中时从左往右按 [progress] 填主题色。 */
+@Composable
+private fun ProgressCapsule(text: String, look: CapsuleLook, progress: Float, onClick: () -> Unit) {
+    val colors = MiuixTheme.colorScheme
+    val fill =
+        when (look) {
+            CapsuleLook.Loading -> colors.primary
+            CapsuleLook.Paused -> colors.primary.copy(alpha = 0.5f)
+            else -> Color.Transparent
+        }
+    val textColor =
+        when (look) {
+            CapsuleLook.Failed -> colors.error
+            CapsuleLook.Idle -> colors.primary
+            else -> if (progress >= 0.5f) colors.onPrimary else colors.primary
+        }
+    Box(
+        Modifier.widthIn(min = 72.dp)
+            .height(32.dp)
+            .clip(CircleShape)
+            .background(colors.tertiaryContainer)
+            .drawBehind { drawRect(fill, size = size.copy(width = size.width * progress)) }
+            .clickable(role = Role.Button, onClick = onClick)
+            .padding(horizontal = 14.dp),
+        contentAlignment = Alignment.Center,
+    ) {
+        Text(text = text, style = MiuixTheme.textStyles.button, color = textColor, maxLines = 1)
+    }
+}

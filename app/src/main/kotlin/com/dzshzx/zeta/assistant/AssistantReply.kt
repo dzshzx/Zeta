@@ -54,14 +54,14 @@ import com.dzshzx.zeta.ui.chat.rememberWorkInk
 import com.dzshzx.zeta.ui.chat.workIcon
 import com.dzshzx.zeta.ui.components.FoldEnter
 import com.dzshzx.zeta.ui.components.FoldExit
-import com.dzshzx.zeta.ui.components.coui2.ZetaIcons
+import com.dzshzx.zeta.ui.components.miuix.ZetaIcons
 import com.dzshzx.zeta.ui.markdown.EditorialLineHeightStyle
 import com.dzshzx.zeta.ui.markdown.StreamingMarkdownStateCache
-import io.github.suqi8.coui.kmp.basic.Icon
-import io.github.suqi8.coui.kmp.basic.Text
-import io.github.suqi8.coui.kmp.icon.COUIIcons
-import io.github.suqi8.coui.kmp.icon.extended.Image
-import io.github.suqi8.coui.kmp.theme.COUITheme
+import top.yukonga.miuix.kmp.basic.Icon
+import top.yukonga.miuix.kmp.basic.Text
+import top.yukonga.miuix.kmp.icon.MiuixIcons
+import top.yukonga.miuix.kmp.icon.extended.Image
+import top.yukonga.miuix.kmp.theme.MiuixTheme
 
 // 回答面板里的几样照 Eta 浮窗里的对话（GPL-3.0）：用户气泡的外形和配色拷自 ui/components/ChatMessageItem.kt
 // 的 UserMessageBubble（assistantOverlay），工作过程那一行拷自 ui/components/AgentWorkProcess.kt 的
@@ -249,11 +249,11 @@ private fun QuestionBubble(entry: ReplyEntry.Question) {
                 Text(
                     text = entry.text,
                     style =
-                        COUITheme.textStyles.bodyL.copy(
+                        MiuixTheme.textStyles.body1.copy(
                             lineHeight = 23.sp,
                             lineHeightStyle = EditorialLineHeightStyle,
                         ),
-                    color = COUITheme.colorScheme.labelPrimary,
+                    color = MiuixTheme.colorScheme.onBackground,
                     modifier =
                         Modifier.widthIn(max = 316.dp)
                             .clip(QuestionBubbleShape)
@@ -280,7 +280,7 @@ private fun ScreenAttachment(screen: ScreenChip, colors: AssistantColors) {
         ScreenThumbnail(screen.thumbnail, colors)
         Text(
             text = screen.app,
-            style = COUITheme.textStyles.bodyXS,
+            style = MiuixTheme.textStyles.footnote2,
             color = colors.inputSecondary,
             maxLines = 1,
             overflow = TextOverflow.Ellipsis,
@@ -308,7 +308,7 @@ internal fun ScreenThumbnail(thumbnail: ImageBitmap?, colors: AssistantColors) {
             )
         } else {
             Icon(
-                COUIIcons.Image,
+                MiuixIcons.Image,
                 contentDescription = null,
                 modifier = Modifier.size(14.dp),
                 tint = colors.inputTertiary,
@@ -379,7 +379,7 @@ private fun WorkHeader(
                 imageVector = icon,
                 contentDescription = null,
                 modifier = Modifier.size(14.5.dp),
-                tint = if (working) COUITheme.colorScheme.primary else ink.icon,
+                tint = if (working) MiuixTheme.colorScheme.primary else ink.icon,
             )
         }
         Spacer(modifier = Modifier.width(WorkGutterGap))
@@ -394,7 +394,7 @@ private fun WorkHeader(
                 expanded,
                 modifier = Modifier.padding(horizontal = 4.dp),
                 size = 13.dp,
-                tint = COUITheme.colorScheme.labelSecondary.copy(alpha = 0.5f),
+                tint = MiuixTheme.colorScheme.onBackgroundVariant.copy(alpha = 0.5f),
             )
         }
     }

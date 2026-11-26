@@ -22,12 +22,12 @@ import com.dzshzx.zeta.core.QuotaSeverity
 import com.dzshzx.zeta.core.conv.HostCpu
 import com.dzshzx.zeta.i18n.Strings
 import com.dzshzx.zeta.ui.components.StatusWarning
-import com.dzshzx.zeta.ui.components.coui2.NoticeDialog
-import io.github.suqi8.coui.kmp.basic.Text
-import io.github.suqi8.coui.kmp.theme.COUITheme
+import com.dzshzx.zeta.ui.components.miuix.NoticeDialog
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.withContext
+import top.yukonga.miuix.kmp.basic.Text
+import top.yukonga.miuix.kmp.theme.MiuixTheme
 
 /** 输入栏上的负载标识隔多久问一次（Claude Code 状态栏是 15 秒，这里在眼前，快一些）。 */
 private const val HOST_CPU_POLL_MS = 5_000L
@@ -91,12 +91,13 @@ fun HostCpuButton(cpu: () -> HostCpu?, onClick: () -> Unit) {
                 // 图标位只放得下两位：满载写 99（已经是红的），确切的数在长按提示和说明里
                 text = percent?.coerceAtMost(99)?.toString() ?: "–",
                 style =
-                    COUITheme.textStyles.bodyS.copy(
+                    MiuixTheme.textStyles.footnote1.copy(
                         fontSize = with(LocalDensity.current) { DIGIT_SIZE.toSp() },
                         fontWeight = FontWeight.Medium,
                         letterSpacing = 0.sp,
                     ),
-                color = severityColor(severityOf(percent), COUITheme.colorScheme.labelSecondary),
+                color =
+                    severityColor(severityOf(percent), MiuixTheme.colorScheme.onBackgroundVariant),
                 maxLines = 1,
                 softWrap = false,
             )

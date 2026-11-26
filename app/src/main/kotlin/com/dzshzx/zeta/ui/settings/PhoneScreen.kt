@@ -10,13 +10,13 @@ import androidx.compose.ui.platform.LocalContext
 import com.dzshzx.zeta.core.ConversationHub
 import com.dzshzx.zeta.i18n.Strings
 import com.dzshzx.zeta.phone.AccessibilityGuard
-import com.dzshzx.zeta.ui.components.coui2.CouiPage
-import com.dzshzx.zeta.ui.components.coui2.PreferenceGroup
-import io.github.suqi8.coui.kmp.basic.BasicComponent
-import io.github.suqi8.coui.kmp.preference.ArrowPreference
-import io.github.suqi8.coui.kmp.preference.SwitchPreference
+import com.dzshzx.zeta.ui.components.miuix.MiuixPage
+import com.dzshzx.zeta.ui.components.miuix.PreferenceGroup
 import kotlin.concurrent.thread
 import kotlinx.coroutines.delay
+import top.yukonga.miuix.kmp.basic.BasicComponent
+import top.yukonga.miuix.kmp.preference.ArrowPreference
+import top.yukonga.miuix.kmp.preference.SwitchPreference
 
 /** “手机操作”：要不要把手机工具交给 Claude，以及它依赖的无障碍服务的状态。 */
 @Composable
@@ -32,7 +32,7 @@ internal fun PhoneScreen(hub: ConversationHub, onBack: () -> Unit) {
             delay(700)
         }
     }
-    CouiPage(title = Strings.settingsTitlePhone(), onBack = onBack) {
+    MiuixPage(title = Strings.settingsTitlePhone(), onBack = onBack) {
         // 「让 Claude 操作手机」给 Claude 读屏、点按、滑动、输入、打开应用，以及在 Android 一侧以 root 执行命令（pm、am、settings、dumpsys
         // 这些）；
         // 只对之后新开的 Claude Code 进程生效。「在后台屏幕上操作」每次打开应用时现读，立即生效：

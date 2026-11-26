@@ -62,19 +62,22 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.dzshzx.zeta.i18n.Strings
 import com.dzshzx.zeta.ui.components.MonoFont
-import com.dzshzx.zeta.ui.components.coui2.CopyIconButton
-import com.dzshzx.zeta.ui.components.coui2.ZetaIcons
-import io.github.suqi8.coui.kmp.basic.Icon
-import io.github.suqi8.coui.kmp.basic.Text
-import io.github.suqi8.coui.kmp.icon.COUIIcons
-import io.github.suqi8.coui.kmp.icon.extended.Community
-import io.github.suqi8.coui.kmp.icon.extended.Info
-import io.github.suqi8.coui.kmp.icon.extended.Report
-import io.github.suqi8.coui.kmp.icon.extended.Tasks
-import io.github.suqi8.coui.kmp.squircle.squircleBorder
-import io.github.suqi8.coui.kmp.squircle.squircleClip
-import io.github.suqi8.coui.kmp.squircle.squircleSurface
-import io.github.suqi8.coui.kmp.theme.COUITheme
+import com.dzshzx.zeta.ui.components.accentOrange
+import com.dzshzx.zeta.ui.components.accentPurple
+import com.dzshzx.zeta.ui.components.miuix.CopyIconButton
+import com.dzshzx.zeta.ui.components.miuix.ZetaIcons
+import com.dzshzx.zeta.ui.components.success
+import top.yukonga.miuix.kmp.basic.Icon
+import top.yukonga.miuix.kmp.basic.Text
+import top.yukonga.miuix.kmp.icon.MiuixIcons
+import top.yukonga.miuix.kmp.icon.extended.Community
+import top.yukonga.miuix.kmp.icon.extended.Info
+import top.yukonga.miuix.kmp.icon.extended.Report
+import top.yukonga.miuix.kmp.icon.extended.Tasks
+import top.yukonga.miuix.kmp.squircle.squircleBorder
+import top.yukonga.miuix.kmp.squircle.squircleClip
+import top.yukonga.miuix.kmp.squircle.squircleSurface
+import top.yukonga.miuix.kmp.theme.MiuixTheme
 
 /**
  * 绘制一份已解析的 [MarkdownDocument]。
@@ -116,7 +119,7 @@ fun LazyMarkdownContent(
     LazyColumn(
         modifier = modifier,
         contentPadding = contentPadding,
-        // 回弹由调用方的 COUI overScrollVertical 做，列表自己不再叠一层
+        // 回弹由调用方的 Miuix overScrollVertical 做，列表自己不再叠一层
         overscrollEffect = null,
     ) {
         document.blocks.forEachIndexed { blockIndex, block ->
@@ -336,7 +339,7 @@ private fun MarkdownCodeBlock(block: MarkdownCode, scope: MarkdownRenderScope) {
             Text(
                 text = block.language ?: Strings.markdownCode(),
                 style =
-                    COUITheme.textStyles.bodyXS.copy(
+                    MiuixTheme.textStyles.footnote2.copy(
                         fontFamily = if (block.language != null) MonoFont else null,
                         fontSize = 11.5.sp,
                         fontWeight = FontWeight.Medium,
@@ -446,7 +449,7 @@ private fun MarkdownAlertBlock(block: MarkdownAlert, scope: MarkdownRenderScope)
             Text(
                 text = block.kind.label,
                 style =
-                    COUITheme.textStyles.bodyM.copy(
+                    MiuixTheme.textStyles.body2.copy(
                         fontSize = 13.5.sp,
                         fontWeight = FontWeight.Bold,
                     ),
@@ -463,11 +466,11 @@ private fun MarkdownAlertBlock(block: MarkdownAlert, scope: MarkdownRenderScope)
 private val MarkdownAlertKind.icon: ImageVector
     get() =
         when (this) {
-            MarkdownAlertKind.Note -> COUIIcons.Info
+            MarkdownAlertKind.Note -> MiuixIcons.Info
             MarkdownAlertKind.Tip -> ZetaIcons.Lightbulb
-            MarkdownAlertKind.Important -> COUIIcons.Community
+            MarkdownAlertKind.Important -> MiuixIcons.Community
             MarkdownAlertKind.Warning -> ZetaIcons.Warning
-            MarkdownAlertKind.Caution -> COUIIcons.Report
+            MarkdownAlertKind.Caution -> MiuixIcons.Report
         }
 
 private val MarkdownAlertKind.label: String
@@ -482,12 +485,12 @@ private val MarkdownAlertKind.label: String
 
 @Composable
 private fun MarkdownAlertKind.accentColor(): Color {
-    val colors = COUITheme.colorScheme
+    val colors = MiuixTheme.colorScheme
     return when (this) {
         MarkdownAlertKind.Note -> colors.primary
         MarkdownAlertKind.Tip -> colors.success
-        MarkdownAlertKind.Important -> colors.purple
-        MarkdownAlertKind.Warning -> colors.orange
+        MarkdownAlertKind.Important -> colors.accentPurple
+        MarkdownAlertKind.Warning -> colors.accentOrange
         MarkdownAlertKind.Caution -> colors.error
     }
 }
@@ -641,10 +644,10 @@ private fun TaskMarker(
         contentAlignment = Alignment.CenterStart,
     ) {
         Icon(
-            imageVector = if (checked) COUIIcons.Tasks else ZetaIcons.CheckboxBlank,
+            imageVector = if (checked) MiuixIcons.Tasks else ZetaIcons.CheckboxBlank,
             contentDescription = null,
             modifier = Modifier.size(17.dp),
-            tint = if (checked) COUITheme.colorScheme.primary else uncheckedTint,
+            tint = if (checked) MiuixTheme.colorScheme.primary else uncheckedTint,
         )
     }
 }

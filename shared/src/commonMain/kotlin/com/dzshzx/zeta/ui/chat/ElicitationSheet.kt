@@ -22,17 +22,17 @@ import androidx.compose.ui.unit.dp
 import com.dzshzx.zeta.core.ElicitField
 import com.dzshzx.zeta.core.ElicitationRequest
 import com.dzshzx.zeta.i18n.Strings
-import com.dzshzx.zeta.ui.components.coui2.DialogContentPadding
-import com.dzshzx.zeta.ui.components.coui2.DialogTextField
-import com.dzshzx.zeta.ui.components.coui2.PageDialog
-import io.github.suqi8.coui.kmp.basic.Text
-import io.github.suqi8.coui.kmp.layout.DialogButtonBar
-import io.github.suqi8.coui.kmp.layout.DialogButtonBarAction
-import io.github.suqi8.coui.kmp.preference.CheckboxPreference
-import io.github.suqi8.coui.kmp.preference.RadioButtonLocation
-import io.github.suqi8.coui.kmp.preference.RadioButtonPreference
-import io.github.suqi8.coui.kmp.preference.SwitchPreference
-import io.github.suqi8.coui.kmp.theme.COUITheme
+import com.dzshzx.zeta.ui.components.miuix.DialogButtonBar
+import com.dzshzx.zeta.ui.components.miuix.DialogButtonBarAction
+import com.dzshzx.zeta.ui.components.miuix.DialogContentPadding
+import com.dzshzx.zeta.ui.components.miuix.DialogTextField
+import com.dzshzx.zeta.ui.components.miuix.PageDialog
+import top.yukonga.miuix.kmp.basic.Text
+import top.yukonga.miuix.kmp.preference.CheckboxPreference
+import top.yukonga.miuix.kmp.preference.RadioButtonLocation
+import top.yukonga.miuix.kmp.preference.RadioButtonPreference
+import top.yukonga.miuix.kmp.preference.SwitchPreference
+import top.yukonga.miuix.kmp.theme.MiuixTheme
 
 /**
  * 回应一个 MCP 表单：请求、action（accept、decline、cancel）、各项输入框里的字（网址模式和拒绝时为 null），
@@ -108,8 +108,8 @@ fun ElicitationSheet(
 private fun UrlLine(url: String) {
     Text(
         text = url,
-        style = COUITheme.textStyles.bodyS,
-        color = COUITheme.colorScheme.labelSecondary,
+        style = MiuixTheme.textStyles.footnote1,
+        color = MiuixTheme.colorScheme.onBackgroundVariant,
         modifier = Modifier.padding(horizontal = DialogContentPadding, vertical = 4.dp),
     )
 }
@@ -194,16 +194,16 @@ private fun Label(title: String?, summary: String?, error: Boolean) {
         if (title != null)
             Text(
                 text = title,
-                style = COUITheme.textStyles.bodyM,
-                color = COUITheme.colorScheme.labelPrimary,
+                style = MiuixTheme.textStyles.body2,
+                color = MiuixTheme.colorScheme.onBackground,
             )
         if (summary != null) {
             Text(
                 text = summary,
-                style = COUITheme.textStyles.bodyS,
+                style = MiuixTheme.textStyles.footnote1,
                 color =
-                    if (error) COUITheme.colorScheme.error
-                    else COUITheme.colorScheme.labelSecondary,
+                    if (error) MiuixTheme.colorScheme.error
+                    else MiuixTheme.colorScheme.onBackgroundVariant,
             )
         }
     }

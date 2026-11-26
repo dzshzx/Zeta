@@ -38,15 +38,15 @@ import com.dzshzx.zeta.core.conv.ConvMessage
 import com.dzshzx.zeta.i18n.Strings
 import com.dzshzx.zeta.ui.components.FoldEnter
 import com.dzshzx.zeta.ui.components.FoldExit
-import com.dzshzx.zeta.ui.components.coui2.FlatIconButton
-import com.dzshzx.zeta.ui.components.coui2.ZetaIcons
-import io.github.suqi8.coui.kmp.basic.HorizontalDivider
-import io.github.suqi8.coui.kmp.basic.Icon
-import io.github.suqi8.coui.kmp.basic.Text
-import io.github.suqi8.coui.kmp.icon.COUIIcons
-import io.github.suqi8.coui.kmp.icon.extended.Close
-import io.github.suqi8.coui.kmp.squircle.SquircleShape
-import io.github.suqi8.coui.kmp.theme.COUITheme
+import com.dzshzx.zeta.ui.components.miuix.FlatIconButton
+import com.dzshzx.zeta.ui.components.miuix.SquircleShape
+import com.dzshzx.zeta.ui.components.miuix.ZetaIcons
+import top.yukonga.miuix.kmp.basic.HorizontalDivider
+import top.yukonga.miuix.kmp.basic.Icon
+import top.yukonga.miuix.kmp.basic.Text
+import top.yukonga.miuix.kmp.icon.MiuixIcons
+import top.yukonga.miuix.kmp.icon.extended.Close
+import top.yukonga.miuix.kmp.theme.MiuixTheme
 
 private val Whitespace = Regex("\\s+")
 
@@ -61,7 +61,7 @@ fun QueueStrip(
     modifier: Modifier = Modifier,
 ) {
     if (queued.isEmpty()) return
-    val colors = COUITheme.colorScheme
+    val colors = MiuixTheme.colorScheme
     val shape = remember { SquircleShape(ChatStripCorner) }
     var expanded by rememberSaveable { mutableStateOf(false) }
     val multiple = queued.size > 1
@@ -104,7 +104,7 @@ fun QueueStrip(
                 queued.forEachIndexed { index, message ->
                     HorizontalDivider(
                         modifier = Modifier.padding(horizontal = 12.dp),
-                        color = colors.divider,
+                        color = colors.dividerLine,
                     )
                     QueuedRow(index, message, onRecall, onRemove)
                 }
@@ -116,7 +116,7 @@ fun QueueStrip(
 /** 排队条的标题：一个点和“排队中”（插话时是“插话中”）；多条时带条数和折角，点了展开、收起。 */
 @Composable
 private fun QueueTitle(count: Int, steering: Boolean, expanded: Boolean, onToggle: () -> Unit) {
-    val colors = COUITheme.colorScheme
+    val colors = MiuixTheme.colorScheme
     val multiple = count > 1
     val chevron by
         animateFloatAsState(if (expanded) 180f else 0f, tween(180), label = "queue-chevron")
@@ -136,7 +136,7 @@ private fun QueueTitle(count: Int, steering: Boolean, expanded: Boolean, onToggl
                     multiple -> Strings.chatQueuedCount(count)
                     else -> Strings.chatQueued()
                 },
-            style = COUITheme.textStyles.bodyS,
+            style = MiuixTheme.textStyles.footnote1,
             fontWeight = FontWeight.Medium,
             color = colors.primary,
         )
@@ -160,7 +160,7 @@ private fun QueuedRow(
     onRecall: (ConvMessage) -> Unit,
     onRemove: (ConvMessage) -> Unit,
 ) {
-    val colors = COUITheme.colorScheme
+    val colors = MiuixTheme.colorScheme
     Row(
         modifier =
             Modifier.fillMaxWidth().padding(start = 14.dp, end = 4.dp, top = 2.dp, bottom = 2.dp),
@@ -168,13 +168,13 @@ private fun QueuedRow(
     ) {
         Text(
             text = "${index + 1}",
-            style = COUITheme.textStyles.bodyXS,
+            style = MiuixTheme.textStyles.footnote2,
             fontWeight = FontWeight.Medium,
-            color = colors.labelSecondary,
+            color = colors.onBackgroundVariant,
         )
         Spacer(Modifier.width(8.dp))
         Preview(message, onClick = { onRecall(message) }, modifier = Modifier.weight(1f))
-        ActionIcon(COUIIcons.Close, Strings.chatRemoveQueued(), colors.labelSecondary) {
+        ActionIcon(MiuixIcons.Close, Strings.chatRemoveQueued(), colors.onBackgroundVariant) {
             onRemove(message)
         }
     }
@@ -202,8 +202,8 @@ private fun Preview(message: ConvMessage, onClick: () -> Unit, modifier: Modifie
     ) {
         Text(
             text = text,
-            style = COUITheme.textStyles.bodyM,
-            color = COUITheme.colorScheme.labelPrimary,
+            style = MiuixTheme.textStyles.body2,
+            color = MiuixTheme.colorScheme.onBackground,
             maxLines = 1,
             overflow = TextOverflow.Ellipsis,
             modifier = Modifier.weight(1f, fill = false),
@@ -212,8 +212,8 @@ private fun Preview(message: ConvMessage, onClick: () -> Unit, modifier: Modifie
             Spacer(Modifier.width(4.dp))
             Text(
                 "+$extra",
-                style = COUITheme.textStyles.bodyXS,
-                color = COUITheme.colorScheme.labelSecondary,
+                style = MiuixTheme.textStyles.footnote2,
+                color = MiuixTheme.colorScheme.onBackgroundVariant,
             )
         }
     }
@@ -226,13 +226,13 @@ private fun Actions(steering: Boolean, onSteer: () -> Unit, onRemove: () -> Unit
             ActionIcon(
                 ZetaIcons.Bolt,
                 Strings.chatSteerNow(),
-                COUITheme.colorScheme.primary,
+                MiuixTheme.colorScheme.primary,
                 onSteer,
             )
         ActionIcon(
-            COUIIcons.Close,
+            MiuixIcons.Close,
             Strings.chatRemoveQueued(),
-            COUITheme.colorScheme.labelSecondary,
+            MiuixTheme.colorScheme.onBackgroundVariant,
             onRemove,
         )
     }

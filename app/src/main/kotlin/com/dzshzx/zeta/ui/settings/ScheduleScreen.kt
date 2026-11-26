@@ -7,6 +7,7 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.RowScope
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
@@ -15,6 +16,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.key
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
@@ -42,42 +44,41 @@ import com.dzshzx.zeta.i18n.Strings
 import com.dzshzx.zeta.i18n.UiLanguage
 import com.dzshzx.zeta.ui.components.SlideInPage
 import com.dzshzx.zeta.ui.components.StatusWarning
-import com.dzshzx.zeta.ui.components.coui2.ConfirmDialog
-import com.dzshzx.zeta.ui.components.coui2.CouiPage
-import com.dzshzx.zeta.ui.components.coui2.IconActionButton
-import com.dzshzx.zeta.ui.components.coui2.PreferenceGroup
-import com.dzshzx.zeta.ui.components.coui2.PreferenceValue
-import com.dzshzx.zeta.ui.components.coui2.SettingsIcon
-import com.dzshzx.zeta.ui.components.coui2.TextInputDialog
-import com.dzshzx.zeta.ui.components.coui2.ZetaIcons
-import io.github.suqi8.coui.kmp.basic.BasicComponent
-import io.github.suqi8.coui.kmp.basic.BasicComponentDefaults
-import io.github.suqi8.coui.kmp.basic.CalendarPicker
-import io.github.suqi8.coui.kmp.basic.DateValue
-import io.github.suqi8.coui.kmp.basic.InputView
-import io.github.suqi8.coui.kmp.basic.NumberPicker
-import io.github.suqi8.coui.kmp.basic.SegmentButton
-import io.github.suqi8.coui.kmp.basic.Text
-import io.github.suqi8.coui.kmp.basic.TimePicker
-import io.github.suqi8.coui.kmp.basic.TimeValue
-import io.github.suqi8.coui.kmp.basic.ToolbarTextButton
-import io.github.suqi8.coui.kmp.icon.COUIIcons
-import io.github.suqi8.coui.kmp.icon.extended.Add
-import io.github.suqi8.coui.kmp.preference.ArrowPreference
-import io.github.suqi8.coui.kmp.preference.PagerFooterPreference
-import io.github.suqi8.coui.kmp.preference.SwitchPreference
-import io.github.suqi8.coui.kmp.preference.SwitchWithDividerPreference
-import io.github.suqi8.coui.kmp.theme.COUITheme
+import com.dzshzx.zeta.ui.components.miuix.ConfirmDialog
+import com.dzshzx.zeta.ui.components.miuix.FieldGroup
+import com.dzshzx.zeta.ui.components.miuix.IconActionButton
+import com.dzshzx.zeta.ui.components.miuix.MiuixPage
+import com.dzshzx.zeta.ui.components.miuix.PreferenceGroup
+import com.dzshzx.zeta.ui.components.miuix.PreferenceValue
+import com.dzshzx.zeta.ui.components.miuix.SettingsIcon
+import com.dzshzx.zeta.ui.components.miuix.SwitchWithDividerPreference
+import com.dzshzx.zeta.ui.components.miuix.TextField
+import com.dzshzx.zeta.ui.components.miuix.TextInputDialog
+import com.dzshzx.zeta.ui.components.miuix.TopBarTextButton
+import com.dzshzx.zeta.ui.components.miuix.ZetaIcons
 import java.time.DayOfWeek
 import java.time.Instant
 import java.time.LocalDate
 import java.time.LocalTime
+import java.time.Month
+import java.time.YearMonth
 import java.time.ZoneId
 import java.time.format.DateTimeFormatter
+import java.time.format.TextStyle
 import java.util.Locale
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+import top.yukonga.miuix.kmp.basic.BasicComponent
+import top.yukonga.miuix.kmp.basic.BasicComponentDefaults
+import top.yukonga.miuix.kmp.basic.NumberPicker
+import top.yukonga.miuix.kmp.basic.TabRowWithContour
+import top.yukonga.miuix.kmp.basic.Text
+import top.yukonga.miuix.kmp.icon.MiuixIcons
+import top.yukonga.miuix.kmp.icon.extended.Add
+import top.yukonga.miuix.kmp.preference.ArrowPreference
+import top.yukonga.miuix.kmp.preference.SwitchPreference
+import top.yukonga.miuix.kmp.theme.MiuixTheme
 
 /** 设备页上的入口：主机 [backend] 上的定时任务开着几个、下一次什么时候。 */
 @Composable
@@ -126,12 +127,12 @@ internal fun ScheduleScreen(
     val zone = ZoneId.systemDefault()
     val now = Instant.now()
 
-    CouiPage(
+    MiuixPage(
         title = Strings.settingsTitleSchedules(),
         onBack = onBack,
         actions = {
             IconActionButton(
-                COUIIcons.Add,
+                MiuixIcons.Add,
                 Strings.settingsScheduleNew(),
                 enabled = total < Schedules.MAX_TASKS,
             ) {
@@ -292,12 +293,12 @@ private fun TaskEditor(
         onBack()
     }
 
-    CouiPage(
+    MiuixPage(
         title =
             if (original == null) Strings.settingsScheduleNew() else Strings.settingsScheduleEdit(),
         onBack = onBack,
         actions = {
-            ToolbarTextButton(
+            TopBarTextButton(
                 text = Strings.commonSave(),
                 enabled = problem == null,
                 onClick = ::save,
@@ -327,23 +328,21 @@ private fun TaskEditor(
     ) {
         // 名称是跑完那条通知的标题，也是每次运行那个对话的名字；指令到点时原样发给 Claude，和在输入框里发的一样
         item(key = "name") {
-            FieldCard {
-                InputView(
+            FieldGroup(title = Strings.settingsScheduleName()) {
+                TextField(
                     value = name,
                     onValueChange = { name = it.take(Schedules.MAX_NAME) },
-                    title = Strings.settingsScheduleName(),
                     label = Strings.settingsScheduleNameHint(),
+                    singleLine = true,
                 )
             }
         }
         item(key = "prompt") {
-            FieldCard {
-                InputView(
+            FieldGroup(title = Strings.settingsSchedulePrompt()) {
+                TextField(
                     value = prompt,
                     onValueChange = { prompt = it },
-                    title = Strings.settingsSchedulePrompt(),
                     label = Strings.settingsSchedulePromptHint(),
-                    singleLine = false,
                     maxLines = 10,
                 )
             }
@@ -541,10 +540,10 @@ private fun TaskTimeGroup(
     PreferenceGroup(title = Strings.settingsScheduleTime(), footer = footer) {
         item(key = "kind") {
             Box(Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 12.dp)) {
-                SegmentButton(
-                    items = RuleKind.entries.map { it.label },
-                    selectedIndex = kind.ordinal,
-                    onSelectedIndexChange = { index ->
+                TabRowWithContour(
+                    tabs = RuleKind.entries.map { it.label },
+                    selectedTabIndex = kind.ordinal,
+                    onTabSelected = { index ->
                         RuleKind.entries.getOrNull(index)?.let(onKind)
                     },
                     modifier = Modifier.fillMaxWidth(),
@@ -663,7 +662,7 @@ private fun TaskRecordGroup(
                 title = Strings.settingsScheduleRunNow(),
                 summary = runNowSummary(running, original.onlyOnChange, runMessage),
                 titleColor =
-                    BasicComponentDefaults.titleColor(color = COUITheme.colorScheme.primary),
+                    BasicComponentDefaults.titleColor(color = MiuixTheme.colorScheme.primary),
                 enabled = !running,
                 onClick = onRunNow,
             )
@@ -800,7 +799,7 @@ internal fun LastRunRow(
                 .orEmpty()
     val summaryColor =
         if (run.outcome == RunOutcome.Failed) {
-            BasicComponentDefaults.summaryColor(color = COUITheme.colorScheme.error)
+            BasicComponentDefaults.summaryColor(color = MiuixTheme.colorScheme.error)
         } else {
             BasicComponentDefaults.summaryColor()
         }
@@ -816,20 +815,6 @@ internal fun LastRunRow(
         )
     } else {
         BasicComponent(title = title, summary = summary, summaryColor = summaryColor)
-    }
-}
-
-/** 编辑页里的一个输入框（COUI 的卡片输入 InputView，标题在卡片里）和它下面的说明， 左右和设置分组的卡片对齐，和下一张卡片隔 16dp。 */
-@Composable
-internal fun FieldCard(footer: String? = null, field: @Composable () -> Unit) {
-    Column {
-        Box(
-            Modifier.padding(horizontal = 16.dp)
-                .padding(top = 8.dp, bottom = if (footer == null) 16.dp else 0.dp),
-        ) {
-            field()
-        }
-        if (footer != null) PagerFooterPreference(summary = footer)
     }
 }
 
@@ -855,7 +840,7 @@ private fun dateText(date: LocalDate): String {
 /** 一周七天的小圆钮，可以多选。 */
 @Composable
 private fun WeekdayPicker(days: Set<DayOfWeek>, onChange: (Set<DayOfWeek>) -> Unit) {
-    val colors = COUITheme.colorScheme
+    val colors = MiuixTheme.colorScheme
     Row(
         modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 10.dp),
         horizontalArrangement = Arrangement.SpaceBetween,
@@ -867,7 +852,7 @@ private fun WeekdayPicker(days: Set<DayOfWeek>, onChange: (Set<DayOfWeek>) -> Un
                     Modifier.size(38.dp)
                         .clip(CircleShape)
                         .background(
-                            if (selected) colors.primary else colors.secondaryButton,
+                            if (selected) colors.primary else colors.secondaryVariant,
                             CircleShape,
                         )
                         .clickable { onChange(if (selected) days - day else days + day) },
@@ -875,15 +860,15 @@ private fun WeekdayPicker(days: Set<DayOfWeek>, onChange: (Set<DayOfWeek>) -> Un
             ) {
                 Text(
                     text = Schedules.dayShort(day),
-                    style = COUITheme.textStyles.bodyM,
-                    color = if (selected) colors.onPrimary else colors.labelPrimary,
+                    style = MiuixTheme.textStyles.body2,
+                    color = if (selected) colors.onPrimary else colors.onBackground,
                 )
             }
         }
     }
 }
 
-/** 选时间（时、分）的对话框。放在页面的 dialogs 里。 */
+/** 选时间（时、分）的对话框：两列滚轮，各自循环滚动。放在页面的 dialogs 里。 */
 @Composable
 internal fun TimeDialog(
     visible: Boolean,
@@ -891,25 +876,40 @@ internal fun TimeDialog(
     onConfirm: (LocalTime) -> Unit,
     onDismiss: () -> Unit,
 ) {
-    var value by remember(visible) { mutableStateOf(TimeValue(initial.hour, initial.minute)) }
+    var hour by remember(visible) { mutableIntStateOf(initial.hour) }
+    var minute by remember(visible) { mutableIntStateOf(initial.minute) }
     ConfirmDialog(
         show = visible,
         title = Strings.settingsSchedulePickTime(),
         summary = null,
         confirmText = Strings.commonOk(),
-        onConfirm = { onConfirm(LocalTime.of(value.hour, value.minute)) },
+        onConfirm = { onConfirm(LocalTime.of(hour, minute)) },
         onDismissRequest = onDismiss,
     ) {
-        TimePicker(
-            value = value,
-            onValueChange = { value = it },
-            modifier = Modifier.fillMaxWidth(),
-            hourUnit = Strings.settingsScheduleHourUnit(),
-            minuteUnit = Strings.settingsScheduleMinuteUnit(),
-        )
+        Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+            WheelColumn(
+                value = hour,
+                onValueChange = { hour = it },
+                range = 0..23,
+                unit = Strings.settingsScheduleHourUnit(),
+                wrapAround = true,
+                label = ::twoDigits,
+            )
+            WheelColumn(
+                value = minute,
+                onValueChange = { minute = it },
+                range = 0..59,
+                unit = Strings.settingsScheduleMinuteUnit(),
+                wrapAround = true,
+                label = ::twoDigits,
+            )
+        }
     }
 }
 
+private fun twoDigits(value: Int) = value.toString().padStart(2, '0')
+
+/** 选日期的对话框：年、月、日三列滚轮，只能选今天到五年后；说明一行是选中的日期和星期。 */
 @Composable
 private fun DateDialog(
     visible: Boolean,
@@ -918,26 +918,50 @@ private fun DateDialog(
     onDismiss: () -> Unit,
 ) {
     val today = LocalDate.now()
-    var value by remember(visible) { mutableStateOf(maxOf(initial, today)) }
+    val last = today.plusYears(5)
+    var value by remember(visible) { mutableStateOf(initial.coerceIn(today, last)) }
+    // 换了年或月，日子超出新的月份（或超出可选的范围）时落到最近的一天
+    fun pick(year: Int, month: Int, day: Int) {
+        val length = YearMonth.of(year, month).lengthOfMonth()
+        value = LocalDate.of(year, month, day.coerceAtMost(length)).coerceIn(today, last)
+    }
+    val locale = Locale.forLanguageTag(UiLanguage.current)
+    val firstMonth = if (value.year == today.year) today.monthValue else 1
+    val lastMonth = if (value.year == last.year) last.monthValue else 12
+    val firstDay =
+        if (value.year == today.year && value.monthValue == today.monthValue) today.dayOfMonth
+        else 1
+    val lastDay =
+        if (value.year == last.year && value.monthValue == last.monthValue) last.dayOfMonth
+        else value.lengthOfMonth()
     ConfirmDialog(
         show = visible,
         title = Strings.settingsSchedulePickDate(),
-        summary = null,
+        summary = dateText(value),
         confirmText = Strings.commonOk(),
         onConfirm = { onConfirm(value) },
         onDismissRequest = onDismiss,
     ) {
-        CalendarPicker(
-            value = value.toDateValue(),
-            onValueChange = { value = LocalDate.of(it.year, it.month, it.day) },
-            minDate = today.toDateValue(),
-            maxDate = today.plusYears(5).toDateValue(),
-            today = today.toDateValue(),
-        )
+        Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+            WheelColumn(
+                value = value.year,
+                onValueChange = { pick(it, value.monthValue, value.dayOfMonth) },
+                range = today.year..last.year,
+            )
+            WheelColumn(
+                value = value.monthValue,
+                onValueChange = { pick(value.year, it, value.dayOfMonth) },
+                range = firstMonth..lastMonth,
+                label = { Month.of(it).getDisplayName(TextStyle.SHORT, locale) },
+            )
+            WheelColumn(
+                value = value.dayOfMonth,
+                onValueChange = { pick(value.year, value.monthValue, it) },
+                range = firstDay..lastDay,
+            )
+        }
     }
 }
-
-private fun LocalDate.toDateValue() = DateValue(year, monthValue, dayOfMonth)
 
 @Composable
 private fun HoursDialog(
@@ -947,7 +971,9 @@ private fun HoursDialog(
     onDismiss: () -> Unit,
 ) {
     var value by
-        remember(visible) { mutableStateOf(initial.coerceIn(1, ScheduleRule.MAX_INTERVAL_HOURS)) }
+        remember(visible) {
+            mutableIntStateOf(initial.coerceIn(1, ScheduleRule.MAX_INTERVAL_HOURS))
+        }
     ConfirmDialog(
         show = visible,
         title = Strings.settingsSchedulePickHours(),
@@ -956,14 +982,43 @@ private fun HoursDialog(
         onConfirm = { onConfirm(value) },
         onDismissRequest = onDismiss,
     ) {
+        Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+            WheelColumn(
+                value = value,
+                onValueChange = { value = it },
+                range = 1..ScheduleRule.MAX_INTERVAL_HOURS,
+                unit = Strings.settingsScheduleHoursUnit(),
+            )
+        }
+    }
+}
+
+/** 选择对话框里的一列滚轮（Miuix 的 NumberPicker），[unit] 是选中行右边的单位，几列在一行里平分宽度。 */
+@Composable
+private fun RowScope.WheelColumn(
+    value: Int,
+    onValueChange: (Int) -> Unit,
+    range: IntRange,
+    unit: String? = null,
+    wrapAround: Boolean = false,
+    label: (Int) -> String = { it.toString() },
+) {
+    Row(Modifier.weight(1f), verticalAlignment = Alignment.CenterVertically) {
         NumberPicker(
             value = value,
-            onValueChange = { value = it },
-            modifier = Modifier.fillMaxWidth(),
-            range = 1..ScheduleRule.MAX_INTERVAL_HOURS,
-            unit = Strings.settingsScheduleHoursUnit(),
-            wrapAround = false,
+            onValueChange = onValueChange,
+            modifier = Modifier.weight(1f),
+            range = range,
+            label = label,
+            wrapAround = wrapAround,
         )
+        if (unit != null) {
+            Text(
+                text = unit,
+                style = MiuixTheme.textStyles.body2,
+                color = MiuixTheme.colorScheme.onSurfaceVariantSummary,
+            )
+        }
     }
 }
 

@@ -44,15 +44,15 @@ import com.dzshzx.zeta.ui.components.AsleepFrameAlpha
 import com.dzshzx.zeta.ui.components.FrameRate
 import com.dzshzx.zeta.ui.components.LiveFrames
 import com.dzshzx.zeta.ui.components.drawFrame
-import io.github.suqi8.coui.kmp.basic.ButtonDefaults
-import io.github.suqi8.coui.kmp.basic.Text
-import io.github.suqi8.coui.kmp.basic.TextButton
-import io.github.suqi8.coui.kmp.icon.COUIIcons
-import io.github.suqi8.coui.kmp.icon.extended.Close
-import io.github.suqi8.coui.kmp.icon.extended.ExpandMore
-import io.github.suqi8.coui.kmp.squircle.SquircleShape
-import io.github.suqi8.coui.kmp.theme.COUIRoundCorner
-import io.github.suqi8.coui.kmp.theme.COUITheme
+import com.dzshzx.zeta.ui.components.miuix.SquircleShape
+import com.dzshzx.zeta.ui.components.miuix.ZetaCorner
+import top.yukonga.miuix.kmp.basic.ButtonDefaults
+import top.yukonga.miuix.kmp.basic.Text
+import top.yukonga.miuix.kmp.basic.TextButton
+import top.yukonga.miuix.kmp.icon.MiuixIcons
+import top.yukonga.miuix.kmp.icon.extended.Close
+import top.yukonga.miuix.kmp.icon.extended.ExpandMore
+import top.yukonga.miuix.kmp.theme.MiuixTheme
 
 /** 输入卡片上方的“后台屏幕”条：这个对话的后台屏幕在用时出现，带实时缩略图和上面的应用名。 休眠时缩略图是休眠前那一帧，调暗显示。点它打开全屏查看（会唤醒）；右边是“移到主屏”和“关闭”。 */
 @Composable
@@ -63,7 +63,7 @@ internal fun AgentDisplayStrip(
 ) {
     val screen = phone.agentDisplay ?: return
     val asleep by screen.asleep.collectAsState()
-    val colors = COUITheme.colorScheme
+    val colors = MiuixTheme.colorScheme
     val shape = remember { SquircleShape(ChatStripCorner) }
     Row(
         modifier =
@@ -81,42 +81,42 @@ internal fun AgentDisplayStrip(
             modifier =
                 Modifier.height(40.dp)
                     .aspectRatio(screen.width / screen.height.toFloat())
-                    .clip(RoundedCornerShape(COUIRoundCorner.XS)),
+                    .clip(RoundedCornerShape(ZetaCorner.XS)),
         )
         Spacer(Modifier.width(10.dp))
         Column(Modifier.weight(1f)) {
             Row(verticalAlignment = Alignment.CenterVertically) {
-                val accent = if (asleep) colors.labelSecondary else colors.primary
+                val accent = if (asleep) colors.onBackgroundVariant else colors.primary
                 Box(Modifier.size(6.dp).clip(CircleShape).background(accent))
                 Spacer(Modifier.width(6.dp))
                 Text(
                     text =
                         if (asleep) Strings.chatAgentDisplayAsleep()
                         else Strings.chatAgentDisplay(),
-                    style = COUITheme.textStyles.bodyS,
+                    style = MiuixTheme.textStyles.footnote1,
                     fontWeight = FontWeight.Medium,
                     color = accent,
                 )
             }
             Text(
                 text = phone.agentDisplayApp ?: Strings.chatNoAppOpen(),
-                style = COUITheme.textStyles.bodyM,
-                color = colors.labelPrimary,
+                style = MiuixTheme.textStyles.body2,
+                color = colors.onBackground,
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis,
             )
         }
-        ActionIcon(COUIIcons.ExpandMore, Strings.chatMoveToMain(), colors.primary) {
+        ActionIcon(MiuixIcons.ExpandMore, Strings.chatMoveToMain(), colors.primary) {
             phone.moveToMainByUser()
         }
-        ActionIcon(COUIIcons.Close, Strings.chatCloseAgentDisplay(), colors.labelSecondary) {
+        ActionIcon(MiuixIcons.Close, Strings.chatCloseAgentDisplay(), colors.onBackgroundVariant) {
             phone.closeAgentDisplayByUser()
         }
     }
 }
 
 /**
- * 全屏查看后台屏幕的实时画面（只能看）。开着时后台屏幕保持醒着（在休眠就唤醒，关掉后睡回去）。后台屏幕没了自动关闭。 是一个全屏的黑底窗口，像看图那样，不随深浅色变；COUI
+ * 全屏查看后台屏幕的实时画面（只能看）。开着时后台屏幕保持醒着（在休眠就唤醒，关掉后睡回去）。后台屏幕没了自动关闭。 是一个全屏的黑底窗口，像看图那样，不随深浅色变；Miuix
  * 没有这种全屏查看器，窗口照旧用 Compose 的 Dialog。
  */
 @Composable
@@ -141,18 +141,18 @@ internal fun AgentDisplayViewer(phone: PhoneTools, onDismiss: () -> Unit) {
                 Column(Modifier.weight(1f)) {
                     Text(
                         Strings.chatAgentDisplay(),
-                        style = COUITheme.textStyles.bodyS,
+                        style = MiuixTheme.textStyles.footnote1,
                         color = Color.White.copy(alpha = 0.7f),
                     )
                     Text(
                         text = phone.agentDisplayApp ?: Strings.chatNoAppOpen(),
-                        style = COUITheme.textStyles.headlineXS,
+                        style = MiuixTheme.textStyles.headline2,
                         color = Color.White,
                         maxLines = 1,
                         overflow = TextOverflow.Ellipsis,
                     )
                 }
-                ActionIcon(COUIIcons.Close, Strings.chatCloseView(), Color.White, onDismiss)
+                ActionIcon(MiuixIcons.Close, Strings.chatCloseView(), Color.White, onDismiss)
             }
             Box(
                 Modifier.weight(1f).fillMaxWidth().padding(vertical = 12.dp),
@@ -164,11 +164,11 @@ internal fun AgentDisplayViewer(phone: PhoneTools, onDismiss: () -> Unit) {
                     keepAwake = true,
                     modifier =
                         Modifier.aspectRatio(screen.width / screen.height.toFloat())
-                            .clip(RoundedCornerShape(COUIRoundCorner.L))
+                            .clip(RoundedCornerShape(ZetaCorner.L))
                             .border(
                                 0.5.dp,
                                 Color.White.copy(alpha = 0.2f),
-                                RoundedCornerShape(COUIRoundCorner.L),
+                                RoundedCornerShape(ZetaCorner.L),
                             ),
                 )
             }
@@ -181,7 +181,7 @@ internal fun AgentDisplayViewer(phone: PhoneTools, onDismiss: () -> Unit) {
                     },
                     modifier = Modifier.weight(1f),
                     colors =
-                        ButtonDefaults.textButtonColors(textColor = COUITheme.colorScheme.error),
+                        ButtonDefaults.textButtonColors(textColor = MiuixTheme.colorScheme.error),
                 )
                 TextButton(
                     text = Strings.chatMoveToMain(),

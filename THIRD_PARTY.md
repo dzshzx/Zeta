@@ -17,9 +17,9 @@ Zeta 本身按 GPL-3.0 授权（[LICENSE](LICENSE)），Copyright © 2026 dzshzx
 
 | 版本 | 许可证 | 上游 |
 |---|---|---|
-| 2026-11-21 | GPL-3.0-only | https://github.com/Mangi-11/Eta |
+| 2026-11-25 | GPL-3.0-only | https://github.com/Mangi-11/Eta |
 
-Zeta 的 Markdown 渲染（ui/markdown）、侧栏骨架、自适应页面布局、等宽字体的定义、对话框的接口和数字助理的浮窗是从 Eta 拷来再改写的，按 GPL-3.0 使用；所以 Zeta 也按 GPL-3.0 发布。
+Zeta 的 Markdown 渲染（ui/markdown）、侧栏骨架、自适应页面布局、等宽字体的定义、对话框的接口、数字助理的浮窗和定时任务的时间滚轮是从 Eta 拷来再改写的，按 GPL-3.0 使用；所以 Zeta 也按 GPL-3.0 发布。
 
     Copyright © 2026 蛮吉 (Mangi-11)
 
@@ -46,7 +46,7 @@ Zeta 的 Markdown 渲染（ui/markdown）、侧栏骨架、自适应页面布局
 - `shared/src/commonMain/kotlin/com/dzshzx/zeta/ui/components/ConversationSidePaneScaffold.kt`
 - `shared/src/commonMain/kotlin/com/dzshzx/zeta/ui/layout/AdaptivePageLayout.kt`
 - `shared/src/commonMain/kotlin/com/dzshzx/zeta/ui/components/MonoFont.kt`
-- `shared/src/commonMain/kotlin/com/dzshzx/zeta/ui/components/coui2/Dialogs.kt`
+- `shared/src/commonMain/kotlin/com/dzshzx/zeta/ui/components/miuix/Dialogs.kt`
 - `app/src/main/kotlin/com/dzshzx/zeta/ui/markdown/MarkdownMathContent.kt`
 - `app/src/main/kotlin/com/dzshzx/zeta/ui/markdown/RaTeXMath.kt`
 - `app/src/main/kotlin/com/dzshzx/zeta/assistant/AssistantPanel.kt`
@@ -55,6 +55,21 @@ Zeta 的 Markdown 渲染（ui/markdown）、侧栏骨架、自适应页面布局
 - `app/src/main/kotlin/com/dzshzx/zeta/assistant/AssistantSuggestionRow.kt`
 - `app/src/main/kotlin/com/dzshzx/zeta/assistant/AssistantEdgeGlow.kt`
 - `app/src/main/kotlin/com/dzshzx/zeta/assistant/AssistantReply.kt`
+- `app/src/main/kotlin/com/dzshzx/zeta/ui/settings/ScheduleScreen.kt`
+
+### COUI 2
+
+| 版本 | 许可证 | 上游 |
+|---|---|---|
+| 2.1.0 | Apache-2.0 | https://github.com/suqi8/coui |
+
+长按菜单的手势处理（按住不动满长按时长才弹菜单、不吃掉普通点按）是从 COUI 2 拷来再改写的，按 Apache-2.0 使用。
+
+    Copyright 2026, compose-coui-ui contributors
+
+文件：
+
+- `shared/src/commonMain/kotlin/com/dzshzx/zeta/ui/components/miuix/LongPressMenu.kt`
 
 ### JetBrains Mono NL
 
@@ -192,64 +207,40 @@ Go 团队维护的加密库，zeta-ssh 用它的 SSH 客户端直连远程主机
 | Android App Startup Runtime | 1.1.1 | Apache-2.0 | `androidx.startup:startup-runtime` | https://cs.android.com/androidx/platform/frameworks/support |
 | Android Arch-Common | 2.2.0 | Apache-2.0 | `androidx.arch.core:core-common` | https://cs.android.com/androidx/platform/frameworks/support |
 | Android Arch-Runtime | 2.2.0 | Apache-2.0 | `androidx.arch.core:core-runtime` | https://cs.android.com/androidx/platform/frameworks/support |
-| Android Graphics Path | 1.0.1 | Apache-2.0 | `androidx.graphics:graphics-path` | https://cs.android.com/androidx/platform/frameworks/support |
-| Android Support DynamicAnimation | 1.0.0 | Apache-2.0 | `androidx.dynamicanimation:dynamicanimation` | http://source.android.com |
-| Android Support Library core utils | 1.0.0 | Apache-2.0 | `androidx.legacy:legacy-support-core-utils` | http://source.android.com |
-| Android Support Library Document File | 1.0.0 | Apache-2.0 | `androidx.documentfile:documentfile` | http://source.android.com |
+| Android Graphics Path | 1.1.0 | Apache-2.0 | `androidx.graphics:graphics-path` | https://cs.android.com/androidx/platform/frameworks/support |
 | Android Support Library Interpolators | 1.0.0 | Apache-2.0 | `androidx.interpolator:interpolator` | http://source.android.com |
-| Android Support Library loader | 1.0.0 | Apache-2.0 | `androidx.loader:loader` | http://source.android.com |
-| Android Support Library Local Broadcast Manager | 1.0.0 | Apache-2.0 | `androidx.localbroadcastmanager:localbroadcastmanager` | http://source.android.com |
-| Android Support Library Print | 1.0.0 | Apache-2.0 | `androidx.print:print` | http://source.android.com |
 | Android Tracing | 1.2.0 | Apache-2.0 | `androidx.tracing:tracing` | https://cs.android.com/androidx/platform/frameworks/support |
 | AndroidX Autofill | 1.0.0 | Apache-2.0 | `androidx.autofill:autofill` | http://source.android.com |
 | AndroidX Futures | 1.1.0 | Apache-2.0 | `androidx.concurrent:concurrent-futures` | http://source.android.com |
 | androidx.core:core-viewtree | 1.0.0 | Apache-2.0 | `androidx.core:core-viewtree` | https://cs.android.com/androidx/platform/frameworks/support |
 | androidx.customview:poolingcontainer | 1.0.0 | Apache-2.0 | `androidx.customview:customview-poolingcontainer` | https://cs.android.com/androidx/platform/frameworks/support |
-| Annotation | 1.9.1 | Apache-2.0 | `androidx.annotation:annotation`<br>`androidx.annotation:annotation-jvm` | https://cs.android.com/androidx/platform/frameworks/support |
+| Annotation | 1.10.0 | Apache-2.0 | `androidx.annotation:annotation`<br>`androidx.annotation:annotation-jvm` | https://cs.android.com/androidx/platform/frameworks/support |
 | Checker Qual | 3.33.0 | MIT | `org.checkerframework:checker-qual` | https://github.com/typetools/checker-framework.git |
-| collections | 1.5.0 | Apache-2.0 | `androidx.collection:collection`<br>`androidx.collection:collection-jvm` | https://cs.android.com/androidx/platform/frameworks/support |
-| Collections Kotlin Extensions | 1.5.0 | Apache-2.0 | `androidx.collection:collection-ktx` | https://cs.android.com/androidx/platform/frameworks/support |
-| Compose Animation | 1.11.1 | Apache-2.0 | `org.jetbrains.compose.animation:animation` | https://github.com/JetBrains/compose-multiplatform |
-| Compose Animation | 1.11.2 | Apache-2.0 | `androidx.compose.animation:animation`<br>`androidx.compose.animation:animation-android` | https://cs.android.com/androidx/platform/frameworks/support |
-| Compose Animation Core | 1.11.1 | Apache-2.0 | `org.jetbrains.compose.animation:animation-core` | https://github.com/JetBrains/compose-multiplatform |
-| Compose Animation Core | 1.11.2 | Apache-2.0 | `androidx.compose.animation:animation-core`<br>`androidx.compose.animation:animation-core-android` | https://cs.android.com/androidx/platform/frameworks/support |
-| Compose Foundation | 1.11.1 | Apache-2.0 | `org.jetbrains.compose.foundation:foundation` | https://github.com/JetBrains/compose-multiplatform |
-| Compose Foundation | 1.11.2 | Apache-2.0 | `androidx.compose.foundation:foundation`<br>`androidx.compose.foundation:foundation-android` | https://cs.android.com/androidx/platform/frameworks/support |
-| Compose Geometry | 1.11.1 | Apache-2.0 | `org.jetbrains.compose.ui:ui-geometry` | https://github.com/JetBrains/compose-multiplatform |
-| Compose Geometry | 1.11.2 | Apache-2.0 | `androidx.compose.ui:ui-geometry`<br>`androidx.compose.ui:ui-geometry-android` | https://cs.android.com/androidx/platform/frameworks/support |
-| Compose Graphics | 1.11.1 | Apache-2.0 | `org.jetbrains.compose.ui:ui-graphics` | https://github.com/JetBrains/compose-multiplatform |
-| Compose Graphics | 1.11.2 | Apache-2.0 | `androidx.compose.ui:ui-graphics`<br>`androidx.compose.ui:ui-graphics-android` | https://cs.android.com/androidx/platform/frameworks/support |
-| Compose Layouts | 1.11.1 | Apache-2.0 | `org.jetbrains.compose.foundation:foundation-layout` | https://github.com/JetBrains/compose-multiplatform |
-| Compose Layouts | 1.11.2 | Apache-2.0 | `androidx.compose.foundation:foundation-layout`<br>`androidx.compose.foundation:foundation-layout-android` | https://cs.android.com/androidx/platform/frameworks/support |
-| Compose Material 3 Window Size Class | 1.4.0 | Apache-2.0 | `androidx.compose.material3:material3-window-size-class`<br>`androidx.compose.material3:material3-window-size-class-android` | https://cs.android.com/androidx/platform/frameworks/support |
-| Compose Material 3 Window Size Class | 1.9.0 | Apache-2.0 | `org.jetbrains.compose.material3:material3-window-size-class` | https://github.com/JetBrains/compose-jb |
-| Compose Runtime | 1.11.1 | Apache-2.0 | `org.jetbrains.compose.runtime:runtime` | https://github.com/JetBrains/compose-multiplatform |
-| Compose Runtime | 1.11.2 | Apache-2.0 | `androidx.compose.runtime:runtime`<br>`androidx.compose.runtime:runtime-android` | https://cs.android.com/androidx/platform/frameworks/support |
-| Compose Runtime Annotation | 1.11.2 | Apache-2.0 | `androidx.compose.runtime:runtime-annotation`<br>`androidx.compose.runtime:runtime-annotation-android` | https://cs.android.com/androidx/platform/frameworks/support |
-| Compose Runtime Retain | 1.11.2 | Apache-2.0 | `androidx.compose.runtime:runtime-retain`<br>`androidx.compose.runtime:runtime-retain-android` | https://cs.android.com/androidx/platform/frameworks/support |
-| Compose Saveable | 1.11.1 | Apache-2.0 | `org.jetbrains.compose.runtime:runtime-saveable` | https://github.com/JetBrains/compose-multiplatform |
-| Compose Saveable | 1.11.2 | Apache-2.0 | `androidx.compose.runtime:runtime-saveable`<br>`androidx.compose.runtime:runtime-saveable-android` | https://cs.android.com/androidx/platform/frameworks/support |
-| Compose UI | 1.11.1 | Apache-2.0 | `org.jetbrains.compose.ui:ui` | https://github.com/JetBrains/compose-multiplatform |
-| Compose UI | 1.11.2 | Apache-2.0 | `androidx.compose.ui:ui`<br>`androidx.compose.ui:ui-android` | https://cs.android.com/androidx/platform/frameworks/support |
-| Compose UI Text | 1.11.1 | Apache-2.0 | `org.jetbrains.compose.ui:ui-text` | https://github.com/JetBrains/compose-multiplatform |
-| Compose UI Text | 1.11.2 | Apache-2.0 | `androidx.compose.ui:ui-text`<br>`androidx.compose.ui:ui-text-android` | https://cs.android.com/androidx/platform/frameworks/support |
-| Compose Unit | 1.11.1 | Apache-2.0 | `org.jetbrains.compose.ui:ui-unit` | https://github.com/JetBrains/compose-multiplatform |
-| Compose Unit | 1.11.2 | Apache-2.0 | `androidx.compose.ui:ui-unit`<br>`androidx.compose.ui:ui-unit-android` | https://cs.android.com/androidx/platform/frameworks/support |
-| Compose Util | 1.11.1 | Apache-2.0 | `org.jetbrains.compose.ui:ui-util` | https://github.com/JetBrains/compose-multiplatform |
-| Compose Util | 1.11.2 | Apache-2.0 | `androidx.compose.ui:ui-util`<br>`androidx.compose.ui:ui-util-android` | https://cs.android.com/androidx/platform/frameworks/support |
-| Core | 1.18.0 | Apache-2.0 | `androidx.core:core` | https://cs.android.com/androidx/platform/frameworks/support |
-| Core Kotlin Extensions | 1.18.0 | Apache-2.0 | `androidx.core:core-ktx` | https://cs.android.com/androidx/platform/frameworks/support |
-| coui-blur | 2.1.0 | Apache-2.0 | `io.github.suqi8.coui.kmp:coui-blur`<br>`io.github.suqi8.coui.kmp:coui-blur-android` | https://github.com/suqi8/coui |
-| coui-core | 2.1.0 | Apache-2.0 | `io.github.suqi8.coui.kmp:coui-core`<br>`io.github.suqi8.coui.kmp:coui-core-android` | https://github.com/suqi8/coui |
-| coui-icons | 2.1.0 | Apache-2.0 | `io.github.suqi8.coui.kmp:coui-icons`<br>`io.github.suqi8.coui.kmp:coui-icons-android` | https://github.com/suqi8/coui |
-| coui-preference | 2.1.0 | Apache-2.0 | `io.github.suqi8.coui.kmp:coui-preference`<br>`io.github.suqi8.coui.kmp:coui-preference-android` | https://github.com/suqi8/coui |
-| coui-shader | 2.1.0 | Apache-2.0 | `io.github.suqi8.coui.kmp:coui-shader`<br>`io.github.suqi8.coui.kmp:coui-shader-android` | https://github.com/suqi8/coui |
-| coui-squircle | 2.1.0 | Apache-2.0 | `io.github.suqi8.coui.kmp:coui-squircle`<br>`io.github.suqi8.coui.kmp:coui-squircle-android` | https://github.com/suqi8/coui |
-| coui-ui | 2.1.0 | Apache-2.0 | `io.github.suqi8.coui.kmp:coui-ui`<br>`io.github.suqi8.coui.kmp:coui-ui-android` | https://github.com/suqi8/coui |
-| Emoji2 | 1.4.0 | Apache-2.0 | `androidx.emoji2:emoji2` | https://cs.android.com/androidx/platform/frameworks/support |
+| collections | 1.6.0 | Apache-2.0 | `androidx.collection:collection`<br>`androidx.collection:collection-jvm` | https://cs.android.com/androidx/platform/frameworks/support |
+| Collections Kotlin Extensions | 1.6.0 | Apache-2.0 | `androidx.collection:collection-ktx` | https://cs.android.com/androidx/platform/frameworks/support |
+| Compose Animation | 1.13.0-rc01 | Apache-2.0 | `androidx.compose.animation:animation`<br>`androidx.compose.animation:animation-android`<br>`org.jetbrains.compose.animation:animation`<br>`org.jetbrains.compose.animation:animation-android` | https://cs.android.com/androidx/platform/frameworks/support |
+| Compose Animation Core | 1.13.0-rc01 | Apache-2.0 | `androidx.compose.animation:animation-core`<br>`androidx.compose.animation:animation-core-android`<br>`org.jetbrains.compose.animation:animation-core`<br>`org.jetbrains.compose.animation:animation-core-android` | https://cs.android.com/androidx/platform/frameworks/support |
+| Compose Foundation | 1.13.0-rc01 | Apache-2.0 | `androidx.compose.foundation:foundation`<br>`androidx.compose.foundation:foundation-android`<br>`org.jetbrains.compose.foundation:foundation`<br>`org.jetbrains.compose.foundation:foundation-android` | https://cs.android.com/androidx/platform/frameworks/support |
+| Compose Geometry | 1.13.0-rc01 | Apache-2.0 | `androidx.compose.ui:ui-geometry`<br>`androidx.compose.ui:ui-geometry-android`<br>`org.jetbrains.compose.ui:ui-geometry`<br>`org.jetbrains.compose.ui:ui-geometry-android` | https://cs.android.com/androidx/platform/frameworks/support |
+| Compose Graphics | 1.13.0-rc01 | Apache-2.0 | `androidx.compose.ui:ui-graphics`<br>`androidx.compose.ui:ui-graphics-android`<br>`org.jetbrains.compose.ui:ui-graphics`<br>`org.jetbrains.compose.ui:ui-graphics-android` | https://cs.android.com/androidx/platform/frameworks/support |
+| Compose Layouts | 1.13.0-rc01 | Apache-2.0 | `androidx.compose.foundation:foundation-layout`<br>`androidx.compose.foundation:foundation-layout-android`<br>`org.jetbrains.compose.foundation:foundation-layout`<br>`org.jetbrains.compose.foundation:foundation-layout-android` | https://cs.android.com/androidx/platform/frameworks/support |
+| Compose Material 3 Window Size Class | 1.12.0-alpha03 | Apache-2.0 | `org.jetbrains.compose.material3:material3-window-size-class`<br>`org.jetbrains.compose.material3:material3-window-size-class-android` | https://github.com/JetBrains/compose-multiplatform |
+| Compose Material 3 Window Size Class | 1.5.0-alpha22 | Apache-2.0 | `androidx.compose.material3:material3-window-size-class`<br>`androidx.compose.material3:material3-window-size-class-android` | https://cs.android.com/androidx/platform/frameworks/support |
+| Compose Runtime | 1.13.0-rc01 | Apache-2.0 | `androidx.compose.runtime:runtime`<br>`androidx.compose.runtime:runtime-android`<br>`org.jetbrains.compose.runtime:runtime`<br>`org.jetbrains.compose.runtime:runtime-android` | https://cs.android.com/androidx/platform/frameworks/support |
+| Compose Runtime Annotation | 1.13.0-rc01 | Apache-2.0 | `androidx.compose.runtime:runtime-annotation`<br>`androidx.compose.runtime:runtime-annotation-android` | https://cs.android.com/androidx/platform/frameworks/support |
+| Compose Runtime Retain | 1.13.0-rc01 | Apache-2.0 | `androidx.compose.runtime:runtime-retain`<br>`androidx.compose.runtime:runtime-retain-android` | https://cs.android.com/androidx/platform/frameworks/support |
+| Compose Saveable | 1.13.0-rc01 | Apache-2.0 | `androidx.compose.runtime:runtime-saveable`<br>`androidx.compose.runtime:runtime-saveable-android`<br>`org.jetbrains.compose.runtime:runtime-saveable`<br>`org.jetbrains.compose.runtime:runtime-saveable-android` | https://cs.android.com/androidx/platform/frameworks/support |
+| Compose UI | 1.13.0-rc01 | Apache-2.0 | `androidx.compose.ui:ui`<br>`androidx.compose.ui:ui-android`<br>`org.jetbrains.compose.ui:ui`<br>`org.jetbrains.compose.ui:ui-android` | https://cs.android.com/androidx/platform/frameworks/support |
+| Compose UI Text | 1.13.0-rc01 | Apache-2.0 | `androidx.compose.ui:ui-text`<br>`androidx.compose.ui:ui-text-android`<br>`org.jetbrains.compose.ui:ui-text`<br>`org.jetbrains.compose.ui:ui-text-android` | https://cs.android.com/androidx/platform/frameworks/support |
+| Compose Unit | 1.13.0-rc01 | Apache-2.0 | `androidx.compose.ui:ui-unit`<br>`androidx.compose.ui:ui-unit-android`<br>`org.jetbrains.compose.ui:ui-unit`<br>`org.jetbrains.compose.ui:ui-unit-android` | https://cs.android.com/androidx/platform/frameworks/support |
+| Compose Util | 1.13.0-rc01 | Apache-2.0 | `androidx.compose.ui:ui-util`<br>`androidx.compose.ui:ui-util-android`<br>`org.jetbrains.compose.ui:ui-util`<br>`org.jetbrains.compose.ui:ui-util-android` | https://cs.android.com/androidx/platform/frameworks/support |
+| Core | 1.19.0 | Apache-2.0 | `androidx.core:core` | https://cs.android.com/androidx/platform/frameworks/support |
+| Core Kotlin Extensions | 1.19.0 | Apache-2.0 | `androidx.core:core-ktx` | https://cs.android.com/androidx/platform/frameworks/support |
+| Emoji2 | 1.7.0 | Apache-2.0 | `androidx.emoji2:emoji2` | https://cs.android.com/androidx/platform/frameworks/support |
 | error-prone annotations | 2.18.0 | Apache-2.0 | `com.google.errorprone:error_prone_annotations` | https://github.com/google/error-prone |
 | Experimental annotation | 1.4.1 | Apache-2.0 | `androidx.annotation:annotation-experimental` | https://cs.android.com/androidx/platform/frameworks/support |
 | FindBugs-jsr305 | 3.0.2 | Apache-2.0 | `com.google.code.findbugs:jsr305` | https://code.google.com/p/jsr-305/ |
+| Graphics Shapes | 1.1.0 | Apache-2.0 | `androidx.graphics:graphics-shapes`<br>`androidx.graphics:graphics-shapes-android` | https://cs.android.com/androidx/platform/frameworks/support |
 | Guava InternalFutureFailureAccess and InternalFutures | 1.0.1 | Apache-2.0 | `com.google.guava:failureaccess` | https://github.com/google/guava |
 | Guava ListenableFuture only | 9999.0-empty-to-avoid-conflict-with-guava | Apache-2.0 | `com.google.guava:listenablefuture` | https://github.com/google/guava |
 | Guava: Google Core Libraries for Java | 32.0.0-jre | Apache-2.0 | `com.google.guava:guava` | https://github.com/google/guava |
@@ -266,30 +257,36 @@ Go 团队维护的加密库，zeta-ssh 用它的 SSH 客户端直连远程主机
 | kotlinx-serialization-core | 1.13.0 | Apache-2.0 | `org.jetbrains.kotlinx:kotlinx-serialization-core`<br>`org.jetbrains.kotlinx:kotlinx-serialization-core-jvm` | https://github.com/Kotlin/kotlinx.serialization |
 | kotlinx-serialization-json | 1.13.0 | Apache-2.0 | `org.jetbrains.kotlinx:kotlinx-serialization-json`<br>`org.jetbrains.kotlinx:kotlinx-serialization-json-jvm` | https://github.com/Kotlin/kotlinx.serialization |
 | Lifecycle Kotlin Extensions | 2.11.0 | Apache-2.0 | `androidx.lifecycle:lifecycle-runtime-ktx`<br>`androidx.lifecycle:lifecycle-runtime-ktx-android` | https://cs.android.com/androidx/platform/frameworks/support |
-| Lifecycle LiveData | 2.11.0 | Apache-2.0 | `androidx.lifecycle:lifecycle-livedata` | https://cs.android.com/androidx/platform/frameworks/support |
 | Lifecycle LiveData Core | 2.11.0 | Apache-2.0 | `androidx.lifecycle:lifecycle-livedata-core` | https://cs.android.com/androidx/platform/frameworks/support |
 | Lifecycle Process | 2.11.0 | Apache-2.0 | `androidx.lifecycle:lifecycle-process` | https://cs.android.com/androidx/platform/frameworks/support |
 | Lifecycle Runtime | 2.11.0 | Apache-2.0 | `androidx.lifecycle:lifecycle-runtime`<br>`androidx.lifecycle:lifecycle-runtime-android`<br>`org.jetbrains.androidx.lifecycle:lifecycle-runtime`<br>`org.jetbrains.androidx.lifecycle:lifecycle-runtime-android` | https://cs.android.com/androidx/platform/frameworks/support |
 | Lifecycle Runtime Compose | 2.11.0 | Apache-2.0 | `androidx.lifecycle:lifecycle-runtime-compose`<br>`androidx.lifecycle:lifecycle-runtime-compose-android`<br>`org.jetbrains.androidx.lifecycle:lifecycle-runtime-compose`<br>`org.jetbrains.androidx.lifecycle:lifecycle-runtime-compose-android` | https://cs.android.com/androidx/platform/frameworks/support |
-| Lifecycle ViewModel | 2.11.0 | Apache-2.0 | `androidx.lifecycle:lifecycle-viewmodel`<br>`androidx.lifecycle:lifecycle-viewmodel-android`<br>`org.jetbrains.androidx.lifecycle:lifecycle-viewmodel`<br>`org.jetbrains.androidx.lifecycle:lifecycle-viewmodel-android` | https://cs.android.com/androidx/platform/frameworks/support |
+| Lifecycle ViewModel | 2.11.0 | Apache-2.0 | `androidx.lifecycle:lifecycle-viewmodel`<br>`androidx.lifecycle:lifecycle-viewmodel-android` | https://cs.android.com/androidx/platform/frameworks/support |
 | Lifecycle ViewModel Compose | 2.11.0 | Apache-2.0 | `androidx.lifecycle:lifecycle-viewmodel-compose`<br>`androidx.lifecycle:lifecycle-viewmodel-compose-android` | https://cs.android.com/androidx/platform/frameworks/support |
 | Lifecycle ViewModel Kotlin Extensions | 2.11.0 | Apache-2.0 | `androidx.lifecycle:lifecycle-viewmodel-ktx` | https://cs.android.com/androidx/platform/frameworks/support |
-| Lifecycle ViewModel with SavedState | 2.11.0 | Apache-2.0 | `androidx.lifecycle:lifecycle-viewmodel-savedstate`<br>`androidx.lifecycle:lifecycle-viewmodel-savedstate-android`<br>`org.jetbrains.androidx.lifecycle:lifecycle-viewmodel-savedstate`<br>`org.jetbrains.androidx.lifecycle:lifecycle-viewmodel-savedstate-android` | https://cs.android.com/androidx/platform/frameworks/support |
+| Lifecycle ViewModel with SavedState | 2.11.0 | Apache-2.0 | `androidx.lifecycle:lifecycle-viewmodel-savedstate`<br>`androidx.lifecycle:lifecycle-viewmodel-savedstate-android` | https://cs.android.com/androidx/platform/frameworks/support |
 | Lifecycle-Common | 2.11.0 | Apache-2.0 | `androidx.lifecycle:lifecycle-common`<br>`androidx.lifecycle:lifecycle-common-jvm`<br>`org.jetbrains.androidx.lifecycle:lifecycle-common`<br>`org.jetbrains.androidx.lifecycle:lifecycle-common-jvm` | https://cs.android.com/androidx/platform/frameworks/support |
-| LiveData Core Kotlin Extensions | 2.11.0 | Apache-2.0 | `androidx.lifecycle:lifecycle-livedata-core-ktx` | https://cs.android.com/androidx/platform/frameworks/support |
 | markdown | 0.7.18 | Apache-2.0 | `org.jetbrains:markdown`<br>`org.jetbrains:markdown-jvm` | https://github.com/JetBrains/markdown |
-| MaterialKolor | 5.0.0 | MIT | `com.materialkolor:material-color-utilities`<br>`com.materialkolor:material-color-utilities-android` | https://github.com/jordond/materialkolor |
+| MaterialKolor | 6.0.0 | Apache-2.0 OR MIT | `com.materialkolor:material-color-utilities`<br>`com.materialkolor:material-color-utilities-android` | https://github.com/jordond/materialkolor |
+| miuix-blur | 0.9.5-rc01 | Apache-2.0 | `top.yukonga.miuix.kmp:miuix-blur`<br>`top.yukonga.miuix.kmp:miuix-blur-android` | https://github.com/compose-miuix-ui/miuix |
+| miuix-core | 0.9.5-rc01 | Apache-2.0 | `top.yukonga.miuix.kmp:miuix-core`<br>`top.yukonga.miuix.kmp:miuix-core-android` | https://github.com/compose-miuix-ui/miuix |
+| miuix-glass | 0.9.5-rc01 | Apache-2.0 | `top.yukonga.miuix.kmp:miuix-glass`<br>`top.yukonga.miuix.kmp:miuix-glass-android` | https://github.com/compose-miuix-ui/miuix |
+| miuix-glass-icons | 0.9.5-rc01 | Apache-2.0 | `top.yukonga.miuix.kmp:miuix-glass-icons`<br>`top.yukonga.miuix.kmp:miuix-glass-icons-android` | https://github.com/compose-miuix-ui/miuix |
+| miuix-icons | 0.9.5-rc01 | Apache-2.0 | `top.yukonga.miuix.kmp:miuix-icons`<br>`top.yukonga.miuix.kmp:miuix-icons-android` | https://github.com/compose-miuix-ui/miuix |
+| miuix-material | 0.9.5-rc01 | Apache-2.0 | `top.yukonga.miuix.kmp:miuix-material`<br>`top.yukonga.miuix.kmp:miuix-material-android` | https://github.com/compose-miuix-ui/miuix |
+| miuix-preference | 0.9.5-rc01 | Apache-2.0 | `top.yukonga.miuix.kmp:miuix-preference`<br>`top.yukonga.miuix.kmp:miuix-preference-android` | https://github.com/compose-miuix-ui/miuix |
+| miuix-squircle | 0.9.5-rc01 | Apache-2.0 | `top.yukonga.miuix.kmp:miuix-squircle`<br>`top.yukonga.miuix.kmp:miuix-squircle-android` | https://github.com/compose-miuix-ui/miuix |
+| miuix-ui | 0.9.5-rc01 | Apache-2.0 | `top.yukonga.miuix.kmp:miuix-ui`<br>`top.yukonga.miuix.kmp:miuix-ui-android` | https://github.com/compose-miuix-ui/miuix |
 | Navigation Event | 1.2.0 | Apache-2.0 | `androidx.navigationevent:navigationevent`<br>`androidx.navigationevent:navigationevent-android` | https://cs.android.com/androidx/platform/frameworks/support |
 | NavigationEvent Compose | 1.2.0 | Apache-2.0 | `androidx.navigationevent:navigationevent-compose`<br>`androidx.navigationevent:navigationevent-compose-android` | https://cs.android.com/androidx/platform/frameworks/support |
-| Poko Annotations | 0.23.1 | Apache-2.0 | `dev.drewhamilton.poko:poko-annotations`<br>`dev.drewhamilton.poko:poko-annotations-jvm` | https://github.com/drewhamilton/Poko/tree/main |
+| Poko Annotations | 0.23.2 | Apache-2.0 | `dev.drewhamilton.poko:poko-annotations`<br>`dev.drewhamilton.poko:poko-annotations-jvm` | https://github.com/drewhamilton/Poko/tree/main |
 | Profile Installer | 1.4.0 | Apache-2.0 | `androidx.profileinstaller:profileinstaller` | https://cs.android.com/androidx/platform/frameworks/support |
 | RaTeX Android | 0.1.16 | MIT | `io.github.erweixin:ratex-android` | https://github.com/erweixin/RaTeX |
 | Saved State | 1.3.6 | Apache-2.0 | `org.jetbrains.androidx.savedstate:savedstate` | https://github.com/JetBrains/compose-jb |
-| Saved State | 1.4.0 | Apache-2.0 | `androidx.savedstate:savedstate`<br>`androidx.savedstate:savedstate-android` | https://cs.android.com/androidx/platform/frameworks/support |
+| Saved State | 1.5.0 | Apache-2.0 | `androidx.savedstate:savedstate`<br>`androidx.savedstate:savedstate-android` | https://cs.android.com/androidx/platform/frameworks/support |
 | Saved State Compose | 1.3.6 | Apache-2.0 | `org.jetbrains.androidx.savedstate:savedstate-compose` | https://github.com/JetBrains/compose-jb |
-| Saved State Compose | 1.4.0 | Apache-2.0 | `androidx.savedstate:savedstate-compose`<br>`androidx.savedstate:savedstate-compose-android` | https://cs.android.com/androidx/platform/frameworks/support |
-| SavedState Kotlin Extensions | 1.4.0 | Apache-2.0 | `androidx.savedstate:savedstate-ktx` | https://cs.android.com/androidx/platform/frameworks/support |
-| Transition | 1.6.0 | Apache-2.0 | `androidx.transition:transition` | https://cs.android.com/androidx/platform/frameworks/support |
+| Saved State Compose | 1.5.0 | Apache-2.0 | `androidx.savedstate:savedstate-compose`<br>`androidx.savedstate:savedstate-compose-android` | https://cs.android.com/androidx/platform/frameworks/support |
+| SavedState Kotlin Extensions | 1.5.0 | Apache-2.0 | `androidx.savedstate:savedstate-ktx` | https://cs.android.com/androidx/platform/frameworks/support |
 | VersionedParcelable | 1.1.1 | Apache-2.0 | `androidx.versionedparcelable:versionedparcelable` | http://source.android.com |
 | WindowManager | 1.5.0 | Apache-2.0 | `androidx.window:window` | https://cs.android.com/androidx/platform/frameworks/support |
 | WindowManager Core | 1.5.0 | Apache-2.0 | `androidx.window:window-core`<br>`androidx.window:window-core-android` | https://cs.android.com/androidx/platform/frameworks/support |

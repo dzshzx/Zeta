@@ -291,7 +291,7 @@ const chatWidth = 768 + 24
 const headerHeight = widget.TitleBarHeight
 
 // chatHeader 是顶上的标题（照 Codex 客户端）：左上角的对话标题，下面一行小字是设备和工作目录（模型在输入栏右下）。
-// 它浮在聊天列表上面，是一层毛玻璃（CouiBlur.kt 的 TopAppBarGlow）：底色是窗口的颜色，
+// 它浮在聊天列表上面，是一层毛玻璃（MiuixBlur.kt 的 TopAppBarGlow）：底色是窗口的颜色，
 // 列表没翻动时是透明的，内容滚到它底下时才透出模糊的一层。它同时是标题栏：空白处拖动窗口，系统按钮浮在右边的毛玻璃上；
 // 右边让出按钮，窄了截断。
 func (a *App) chatHeader(c *ui.Context, p *chatPane) {

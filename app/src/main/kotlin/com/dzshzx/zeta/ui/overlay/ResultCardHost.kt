@@ -19,13 +19,13 @@ import com.dzshzx.zeta.core.ConversationHub
 import com.dzshzx.zeta.core.TurnResult
 import com.dzshzx.zeta.core.alerts
 import com.dzshzx.zeta.core.get
-import io.github.suqi8.coui.kmp.layout.BottomSheetDefaults
 import kotlin.math.roundToInt
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.MainScope
 import kotlinx.coroutines.cancel
 import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.launch
+import top.yukonga.miuix.kmp.layout.BottomSheetDefaults
 
 /** 结果卡片窗口里的内容读的状态，全部由 [ResultCardHost] 在主线程上改。 */
 @Stable
@@ -148,7 +148,7 @@ object ResultCardHost {
         window = null
     }
 
-    /** 量卡片所在的屏：宽屏时窗口收窄到 COUI 面板的最大宽度，卡片最高半屏，留出导航条。 */
+    /** 量卡片所在的屏：宽屏时窗口收窄到 Miuix 底部面板的最大宽度，卡片最高半屏，留出导航条。 */
     private fun measure(window: OverlayWindow) {
         val context = window.context
         val density = context.resources.displayMetrics.density
@@ -170,7 +170,7 @@ object ResultCardHost {
         }
             .getOrDefault(0)
         val widest =
-            ((BottomSheetDefaults.PanelMaxWidth.value + 2 * WINDOW_SIDE_DP) * density).roundToInt()
+            ((BottomSheetDefaults.maxWidth.value + 2 * WINDOW_SIDE_DP) * density).roundToInt()
         if (width > widest) window.params.width = widest
         state.maxHeight = (height * MAX_HEIGHT_FRACTION / density).dp
         state.bottomInset = (navigation / density).dp

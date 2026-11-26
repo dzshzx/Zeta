@@ -45,14 +45,15 @@ import com.dzshzx.zeta.core.WorkItem
 import com.dzshzx.zeta.core.str
 import com.dzshzx.zeta.i18n.Strings
 import com.dzshzx.zeta.ui.components.LocalHub
-import com.dzshzx.zeta.ui.components.coui2.ZetaIcons
-import io.github.suqi8.coui.kmp.basic.Icon
-import io.github.suqi8.coui.kmp.basic.Text
-import io.github.suqi8.coui.kmp.icon.COUIIcons
-import io.github.suqi8.coui.kmp.icon.extended.File
-import io.github.suqi8.coui.kmp.icon.extended.Folder
-import io.github.suqi8.coui.kmp.icon.extended.Image
-import io.github.suqi8.coui.kmp.theme.COUITheme
+import com.dzshzx.zeta.ui.components.isDark
+import com.dzshzx.zeta.ui.components.miuix.ZetaIcons
+import top.yukonga.miuix.kmp.basic.Icon
+import top.yukonga.miuix.kmp.basic.Text
+import top.yukonga.miuix.kmp.icon.MiuixIcons
+import top.yukonga.miuix.kmp.icon.extended.File
+import top.yukonga.miuix.kmp.icon.extended.Folder
+import top.yukonga.miuix.kmp.icon.extended.Image
+import top.yukonga.miuix.kmp.theme.MiuixTheme
 
 /** 图片的载入结果：bitmap 为 null 表示取不到。 */
 class Loaded(val bitmap: ImageBitmap?)
@@ -118,22 +119,22 @@ fun RemoteImagePrompt(ref: RemoteImage, modifier: Modifier = Modifier) {
         modifier =
             modifier
                 .clip(CircleShape)
-                .background(COUITheme.colorScheme.labelPrimary.copy(alpha = 0.05f))
+                .background(MiuixTheme.colorScheme.onBackground.copy(alpha = 0.05f))
                 .clickable { ImageStore.allow(ref) }
                 .padding(horizontal = 11.dp, vertical = 7.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
         Icon(
-            COUIIcons.Image,
+            MiuixIcons.Image,
             contentDescription = null,
             modifier = Modifier.size(15.dp),
-            tint = COUITheme.colorScheme.primary,
+            tint = MiuixTheme.colorScheme.primary,
         )
         Spacer(Modifier.width(6.dp))
         Text(
             text = Strings.chatLoadImage(ref.url.substringAfter("://").substringBefore('/')),
-            style = COUITheme.textStyles.bodyS.copy(fontSize = 12.5.sp),
-            color = COUITheme.colorScheme.labelSecondary,
+            style = MiuixTheme.textStyles.footnote1.copy(fontSize = 12.5.sp),
+            color = MiuixTheme.colorScheme.onBackgroundVariant,
             maxLines = 1,
             overflow = TextOverflow.Ellipsis,
         )
@@ -151,7 +152,7 @@ fun ChatThumbnail(ref: ImageRef, size: Dp, modifier: Modifier = Modifier) {
             modifier
                 .size(size)
                 .clip(shape)
-                .background(COUITheme.colorScheme.labelPrimary.copy(alpha = 0.06f)),
+                .background(MiuixTheme.colorScheme.onBackground.copy(alpha = 0.06f)),
         contentAlignment = Alignment.Center,
     ) {
         val bitmap = loaded?.bitmap
@@ -168,7 +169,7 @@ fun ChatThumbnail(ref: ImageRef, size: Dp, modifier: Modifier = Modifier) {
                     ZetaIcons.ImageOff,
                     contentDescription = Strings.chatImageUnavailable(),
                     modifier = Modifier.size(22.dp),
-                    tint = COUITheme.colorScheme.labelSecondary,
+                    tint = MiuixTheme.colorScheme.onBackgroundVariant,
                 )
         }
     }
@@ -214,7 +215,7 @@ fun ImageLoading(modifier: Modifier) {
     Box(
         modifier
             .clip(ChatImageShape)
-            .background(COUITheme.colorScheme.labelPrimary.copy(alpha = 0.05f)),
+            .background(MiuixTheme.colorScheme.onBackground.copy(alpha = 0.05f)),
     )
 }
 
@@ -225,7 +226,7 @@ fun ImageUnavailable(ref: ImageRef, modifier: Modifier = Modifier) {
         modifier =
             modifier
                 .clip(CircleShape)
-                .background(COUITheme.colorScheme.labelPrimary.copy(alpha = 0.05f))
+                .background(MiuixTheme.colorScheme.onBackground.copy(alpha = 0.05f))
                 .padding(horizontal = 11.dp, vertical = 6.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
@@ -233,7 +234,7 @@ fun ImageUnavailable(ref: ImageRef, modifier: Modifier = Modifier) {
             ZetaIcons.ImageOff,
             contentDescription = null,
             modifier = Modifier.size(14.dp),
-            tint = COUITheme.colorScheme.labelSecondary,
+            tint = MiuixTheme.colorScheme.onBackgroundVariant,
         )
         Spacer(Modifier.width(5.dp))
         Text(
@@ -241,8 +242,8 @@ fun ImageUnavailable(ref: ImageRef, modifier: Modifier = Modifier) {
                 (ref as? FileImage)?.let {
                     Strings.chatImageUnavailableFile(it.path.substringAfterLast('/'))
                 } ?: Strings.chatImageUnavailable(),
-            style = COUITheme.textStyles.bodyS.copy(fontSize = 12.5.sp),
-            color = COUITheme.colorScheme.labelSecondary,
+            style = MiuixTheme.textStyles.footnote1.copy(fontSize = 12.5.sp),
+            color = MiuixTheme.colorScheme.onBackgroundVariant,
             maxLines = 1,
             overflow = TextOverflow.Ellipsis,
         )
@@ -257,13 +258,13 @@ fun FileChip(
     folder: Boolean = false,
     trailing: (@Composable () -> Unit)? = null,
 ) {
-    val dark = COUITheme.colorScheme.isDark
-    val colors = COUITheme.colorScheme
+    val dark = MiuixTheme.colorScheme.isDark
+    val colors = MiuixTheme.colorScheme
     Row(
         modifier =
             modifier
                 .clip(RoundedCornerShape(12.dp))
-                .background(colors.labelPrimary.copy(alpha = if (dark) 0.08f else 0.05f))
+                .background(colors.onBackground.copy(alpha = if (dark) 0.08f else 0.05f))
                 .padding(
                     start = 10.dp,
                     end = if (trailing == null) 12.dp else 6.dp,
@@ -274,15 +275,15 @@ fun FileChip(
         horizontalArrangement = Arrangement.spacedBy(6.dp),
     ) {
         Icon(
-            if (folder) COUIIcons.Folder else COUIIcons.File,
+            if (folder) MiuixIcons.Folder else MiuixIcons.File,
             contentDescription = null,
             modifier = Modifier.size(15.dp),
             tint = colors.primary,
         )
         Text(
             text = name,
-            style = COUITheme.textStyles.bodyS.copy(fontSize = 13.sp),
-            color = colors.labelPrimary,
+            style = MiuixTheme.textStyles.footnote1.copy(fontSize = 13.sp),
+            color = colors.onBackground,
             maxLines = 1,
             overflow = TextOverflow.MiddleEllipsis,
             modifier = Modifier.weight(1f, fill = false),

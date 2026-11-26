@@ -24,8 +24,8 @@ import androidx.compose.ui.text.style.TextMotion
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import com.dzshzx.zeta.core.platformService
-import io.github.suqi8.coui.kmp.basic.Text
 import kotlin.math.min
+import top.yukonga.miuix.kmp.basic.Text
 
 /** 排好版的一个公式。共用代码只存着它，交回排出它的那个 [MathEngine] 去画（手机上包着 RaTeX 的 DisplayList）。 */
 interface MathLayout

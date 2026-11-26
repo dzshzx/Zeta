@@ -30,10 +30,10 @@ import androidx.compose.ui.unit.dp
 import com.dzshzx.zeta.core.Conversation
 import com.dzshzx.zeta.core.EarlierState
 import com.dzshzx.zeta.i18n.Strings
-import io.github.suqi8.coui.kmp.basic.InfiniteProgressIndicator
-import io.github.suqi8.coui.kmp.basic.Text
-import io.github.suqi8.coui.kmp.theme.COUITheme
 import kotlinx.coroutines.flow.distinctUntilChanged
+import top.yukonga.miuix.kmp.basic.InfiniteProgressIndicator
+import top.yukonga.miuix.kmp.basic.Text
+import top.yukonga.miuix.kmp.theme.MiuixTheme
 
 /*
  * 长对话往上翻：打开时只载入最近的一段，往上翻到顶附近时自动接上更早的一页。“更早的记录”那一行是列表的第一项。
@@ -62,7 +62,7 @@ fun EarlierHistoryRow(
     onLoad: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
-    val colors = COUITheme.colorScheme
+    val colors = MiuixTheme.colorScheme
     val clickable = state == EarlierState.Idle || (state as? EarlierState.Failed)?.retry == true
     Box(
         modifier =
@@ -80,7 +80,7 @@ fun EarlierHistoryRow(
             EarlierState.Idle ->
                 Text(
                     text = Strings.chatLoadEarlier(skipped),
-                    style = COUITheme.textStyles.bodyS,
+                    style = MiuixTheme.textStyles.footnote1,
                     color = colors.primary,
                 )
             EarlierState.Loading ->
@@ -92,16 +92,16 @@ fun EarlierHistoryRow(
                     Spacer(Modifier.width(8.dp))
                     Text(
                         text = Strings.chatLoadingEarlier(),
-                        style = COUITheme.textStyles.bodyS,
-                        color = colors.labelSecondary,
+                        style = MiuixTheme.textStyles.footnote1,
+                        color = colors.onBackgroundVariant,
                     )
                 }
             is EarlierState.Failed ->
                 Text(
                     text =
                         if (state.retry) Strings.chatTapToRetry(state.message) else state.message,
-                    style = COUITheme.textStyles.bodyS,
-                    color = colors.labelSecondary,
+                    style = MiuixTheme.textStyles.footnote1,
+                    color = colors.onBackgroundVariant,
                     textAlign = TextAlign.Center,
                     maxLines = 2,
                     overflow = TextOverflow.Ellipsis,

@@ -11,7 +11,6 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.BoxScope
 import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
@@ -57,10 +56,8 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.focus.FocusRequester
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.input.nestedscroll.NestedScrollConnection
 import androidx.compose.ui.input.nestedscroll.nestedScroll
-import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
@@ -86,16 +83,19 @@ import com.dzshzx.zeta.core.WorkItem
 import com.dzshzx.zeta.core.userTurns
 import com.dzshzx.zeta.i18n.Strings
 import com.dzshzx.zeta.ui.components.LocalHub
-import com.dzshzx.zeta.ui.components.coui2.AnchoredMenu
-import com.dzshzx.zeta.ui.components.coui2.ConfirmDialog
-import com.dzshzx.zeta.ui.components.coui2.IconActionButton
-import com.dzshzx.zeta.ui.components.coui2.PageBlurHost
-import com.dzshzx.zeta.ui.components.coui2.TextInputDialog
-import com.dzshzx.zeta.ui.components.coui2.TopBarMoreMenu
-import com.dzshzx.zeta.ui.components.coui2.ZetaIcons
-import com.dzshzx.zeta.ui.components.coui2.menuItem
-import com.dzshzx.zeta.ui.components.coui2.pageBlurSource
-import com.dzshzx.zeta.ui.components.coui2.rememberPageBlur
+import com.dzshzx.zeta.ui.components.fill4
+import com.dzshzx.zeta.ui.components.miuix.AnchoredMenu
+import com.dzshzx.zeta.ui.components.miuix.ConfirmDialog
+import com.dzshzx.zeta.ui.components.miuix.IconActionButton
+import com.dzshzx.zeta.ui.components.miuix.LocalInGlassTopBar
+import com.dzshzx.zeta.ui.components.miuix.PageBlurHost
+import com.dzshzx.zeta.ui.components.miuix.TextInputDialog
+import com.dzshzx.zeta.ui.components.miuix.TopBarMoreMenu
+import com.dzshzx.zeta.ui.components.miuix.ZetaCorner
+import com.dzshzx.zeta.ui.components.miuix.ZetaIcons
+import com.dzshzx.zeta.ui.components.miuix.menuItem
+import com.dzshzx.zeta.ui.components.miuix.pageBlurSource
+import com.dzshzx.zeta.ui.components.miuix.rememberPageBlur
 import com.dzshzx.zeta.ui.components.rememberRetained
 import com.dzshzx.zeta.ui.components.whileStarted
 import com.dzshzx.zeta.ui.markdown.LocalTextFinder
@@ -104,21 +104,6 @@ import com.dzshzx.zeta.ui.pane.HostSwitcher
 import com.dzshzx.zeta.ui.settings.choiceEntries
 import com.dzshzx.zeta.ui.settings.modelChoices
 import com.dzshzx.zeta.ui.tasks.BackgroundTaskStrip
-import io.github.suqi8.coui.kmp.basic.ButtonDefaults
-import io.github.suqi8.coui.kmp.basic.DropdownEntry
-import io.github.suqi8.coui.kmp.basic.Icon
-import io.github.suqi8.coui.kmp.basic.Scaffold
-import io.github.suqi8.coui.kmp.basic.SmallTopAppBar
-import io.github.suqi8.coui.kmp.basic.Text
-import io.github.suqi8.coui.kmp.basic.TextButton
-import io.github.suqi8.coui.kmp.blur.LayerBackdrop
-import io.github.suqi8.coui.kmp.blur.TopAppBarGlow
-import io.github.suqi8.coui.kmp.icon.COUIIcons
-import io.github.suqi8.coui.kmp.icon.extended.Search
-import io.github.suqi8.coui.kmp.icon.extended.Settings
-import io.github.suqi8.coui.kmp.icon.extended.Sidebar
-import io.github.suqi8.coui.kmp.theme.COUIRoundCorner
-import io.github.suqi8.coui.kmp.theme.COUITheme
 import java.util.UUID
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
@@ -126,6 +111,20 @@ import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.flow.drop
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+import top.yukonga.miuix.kmp.basic.ButtonDefaults
+import top.yukonga.miuix.kmp.basic.DropdownEntry
+import top.yukonga.miuix.kmp.basic.Icon
+import top.yukonga.miuix.kmp.basic.Scaffold
+import top.yukonga.miuix.kmp.basic.Text
+import top.yukonga.miuix.kmp.basic.TextButton
+import top.yukonga.miuix.kmp.blur.LayerBackdrop
+import top.yukonga.miuix.kmp.glass.GlassTopAppBar
+import top.yukonga.miuix.kmp.glass.GlassTopAppBarDefaults
+import top.yukonga.miuix.kmp.icon.MiuixIcons
+import top.yukonga.miuix.kmp.icon.extended.Search
+import top.yukonga.miuix.kmp.icon.extended.Settings
+import top.yukonga.miuix.kmp.icon.extended.Sidebar
+import top.yukonga.miuix.kmp.theme.MiuixTheme
 
 /**
  * 结束一个对话的确认框说明（结束一律先问，顶栏和侧栏同一条规则）：正在别处运行的（[external]）连那边的进程一起停掉，说得出在哪 （[occupant]，核心查到的那边的样子，没查到是
@@ -143,8 +142,9 @@ fun endConfirmSummary(external: Boolean, occupant: Occupant?, busy: Boolean): St
     else if (busy) Strings.chatEndSummaryActive() else Strings.chatEndSummaryIdle()
 
 /**
- * 聊天页。根上是 COUI 的 Scaffold（页面上的对话框、菜单都画在它里面），顶栏是 COUI 的小顶栏，中间换成对话标题和模型切换。
- * 内容录进页面背景（[PageBlur]），顶栏光晕、对话框和菜单拿它做毛玻璃；做法同 CouiPageScaffold， 只是聊天页铺整页底色（background），输入栏在内容里跟着键盘走。
+ * 聊天页。根上是 Miuix 的 Scaffold（页面上的对话框、菜单都画在它里面），顶栏是 Miuix 的玻璃小顶栏，中间换成对话标题和模型切换。
+ * 内容录进页面背景（[PageBlur]），顶栏光晕、对话框和菜单拿它做毛玻璃；做法同 MiuixPageScaffold，
+ * 只是聊天页铺整页底色（background），输入栏在内容里跟着键盘走。
  */
 @Composable
 fun ChatScreen(
@@ -165,7 +165,7 @@ fun ChatScreen(
     onOpenClaudeConfig: ((Conversation, ClaudeConfigCommand) -> Unit)? = null,
 ) {
     val conversation = hub.current
-    val colors = COUITheme.colorScheme
+    val colors = MiuixTheme.colorScheme
     val find = remember(conversation) { ChatFindState() }
     val listState = remember(conversation) { LazyListState() }
     // 对话能不能显示：要靠 Debian 的主机等它就绪，直连的远程主机不用
@@ -280,12 +280,9 @@ fun ChatScreen(
 private fun canEnd(hub: ConversationHub, conversation: Conversation): Boolean =
     (hub.platform.local?.ready ?: true) && (conversation.sessionId != null || conversation.hasItems)
 
-/** 顶栏光晕在内容往上滚过这么多之后全部显出（COUI 17 是 30dp）。 */
-private val GlowRevealDistance = 30.dp
-
 /**
- * 聊天页顶栏：COUI 小顶栏（左边历史对话，右边“更多”菜单），标题位置换成 [ChatHeader]。 页面录进了 [backdrop] 时顶栏透明、带 COUI 17
- * 光晕；光晕随聊天列表离开顶部的距离显出（[listState] 为 null 时不显）。
+ * 聊天页顶栏：Miuix 的玻璃小顶栏（左边历史对话，右边“更多”菜单，都是玻璃圆钮），标题位置换成 [ChatHeader]。页面录进了 [backdrop]
+ * 时是渐进模糊的玻璃，聊天列表离开顶部时显出（[listState] 为 null 时不显）。
  */
 @Composable
 private fun ChatTopBar(
@@ -302,49 +299,33 @@ private fun ChatTopBar(
     onOpenSettings: () -> Unit,
     onFind: (() -> Unit)?,
 ) {
-    val colors = COUITheme.colorScheme
-    val revealPx = with(LocalDensity.current) { GlowRevealDistance.toPx() }
-    val scrolled by
-        remember(listState, revealPx) {
-            derivedStateOf {
-                when {
-                    listState == null -> 0f
-                    listState.firstVisibleItemIndex > 0 -> revealPx
-                    else -> listState.firstVisibleItemScrollOffset.toFloat().coerceAtMost(revealPx)
-                }
-            }
-        }
-    val glow: (@Composable BoxScope.() -> Unit)? =
-        if (backdrop != null) {
-            {
-                TopAppBarGlow(
-                    backdrop = backdrop,
-                    scrollOffsetPx = scrolled,
-                    isDark = colors.isDark,
-                    baseColor = colors.background,
-                    enabled = true,
-                )
-            }
-        } else {
-            null
-        }
+    val scrolled by remember(listState) { derivedStateOf { listState?.canScrollBackward == true } }
+    val surface = MiuixTheme.colorScheme.surface
+    val bandBrush = remember(surface) { GlassTopAppBarDefaults.bandBrush(surface) }
     Box {
-        SmallTopAppBar(
+        GlassTopAppBar(
             title = "",
-            color = if (backdrop != null) Color.Transparent else colors.background,
-            glow = glow,
+            isContentScrolled = scrolled,
+            expandable = false,
+            progressiveBlur = backdrop != null,
+            backdrop = backdrop,
+            bandBrush = bandBrush,
             navigationIcon = {
                 onOpenPane?.let {
-                    IconActionButton(COUIIcons.Sidebar, Strings.chatHistory(), onClick = it)
+                    CompositionLocalProvider(LocalInGlassTopBar provides true) {
+                        IconActionButton(MiuixIcons.Sidebar, Strings.chatHistory(), onClick = it)
+                    }
                 }
             },
             actions = {
-                OverflowMenu(
-                    onNewChat = onNewChat,
-                    onEnd = onEnd,
-                    onOpenSettings = onOpenSettings,
-                    onFind = onFind,
-                )
+                CompositionLocalProvider(LocalInGlassTopBar provides true) {
+                    OverflowMenu(
+                        onNewChat = onNewChat,
+                        onEnd = onEnd,
+                        onOpenSettings = onOpenSettings,
+                        onFind = onFind,
+                    )
+                }
             },
         )
         // 标题位置：两边让出图标按钮，竖直方向和顶栏的 52dp 工具栏对齐
@@ -394,7 +375,7 @@ fun SetupMessage(
     message: String?,
     actions: (@Composable () -> Unit)? = null,
 ) {
-    val colors = COUITheme.colorScheme
+    val colors = MiuixTheme.colorScheme
     Box(
         modifier = Modifier.fillMaxSize().padding(padding).padding(horizontal = 32.dp),
         contentAlignment = Alignment.Center,
@@ -403,13 +384,13 @@ fun SetupMessage(
             horizontalAlignment = Alignment.CenterHorizontally,
             modifier = Modifier.padding(bottom = 56.dp),
         ) {
-            Text(text = title, style = COUITheme.textStyles.headlineM, color = colors.labelPrimary)
+            Text(text = title, style = MiuixTheme.textStyles.title3, color = colors.onBackground)
             if (message != null) {
                 Spacer(Modifier.height(10.dp))
                 Text(
                     text = message,
-                    style = COUITheme.textStyles.bodyM,
-                    color = colors.labelSecondary,
+                    style = MiuixTheme.textStyles.body2,
+                    color = colors.onBackgroundVariant,
                     textAlign = TextAlign.Center,
                 )
             } else {
@@ -650,7 +631,7 @@ private fun ChatContent(
     }
 }
 
-/** 不贴底时浮在列表底部的“回到底部”按钮（COUI 17 的浮动圆形按钮：顶栏按钮那种材质，阴影、边缘光、按压回弹）。 */
+/** 不贴底时浮在列表底部的“回到底部”按钮：和顶栏按钮一样的玻璃圆钮（阴影、描边、按压回弹）。 */
 @Composable
 private fun BackToBottomButton(visible: Boolean, onClick: () -> Unit, modifier: Modifier) {
     AnimatedVisibility(
@@ -659,12 +640,9 @@ private fun BackToBottomButton(visible: Boolean, onClick: () -> Unit, modifier: 
         enter = fadeIn(tween(160)) + scaleIn(tween(180), initialScale = 0.82f),
         exit = fadeOut(tween(100)) + scaleOut(tween(120), targetScale = 0.86f),
     ) {
-        IconActionButton(
-            ZetaIcons.ArrowDown,
-            Strings.chatScrollToBottom(),
-            iconModifier = Modifier.size(18.dp),
-            onClick = onClick,
-        )
+        CompositionLocalProvider(LocalInGlassTopBar provides true) {
+            IconActionButton(ZetaIcons.ArrowDown, Strings.chatScrollToBottom(), onClick = onClick)
+        }
     }
 }
 
@@ -803,8 +781,8 @@ private fun WaitingRow(statusText: String?) {
             Spacer(Modifier.width(10.dp))
             Text(
                 text = statusText,
-                style = COUITheme.textStyles.bodyS,
-                color = COUITheme.colorScheme.labelSecondary,
+                style = MiuixTheme.textStyles.footnote1,
+                color = MiuixTheme.colorScheme.onBackgroundVariant,
             )
         }
     }
@@ -1012,7 +990,7 @@ fun MutableList<FileUpload>.addPath(path: String) {
  */
 @Composable
 private fun ChatHeader(conversation: Conversation, host: String?, models: List<ModelOption>) {
-    val colors = COUITheme.colorScheme
+    val colors = MiuixTheme.colorScheme
     val selected = conversation.selectedModelForMenu()
     val modelName = conversation.shownModelName(models)
     var expanded by remember(conversation) { mutableStateOf(false) }
@@ -1027,7 +1005,7 @@ private fun ChatHeader(conversation: Conversation, host: String?, models: List<M
             Column(
                 horizontalAlignment = Alignment.CenterHorizontally,
                 modifier =
-                    Modifier.clip(RoundedCornerShape(COUIRoundCorner.M))
+                    Modifier.clip(RoundedCornerShape(ZetaCorner.M))
                         .clickable(interactionSource = source, indication = null) {
                             conversation.ensureModelOptions()
                             expanded = true
@@ -1036,17 +1014,17 @@ private fun ChatHeader(conversation: Conversation, host: String?, models: List<M
             ) {
                 Text(
                     text = conversation.title,
-                    style = COUITheme.textStyles.headlineXS,
+                    style = MiuixTheme.textStyles.headline2,
                     fontWeight = FontWeight.SemiBold,
-                    color = colors.labelPrimary,
+                    color = colors.onBackground,
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis,
                 )
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     Text(
                         text = host?.let { "$it · $modelName" } ?: modelName,
-                        style = COUITheme.textStyles.bodyXS,
-                        color = colors.labelSecondary,
+                        style = MiuixTheme.textStyles.footnote2,
+                        color = colors.onBackgroundVariant,
                         maxLines = 1,
                         overflow = TextOverflow.Ellipsis,
                     )
@@ -1054,7 +1032,7 @@ private fun ChatHeader(conversation: Conversation, host: String?, models: List<M
                         ZetaIcons.ChevronDown,
                         contentDescription = null,
                         modifier = Modifier.size(13.dp),
-                        tint = colors.labelTertiary,
+                        tint = colors.onSurfaceVariantActions,
                     )
                 }
             }
@@ -1064,7 +1042,7 @@ private fun ChatHeader(conversation: Conversation, host: String?, models: List<M
                 modifier =
                     Modifier.heightIn(min = 34.dp)
                         .clip(CircleShape)
-                        .background(colors.container4, CircleShape)
+                        .background(colors.fill4, CircleShape)
                         .clickable(interactionSource = source, indication = null) {
                             conversation.ensureModelOptions()
                             expanded = true
@@ -1073,8 +1051,8 @@ private fun ChatHeader(conversation: Conversation, host: String?, models: List<M
             ) {
                 Text(
                     text = "Claude · $modelName",
-                    style = COUITheme.textStyles.buttonM,
-                    color = colors.labelPrimary,
+                    style = MiuixTheme.textStyles.button,
+                    color = colors.onBackground,
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis,
                 )
@@ -1082,7 +1060,7 @@ private fun ChatHeader(conversation: Conversation, host: String?, models: List<M
                     ZetaIcons.ChevronDown,
                     contentDescription = Strings.chatSwitchModel(),
                     modifier = Modifier.padding(start = 2.dp).size(16.dp),
-                    tint = colors.labelSecondary,
+                    tint = colors.onBackgroundVariant,
                 )
             }
         }
@@ -1116,11 +1094,11 @@ private fun OverflowMenu(
                         ),
                         menuItem(
                             Strings.chatFindInChat(),
-                            COUIIcons.Search,
+                            MiuixIcons.Search,
                             { onFind?.invoke() },
                             enabled = onFind != null,
                         ),
-                        menuItem(Strings.chatSettings(), COUIIcons.Settings, onOpenSettings),
+                        menuItem(Strings.chatSettings(), MiuixIcons.Settings, onOpenSettings),
                     ),
             ),
         ),
@@ -1136,7 +1114,7 @@ private fun EmptyState(
     onChangeCwd: (String) -> Unit,
     modifier: Modifier = Modifier,
 ) {
-    val colors = COUITheme.colorScheme
+    val colors = MiuixTheme.colorScheme
     var editingCwd by remember { mutableStateOf(false) }
     var cwdDraft by remember { mutableStateOf(cwd) }
     val scope = rememberCoroutineScope()
@@ -1153,8 +1131,8 @@ private fun EmptyState(
         ) {
             Text(
                 text = Strings.chatEmptyGreeting(),
-                style = COUITheme.textStyles.displayXS,
-                color = colors.labelPrimary,
+                style = MiuixTheme.textStyles.title2,
+                color = colors.onBackground,
             )
             Spacer(Modifier.height(8.dp))
             // 加过远程主机时：这个新对话开在哪台主机上，点开换一台
@@ -1173,13 +1151,13 @@ private fun EmptyState(
                     ZetaIcons.FolderOpen,
                     contentDescription = null,
                     modifier = Modifier.size(13.dp),
-                    tint = colors.labelSecondary,
+                    tint = colors.onBackgroundVariant,
                 )
                 Spacer(Modifier.width(5.dp))
                 Text(
                     text = cwd,
-                    style = COUITheme.textStyles.bodyS,
-                    color = colors.labelSecondary,
+                    style = MiuixTheme.textStyles.footnote1,
+                    color = colors.onBackgroundVariant,
                     maxLines = 1,
                     overflow = TextOverflow.StartEllipsis,
                     modifier = Modifier.widthIn(max = 260.dp),
@@ -1190,8 +1168,8 @@ private fun EmptyState(
                 Spacer(Modifier.height(18.dp))
                 Text(
                     text = Strings.chatNotSignedIn(),
-                    style = COUITheme.textStyles.bodyM,
-                    color = colors.labelSecondary,
+                    style = MiuixTheme.textStyles.body2,
+                    color = colors.onBackgroundVariant,
                 )
                 Spacer(Modifier.height(14.dp))
                 TextButton(

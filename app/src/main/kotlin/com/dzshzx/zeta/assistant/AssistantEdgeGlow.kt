@@ -35,7 +35,7 @@ import kotlin.math.cos
 import kotlin.math.max
 import kotlin.math.sin
 
-// 拷自 Eta 的 agent/voice/EtaAssistantEdgeGlow.kt（GPL-3.0）：只留第一次唤起的光效（没有语音，
+// 拷自 Eta 的 agent/voice/ui/EtaAssistantEdgeGlow.kt（GPL-3.0）：只留第一次唤起的光效（没有语音，
 // 不随音量呼吸）；时钟从逐帧的 withFrameNanos 换成 Animatable（截图测试里动画时长按 0 算，直接放完），
 // 屏幕下角的圆角由浮窗的 Activity 读好传进来。
 

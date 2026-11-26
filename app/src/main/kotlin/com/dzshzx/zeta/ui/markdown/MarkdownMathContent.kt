@@ -42,11 +42,11 @@ import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.TextUnit
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import io.github.suqi8.coui.kmp.basic.Text
 import io.ratex.DisplayList
 import io.ratex.RaTeXRenderer
 import kotlin.math.ceil
 import kotlin.math.max
+import top.yukonga.miuix.kmp.basic.Text
 
 @Immutable
 internal data class InlineMathBoxMetrics(

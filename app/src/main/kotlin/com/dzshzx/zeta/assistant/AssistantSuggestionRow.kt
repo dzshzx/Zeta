@@ -30,10 +30,10 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import io.github.suqi8.coui.kmp.basic.Text
 import kotlinx.coroutines.launch
+import top.yukonga.miuix.kmp.basic.Text
 
-// 拷自 Eta 的 agent/voice/EtaAssistantSuggestions.kt（GPL-3.0）：建议问题改由调用方给，
+// 拷自 Eta 的 agent/voice/ui/EtaAssistantSuggestions.kt（GPL-3.0）：建议问题改由调用方给，
 // 依次错开出现的间隔从协程里的 delay 换成动画自己的 delayMillis（截图测试里动画时长按 0 算，一样放完）。
 
 /** 第一个建议问题等浮窗淡入一点以后再出来，之后每个错开这么久（照 Eta 录屏里一个个冒出来的节奏）。 */
@@ -88,12 +88,12 @@ private fun SuggestionCapsule(
     val progress = remember(suggestion) { Animatable(0f) }
     val opacity = remember(suggestion) { Animatable(0f) }
     val interactionSource = remember(suggestion) { MutableInteractionSource() }
-    val press = rememberCouiPressMotion()
+    val press = rememberMiuixPressMotion()
     // 只管入场：出场由外层的 AnimatedVisibility 收起整行（建议问题只在发出去以后或列表变空时消失）
     LaunchedEffect(suggestion) {
         val lead = SuggestionLeadMs + index * SuggestionStaggerMs
         launch {
-            progress.animateTo(1f, tween(250, delayMillis = lead, easing = CouiEnterEasing))
+            progress.animateTo(1f, tween(250, delayMillis = lead, easing = MiuixEnterEasing))
         }
         launch {
             opacity.animateTo(1f, tween(180, delayMillis = lead, easing = FastOutSlowInEasing))
@@ -110,8 +110,8 @@ private fun SuggestionCapsule(
                     scaleX = scale
                     scaleY = scale
                 }
-                .couiPressMotion(press, enabled = visible)
-                .couiAssistantCapsule(
+                .miuixPressMotion(press, enabled = visible)
+                .miuixAssistantCapsule(
                     colors = colors,
                     elevation = AssistantCapsuleElevation.Chip,
                     interactionSource = if (visible) interactionSource else null,

@@ -17,16 +17,16 @@ import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.unit.Density
 import com.dzshzx.zeta.core.Settings
 import com.dzshzx.zeta.core.of
-import com.dzshzx.zeta.ui.components.coui2.LocalCouiBlurEnabled
+import com.dzshzx.zeta.ui.components.miuix.LocalMiuixBlurEnabled
 import com.dzshzx.zeta.ui.layout.LocalPlatformDensity
-import io.github.suqi8.coui.kmp.theme.COUITheme
-import io.github.suqi8.coui.kmp.theme.ColorSchemeMode
-import io.github.suqi8.coui.kmp.theme.ThemeController
+import top.yukonga.miuix.kmp.theme.ColorSchemeMode
+import top.yukonga.miuix.kmp.theme.MiuixTheme
+import top.yukonga.miuix.kmp.theme.ThemeController
 
 /**
- * Zeta 的主题：COUI 2（ColorOS 17）的配色和文字样式。
+ * Zeta 的主题：Miuix（HyperOS）的配色和文字样式。
  *
- * 主题色用 COUI 默认的蓝。界面缩放从 [Settings] 读，改了立即生效。 COUI 深色的页面底色本来就是纯黑，Zeta 不另设纯黑开关。 界面缩放和屏幕常亮只作用于
+ * 主题色用 Miuix 默认的蓝。界面缩放从 [Settings] 读，改了立即生效。 Miuix 深色的页面底色本来就是纯黑，Zeta 不另设纯黑开关。 界面缩放和屏幕常亮只作用于
  * Activity：悬浮窗（无障碍服务的窗口）保持系统大小，也不碰屏幕常亮。
  *
  * [windowBackdrop] 为 false 时关掉毛玻璃，弹出的东西用不透明底色：只给 JVM 截图测试用，那里模糊既慢又会错位。
@@ -81,8 +81,8 @@ fun ZetaTheme(
         LocalPlatformDensity provides platformDensity,
         LocalDensity provides appDensity,
     ) {
-        COUITheme(controller = controller) {
-            CompositionLocalProvider(LocalCouiBlurEnabled provides windowBackdrop) {
+        MiuixTheme(controller = controller) {
+            CompositionLocalProvider(LocalMiuixBlurEnabled provides windowBackdrop) {
                 Box(Modifier.fillMaxSize()) { content() }
             }
         }

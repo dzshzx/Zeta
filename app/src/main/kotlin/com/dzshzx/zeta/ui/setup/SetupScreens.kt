@@ -38,22 +38,23 @@ import com.dzshzx.zeta.core.environment
 import com.dzshzx.zeta.core.formatBytes
 import com.dzshzx.zeta.core.optionalName
 import com.dzshzx.zeta.i18n.Strings
-import com.dzshzx.zeta.ui.components.coui2.ConfirmDialog
-import com.dzshzx.zeta.ui.components.coui2.CouiPage
-import com.dzshzx.zeta.ui.components.coui2.DropdownValuePreference
-import com.dzshzx.zeta.ui.components.coui2.PreferenceGroup
-import com.dzshzx.zeta.ui.components.coui2.PreferenceValue
-import com.dzshzx.zeta.ui.components.coui2.TextInputDialog
+import com.dzshzx.zeta.ui.components.miuix.ConfirmDialog
+import com.dzshzx.zeta.ui.components.miuix.DropdownValuePreference
+import com.dzshzx.zeta.ui.components.miuix.FieldGroup
+import com.dzshzx.zeta.ui.components.miuix.FooterHint
+import com.dzshzx.zeta.ui.components.miuix.MiuixPage
+import com.dzshzx.zeta.ui.components.miuix.PreferenceGroup
+import com.dzshzx.zeta.ui.components.miuix.PreferenceValue
+import com.dzshzx.zeta.ui.components.miuix.TextField
+import com.dzshzx.zeta.ui.components.miuix.TextInputDialog
 import com.dzshzx.zeta.ui.settings.ValueRow
-import io.github.suqi8.coui.kmp.basic.BasicComponent
-import io.github.suqi8.coui.kmp.basic.ButtonDefaults
-import io.github.suqi8.coui.kmp.basic.DropdownEntry
-import io.github.suqi8.coui.kmp.basic.DropdownItem
-import io.github.suqi8.coui.kmp.basic.TextButton
-import io.github.suqi8.coui.kmp.preference.ArrowPreference
-import io.github.suqi8.coui.kmp.preference.InputPreference
-import io.github.suqi8.coui.kmp.preference.PagerFooterPreference
-import io.github.suqi8.coui.kmp.theme.COUITheme
+import top.yukonga.miuix.kmp.basic.BasicComponent
+import top.yukonga.miuix.kmp.basic.ButtonDefaults
+import top.yukonga.miuix.kmp.basic.DropdownEntry
+import top.yukonga.miuix.kmp.basic.DropdownItem
+import top.yukonga.miuix.kmp.basic.TextButton
+import top.yukonga.miuix.kmp.preference.ArrowPreference
+import top.yukonga.miuix.kmp.theme.MiuixTheme
 
 private fun locationName(rootfs: String?): String =
     when (rootfs) {
@@ -96,7 +97,7 @@ internal fun LinuxScreen(
         editing = kind
     }
 
-    CouiPage(
+    MiuixPage(
         title = Strings.setupLinuxTitle(),
         onBack = onBack,
         dialogs = {
@@ -520,7 +521,7 @@ internal fun EnvInstallScreen(hub: ConversationHub, onBack: () -> Unit, onOpenLo
     val nameValid = Regex("[a-z_][a-z0-9_-]{0,30}").matches(userName)
     val complete = installer.finished || own?.complete == true
 
-    CouiPage(
+    MiuixPage(
         title = Strings.setupInstallDebian(),
         onBack = onBack,
         dialogs = {
@@ -682,7 +683,7 @@ internal fun LoginScreen(hub: ConversationHub, backend: String, onBack: () -> Un
     val statusTitle =
         if (backend == Backends.LOCAL) Strings.setupLoginStatus()
         else Strings.setupLoginStatusOn(hub.backendName(backend))
-    CouiPage(title = Strings.setupSignInClaude(), onBack = leave) {
+    MiuixPage(title = Strings.setupSignInClaude(), onBack = leave) {
         item(key = "status") { LoginStatusGroup(account, statusTitle) }
         when (state) {
             LoginState.Idle,
@@ -804,15 +805,15 @@ private fun LazyListScope.loginCodeItems(
         }
     }
     item(key = "step2") {
-        PreferenceGroup(title = Strings.setupLoginStep2()) {
-            item {
-                InputPreference(
-                    value = code,
-                    onValueChange = onCodeChange,
-                    hint = Strings.setupLoginCodeHint(),
-                    enabled = state is LoginState.WaitingCode,
-                )
-            }
+        FieldGroup(title = Strings.setupLoginStep2()) {
+            TextField(
+                value = code,
+                onValueChange = onCodeChange,
+                label = Strings.setupLoginCodeHint(),
+                enabled = state is LoginState.WaitingCode,
+                showClearButton = true,
+                singleLine = true,
+            )
         }
     }
     (state as? LoginState.WaitingCode)?.notice?.let {
@@ -848,8 +849,8 @@ private fun copyLoginLink(context: Context, url: String) {
 /** 一段说明或报错，放在卡片之间。 */
 @Composable
 private fun Notice(text: String, error: Boolean = false) {
-    if (error) PagerFooterPreference(summary = text, summaryColor = COUITheme.colorScheme.error)
-    else PagerFooterPreference(summary = text)
+    if (error) FooterHint(summary = text, summaryColor = MiuixTheme.colorScheme.error)
+    else FooterHint(summary = text)
 }
 
 @Composable

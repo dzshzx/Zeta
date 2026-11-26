@@ -2,15 +2,19 @@ package com.dzshzx.zeta.ui.settings
 
 import android.app.Application
 import android.content.Context
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyListScope
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.key
 import androidx.compose.runtime.mutableStateOf
@@ -18,6 +22,8 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.unit.dp
 import com.dzshzx.zeta.core.AppVariant
 import com.dzshzx.zeta.core.ConversationHub
 import com.dzshzx.zeta.core.notify.NotifyRecords
@@ -36,35 +42,22 @@ import com.dzshzx.zeta.phone.InstalledApps
 import com.dzshzx.zeta.ui.chat.permissionModeLabel
 import com.dzshzx.zeta.ui.components.SlideInPage
 import com.dzshzx.zeta.ui.components.StatusWarning
-import com.dzshzx.zeta.ui.components.coui2.CardListSegment
-import com.dzshzx.zeta.ui.components.coui2.ConfirmDialog
-import com.dzshzx.zeta.ui.components.coui2.CouiPage
-import com.dzshzx.zeta.ui.components.coui2.CouiPageScaffold
-import com.dzshzx.zeta.ui.components.coui2.IconActionButton
-import com.dzshzx.zeta.ui.components.coui2.PreferenceGroup
-import com.dzshzx.zeta.ui.components.coui2.PreferenceValue
-import com.dzshzx.zeta.ui.components.coui2.SettingsIcon
-import com.dzshzx.zeta.ui.components.coui2.TextInputDialog
-import com.dzshzx.zeta.ui.components.coui2.ZetaIcons
-import com.dzshzx.zeta.ui.components.coui2.couiPageScroll
-import io.github.suqi8.coui.kmp.basic.BasicComponent
-import io.github.suqi8.coui.kmp.basic.BasicComponentDefaults
-import io.github.suqi8.coui.kmp.basic.InputView
-import io.github.suqi8.coui.kmp.basic.Text
-import io.github.suqi8.coui.kmp.basic.ToolbarTextButton
-import io.github.suqi8.coui.kmp.basic.TopAppBarSearchBar
-import io.github.suqi8.coui.kmp.basic.rememberTopAppBarSearchState
-import io.github.suqi8.coui.kmp.basic.topAppBarSearchContent
-import io.github.suqi8.coui.kmp.basic.topAppBarSearchResults
-import io.github.suqi8.coui.kmp.icon.COUIIcons
-import io.github.suqi8.coui.kmp.icon.extended.Add
-import io.github.suqi8.coui.kmp.preference.ArrowPreference
-import io.github.suqi8.coui.kmp.preference.OverlayDropdownPreference
-import io.github.suqi8.coui.kmp.preference.PagerFooterPreference
-import io.github.suqi8.coui.kmp.preference.PreferenceCategory
-import io.github.suqi8.coui.kmp.preference.SwitchPreference
-import io.github.suqi8.coui.kmp.preference.SwitchWithDividerPreference
-import io.github.suqi8.coui.kmp.theme.COUITheme
+import com.dzshzx.zeta.ui.components.miuix.CardListSegment
+import com.dzshzx.zeta.ui.components.miuix.ConfirmDialog
+import com.dzshzx.zeta.ui.components.miuix.FieldGroup
+import com.dzshzx.zeta.ui.components.miuix.FooterHint
+import com.dzshzx.zeta.ui.components.miuix.IconActionButton
+import com.dzshzx.zeta.ui.components.miuix.MiuixPage
+import com.dzshzx.zeta.ui.components.miuix.MiuixPageScaffold
+import com.dzshzx.zeta.ui.components.miuix.PreferenceGroup
+import com.dzshzx.zeta.ui.components.miuix.PreferenceValue
+import com.dzshzx.zeta.ui.components.miuix.SettingsIcon
+import com.dzshzx.zeta.ui.components.miuix.SwitchWithDividerPreference
+import com.dzshzx.zeta.ui.components.miuix.TextField
+import com.dzshzx.zeta.ui.components.miuix.TextInputDialog
+import com.dzshzx.zeta.ui.components.miuix.TopBarTextButton
+import com.dzshzx.zeta.ui.components.miuix.ZetaIcons
+import com.dzshzx.zeta.ui.components.miuix.miuixPageScroll
 import java.text.Collator
 import java.time.Instant
 import java.time.LocalTime
@@ -72,6 +65,18 @@ import java.time.ZoneId
 import java.util.Locale
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
+import top.yukonga.miuix.kmp.basic.BasicComponent
+import top.yukonga.miuix.kmp.basic.BasicComponentDefaults
+import top.yukonga.miuix.kmp.basic.InputField
+import top.yukonga.miuix.kmp.basic.SearchBar
+import top.yukonga.miuix.kmp.basic.SmallTitle
+import top.yukonga.miuix.kmp.basic.Text
+import top.yukonga.miuix.kmp.icon.MiuixIcons
+import top.yukonga.miuix.kmp.icon.extended.Add
+import top.yukonga.miuix.kmp.preference.ArrowPreference
+import top.yukonga.miuix.kmp.preference.OverlayDropdownPreference
+import top.yukonga.miuix.kmp.preference.SwitchPreference
+import top.yukonga.miuix.kmp.theme.MiuixTheme
 
 /**
  * 列表页的说明。没写进去的：跑完的通知是规则名加回答的开头，点它打开那次的对话； 冷却、每天上限、不触发的通知在编辑页“防止失控”下面；上一次还没跑完时跳过这一次（编辑页的“跳过了 N
@@ -174,12 +179,12 @@ internal fun NotifyTriggerScreen(
     val now = System.currentTimeMillis()
     val zone = ZoneId.systemDefault()
 
-    CouiPage(
+    MiuixPage(
         title = Strings.settingsTitleNotifyTriggers(),
         onBack = onBack,
         actions = {
             IconActionButton(
-                COUIIcons.Add,
+                MiuixIcons.Add,
                 Strings.notifyNewRule(),
                 enabled = total < NotifyRules.MAX_RULES,
             ) {
@@ -218,7 +223,7 @@ private fun ListenerMissing(hub: ConversationHub, rules: List<NotifyRule>) {
                 PermissionId.NotificationListener,
                 Strings.notifyListenerMissing(),
                 Strings.notifyListenerMissingSummary(),
-                if (rules.any { it.enabled }) COUITheme.colorScheme.error else StatusWarning,
+                if (rules.any { it.enabled }) MiuixTheme.colorScheme.error else StatusWarning,
             )
         }
     }
@@ -322,11 +327,11 @@ private fun RuleEditor(
         onBack()
     }
 
-    CouiPage(
+    MiuixPage(
         title = if (original == null) Strings.notifyNewTitle() else Strings.notifyEditTitle(),
         onBack = onBack,
         actions = {
-            ToolbarTextButton(
+            TopBarTextButton(
                 text = Strings.commonSave(),
                 enabled = problem == null,
                 onClick = ::save,
@@ -352,14 +357,14 @@ private fun RuleEditor(
     ) {
         // 名称是跑完那条通知的标题，也是每次运行那个对话的名字
         item(key = "name") {
-            FieldCard {
-                InputView(
+            FieldGroup(title = Strings.settingsScheduleName()) {
+                TextField(
                     value = draft.name,
                     onValueChange = { text ->
                         update { copy(name = text.take(NotifyRules.MAX_NAME)) }
                     },
-                    title = Strings.settingsScheduleName(),
                     label = Strings.notifyNameExample(),
+                    singleLine = true,
                 )
             }
         }
@@ -567,13 +572,14 @@ private fun clockText(time: LocalTime): String = "%02d:%02d".format(time.hour, t
 private fun RulePromptField(prompt: String, onChange: (String) -> Unit) {
     val risky = NotifyRules.usesPlaceholders(prompt)
     Column {
-        FieldCard(footer = if (risky) null else promptFooter()) {
-            InputView(
+        FieldGroup(
+            title = Strings.settingsSchedulePrompt(),
+            footer = if (risky) null else promptFooter(),
+        ) {
+            TextField(
                 value = prompt,
                 onValueChange = onChange,
-                title = Strings.settingsSchedulePrompt(),
                 label = Strings.notifyPromptExample("{text}"),
-                singleLine = false,
                 maxLines = 10,
             )
         }
@@ -614,8 +620,8 @@ private fun RulePromptPreview(draft: RuleDraft, now: Long, nonce: String) {
                             draft.appLabel.ifBlank { Strings.notifySampleApp() },
                             nonce,
                         ),
-                    style = COUITheme.textStyles.bodyM,
-                    color = COUITheme.colorScheme.labelSecondary,
+                    style = MiuixTheme.textStyles.body2,
+                    color = MiuixTheme.colorScheme.onBackgroundVariant,
                 )
             }
         }
@@ -764,7 +770,7 @@ private fun launcherApps(context: Context): List<AppEntry> {
         .sortedWith { a, b -> collator.compare(a.label, b.label) }
 }
 
-/** 选应用：通知栏里现在有通知的排前面，下面是全部有桌面图标的应用；别的可以手动输入包名。 顶栏下的搜索框和顶栏联动（COUI 设置首页那样）：点进去后列表换成搜索结果，取消或返回回到列表。 */
+/** 选应用：通知栏里现在有通知的排前面，下面是全部有桌面图标的应用；别的可以手动输入包名。 顶栏下面是 Miuix 的搜索框：点进去后列表换成搜索结果，点取消或返回回到列表。 */
 @Composable
 private fun AppPicker(
     current: String,
@@ -782,44 +788,70 @@ private fun AppPicker(
     var query by remember { mutableStateOf("") }
     var searching by remember { mutableStateOf(false) }
     var manual by remember { mutableStateOf(false) }
-    val searchState = rememberTopAppBarSearchState(active = searching)
-    // 列表的滚动位置提出来：搜索时列表淡出，回来时还在原处
+    val stopSearching = {
+        searching = false
+        query = ""
+    }
+    // 列表的滚动位置提出来：搜索时列表换成结果，回来时还在原处
     val listState = rememberLazyListState()
+    val resultsState = rememberLazyListState()
+    val shownState = if (searching) resultsState else listState
+    val scrolled by remember(shownState) { derivedStateOf { shownState.canScrollBackward } }
     val cards = AppCards(current, onPick, manualRow = { manual = true })
-    CouiPageScaffold(
+    MiuixPageScaffold(
         title = Strings.notifyPickApp(),
         onBack = onBack,
+        isContentScrolled = scrolled,
         topBarBottomContent = {
-            TopAppBarSearchBar(
-                query = query,
-                onQueryChange = { query = it },
-                expanded = searching,
-                onExpandedChange = {
-                    searching = it
-                    if (!it) query = ""
+            SearchBar(
+                modifier = Modifier.fillMaxWidth().padding(bottom = 8.dp),
+                inputField = {
+                    InputField(
+                        query = query,
+                        onQueryChange = { query = it },
+                        onSearch = { query = it },
+                        expanded = searching,
+                        onExpandedChange = { if (it) searching = true else stopSearching() },
+                        label = Strings.notifySearchApps(),
+                    )
                 },
-                cancelText = Strings.commonCancel(),
-                label = Strings.notifySearchApps(),
+                outsideEndAction = {
+                    Text(
+                        text = Strings.commonCancel(),
+                        modifier =
+                            Modifier.padding(end = 12.dp)
+                                .clickable(
+                                    interactionSource = null,
+                                    indication = null,
+                                    onClick = stopSearching,
+                                ),
+                        style = MiuixTheme.textStyles.body1,
+                        fontWeight = FontWeight.Bold,
+                        color = MiuixTheme.colorScheme.primary,
+                    )
+                },
+                expanded = searching,
+                onExpandedChange = { if (it) searching = true else stopSearching() },
+                content = {},
             )
         },
-        topBarSearchState = searchState,
     ) { scope ->
         Box(Modifier.fillMaxSize()) {
-            if (searchState.isContentVisible) {
+            if (searching) {
                 LazyColumn(
-                    state = listState,
-                    modifier = Modifier.couiPageScroll(scope).topAppBarSearchContent(searchState),
-                    contentPadding = scope.contentPadding,
-                ) {
-                    appListItems(apps, active, cards)
-                }
-            }
-            if (searchState.isResultsVisible) {
-                LazyColumn(
-                    modifier = Modifier.couiPageScroll(scope).topAppBarSearchResults(searchState),
+                    state = resultsState,
+                    modifier = Modifier.miuixPageScroll(scope),
                     contentPadding = scope.contentPadding,
                 ) {
                     appSearchItems(apps.orEmpty(), active, query, cards)
+                }
+            } else {
+                LazyColumn(
+                    state = listState,
+                    modifier = Modifier.miuixPageScroll(scope),
+                    contentPadding = scope.contentPadding,
+                ) {
+                    appListItems(apps, active, cards)
                 }
             }
             ManualPackageDialog(
@@ -885,7 +917,7 @@ private fun LazyListScope.appCard(
 ) {
     val offset = if (manual) 1 else 0
     val count = entries.size + offset
-    if (title != null) item(key = "$key:title") { PreferenceCategory(title = title) }
+    if (title != null) item(key = "$key:title") { SmallTitle(text = title) }
     if (manual)
         item(key = "$key:head") {
             CardListSegment(0, count, footerBelow = footer != null) { ManualRow(cards) }
@@ -895,7 +927,7 @@ private fun LazyListScope.appCard(
             AppRow(entry, cards)
         }
     }
-    if (footer != null) item(key = "$key:footer") { PagerFooterPreference(summary = footer) }
+    if (footer != null) item(key = "$key:footer") { FooterHint(summary = footer) }
 }
 
 /** 平时的列表：通知栏里现在有通知的，然后是全部应用（最多 400 个）；还没读到时说明一行。 */

@@ -52,7 +52,7 @@ internal object ThirdParty {
      */
     val LICENSE_URLS: Map<String, String> =
         mapOf(
-            "https://github.com/suqi8/coui/blob/main/LICENSE" to "Apache-2.0",
+            "https://github.com/compose-miuix-ui/miuix/blob/main/LICENSE" to "Apache-2.0",
             "https://github.com/jordond/materialkolor/blob/master/LICENSE" to "MIT",
         )
 
@@ -108,7 +108,7 @@ internal object ThirdParty {
                 "ui/components/ConversationSidePaneScaffold.kt",
                 "ui/layout/AdaptivePageLayout.kt",
                 "ui/components/MonoFont.kt",
-                "ui/components/coui2/Dialogs.kt",
+                "ui/components/miuix/Dialogs.kt",
             )
             .map { SHARED_SOURCES + it } +
             listOf(
@@ -120,6 +120,7 @@ internal object ThirdParty {
                     "assistant/AssistantSuggestionRow.kt",
                     "assistant/AssistantEdgeGlow.kt",
                     "assistant/AssistantReply.kt",
+                    "ui/settings/ScheduleScreen.kt",
                 )
                 .map { APP_SOURCES + it }
 
@@ -268,12 +269,21 @@ internal object ThirdParty {
             listOf(
                 Component(
                     name = "Eta",
-                    version = "2026-11-21",
+                    version = "2026-11-25",
                     license = "GPL-3.0-only",
                     url = "https://github.com/Mangi-11/Eta",
                     copyright = listOf("Copyright © 2026 蛮吉 (Mangi-11)"),
                     note = Strings.thirdPartyEtaNote(),
                     files = ETA_FILES,
+                ),
+                Component(
+                    name = "COUI 2",
+                    version = "2.1.0",
+                    license = "Apache-2.0",
+                    url = "https://github.com/suqi8/coui",
+                    copyright = listOf("Copyright 2026, compose-coui-ui contributors"),
+                    note = Strings.thirdPartyCouiNote(),
+                    files = listOf(SHARED_SOURCES + "ui/components/miuix/LongPressMenu.kt"),
                 ),
                 Component(
                     name = "JetBrains Mono NL",

@@ -39,13 +39,13 @@ import com.dzshzx.zeta.core.RemoteImage
 import com.dzshzx.zeta.i18n.Strings
 import com.dzshzx.zeta.ui.components.FoldEnter
 import com.dzshzx.zeta.ui.components.FoldExit
-import io.github.suqi8.coui.kmp.basic.Text
-import io.github.suqi8.coui.kmp.icon.COUIIcons
-import io.github.suqi8.coui.kmp.icon.extended.Image
-import io.github.suqi8.coui.kmp.theme.COUITheme
 import kotlin.math.abs
 import kotlin.math.roundToInt
 import kotlinx.coroutines.launch
+import top.yukonga.miuix.kmp.basic.Text
+import top.yukonga.miuix.kmp.icon.MiuixIcons
+import top.yukonga.miuix.kmp.icon.extended.Image
+import top.yukonga.miuix.kmp.theme.MiuixTheme
 
 /** 图片组里一页最高多高：更高的图等比缩进去。 */
 private val GalleryMaxHeight = 360.dp
@@ -61,7 +61,7 @@ private val GalleryPlaceholderHeight = 120.dp
 fun ImageGallery(refs: List<ImageRef>, modifier: Modifier = Modifier) {
     var expanded by rememberSaveable { mutableStateOf(true) }
     WorkCard(
-        icon = COUIIcons.Image,
+        icon = MiuixIcons.Image,
         iconTint = rememberWorkInk().icon,
         title = Strings.chatImageCount(refs.size),
         active = false,
@@ -173,7 +173,7 @@ private fun LoadedPage(ref: ImageRef, onRatio: (Float) -> Unit, onOpen: () -> Un
 private fun PageCounter(text: String, modifier: Modifier) {
     Text(
         text = text,
-        style = COUITheme.textStyles.bodyS.copy(fontSize = 11.5.sp),
+        style = MiuixTheme.textStyles.footnote1.copy(fontSize = 11.5.sp),
         color = Color.White,
         modifier =
             modifier

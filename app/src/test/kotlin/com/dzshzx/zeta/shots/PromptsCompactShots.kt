@@ -22,8 +22,8 @@ import com.dzshzx.zeta.ui.chat.ChatScreen
 import com.dzshzx.zeta.ui.chat.PromptsUi
 import com.dzshzx.zeta.ui.chat.SavedPromptsDialogs
 import com.dzshzx.zeta.ui.settings.HostSettingsScreen
-import io.github.suqi8.coui.kmp.basic.Scaffold
 import org.junit.Test
+import top.yukonga.miuix.kmp.basic.Scaffold
 
 /** 常用指令（列表、编辑）和自动压缩（设置页一组、用量弹窗里的压缩点）。 */
 class PromptsCompactShots : ShotTest() {
@@ -76,7 +76,7 @@ class PromptsCompactShots : ShotTest() {
         return hub
     }
 
-    /** 外面包一层 COUI 2 的 Scaffold：常用指令和用量的对话框、菜单要在它里面才显示。 */
+    /** 外面包一层 Miuix 的 Scaffold：常用指令和用量的对话框、菜单要在它里面才显示。 */
     private fun chat(hub: ConversationHub) =
         @Composable {
             Scaffold {

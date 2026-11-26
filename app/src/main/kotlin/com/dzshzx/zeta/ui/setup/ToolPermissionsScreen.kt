@@ -33,28 +33,27 @@ import com.dzshzx.zeta.i18n.Strings
 import com.dzshzx.zeta.phone.PhoneToolCatalog
 import com.dzshzx.zeta.phone.PhoneTools
 import com.dzshzx.zeta.ui.components.SlideInPage
-import com.dzshzx.zeta.ui.components.coui2.CompactButton
-import com.dzshzx.zeta.ui.components.coui2.ConfirmDialog
-import com.dzshzx.zeta.ui.components.coui2.CouiPage
-import com.dzshzx.zeta.ui.components.coui2.DialogTextField
-import com.dzshzx.zeta.ui.components.coui2.IconActionButton
-import com.dzshzx.zeta.ui.components.coui2.PreferenceGroup
-import com.dzshzx.zeta.ui.components.coui2.PreferenceValue
+import com.dzshzx.zeta.ui.components.miuix.CompactButton
+import com.dzshzx.zeta.ui.components.miuix.ConfirmDialog
+import com.dzshzx.zeta.ui.components.miuix.DialogTextField
+import com.dzshzx.zeta.ui.components.miuix.FooterHint
+import com.dzshzx.zeta.ui.components.miuix.IconActionButton
+import com.dzshzx.zeta.ui.components.miuix.MiuixPage
+import com.dzshzx.zeta.ui.components.miuix.PreferenceGroup
+import com.dzshzx.zeta.ui.components.miuix.PreferenceGroupScope
+import com.dzshzx.zeta.ui.components.miuix.PreferenceValue
 import com.dzshzx.zeta.ui.components.rememberRetained
-import io.github.suqi8.coui.kmp.basic.BasicComponent
-import io.github.suqi8.coui.kmp.basic.CardListGroupScope
-import io.github.suqi8.coui.kmp.basic.DropdownEntry
-import io.github.suqi8.coui.kmp.basic.DropdownItem
-import io.github.suqi8.coui.kmp.basic.SegmentButton
-import io.github.suqi8.coui.kmp.basic.SegmentButtonDefaults
-import io.github.suqi8.coui.kmp.basic.Text
-import io.github.suqi8.coui.kmp.icon.COUIIcons
-import io.github.suqi8.coui.kmp.icon.extended.Add
-import io.github.suqi8.coui.kmp.icon.extended.Refresh
-import io.github.suqi8.coui.kmp.preference.ArrowPreference
-import io.github.suqi8.coui.kmp.preference.OverlayDropdownPreference
-import io.github.suqi8.coui.kmp.preference.PagerFooterPreference
-import io.github.suqi8.coui.kmp.theme.COUITheme
+import top.yukonga.miuix.kmp.basic.BasicComponent
+import top.yukonga.miuix.kmp.basic.DropdownEntry
+import top.yukonga.miuix.kmp.basic.DropdownItem
+import top.yukonga.miuix.kmp.basic.TabRowWithContour
+import top.yukonga.miuix.kmp.basic.Text
+import top.yukonga.miuix.kmp.icon.MiuixIcons
+import top.yukonga.miuix.kmp.icon.extended.Add
+import top.yukonga.miuix.kmp.icon.extended.Refresh
+import top.yukonga.miuix.kmp.preference.ArrowPreference
+import top.yukonga.miuix.kmp.preference.OverlayDropdownPreference
+import top.yukonga.miuix.kmp.theme.MiuixTheme
 
 /**
  * 用临时 HOME 和假的 API 实测出来的语义（ClaudeCodeContractTest 钉住），页面上照这句话告诉用户：拒绝压过询问、询问压过允许，和规则写得细不细无关（比如允许
@@ -178,18 +177,18 @@ internal fun ToolPermissionsScreen(
     val editable = current != null && loadError == null && !working
 
     val shownDelete = rememberRetained(deleting)
-    CouiPage(
+    MiuixPage(
         title = Strings.setupToolPermTitle(),
         onBack = onBack,
         actions = {
             IconActionButton(
-                COUIIcons.Refresh,
+                MiuixIcons.Refresh,
                 Strings.setupToolPermReload(),
                 enabled = !working,
                 onClick = { reloads++ },
             )
             IconActionButton(
-                COUIIcons.Add,
+                MiuixIcons.Add,
                 Strings.setupToolPermAddRule(),
                 enabled = editable,
                 onClick = { editor = RuleDraft(null, PermissionBehavior.Ask, "") },
@@ -240,7 +239,7 @@ internal fun ToolPermissionsScreen(
     ) {
         // 这页只管规则；默认权限模式在这台主机的页面上，和默认模型、思考强度一起在「新对话默认」里
         item(key = "semantics") {
-            PagerFooterPreference(
+            FooterHint(
                 summary =
                     Strings.setupToolPermIntro(PermissionSemantics) +
                         (loadError?.let { "\n\n" + Strings.setupToolPermLoadFailedDetail(it) }
@@ -365,7 +364,7 @@ private fun BuiltinToolsGroup(
 }
 
 /** 工具每个一行：它自己的设置，改了就写回规则。 */
-private fun CardListGroupScope.toolRows(
+private fun PreferenceGroupScope.toolRows(
     tools: List<ToolView>,
     editable: Boolean,
     apply: ApplyRules,
@@ -612,16 +611,14 @@ private fun RuleEditorDialog(
             modifier = Modifier.fillMaxWidth(),
         ) {
             val behaviors = PermissionBehavior.entries
-            SegmentButton(
-                items = behaviors.map(::behaviorLabel),
-                selectedIndex = behaviors.indexOf(behavior),
-                onSelectedIndexChange = { index ->
-                    behaviors.getOrNull(index)?.let { behavior = it }
+            TabRowWithContour(
+                tabs = behaviors.map(::behaviorLabel),
+                selectedTabIndex = behaviors.indexOf(behavior),
+                // 分段标签没有不可用的样子：保存中忽略点击
+                onTabSelected = { index ->
+                    if (!saving) behaviors.getOrNull(index)?.let { behavior = it }
                 },
                 modifier = Modifier.fillMaxWidth(),
-                enabled = !saving,
-                height = SegmentButtonDefaults.HeightSmall,
-                padding = SegmentButtonDefaults.PaddingSmall,
             )
             DialogTextField(
                 value = text,
@@ -632,14 +629,14 @@ private fun RuleEditorDialog(
             )
             Text(
                 text = Strings.setupToolPermRuleHelp(),
-                style = COUITheme.textStyles.bodyS,
-                color = COUITheme.colorScheme.labelSecondary,
+                style = MiuixTheme.textStyles.footnote1,
+                color = MiuixTheme.colorScheme.onBackgroundVariant,
             )
             error?.let {
                 Text(
                     text = it,
-                    style = COUITheme.textStyles.bodyM,
-                    color = COUITheme.colorScheme.error,
+                    style = MiuixTheme.textStyles.body2,
+                    color = MiuixTheme.colorScheme.error,
                 )
             }
         }
@@ -697,12 +694,12 @@ private fun McpPermissionDetail(
     val editable = view != null && !working
     var bulk by remember { mutableStateOf<BulkRequest?>(null) }
 
-    CouiPage(
+    MiuixPage(
         title = server.name,
         onBack = onBack,
         actions = {
             IconActionButton(
-                COUIIcons.Refresh,
+                MiuixIcons.Refresh,
                 Strings.setupMcpRefreshTools(),
                 enabled = !loading,
                 onClick = ::load,

@@ -16,9 +16,9 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.unit.DpSize
 import androidx.compose.ui.unit.dp
 import com.dzshzx.zeta.core.ConversationHub
 import com.dzshzx.zeta.core.claude.Subagent
@@ -26,29 +26,28 @@ import com.dzshzx.zeta.core.claude.SubagentDraft
 import com.dzshzx.zeta.core.clipLine
 import com.dzshzx.zeta.i18n.Strings
 import com.dzshzx.zeta.ui.components.SlideInPage
-import com.dzshzx.zeta.ui.components.coui2.ConfirmDialog
-import com.dzshzx.zeta.ui.components.coui2.CouiPage
-import com.dzshzx.zeta.ui.components.coui2.IconActionButton
-import com.dzshzx.zeta.ui.components.coui2.NoticeDialog
-import com.dzshzx.zeta.ui.components.coui2.PreferenceGroup
-import com.dzshzx.zeta.ui.components.coui2.PreferenceValue
-import com.dzshzx.zeta.ui.components.coui2.TextField
+import com.dzshzx.zeta.ui.components.fill8
+import com.dzshzx.zeta.ui.components.miuix.ConfirmDialog
+import com.dzshzx.zeta.ui.components.miuix.FieldGroup
+import com.dzshzx.zeta.ui.components.miuix.FooterHint
+import com.dzshzx.zeta.ui.components.miuix.IconActionButton
+import com.dzshzx.zeta.ui.components.miuix.MiuixPage
+import com.dzshzx.zeta.ui.components.miuix.NoticeDialog
+import com.dzshzx.zeta.ui.components.miuix.PreferenceGroup
+import com.dzshzx.zeta.ui.components.miuix.PreferenceValue
+import com.dzshzx.zeta.ui.components.miuix.TextField
 import com.dzshzx.zeta.ui.components.rememberRetained
-import io.github.suqi8.coui.kmp.basic.BasicComponent
-import io.github.suqi8.coui.kmp.basic.ButtonDefaults
-import io.github.suqi8.coui.kmp.basic.InputViewDefaults
-import io.github.suqi8.coui.kmp.basic.Text
-import io.github.suqi8.coui.kmp.basic.TextButton
-import io.github.suqi8.coui.kmp.basic.TextFieldMode
-import io.github.suqi8.coui.kmp.icon.COUIIcons
-import io.github.suqi8.coui.kmp.icon.extended.Add
-import io.github.suqi8.coui.kmp.preference.CheckboxPreference
-import io.github.suqi8.coui.kmp.preference.InputPreference
-import io.github.suqi8.coui.kmp.preference.OverlayDropdownPreference
-import io.github.suqi8.coui.kmp.preference.PagerFooterPreference
-import io.github.suqi8.coui.kmp.preference.SwitchPreference
-import io.github.suqi8.coui.kmp.squircle.squircleBackground
-import io.github.suqi8.coui.kmp.theme.COUITheme
+import top.yukonga.miuix.kmp.basic.BasicComponent
+import top.yukonga.miuix.kmp.basic.ButtonDefaults
+import top.yukonga.miuix.kmp.basic.Text
+import top.yukonga.miuix.kmp.basic.TextButton
+import top.yukonga.miuix.kmp.icon.MiuixIcons
+import top.yukonga.miuix.kmp.icon.extended.Add
+import top.yukonga.miuix.kmp.preference.CheckboxPreference
+import top.yukonga.miuix.kmp.preference.OverlayDropdownPreference
+import top.yukonga.miuix.kmp.preference.SwitchPreference
+import top.yukonga.miuix.kmp.squircle.squircleBackground
+import top.yukonga.miuix.kmp.theme.MiuixTheme
 
 /**
  * frontmatter 里 model 可写的别名；不写时 Claude Code 让 Subagent 跟随主对话的模型（除非设了 CLAUDE_CODE_SUBAGENT_MODEL）。
@@ -111,12 +110,12 @@ internal fun ClaudeAgentsScreen(hub: ConversationHub, backend: String, onBack: (
 
     val shownAgent = rememberRetained(inspected)
     val shownDeleting = rememberRetained(deleting)
-    CouiPage(
+    MiuixPage(
         title = "Subagent",
         onBack = onBack,
         actions = {
             IconActionButton(
-                COUIIcons.Add,
+                MiuixIcons.Add,
                 Strings.setupAgentsNew(),
                 onClick = { editor = EditorTarget(null) },
             )
@@ -221,30 +220,30 @@ private class EditorTarget(val agent: Subagent?)
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
 private fun AgentDetail(agent: Subagent, onEdit: () -> Unit, onDelete: () -> Unit) {
-    val colors = COUITheme.colorScheme
-    val styles = COUITheme.textStyles
+    val colors = MiuixTheme.colorScheme
+    val styles = MiuixTheme.textStyles
     Column(
         modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp),
         verticalArrangement = Arrangement.spacedBy(14.dp),
     ) {
         Text(
             text = agent.description.clipLine(400).ifBlank { Strings.setupAgentsNoWhen() },
-            style = styles.bodyXL,
+            style = styles.body1,
             fontWeight = FontWeight.Medium,
-            color = colors.labelPrimary,
+            color = colors.onBackground,
         )
         if (agent.prompt.isNotBlank()) {
             Text(
                 text = agent.prompt.clipLine(240),
-                style = styles.bodyM,
-                color = colors.labelSecondary,
+                style = styles.body2,
+                color = colors.onBackgroundVariant,
             )
         }
         Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
             Text(
                 text = Strings.setupAgentsModelTools(modelLabel(agent.model)),
-                style = styles.bodyS,
-                color = colors.labelSecondary,
+                style = styles.footnote1,
+                color = colors.onBackgroundVariant,
             )
             FlowRow(
                 horizontalArrangement = Arrangement.spacedBy(8.dp),
@@ -256,15 +255,15 @@ private fun AgentDetail(agent: Subagent, onEdit: () -> Unit, onDelete: () -> Uni
                         Box(
                             modifier =
                                 Modifier.squircleBackground(
-                                        color = colors.container8,
+                                        color = colors.fill8,
                                         cornerRadius = 8.dp,
                                     )
                                     .padding(horizontal = 10.dp, vertical = 5.dp),
                         ) {
                             Text(
                                 text = tool,
-                                style = styles.bodyXS.copy(fontFamily = FontFamily.Monospace),
-                                color = colors.labelSecondary,
+                                style = styles.footnote2.copy(fontFamily = FontFamily.Monospace),
+                                color = colors.onBackgroundVariant,
                             )
                         }
                     }
@@ -276,8 +275,8 @@ private fun AgentDetail(agent: Subagent, onEdit: () -> Unit, onDelete: () -> Uni
                     Strings.setupAgentsExtraKeys(
                         agent.extraKeys.joinToString(Strings.setupListSeparator()),
                     ),
-                style = styles.bodyS,
-                color = colors.labelSecondary,
+                style = styles.footnote1,
+                color = colors.onBackgroundVariant,
             )
         }
         Row(
@@ -342,7 +341,7 @@ private fun AgentEditor(
         }
     }
 
-    CouiPage(
+    MiuixPage(
         title = if (original == null) Strings.setupAgentsNew() else Strings.setupAgentsEdit(),
         onBack = onBack,
         actions = {
@@ -351,41 +350,44 @@ private fun AgentEditor(
                 onClick = ::save,
                 enabled = valid && !saving,
                 minWidth = 0.dp,
-                colors = ButtonDefaults.textButtonColorsBorderless(),
+                colors =
+                    ButtonDefaults.textButtonColors(
+                        color = Color.Transparent,
+                        disabledColor = Color.Transparent,
+                        textColor = MiuixTheme.colorScheme.primary,
+                    ),
             )
         },
     ) {
         item(key = "name") {
             // 保存为 ~/.claude/agents/<名称>.md
-            PreferenceGroup(
+            FieldGroup(
                 title = Strings.setupAgentsName(),
                 footer = Strings.setupAgentsNameFooter(),
             ) {
-                item {
-                    InputPreference(
-                        value = name,
-                        onValueChange = { name = it },
-                        hint = "code-reviewer",
-                        enabled = !saving,
-                    )
-                }
+                TextField(
+                    value = name,
+                    onValueChange = { name = it },
+                    label = "code-reviewer",
+                    enabled = !saving,
+                    showClearButton = true,
+                    singleLine = true,
+                )
             }
         }
         item(key = "description") {
-            PreferenceGroup(
+            FieldGroup(
                 title = Strings.setupAgentsWhen(),
                 footer = Strings.setupAgentsWhenFooter(),
             ) {
-                item {
-                    MultiLineField(
-                        value = description,
-                        onValueChange = { description = it },
-                        hint = Strings.setupAgentsWhenHint(),
-                        minLines = 2,
-                        maxLines = 6,
-                        enabled = !saving,
-                    )
-                }
+                TextField(
+                    value = description,
+                    onValueChange = { description = it },
+                    label = Strings.setupAgentsWhenHint(),
+                    enabled = !saving,
+                    minLines = 2,
+                    maxLines = 6,
+                )
             }
         }
         item(key = "model") {
@@ -403,29 +405,27 @@ private fun AgentEditor(
             )
         }
         item(key = "prompt") {
-            PreferenceGroup(
+            FieldGroup(
                 title = Strings.setupAgentsPrompt(),
                 footer = Strings.setupAgentsPromptFooter(),
             ) {
-                item {
-                    MultiLineField(
-                        value = prompt,
-                        onValueChange = { prompt = it },
-                        hint = Strings.setupAgentsPromptHint(),
-                        minLines = 8,
-                        enabled = !saving,
-                    )
-                }
+                TextField(
+                    value = prompt,
+                    onValueChange = { prompt = it },
+                    label = Strings.setupAgentsPromptHint(),
+                    enabled = !saving,
+                    minLines = 8,
+                )
             }
         }
         error?.let {
             item(key = "error") {
-                PagerFooterPreference(summary = it, summaryColor = COUITheme.colorScheme.error)
+                FooterHint(summary = it, summaryColor = MiuixTheme.colorScheme.error)
             }
         }
         // 保存按钮灰着的时候说一下缺什么
         if (!valid && (name.isNotEmpty() || description.isNotEmpty())) {
-            item(key = "missing") { PagerFooterPreference(summary = missingFieldHint(name)) }
+            item(key = "missing") { FooterHint(summary = missingFieldHint(name)) }
         }
     }
 }
@@ -476,66 +476,49 @@ private fun AgentToolsGroup(
     enabled: Boolean,
 ) {
     // “其他工具”写 MCP 工具：mcp__服务器名（整个服务器）或 mcp__服务器名__工具名；Zeta 的手机工具是 mcp__phone__ 开头的
-    PreferenceGroup(title = Strings.setupAgentsTools(), footer = Strings.setupAgentsToolsFooter()) {
-        item {
-            SwitchPreference(
-                checked = allTools,
-                onCheckedChange = onAllToolsChange,
-                title = Strings.setupAgentsAllTools(),
-                summary = Strings.setupAgentsAllToolsSummary(),
-                enabled = enabled,
-            )
-        }
-        if (!allTools) {
-            CommonTools.forEach { (tool, label) ->
-                item(key = tool) {
-                    CheckboxPreference(
-                        title = tool,
-                        checked = tool in checked,
-                        onCheckedChange = { on -> onToolCheckedChange(tool, on) },
-                        summary = label,
-                        enabled = enabled,
-                    )
+    // 全部工具关掉时说明挪到“其他工具”输入框下面，那里才写得到工具名
+    Column {
+        PreferenceGroup(
+            title = Strings.setupAgentsTools(),
+            footer = if (allTools) Strings.setupAgentsToolsFooter() else null,
+        ) {
+            item {
+                SwitchPreference(
+                    checked = allTools,
+                    onCheckedChange = onAllToolsChange,
+                    title = Strings.setupAgentsAllTools(),
+                    summary = Strings.setupAgentsAllToolsSummary(),
+                    enabled = enabled,
+                )
+            }
+            if (!allTools) {
+                CommonTools.forEach { (tool, label) ->
+                    item(key = tool) {
+                        CheckboxPreference(
+                            title = tool,
+                            checked = tool in checked,
+                            onCheckedChange = { on -> onToolCheckedChange(tool, on) },
+                            summary = label,
+                            enabled = enabled,
+                        )
+                    }
                 }
             }
-            item(key = "others") {
-                InputPreference(
+        }
+        if (!allTools) {
+            FieldGroup(
+                title = Strings.setupAgentsOtherTools(),
+                footer = Strings.setupAgentsToolsFooter(),
+            ) {
+                TextField(
                     value = others,
                     onValueChange = onOthersChange,
-                    title = Strings.setupAgentsOtherTools(),
-                    hint = "mcp__github",
+                    label = "mcp__github",
                     enabled = enabled,
+                    showClearButton = true,
+                    singleLine = true,
                 )
             }
         }
     }
-}
-
-/**
- * 卡片里的多行输入，随内容变高。COUI 2 的 InputPreference 只有单行，InputView 的多行固定 152dp 高， 系统提示词这种长文本要能整段看到，所以用无边框的
- * TextField，字号、提示色和留白照 InputPreference。
- */
-@Composable
-private fun MultiLineField(
-    value: String,
-    onValueChange: (String) -> Unit,
-    hint: String,
-    minLines: Int,
-    enabled: Boolean,
-    maxLines: Int = Int.MAX_VALUE,
-) {
-    TextField(
-        value = value,
-        onValueChange = onValueChange,
-        modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp),
-        backgroundMode = TextFieldMode.None,
-        insideMargin = DpSize(0.dp, 13.dp),
-        minHeight = 0.dp,
-        colors = InputViewDefaults.textFieldColors(),
-        label = hint,
-        enabled = enabled,
-        textStyle = InputViewDefaults.textStyle(),
-        minLines = minLines,
-        maxLines = maxLines,
-    )
 }

@@ -52,14 +52,14 @@ import androidx.navigationevent.NavigationEventInfo
 import androidx.navigationevent.compose.NavigationBackHandler
 import androidx.navigationevent.compose.rememberNavigationEventState
 import com.dzshzx.zeta.i18n.Strings
-import com.dzshzx.zeta.ui.components.coui2.PageBlurHost
-import com.dzshzx.zeta.ui.components.coui2.pageBlurSource
-import com.dzshzx.zeta.ui.components.coui2.rememberPageBlur
-import io.github.suqi8.coui.kmp.basic.Scaffold
-import io.github.suqi8.coui.kmp.theme.COUITheme
+import com.dzshzx.zeta.ui.components.miuix.PageBlurHost
+import com.dzshzx.zeta.ui.components.miuix.pageBlurSource
+import com.dzshzx.zeta.ui.components.miuix.rememberPageBlur
 import kotlin.math.roundToInt
 import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.launch
+import top.yukonga.miuix.kmp.basic.Scaffold
+import top.yukonga.miuix.kmp.theme.MiuixTheme
 
 private object ConversationPaneMetrics {
     val PaneMaxWidth = 340.dp
@@ -74,8 +74,8 @@ private object ConversationPaneMetrics {
 /**
  * 聊天页和左侧会话栏的推移容器：两边并排，由同一个位移推着走。
  *
- * 外面包一层 COUI 2 的 [Scaffold]，当整个窗口的弹窗宿主：侧栏里的对话框、长按菜单（COUI 的 Overlay 组件）要在 Scaffold
- * 里才显示，而且要盖住整个屏幕，不能只在侧栏那一条里。聊天页里的 COUI 页面若再套 Scaffold，会把弹窗交给这一层。
+ * 外面包一层 Miuix 的 [Scaffold]，当整个窗口的弹窗宿主：侧栏里的对话框、长按菜单（Miuix 的 Overlay 组件）要在 Scaffold
+ * 里才显示，而且要盖住整个屏幕，不能只在侧栏那一条里。聊天页里的 Miuix 页面若再套 Scaffold，会把弹窗交给这一层。
  * 侧栏和聊天页一起录进一张背景图，交给侧栏里弹出的对话框、菜单做毛玻璃（弹窗宿主在录制范围之外）。
  */
 @Composable
@@ -311,7 +311,7 @@ private fun ChatSlot(pushed: PushedPane, paneWidthPx: Float, content: @Composabl
                     val progress = conversationPaneMotion(pushed.drag.offset, paneWidthPx).progress
                     drawRect(Color.Black, alpha = ConversationPaneMetrics.ChatScrimAlpha * progress)
                 }
-                .background(COUITheme.colorScheme.background),
+                .background(MiuixTheme.colorScheme.surface),
     ) {
         Box(modifier = Modifier.pushedSlot { pushed.isRevealed }) { content() }
         if (pushed.isRevealed) {
@@ -346,6 +346,5 @@ private fun sidePaneMeasure(
     }
 }
 
-/** 侧栏与外层推移容器共用的背景色：COUI 带卡片的抬高底色，深色下和纯黑的聊天页分得开。 */
-@Composable
-fun conversationPaneContainerColor(): Color = COUITheme.colorScheme.backgroundElevatedWithCard
+/** 侧栏与外层推移容器共用的背景色：Miuix 的浮层底色，深色下和纯黑的聊天页分得开。 */
+@Composable fun conversationPaneContainerColor(): Color = MiuixTheme.colorScheme.surface

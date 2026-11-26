@@ -10,7 +10,7 @@ Zeta 可以被选为系统的默认数字助理。唤起后在当前应用上弹
 
 ## 浮窗
 
-`AssistantActivity` 是透明的 activity，不进最近任务。界面是从 Eta 的助理浮窗（只取打字，不做语音）拷来再改写的，登记在 `core/about/ThirdParty.kt` 的 `ETA_FILES`：`AssistantPanel.kt`（压暗与托底、进出场、回答面板的外形和把手，对应 Eta 的 `EtaVoicePanel.kt`）、`AssistantSurface.kt`（配色、G2 顶角、浮起胶囊、按钮图标、按压回弹，对应 `CouiAssistantSurface.kt`）、`AssistantComposer.kt`（输入栏）、`AssistantSuggestionRow.kt`（建议问题）、`AssistantEdgeGlow.kt`（唤起光效）、`AssistantReply.kt`（回答面板里一问一答的排法）。
+`AssistantActivity` 是透明的 activity，不进最近任务。界面是从 Eta 的助理浮窗（只取打字，不做语音）拷来再改写的，登记在 `core/about/ThirdParty.kt` 的 `ETA_FILES`：`AssistantPanel.kt`（压暗与托底、进出场、回答面板的外形和把手，对应 Eta 的 `EtaVoicePanel.kt`）、`AssistantSurface.kt`（配色、G2 顶角、浮起胶囊、按钮图标、按压回弹，对应 `AssistantPanelSurface.kt`）、`AssistantComposer.kt`（输入栏）、`AssistantSuggestionRow.kt`（建议问题）、`AssistantEdgeGlow.kt`（唤起光效）、`AssistantReply.kt`（回答面板里一问一答的排法）。
 
 - 唤起：屏幕边缘播一次唤起光效（`AssistantEdgeGlow.kt`）：右侧电源键的位置亮起一团光，一条流光沿右边框往下，绕过右下角的屏幕圆角滑到底边，底部光场升起，整段约 0.64 秒，放完淡出。光效一开始，页面就轻轻压暗、底部铺一层渐变托底，内容约 0.05 秒后从下面 14dp 处淡入：带上的屏幕（缩略图、应用名，可以去掉，去掉后只发问题）、一行建议问题（三个短标签，一行放得下，点了就发）、输入栏（输入框和右边的圆键在同一个胶囊里）。建议问题一个个错开出现；唤起约 0.85 秒后在主屏上输入框拿到焦点、弹键盘（照 Eta 的录屏，约 1.2 秒时键盘已经弹上来）。
 - 输入栏：空着时提示「问问 Claude」，右边是灰的发送键，有字时变主色；这一轮还在进行（正在分析、正在处理、在出回答）时是停止键（深色底、实心方块），点了打断这一轮（`Conversation.interrupt`），这期间输入框不能输入。Eta 空闲时右边是语音键，Zeta 没有语音，换成发送键。

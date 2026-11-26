@@ -23,13 +23,13 @@ import com.dzshzx.zeta.core.readableModelId
 import com.dzshzx.zeta.i18n.Strings
 import com.dzshzx.zeta.ui.chat.PermissionModes
 import com.dzshzx.zeta.ui.chat.permissionModeLabel
-import com.dzshzx.zeta.ui.components.coui2.CouiPage
-import com.dzshzx.zeta.ui.components.coui2.PreferenceGroup
+import com.dzshzx.zeta.ui.components.miuix.MiuixPage
+import com.dzshzx.zeta.ui.components.miuix.PreferenceGroup
+import com.dzshzx.zeta.ui.components.miuix.PreferenceGroupScope
 import com.dzshzx.zeta.ui.setup.problem
 import com.dzshzx.zeta.ui.setup.rememberConfigClient
 import com.dzshzx.zeta.ui.setup.runConfig
-import io.github.suqi8.coui.kmp.basic.CardListGroupScope
-import io.github.suqi8.coui.kmp.preference.ArrowPreference
+import top.yukonga.miuix.kmp.preference.ArrowPreference
 
 /*
  * 一台主机上新对话的默认值：读写那台 Claude Code 自己的设置（~/.claude/settings.json，[ConversationHub.claudeDefaults]），
@@ -170,7 +170,7 @@ internal fun DefaultEffortScreen(hub: ConversationHub, backend: String, onBack: 
     LaunchedEffect(hub, backend, waiting, changing) {
         if (waiting && !changing && hub.current.backend == backend) hub.current.prepare()
     }
-    CouiPage(title = Strings.settingsDefaultsEffort(), onBack = onBack) {
+    MiuixPage(title = Strings.settingsDefaultsEffort(), onBack = onBack) {
         item(key = "efforts") {
             PreferenceGroup(
                 footer =
@@ -193,7 +193,7 @@ internal fun DefaultEffortScreen(hub: ConversationHub, backend: String, onBack: 
 }
 
 /** 各模型一行，选的档交给 [write] 写进去；收起时（不 [showOlder]）收着的那些整组换成最后一行「更多模型」。 */
-private fun CardListGroupScope.effortItems(
+private fun PreferenceGroupScope.effortItems(
     rows: List<EffortRow>,
     showOlder: Boolean,
     onShowOlder: () -> Unit,

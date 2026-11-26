@@ -17,16 +17,16 @@ import com.dzshzx.zeta.core.SetupState
 import com.dzshzx.zeta.core.environment
 import com.dzshzx.zeta.i18n.Strings
 import com.dzshzx.zeta.ui.components.StatusWarning
-import com.dzshzx.zeta.ui.components.coui2.CouiPage
-import com.dzshzx.zeta.ui.components.coui2.PreferenceGroup
-import com.dzshzx.zeta.ui.components.coui2.PreferenceValue
-import io.github.suqi8.coui.kmp.basic.BasicComponent
-import io.github.suqi8.coui.kmp.preference.ArrowPreference
-import io.github.suqi8.coui.kmp.theme.COUITheme
+import com.dzshzx.zeta.ui.components.miuix.MiuixPage
+import com.dzshzx.zeta.ui.components.miuix.PreferenceGroup
+import com.dzshzx.zeta.ui.components.miuix.PreferenceValue
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+import top.yukonga.miuix.kmp.basic.BasicComponent
+import top.yukonga.miuix.kmp.preference.ArrowPreference
+import top.yukonga.miuix.kmp.theme.MiuixTheme
 
 /** “权限健康”：Zeta 需要或能用到的权限和状态，每项点一下就去修；有 root 时可以一键授予。 */
 @Composable
@@ -61,7 +61,7 @@ internal fun PermissionHealthScreen(
     }
 
     val fixable = items.filter { it.rootFixable }
-    CouiPage(title = Strings.settingsPermTitle(), onBack = onBack) {
+    MiuixPage(title = Strings.settingsPermTitle(), onBack = onBack) {
         item(key = "items") {
             // 对话进行时 Zeta 靠前台服务（通知栏里那一条）保持运行；对话本身跑在 Linux 环境里，Zeta 被关掉也照样跑完
             PreferenceGroup(
@@ -237,7 +237,7 @@ private fun opensPage(item: PermissionItem): Boolean =
 @Composable
 internal fun statusColor(status: PermissionStatus): Color =
     when (status) {
-        PermissionStatus.Missing -> COUITheme.colorScheme.error
+        PermissionStatus.Missing -> MiuixTheme.colorScheme.error
         PermissionStatus.Attention -> StatusWarning
         else -> Color.Unspecified
     }

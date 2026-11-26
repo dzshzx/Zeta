@@ -12,10 +12,10 @@ import androidx.compose.ui.unit.dp
 import com.dzshzx.zeta.core.Conversation
 import com.dzshzx.zeta.core.Occupant
 import com.dzshzx.zeta.i18n.Strings
-import io.github.suqi8.coui.kmp.basic.Text
-import io.github.suqi8.coui.kmp.basic.TextButton
-import io.github.suqi8.coui.kmp.squircle.SquircleShape
-import io.github.suqi8.coui.kmp.theme.COUITheme
+import com.dzshzx.zeta.ui.components.miuix.SquircleShape
+import top.yukonga.miuix.kmp.basic.Text
+import top.yukonga.miuix.kmp.basic.TextButton
+import top.yukonga.miuix.kmp.theme.MiuixTheme
 
 /** 「别处运行」卡片上的字：标题（在哪）、说明和按钮。 */
 data class ExternalNoticeText(
@@ -120,7 +120,7 @@ private fun wide(c: Int) = c >= 0x2E80
  */
 @Composable
 fun ExternalSessionNotice(conversation: Conversation, modifier: Modifier = Modifier) {
-    val colors = COUITheme.colorScheme
+    val colors = MiuixTheme.colorScheme
     val shape = remember { SquircleShape(ChatPanelCorner) }
     val handoff = conversation.handoff
     val text = externalNoticeText(conversation.occupant, handoff.handing, handoff.problem)
@@ -130,11 +130,15 @@ fun ExternalSessionNotice(conversation: Conversation, modifier: Modifier = Modif
     ) {
         Text(
             text = text.title,
-            style = COUITheme.textStyles.headlineXS,
-            color = colors.labelPrimary,
+            style = MiuixTheme.textStyles.headline2,
+            color = colors.onBackground,
         )
         Spacer(Modifier.height(4.dp))
-        Text(text = text.summary, style = COUITheme.textStyles.bodyS, color = colors.labelSecondary)
+        Text(
+            text = text.summary,
+            style = MiuixTheme.textStyles.footnote1,
+            color = colors.onBackgroundVariant,
+        )
         Spacer(Modifier.height(12.dp))
         TextButton(
             text = text.button,

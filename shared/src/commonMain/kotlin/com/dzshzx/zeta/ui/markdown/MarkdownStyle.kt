@@ -10,8 +10,12 @@ import androidx.compose.ui.text.style.LineHeightStyle
 import androidx.compose.ui.unit.TextUnit
 import androidx.compose.ui.unit.sp
 import com.dzshzx.zeta.ui.components.MonoFont
-import io.github.suqi8.coui.kmp.theme.COUITheme
-import io.github.suqi8.coui.kmp.theme.Colors
+import com.dzshzx.zeta.ui.components.fill16
+import com.dzshzx.zeta.ui.components.fill4
+import com.dzshzx.zeta.ui.components.fill8
+import com.dzshzx.zeta.ui.components.isDark
+import top.yukonga.miuix.kmp.theme.Colors
+import top.yukonga.miuix.kmp.theme.MiuixTheme
 
 /** 正文与思考共用同一套渲染器，只在字号、墨色浓度与留白节奏上区分层级。 */
 enum class MarkdownTone {
@@ -77,18 +81,18 @@ class MarkdownStyle(
 
 @Composable
 fun rememberMarkdownStyle(tone: MarkdownTone): MarkdownStyle {
-    val colors = COUITheme.colorScheme
-    val textStyles = COUITheme.textStyles
-    // COUITheme 换主题时就地改同一个配色对象的字段，所以按会变的那几个值记忆，不按对象记忆
+    val colors = MiuixTheme.colorScheme
+    val textStyles = MiuixTheme.textStyles
+    // MiuixTheme 换主题时就地改同一个配色对象的字段，所以按会变的那几个值记忆，不按对象记忆
     return remember(
         tone,
         colors.isDark,
         colors.primary,
-        colors.labelPrimary,
-        textStyles.bodyXL,
-        textStyles.bodyM,
+        colors.onBackground,
+        textStyles.body1,
+        textStyles.body2,
     ) {
-        buildMarkdownStyle(tone, colors, textStyles.bodyXL, textStyles.bodyM)
+        buildMarkdownStyle(tone, colors, textStyles.body1, textStyles.body2)
     }
 }
 
@@ -100,15 +104,14 @@ private fun buildMarkdownStyle(
 ): MarkdownStyle {
     val answer = tone == MarkdownTone.Answer
     val isDark = colors.isDark
-    // 墨色按层级取 COUI 的文字配色：正文 labelPrimary，重点再实一档；思考整体降一级。
-    val strongColor =
-        if (answer) colors.labelPrimary.copy(alpha = 1f) else colors.labelPrimaryVariant
-    val textColor = if (answer) colors.labelPrimary else colors.labelSecondary
-    val quoteTextColor = if (answer) colors.labelPrimaryVariant else colors.labelSecondary
-    val secondaryColor = if (answer) colors.labelSecondary else colors.labelSecondaryVariant
-    val markerColor = colors.labelSecondaryVariant
+    // 墨色按层级取 Miuix 的文字配色：正文 onBackground，重点再实一档；思考整体降一级。
+    val strongColor = if (answer) colors.onBackground.copy(alpha = 1f) else colors.onBackground
+    val textColor = if (answer) colors.onBackground else colors.onBackgroundVariant
+    val quoteTextColor = if (answer) colors.onBackground else colors.onBackgroundVariant
+    val secondaryColor = if (answer) colors.onBackgroundVariant else colors.onSurfaceVariantSummary
+    val markerColor = colors.onSurfaceVariantSummary
     val body = markdownBody(answer, if (answer) bodyXL else bodyM, textColor)
-    val inlineCodeColor = if (answer) colors.labelPrimary else strongColor
+    val inlineCodeColor = if (answer) colors.onBackground else strongColor
     return MarkdownStyle(
         tone = tone,
         isDark = isDark,
@@ -121,18 +124,18 @@ private fun buildMarkdownStyle(
         quoteTextColor = quoteTextColor,
         secondaryColor = secondaryColor,
         markerColor = markerColor,
-        // 底色、描边都是半透明的 COUI 容器色，铺在聊天页的白底、黑底或卡片底上都有层次
-        subtleBorderColor = colors.container8,
-        ruleColor = colors.divider,
-        quoteBackground = colors.fillThin,
-        quoteBarColor = colors.container16,
-        codeBackground = colors.container4,
-        codeHeaderBackground = colors.fillThin,
-        tableHeaderBackground = colors.fillThin,
+        // 底色、描边都是半透明的中性底（fill8、fill16），铺在聊天页的白底、黑底或卡片底上都有层次
+        subtleBorderColor = colors.fill8,
+        ruleColor = colors.dividerLine,
+        quoteBackground = colors.secondaryContainer,
+        quoteBarColor = colors.fill16,
+        codeBackground = colors.fill4,
+        codeHeaderBackground = colors.secondaryContainer,
+        tableHeaderBackground = colors.secondaryContainer,
         inline =
             MarkdownInlineStyle(
                 linkColor = colors.primary,
-                codeBackground = colors.container8,
+                codeBackground = colors.fill8,
                 strongColor = strongColor,
                 codeColor = inlineCodeColor,
             ),

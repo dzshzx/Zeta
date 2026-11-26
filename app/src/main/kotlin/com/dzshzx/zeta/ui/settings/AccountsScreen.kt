@@ -29,24 +29,24 @@ import com.dzshzx.zeta.ui.chat.QuotaWindows
 import com.dzshzx.zeta.ui.chat.quotaFootnote
 import com.dzshzx.zeta.ui.chat.severityColor
 import com.dzshzx.zeta.ui.components.SlideInPage
-import com.dzshzx.zeta.ui.components.coui2.ConfirmDialog
-import com.dzshzx.zeta.ui.components.coui2.CouiPage
-import com.dzshzx.zeta.ui.components.coui2.FlatIconButton
-import com.dzshzx.zeta.ui.components.coui2.PreferenceGroup
-import com.dzshzx.zeta.ui.components.coui2.PreferenceValue
-import com.dzshzx.zeta.ui.components.coui2.SettingsIcon
+import com.dzshzx.zeta.ui.components.miuix.ConfirmDialog
+import com.dzshzx.zeta.ui.components.miuix.FlatIconButton
+import com.dzshzx.zeta.ui.components.miuix.FooterHint
+import com.dzshzx.zeta.ui.components.miuix.MiuixPage
+import com.dzshzx.zeta.ui.components.miuix.PreferenceGroup
+import com.dzshzx.zeta.ui.components.miuix.PreferenceValue
+import com.dzshzx.zeta.ui.components.miuix.SettingsIcon
 import com.dzshzx.zeta.ui.components.rememberNow
 import com.dzshzx.zeta.ui.setup.LoginScreen
-import io.github.suqi8.coui.kmp.basic.BasicComponent
-import io.github.suqi8.coui.kmp.basic.DropdownEntry
-import io.github.suqi8.coui.kmp.basic.DropdownItem
-import io.github.suqi8.coui.kmp.icon.COUIIcons
-import io.github.suqi8.coui.kmp.icon.extended.ContactsBook
-import io.github.suqi8.coui.kmp.icon.extended.Edit
-import io.github.suqi8.coui.kmp.menu.OverlayDropdownMenu
-import io.github.suqi8.coui.kmp.preference.ArrowPreference
-import io.github.suqi8.coui.kmp.preference.PagerFooterPreference
-import io.github.suqi8.coui.kmp.theme.COUITheme
+import top.yukonga.miuix.kmp.basic.BasicComponent
+import top.yukonga.miuix.kmp.basic.DropdownEntry
+import top.yukonga.miuix.kmp.basic.DropdownItem
+import top.yukonga.miuix.kmp.icon.MiuixIcons
+import top.yukonga.miuix.kmp.icon.extended.ContactsBook
+import top.yukonga.miuix.kmp.icon.extended.Edit
+import top.yukonga.miuix.kmp.menu.OverlayDropdownMenu
+import top.yukonga.miuix.kmp.preference.ArrowPreference
+import top.yukonga.miuix.kmp.theme.MiuixTheme
 
 /** 入口上写的账号状态：登没登录、是哪个号、在用的中转（[relay]，这时没有账号登录）；还没查到是 null。 */
 private class EntryAccount(val loggedIn: Boolean, val email: String?, val relay: String? = null)
@@ -95,7 +95,7 @@ internal fun AccountsEntry(hub: ConversationHub, backend: String, onOpen: () -> 
     ArrowPreference(
         title = Strings.settingsAccountsTitle(),
         summary = entrySummary(backend, ready, account),
-        startAction = { SettingsIcon(COUIIcons.ContactsBook, enabled = ready) },
+        startAction = { SettingsIcon(MiuixIcons.ContactsBook, enabled = ready) },
         endActions = {
             // 在用中转时没有订阅额度，也不显示上一个账号留下的数
             if (ready && account?.loggedIn == true && quota.subscribed && headline != null) {
@@ -135,7 +135,7 @@ internal fun AccountsScreen(hub: ConversationHub, backend: String, onBack: () ->
         quota.refresh()
     }
     Box(Modifier.fillMaxSize()) {
-        CouiPage(
+        MiuixPage(
             title =
                 if (backend == Backends.LOCAL) Strings.settingsAccountsTitle()
                 else Strings.settingsAccountsTitleOnDevice(hub.backendName(backend)),
@@ -187,9 +187,9 @@ internal fun AccountsScreen(hub: ConversationHub, backend: String, onBack: () ->
             }
             service.problem?.let { problem ->
                 item(key = "problem") {
-                    PagerFooterPreference(
+                    FooterHint(
                         summary = problem,
-                        summaryColor = COUITheme.colorScheme.error,
+                        summaryColor = MiuixTheme.colorScheme.error,
                     )
                 }
             }
@@ -358,7 +358,6 @@ private fun AccountRow(
                     ),
                     DropdownItem(
                         text = Strings.settingsAccountsRemove(),
-                        alert = true,
                         onClick = { onRemove(account) },
                     ),
                 ),
@@ -400,12 +399,12 @@ private fun RelaysGroup(
                         if (relay.current)
                             PreferenceValue(Strings.commonCurrent(), clickable = false)
                         FlatIconButton(
-                            icon = COUIIcons.Edit,
+                            icon = MiuixIcons.Edit,
                             contentDescription = Strings.settingsRelaysEdit(relay.name),
                             size = 36.dp,
                             iconSize = 20.dp,
                             enabled = enabled,
-                            tint = COUITheme.colorScheme.labelSecondary,
+                            tint = MiuixTheme.colorScheme.onBackgroundVariant,
                         ) {
                             onEdit(relay)
                         }

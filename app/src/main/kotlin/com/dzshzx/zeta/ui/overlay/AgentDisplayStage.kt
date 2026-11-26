@@ -80,12 +80,12 @@ import com.dzshzx.zeta.ui.components.AsleepFrameAlpha
 import com.dzshzx.zeta.ui.components.FrameRate
 import com.dzshzx.zeta.ui.components.LiveFrames
 import com.dzshzx.zeta.ui.components.drawFrame
-import io.github.suqi8.coui.kmp.basic.Text
-import io.github.suqi8.coui.kmp.theme.COUITheme
 import kotlin.math.hypot
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
+import top.yukonga.miuix.kmp.basic.Text
+import top.yukonga.miuix.kmp.theme.MiuixTheme
 
 /** 镶在收起胶囊右侧的 18×32dp 实时微缩画面。平时安静地放后台屏幕的缩略画面（休眠时是休眠前那一帧，调暗）； 后台屏幕上有点按、滑动时外圈泛起一下柔和的呼吸微光。 */
 @Composable
@@ -99,8 +99,8 @@ internal fun MicroLens(screen: VirtualScreen, touch: TouchMark?, accent: Color) 
         pulse.snapTo(1f)
         pulse.animateTo(0f, tween(420, easing = FastOutSlowInEasing))
     }
-    val colors = COUITheme.colorScheme
-    val idleBorder = colors.labelPrimary.copy(alpha = 0.14f)
+    val colors = MiuixTheme.colorScheme
+    val idleBorder = colors.onBackground.copy(alpha = 0.14f)
     val shape = RoundedCornerShape(LensCorner)
     Box(
         modifier =
@@ -113,7 +113,7 @@ internal fun MicroLens(screen: VirtualScreen, touch: TouchMark?, accent: Color) 
                 // 外圈微光画在裁切之前，才能溢出画面边缘
                 .drawBehind { drawLensGlow(pulse.value, accent) }
                 .clip(shape)
-                .background(colors.fillSolid)
+                .background(colors.secondaryContainer)
                 .drawBehind {
                     val p = pulse.value
                     drawLensFrame(frame.value, asleep, accent)
@@ -195,7 +195,7 @@ internal fun AgentDisplayStage(
     LiveFrames(screen, FrameRate.Live, keepAwake = true)
     val frame = screen.frames.collectAsState()
     val hasFrame by remember { derivedStateOf { frame.value != null } }
-    val colors = COUITheme.colorScheme
+    val colors = MiuixTheme.colorScheme
     val phase = focus.phase
     // 暂停（橙）和接管（紫）都描边、都显示“继续”，颜色和文字跟着阶段走，分得开
     val held = phase.held
@@ -217,11 +217,11 @@ internal fun AgentDisplayStage(
                     .size(canvas.width.dp, canvas.height.dp)
                     .onGloballyPositioned { placement[0] = it }
                     .clip(shape)
-                    .background(colors.fillSolid)
+                    .background(colors.secondaryContainer)
                     .border(
                         if (held) 1.dp else 0.75.dp,
                         if (held) accent.copy(alpha = 0.55f)
-                        else colors.labelPrimary.copy(alpha = 0.08f),
+                        else colors.onBackground.copy(alpha = 0.08f),
                         shape,
                     )
                     .pointerInput(screen) { forwardTouches({ currentFocus }, { takeOver() }) }
@@ -234,8 +234,8 @@ internal fun AgentDisplayStage(
             if (!hasFrame) {
                 Text(
                     text = idleLabel,
-                    color = colors.labelSecondary.copy(alpha = 0.6f),
-                    style = COUITheme.textStyles.bodyXS,
+                    color = colors.onBackgroundVariant.copy(alpha = 0.6f),
+                    style = MiuixTheme.textStyles.footnote2,
                 )
             }
             TouchEffect(touch, accent)
@@ -267,7 +267,7 @@ private fun StageControls(
         val app = focus.appName
         Text(
             text = if (!app.isNullOrBlank()) "$app · $mode" else mode,
-            color = if (held) accent else COUITheme.colorScheme.labelSecondary,
+            color = if (held) accent else MiuixTheme.colorScheme.onBackgroundVariant,
             fontSize = 11.5.sp,
             fontWeight = FontWeight.Medium,
             maxLines = 1,
@@ -370,19 +370,21 @@ private suspend fun AwaitPointerEventScope.followStroke(
 
 @Composable
 private fun StagePill(label: String, highlighted: Boolean, accent: Color, onClick: () -> Unit) {
-    val colors = COUITheme.colorScheme
+    val colors = MiuixTheme.colorScheme
     Box(
         modifier =
             Modifier.height(27.dp)
                 .clip(CircleShape)
-                .background(if (highlighted) accent.copy(alpha = 0.16f) else colors.secondaryButton)
+                .background(
+                    if (highlighted) accent.copy(alpha = 0.16f) else colors.secondaryVariant,
+                )
                 .clickable(role = Role.Button, onClick = onClick)
                 .padding(horizontal = 11.dp),
         contentAlignment = Alignment.Center,
     ) {
         Text(
             text = label,
-            color = if (highlighted) accent else colors.labelPrimary,
+            color = if (highlighted) accent else colors.onBackground,
             fontSize = 11.5.sp,
             fontWeight = FontWeight.Medium,
             maxLines = 1,

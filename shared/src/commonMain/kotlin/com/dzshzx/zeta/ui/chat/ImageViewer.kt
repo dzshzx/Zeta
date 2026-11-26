@@ -17,7 +17,6 @@ import androidx.compose.foundation.gestures.rememberTransformableState
 import androidx.compose.foundation.gestures.transformable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.BoxScope
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -31,8 +30,10 @@ import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.pager.HorizontalPager
 import androidx.compose.foundation.pager.PagerState
 import androidx.compose.foundation.pager.rememberPagerState
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.Stable
 import androidx.compose.runtime.derivedStateOf
@@ -51,6 +52,7 @@ import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.ImageBitmap
+import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.input.pointer.PointerEventPass
@@ -58,7 +60,6 @@ import androidx.compose.ui.input.pointer.PointerInputScope
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.input.pointer.positionChanged
 import androidx.compose.ui.layout.ContentScale
-import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.semantics.stateDescription
@@ -70,38 +71,34 @@ import com.dzshzx.zeta.core.ImageRef
 import com.dzshzx.zeta.core.ImageStore
 import com.dzshzx.zeta.core.RemoteImage
 import com.dzshzx.zeta.i18n.Strings
-import com.dzshzx.zeta.ui.components.coui2.IconActionButton
-import com.dzshzx.zeta.ui.components.coui2.LocalPageBackdrop
-import com.dzshzx.zeta.ui.components.coui2.PageBlurHost
-import com.dzshzx.zeta.ui.components.coui2.bottomBarGlass
-import com.dzshzx.zeta.ui.components.coui2.pageBlurSource
-import com.dzshzx.zeta.ui.components.coui2.rememberPageBlur
-import io.github.suqi8.coui.kmp.basic.Icon
-import io.github.suqi8.coui.kmp.basic.PageIndicator
-import io.github.suqi8.coui.kmp.basic.SmallTopAppBar
-import io.github.suqi8.coui.kmp.basic.Text
-import io.github.suqi8.coui.kmp.blur.TopAppBarGlow
-import io.github.suqi8.coui.kmp.icon.COUIIcons
-import io.github.suqi8.coui.kmp.icon.extended.Back
-import io.github.suqi8.coui.kmp.icon.extended.Download
-import io.github.suqi8.coui.kmp.icon.extended.Share
-import io.github.suqi8.coui.kmp.theme.COUITheme
-import io.github.suqi8.coui.kmp.theme.darkColorScheme
+import com.dzshzx.zeta.ui.components.miuix.IconActionButton
+import com.dzshzx.zeta.ui.components.miuix.LocalInGlassTopBar
+import com.dzshzx.zeta.ui.components.miuix.LocalPageBackdrop
+import com.dzshzx.zeta.ui.components.miuix.PageBlurHost
+import com.dzshzx.zeta.ui.components.miuix.bottomBarGlass
+import com.dzshzx.zeta.ui.components.miuix.pageBlurSource
+import com.dzshzx.zeta.ui.components.miuix.rememberPageBlur
 import java.time.LocalDateTime
 import kotlin.math.abs
 import kotlinx.coroutines.flow.first
+import top.yukonga.miuix.kmp.basic.Icon
+import top.yukonga.miuix.kmp.basic.Text
+import top.yukonga.miuix.kmp.glass.GlassTopAppBar
+import top.yukonga.miuix.kmp.icon.MiuixIcons
+import top.yukonga.miuix.kmp.icon.extended.Download
+import top.yukonga.miuix.kmp.icon.extended.Share
+import top.yukonga.miuix.kmp.icon.glass.ChevronBackward
+import top.yukonga.miuix.kmp.theme.MiuixTheme
+import top.yukonga.miuix.kmp.theme.darkColorScheme
 
 /** 毛玻璃关着时（截图测试里）顶栏和底栏后面渐变压暗最深处的不透明度。 */
 private const val BarFallbackAlpha = 0.7f
 
-/** 顶栏光晕全部显出要的滚动距离（COUI 17 是 30dp）：看图页没有滚动，直接按全显画。 */
-private val GlowReveal = 30.dp
-
 /**
- * 全屏看图，照 ColorOS 相册的看图页：黑底铺满整屏，状态栏和导航栏透明、图标浅色。图片层录成毛玻璃的来源，上面盖两条栏： 顶上是 COUI
+ * 全屏看图，照 ColorOS 相册的看图页：黑底铺满整屏，状态栏和导航栏透明、图标浅色。图片层录成毛玻璃的来源，上面盖两条栏：顶上是玻璃
  * 顶栏（返回钮，多张时标题是第几张），底部是保存到相册、分享两项，多张时上方是圆点页码；两条栏后面都是往图片中间渐渐淡掉的毛玻璃，
  * 和聊天页顶栏一个样子，没有分明的边。点一下图两条栏一起淡出或淡入，打开时露着；双指缩放（能缩到比铺满屏幕小）、双击放大或还原、放大后拖动；左右滑换一张，放大时不翻页。不管外面是浅色还是深色，
- * 里面都用 COUI 的深色配色。进出都淡入淡出，关掉时把停在第几张交给 [onDismiss]。
+ * 里面都用 Miuix 的深色配色。进出都淡入淡出，关掉时把停在第几张交给 [onDismiss]。
  */
 @Composable
 fun ImageViewer(refs: List<ImageRef>, start: Int, onDismiss: (Int) -> Unit) {
@@ -126,17 +123,17 @@ fun ImageViewer(refs: List<ImageRef>, start: Int, onDismiss: (Int) -> Unit) {
         dismiss(pager.currentPage)
     }
     val close = { shown.targetState = false }
-    val primary = COUITheme.colorScheme.primary
+    val primary = MiuixTheme.colorScheme.primary
     val dark = remember(primary) { darkColorScheme(primary = primary) }
     Dialog(
         onDismissRequest = close,
         properties = fullScreenDialogProperties(),
     ) {
         ChatPlatform.current.ImmersiveImageWindow()
-        COUITheme(colors = dark) {
+        MiuixTheme(colors = dark) {
             val blur = rememberPageBlur()
             AnimatedVisibility(shown, enter = fadeIn(tween(220)), exit = fadeOut(tween(180))) {
-                Box(Modifier.fillMaxSize().background(COUITheme.colorScheme.background)) {
+                Box(Modifier.fillMaxSize().background(MiuixTheme.colorScheme.surface)) {
                     Box(
                         Modifier.fillMaxSize().pageBlurSource(blur).pointerInput(pager) {
                             pinchGestures { zooms.getOrPut(pager.currentPage) { ZoomState() } }
@@ -200,52 +197,41 @@ private fun ViewerBars(
 /** 毛玻璃关着时栏后面的渐变压暗：靠屏幕边的一头是 [BarFallbackAlpha] 的底色，往图片中间淡到透明。 */
 @Composable
 private fun scrim(towardsBottom: Boolean): Brush {
-    val edge = COUITheme.colorScheme.background.copy(alpha = BarFallbackAlpha)
+    val edge = MiuixTheme.colorScheme.surface.copy(alpha = BarFallbackAlpha)
     return Brush.verticalGradient(
         if (towardsBottom) listOf(Color.Transparent, edge) else listOf(edge, Color.Transparent),
     )
 }
 
-/** 顶栏：透明底的 COUI 顶栏，后面是聊天页顶栏那种 COUI 17 光晕（往下渐渐淡掉的毛玻璃），没有一条分明的边。 */
+/** 顶栏：和聊天页一样的玻璃小顶栏，后面是往下渐渐淡掉的毛玻璃，没有一条分明的边；毛玻璃关着时是渐变压暗。 */
 @Composable
 private fun ViewerTopBar(title: String, onBack: () -> Unit) {
     val backdrop = LocalPageBackdrop.current
-    val base = COUITheme.colorScheme.background
-    val reveal = with(LocalDensity.current) { GlowReveal.toPx() }
-    val glow: (@Composable BoxScope.() -> Unit)? = backdrop?.let {
-        {
-            TopAppBarGlow(
-                backdrop = it,
-                scrollOffsetPx = reveal,
-                isDark = true,
-                baseColor = base,
-                enabled = true,
-            )
-        }
-    }
     Box(
         Modifier.fillMaxWidth()
             .then(if (backdrop == null) Modifier.background(scrim(false)) else Modifier),
     ) {
-        SmallTopAppBar(
+        GlassTopAppBar(
             title = title,
-            color = Color.Transparent,
-            showDivider = false,
-            glow = glow,
+            isContentScrolled = backdrop != null,
+            expandable = false,
+            progressiveBlur = backdrop != null,
+            backdrop = backdrop,
+            bandBrush = SolidColor(Color.Transparent),
             navigationIcon = {
-                IconActionButton(
-                    COUIIcons.Back,
-                    Strings.chatBack(),
-                    onClick = onBack,
-                )
+                CompositionLocalProvider(LocalInGlassTopBar provides true) {
+                    IconActionButton(
+                        MiuixIcons.Glass.ChevronBackward,
+                        Strings.chatBack(),
+                        onClick = onBack,
+                    )
+                }
             },
         )
     }
 }
 
-/**
- * 底栏：多张时上面是圆点页码，下面是保存到相册、分享两项。后面和顶栏对称： 从屏幕底边往上渐渐淡掉的毛玻璃（COUI 17 底栏材质），毛玻璃关着时是渐变压暗。这张图的字节还拿不到时两项都置灰。
- */
+/** 底栏：多张时上面是圆点页码，下面是保存到相册、分享两项。后面和顶栏对称：从屏幕底边往上渐渐淡掉的毛玻璃，毛玻璃关着时是渐变压暗。这张图的字节还拿不到时两项都置灰。 */
 @Composable
 private fun ViewerBottomBar(pager: PagerState, ref: ImageRef, bytes: ByteArray?) {
     val exporter = ChatPlatform.current.rememberImageExporter()
@@ -255,7 +241,7 @@ private fun ViewerBottomBar(pager: PagerState, ref: ImageRef, bytes: ByteArray?)
         Box(
             Modifier.matchParentSize()
                 .then(
-                    if (backdrop != null) Modifier.bottomBarGlass(backdrop, isDark = true)
+                    if (backdrop != null) Modifier.bottomBarGlass(backdrop)
                     else Modifier.background(scrim(true)),
                 ),
         )
@@ -264,17 +250,17 @@ private fun ViewerBottomBar(pager: PagerState, ref: ImageRef, bytes: ByteArray?)
             horizontalAlignment = Alignment.CenterHorizontally,
         ) {
             if (pager.pageCount > 1) {
-                PageIndicator(pagerState = pager, modifier = Modifier.padding(bottom = 4.dp))
+                PageDots(pager, Modifier.padding(bottom = 12.dp))
             }
             // 两项直接落在渐变的毛玻璃上，不垫胶囊
             Row(
                 Modifier.navigationBarsPadding().padding(bottom = 8.dp),
                 horizontalArrangement = Arrangement.spacedBy(24.dp),
             ) {
-                BarAction(COUIIcons.Download, Strings.chatSaveToGallery(), export != null) {
+                BarAction(MiuixIcons.Download, Strings.chatSaveToGallery(), export != null) {
                     export?.let(exporter::save)
                 }
-                BarAction(COUIIcons.Share, Strings.chatShare(), export != null) {
+                BarAction(MiuixIcons.Share, Strings.chatShare(), export != null) {
                     export?.let(exporter::share)
                 }
             }
@@ -285,7 +271,7 @@ private fun ViewerBottomBar(pager: PagerState, ref: ImageRef, bytes: ByteArray?)
 /** 底栏里的一项：图标在上、字在下，用不了时变淡。 */
 @Composable
 private fun BarAction(icon: ImageVector, label: String, enabled: Boolean, onClick: () -> Unit) {
-    val tint = COUITheme.colorScheme.labelPrimary.copy(alpha = if (enabled) 1f else 0.35f)
+    val tint = MiuixTheme.colorScheme.onBackground.copy(alpha = if (enabled) 1f else 0.35f)
     Column(
         Modifier.widthIn(min = 88.dp)
             .clip(RoundedCornerShape(16.dp))
@@ -295,7 +281,7 @@ private fun BarAction(icon: ImageVector, label: String, enabled: Boolean, onClic
     ) {
         Icon(icon, null, Modifier.size(24.dp), tint = tint)
         Spacer(Modifier.height(4.dp))
-        Text(label, style = COUITheme.textStyles.bodyXS, color = tint, maxLines = 1)
+        Text(label, style = MiuixTheme.textStyles.footnote2, color = tint, maxLines = 1)
     }
 }
 
@@ -431,3 +417,19 @@ fun zoomText(scale: Float): String =
 
 /** 全屏看图的对话框：铺满窗口（手机上还铺进系统栏下面）。 */
 expect fun fullScreenDialogProperties(): DialogProperties
+
+/** 圆点页码：当前页是白色的实心点，其余是半透明的。 */
+@Composable
+private fun PageDots(pager: PagerState, modifier: Modifier = Modifier) {
+    Row(modifier, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+        repeat(pager.pageCount) { page ->
+            Box(
+                Modifier.size(6.dp)
+                    .clip(CircleShape)
+                    .background(
+                        Color.White.copy(alpha = if (page == pager.currentPage) 1f else 0.35f),
+                    ),
+            )
+        }
+    }
+}

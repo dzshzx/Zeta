@@ -26,7 +26,7 @@ import androidx.compose.ui.graphics.toArgb
 import com.dzshzx.zeta.phone.OverlayPhase
 import com.dzshzx.zeta.ui.components.rememberIndicatorClock
 import com.dzshzx.zeta.ui.components.turn
-import io.github.suqi8.coui.kmp.squircle.addSquircleRect
+import top.yukonga.miuix.kmp.squircle.addSquircleRect
 
 // 照 Eta：流光取蓝色和相邻的冷暖色，不用高饱和彩虹，免得在浅色页面上喧宾夺主。
 // 这是一条渐变光带的配色（相当于美术素材），不是界面配色，所以不取主题色
@@ -45,13 +45,8 @@ internal const val EdgeGlowFadeOutMs = 240
 /** 运行时流光沿边缘转一圈的毫秒数。 */
 private const val EdgeTurnMs = 4200
 
-/** 转角曲线从离角多少倍半径处开始弯。 */
+/** 转角曲线从离角多少倍半径处开始弯（Miuix 连续圆角的 extension，单段三次曲线，控制点在 0.357 处）。 */
 private const val EdgeCornerSpan = 1.1f
-
-/**
- * 转角的超椭圆指数。跨度 1.1 倍半径、指数 2.31 时，对角线上离角的距离是跨度的 0.259， 和控制点在 0.357 处的单段三次连续圆角重合，Zeta 用这条曲线贴屏幕的物理圆角。
- */
-private const val EdgeCornerWeight = 2.31f
 
 /**
  * 主屏边缘光（照 Eta 的 AgentOverlayGlow）：
@@ -94,7 +89,7 @@ internal fun EdgeGlow(phase: OverlayPhase, visible: Boolean, hidden: Boolean, co
 
 /**
  * 贴着屏幕边缘的光带路径。Display 只报一个圆弧半径，实际面板是连续曲率的圆角：用同一半径画连续曲线， 路径内收 [inset]、转角同步减小，光带才和屏幕边缘等距，不会在角上缩进一截。
- * 转角从离角 1.1 倍半径处开始弯，见 [EdgeCornerWeight]。
+ * 转角从离角 1.1 倍半径处开始弯，见 [EdgeCornerSpan]。
  */
 private fun CacheDrawScope.edgePath(inset: Float, cornerRadius: Float): android.graphics.Path =
     Path()
@@ -102,8 +97,8 @@ private fun CacheDrawScope.edgePath(inset: Float, cornerRadius: Float): android.
             addSquircleRect(
                 width = size.width - inset * 2,
                 height = size.height - inset * 2,
-                cornerRadius = (cornerRadius - inset).coerceAtLeast(0f) * EdgeCornerSpan,
-                weight = EdgeCornerWeight,
+                cornerRadius = (cornerRadius - inset).coerceAtLeast(0f),
+                extension = EdgeCornerSpan,
             )
             translate(Offset(inset, inset))
         }

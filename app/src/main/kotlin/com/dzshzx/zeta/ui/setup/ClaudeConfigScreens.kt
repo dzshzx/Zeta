@@ -48,32 +48,31 @@ import com.dzshzx.zeta.core.ConversationHub
 import com.dzshzx.zeta.core.claude.ClaudeConfigCore
 import com.dzshzx.zeta.core.claude.TextDocument
 import com.dzshzx.zeta.i18n.Strings
-import com.dzshzx.zeta.ui.components.coui2.CompactButton
-import com.dzshzx.zeta.ui.components.coui2.ConfirmDialog
-import com.dzshzx.zeta.ui.components.coui2.CouiPageScaffold
-import com.dzshzx.zeta.ui.components.coui2.CouiTopBarStyle
-import com.dzshzx.zeta.ui.components.coui2.IconActionButton
-import com.dzshzx.zeta.ui.components.coui2.NoticeDialog
+import com.dzshzx.zeta.ui.components.miuix.CompactButton
+import com.dzshzx.zeta.ui.components.miuix.ConfirmDialog
+import com.dzshzx.zeta.ui.components.miuix.IconActionButton
+import com.dzshzx.zeta.ui.components.miuix.MiuixPageScaffold
+import com.dzshzx.zeta.ui.components.miuix.MiuixTopBarStyle
+import com.dzshzx.zeta.ui.components.miuix.NoticeDialog
 import com.dzshzx.zeta.ui.components.rememberRetained
 import com.dzshzx.zeta.ui.markdown.LazyStaticMarkdown
 import com.dzshzx.zeta.ui.markdown.MarkdownTone
-import io.github.suqi8.coui.kmp.basic.BasicComponent
-import io.github.suqi8.coui.kmp.basic.Card
-import io.github.suqi8.coui.kmp.basic.HorizontalDivider
-import io.github.suqi8.coui.kmp.basic.Icon
-import io.github.suqi8.coui.kmp.basic.InfiniteProgressIndicator
-import io.github.suqi8.coui.kmp.basic.SegmentButton
-import io.github.suqi8.coui.kmp.basic.SegmentButtonDefaults
-import io.github.suqi8.coui.kmp.basic.Text
-import io.github.suqi8.coui.kmp.icon.COUIIcons
-import io.github.suqi8.coui.kmp.icon.extended.Delete
-import io.github.suqi8.coui.kmp.icon.extended.Notes
-import io.github.suqi8.coui.kmp.theme.COUITheme
-import io.github.suqi8.coui.kmp.utils.overScrollVertical
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+import top.yukonga.miuix.kmp.basic.BasicComponent
+import top.yukonga.miuix.kmp.basic.Card
+import top.yukonga.miuix.kmp.basic.HorizontalDivider
+import top.yukonga.miuix.kmp.basic.Icon
+import top.yukonga.miuix.kmp.basic.InfiniteProgressIndicator
+import top.yukonga.miuix.kmp.basic.TabRowWithContour
+import top.yukonga.miuix.kmp.basic.Text
+import top.yukonga.miuix.kmp.icon.MiuixIcons
+import top.yukonga.miuix.kmp.icon.extended.Delete
+import top.yukonga.miuix.kmp.icon.extended.Notes
+import top.yukonga.miuix.kmp.theme.MiuixTheme
+import top.yukonga.miuix.kmp.utils.overScrollVertical
 
 /** 主机 [backend] 上 Claude Code 自己的配置（~/.claude）的读写口子（经那台的核心），设置里各主机页面下的几页都用它。 */
 @Composable
@@ -93,7 +92,7 @@ internal fun Throwable.problem(): String =
 
 internal data class ConfigNotice(val title: String, val message: String)
 
-/** 读写配置出错时的告知框；要放在页面的 dialogs 里（CouiPage）或页面骨架的内容里（CouiPageScaffold）。 */
+/** 读写配置出错时的告知框；要放在页面的 dialogs 里（MiuixPage）或页面骨架的内容里（MiuixPageScaffold）。 */
 @Composable
 internal fun ConfigNoticeDialog(notice: ConfigNotice?, onDismiss: () -> Unit) {
     val shown = rememberRetained(notice)
@@ -212,14 +211,14 @@ internal fun ConfigDocumentEditor(
     BackHandler(enabled = dirty) { confirmLeave = true }
     val leave = { if (dirty) confirmLeave = true else onBack() }
 
-    CouiPageScaffold(
+    MiuixPageScaffold(
         title = title,
         onBack = leave,
-        topBarStyle = CouiTopBarStyle.Small,
+        topBarStyle = MiuixTopBarStyle.Small,
         actions = {
             if (onDelete != null)
                 IconActionButton(
-                    COUIIcons.Delete,
+                    MiuixIcons.Delete,
                     deleteTitle,
                     enabled = !loading && !saving,
                     onClick = { confirmDelete = true },
@@ -392,13 +391,13 @@ private fun DocumentCardHeader(
     mode: DocumentMode,
     onModeChange: (DocumentMode) -> Unit,
 ) {
-    val colors = COUITheme.colorScheme
+    val colors = MiuixTheme.colorScheme
     Row(
         modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 12.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
         Icon(
-            imageVector = COUIIcons.Notes,
+            imageVector = MiuixIcons.Notes,
             contentDescription = null,
             modifier = Modifier.size(18.dp),
             tint = colors.primary,
@@ -407,27 +406,28 @@ private fun DocumentCardHeader(
         Column(modifier = Modifier.weight(1f)) {
             Text(
                 text = fileLabel,
-                style = COUITheme.textStyles.bodyM,
+                style = MiuixTheme.textStyles.body2,
                 fontWeight = FontWeight.Medium,
-                color = colors.labelPrimary,
+                color = colors.onBackground,
                 maxLines = 1,
             )
             Text(
                 text = if (overLimit) Strings.setupClaudeOverLimit(sizeLine) else sizeLine,
-                style = COUITheme.textStyles.bodyXS,
-                color = if (overLimit) colors.error else colors.labelSecondary,
+                style = MiuixTheme.textStyles.footnote2,
+                color = if (overLimit) colors.error else colors.onBackgroundVariant,
             )
         }
-        SegmentButton(
-            items = listOf(Strings.setupClaudePreview(), Strings.setupClaudeEdit()),
-            selectedIndex = DocumentMode.entries.indexOf(mode),
-            onSelectedIndexChange = { index ->
-                DocumentMode.entries.getOrNull(index)?.let(onModeChange)
-            },
-            enabled = !loading,
-            height = SegmentButtonDefaults.HeightSmall,
-            padding = SegmentButtonDefaults.PaddingSmall,
-        )
+        // 分段标签自己横向撑满，套一层定宽，文件名那一列才分得到宽度
+        Box(Modifier.width(160.dp)) {
+            TabRowWithContour(
+                tabs = listOf(Strings.setupClaudePreview(), Strings.setupClaudeEdit()),
+                selectedTabIndex = DocumentMode.entries.indexOf(mode),
+                // 分段标签没有不可用的样子：加载中忽略点击
+                onTabSelected = { index ->
+                    if (!loading) DocumentMode.entries.getOrNull(index)?.let(onModeChange)
+                },
+            )
+        }
     }
 }
 
@@ -468,15 +468,15 @@ private fun DocumentPreview(content: String, placeholder: String, onStartEditing
         ) {
             Text(
                 text = Strings.setupClaudeEmptyDoc(),
-                style = COUITheme.textStyles.bodyXL,
+                style = MiuixTheme.textStyles.body1,
                 fontWeight = FontWeight.Medium,
-                color = COUITheme.colorScheme.labelPrimary,
+                color = MiuixTheme.colorScheme.onBackground,
             )
             Spacer(Modifier.height(6.dp))
             Text(
                 text = placeholder,
-                style = COUITheme.textStyles.bodyM,
-                color = COUITheme.colorScheme.labelSecondary,
+                style = MiuixTheme.textStyles.body2,
+                color = MiuixTheme.colorScheme.onBackgroundVariant,
             )
         }
         return
@@ -496,9 +496,9 @@ private fun DocumentEditor(
     enabled: Boolean,
     onValueChange: (String) -> Unit,
 ) {
-    val colors = COUITheme.colorScheme
+    val colors = MiuixTheme.colorScheme
     val focusRequester = remember { FocusRequester() }
-    val textStyle = COUITheme.textStyles.bodyM.copy(lineHeight = 22.sp)
+    val textStyle = MiuixTheme.textStyles.body2.copy(lineHeight = 22.sp)
     Box(
         modifier =
             Modifier.fillMaxSize()
@@ -510,12 +510,12 @@ private fun DocumentEditor(
                 .padding(horizontal = 16.dp, vertical = 14.dp),
     ) {
         if (value.isEmpty())
-            Text(text = placeholder, style = textStyle, color = colors.labelSecondary)
+            Text(text = placeholder, style = textStyle, color = colors.onBackgroundVariant)
         BasicTextField(
             value = value,
             onValueChange = onValueChange,
             enabled = enabled,
-            textStyle = textStyle.copy(color = colors.labelPrimary),
+            textStyle = textStyle.copy(color = colors.onBackground),
             cursorBrush = SolidColor(colors.primary),
             modifier = Modifier.fillMaxWidth().focusRequester(focusRequester),
         )
@@ -559,7 +559,7 @@ private fun SaveBar(
 /** 保存条左边的提示：未保存的更改，超过上限时标红并提示删减。 */
 @Composable
 private fun UnsavedHint(overLimit: Boolean, modifier: Modifier) {
-    val colors = COUITheme.colorScheme
+    val colors = MiuixTheme.colorScheme
     Row(modifier = modifier, verticalAlignment = Alignment.CenterVertically) {
         Box(
             modifier =
@@ -570,8 +570,8 @@ private fun UnsavedHint(overLimit: Boolean, modifier: Modifier) {
         Text(
             text =
                 if (overLimit) Strings.setupClaudeOverLimitHint() else Strings.setupClaudeUnsaved(),
-            style = COUITheme.textStyles.bodyS,
-            color = if (overLimit) colors.error else colors.labelSecondary,
+            style = MiuixTheme.textStyles.footnote1,
+            color = if (overLimit) colors.error else colors.onBackgroundVariant,
             maxLines = 2,
         )
     }

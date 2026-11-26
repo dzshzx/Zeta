@@ -5,7 +5,7 @@ import com.dzshzx.zeta.core.update.UpdateManifest
 import com.dzshzx.zeta.core.update.UpdateState
 import com.dzshzx.zeta.core.update.UpdateStep
 import com.dzshzx.zeta.i18n.UiLanguage
-import com.dzshzx.zeta.ui.components.coui2.CouiPage
+import com.dzshzx.zeta.ui.components.miuix.MiuixPage
 import com.dzshzx.zeta.ui.settings.AboutGroup
 import com.dzshzx.zeta.ui.settings.UpdateScreen
 import org.junit.Test
@@ -33,7 +33,7 @@ class UpdateShots : ShotTest() {
     private fun about(name: String, state: UpdateState) {
         AppUpdates.get(app).preview(enabled = true, state = state)
         shoot(name) {
-            CouiPage(title = "设置", onBack = {}) { item { AboutGroup(onOpenSubPage = {}) } }
+            MiuixPage(title = "设置", onBack = {}) { item { AboutGroup(onOpenSubPage = {}) } }
         }
     }
 

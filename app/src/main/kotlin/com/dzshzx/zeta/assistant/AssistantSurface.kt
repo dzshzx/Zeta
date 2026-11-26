@@ -3,7 +3,7 @@ package com.dzshzx.zeta.assistant
 import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.CubicBezierEasing
 import androidx.compose.animation.core.Easing
-import androidx.compose.animation.core.SpringSpec
+import androidx.compose.animation.core.spring
 import androidx.compose.foundation.LocalIndication
 import androidx.compose.foundation.gestures.awaitEachGesture
 import androidx.compose.foundation.gestures.awaitFirstDown
@@ -17,8 +17,6 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.drawWithCache
-import androidx.compose.ui.geometry.Offset
-import androidx.compose.ui.geometry.Rect
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Outline
@@ -38,19 +36,16 @@ import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.IntSize
 import androidx.compose.ui.unit.LayoutDirection
 import androidx.compose.ui.unit.dp
-import io.github.suqi8.coui.kmp.anim.couiSpring
-import io.github.suqi8.coui.kmp.effect.COUIMaterialEffect
-import io.github.suqi8.coui.kmp.squircle.addSquircleRect
-import io.github.suqi8.coui.kmp.theme.COUITheme
-import io.github.suqi8.coui.kmp.utils.couiTouchFeedback
+import com.dzshzx.zeta.ui.components.isDark
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.launch
+import top.yukonga.miuix.kmp.squircle.addSquircleRect
+import top.yukonga.miuix.kmp.theme.MiuixTheme
 
-// 拷自 Eta 的 agent/voice/CouiAssistantSurface.kt 和 ui/components/coui/CouiMotion.kt（GPL-3.0），
-// 去掉了语音那几样（声波球、语音和键盘图标）和 Miuix 外观的分支，配色只按 COUI 取。
+// 拷自 Eta 的 agent/voice/ui/AssistantPanelSurface.kt（GPL-3.0），去掉了语音那几样（声波球、语音和键盘图标）。
 
-/** 浮窗用的一组颜色（照 Eta 的 EtaVoicePanelColors）：面板、输入栏、胶囊、遮罩和托底；主题色和错误色取 COUI 主题。 */
+/** 浮窗用的一组颜色（照 Eta 的 EtaVoicePanelColors）：面板、输入栏、胶囊、遮罩和托底；主题色和错误色取 Miuix 主题。 */
 @Immutable
 internal data class AssistantColors(
     val dark: Boolean,
@@ -77,7 +72,7 @@ internal data class AssistantColors(
 
 @Composable
 internal fun rememberAssistantColors(): AssistantColors {
-    val scheme = COUITheme.colorScheme
+    val scheme = MiuixTheme.colorScheme
     val dark = scheme.isDark
     val accent = scheme.primary
     val destructive = scheme.error
@@ -134,32 +129,32 @@ private fun lightColors(accent: Color, destructive: Color) =
         questionBubble = Color(0xFFE5E7EA),
     )
 
-/** 回答面板 G2 顶角的超椭圆指数（照 Eta）。 */
-private const val SheetCornerWeight = 2.6f
+/** 浮窗里各处进场用的曲线（照 Eta 的 AssistantEnterEasing，减速曲线 cubic-bezier(0.2, 0, 0, 1)）。 */
+internal val MiuixEnterEasing: Easing = CubicBezierEasing(0.20f, 0f, 0f, 1f)
 
-/** 浮窗里各处进场用的曲线（COUI 的进场减速曲线 cubic-bezier(0.2, 0, 0, 1)）。 */
-internal val CouiEnterEasing: Easing = CubicBezierEasing(0.20f, 0f, 0f, 1f)
+/** 浮窗出场用的曲线（照 Eta 的 AssistantExitEasing，加速曲线 cubic-bezier(0.3, 0, 1, 1)）。 */
+internal val MiuixExitEasing: Easing = CubicBezierEasing(0.30f, 0f, 1f, 1f)
 
-/** 顶部采用 Oplus G2 连续曲率、底部保持直角的半屏面板轮廓，使面板底边能完整贴合屏幕与导航区。 */
+/** 顶部是 Miuix 连续圆角、底部保持直角的半屏面板轮廓，使面板底边能完整贴合屏幕与导航区。 */
 @Immutable
-internal data class TopCouiSheetShape(val topRadius: Dp) : Shape {
+internal data class TopMiuixSheetShape(val topRadius: Dp) : Shape {
     override fun createOutline(
         size: Size,
         layoutDirection: LayoutDirection,
         density: Density,
-    ): Outline = Outline.Generic(buildTopCouiSheetPath(size, with(density) { topRadius.toPx() }))
+    ): Outline = Outline.Generic(buildTopMiuixSheetPath(size, with(density) { topRadius.toPx() }))
 }
 
-/** 面板轮廓的路径：两个顶角是 G2 连续圆角，两个底角是直角。 */
-internal fun buildTopCouiSheetPath(size: Size, radiusPx: Float): Path =
+/** 面板轮廓的路径：两个顶角是 Miuix 连续圆角，两个底角是直角。 */
+internal fun buildTopMiuixSheetPath(size: Size, radiusPx: Float): Path =
     Path().apply {
         addSquircleRect(
-            rect = Rect(Offset.Zero, size),
+            width = size.width,
+            height = size.height,
             topLeft = radiusPx,
             topRight = radiusPx,
             bottomRight = 0f,
             bottomLeft = 0f,
-            weight = SheetCornerWeight,
         )
     }
 
@@ -174,7 +169,7 @@ internal enum class AssistantCapsuleElevation {
  * [surface] 和 [highlight]（聚焦时那圈主题色描边的进度）只在绘制阶段读，跟着动画变时只重画、不重组。
  */
 @Composable
-internal fun Modifier.couiAssistantCapsule(
+internal fun Modifier.miuixAssistantCapsule(
     colors: AssistantColors,
     elevation: AssistantCapsuleElevation = AssistantCapsuleElevation.Composer,
     surface: () -> Color = { colors.chipBackground },
@@ -186,8 +181,7 @@ internal fun Modifier.couiAssistantCapsule(
     val shadow = capsuleShadow(elevation, colors.dark)
     val feedback =
         if (interactionSource != null) {
-            Modifier.couiTouchFeedback(interactionSource)
-                .indication(interactionSource, LocalIndication.current)
+            Modifier.indication(interactionSource, LocalIndication.current)
         } else {
             Modifier
         }
@@ -235,56 +229,45 @@ private fun capsuleShadow(elevation: AssistantCapsuleElevation, dark: Boolean): 
             )
     }
 
-/**
- * 为需要与进入动画叠加的悬浮控件提供独立的按压缩放（照 COUI 的 COUITouchMotionAnimator）：按下时缩到
- * [COUIMaterialEffect.pressTargetScale]，松手回弹；长宽比不过 2 的用 jelly 弹簧，更长的用 candy 弹簧。
- */
-internal class CouiPressMotion(private val scope: CoroutineScope, private val density: Float) {
+/** 为需要与进入动画叠加的悬浮控件提供独立的按压缩放（照 Eta 的 AssistantPressMotion）：按下时按短边缩到 0.85～0.97（越小的缩得越多），松手带一点回弹。 */
+internal class MiuixPressMotion(private val scope: CoroutineScope, private val density: Float) {
     private val animation = Animatable(1f)
     private var motion: Job? = null
-    private var candy = false
     val scale = animation.asState()
 
     fun press(size: IntSize) {
         if (size.width <= 0 || size.height <= 0) return
-        val width = size.width / density
-        val height = size.height / density
-        candy = maxOf(width / height, height / width) > PressCandyAspectRatio
-        val spring = if (candy) CandyPressSpring else JellyPressSpring
-        animate(COUIMaterialEffect.pressTargetScale(width, height), spring)
+        val shortestSide = minOf(size.width, size.height) / density
+        val progress = ((shortestSide - 20f) / 130f).coerceIn(0f, 1f)
+        animate(0.85f + 0.12f * progress, dampingRatio = 1f, stiffness = PressStiffness)
     }
 
-    fun release() = animate(1f, if (candy) CandyReleaseSpring else JellyReleaseSpring)
+    fun release() = animate(1f, dampingRatio = 0.45f, stiffness = ReleaseStiffness)
 
-    private fun animate(target: Float, spring: SpringSpec<Float>) {
+    private fun animate(target: Float, dampingRatio: Float, stiffness: Float) {
         motion?.cancel()
-        motion = scope.launch { animation.animateTo(target, spring) }
+        motion = scope.launch {
+            animation.animateTo(target, spring(dampingRatio = dampingRatio, stiffness = stiffness))
+        }
     }
 }
 
-/** 长宽比超过它的控件按 COUI 的 candy 弹簧回弹（COUIPressAnimatorUnit）。 */
-private const val PressCandyAspectRatio = 2f
-
-// COUI 的 pressParamsDefault：按下 (bounce 0, response 0.25 / 0.3)，松手 (0.6 / 0.5, 0.5)；
-// 停止阈值照 COUIPressAnimatorUnit 的最小可见变化。
-private val JellyPressSpring =
-    couiSpring(response = 0.25f, bounce = 0f, visibilityThreshold = 0.001f)
-private val JellyReleaseSpring =
-    couiSpring(response = 0.5f, bounce = 0.6f, visibilityThreshold = 1.0e-4f)
-private val CandyPressSpring =
-    couiSpring(response = 0.3f, bounce = 0f, visibilityThreshold = 0.001f)
-private val CandyReleaseSpring =
-    couiSpring(response = 0.5f, bounce = 0.5f, visibilityThreshold = 1.0e-4f)
+// 按下、松手的弹簧刚度：response 0.25 秒和 0.5 秒的自然角频率平方 (2π / T)²。
+private const val PressStiffness = 631.6547f
+private const val ReleaseStiffness = 157.9137f
 
 @Composable
-internal fun rememberCouiPressMotion(): CouiPressMotion {
+internal fun rememberMiuixPressMotion(): MiuixPressMotion {
     val scope = rememberCoroutineScope()
     val density = LocalDensity.current.density
-    return remember(scope, density) { CouiPressMotion(scope, density) }
+    return remember(scope, density) { MiuixPressMotion(scope, density) }
 }
 
 /** 按下时让 [motion] 缩下去、松手回弹；手指被外层滚动接走时也松开。 */
-internal fun Modifier.couiPressMotion(motion: CouiPressMotion, enabled: Boolean = true): Modifier {
+internal fun Modifier.miuixPressMotion(
+    motion: MiuixPressMotion,
+    enabled: Boolean = true,
+): Modifier {
     if (!enabled) return this
     return pointerInput(motion) {
         awaitEachGesture {

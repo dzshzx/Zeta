@@ -14,8 +14,8 @@ import androidx.compose.ui.test.hasTestTag
 import androidx.compose.ui.unit.dp
 import com.dzshzx.zeta.phone.OverlayPhase
 import com.dzshzx.zeta.ui.overlay.EdgeGlow
-import io.github.suqi8.coui.kmp.theme.COUITheme
 import org.junit.Test
+import top.yukonga.miuix.kmp.theme.MiuixTheme
 
 class EdgeGlowShots : ShotTest() {
     /** 主屏边缘光，三块缩小的“屏幕”并排：运行中的流光、暂停的橙色描边、接管的紫色描边。 */
@@ -27,7 +27,7 @@ class EdgeGlowShots : ShotTest() {
                 modifier =
                     Modifier.testTag("glows")
                         .fillMaxWidth()
-                        .background(COUITheme.colorScheme.backgroundWithCard)
+                        .background(MiuixTheme.colorScheme.surface)
                         .padding(16.dp),
                 horizontalArrangement = Arrangement.spacedBy(12.dp),
             ) {
@@ -36,7 +36,7 @@ class EdgeGlowShots : ShotTest() {
                     Box(
                         Modifier.weight(1f)
                             .height(240.dp)
-                            .background(COUITheme.colorScheme.background),
+                            .background(MiuixTheme.colorScheme.surface),
                     ) {
                         EdgeGlow(phase, visible = true, hidden = false, cornerRadius = corner)
                     }

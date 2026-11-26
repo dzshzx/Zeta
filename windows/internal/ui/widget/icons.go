@@ -11,7 +11,7 @@ import (
 )
 
 // icons/ 里是手机版用的图标，照搬路径数据：COUI 2 自带的（coui-icons，Apache-2.0，https://github.com/suqi8/coui）
-// 和 Zeta 自己画的（shared 的 ui/components/coui2/ZetaIcons.kt，24×24、线宽 1.7、圆头圆角）。颜色跟着文字。
+// 和 Zeta 自己画的（shared 的 ui/components/miuix/ZetaIcons.kt，24×24、线宽 1.7、圆头圆角）。颜色跟着文字。
 //
 //go:embed icons/*.svg
 var iconFiles embed.FS

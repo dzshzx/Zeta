@@ -34,15 +34,12 @@ import com.dzshzx.zeta.core.notify.NotifyRuleStore
 import com.dzshzx.zeta.core.schedule.ScheduleStore
 import com.dzshzx.zeta.i18n.Strings
 import com.dzshzx.zeta.ui.app.writeText
-import com.dzshzx.zeta.ui.components.coui2.ConfirmDialog
-import com.dzshzx.zeta.ui.components.coui2.CouiPage
-import com.dzshzx.zeta.ui.components.coui2.NoticeDialog
-import com.dzshzx.zeta.ui.components.coui2.PreferenceGroup
+import com.dzshzx.zeta.ui.components.miuix.ConfirmDialog
+import com.dzshzx.zeta.ui.components.miuix.MiuixPage
+import com.dzshzx.zeta.ui.components.miuix.NoticeDialog
+import com.dzshzx.zeta.ui.components.miuix.PreferenceGroup
 import com.dzshzx.zeta.ui.components.rememberRetained
 import com.dzshzx.zeta.ui.pane.exportFileName
-import io.github.suqi8.coui.kmp.basic.BasicComponent
-import io.github.suqi8.coui.kmp.basic.Text
-import io.github.suqi8.coui.kmp.theme.COUITheme
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
@@ -51,6 +48,9 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import kotlinx.serialization.json.JsonPrimitive
 import kotlinx.serialization.json.contentOrNull
+import top.yukonga.miuix.kmp.basic.BasicComponent
+import top.yukonga.miuix.kmp.basic.Text
+import top.yukonga.miuix.kmp.theme.MiuixTheme
 
 /** 读完备份文件、比对过当前设置后要给人看的结果。 */
 private sealed interface ImportReview {
@@ -127,7 +127,7 @@ private fun rememberSettingsBackup(hub: ConversationHub): SettingsBackupState {
 @Composable
 internal fun SettingsBackupScreen(hub: ConversationHub, onBack: () -> Unit) {
     val state = rememberSettingsBackup(hub)
-    CouiPage(
+    MiuixPage(
         title = Strings.settingsBackupTitle(),
         onBack = onBack,
         dialogs = { SettingsBackupDialogs(hub, state) },
@@ -214,21 +214,21 @@ private fun SettingsBackupDialogs(hub: ConversationHub, state: SettingsBackupSta
 /** 确认框里的清单：会改的（原来 → 备份里的）、跳过的及原因、和当前一样的。 */
 @Composable
 private fun PlanDetails(plan: ImportPlan) {
-    val colors = COUITheme.colorScheme
-    val body = COUITheme.textStyles.bodyM
-    val note = COUITheme.textStyles.bodyS
+    val colors = MiuixTheme.colorScheme
+    val body = MiuixTheme.textStyles.body2
+    val note = MiuixTheme.textStyles.footnote1
     Column(Modifier.fillMaxWidth().heightIn(max = 360.dp).verticalScroll(rememberScrollState())) {
         if (plan.changes.isNotEmpty()) {
             Text(
                 Strings.settingsBackupWillOverwrite(plan.changes.size),
                 style = body,
-                color = colors.labelPrimary,
+                color = colors.onBackground,
             )
             for (change in plan.changes) {
                 Text(
                     Strings.settingsBackupChange(change.label, change.from, change.to),
                     style = body,
-                    color = colors.labelPrimary,
+                    color = colors.onBackground,
                     modifier = Modifier.padding(top = 4.dp),
                 )
             }
@@ -237,14 +237,14 @@ private fun PlanDetails(plan: ImportPlan) {
             Text(
                 Strings.settingsBackupSkipping(plan.skipped.size),
                 style = body,
-                color = colors.labelPrimary,
+                color = colors.onBackground,
                 modifier = Modifier.padding(top = 12.dp),
             )
             for (item in plan.skipped) {
                 Text(
                     Strings.settingsBackupSkipReason(item.label, item.reason),
                     style = note,
-                    color = colors.labelSecondary,
+                    color = colors.onBackgroundVariant,
                     modifier = Modifier.padding(top = 4.dp),
                 )
             }
@@ -256,7 +256,7 @@ private fun PlanDetails(plan: ImportPlan) {
                     plan.unchanged.joinToString(Strings.commonListSeparator()),
                 ),
                 style = note,
-                color = colors.labelSecondary,
+                color = colors.onBackgroundVariant,
                 modifier = Modifier.padding(top = 12.dp),
             )
         }

@@ -27,24 +27,24 @@ import com.dzshzx.zeta.core.clipLine
 import com.dzshzx.zeta.i18n.Strings
 import com.dzshzx.zeta.ui.components.SlideInPage
 import com.dzshzx.zeta.ui.components.StatusWarning
-import com.dzshzx.zeta.ui.components.coui2.ConfirmDialog
-import com.dzshzx.zeta.ui.components.coui2.CouiPage
-import com.dzshzx.zeta.ui.components.coui2.DialogTextField
-import com.dzshzx.zeta.ui.components.coui2.IconActionButton
-import com.dzshzx.zeta.ui.components.coui2.PreferenceGroup
-import com.dzshzx.zeta.ui.components.coui2.PreferenceValue
+import com.dzshzx.zeta.ui.components.miuix.ConfirmDialog
+import com.dzshzx.zeta.ui.components.miuix.DialogTextField
+import com.dzshzx.zeta.ui.components.miuix.IconActionButton
+import com.dzshzx.zeta.ui.components.miuix.MiuixPage
+import com.dzshzx.zeta.ui.components.miuix.PreferenceGroup
+import com.dzshzx.zeta.ui.components.miuix.PreferenceGroupScope
+import com.dzshzx.zeta.ui.components.miuix.PreferenceValue
+import com.dzshzx.zeta.ui.components.success
 import com.dzshzx.zeta.ui.settings.ValueRow
-import io.github.suqi8.coui.kmp.basic.BasicComponent
-import io.github.suqi8.coui.kmp.basic.BasicComponentDefaults
-import io.github.suqi8.coui.kmp.basic.CardListGroupScope
-import io.github.suqi8.coui.kmp.basic.SegmentButton
-import io.github.suqi8.coui.kmp.basic.SegmentButtonDefaults
-import io.github.suqi8.coui.kmp.basic.Text
-import io.github.suqi8.coui.kmp.icon.COUIIcons
-import io.github.suqi8.coui.kmp.icon.extended.Add
-import io.github.suqi8.coui.kmp.icon.extended.Refresh
-import io.github.suqi8.coui.kmp.preference.ArrowPreference
-import io.github.suqi8.coui.kmp.theme.COUITheme
+import top.yukonga.miuix.kmp.basic.BasicComponent
+import top.yukonga.miuix.kmp.basic.BasicComponentDefaults
+import top.yukonga.miuix.kmp.basic.TabRowWithContour
+import top.yukonga.miuix.kmp.basic.Text
+import top.yukonga.miuix.kmp.icon.MiuixIcons
+import top.yukonga.miuix.kmp.icon.extended.Add
+import top.yukonga.miuix.kmp.icon.extended.Refresh
+import top.yukonga.miuix.kmp.preference.ArrowPreference
+import top.yukonga.miuix.kmp.theme.MiuixTheme
 
 private fun stateLabel(state: McpState?): String =
     when (state?.state) {
@@ -65,8 +65,8 @@ private fun stateLabel(state: McpState?): String =
 @Composable
 private fun stateColor(state: McpState?): Color =
     when (state?.state) {
-        "connected" -> COUITheme.colorScheme.success
-        "failed" -> COUITheme.colorScheme.error
+        "connected" -> MiuixTheme.colorScheme.success
+        "failed" -> MiuixTheme.colorScheme.error
         "partial",
         "auth",
         "pending" -> StatusWarning
@@ -168,17 +168,17 @@ internal fun ClaudeMcpScreen(hub: ConversationHub, backend: String, onBack: () -
     }
     val reload: () -> Unit = { reloads++ }
 
-    CouiPage(
+    MiuixPage(
         title = Strings.setupMcpTitle(),
         onBack = onBack,
         actions = {
             IconActionButton(
-                COUIIcons.Refresh,
+                MiuixIcons.Refresh,
                 Strings.setupMcpRecheck(),
                 enabled = status != null || statusError != null,
                 onClick = reload,
             )
-            IconActionButton(COUIIcons.Add, Strings.setupMcpAdd(), onClick = { showAdd = true })
+            IconActionButton(MiuixIcons.Add, Strings.setupMcpAdd(), onClick = { showAdd = true })
         },
         dialogs = {
             ConfigNoticeDialog(notice) { notice = null }
@@ -331,16 +331,7 @@ private fun AddServerDialog(
     }
     val confirm = {
         val envLines = env.lines().map { it.trim() }.filter { it.isNotEmpty() }
-        error =
-            when {
-                !ServerName.matches(name.trim()) -> Strings.setupMcpNameInvalid()
-                type != "stdio" && !Regex("https?://\\S+").matches(url.trim()) ->
-                    Strings.setupMcpUrlInvalid()
-                type == "stdio" && command.isBlank() -> Strings.setupMcpCommandMissing()
-                type == "stdio" && envLines.any { !EnvLine.matches(it) } ->
-                    Strings.setupMcpEnvInvalid()
-                else -> null
-            }
+        error = draftProblem(type, name, url, command, envLines)
         if (error == null) {
             working = true
             val draft =
@@ -364,7 +355,6 @@ private fun AddServerDialog(
             }
         }
     }
-    val types = listOf("http" to "HTTP", "sse" to "SSE", "stdio" to Strings.setupMcpTypeCommand())
     ConfirmDialog(
         show = visible,
         title = Strings.setupMcpAdd(),
@@ -378,17 +368,7 @@ private fun AddServerDialog(
             verticalArrangement = Arrangement.spacedBy(12.dp),
             modifier = Modifier.fillMaxWidth(),
         ) {
-            SegmentButton(
-                items = types.map { it.second },
-                selectedIndex = types.indexOfFirst { it.first == type }.coerceAtLeast(0),
-                onSelectedIndexChange = { index ->
-                    types.getOrNull(index)?.let { type = it.first }
-                },
-                modifier = Modifier.fillMaxWidth(),
-                enabled = !working,
-                height = SegmentButtonDefaults.HeightSmall,
-                padding = SegmentButtonDefaults.PaddingSmall,
-            )
+            ServerTypeTabs(type = type, enabled = !working, onSelect = { type = it })
             DialogTextField(
                 value = name,
                 onValueChange = { name = it },
@@ -441,13 +421,44 @@ private fun AddServerDialog(
             error?.let {
                 Text(
                     text = it,
-                    style = COUITheme.textStyles.bodyM,
-                    color = COUITheme.colorScheme.error,
+                    style = MiuixTheme.textStyles.body2,
+                    color = MiuixTheme.colorScheme.error,
                 )
             }
         }
     }
 }
+
+/** 服务器类型的分段标签。分段标签没有不可用的样子，[enabled] 为 false 时只是忽略点击。 */
+@Composable
+private fun ServerTypeTabs(type: String, enabled: Boolean, onSelect: (String) -> Unit) {
+    val types = listOf("http" to "HTTP", "sse" to "SSE", "stdio" to Strings.setupMcpTypeCommand())
+    TabRowWithContour(
+        tabs = types.map { it.second },
+        selectedTabIndex = types.indexOfFirst { it.first == type }.coerceAtLeast(0),
+        onTabSelected = { index ->
+            if (enabled) types.getOrNull(index)?.let { onSelect(it.first) }
+        },
+        modifier = Modifier.fillMaxWidth(),
+    )
+}
+
+/** 添加服务器时填的内容哪里不对；都对时是 null。 */
+private fun draftProblem(
+    type: String,
+    name: String,
+    url: String,
+    command: String,
+    envLines: List<String>,
+): String? =
+    when {
+        !ServerName.matches(name.trim()) -> Strings.setupMcpNameInvalid()
+        type != "stdio" && !Regex("https?://\\S+").matches(url.trim()) ->
+            Strings.setupMcpUrlInvalid()
+        type == "stdio" && command.isBlank() -> Strings.setupMcpCommandMissing()
+        type == "stdio" && envLines.any { !EnvLine.matches(it) } -> Strings.setupMcpEnvInvalid()
+        else -> null
+    }
 
 /** 一个服务器的详情：配置（秘密都只显示“有没有”）、身份认证、工具清单、删除。 */
 @Composable
@@ -516,12 +527,12 @@ private fun McpServerDetail(
     // 项目里的 .mcp.json 可能来自别人的仓库，不自动替它启动命令；要看工具时手动点
     LaunchedEffect(server) { if (server.scope != "project" && !server.oauth) loadTools() }
 
-    CouiPage(
+    MiuixPage(
         title = server.name,
         onBack = onBack,
         actions = {
             IconActionButton(
-                COUIIcons.Refresh,
+                MiuixIcons.Refresh,
                 Strings.setupMcpRefreshTools(),
                 enabled = !loadingTools,
                 onClick = ::loadTools,
@@ -588,7 +599,7 @@ private fun McpServerDetail(
                         title = Strings.setupMcpDelete(),
                         // 经 claude mcp remove 从配置里移除
                         titleColor =
-                            BasicComponentDefaults.titleColor(color = COUITheme.colorScheme.error),
+                            BasicComponentDefaults.titleColor(color = MiuixTheme.colorScheme.error),
                         enabled = !working,
                         onClick = { confirmDelete = true },
                     )
@@ -627,7 +638,7 @@ private fun ServerInfoGroup(
     }
 }
 
-private fun CardListGroupScope.stdioRows(server: McpServer) {
+private fun PreferenceGroupScope.stdioRows(server: McpServer) {
     item { BasicComponent(title = Strings.setupMcpTypeCommand(), summary = server.target()) }
     if (server.envKeys.isNotEmpty()) {
         item {
@@ -640,7 +651,7 @@ private fun CardListGroupScope.stdioRows(server: McpServer) {
     }
 }
 
-private fun CardListGroupScope.remoteRows(
+private fun PreferenceGroupScope.remoteRows(
     server: McpServer,
     auth: Pair<Boolean, Boolean>,
     tokenEditable: Boolean,

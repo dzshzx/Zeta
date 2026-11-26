@@ -6,8 +6,8 @@ import com.dzshzx.zeta.core.ModelOption
 import com.dzshzx.zeta.core.modelLabel
 import com.dzshzx.zeta.core.modelMenu
 import com.dzshzx.zeta.i18n.Strings
-import io.github.suqi8.coui.kmp.basic.DropdownEntry
-import io.github.suqi8.coui.kmp.basic.DropdownItem
+import top.yukonga.miuix.kmp.basic.DropdownEntry
+import top.yukonga.miuix.kmp.basic.DropdownItem
 
 /** [models]（一般是 [ConversationHub.modelOptions]）里可选的模型，值和显示名，按 [modelMenu] 分两层。 */
 fun modelChoices(models: List<ModelOption>): ModelMenu<Pair<String, String>> =

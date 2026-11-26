@@ -87,21 +87,20 @@ import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.dzshzx.zeta.i18n.Strings
-import com.dzshzx.zeta.ui.components.coui2.FlatIconButton
+import com.dzshzx.zeta.ui.components.miuix.FlatIconButton
 import com.dzshzx.zeta.ui.markdown.StreamingMarkdownStateCache
-import io.github.suqi8.coui.kmp.anim.COUIOutEaseEasing
-import io.github.suqi8.coui.kmp.anim.couiSpring
-import io.github.suqi8.coui.kmp.basic.Text
-import io.github.suqi8.coui.kmp.icon.COUIIcons
-import io.github.suqi8.coui.kmp.icon.extended.Close
-import io.github.suqi8.coui.kmp.theme.COUITheme
 import kotlin.math.roundToInt
 import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
+import top.yukonga.miuix.kmp.anim.folmeSpring
+import top.yukonga.miuix.kmp.basic.Text
+import top.yukonga.miuix.kmp.icon.MiuixIcons
+import top.yukonga.miuix.kmp.icon.extended.Close
+import top.yukonga.miuix.kmp.theme.MiuixTheme
 
-// 拷自 Eta 的 agent/voice/EtaVoicePanel.kt（GPL-3.0）：压暗与托底、进出场、唤起光效、半屏回答面板的外形
-// （G2 顶角、沿顶边的环境投影、顶边高光）、把手。去掉了语音（声波、聆听态的托底、语音反馈）；
+// 拷自 Eta 的 agent/voice/ui/EtaVoicePanel.kt（GPL-3.0）：压暗与托底、进出场、唤起光效、半屏回答面板的外形
+// （连续圆角顶角、沿顶边的环境投影、顶边高光）、把手。去掉了语音（声波、聆听态的托底、语音反馈）；
 // 面板的高度、档位和拖动在 AssistantSheet.kt；回答里一问一答怎么排在 AssistantReply.kt。
 // Zeta 自己加的：带上的屏幕那一行、发不出去时的说明、「在 Zeta 中继续」、还没发时整列上推打开 Zeta。
 
@@ -152,7 +151,7 @@ private fun rememberPanelMotion(): PanelMotion {
             launch {
                 motion.entryProgress.animateTo(
                     1f,
-                    tween(210, delayMillis = 50, easing = CouiEnterEasing),
+                    tween(210, delayMillis = 50, easing = MiuixEnterEasing),
                 )
             }
             // 焦点会主动唤起输入法：等显现和位移都结束、建议问题出齐以后再交出输入焦点（跟着系统的动画倍率，截图测试里不等）
@@ -199,7 +198,7 @@ internal fun AssistantScreen(
     val exitProgress =
         animateFloatAsState(
             targetValue = if (visible) 0f else 1f,
-            animationSpec = tween(210, easing = COUIOutEaseEasing),
+            animationSpec = tween(210, easing = MiuixExitEasing),
             label = "assistant_exit",
         )
     // 发出去以后压暗加深、底部托底退掉、面板底色淡入，都跟这一个进度
@@ -528,7 +527,7 @@ private fun Modifier.panelInsets(): Modifier =
         )
 
 /**
- * 回答面板的外观（照 Eta）：G2 连续顶角、底边直角，面板底色、沿顶部圆角外侧渐隐的环境投影和顶边一道高光，都随 [alpha] 淡入。
+ * 回答面板的外观（照 Eta）：连续圆角顶角、底边直角，面板底色、沿顶部圆角外侧渐隐的环境投影和顶边一道高光，都随 [alpha] 淡入。
  * 未展开回复面板时不启用轮廓裁剪，避免把空状态下的悬浮胶囊顶部与阴影裁掉。路径、描边和渐变按尺寸缓存，绘制时只换透明度。
  */
 private fun Modifier.sheetSurface(
@@ -536,7 +535,7 @@ private fun Modifier.sheetSurface(
     alpha: () -> Float,
     visible: Boolean,
 ): Modifier {
-    val shape = TopCouiSheetShape(topRadius = SheetCornerRadius)
+    val shape = TopMiuixSheetShape(topRadius = SheetCornerRadius)
     return drawWithCache { sheetShadow(colors, alpha) }
         .then(
             if (visible)
@@ -549,11 +548,11 @@ private fun Modifier.sheetSurface(
 /** 环境投影叠几层描边。 */
 private const val ShadowLayers = 8
 
-/** 沿着 G2 连续顶部圆角外侧绘制渐隐环境投影，切出面板内部后贴合左右切点收束至 0，避免矩形阴影在圆角外侧露馅。 */
+/** 沿着连续圆角的顶部外侧绘制渐隐环境投影，切出面板内部后贴合左右切点收束至 0，避免矩形阴影在圆角外侧露馅。 */
 private fun CacheDrawScope.sheetShadow(colors: AssistantColors, alpha: () -> Float): DrawResult {
     val shadowRisePx = 28.dp.toPx()
     val cornerPx = SheetCornerRadius.toPx().coerceIn(0f, minOf(size.width * 0.5f, size.height))
-    val sheetPath = buildTopCouiSheetPath(size, cornerPx)
+    val sheetPath = buildTopMiuixSheetPath(size, cornerPx)
     val strokes =
         List(ShadowLayers) { i ->
             Stroke(width = shadowRisePx * (i + 1f) / ShadowLayers * 2f, cap = StrokeCap.Butt)
@@ -578,7 +577,7 @@ private fun CacheDrawScope.sheetShadow(colors: AssistantColors, alpha: () -> Flo
 
 /** 面板底色，和顶边的一道高光（往下渐隐）。 */
 private fun CacheDrawScope.sheetFill(colors: AssistantColors, alpha: () -> Float): DrawResult {
-    val rimPath = buildTopCouiSheetPath(size, SheetCornerRadius.toPx())
+    val rimPath = buildTopMiuixSheetPath(size, SheetCornerRadius.toPx())
     val rimBrush =
         Brush.verticalGradient(
             0f to colors.panelSpecular,
@@ -614,7 +613,7 @@ private fun DragHandle(
     val handleWidth by
         animateDpAsState(
             targetValue = if (state.ready) 52.dp else 36.dp,
-            animationSpec = couiSpring(response = 0.26f, bounce = 0.12f),
+            animationSpec = folmeSpring(damping = 0.88f, response = 0.26f),
             label = "assistant_handle_width",
         )
     val handleColor by
@@ -685,7 +684,7 @@ private fun ColumnScope.ReplyArea(
     val cache = remember { StreamingMarkdownStateCache() }
     val reveal = remember { Animatable(0f) }
     LaunchedEffect(Unit) {
-        reveal.animateTo(1f, tween(210, delayMillis = 45, easing = CouiEnterEasing))
+        reveal.animateTo(1f, tween(210, delayMillis = 45, easing = MiuixEnterEasing))
     }
     // 一直跟到底：流式回答、面板长高、新的一问都跟着
     LaunchedEffect(view.entries.size, view.answerLength, scroll.maxValue) {
@@ -714,7 +713,7 @@ private fun ColumnScope.ReplyArea(
             modifier = Modifier.fillMaxWidth().padding(end = 12.dp, bottom = 2.dp),
             horizontalArrangement = Arrangement.End,
         ) {
-            TextAction(Strings.assistantContinueInZeta(), COUITheme.colorScheme.primary, onOpen)
+            TextAction(Strings.assistantContinueInZeta(), MiuixTheme.colorScheme.primary, onOpen)
         }
     }
 }
@@ -726,7 +725,7 @@ private fun ScreenRow(screen: ScreenChip, colors: AssistantColors, onToggle: () 
         Row(
             modifier =
                 Modifier.weight(1f, fill = false)
-                    .couiAssistantCapsule(colors, AssistantCapsuleElevation.Chip)
+                    .miuixAssistantCapsule(colors, AssistantCapsuleElevation.Chip)
                     .padding(start = 11.dp, end = 6.dp, top = 6.dp, bottom = 6.dp),
             verticalAlignment = Alignment.CenterVertically,
         ) {
@@ -754,7 +753,7 @@ private fun ScreenToggle(removed: Boolean, colors: AssistantColors, onToggle: ()
         return
     }
     FlatIconButton(
-        icon = COUIIcons.Close,
+        icon = MiuixIcons.Close,
         contentDescription = Strings.assistantExcludeScreen(),
         size = 32.dp,
         iconSize = 12.dp,
@@ -769,7 +768,7 @@ private fun ScreenToggle(removed: Boolean, colors: AssistantColors, onToggle: ()
 private fun TextAction(text: String, color: Color, onClick: () -> Unit) {
     Text(
         text = text,
-        style = COUITheme.textStyles.buttonS,
+        style = MiuixTheme.textStyles.footnote1,
         color = color,
         modifier =
             Modifier.clip(CircleShape)
@@ -784,10 +783,10 @@ private fun ProblemNote(text: String, colors: AssistantColors) {
     Row(modifier = Modifier.fillMaxWidth().padding(start = 18.dp, end = 18.dp, bottom = 6.dp)) {
         Text(
             text = text,
-            style = COUITheme.textStyles.bodyS,
+            style = MiuixTheme.textStyles.footnote1,
             color = colors.error,
             modifier =
-                Modifier.couiAssistantCapsule(
+                Modifier.miuixAssistantCapsule(
                         colors = colors,
                         elevation = AssistantCapsuleElevation.Chip,
                         shape = RoundedCornerShape(16.dp),

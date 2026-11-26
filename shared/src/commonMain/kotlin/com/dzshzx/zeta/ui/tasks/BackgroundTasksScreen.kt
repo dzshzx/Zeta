@@ -41,27 +41,28 @@ import com.dzshzx.zeta.i18n.Strings
 import com.dzshzx.zeta.ui.chat.SubagentScreen
 import com.dzshzx.zeta.ui.components.MonoFont
 import com.dzshzx.zeta.ui.components.SlideInPage
-import com.dzshzx.zeta.ui.components.coui2.ConfirmDialog
-import com.dzshzx.zeta.ui.components.coui2.CouiPage
-import com.dzshzx.zeta.ui.components.coui2.PreferenceGroup
-import com.dzshzx.zeta.ui.components.coui2.PreferenceValue
+import com.dzshzx.zeta.ui.components.miuix.ConfirmDialog
+import com.dzshzx.zeta.ui.components.miuix.MiuixPage
+import com.dzshzx.zeta.ui.components.miuix.PreferenceGroup
+import com.dzshzx.zeta.ui.components.miuix.PreferenceGroupScope
+import com.dzshzx.zeta.ui.components.miuix.PreferenceValue
+import com.dzshzx.zeta.ui.components.miuix.TopBarTextButton
 import com.dzshzx.zeta.ui.components.pingPong
 import com.dzshzx.zeta.ui.components.rememberIndicatorClock
 import com.dzshzx.zeta.ui.components.rememberNow
+import com.dzshzx.zeta.ui.components.success
 import com.dzshzx.zeta.ui.settings.ValueRow
-import io.github.suqi8.coui.kmp.basic.BasicComponent
-import io.github.suqi8.coui.kmp.basic.BasicComponentDefaults
-import io.github.suqi8.coui.kmp.basic.CardListGroupScope
-import io.github.suqi8.coui.kmp.basic.Icon
-import io.github.suqi8.coui.kmp.basic.Text
-import io.github.suqi8.coui.kmp.basic.ToolbarTextButton
-import io.github.suqi8.coui.kmp.icon.COUIIcons
-import io.github.suqi8.coui.kmp.icon.extended.ChevronForward
-import io.github.suqi8.coui.kmp.preference.ArrowPreference
-import io.github.suqi8.coui.kmp.squircle.squircleBackground
-import io.github.suqi8.coui.kmp.squircle.squircleBorder
-import io.github.suqi8.coui.kmp.squircle.squircleClip
-import io.github.suqi8.coui.kmp.theme.COUITheme
+import top.yukonga.miuix.kmp.basic.BasicComponent
+import top.yukonga.miuix.kmp.basic.BasicComponentDefaults
+import top.yukonga.miuix.kmp.basic.Icon
+import top.yukonga.miuix.kmp.basic.Text
+import top.yukonga.miuix.kmp.icon.MiuixIcons
+import top.yukonga.miuix.kmp.icon.extended.ChevronForward
+import top.yukonga.miuix.kmp.preference.ArrowPreference
+import top.yukonga.miuix.kmp.squircle.squircleBackground
+import top.yukonga.miuix.kmp.squircle.squircleBorder
+import top.yukonga.miuix.kmp.squircle.squircleClip
+import top.yukonga.miuix.kmp.theme.MiuixTheme
 
 /** 面板看全部对话时 scope 用的值。 */
 const val AllConversations = "*"
@@ -94,12 +95,12 @@ fun BackgroundTasksScreen(
     var steps by remember { mutableStateOf<TaskRef?>(null) }
     val finished = shown.any { c -> c.tasks.list.any { !it.running } }
 
-    CouiPage(
+    MiuixPage(
         title = Strings.tasksTitle(),
         onBack = onBack,
         actions = {
             if (finished)
-                ToolbarTextButton(
+                TopBarTextButton(
                     text = Strings.tasksClearFinished(),
                     onClick = { shown.forEach { it.tasks.clearFinished() } },
                 )
@@ -211,7 +212,7 @@ private fun TaskPage(
     val task = conversation?.tasks?.list?.firstOrNull { it.id == ref.task }
     if (conversation == null || task == null) {
         // 对话被收起、或任务被清掉了
-        CouiPage(title = Strings.tasksTitle(), onBack = onBack) {
+        MiuixPage(title = Strings.tasksTitle(), onBack = onBack) {
             item(key = "gone") {
                 PreferenceGroup {
                     item { BasicComponent(title = Strings.tasksGone(), enabled = false) }
@@ -237,8 +238,8 @@ private fun TaskPage(
 private fun TaskRow(task: BackgroundTask, onClick: () -> Unit) {
     val color =
         when {
-            task.state == TaskState.Failed -> COUITheme.colorScheme.error
-            task.running -> COUITheme.colorScheme.primary
+            task.state == TaskState.Failed -> MiuixTheme.colorScheme.error
+            task.running -> MiuixTheme.colorScheme.primary
             else -> null
         }
     ArrowPreference(
@@ -279,7 +280,7 @@ private fun TaskDetail(
         }
     }
     val output = conversation.tasks.outputs[task.id]
-    CouiPage(
+    MiuixPage(
         title = TaskLabels.page(task),
         onBack = onBack,
         dialogs = {
@@ -354,7 +355,7 @@ private fun TaskInfoGroup(
                         if (task.stopping) Strings.tasksStoppingEllipsis()
                         else Strings.tasksStopThis(),
                     titleColor =
-                        BasicComponentDefaults.titleColor(color = COUITheme.colorScheme.error),
+                        BasicComponentDefaults.titleColor(color = MiuixTheme.colorScheme.error),
                     enabled = !task.stopping && conversation.isProcessAlive,
                     onClick = onStop,
                 )
@@ -367,14 +368,14 @@ private fun TaskInfoGroup(
 @Composable
 internal fun taskStateColor(state: TaskState): Color =
     when (state) {
-        TaskState.Running -> COUITheme.colorScheme.primary
-        TaskState.Completed -> COUITheme.colorScheme.success
-        TaskState.Failed -> COUITheme.colorScheme.error
+        TaskState.Running -> MiuixTheme.colorScheme.primary
+        TaskState.Completed -> MiuixTheme.colorScheme.success
+        TaskState.Failed -> MiuixTheme.colorScheme.error
         else -> Color.Unspecified
     }
 
 /** 子代理才有的几行：类型、工具调用次数、（运行中）在做什么，和进它的步骤。 */
-private fun CardListGroupScope.agentItems(task: BackgroundTask, onOpenSteps: (String) -> Unit) {
+private fun PreferenceGroupScope.agentItems(task: BackgroundTask, onOpenSteps: (String) -> Unit) {
     task.agentType?.let { type ->
         item(key = "agent") { ValueRow(Strings.tasksAgentType(), type) }
     }
@@ -454,15 +455,15 @@ private fun TextBlock(title: String, text: String, mono: Boolean = false) {
                     text = text,
                     style =
                         if (mono) {
-                            COUITheme.textStyles.bodyS.copy(
+                            MiuixTheme.textStyles.footnote1.copy(
                                 fontFamily = MonoFont,
                                 fontSize = 11.5.sp,
                                 lineHeight = 16.sp,
                             )
                         } else {
-                            COUITheme.textStyles.bodyM.copy(fontSize = 14.sp, lineHeight = 21.sp)
+                            MiuixTheme.textStyles.body2.copy(fontSize = 14.sp, lineHeight = 21.sp)
                         },
-                    color = COUITheme.colorScheme.labelPrimary,
+                    color = MiuixTheme.colorScheme.onBackground,
                     modifier =
                         Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 12.dp),
                 )
@@ -480,14 +481,14 @@ fun BackgroundTaskStrip(
 ) {
     val running = conversation.tasks.list.filter { it.running }
     if (running.isEmpty()) return
-    val colors = COUITheme.colorScheme
+    val colors = MiuixTheme.colorScheme
     val clock = rememberIndicatorClock()
     Row(
         modifier =
             modifier
                 .fillMaxWidth()
                 .heightIn(min = 48.dp)
-                .entryPanel(18.dp, COUITheme.colorScheme.fillThin)
+                .entryPanel(18.dp, MiuixTheme.colorScheme.secondaryContainer)
                 .clickable(onClickLabel = Strings.tasksOpen(), onClick = onOpen)
                 .padding(start = 14.dp, end = 8.dp, top = 7.dp, bottom = 7.dp),
         verticalAlignment = Alignment.CenterVertically,
@@ -504,7 +505,7 @@ fun BackgroundTaskStrip(
                 Text(
                     text = Strings.tasksStripRunning(running.size),
                     style =
-                        COUITheme.textStyles.bodyS.copy(
+                        MiuixTheme.textStyles.footnote1.copy(
                             fontSize = 12.5.sp,
                             fontWeight = FontWeight.Medium,
                         ),
@@ -513,17 +514,17 @@ fun BackgroundTaskStrip(
             }
             Text(
                 text = TaskLabels.title(running.first()),
-                style = COUITheme.textStyles.bodyM.copy(fontSize = 14.sp),
-                color = colors.labelPrimary,
+                style = MiuixTheme.textStyles.body2.copy(fontSize = 14.sp),
+                color = colors.onBackground,
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis,
             )
         }
         Icon(
-            imageVector = COUIIcons.ChevronForward,
+            imageVector = MiuixIcons.ChevronForward,
             contentDescription = null,
             modifier = Modifier.size(20.dp),
-            tint = colors.labelTertiary,
+            tint = colors.onSurfaceVariantActions,
         )
     }
 }
@@ -549,13 +550,13 @@ fun BackgroundTasksEntry(
                     ?.let { Strings.tasksEntryFinished(it) },
             )
             .joinToString(" · ")
-    val colors = COUITheme.colorScheme
+    val colors = MiuixTheme.colorScheme
     val active = conversations > 0 || runningTasks > 0
     Row(
         modifier =
             modifier
                 .fillMaxWidth()
-                .entryPanel(14.dp, COUITheme.colorScheme.cardBackground)
+                .entryPanel(14.dp, MiuixTheme.colorScheme.surfaceContainer)
                 .clickable(onClickLabel = Strings.tasksEntryOpen(), onClick = onOpen)
                 .padding(start = 14.dp, end = 8.dp, top = 10.dp, bottom = 10.dp),
         verticalAlignment = Alignment.CenterVertically,
@@ -563,29 +564,32 @@ fun BackgroundTasksEntry(
         Box(
             Modifier.size(7.dp)
                 .clip(CircleShape)
-                .background(if (active) colors.primary else colors.labelTertiary),
+                .background(if (active) colors.primary else colors.onSurfaceVariantActions),
         )
         Spacer(Modifier.width(10.dp))
         Text(
             text = Strings.tasksEntry(),
             style =
-                COUITheme.textStyles.bodyM.copy(fontSize = 14.5.sp, fontWeight = FontWeight.Medium),
-            color = colors.labelPrimary,
+                MiuixTheme.textStyles.body2.copy(
+                    fontSize = 14.5.sp,
+                    fontWeight = FontWeight.Medium,
+                ),
+            color = colors.onBackground,
         )
         Spacer(Modifier.width(8.dp))
         Text(
             text = text,
-            style = COUITheme.textStyles.bodyS.copy(fontSize = 12.5.sp),
-            color = colors.labelSecondary,
+            style = MiuixTheme.textStyles.footnote1.copy(fontSize = 12.5.sp),
+            color = colors.onBackgroundVariant,
             maxLines = 1,
             overflow = TextOverflow.Ellipsis,
             modifier = Modifier.weight(1f),
         )
         Icon(
-            imageVector = COUIIcons.ChevronForward,
+            imageVector = MiuixIcons.ChevronForward,
             contentDescription = null,
             modifier = Modifier.size(20.dp),
-            tint = colors.labelTertiary,
+            tint = colors.onSurfaceVariantActions,
         )
     }
 }
@@ -595,4 +599,4 @@ fun BackgroundTasksEntry(
 private fun Modifier.entryPanel(radius: Dp, color: Color): Modifier =
     this.squircleClip(radius)
         .squircleBackground(color, radius)
-        .squircleBorder(0.5.dp, COUITheme.colorScheme.divider, radius)
+        .squircleBorder(0.5.dp, MiuixTheme.colorScheme.dividerLine, radius)

@@ -1,4 +1,4 @@
-package com.dzshzx.zeta.ui.components.coui2
+package com.dzshzx.zeta.ui.components.miuix
 
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -15,7 +15,7 @@ import org.junit.Test
 
 /**
  * [TextField] 和 [TextInputDialog] 的光标：带着文字显示时在末尾，文字从外面改了也到末尾。借截图测试的 Robolectric 环境，不出图。
- * 「点清除后打完第一个字光标跳回开头」要真的输入法才出现，这里复现不了（COUI 原版在这里也是对的），见 [com.dzshzx.zeta.shots.CouiGapsTest]。
+ * 「点清除后打完第一个字光标跳回开头」要真的输入法才出现，这里复现不了，见 [com.dzshzx.zeta.shots.MiuixGapsTest]。
  */
 class TextFieldCursorTest : ShotTest() {
     private var text by mutableStateOf("")
@@ -58,7 +58,7 @@ class TextFieldCursorTest : ShotTest() {
         text = "/workspace"
         compose.setContent {
             ZetaTheme(windowBackdrop = false) {
-                CouiPage(
+                MiuixPage(
                     title = "设置",
                     dialogs = {
                         TextInputDialog(
@@ -79,7 +79,7 @@ class TextFieldCursorTest : ShotTest() {
         assertEquals("/workspace/claude", text)
     }
 
-    /** 调用方改写刚打的字时光标留在原处：在中间接着打的字按顺序排，不跑到末尾（suqi8/coui#20 的例子）。 */
+    /** 调用方改写刚打的字时光标留在原处：在中间接着打的字按顺序排，不跑到末尾。 */
     @Test
     fun cursorStaysWhenCallerUppercasesTypedText() {
         showField("AB") { it.uppercase() }

@@ -28,14 +28,14 @@ import com.dzshzx.zeta.i18n.Strings
 import com.dzshzx.zeta.phone.PhoneToolCatalog
 import com.dzshzx.zeta.phone.tools.BrowserTools
 import com.dzshzx.zeta.ui.browser.BrowserStepButton
-import com.dzshzx.zeta.ui.components.coui2.FlatIconButton
-import com.dzshzx.zeta.ui.components.coui2.ZetaIcons
+import com.dzshzx.zeta.ui.components.miuix.FlatIconButton
+import com.dzshzx.zeta.ui.components.miuix.ZetaIcons
 import com.dzshzx.zeta.ui.pane.SessionExporter
 import com.dzshzx.zeta.ui.pane.rememberAndroidSessionExporter
-import io.github.suqi8.coui.kmp.icon.COUIIcons
-import io.github.suqi8.coui.kmp.icon.extended.VolumeUp
-import io.github.suqi8.coui.kmp.theme.COUITheme
 import kotlinx.serialization.json.JsonObject
+import top.yukonga.miuix.kmp.icon.MiuixIcons
+import top.yukonga.miuix.kmp.icon.extended.VolumeUp
+import top.yukonga.miuix.kmp.theme.MiuixTheme
 
 /** 手机上聊天页的平台部分：手机工具的标题、浏览器那步的钮、按住说话。登记在 app 的 META-INF/services 里。 */
 class AndroidChatPlatform : ChatPlatform {
@@ -123,14 +123,15 @@ private fun PhoneReadAloudButton(answer: AnswerItem) {
     val reading by ReadAloud.state.collectAsState()
     val active = reading.id == answer.id
     FlatIconButton(
-        icon = if (active) ZetaIcons.Stop else COUIIcons.VolumeUp,
+        icon = if (active) ZetaIcons.Stop else MiuixIcons.VolumeUp,
         contentDescription = if (active) Strings.chatStopReadAloud() else Strings.chatReadAloud(),
         size = 30.dp,
         iconSize = if (active) 11.dp else 15.dp,
         backgroundColor =
-            if (active) COUITheme.colorScheme.containerThemeHalftone else Color.Unspecified,
+            if (active) MiuixTheme.colorScheme.tertiaryContainer else Color.Unspecified,
         tint =
-            if (active) COUITheme.colorScheme.primaryText else COUITheme.colorScheme.labelSecondary,
+            if (active) MiuixTheme.colorScheme.primary
+            else MiuixTheme.colorScheme.onBackgroundVariant,
     ) {
         ReadAloud.toggle(context, answer.id, answer.text)
     }

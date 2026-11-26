@@ -44,24 +44,24 @@ import com.dzshzx.zeta.core.SharedFolders
 import com.dzshzx.zeta.core.fromTreeUri
 import com.dzshzx.zeta.i18n.Strings
 import com.dzshzx.zeta.ui.components.MonoFont
-import com.dzshzx.zeta.ui.components.coui2.ConfirmDialog
-import com.dzshzx.zeta.ui.components.coui2.CouiPage
-import com.dzshzx.zeta.ui.components.coui2.DialogTextField
-import com.dzshzx.zeta.ui.components.coui2.DropdownValuePreference
-import com.dzshzx.zeta.ui.components.coui2.PreferenceGroup
-import io.github.suqi8.coui.kmp.basic.BasicComponent
-import io.github.suqi8.coui.kmp.basic.BasicComponentDefaults
-import io.github.suqi8.coui.kmp.basic.DropdownEntry
-import io.github.suqi8.coui.kmp.basic.DropdownItem
-import io.github.suqi8.coui.kmp.basic.Icon
-import io.github.suqi8.coui.kmp.basic.InfiniteProgressIndicator
-import io.github.suqi8.coui.kmp.basic.Text
-import io.github.suqi8.coui.kmp.icon.COUIIcons
-import io.github.suqi8.coui.kmp.icon.extended.Folder
-import io.github.suqi8.coui.kmp.theme.COUITheme
+import com.dzshzx.zeta.ui.components.miuix.ConfirmDialog
+import com.dzshzx.zeta.ui.components.miuix.DialogTextField
+import com.dzshzx.zeta.ui.components.miuix.DropdownValuePreference
+import com.dzshzx.zeta.ui.components.miuix.MiuixPage
+import com.dzshzx.zeta.ui.components.miuix.PreferenceGroup
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+import top.yukonga.miuix.kmp.basic.BasicComponent
+import top.yukonga.miuix.kmp.basic.BasicComponentDefaults
+import top.yukonga.miuix.kmp.basic.DropdownEntry
+import top.yukonga.miuix.kmp.basic.DropdownItem
+import top.yukonga.miuix.kmp.basic.Icon
+import top.yukonga.miuix.kmp.basic.InfiniteProgressIndicator
+import top.yukonga.miuix.kmp.basic.Text
+import top.yukonga.miuix.kmp.icon.MiuixIcons
+import top.yukonga.miuix.kmp.icon.extended.Folder
+import top.yukonga.miuix.kmp.theme.MiuixTheme
 
 /*
  * 共享文件夹在每次进入 Linux 环境时挂载，所以改动对之后的命令和新开的对话生效，已经在进行的对话看不到新加的。
@@ -260,7 +260,7 @@ internal fun SharedFoldersScreen(hub: ConversationHub, onBack: () -> Unit) {
         }
     }
 
-    CouiPage(
+    MiuixPage(
         title = Strings.setupSharedFolders(),
         onBack = onBack,
         dialogs = {
@@ -331,7 +331,7 @@ internal fun SharedFoldersScreen(hub: ConversationHub, onBack: () -> Unit) {
                         title = Strings.setupSharedAdd(),
                         titleColor =
                             BasicComponentDefaults.titleColor(
-                                color = COUITheme.colorScheme.primary,
+                                color = MiuixTheme.colorScheme.primary,
                             ),
                         enabled = folders.size < SharedFolders.MAX,
                         onClick = { picker = FolderPicker("/sdcard", folders) },
@@ -345,7 +345,7 @@ internal fun SharedFoldersScreen(hub: ConversationHub, onBack: () -> Unit) {
 /** 添加共享文件夹对话框的内容：输入或一层层点选目录，再起个挂载名。 */
 @Composable
 private fun FolderPickerContent(current: FolderPicker, onSystemPicker: () -> Unit) {
-    val colors = COUITheme.colorScheme
+    val colors = MiuixTheme.colorScheme
     Column(Modifier.fillMaxWidth()) {
         DialogTextField(
             value = current.input,
@@ -354,10 +354,10 @@ private fun FolderPickerContent(current: FolderPicker, onSystemPicker: () -> Uni
             keyboardOptions = KeyboardOptions(imeAction = ImeAction.Go),
             keyboardActions = KeyboardActions(onGo = { current.navigate(current.input) }),
         )
-        // 不用对话框的 neutral 按钮：COUI 把它画成红色的危险操作，三个按钮竖排还会挤掉下面的挂载名
+        // 次要操作做成链接，不在按钮栏上放第三个按钮：三个按钮挤在一行放不下字
         Text(
             text = Strings.setupSharedSystemPicker(),
-            style = COUITheme.textStyles.bodyS,
+            style = MiuixTheme.textStyles.footnote1,
             color = colors.primary,
             modifier =
                 Modifier.clip(RoundedCornerShape(10.dp))
@@ -396,8 +396,8 @@ private fun FolderPickerContent(current: FolderPicker, onSystemPicker: () -> Uni
         }
         Text(
             text = Strings.setupSharedMountSource(current.path),
-            style = COUITheme.textStyles.bodyS.copy(fontFamily = MonoFont),
-            color = colors.labelSecondary,
+            style = MiuixTheme.textStyles.footnote1.copy(fontFamily = MonoFont),
+            color = colors.onBackgroundVariant,
             modifier = Modifier.padding(top = 8.dp),
         )
         DialogTextField(
@@ -426,15 +426,15 @@ private fun PickerRow(label: String, onClick: () -> Unit) {
                 .padding(vertical = 10.dp, horizontal = 6.dp),
     ) {
         Icon(
-            imageVector = COUIIcons.Folder,
+            imageVector = MiuixIcons.Folder,
             contentDescription = null,
             modifier = Modifier.size(18.dp),
-            tint = COUITheme.colorScheme.primary,
+            tint = MiuixTheme.colorScheme.primary,
         )
         Text(
             text = label,
-            style = COUITheme.textStyles.bodyM.copy(fontFamily = MonoFont),
-            color = COUITheme.colorScheme.labelPrimary,
+            style = MiuixTheme.textStyles.body2.copy(fontFamily = MonoFont),
+            color = MiuixTheme.colorScheme.onBackground,
             maxLines = 1,
             overflow = TextOverflow.Ellipsis,
         )
@@ -445,8 +445,9 @@ private fun PickerRow(label: String, onClick: () -> Unit) {
 private fun PickerNote(text: String, error: Boolean = false) {
     Text(
         text = text,
-        style = COUITheme.textStyles.bodyS,
-        color = if (error) COUITheme.colorScheme.error else COUITheme.colorScheme.labelSecondary,
+        style = MiuixTheme.textStyles.footnote1,
+        color =
+            if (error) MiuixTheme.colorScheme.error else MiuixTheme.colorScheme.onBackgroundVariant,
         modifier = Modifier.padding(horizontal = 4.dp, vertical = 8.dp),
     )
 }

@@ -5,10 +5,10 @@ import androidx.compose.ui.platform.LocalContext
 import com.dzshzx.zeta.i18n.AppLanguage
 import com.dzshzx.zeta.i18n.Strings
 import com.dzshzx.zeta.i18n.UiLanguage
-import com.dzshzx.zeta.ui.components.coui2.SettingsIcon
-import io.github.suqi8.coui.kmp.icon.COUIIcons
-import io.github.suqi8.coui.kmp.icon.extended.Translate
-import io.github.suqi8.coui.kmp.preference.OverlayDropdownPreference
+import com.dzshzx.zeta.ui.components.miuix.SettingsIcon
+import top.yukonga.miuix.kmp.icon.MiuixIcons
+import top.yukonga.miuix.kmp.icon.extended.Translate
+import top.yukonga.miuix.kmp.preference.OverlayDropdownPreference
 
 /**
  * 设置首页「通用」里选界面语言的一行（docs/i18n.md）：跟随系统、简体中文、English，语言名用各自的写法。选的存在 Android 的应用语言里
@@ -20,7 +20,7 @@ internal fun LanguageRow() {
     val choices = listOf<String?>(null) + UiLanguage.supported
     OverlayDropdownPreference(
         title = Strings.settingsLanguage(),
-        startAction = { SettingsIcon(COUIIcons.Translate) },
+        startAction = { SettingsIcon(MiuixIcons.Translate) },
         items = choices.map { it?.let(UiLanguage::autonym) ?: Strings.settingsLanguageSystem() },
         selectedIndex = choices.indexOf(AppLanguage.choice(context)).coerceAtLeast(0),
         onSelectedIndexChange = { index -> AppLanguage.choose(context, choices[index]) },

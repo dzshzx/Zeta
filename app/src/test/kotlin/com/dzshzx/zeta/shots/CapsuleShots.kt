@@ -29,13 +29,13 @@ import com.dzshzx.zeta.ui.app.ZetaTheme
 import com.dzshzx.zeta.ui.overlay.CapsuleControls
 import com.dzshzx.zeta.ui.overlay.CapsuleState
 import com.dzshzx.zeta.ui.overlay.StatusCapsule
-import io.github.suqi8.coui.kmp.theme.COUITheme
 import java.io.InputStream
 import java.io.OutputStream
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharedFlow
 import org.junit.Test
+import top.yukonga.miuix.kmp.theme.MiuixTheme
 
 class CapsuleShots : ShotTest() {
     /**
@@ -177,7 +177,7 @@ class CapsuleShots : ShotTest() {
                 modifier =
                     Modifier.testTag("capsules")
                         .fillMaxWidth()
-                        .background(COUITheme.colorScheme.backgroundWithCard)
+                        .background(MiuixTheme.colorScheme.surface)
                         .padding(vertical = 16.dp),
                 verticalArrangement = Arrangement.spacedBy(16.dp),
             ) {

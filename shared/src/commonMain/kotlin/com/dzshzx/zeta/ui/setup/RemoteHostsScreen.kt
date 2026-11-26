@@ -26,26 +26,25 @@ import com.dzshzx.zeta.core.RemoteHosts
 import com.dzshzx.zeta.core.ssh.SshKey
 import com.dzshzx.zeta.i18n.Strings
 import com.dzshzx.zeta.ui.components.SlideInPage
-import com.dzshzx.zeta.ui.components.coui2.ConfirmDialog
-import com.dzshzx.zeta.ui.components.coui2.CouiPage
-import com.dzshzx.zeta.ui.components.coui2.DialogTextField
-import com.dzshzx.zeta.ui.components.coui2.NoticeDialog
-import com.dzshzx.zeta.ui.components.coui2.PreferenceGroup
-import com.dzshzx.zeta.ui.components.coui2.TextInputDialog
+import com.dzshzx.zeta.ui.components.miuix.ConfirmDialog
+import com.dzshzx.zeta.ui.components.miuix.DialogTextField
+import com.dzshzx.zeta.ui.components.miuix.MiuixPage
+import com.dzshzx.zeta.ui.components.miuix.NoticeDialog
+import com.dzshzx.zeta.ui.components.miuix.PreferenceGroup
+import com.dzshzx.zeta.ui.components.miuix.TextInputDialog
 import com.dzshzx.zeta.ui.components.rememberRetained
 import com.dzshzx.zeta.ui.settings.DangerRow
 import com.dzshzx.zeta.ui.settings.DeviceNameDialog
 import com.dzshzx.zeta.ui.settings.DeviceNameRow
 import com.dzshzx.zeta.ui.settings.ValueRow
-import io.github.suqi8.coui.kmp.basic.BasicComponent
-import io.github.suqi8.coui.kmp.basic.SegmentButton
-import io.github.suqi8.coui.kmp.basic.SegmentButtonDefaults
-import io.github.suqi8.coui.kmp.preference.ArrowPreference
-import io.github.suqi8.coui.kmp.preference.OverlayDropdownPreference
-import io.github.suqi8.coui.kmp.preference.SwitchPreference
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+import top.yukonga.miuix.kmp.basic.BasicComponent
+import top.yukonga.miuix.kmp.basic.TabRowWithContour
+import top.yukonga.miuix.kmp.preference.ArrowPreference
+import top.yukonga.miuix.kmp.preference.OverlayDropdownPreference
+import top.yukonga.miuix.kmp.preference.SwitchPreference
 
 private val Vias = listOf(RemoteHost.Via.Debian, RemoteHost.Via.Direct)
 
@@ -106,7 +105,7 @@ fun RemoteHostsScreen(hub: ConversationHub, onBack: () -> Unit) {
         }
     }
 
-    CouiPage(
+    MiuixPage(
         title = Strings.setupRemoteAddTitle(),
         onBack = onBack,
         dialogs = {
@@ -240,13 +239,11 @@ private fun TypeAddressDialog(
             modifier = Modifier.fillMaxWidth(),
         ) {
             if (debian) {
-                SegmentButton(
-                    items = Vias.map { it.label },
-                    selectedIndex = Vias.indexOf(via),
-                    onSelectedIndexChange = { index -> Vias.getOrNull(index)?.let(onViaChange) },
+                TabRowWithContour(
+                    tabs = Vias.map { it.label },
+                    selectedTabIndex = Vias.indexOf(via),
+                    onTabSelected = { index -> Vias.getOrNull(index)?.let(onViaChange) },
                     modifier = Modifier.fillMaxWidth(),
-                    height = SegmentButtonDefaults.HeightSmall,
-                    padding = SegmentButtonDefaults.PaddingSmall,
                 )
             }
             DialogTextField(
@@ -354,7 +351,7 @@ private fun SshConfigHostsScreen(
     onBack: () -> Unit,
 ) {
     val read = rememberConfigHosts(hub)
-    CouiPage(title = Strings.setupRemoteFromConfig(), onBack = onBack) {
+    MiuixPage(title = Strings.setupRemoteFromConfig(), onBack = onBack) {
         item(key = "aliases") {
             val choices = read?.getOrNull()?.filter { it !in known && it != "localhost" }
             PreferenceGroup(footer = Strings.setupRemoteConfigFooter()) {
@@ -477,7 +474,7 @@ fun RemoteHostScreen(
     }
 
     val cwd = AttachedPaths.normalize(draft, shown.home)
-    CouiPage(
+    MiuixPage(
         title = shown.name,
         onBack = onBack,
         dialogs = {

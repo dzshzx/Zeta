@@ -21,11 +21,10 @@ import com.dzshzx.zeta.core.dropIntake
 import com.dzshzx.zeta.core.intakeTarget
 import com.dzshzx.zeta.core.placeIntake
 import com.dzshzx.zeta.i18n.Strings
-import com.dzshzx.zeta.ui.components.coui2.NoticeDialog
+import com.dzshzx.zeta.ui.components.miuix.DialogButtonBar
+import com.dzshzx.zeta.ui.components.miuix.DialogButtonBarAction
+import com.dzshzx.zeta.ui.components.miuix.NoticeDialog
 import com.dzshzx.zeta.ui.components.rememberRetained
-import io.github.suqi8.coui.kmp.layout.DialogButtonBar
-import io.github.suqi8.coui.kmp.layout.DialogButtonBarAction
-import io.github.suqi8.coui.kmp.window.WindowDialog
 import java.time.LocalDateTime
 import java.time.format.DateTimeFormatter
 import java.util.Base64
@@ -34,6 +33,7 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+import top.yukonga.miuix.kmp.window.WindowDialog
 
 /**
  * 输入栏这一头：把送进来的东西（[Intake]）、附件菜单里选的图片和文件、撤回的排队消息放进这个对话的草稿 [draft]。
@@ -199,7 +199,7 @@ class IntakeSink(
         )
 }
 
-/** 告诉用户哪些没有加进来、为什么。放在聊天页（COUI 的 Scaffold）里。 */
+/** 告诉用户哪些没有加进来、为什么。放在聊天页（Miuix 的 Scaffold）里。 */
 @Composable
 fun IntakeProblemsDialog(sink: IntakeSink) {
     val problems = sink.problems
@@ -225,7 +225,7 @@ fun IntakeProblemsDialog(sink: IntakeSink) {
  * 「放进哪个对话」：外面送来的东西（分享、打开、截屏）放进新对话，还是接着最近那个对话。 只有当前对话有内容、或者后台还有对话在进行时才会问（见
  * [com.dzshzx.zeta.core.offerIntake]）。点外面或返回就不要了。
  *
- * 它在应用最外层、盖在所有页面上面，不在任何 COUI 的 Scaffold 里，所以用窗口版的对话框（没有页面毛玻璃）。
+ * 它在应用最外层、盖在所有页面上面，不在任何 Miuix 的 Scaffold 里，所以用窗口版的对话框（没有页面毛玻璃）。
  */
 @Composable
 fun IntakeChooser(hub: ConversationHub) {

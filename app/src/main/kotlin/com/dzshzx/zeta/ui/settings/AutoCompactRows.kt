@@ -4,13 +4,13 @@ import androidx.compose.runtime.Composable
 import com.dzshzx.zeta.core.AutoCompact
 import com.dzshzx.zeta.core.ConversationHub
 import com.dzshzx.zeta.i18n.Strings
-import com.dzshzx.zeta.ui.components.coui2.SettingsIcon
-import com.dzshzx.zeta.ui.components.coui2.ZetaIcons
-import io.github.suqi8.coui.kmp.icon.COUIIcons
-import io.github.suqi8.coui.kmp.icon.extended.Backup
-import io.github.suqi8.coui.kmp.icon.extended.Tune
-import io.github.suqi8.coui.kmp.preference.OverlayDropdownPreference
-import io.github.suqi8.coui.kmp.preference.SwitchPreference
+import com.dzshzx.zeta.ui.components.miuix.SettingsIcon
+import com.dzshzx.zeta.ui.components.miuix.ZetaIcons
+import top.yukonga.miuix.kmp.icon.MiuixIcons
+import top.yukonga.miuix.kmp.icon.extended.Backup
+import top.yukonga.miuix.kmp.icon.extended.Tune
+import top.yukonga.miuix.kmp.preference.OverlayDropdownPreference
+import top.yukonga.miuix.kmp.preference.SwitchPreference
 
 internal fun compactPercentLabel(percent: Int?): String =
     if (percent == null) Strings.settingsCompactDefault()
@@ -25,7 +25,7 @@ internal fun AutoCompactSwitch(hub: ConversationHub, backend: String) {
     val claude = hub.settings.claude(backend)
     SwitchPreference(
         title = Strings.settingsCompactAuto(),
-        startAction = { SettingsIcon(COUIIcons.Backup) },
+        startAction = { SettingsIcon(MiuixIcons.Backup) },
         checked = claude.autoCompact,
         onCheckedChange = { claude.autoCompact = it },
     )
@@ -56,7 +56,7 @@ internal fun CompactTimingPreference(hub: ConversationHub, backend: String) {
     OverlayDropdownPreference(
         title = Strings.settingsCompactTiming(),
         startAction = {
-            SettingsIcon(COUIIcons.Tune, enabled = claude.autoCompact)
+            SettingsIcon(MiuixIcons.Tune, enabled = claude.autoCompact)
         },
         items = choices.map(::compactPercentLabel),
         selectedIndex = choices.indexOf(percent),

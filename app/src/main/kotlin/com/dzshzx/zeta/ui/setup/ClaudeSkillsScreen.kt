@@ -22,19 +22,19 @@ import com.dzshzx.zeta.core.claude.SkillList
 import com.dzshzx.zeta.core.claude.SyncedSkill
 import com.dzshzx.zeta.core.clipLine
 import com.dzshzx.zeta.i18n.Strings
-import com.dzshzx.zeta.ui.components.coui2.ConfirmDialog
-import com.dzshzx.zeta.ui.components.coui2.CouiPage
-import com.dzshzx.zeta.ui.components.coui2.NoticeDialog
-import com.dzshzx.zeta.ui.components.coui2.PreferenceGroup
-import com.dzshzx.zeta.ui.components.coui2.PreferenceValue
-import com.dzshzx.zeta.ui.components.coui2.RowMoreMenu
+import com.dzshzx.zeta.ui.components.miuix.ConfirmDialog
+import com.dzshzx.zeta.ui.components.miuix.MiuixPage
+import com.dzshzx.zeta.ui.components.miuix.NoticeDialog
+import com.dzshzx.zeta.ui.components.miuix.PreferenceGroup
+import com.dzshzx.zeta.ui.components.miuix.PreferenceValue
+import com.dzshzx.zeta.ui.components.miuix.RowMoreMenu
+import com.dzshzx.zeta.ui.components.miuix.SwitchLoadingPreference
 import com.dzshzx.zeta.ui.components.rememberRetained
-import io.github.suqi8.coui.kmp.basic.BasicComponent
-import io.github.suqi8.coui.kmp.basic.DropdownEntry
-import io.github.suqi8.coui.kmp.basic.DropdownItem
-import io.github.suqi8.coui.kmp.basic.InfiniteProgressIndicator
-import io.github.suqi8.coui.kmp.preference.SwitchLoadingPreference
 import java.io.IOException
+import top.yukonga.miuix.kmp.basic.BasicComponent
+import top.yukonga.miuix.kmp.basic.DropdownEntry
+import top.yukonga.miuix.kmp.basic.DropdownItem
+import top.yukonga.miuix.kmp.basic.InfiniteProgressIndicator
 
 /** ZIP 读进内存再交给那台的核心；Skill 包一般很小，太大的多半选错了文件。 */
 private class PickedZip(val name: String, val bytes: ByteArray)
@@ -137,7 +137,7 @@ internal fun ClaudeSkillsScreen(hub: ConversationHub, backend: String, onBack: (
     val shownDescription = rememberRetained(describing)
     val shownPending = rememberRetained(pending)
     val shownDeleting = rememberRetained(deleting)
-    CouiPage(
+    MiuixPage(
         title = "Skills",
         onBack = onBack,
         dialogs = {
@@ -362,7 +362,6 @@ private fun SkillRow(
                                     DropdownItem(
                                         text = Strings.setupClaudeDelete(),
                                         enabled = enabled,
-                                        alert = true,
                                         onClick = { if (enabled) onDelete() },
                                     ),
                                 ),

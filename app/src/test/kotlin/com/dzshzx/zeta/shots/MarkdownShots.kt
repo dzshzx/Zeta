@@ -7,8 +7,8 @@ import com.dzshzx.zeta.core.ConversationHub
 import com.dzshzx.zeta.core.UserItem
 import com.dzshzx.zeta.shots.Fixtures.showChat
 import com.dzshzx.zeta.ui.chat.ChatScreen
-import io.github.suqi8.coui.kmp.squircle.LocalSquircleEnabled
 import org.junit.Test
+import top.yukonga.miuix.kmp.squircle.LocalSquircleEnabled
 
 /**
  * 聊天里的 Markdown：标题、列表、行内样式、代码块、引用；表格、提示块、公式、分隔线。一屏放不下，分两张。 平滑圆角（squircle）靠着色器裁剪，Robolectric

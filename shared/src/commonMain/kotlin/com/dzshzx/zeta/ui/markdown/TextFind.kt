@@ -16,8 +16,10 @@ import androidx.compose.ui.text.SpanStyle
 import androidx.compose.ui.text.TextLayoutResult
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.buildAnnotatedString
-import io.github.suqi8.coui.kmp.basic.Text
-import io.github.suqi8.coui.kmp.theme.COUITheme
+import com.dzshzx.zeta.ui.components.isDark
+import com.dzshzx.zeta.ui.components.textHighlight
+import top.yukonga.miuix.kmp.basic.Text
+import top.yukonga.miuix.kmp.theme.MiuixTheme
 
 /** 页面内查找：给正文加高亮。由聊天页提供，Markdown 文字块和提问气泡读取。 */
 @Stable
@@ -73,11 +75,11 @@ private fun collectSegments(blocks: List<MarkdownBlock>, into: MutableList<Pair<
     }
 }
 
-/** 命中处的底色：其余几处用 COUI 的选中文字底色，当前那一处是更深的主题色。 */
+/** 命中处的底色：其余几处用选中文字的底色（textHighlight），当前那一处是更深的主题色。 */
 @Composable
 private fun findColors(): Pair<Color, Color> {
-    val colors = COUITheme.colorScheme
-    val soft = colors.textColorHighlight
+    val colors = MiuixTheme.colorScheme
+    val soft = colors.textHighlight
     val primary = colors.primary
     val dark = colors.isDark
     return remember(soft, primary, dark) {

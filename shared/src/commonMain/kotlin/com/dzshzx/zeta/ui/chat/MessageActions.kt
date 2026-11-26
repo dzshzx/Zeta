@@ -39,28 +39,28 @@ import com.dzshzx.zeta.core.Turn
 import com.dzshzx.zeta.core.imageMediaType
 import com.dzshzx.zeta.core.str
 import com.dzshzx.zeta.i18n.Strings
-import com.dzshzx.zeta.ui.components.coui2.ConfirmDialog
-import com.dzshzx.zeta.ui.components.coui2.FlatIconButton
-import com.dzshzx.zeta.ui.components.coui2.ZetaIcons
+import com.dzshzx.zeta.ui.components.miuix.ConfirmDialog
+import com.dzshzx.zeta.ui.components.miuix.FlatIconButton
+import com.dzshzx.zeta.ui.components.miuix.SquircleShape
+import com.dzshzx.zeta.ui.components.miuix.ZetaIcons
 import com.dzshzx.zeta.ui.components.rememberRetained
-import io.github.suqi8.coui.kmp.basic.Icon
-import io.github.suqi8.coui.kmp.basic.Text
-import io.github.suqi8.coui.kmp.icon.COUIIcons
-import io.github.suqi8.coui.kmp.icon.extended.Close
-import io.github.suqi8.coui.kmp.icon.extended.Delete
-import io.github.suqi8.coui.kmp.icon.extended.Edit
-import io.github.suqi8.coui.kmp.icon.extended.Refresh
-import io.github.suqi8.coui.kmp.preference.CheckboxPreference
-import io.github.suqi8.coui.kmp.preference.RadioButtonLocation
-import io.github.suqi8.coui.kmp.preference.RadioButtonPreference
-import io.github.suqi8.coui.kmp.squircle.SquircleShape
-import io.github.suqi8.coui.kmp.theme.COUITheme
 import java.util.Base64
 import java.util.UUID
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+import top.yukonga.miuix.kmp.basic.Icon
+import top.yukonga.miuix.kmp.basic.Text
+import top.yukonga.miuix.kmp.icon.MiuixIcons
+import top.yukonga.miuix.kmp.icon.extended.Close
+import top.yukonga.miuix.kmp.icon.extended.Delete
+import top.yukonga.miuix.kmp.icon.extended.Edit
+import top.yukonga.miuix.kmp.icon.extended.Refresh
+import top.yukonga.miuix.kmp.preference.CheckboxPreference
+import top.yukonga.miuix.kmp.preference.RadioButtonLocation
+import top.yukonga.miuix.kmp.preference.RadioButtonPreference
+import top.yukonga.miuix.kmp.theme.MiuixTheme
 
 /*
  * 聊天页的消息操作，交互照 Eta：
@@ -218,10 +218,10 @@ fun TurnActionButtons(
     if (turn === turns.last && (conversation.busy || conversation.rewinding)) return
     val enabled = conversation.canRewind && actions.editing == null
     if (turn.user.rewindable) {
-        ActionButton(COUIIcons.Refresh, Strings.composerRegenerate(), enabled) {
+        ActionButton(MiuixIcons.Refresh, Strings.composerRegenerate(), enabled) {
             actions.askRegenerate(turn)
         }
-        ActionButton(COUIIcons.Delete, Strings.composerDeleteTurn(), enabled) {
+        ActionButton(MiuixIcons.Delete, Strings.composerDeleteTurn(), enabled) {
             actions.askDelete(turn)
         }
     }
@@ -264,14 +264,14 @@ private fun ActionButton(
         size = 30.dp,
         iconSize = 15.dp,
         enabled = enabled,
-        tint = COUITheme.colorScheme.labelSecondary,
+        tint = MiuixTheme.colorScheme.onBackgroundVariant,
         onClick = onClick,
     )
 
 /** 输入卡片上方的编辑提示条（样子同排队条）：说明发出后会替换什么，× 取消编辑。 */
 @Composable
 fun EditStrip(turn: Turn, onCancel: () -> Unit, modifier: Modifier = Modifier) {
-    val colors = COUITheme.colorScheme
+    val colors = MiuixTheme.colorScheme
     val shape = remember { SquircleShape(ChatStripCorner) }
     Row(
         modifier =
@@ -282,7 +282,7 @@ fun EditStrip(turn: Turn, onCancel: () -> Unit, modifier: Modifier = Modifier) {
         verticalAlignment = Alignment.CenterVertically,
     ) {
         Icon(
-            COUIIcons.Edit,
+            MiuixIcons.Edit,
             contentDescription = null,
             modifier = Modifier.size(14.dp),
             tint = colors.primary,
@@ -290,7 +290,7 @@ fun EditStrip(turn: Turn, onCancel: () -> Unit, modifier: Modifier = Modifier) {
         Spacer(Modifier.width(6.dp))
         Text(
             text = Strings.composerEditing(),
-            style = COUITheme.textStyles.bodyS,
+            style = MiuixTheme.textStyles.footnote1,
             fontWeight = FontWeight.Medium,
             color = colors.primary,
         )
@@ -299,13 +299,18 @@ fun EditStrip(turn: Turn, onCancel: () -> Unit, modifier: Modifier = Modifier) {
             text =
                 if (turn.laterTurns > 0) Strings.composerEditReplacesLater()
                 else Strings.composerEditReplacesReply(),
-            style = COUITheme.textStyles.bodyS,
-            color = colors.labelSecondary,
+            style = MiuixTheme.textStyles.footnote1,
+            color = colors.onBackgroundVariant,
             maxLines = 1,
             overflow = TextOverflow.Ellipsis,
             modifier = Modifier.weight(1f),
         )
-        ActionIcon(COUIIcons.Close, Strings.composerCancelEdit(), colors.labelSecondary, onCancel)
+        ActionIcon(
+            MiuixIcons.Close,
+            Strings.composerCancelEdit(),
+            colors.onBackgroundVariant,
+            onCancel,
+        )
     }
 }
 

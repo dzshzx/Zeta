@@ -82,26 +82,27 @@ import androidx.compose.ui.unit.Velocity
 import androidx.compose.ui.unit.dp
 import com.dzshzx.zeta.core.ResultCardPolicy
 import com.dzshzx.zeta.i18n.Strings
-import com.dzshzx.zeta.ui.components.coui2.ZetaIcons
+import com.dzshzx.zeta.ui.components.isDark
+import com.dzshzx.zeta.ui.components.miuix.SquircleShape
+import com.dzshzx.zeta.ui.components.miuix.ZetaIcons
+import com.dzshzx.zeta.ui.components.success
 import com.dzshzx.zeta.ui.markdown.MarkdownTone
 import com.dzshzx.zeta.ui.markdown.StaticMarkdown
-import io.github.suqi8.coui.kmp.basic.ButtonDefaults
-import io.github.suqi8.coui.kmp.basic.Icon
-import io.github.suqi8.coui.kmp.basic.Text
-import io.github.suqi8.coui.kmp.basic.TextButton
-import io.github.suqi8.coui.kmp.icon.COUIIcons
-import io.github.suqi8.coui.kmp.icon.extended.Ok
-import io.github.suqi8.coui.kmp.layout.BottomSheetDefaults
-import io.github.suqi8.coui.kmp.squircle.SquircleShape
-import io.github.suqi8.coui.kmp.theme.COUIRoundCorner
-import io.github.suqi8.coui.kmp.theme.COUITheme
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
+import top.yukonga.miuix.kmp.basic.ButtonDefaults
+import top.yukonga.miuix.kmp.basic.Icon
+import top.yukonga.miuix.kmp.basic.Text
+import top.yukonga.miuix.kmp.basic.TextButton
+import top.yukonga.miuix.kmp.icon.MiuixIcons
+import top.yukonga.miuix.kmp.icon.extended.Ok
+import top.yukonga.miuix.kmp.layout.BottomSheetDefaults
+import top.yukonga.miuix.kmp.theme.MiuixTheme
 
 /**
- * 一轮结束后的结果卡片（照 Eta，外观按 COUI 2 的浮动面板）：屏幕底部浮起的圆角面板，顶部抓手提示可以下滑关掉， 中间是这一轮的回答（Markdown，卡片最高
+ * 一轮结束后的结果卡片（照 Eta，外观按 Miuix 的底部面板）：屏幕底部浮起的圆角面板，顶部抓手提示可以下滑关掉， 中间是这一轮的回答（Markdown，卡片最高
  * [maxHeight]，正文超出可以滚动，底部渐隐提示还有），最下面“完成”和“回到对话”。
  *
  * 关掉的途径：往下拖（抓手、标题、按钮这几处直接拖；正文滚到顶再往下拉）、系统返回、“完成”、
@@ -309,14 +310,14 @@ private fun ResultPanel(
     onRelease: () -> Unit,
     content: @Composable ColumnScope.(panel: Color) -> Unit,
 ) {
-    val colors = COUITheme.colorScheme
+    val colors = MiuixTheme.colorScheme
     val dark = colors.isDark
     val shape = SquircleShape(CardCorner)
     // 浮层面板底色（和胶囊一样留一点点透明）；正文底部的渐隐用同一个颜色
     val panel = colors.surface.copy(alpha = if (dark) 0.96f else 0.99f)
     Column(
         modifier =
-            Modifier.widthIn(max = BottomSheetDefaults.PanelMaxWidth)
+            Modifier.widthIn(max = BottomSheetDefaults.maxWidth)
                 .fillMaxWidth()
                 .heightIn(max = maxHeight)
                 .graphicsLayer { translationY = card.offset }
@@ -328,7 +329,7 @@ private fun ResultPanel(
                 )
                 .clip(shape)
                 .background(panel, shape)
-                .border(0.6.dp, colors.labelQuaternary, shape)
+                .border(0.6.dp, colors.disabledOnSecondaryVariant, shape)
                 .semantics {
                     paneTitle =
                         if (failed) Strings.overlayResultFailed()
@@ -409,19 +410,20 @@ private fun ResultButtons(onDone: () -> Unit, onOpen: () -> Unit) {
     }
 }
 
-/** COUI 面板的抓手：16dp 高的一条，36×4dp 的小胶囊离上沿 12dp（照 COUI 2 的 BottomSheet）。 */
+/** 面板的抓手（照 Miuix 的底部面板）：24dp 高的一条，正中一根 45×4dp、2dp 圆角的短条。 */
 @Composable
 private fun DragHandle() {
-    val color = COUITheme.colorScheme.dragHandle
+    val color = BottomSheetDefaults.dragHandleColor()
     Box(
-        Modifier.fillMaxWidth().height(16.dp).drawBehind {
-            val width = 36.dp.toPx()
+        Modifier.fillMaxWidth().height(24.dp).drawBehind {
+            val width = 45.dp.toPx()
             val height = 4.dp.toPx()
+            val radius = 2.dp.toPx()
             drawRoundRect(
                 color = color,
-                topLeft = Offset((size.width - width) / 2f, 12.dp.toPx()),
+                topLeft = Offset((size.width - width) / 2f, (size.height - height) / 2f),
                 size = Size(width, height),
-                cornerRadius = CornerRadius(height / 2f, height / 2f),
+                cornerRadius = CornerRadius(radius, radius),
             )
         },
     )
@@ -430,12 +432,10 @@ private fun DragHandle() {
 /** 标题行：结果（已完成 / 出错了）和是哪个对话。 */
 @Composable
 private fun Header(title: String, failed: Boolean) {
-    val colors = COUITheme.colorScheme
-    val accent = if (failed) colors.red else colors.green
+    val colors = MiuixTheme.colorScheme
+    val accent = if (failed) colors.error else colors.success
     Row(
-        modifier =
-            Modifier.fillMaxWidth()
-                .padding(start = ContentPadding, end = ContentPadding, top = 8.dp),
+        modifier = Modifier.fillMaxWidth().padding(horizontal = ContentPadding),
         verticalAlignment = Alignment.CenterVertically,
     ) {
         Box(
@@ -444,7 +444,7 @@ private fun Header(title: String, failed: Boolean) {
             contentAlignment = Alignment.Center,
         ) {
             Icon(
-                imageVector = if (failed) ZetaIcons.Warning else COUIIcons.Ok,
+                imageVector = if (failed) ZetaIcons.Warning else MiuixIcons.Ok,
                 contentDescription = null,
                 modifier = Modifier.size(14.dp),
                 tint = accent,
@@ -453,15 +453,15 @@ private fun Header(title: String, failed: Boolean) {
         Spacer(Modifier.width(8.dp))
         Text(
             text = if (failed) Strings.overlayResultFailed() else Strings.overlayPhaseFinished(),
-            color = colors.labelPrimary,
-            style = COUITheme.textStyles.headlineXS,
+            color = colors.onBackground,
+            style = MiuixTheme.textStyles.headline2,
         )
         if (title.isNotBlank()) {
             Spacer(Modifier.width(8.dp))
             Text(
                 text = title,
-                color = colors.labelSecondary,
-                style = COUITheme.textStyles.bodyS,
+                color = colors.onBackgroundVariant,
+                style = MiuixTheme.textStyles.footnote1,
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis,
                 modifier = Modifier.weight(1f, fill = false),
@@ -476,10 +476,10 @@ private val CardMargin = 12.dp
 /** 卡片上方给阴影留的透明空间。 */
 private val ShadowRoom = 16.dp
 
-/** COUI couiRoundCornerXXXXL：COUI 浮动面板的圆角（OS 37 以前的 BottomSheet 也用它）。 */
-private val CardCorner = COUIRoundCorner.XXXXL
+/** 卡片的圆角（Miuix 底部面板的圆角）。 */
+private val CardCorner = BottomSheetDefaults.cornerRadius
 
-/** 内容离卡片左右的距离（COUI 面板内容的边距）。 */
+/** 内容离卡片左右的距离。 */
 private val ContentPadding = 20.dp
 
 /** 往下拖超过这么远，或松手时往下甩得够快，就关掉；否则弹回去。 */

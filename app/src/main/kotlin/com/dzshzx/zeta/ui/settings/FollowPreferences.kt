@@ -11,8 +11,8 @@ import com.dzshzx.zeta.core.readableModelId
 import com.dzshzx.zeta.i18n.Strings
 import com.dzshzx.zeta.ui.chat.PermissionModes
 import com.dzshzx.zeta.ui.chat.permissionModeLabel
-import com.dzshzx.zeta.ui.components.coui2.DropdownValuePreference
-import io.github.suqi8.coui.kmp.preference.OverlayDropdownPreference
+import com.dzshzx.zeta.ui.components.miuix.DropdownValuePreference
+import top.yukonga.miuix.kmp.preference.OverlayDropdownPreference
 
 /**
  * 「跟随」（[followLabel]）加 [choices]（值和显示名）的下拉；null 表示跟随。[followLabel] 为 null 时没有跟随这一项，只能选 [choices]

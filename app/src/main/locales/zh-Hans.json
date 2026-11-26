@@ -8762,6 +8762,10 @@
   "@commonClose": {
     "description": "通用按钮：关掉对话框、页面或卡片。"
   },
+  "commonClear": "清除",
+  "@commonClear": {
+    "description": "输入框末尾的清除键（读屏说明）：清空框里的字。"
+  },
   "commonRetry": "重试",
   "@commonRetry": {
     "description": "通用按钮：失败后再试一次。"
@@ -11450,11 +11454,11 @@
   "@aboutCreditEta": {
     "description": "鸣谢页里 Eta 一行的介绍。"
   },
-  "aboutCreditCoui": "界面组件库，ColorOS 17 的样式（Apache-2.0）",
+  "aboutCreditCoui": "长按菜单的手势代码来自它（Apache-2.0）",
   "@aboutCreditCoui": {
     "description": "鸣谢页里 COUI 2 一行的介绍。"
   },
-  "aboutCreditMiuix": "COUI 2 的上游（Apache-2.0）",
+  "aboutCreditMiuix": "界面组件库，HyperOS 的样式（Apache-2.0）",
   "@aboutCreditMiuix": {
     "description": "鸣谢页里 Miuix 一行的介绍。"
   },
@@ -11904,9 +11908,13 @@
   "@thirdPartyXCryptoNote": {
     "description": "开源许可页 golang.org/x/crypto 一条的说明。"
   },
-  "thirdPartyEtaNote": "Zeta 的 Markdown 渲染（ui/markdown）、侧栏骨架、自适应页面布局、等宽字体的定义、对话框的接口和数字助理的浮窗是从 Eta 拷来再改写的，按 GPL-3.0 使用；所以 Zeta 也按 GPL-3.0 发布。",
+  "thirdPartyEtaNote": "Zeta 的 Markdown 渲染（ui/markdown）、侧栏骨架、自适应页面布局、等宽字体的定义、对话框的接口、数字助理的浮窗和定时任务的时间滚轮是从 Eta 拷来再改写的，按 GPL-3.0 使用；所以 Zeta 也按 GPL-3.0 发布。",
   "@thirdPartyEtaNote": {
     "description": "开源许可页 Eta 一条的说明。"
+  },
+  "thirdPartyCouiNote": "长按菜单的手势处理（按住不动满长按时长才弹菜单、不吃掉普通点按）是从 COUI 2 拷来再改写的，按 Apache-2.0 使用。",
+  "@thirdPartyCouiNote": {
+    "description": "开源许可页 COUI 2 一条的说明。"
   },
   "thirdPartyJetBrainsMonoNote": "代码、命令和日志用的等宽字体（无连字版的 Regular、Bold），未修改。",
   "@thirdPartyJetBrainsMonoNote": {

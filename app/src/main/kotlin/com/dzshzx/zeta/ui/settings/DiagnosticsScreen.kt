@@ -41,29 +41,29 @@ import com.dzshzx.zeta.i18n.Strings
 import com.dzshzx.zeta.ui.components.MonoFont
 import com.dzshzx.zeta.ui.components.SlideInPage
 import com.dzshzx.zeta.ui.components.StatusWarning
-import com.dzshzx.zeta.ui.components.coui2.CardListSegment
-import com.dzshzx.zeta.ui.components.coui2.ConfirmDialog
-import com.dzshzx.zeta.ui.components.coui2.CouiPage
-import com.dzshzx.zeta.ui.components.coui2.IconActionButton
-import com.dzshzx.zeta.ui.components.coui2.PreferenceGroup
-import com.dzshzx.zeta.ui.components.coui2.PreferenceValue
+import com.dzshzx.zeta.ui.components.miuix.CardListSegment
+import com.dzshzx.zeta.ui.components.miuix.ConfirmDialog
+import com.dzshzx.zeta.ui.components.miuix.FooterHint
+import com.dzshzx.zeta.ui.components.miuix.IconActionButton
+import com.dzshzx.zeta.ui.components.miuix.MiuixPage
+import com.dzshzx.zeta.ui.components.miuix.PreferenceGroup
+import com.dzshzx.zeta.ui.components.miuix.PreferenceValue
 import com.dzshzx.zeta.ui.setup.ConfigEmptyRow
 import com.dzshzx.zeta.ui.setup.ConfigLoadingRow
-import io.github.suqi8.coui.kmp.basic.BasicComponent
-import io.github.suqi8.coui.kmp.basic.Text
-import io.github.suqi8.coui.kmp.icon.COUIIcons
-import io.github.suqi8.coui.kmp.icon.extended.Delete
-import io.github.suqi8.coui.kmp.icon.extended.Refresh
-import io.github.suqi8.coui.kmp.preference.ArrowPreference
-import io.github.suqi8.coui.kmp.preference.OverlayDropdownPreference
-import io.github.suqi8.coui.kmp.preference.PagerFooterPreference
-import io.github.suqi8.coui.kmp.theme.COUITheme
 import java.time.LocalDateTime
 import java.time.ZoneId
 import java.time.format.DateTimeFormatter
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+import top.yukonga.miuix.kmp.basic.BasicComponent
+import top.yukonga.miuix.kmp.basic.Text
+import top.yukonga.miuix.kmp.icon.MiuixIcons
+import top.yukonga.miuix.kmp.icon.extended.Delete
+import top.yukonga.miuix.kmp.icon.extended.Refresh
+import top.yukonga.miuix.kmp.preference.ArrowPreference
+import top.yukonga.miuix.kmp.preference.OverlayDropdownPreference
+import top.yukonga.miuix.kmp.theme.MiuixTheme
 
 /** 诊断页里再往下的一层。 */
 private sealed interface DiagPage {
@@ -121,11 +121,11 @@ internal fun DiagnosticsScreen(
         }
 
     val current = probe
-    CouiPage(
+    MiuixPage(
         title = Strings.diagTitle(),
         onBack = onBack,
         actions = {
-            IconActionButton(COUIIcons.Refresh, Strings.diagReload(), enabled = !probing) {
+            IconActionButton(MiuixIcons.Refresh, Strings.diagReload(), enabled = !probing) {
                 reloads++
             }
         },
@@ -225,7 +225,7 @@ private fun RunLogGroup(entries: List<DiagEntry>, onOpen: () -> Unit) {
                     if (errors > 0)
                         PreferenceValue(
                             Strings.diagErrorCount(errors),
-                            color = COUITheme.colorScheme.error,
+                            color = MiuixTheme.colorScheme.error,
                         )
                 },
                 onClick = onOpen,
@@ -337,12 +337,12 @@ private fun DiagLogPage(entries: List<DiagEntry>, onBack: () -> Unit) {
                 .map { it.copy(message = Redact.text(it.message)) }
         }
     val zone = ZoneId.systemDefault()
-    CouiPage(
+    MiuixPage(
         title = Strings.diagRunLog(),
         onBack = onBack,
         actions = {
             IconActionButton(
-                COUIIcons.Delete,
+                MiuixIcons.Delete,
                 Strings.diagClear(),
                 enabled = entries.isNotEmpty(),
             ) {
@@ -391,7 +391,7 @@ private fun DiagLogPage(entries: List<DiagEntry>, onBack: () -> Unit) {
         }
         if (shown.isEmpty()) {
             item(key = "empty") {
-                PagerFooterPreference(
+                FooterHint(
                     summary =
                         if (entries.isEmpty()) Strings.diagNoRecords() else Strings.diagNoMatches(),
                 )
@@ -405,28 +405,32 @@ private fun DiagLogPage(entries: List<DiagEntry>, onBack: () -> Unit) {
 
 @Composable
 private fun EntryRow(entry: DiagEntry, zone: ZoneId) {
-    val colors = COUITheme.colorScheme
+    val colors = MiuixTheme.colorScheme
     val levelColor =
         when (entry.level) {
             DiagLevel.Error -> colors.error
             DiagLevel.Warn -> StatusWarning
-            DiagLevel.Info -> colors.labelSecondary
+            DiagLevel.Info -> colors.onBackgroundVariant
         }
     Column(Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 12.dp)) {
         Row(verticalAlignment = Alignment.CenterVertically) {
             Text(
                 text = DiagEntries.shortTime(entry.at, zone) + " · " + entry.topic.label,
-                style = COUITheme.textStyles.bodyS,
-                color = colors.labelSecondary,
+                style = MiuixTheme.textStyles.footnote1,
+                color = colors.onBackgroundVariant,
                 modifier = Modifier.weight(1f),
             )
-            Text(text = entry.level.label, style = COUITheme.textStyles.bodyS, color = levelColor)
+            Text(
+                text = entry.level.label,
+                style = MiuixTheme.textStyles.footnote1,
+                color = levelColor,
+            )
         }
         SelectionContainer {
             Text(
                 text = entry.message,
-                style = COUITheme.textStyles.bodyM.copy(fontSize = 14.sp, lineHeight = 20.sp),
-                color = colors.labelPrimary,
+                style = MiuixTheme.textStyles.body2.copy(fontSize = 14.sp, lineHeight = 20.sp),
+                color = colors.onBackground,
                 modifier = Modifier.padding(top = 4.dp),
             )
         }
@@ -444,7 +448,7 @@ private fun LogTailPage(file: LogFile, load: suspend (LogFile) -> String?, onBac
         failed = loaded == null
     }
     val zone = ZoneId.systemDefault()
-    CouiPage(
+    MiuixPage(
         title = if (file.kind == LogKind.Running) file.title.ifBlank { file.name } else file.name,
         onBack = onBack,
     ) {
@@ -456,8 +460,8 @@ private fun LogTailPage(file: LogFile, load: suspend (LogFile) -> String?, onBac
             ) {
                 Text(
                     text = file.path,
-                    style = COUITheme.textStyles.bodyS.copy(fontFamily = MonoFont),
-                    color = COUITheme.colorScheme.labelSecondary,
+                    style = MiuixTheme.textStyles.footnote1.copy(fontFamily = MonoFont),
+                    color = MiuixTheme.colorScheme.onBackgroundVariant,
                 )
                 Text(
                     text =
@@ -470,8 +474,8 @@ private fun LogTailPage(file: LogFile, load: suspend (LogFile) -> String?, onBac
                             if (file.size > DiagScripts.TAIL_BYTES)
                                 " · " + Strings.diagTailOnly(DiagScripts.TAIL_BYTES / 1024)
                             else "",
-                    style = COUITheme.textStyles.bodyS,
-                    color = COUITheme.colorScheme.labelSecondary,
+                    style = MiuixTheme.textStyles.footnote1,
+                    color = MiuixTheme.colorScheme.onBackgroundVariant,
                 )
             }
         }
@@ -479,15 +483,15 @@ private fun LogTailPage(file: LogFile, load: suspend (LogFile) -> String?, onBac
         when {
             failed ->
                 item(key = "error") {
-                    PagerFooterPreference(
+                    FooterHint(
                         summary = Strings.diagFileUnreadable(),
-                        summaryColor = COUITheme.colorScheme.error,
+                        summaryColor = MiuixTheme.colorScheme.error,
                     )
                 }
             loaded == null ->
                 item(key = "loading") { PreferenceGroup { item { ConfigLoadingRow() } } }
             loaded.isBlank() ->
-                item(key = "blank") { PagerFooterPreference(summary = Strings.diagFileEmpty()) }
+                item(key = "blank") { FooterHint(summary = Strings.diagFileEmpty()) }
             else -> {
                 val parts = chunks(loaded)
                 itemsIndexed(parts, key = { index, _ -> "t:$index" }) { index, part ->
@@ -496,12 +500,12 @@ private fun LogTailPage(file: LogFile, load: suspend (LogFile) -> String?, onBac
                             Text(
                                 text = part,
                                 style =
-                                    COUITheme.textStyles.bodyS.copy(
+                                    MiuixTheme.textStyles.footnote1.copy(
                                         fontFamily = MonoFont,
                                         fontSize = 12.sp,
                                         lineHeight = 17.sp,
                                     ),
-                                color = COUITheme.colorScheme.labelPrimary,
+                                color = MiuixTheme.colorScheme.onBackground,
                                 modifier =
                                     Modifier.fillMaxWidth()
                                         .padding(horizontal = 16.dp, vertical = 6.dp),

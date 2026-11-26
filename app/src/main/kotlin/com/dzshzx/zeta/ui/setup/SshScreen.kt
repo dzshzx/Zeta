@@ -10,13 +10,13 @@ import com.dzshzx.zeta.core.ConversationHub
 import com.dzshzx.zeta.core.SshStatus
 import com.dzshzx.zeta.core.environment
 import com.dzshzx.zeta.i18n.Strings
-import com.dzshzx.zeta.ui.components.coui2.CouiPage
-import com.dzshzx.zeta.ui.components.coui2.PreferenceGroup
-import com.dzshzx.zeta.ui.components.coui2.TextInputDialog
+import com.dzshzx.zeta.ui.components.miuix.MiuixPage
+import com.dzshzx.zeta.ui.components.miuix.PreferenceGroup
+import com.dzshzx.zeta.ui.components.miuix.PreferenceGroupScope
+import com.dzshzx.zeta.ui.components.miuix.TextInputDialog
 import com.dzshzx.zeta.ui.settings.ValueRow
-import io.github.suqi8.coui.kmp.basic.BasicComponent
-import io.github.suqi8.coui.kmp.basic.CardListGroupScope
-import io.github.suqi8.coui.kmp.preference.SwitchPreference
+import top.yukonga.miuix.kmp.basic.BasicComponent
+import top.yukonga.miuix.kmp.preference.SwitchPreference
 
 /** “SSH 服务”：Debian 里的 sshd，用来从终端应用或别的设备连进这个环境。 */
 @Composable
@@ -29,7 +29,7 @@ internal fun SshScreen(hub: ConversationHub, onBack: () -> Unit) {
     var keyDraft by remember { mutableStateOf("") }
     LaunchedEffect(env?.rootfs) { hub.environment.refreshSsh() }
 
-    CouiPage(
+    MiuixPage(
         title = Strings.setupSshTitle(),
         onBack = onBack,
         dialogs = {
@@ -105,7 +105,7 @@ private fun SshServiceGroup(hub: ConversationHub, status: SshStatus?, busy: Bool
 }
 
 /** 装好以后的几行：监听地址、启停、开机自启。 */
-private fun CardListGroupScope.installedRows(
+private fun PreferenceGroupScope.installedRows(
     hub: ConversationHub,
     status: SshStatus,
     busy: Boolean,

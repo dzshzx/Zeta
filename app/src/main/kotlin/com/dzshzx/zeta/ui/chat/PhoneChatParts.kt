@@ -20,8 +20,8 @@ import com.dzshzx.zeta.core.environment
 import com.dzshzx.zeta.core.overlay
 import com.dzshzx.zeta.core.phone
 import com.dzshzx.zeta.i18n.Strings
-import io.github.suqi8.coui.kmp.basic.ButtonDefaults
-import io.github.suqi8.coui.kmp.basic.TextButton
+import top.yukonga.miuix.kmp.basic.ButtonDefaults
+import top.yukonga.miuix.kmp.basic.TextButton
 
 // 手机上聊天页的两块：手机本机的 Debian 用不了时的说明，输入栏上方的后台屏幕条。经 AndroidChatPlatform 交给共用的聊天页。
 

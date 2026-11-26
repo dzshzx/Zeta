@@ -12,10 +12,10 @@ import com.dzshzx.zeta.core.voice.SpeechState
 import com.dzshzx.zeta.ui.chat.Composer
 import com.dzshzx.zeta.ui.chat.HoldToTalk
 import com.dzshzx.zeta.ui.chat.TalkInput
-import io.github.suqi8.coui.kmp.basic.Scaffold
-import io.github.suqi8.coui.kmp.theme.COUITheme
 import kotlinx.coroutines.flow.MutableStateFlow
 import org.junit.Test
+import top.yukonga.miuix.kmp.basic.Scaffold
+import top.yukonga.miuix.kmp.theme.MiuixTheme
 
 /** 输入栏的按住说话：输入框空着时发送键是麦克风；按住时识别出的字显示在输入框里、卡片描主题色的边、底栏换成提示； 往上滑进取消区时换成红色。JVM 上没有识别服务，状态直接摆上去。 */
 class HoldToTalkShots : ShotTest() {
@@ -35,7 +35,7 @@ class HoldToTalkShots : ShotTest() {
 
     private fun shootComposer(name: String, voice: HoldToTalk) =
         shoot(name) {
-            Scaffold(containerColor = COUITheme.colorScheme.background) { padding ->
+            Scaffold(containerColor = MiuixTheme.colorScheme.surface) { padding ->
                 Box(
                     Modifier.fillMaxSize().padding(padding).padding(12.dp),
                     contentAlignment = Alignment.BottomCenter,

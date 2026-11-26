@@ -27,7 +27,6 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.text.buildAnnotatedString
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.style.TextOverflow
@@ -44,16 +43,9 @@ import com.dzshzx.zeta.core.SharedFolder
 import com.dzshzx.zeta.core.SharedFolders
 import com.dzshzx.zeta.i18n.Strings
 import com.dzshzx.zeta.ui.components.MonoFont
-import com.dzshzx.zeta.ui.components.coui2.ConfirmDialog
-import com.dzshzx.zeta.ui.components.coui2.TextField
-import io.github.suqi8.coui.kmp.basic.Icon
-import io.github.suqi8.coui.kmp.basic.InfiniteProgressIndicator
-import io.github.suqi8.coui.kmp.basic.LinkText
-import io.github.suqi8.coui.kmp.basic.Text
-import io.github.suqi8.coui.kmp.basic.appendLink
-import io.github.suqi8.coui.kmp.icon.COUIIcons
-import io.github.suqi8.coui.kmp.icon.extended.Folder
-import io.github.suqi8.coui.kmp.theme.COUITheme
+import com.dzshzx.zeta.ui.components.miuix.ConfirmDialog
+import com.dzshzx.zeta.ui.components.miuix.LinkText
+import com.dzshzx.zeta.ui.components.miuix.TextField
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -61,6 +53,12 @@ import kotlinx.coroutines.async
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+import top.yukonga.miuix.kmp.basic.Icon
+import top.yukonga.miuix.kmp.basic.InfiniteProgressIndicator
+import top.yukonga.miuix.kmp.basic.Text
+import top.yukonga.miuix.kmp.icon.MiuixIcons
+import top.yukonga.miuix.kmp.icon.extended.Folder
+import top.yukonga.miuix.kmp.theme.MiuixTheme
 
 /** 附件菜单里“文件夹”“输入路径”两项各自的对话框开没开。每次打开都从头来（[opens] 加一）。 */
 @Stable
@@ -92,7 +90,7 @@ class PathAttach {
 
 /**
  * 引用 Linux 里的文件夹或路径。选好后交给 [onAttach] 一条附件说明（见 [AttachedPaths]），随消息发出时 Claude Code 直接读到它。
- * 这里查“看不看得到”都以对话的 Claude Code 进程为准：它启动之后才加的共享文件夹，它看不到，要重启一次。 两个都是 COUI 2 的对话框，要在它的 Scaffold 里才显示。
+ * 这里查“看不看得到”都以对话的 Claude Code 进程为准：它启动之后才加的共享文件夹，它看不到，要重启一次。 两个都是 Miuix 的对话框，要在它的 Scaffold 里才显示。
  */
 @Composable
 fun AttachPathDialogs(
@@ -321,7 +319,7 @@ private fun FolderDialogContent(
     onPickTree: () -> Unit,
 ) {
     // 换了目录：列子文件夹，同时看它在 Linux 里叫什么、对话的 Claude Code 看不看得到（两件事各起一个 root shell，互不相干）。
-    // 放在对话框内容里，内容画出来以后才开始查：COUI 在 Scaffold 的另一块子组合里画对话框，结果要是赶在内容第一次画出的那一帧到，
+    // 放在对话框内容里，内容画出来以后才开始查：Miuix 在 Scaffold 的另一块子组合里画对话框，结果要是赶在内容第一次画出的那一帧到，
     // 外面这层重组后，Compose 给对话框内容的重画请求会被丢掉，状态就一直停在“正在查看”。
     LaunchedEffect(browser, browser.path) {
         browser.entries = null
@@ -349,13 +347,10 @@ private fun FolderDialogContent(
                 KeyboardOptions(keyboardType = KeyboardType.Uri, imeAction = ImeAction.Go),
             keyboardActions = KeyboardActions(onGo = { browser.navigate(browser.input) }),
         )
-        // 不用对话框的 neutral 按钮：COUI 把它画成红色的危险操作
         LinkText(
-            text =
-                buildAnnotatedString {
-                    appendLink(Strings.composerUseSystemPicker(), onClick = onPickTree)
-                },
-            style = COUITheme.textStyles.bodyS,
+            text = Strings.composerUseSystemPicker(),
+            onClick = onPickTree,
+            style = MiuixTheme.textStyles.footnote1,
             modifier = Modifier.padding(vertical = 8.dp),
         )
         browser.browseError?.let { Note(it, error = true) }
@@ -368,12 +363,12 @@ private fun FolderDialogContent(
         Text(
             text = status.first,
             style =
-                COUITheme.textStyles.bodyS.copy(
+                MiuixTheme.textStyles.footnote1.copy(
                     fontFamily = if (resolution is Resolution.Ready) MonoFont else null,
                 ),
             color =
-                if (status.second) COUITheme.colorScheme.error
-                else COUITheme.colorScheme.labelSecondary,
+                if (status.second) MiuixTheme.colorScheme.error
+                else MiuixTheme.colorScheme.onBackgroundVariant,
             modifier = Modifier.padding(top = 8.dp),
         )
         browser.error?.let { Note(it, error = true) }
@@ -611,7 +606,7 @@ private fun PathDialogContent(
 ) {
     Column(modifier = Modifier.fillMaxWidth()) {
         val kind = pathKindLabel(current)
-        val colors = COUITheme.colorScheme
+        val colors = MiuixTheme.colorScheme
         TextField(
             value = input,
             onValueChange = onInput,
@@ -626,11 +621,11 @@ private fun PathDialogContent(
                     {
                         Text(
                             text = text,
-                            style = COUITheme.textStyles.bodyS,
+                            style = MiuixTheme.textStyles.footnote1,
                             color =
                                 when (current) {
                                     is Resolution.Ready -> colors.primary
-                                    Resolution.Checking -> colors.labelSecondary
+                                    Resolution.Checking -> colors.onBackgroundVariant
                                     else -> colors.error
                                 },
                             maxLines = 1,
@@ -697,7 +692,7 @@ private fun resolvePath(
     return direct
 }
 
-/** 目录列表的一行：文件夹图标加名字，点了进去。对话框里的列表，COUI 没有现成的行，自己排。 */
+/** 目录列表的一行：文件夹图标加名字，点了进去。对话框里的列表，Miuix 没有现成的行，自己排。 */
 @Composable
 private fun FolderRow(label: String, onClick: () -> Unit) {
     Row(
@@ -710,15 +705,15 @@ private fun FolderRow(label: String, onClick: () -> Unit) {
                 .padding(vertical = 10.dp, horizontal = 6.dp),
     ) {
         Icon(
-            imageVector = COUIIcons.Folder,
+            imageVector = MiuixIcons.Folder,
             contentDescription = null,
             modifier = Modifier.size(18.dp),
-            tint = COUITheme.colorScheme.primary,
+            tint = MiuixTheme.colorScheme.primary,
         )
         Text(
             text = label,
-            style = COUITheme.textStyles.bodyM.copy(fontFamily = MonoFont),
-            color = COUITheme.colorScheme.labelPrimary,
+            style = MiuixTheme.textStyles.body2.copy(fontFamily = MonoFont),
+            color = MiuixTheme.colorScheme.onBackground,
             maxLines = 1,
             overflow = TextOverflow.Ellipsis,
         )
@@ -729,8 +724,9 @@ private fun FolderRow(label: String, onClick: () -> Unit) {
 private fun Note(text: String, error: Boolean = false) {
     Text(
         text = text,
-        style = COUITheme.textStyles.bodyS,
-        color = if (error) COUITheme.colorScheme.error else COUITheme.colorScheme.labelSecondary,
+        style = MiuixTheme.textStyles.footnote1,
+        color =
+            if (error) MiuixTheme.colorScheme.error else MiuixTheme.colorScheme.onBackgroundVariant,
         modifier = Modifier.padding(vertical = 8.dp),
     )
 }

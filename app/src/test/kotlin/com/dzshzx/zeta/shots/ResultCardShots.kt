@@ -28,13 +28,13 @@ import com.dzshzx.zeta.shots.Fixtures.force
 import com.dzshzx.zeta.shots.Fixtures.showChat
 import com.dzshzx.zeta.ui.app.ZetaTheme
 import com.dzshzx.zeta.ui.overlay.ResultCard
-import io.github.suqi8.coui.kmp.theme.COUITheme
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Test
 import org.robolectric.Robolectric
 import org.robolectric.Shadows
+import top.yukonga.miuix.kmp.theme.MiuixTheme
 
 /**
  * 一轮结束后屏幕底部的结果卡片：两张图（回答长到要滚动、出错），以及卡片自己怎么收起（没碰多久、碰了重新计时、下滑、按钮）， hub 那边一轮结束时弹不弹、完成通知响不响，新的一轮开始、回到
@@ -214,7 +214,7 @@ class ResultCardShots : ShotTest() {
     @Composable
     private fun OnScreen(title: String, text: String, failed: Boolean) {
         Box(
-            Modifier.fillMaxSize().background(COUITheme.colorScheme.backgroundWithCard),
+            Modifier.fillMaxSize().background(MiuixTheme.colorScheme.surface),
             contentAlignment = Alignment.BottomCenter,
         ) {
             ResultCard(

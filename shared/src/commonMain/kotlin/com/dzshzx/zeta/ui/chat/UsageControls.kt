@@ -46,13 +46,15 @@ import com.dzshzx.zeta.core.formatExactTokens
 import com.dzshzx.zeta.core.formatTokens
 import com.dzshzx.zeta.i18n.Strings
 import com.dzshzx.zeta.ui.components.StatusWarning
-import com.dzshzx.zeta.ui.components.coui2.ConfirmDialog
-import com.dzshzx.zeta.ui.components.coui2.ZetaIcons
-import io.github.suqi8.coui.kmp.basic.DropdownEntry
-import io.github.suqi8.coui.kmp.basic.DropdownItem
-import io.github.suqi8.coui.kmp.basic.Icon
-import io.github.suqi8.coui.kmp.basic.Text
-import io.github.suqi8.coui.kmp.theme.COUITheme
+import com.dzshzx.zeta.ui.components.isDark
+import com.dzshzx.zeta.ui.components.miuix.ConfirmDialog
+import com.dzshzx.zeta.ui.components.miuix.ZetaIcons
+import com.dzshzx.zeta.ui.components.success
+import top.yukonga.miuix.kmp.basic.DropdownEntry
+import top.yukonga.miuix.kmp.basic.DropdownItem
+import top.yukonga.miuix.kmp.basic.Icon
+import top.yukonga.miuix.kmp.basic.Text
+import top.yukonga.miuix.kmp.theme.MiuixTheme
 
 /**
  * 思考强度按钮，对应 Eta 输入栏里的“思考 / 深度思考”。Claude Code 的思考由 effort 控制（自适应思考，强度越高想得越多），
@@ -111,9 +113,9 @@ val EffortGauges: List<ImageVector> by lazy {
 @Composable
 private fun levelColor(level: ContextLevel): Color =
     when (level) {
-        ContextLevel.Critical -> COUITheme.colorScheme.error
+        ContextLevel.Critical -> MiuixTheme.colorScheme.error
         ContextLevel.Warning -> StatusWarning
-        ContextLevel.Normal -> COUITheme.colorScheme.success
+        ContextLevel.Normal -> MiuixTheme.colorScheme.success
     }
 
 /**
@@ -122,9 +124,9 @@ private fun levelColor(level: ContextLevel): Color =
  */
 @Composable
 fun UsageButton(usage: ChatUsage, onClick: () -> Unit) {
-    val colors = COUITheme.colorScheme
+    val colors = MiuixTheme.colorScheme
     val dark = colors.isDark
-    val ink = colors.labelPrimary
+    val ink = colors.onBackground
     val level = usage.level
     val color = levelColor(level)
     val percent = usage.fraction?.let { (it * 100).toInt() }
@@ -179,7 +181,7 @@ private fun ContextRing(fraction: Float, color: Color, track: Color) {
     }
 }
 
-/** 用量统计：订阅额度（[quota]）、上下文占用、本对话累计、各轮明细，底部是一键压缩。COUI 2 的对话框，要在它的 Scaffold 里才显示。 */
+/** 用量统计：订阅额度（[quota]）、上下文占用、本对话累计、各轮明细，底部是一键压缩。Miuix 的对话框，要在它的 Scaffold 里才显示。 */
 @Composable
 fun UsageDialog(
     visible: Boolean,
@@ -262,7 +264,7 @@ private fun TurnsSection(usage: ChatUsage) {
 
 @Composable
 private fun ContextSection(usage: ChatUsage) {
-    val colors = COUITheme.colorScheme
+    val colors = MiuixTheme.colorScheme
     val tokens = usage.contextTokens
     val window = usage.contextWindow
     val percent = usage.fraction?.let { String.format(java.util.Locale.US, "%.1f%%", it * 100) }
@@ -314,8 +316,8 @@ private fun ContextSection(usage: ChatUsage) {
 /** 6dp 高的用量条：底槽上按 [fraction] 填一段 [color]。上下文和订阅额度共用。 */
 @Composable
 fun UsageBar(fraction: Float, color: Color) {
-    val ink = COUITheme.colorScheme.labelPrimary
-    val dark = COUITheme.colorScheme.isDark
+    val ink = MiuixTheme.colorScheme.onBackground
+    val dark = MiuixTheme.colorScheme.isDark
     Box(
         Modifier.fillMaxWidth()
             .height(6.dp)
@@ -333,7 +335,7 @@ fun UsageBar(fraction: Float, color: Color) {
 
 @Composable
 private fun SectionHeader(title: String, value: String?) {
-    val ink = COUITheme.colorScheme.labelPrimary
+    val ink = MiuixTheme.colorScheme.onBackground
     Row(
         modifier = Modifier.fillMaxWidth().padding(bottom = 8.dp),
         verticalAlignment = Alignment.CenterVertically,
@@ -341,7 +343,7 @@ private fun SectionHeader(title: String, value: String?) {
         Text(
             text = title,
             style =
-                COUITheme.textStyles.bodyM.copy(fontSize = 14.sp, fontWeight = FontWeight.Medium),
+                MiuixTheme.textStyles.body2.copy(fontSize = 14.sp, fontWeight = FontWeight.Medium),
             color = ink,
             modifier = Modifier.weight(1f),
         )
@@ -349,7 +351,7 @@ private fun SectionHeader(title: String, value: String?) {
             Text(
                 text = value,
                 style =
-                    COUITheme.textStyles.bodyM.copy(
+                    MiuixTheme.textStyles.body2.copy(
                         fontSize = 14.sp,
                         fontWeight = FontWeight.Medium,
                         fontFeatureSettings = "tnum",
@@ -363,12 +365,12 @@ private fun SectionHeader(title: String, value: String?) {
 
 @Composable
 private fun StatRow(label: String, value: String) {
-    val colors = COUITheme.colorScheme
+    val colors = MiuixTheme.colorScheme
     Row(modifier = Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
         Text(
             text = label,
-            style = COUITheme.textStyles.bodyS.copy(fontSize = 12.5.sp, lineHeight = 18.sp),
-            color = colors.labelSecondary,
+            style = MiuixTheme.textStyles.footnote1.copy(fontSize = 12.5.sp, lineHeight = 18.sp),
+            color = colors.onBackgroundVariant,
             maxLines = 1,
             overflow = TextOverflow.Ellipsis,
             modifier = Modifier.weight(1f),
@@ -377,12 +379,12 @@ private fun StatRow(label: String, value: String) {
         Text(
             text = value,
             style =
-                COUITheme.textStyles.bodyS.copy(
+                MiuixTheme.textStyles.footnote1.copy(
                     fontSize = 12.5.sp,
                     lineHeight = 18.sp,
                     fontFeatureSettings = "tnum",
                 ),
-            color = colors.labelPrimary.copy(alpha = 0.84f),
+            color = colors.onBackground.copy(alpha = 0.84f),
             maxLines = 1,
         )
     }
@@ -394,7 +396,7 @@ private fun costLabel(usd: Double, estimated: Boolean): String =
 
 @Composable
 private fun TurnRow(number: Int, turn: TurnUsage) {
-    val colors = COUITheme.colorScheme
+    val colors = MiuixTheme.colorScheme
     val t = turn.tokens
     Column(modifier = Modifier.fillMaxWidth()) {
         Row(verticalAlignment = Alignment.CenterVertically) {
@@ -402,19 +404,20 @@ private fun TurnRow(number: Int, turn: TurnUsage) {
                 text =
                     Strings.composerTurnNumber(number.toString()) +
                         (turn.durationMs?.let { " · ${formatElapsed(it)}" } ?: ""),
-                style = COUITheme.textStyles.bodyS.copy(fontSize = 12.5.sp, lineHeight = 18.sp),
-                color = colors.labelPrimary.copy(alpha = 0.84f),
+                style =
+                    MiuixTheme.textStyles.footnote1.copy(fontSize = 12.5.sp, lineHeight = 18.sp),
+                color = colors.onBackground.copy(alpha = 0.84f),
                 modifier = Modifier.weight(1f),
             )
             Text(
                 text = turn.costUsd?.let { costLabel(it, turn.costEstimated) } ?: "—",
                 style =
-                    COUITheme.textStyles.bodyS.copy(
+                    MiuixTheme.textStyles.footnote1.copy(
                         fontSize = 12.5.sp,
                         lineHeight = 18.sp,
                         fontFeatureSettings = "tnum",
                     ),
-                color = colors.labelPrimary.copy(alpha = 0.84f),
+                color = colors.onBackground.copy(alpha = 0.84f),
             )
         }
         Text(
@@ -426,12 +429,12 @@ private fun TurnRow(number: Int, turn: TurnUsage) {
                     formatTokens(t.output),
                 ),
             style =
-                COUITheme.textStyles.bodyS.copy(
+                MiuixTheme.textStyles.footnote1.copy(
                     fontSize = 11.5.sp,
                     lineHeight = 16.sp,
                     fontFeatureSettings = "tnum",
                 ),
-            color = colors.labelSecondary,
+            color = colors.onBackgroundVariant,
         )
     }
 }
@@ -440,8 +443,8 @@ private fun TurnRow(number: Int, turn: TurnUsage) {
 private fun Note(text: String, modifier: Modifier = Modifier) {
     Text(
         text = text,
-        style = COUITheme.textStyles.bodyS.copy(fontSize = 12.sp, lineHeight = 17.sp),
-        color = COUITheme.colorScheme.labelSecondary,
+        style = MiuixTheme.textStyles.footnote1.copy(fontSize = 12.sp, lineHeight = 17.sp),
+        color = MiuixTheme.colorScheme.onBackgroundVariant,
         modifier = modifier,
     )
 }

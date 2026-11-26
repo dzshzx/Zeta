@@ -22,8 +22,8 @@ import com.dzshzx.zeta.ui.chat.ChatScreen
 import com.dzshzx.zeta.ui.chat.IntakeChooser
 import com.dzshzx.zeta.ui.chat.IntakeProblemsDialog
 import com.dzshzx.zeta.ui.chat.IntakeSink
-import io.github.suqi8.coui.kmp.basic.Scaffold
 import org.junit.Test
+import top.yukonga.miuix.kmp.basic.Scaffold
 
 /** 截屏发给 Claude、用 Zeta 打开文件：「放进哪个对话」、放进输入栏的样子、没收的文件的说明。 */
 class IntakeShots : ShotTest() {
@@ -75,7 +75,7 @@ class IntakeShots : ShotTest() {
     fun problems() {
         val hub = Fixtures.readyHub(app)
         hub.showChat("看看这个报错", chat)
-        // 页面上的对话框要在 COUI 的 Scaffold 里才画得出来（真用时它在聊天页里面）
+        // 页面上的对话框要在 Miuix 的 Scaffold 里才画得出来（真用时它在聊天页里面）
         shoot("intake-problems") {
             Scaffold {
                 Box {

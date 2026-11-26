@@ -472,10 +472,12 @@ androidComponents {
 
 dependencies {
     implementation(project(":shared"))
-    implementation(libs.coui2.ui)
-    implementation(libs.coui2.preference)
-    implementation(libs.coui2.icons)
-    implementation(libs.coui2.blur)
+    implementation(libs.miuix.ui)
+    implementation(libs.miuix.preference)
+    implementation(libs.miuix.icons)
+    implementation(libs.miuix.blur)
+    implementation(libs.miuix.glass)
+    implementation(libs.miuix.glass.icons)
     implementation(libs.activity.compose)
     implementation(libs.androidx.lifecycle.runtime.compose)
     implementation(libs.androidx.lifecycle.viewmodel.compose)
@@ -512,7 +514,9 @@ dependencies {
 licensee {
     listOf("Apache-2.0", "MIT", "BSD-3-Clause").forEach { allow(it) }
     // POM 只写了网址、认不出 SPDX 标识的：核对过网址上的全文，because 写它实际是哪种；ThirdParty.LICENSE_URLS 也要加上
-    allowUrl("https://github.com/suqi8/coui/blob/main/LICENSE") { because("Apache-2.0") }
+    allowUrl("https://github.com/compose-miuix-ui/miuix/blob/main/LICENSE") {
+        because("Apache-2.0")
+    }
     allowUrl("https://github.com/jordond/materialkolor/blob/master/LICENSE") { because("MIT") }
     bundleAndroidAsset = true
     androidAssetReportPath = "licenses/artifacts.json"

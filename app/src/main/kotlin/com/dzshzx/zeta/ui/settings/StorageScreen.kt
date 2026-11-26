@@ -31,22 +31,17 @@ import com.dzshzx.zeta.core.environment
 import com.dzshzx.zeta.i18n.Strings
 import com.dzshzx.zeta.i18n.UiLanguage
 import com.dzshzx.zeta.ui.components.SlideInPage
-import com.dzshzx.zeta.ui.components.coui2.ConfirmDialog
-import com.dzshzx.zeta.ui.components.coui2.CouiPage
-import com.dzshzx.zeta.ui.components.coui2.IconActionButton
-import com.dzshzx.zeta.ui.components.coui2.PreferenceGroup
-import com.dzshzx.zeta.ui.components.coui2.PreferenceValue
-import com.dzshzx.zeta.ui.components.coui2.SettingsIcon
-import com.dzshzx.zeta.ui.components.coui2.ZetaIcons
+import com.dzshzx.zeta.ui.components.miuix.ConfirmDialog
+import com.dzshzx.zeta.ui.components.miuix.IconActionButton
+import com.dzshzx.zeta.ui.components.miuix.MiuixPage
+import com.dzshzx.zeta.ui.components.miuix.PreferenceGroup
+import com.dzshzx.zeta.ui.components.miuix.PreferenceGroupScope
+import com.dzshzx.zeta.ui.components.miuix.PreferenceValue
+import com.dzshzx.zeta.ui.components.miuix.SettingsIcon
+import com.dzshzx.zeta.ui.components.miuix.ZetaIcons
 import com.dzshzx.zeta.ui.components.rememberRetained
 import com.dzshzx.zeta.ui.setup.ConfigNotice
 import com.dzshzx.zeta.ui.setup.ConfigNoticeDialog
-import io.github.suqi8.coui.kmp.basic.BasicComponent
-import io.github.suqi8.coui.kmp.basic.CardListGroupScope
-import io.github.suqi8.coui.kmp.basic.InfiniteProgressIndicator
-import io.github.suqi8.coui.kmp.icon.COUIIcons
-import io.github.suqi8.coui.kmp.icon.extended.Refresh
-import io.github.suqi8.coui.kmp.preference.ArrowPreference
 import java.io.File
 import java.text.SimpleDateFormat
 import java.util.Date
@@ -55,6 +50,11 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+import top.yukonga.miuix.kmp.basic.BasicComponent
+import top.yukonga.miuix.kmp.basic.InfiniteProgressIndicator
+import top.yukonga.miuix.kmp.icon.MiuixIcons
+import top.yukonga.miuix.kmp.icon.extended.Refresh
+import top.yukonga.miuix.kmp.preference.ArrowPreference
 
 /** 设置首页的入口：顺带显示手机剩余空间。 */
 @Composable
@@ -267,12 +267,12 @@ internal fun StoragePage(
     dialogs: @Composable () -> Unit = {},
 ) {
     val report = view.report
-    CouiPage(
+    MiuixPage(
         title = Strings.settingsStorageTitle(),
         onBack = onBack,
         actions = {
             IconActionButton(
-                COUIIcons.Refresh,
+                MiuixIcons.Refresh,
                 Strings.settingsStorageRescan(),
                 enabled = !view.scanning && view.cleaning == null,
                 onClick = onRefresh,
@@ -317,7 +317,7 @@ internal fun StoragePage(
 }
 
 /** 一组里各类的行。 */
-private fun CardListGroupScope.kindItems(
+private fun PreferenceGroupScope.kindItems(
     group: StorageGroup,
     view: StorageView,
     onAsk: (StorageKind) -> Unit,
@@ -503,7 +503,7 @@ internal fun ProjectSessionsPage(
     val dateFormat = remember { sessionDateFormat() }
     // 大标题放不下整条路径：标题用最后一段，整条路径写在分组标题里
     val path = project.label
-    CouiPage(title = path.trimEnd('/').substringAfterLast('/').ifBlank { path }, onBack = onBack) {
+    MiuixPage(title = path.trimEnd('/').substringAfterLast('/').ifBlank { path }, onBack = onBack) {
         item(key = "sessions") {
             PreferenceGroup(
                 title =

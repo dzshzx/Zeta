@@ -11047,6 +11047,13 @@ object Strings {
     fun commonClose(): String = catalog.say("commonClose")
 
     /**
+     * 「清除」
+     *
+     * 输入框末尾的清除键（读屏说明）：清空框里的字。
+     */
+    fun commonClear(): String = catalog.say("commonClear")
+
+    /**
      * 「重试」
      *
      * 通用按钮：失败后再试一次。
@@ -15002,14 +15009,14 @@ object Strings {
     fun aboutCreditEta(): String = catalog.say("aboutCreditEta")
 
     /**
-     * 「界面组件库，ColorOS 17 的样式（Apache-2.0）」
+     * 「长按菜单的手势代码来自它（Apache-2.0）」
      *
      * 鸣谢页里 COUI 2 一行的介绍。
      */
     fun aboutCreditCoui(): String = catalog.say("aboutCreditCoui")
 
     /**
-     * 「COUI 2 的上游（Apache-2.0）」
+     * 「界面组件库，HyperOS 的样式（Apache-2.0）」
      *
      * 鸣谢页里 Miuix 一行的介绍。
      */
@@ -15793,11 +15800,18 @@ object Strings {
     fun thirdPartyXCryptoNote(): String = catalog.say("thirdPartyXCryptoNote")
 
     /**
-     * 「Zeta 的 Markdown 渲染（ui/markdown）、侧栏骨架、自适应页面布局、等宽字体的定义、对话框的接口和数字助理的浮窗是从 Eta 拷来再改写的，按 GPL-3.0 使用；所以 Zeta 也按 GPL-3.0 发布。」
+     * 「Zeta 的 Markdown 渲染（ui/markdown）、侧栏骨架、自适应页面布局、等宽字体的定义、对话框的接口、数字助理的浮窗和定时任务的时间滚轮是从 Eta 拷来再改写的，按 GPL-3.0 使用；所以 Zeta 也按 GPL-3.0 发布。」
      *
      * 开源许可页 Eta 一条的说明。
      */
     fun thirdPartyEtaNote(): String = catalog.say("thirdPartyEtaNote")
+
+    /**
+     * 「长按菜单的手势处理（按住不动满长按时长才弹菜单、不吃掉普通点按）是从 COUI 2 拷来再改写的，按 Apache-2.0 使用。」
+     *
+     * 开源许可页 COUI 2 一条的说明。
+     */
+    fun thirdPartyCouiNote(): String = catalog.say("thirdPartyCouiNote")
 
     /**
      * 「代码、命令和日志用的等宽字体（无连字版的 Regular、Bold），未修改。」

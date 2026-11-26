@@ -29,25 +29,25 @@ import com.dzshzx.zeta.core.about.ZetaInfo
 import com.dzshzx.zeta.core.update.AppUpdates
 import com.dzshzx.zeta.i18n.Strings
 import com.dzshzx.zeta.ui.components.SlideInPage
-import com.dzshzx.zeta.ui.components.coui2.CardListSegment
-import com.dzshzx.zeta.ui.components.coui2.CouiPage
-import com.dzshzx.zeta.ui.components.coui2.PreferenceGroup
-import com.dzshzx.zeta.ui.components.coui2.PreferenceValue
-import com.dzshzx.zeta.ui.components.coui2.SettingsIcon
-import com.dzshzx.zeta.ui.components.coui2.ZetaIcons
+import com.dzshzx.zeta.ui.components.miuix.CardListSegment
+import com.dzshzx.zeta.ui.components.miuix.FooterHint
+import com.dzshzx.zeta.ui.components.miuix.MiuixPage
+import com.dzshzx.zeta.ui.components.miuix.PreferenceGroup
+import com.dzshzx.zeta.ui.components.miuix.PreferenceValue
+import com.dzshzx.zeta.ui.components.miuix.SettingsIcon
+import com.dzshzx.zeta.ui.components.miuix.ZetaIcons
 import com.dzshzx.zeta.ui.setup.ConfigLoadingRow
-import io.github.suqi8.coui.kmp.basic.BasicComponent
-import io.github.suqi8.coui.kmp.basic.Text
-import io.github.suqi8.coui.kmp.icon.COUIIcons
-import io.github.suqi8.coui.kmp.icon.extended.Favorites
-import io.github.suqi8.coui.kmp.icon.extended.Layers
-import io.github.suqi8.coui.kmp.icon.extended.Notes
-import io.github.suqi8.coui.kmp.preference.ArrowPreference
-import io.github.suqi8.coui.kmp.preference.PagerFooterPreference
-import io.github.suqi8.coui.kmp.preference.PreferenceCategory
-import io.github.suqi8.coui.kmp.theme.COUITheme
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
+import top.yukonga.miuix.kmp.basic.BasicComponent
+import top.yukonga.miuix.kmp.basic.SmallTitle
+import top.yukonga.miuix.kmp.basic.Text
+import top.yukonga.miuix.kmp.icon.MiuixIcons
+import top.yukonga.miuix.kmp.icon.extended.Favorites
+import top.yukonga.miuix.kmp.icon.extended.Layers
+import top.yukonga.miuix.kmp.icon.extended.Notes
+import top.yukonga.miuix.kmp.preference.ArrowPreference
+import top.yukonga.miuix.kmp.theme.MiuixTheme
 
 /**
  * 设置首页的「关于」一组：版本（正式版点它检查更新，见 UpdateScreens.kt）、自动检查更新、源码、许可证（GPL 要求界面上能看到的版权和无担保声明在那一页）、开源许可、鸣谢、诊断，
@@ -73,7 +73,7 @@ internal fun AboutGroup(onOpenSubPage: (SettingsSubPage) -> Unit) {
         item {
             ArrowPreference(
                 title = Strings.aboutLicense(),
-                startAction = { SettingsIcon(COUIIcons.Notes) },
+                startAction = { SettingsIcon(MiuixIcons.Notes) },
                 endActions = { PreferenceValue("GPL-3.0") },
                 onClick = { onOpenSubPage(SettingsSubPage.License) },
             )
@@ -81,14 +81,14 @@ internal fun AboutGroup(onOpenSubPage: (SettingsSubPage) -> Unit) {
         item {
             ArrowPreference(
                 title = Strings.aboutOpenSource(),
-                startAction = { SettingsIcon(COUIIcons.Layers) },
+                startAction = { SettingsIcon(MiuixIcons.Layers) },
                 onClick = { onOpenSubPage(SettingsSubPage.OpenSource) },
             )
         }
         item {
             ArrowPreference(
                 title = Strings.aboutCredits(),
-                startAction = { SettingsIcon(COUIIcons.Favorites) },
+                startAction = { SettingsIcon(MiuixIcons.Favorites) },
                 onClick = { onOpenSubPage(SettingsSubPage.Credits) },
             )
         }
@@ -106,7 +106,7 @@ internal fun AboutGroup(onOpenSubPage: (SettingsSubPage) -> Unit) {
 @Composable
 internal fun LicenseScreen(onBack: () -> Unit) {
     val text = rememberAssetText(Licenses.asset("GPL-3.0-only"))
-    CouiPage(title = Strings.aboutLicense(), onBack = onBack) {
+    MiuixPage(title = Strings.aboutLicense(), onBack = onBack) {
         item(key = "zeta") {
             PreferenceGroup(footer = ZetaInfo.legalNotice.joinToString("\n")) {
                 item { BasicComponent(title = "Zeta", summary = ZetaInfo.COPYRIGHT) }
@@ -127,7 +127,7 @@ internal fun OpenSourceScreen(onBack: () -> Unit) {
         }
     var open by remember { mutableStateOf<Component?>(null) }
     Box(Modifier.fillMaxSize()) {
-        CouiPage(title = Strings.aboutOpenSource(), onBack = onBack) {
+        MiuixPage(title = Strings.aboutOpenSource(), onBack = onBack) {
             item(key = "bundled") {
                 PreferenceGroup(
                     title = Strings.aboutBundled(),
@@ -138,7 +138,7 @@ internal fun OpenSourceScreen(onBack: () -> Unit) {
                     }
                 }
             }
-            item(key = "maven-title") { PreferenceCategory(title = Strings.aboutLibraries()) }
+            item(key = "maven-title") { SmallTitle(text = Strings.aboutLibraries()) }
             val list = maven
             if (list == null) {
                 item(key = "maven-loading") { PreferenceGroup { item { ConfigLoadingRow() } } }
@@ -151,7 +151,7 @@ internal fun OpenSourceScreen(onBack: () -> Unit) {
                     }
                 }
                 item(key = "maven-footer") {
-                    PagerFooterPreference(
+                    FooterHint(
                         summary = Strings.aboutLibrariesFooter(list.size),
                     )
                 }
@@ -178,7 +178,7 @@ internal fun ComponentScreen(component: Component, onBack: () -> Unit) {
     val context = LocalContext.current
     val ids = Licenses.ids(component.license)
     val texts = ids.map { rememberAssetText(Licenses.asset(it)) }
-    CouiPage(title = component.name, onBack = onBack) {
+    MiuixPage(title = component.name, onBack = onBack) {
         item(key = "info") {
             PreferenceGroup(footer = component.note) {
                 item { ValueRow(Strings.commonVersion(), component.version) }
@@ -250,7 +250,7 @@ internal fun ComponentScreen(component: Component, onBack: () -> Unit) {
 @Composable
 internal fun CreditsScreen(onBack: () -> Unit) {
     val context = LocalContext.current
-    CouiPage(title = Strings.aboutCredits(), onBack = onBack) {
+    MiuixPage(title = Strings.aboutCredits(), onBack = onBack) {
         item(key = "credits") {
             PreferenceGroup(footer = ZetaInfo.unofficial) {
                 CREDITS.forEach { credit ->
@@ -277,8 +277,8 @@ private val CREDITS =
             Strings::aboutCreditEta,
             "https://github.com/Mangi-11/Eta",
         ),
-        Credit("COUI 2", Strings::aboutCreditCoui, "https://github.com/suqi8/coui"),
         Credit("Miuix", Strings::aboutCreditMiuix, "https://github.com/compose-miuix-ui/miuix"),
+        Credit("COUI 2", Strings::aboutCreditCoui, "https://github.com/suqi8/coui"),
         Credit(
             "Claude Code",
             Strings::aboutCreditClaudeCode,
@@ -288,20 +288,20 @@ private val CREDITS =
 
 /** 一种许可证的全文：分类标题，下面一张卡片里分段排；还没读出来时转圈，读不出时说一声。 */
 private fun LazyListScope.licenseText(id: String, text: String?) {
-    item(key = "title:$id") { PreferenceCategory(title = Licenses.titles[id] ?: id) }
+    item(key = "title:$id") { SmallTitle(text = Licenses.titles[id] ?: id) }
     val paragraphs = text?.let { Licenses.paragraphs(it) }
     when {
         paragraphs == null ->
             item(key = "loading:$id") { PreferenceGroup { item { ConfigLoadingRow() } } }
         paragraphs.isEmpty() ->
             item(key = "missing:$id") {
-                PagerFooterPreference(summary = Strings.aboutLicenseTextMissing(Licenses.asset(id)))
+                FooterHint(summary = Strings.aboutLicenseTextMissing(Licenses.asset(id)))
             }
         else -> {
             // 几段一组放进列表，长的全文滚动时只组合看得见的那几组
             val chunks = paragraphs.chunked(8)
             itemsIndexed(chunks, key = { index, _ -> "text:$id:$index" }) { index, chunk ->
-                CardListSegment(index, chunks.size, dividerStart = null) {
+                CardListSegment(index, chunks.size) {
                     SelectionContainer {
                         Column(
                             Modifier.fillMaxWidth()
@@ -312,8 +312,8 @@ private fun LazyListScope.licenseText(id: String, text: String?) {
                             chunk.forEach {
                                 Text(
                                     text = it,
-                                    style = COUITheme.textStyles.bodyS,
-                                    color = COUITheme.colorScheme.labelPrimary,
+                                    style = MiuixTheme.textStyles.footnote1,
+                                    color = MiuixTheme.colorScheme.onBackground,
                                 )
                             }
                         }
@@ -335,8 +335,8 @@ private fun TextBlock(lines: List<String>) {
             lines.forEach {
                 Text(
                     text = it,
-                    style = COUITheme.textStyles.bodyS,
-                    color = COUITheme.colorScheme.labelPrimary,
+                    style = MiuixTheme.textStyles.footnote1,
+                    color = MiuixTheme.colorScheme.onBackground,
                 )
             }
         }

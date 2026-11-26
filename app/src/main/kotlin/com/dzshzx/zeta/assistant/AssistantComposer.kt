@@ -64,12 +64,12 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.dzshzx.zeta.i18n.Strings
-import com.dzshzx.zeta.ui.components.coui2.ZetaIcons
-import io.github.suqi8.coui.kmp.basic.Icon
-import io.github.suqi8.coui.kmp.basic.Text
+import com.dzshzx.zeta.ui.components.miuix.ZetaIcons
 import kotlinx.coroutines.flow.first
+import top.yukonga.miuix.kmp.basic.Icon
+import top.yukonga.miuix.kmp.basic.Text
 
-// 拷自 Eta 的 agent/voice/EtaAssistantComposer.kt（GPL-3.0）的打字输入栏：去掉了语音那一半
+// 拷自 Eta 的 agent/voice/ui/EtaAssistantComposer.kt（GPL-3.0）的打字输入栏：去掉了语音那一半
 // （聆听态、按住说话、麦克风键），空闲时右边是发送键，空着时是灰的。
 
 /** 停止键上方块图标的大小：方块边长约 7dp，和 Eta 手画的那个一样大。 */
@@ -118,7 +118,7 @@ internal fun AssistantInputBar(
         modifier =
             modifier
                 .heightIn(min = 50.dp)
-                .couiAssistantCapsule(
+                .miuixAssistantCapsule(
                     colors = colors,
                     elevation = AssistantCapsuleElevation.Composer,
                     surface = { inputBackground.value },
@@ -183,7 +183,7 @@ private fun InputFocus(focus: Boolean, enabled: Boolean, focusRequester: FocusRe
     }
 }
 
-/** 输入栏右边的键：停止、发送（能发时主色，空着时灰）。按下时缩一下（COUI 的按压回弹），点了轻振一下。 */
+/** 输入栏右边的键：停止、发送（能发时主色，空着时灰）。按下时缩一下、松手回弹，点了轻振一下。 */
 @Composable
 private fun TrailingButton(
     busy: Boolean,
@@ -204,7 +204,7 @@ private fun TrailingButton(
             animationSpec = tween(180, easing = FastOutSlowInEasing),
             label = "assistant_trailing_tint",
         )
-    val press = rememberCouiPressMotion()
+    val press = rememberMiuixPressMotion()
     val currentClick by rememberUpdatedState(if (busy) onStop else onSubmit)
     Box(
         modifier =
@@ -227,7 +227,7 @@ private fun TrailingButton(
             targetState = busy,
             transitionSpec = {
                 (fadeIn(tween(140)) +
-                        scaleIn(tween(170, easing = CouiEnterEasing), initialScale = 0.72f))
+                        scaleIn(tween(170, easing = MiuixEnterEasing), initialScale = 0.72f))
                     .togetherWith(fadeOut(tween(90)) + scaleOut(tween(110), targetScale = 0.72f))
             },
             label = "assistant_trailing_glyph",
@@ -297,7 +297,7 @@ private fun trailingIconTint(busy: Boolean, canSubmit: Boolean, colors: Assistan
 private fun Modifier.trailingButtonInput(
     description: String,
     enabled: Boolean,
-    press: CouiPressMotion,
+    press: MiuixPressMotion,
     action: () -> Unit,
 ): Modifier {
     val haptics = LocalHapticFeedback.current

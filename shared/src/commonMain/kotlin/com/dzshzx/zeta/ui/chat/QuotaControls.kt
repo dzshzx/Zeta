@@ -22,14 +22,14 @@ import com.dzshzx.zeta.core.QuotaWindow
 import com.dzshzx.zeta.i18n.Strings
 import com.dzshzx.zeta.ui.components.StatusWarning
 import com.dzshzx.zeta.ui.components.rememberNow
-import io.github.suqi8.coui.kmp.basic.Text
-import io.github.suqi8.coui.kmp.theme.COUITheme
+import top.yukonga.miuix.kmp.basic.Text
+import top.yukonga.miuix.kmp.theme.MiuixTheme
 
 /** 额度严重程度的颜色：严重红色，警告是 [StatusWarning]，平时用 [normal]。额度窗口、各台设备页的账号摘要共用。 */
 @Composable
 fun severityColor(severity: QuotaSeverity, normal: Color): Color =
     when (severity) {
-        QuotaSeverity.Critical -> COUITheme.colorScheme.error
+        QuotaSeverity.Critical -> MiuixTheme.colorScheme.error
         QuotaSeverity.Warning -> StatusWarning
         QuotaSeverity.Normal -> normal
     }
@@ -44,7 +44,7 @@ fun QuotaWindows(snapshot: QuotaSnapshot, now: Long, modifier: Modifier = Modifi
                 Quota.resetText(current.blockedUntil, now)?.let {
                     Strings.composerQuotaBlockedUntil(it)
                 } ?: Strings.composerQuotaBlocked(),
-                color = COUITheme.colorScheme.error,
+                color = MiuixTheme.colorScheme.error,
             )
         }
         current.windows.forEach { QuotaRow(it, now) }
@@ -85,20 +85,20 @@ private fun QuotaLine(
     severity: QuotaSeverity,
     detail: String?,
 ) {
-    val colors = COUITheme.colorScheme
-    val ink = colors.labelPrimary
+    val colors = MiuixTheme.colorScheme
+    val ink = colors.onBackground
     Column(modifier = Modifier.fillMaxWidth()) {
         Row(verticalAlignment = Alignment.CenterVertically) {
             Text(
                 text = label,
-                style = COUITheme.textStyles.bodyS.copy(fontSize = 13.sp, lineHeight = 18.sp),
+                style = MiuixTheme.textStyles.footnote1.copy(fontSize = 13.sp, lineHeight = 18.sp),
                 color = ink.copy(alpha = 0.88f),
                 modifier = Modifier.weight(1f),
             )
             Text(
                 text = value,
                 style =
-                    COUITheme.textStyles.bodyS.copy(
+                    MiuixTheme.textStyles.footnote1.copy(
                         fontSize = 13.sp,
                         lineHeight = 18.sp,
                         fontWeight = FontWeight.Medium,
@@ -126,8 +126,9 @@ fun QuotaNote(
 ) {
     Text(
         text = text,
-        style = COUITheme.textStyles.bodyS.copy(fontSize = 12.sp, lineHeight = 17.sp),
-        color = if (color == Color.Unspecified) COUITheme.colorScheme.labelSecondary else color,
+        style = MiuixTheme.textStyles.footnote1.copy(fontSize = 12.sp, lineHeight = 17.sp),
+        color =
+            if (color == Color.Unspecified) MiuixTheme.colorScheme.onBackgroundVariant else color,
         modifier = modifier,
     )
 }
@@ -178,19 +179,19 @@ fun QuotaDialogSection(
         Text(
             text = Strings.composerQuotaTitle(),
             style =
-                COUITheme.textStyles.bodyM.copy(fontSize = 14.sp, fontWeight = FontWeight.Medium),
-            color = COUITheme.colorScheme.labelPrimary,
+                MiuixTheme.textStyles.body2.copy(fontSize = 14.sp, fontWeight = FontWeight.Medium),
+            color = MiuixTheme.colorScheme.onBackground,
             modifier = Modifier.weight(1f),
         )
         quota.snapshot?.planLabel?.let { plan ->
             Text(
                 text = plan,
                 style =
-                    COUITheme.textStyles.bodyM.copy(
+                    MiuixTheme.textStyles.body2.copy(
                         fontSize = 14.sp,
                         fontWeight = FontWeight.Medium,
                     ),
-                color = COUITheme.colorScheme.labelSecondary,
+                color = MiuixTheme.colorScheme.onBackgroundVariant,
             )
         }
     }

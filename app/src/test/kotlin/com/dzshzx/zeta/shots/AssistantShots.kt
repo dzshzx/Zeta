@@ -29,15 +29,15 @@ import com.dzshzx.zeta.core.ChatItem
 import com.dzshzx.zeta.core.ThinkingStep
 import com.dzshzx.zeta.core.UserItem
 import com.dzshzx.zeta.core.WorkItem
-import com.dzshzx.zeta.ui.components.coui2.CouiPage
-import com.dzshzx.zeta.ui.components.coui2.PreferenceGroup
+import com.dzshzx.zeta.ui.components.miuix.MiuixPage
+import com.dzshzx.zeta.ui.components.miuix.PreferenceGroup
 import com.dzshzx.zeta.ui.settings.AssistantDiagnosticsGroup
 import com.dzshzx.zeta.ui.settings.AssistantEntry
 import com.dzshzx.zeta.ui.settings.AssistantSettingsScreen
-import io.github.suqi8.coui.kmp.basic.Text
-import io.github.suqi8.coui.kmp.squircle.LocalSquircleEnabled
-import io.github.suqi8.coui.kmp.theme.COUITheme
 import org.junit.Test
+import top.yukonga.miuix.kmp.basic.Text
+import top.yukonga.miuix.kmp.squircle.LocalSquircleEnabled
+import top.yukonga.miuix.kmp.theme.MiuixTheme
 
 /** 数字助理：浮窗刚唤起、去掉屏幕内容、刚发出去、回答中、答完、长回答、唤起光效；设置里的一行和诊断页的一组。 */
 class AssistantShots : ShotTest() {
@@ -53,11 +53,11 @@ class AssistantShots : ShotTest() {
         CompositionLocalProvider(LocalSquircleEnabled provides false) {
             Box(modifier = Modifier.fillMaxSize().background(Color(0xFFF2F4F7))) {
                 Column(modifier = Modifier.padding(24.dp)) {
-                    Text("设置", style = COUITheme.textStyles.headlineM, color = Color(0xFF222222))
+                    Text("设置", style = MiuixTheme.textStyles.title3, color = Color(0xFF222222))
                     listOf("WLAN", "蓝牙", "移动网络", "更多连接方式", "显示与亮度", "声音与振动").forEach {
                         Text(
                             it,
-                            style = COUITheme.textStyles.bodyL,
+                            style = MiuixTheme.textStyles.body1,
                             color = Color(0xFF222222),
                             modifier = Modifier.padding(top = 18.dp),
                         )
@@ -222,7 +222,7 @@ class AssistantShots : ShotTest() {
         val owner =
             AssistantOwner(self = false, packageName = "com.miui.voiceassist", label = "超级小爱")
         shoot("assistant-settings") {
-            CouiPage(title = "数字助理", onBack = {}) {
+            MiuixPage(title = "数字助理", onBack = {}) {
                 item { PreferenceGroup(title = "能力") { item { AssistantEntry(owner) {} } } }
                 item { AssistantDiagnosticsGroup(reloads = 0, owner = owner, status = status) }
             }
@@ -241,7 +241,7 @@ class AssistantShots : ShotTest() {
             )
         val status = PowerKeyStatus(installed = null, installNote = null, recent = emptyList())
         shoot("assistant-diagnostics-trouble") {
-            CouiPage(title = "诊断", onBack = {}) {
+            MiuixPage(title = "诊断", onBack = {}) {
                 item { AssistantDiagnosticsGroup(reloads = 0, owner = owner, status = status) }
             }
         }

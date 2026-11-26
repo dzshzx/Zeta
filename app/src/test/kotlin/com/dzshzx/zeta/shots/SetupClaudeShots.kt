@@ -117,9 +117,10 @@ class SetupClaudeShots : ShotTest() {
             "claude-document",
             prepare = {
                 dismissNotice()
-                onNodeWithText("编辑").performClick()
+                tap("编辑")
                 // 预览和编辑之间有个淡入淡出，时钟拨过去编辑框才在
                 mainClock.advanceTimeBy(1000)
+                waitForIdle()
                 onNode(hasSetTextAction()).performTextInput("回答用中文。\n改代码前先说明打算怎么改。")
             },
         ) {

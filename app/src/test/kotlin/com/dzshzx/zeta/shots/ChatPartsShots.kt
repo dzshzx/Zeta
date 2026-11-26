@@ -63,17 +63,17 @@ import com.dzshzx.zeta.ui.chat.UsageButton
 import com.dzshzx.zeta.ui.chat.UsageDialog
 import com.dzshzx.zeta.ui.chat.UserBubble
 import com.dzshzx.zeta.ui.chat.WorkGroup
-import com.dzshzx.zeta.ui.components.coui2.ZetaIcons
+import com.dzshzx.zeta.ui.components.miuix.ZetaIcons
 import com.dzshzx.zeta.ui.markdown.StreamingMarkdownStateCache
-import io.github.suqi8.coui.kmp.basic.Icon
-import io.github.suqi8.coui.kmp.basic.Scaffold
-import io.github.suqi8.coui.kmp.theme.COUITheme
 import kotlinx.serialization.json.buildJsonObject
 import kotlinx.serialization.json.put
 import org.junit.Test
+import top.yukonga.miuix.kmp.basic.Icon
+import top.yukonga.miuix.kmp.basic.Scaffold
+import top.yukonga.miuix.kmp.theme.MiuixTheme
 
 /**
- * 聊天页里的部件单独画：消息气泡、通知、图片、附件标签、折叠的工作组和文件改动卡片、输入栏右边的用量控件、用量弹窗、 引用文件夹和路径的对话框。部件里的对话框和菜单要在 COUI 2 的
+ * 聊天页里的部件单独画：消息气泡、通知、图片、附件标签、折叠的工作组和文件改动卡片、输入栏右边的用量控件、用量弹窗、 引用文件夹和路径的对话框。部件里的对话框和菜单要在 Miuix 的
  * Scaffold 里才显示，这里外面包一层。
  */
 class ChatPartsShots : ShotTest() {
@@ -81,7 +81,7 @@ class ChatPartsShots : ShotTest() {
 
     @Composable
     private fun Host(content: @Composable ColumnScope.() -> Unit) {
-        Scaffold(containerColor = COUITheme.colorScheme.background) { padding ->
+        Scaffold(containerColor = MiuixTheme.colorScheme.surface) { padding ->
             Column(
                 Modifier.fillMaxSize().padding(padding).verticalScroll(rememberScrollState()),
                 content = content,

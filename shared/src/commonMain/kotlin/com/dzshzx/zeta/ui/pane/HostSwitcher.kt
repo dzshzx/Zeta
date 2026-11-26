@@ -24,13 +24,13 @@ import com.dzshzx.zeta.core.Backends
 import com.dzshzx.zeta.core.ConversationHub
 import com.dzshzx.zeta.core.RemoteHosts
 import com.dzshzx.zeta.i18n.Strings
-import com.dzshzx.zeta.ui.components.coui2.AnchoredMenu
-import com.dzshzx.zeta.ui.components.coui2.ZetaIcons
-import com.dzshzx.zeta.ui.components.coui2.menuItem
-import io.github.suqi8.coui.kmp.basic.DropdownEntry
-import io.github.suqi8.coui.kmp.basic.Icon
-import io.github.suqi8.coui.kmp.basic.Text
-import io.github.suqi8.coui.kmp.theme.COUITheme
+import com.dzshzx.zeta.ui.components.miuix.AnchoredMenu
+import com.dzshzx.zeta.ui.components.miuix.ZetaIcons
+import com.dzshzx.zeta.ui.components.miuix.menuItem
+import top.yukonga.miuix.kmp.basic.DropdownEntry
+import top.yukonga.miuix.kmp.basic.Icon
+import top.yukonga.miuix.kmp.basic.Text
+import top.yukonga.miuix.kmp.theme.MiuixTheme
 
 /**
  * 换主机的小胶囊：显示侧栏正看着的主机（[ConversationHub.backend]），点开列出手机和各台远程主机，选一台就换过去 （会话列表、新对话都跟着换，见
@@ -47,7 +47,7 @@ fun HostSwitcher(
 ) {
     val hosts = hub.settings.remoteHosts
     if (hosts.isEmpty()) return
-    val colors = COUITheme.colorScheme
+    val colors = MiuixTheme.colorScheme
     val current = hub.backend
     val all = forList && hub.allHosts
     var open by remember { mutableStateOf(false) }
@@ -55,7 +55,7 @@ fun HostSwitcher(
         Row(
             modifier =
                 Modifier.clip(CircleShape)
-                    .background(colors.labelPrimary.copy(alpha = 0.05f))
+                    .background(colors.onBackground.copy(alpha = 0.05f))
                     .clickable { open = true }
                     .padding(start = 10.dp, end = 8.dp, top = 6.dp, bottom = 6.dp),
             verticalAlignment = Alignment.CenterVertically,
@@ -69,8 +69,8 @@ fun HostSwitcher(
             Spacer(Modifier.width(6.dp))
             Text(
                 text = if (all) allHostsLabel() else hub.backendName(current),
-                style = COUITheme.textStyles.buttonM,
-                color = colors.labelPrimary,
+                style = MiuixTheme.textStyles.button,
+                color = colors.onBackground,
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis,
                 modifier = Modifier.widthIn(max = 180.dp),
@@ -80,7 +80,7 @@ fun HostSwitcher(
                 imageVector = ZetaIcons.ChevronDown,
                 contentDescription = Strings.sidebarSwitchDevice(),
                 modifier = Modifier.size(14.dp),
-                tint = colors.labelSecondary,
+                tint = colors.onBackgroundVariant,
             )
         }
         // 编号、名字、菜单里的小字

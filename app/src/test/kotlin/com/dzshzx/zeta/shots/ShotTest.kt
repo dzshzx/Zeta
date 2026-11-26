@@ -56,7 +56,7 @@ abstract class ShotTest {
     private val setup =
         object : ExternalResource() {
             override fun before() {
-                // View 一侧的动画（COUI 对话框和玻璃效果用的 ValueAnimator）也直接跳到终点：
+                // View 一侧的动画（Miuix 对话框和玻璃效果用的 ValueAnimator）也直接跳到终点：
                 // 它们每一帧都要在 CPU 上重画整屏的模糊，放完一个对话框的进场动画要十几秒
                 ValueAnimator::class
                     .java
@@ -168,8 +168,14 @@ abstract class ShotTest {
         return onNodeWithText(text)
     }
 
-    /** 点文字是 [text] 的节点，再让时钟走过菜单、弹窗展开的动画；在 [shoot] 的 prepare 里或直接对 [compose] 用。 */
-    fun AndroidComposeTestRule<*, *>.tap(text: String) = tapNode(onNodeWithText(text))
+    /**
+     * 点文字是 [text] 的节点，再让时钟走过菜单、弹窗展开的动画；在 [shoot] 的 prepare 里或直接对 [compose] 用。只认摆在界面上的节点：Miuix
+     * 的级联菜单展开子菜单时，另组合一份不摆放的子菜单量尺寸，它也在界面树里。
+     */
+    fun AndroidComposeTestRule<*, *>.tap(text: String) = tapNode(onNode(hasText(text) and IsPlaced))
+
+    /** 节点摆在了界面上（组合了但只拿来量尺寸、没摆放的不算）。 */
+    val IsPlaced = SemanticsMatcher("is placed") { it.layoutInfo.isPlaced }
 
     /** 同 [tap]，点的是给定的节点（比如按描述找的图标按钮）。 */
     fun AndroidComposeTestRule<*, *>.tapNode(node: SemanticsNodeInteraction) {

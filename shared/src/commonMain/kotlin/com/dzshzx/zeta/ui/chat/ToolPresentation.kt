@@ -4,17 +4,17 @@ import androidx.compose.ui.graphics.vector.ImageVector
 import com.dzshzx.zeta.core.ToolStep
 import com.dzshzx.zeta.core.str
 import com.dzshzx.zeta.i18n.Strings
-import com.dzshzx.zeta.ui.components.coui2.ZetaIcons
-import io.github.suqi8.coui.kmp.icon.COUIIcons
-import io.github.suqi8.coui.kmp.icon.extended.Edit
-import io.github.suqi8.coui.kmp.icon.extended.File
-import io.github.suqi8.coui.kmp.icon.extended.Link
-import io.github.suqi8.coui.kmp.icon.extended.MindMap
-import io.github.suqi8.coui.kmp.icon.extended.ReplyAll
-import io.github.suqi8.coui.kmp.icon.extended.SelectAll
-import io.github.suqi8.coui.kmp.icon.extended.Timer
+import com.dzshzx.zeta.ui.components.miuix.ZetaIcons
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonObject
+import top.yukonga.miuix.kmp.icon.MiuixIcons
+import top.yukonga.miuix.kmp.icon.extended.Edit
+import top.yukonga.miuix.kmp.icon.extended.File
+import top.yukonga.miuix.kmp.icon.extended.Link
+import top.yukonga.miuix.kmp.icon.extended.MindMap
+import top.yukonga.miuix.kmp.icon.extended.ReplyAll
+import top.yukonga.miuix.kmp.icon.extended.SelectAll
+import top.yukonga.miuix.kmp.icon.extended.Timer
 
 class ToolPresentation(val icon: ImageVector, val title: String, val detail: String)
 
@@ -49,13 +49,13 @@ fun presentTool(name: String, input: JsonObject?): ToolPresentation {
             )
         "Read" ->
             ToolPresentation(
-                COUIIcons.File,
+                MiuixIcons.File,
                 Strings.chatToolRead(baseName(s("file_path"))),
                 s("file_path").orEmpty(),
             )
         "Write" ->
             ToolPresentation(
-                COUIIcons.Edit,
+                MiuixIcons.Edit,
                 Strings.chatToolWrite(baseName(s("file_path"))),
                 s("file_path").orEmpty() + "\n\n" + s("content").orEmpty(),
             )
@@ -63,7 +63,7 @@ fun presentTool(name: String, input: JsonObject?): ToolPresentation {
         "MultiEdit",
         "NotebookEdit" ->
             ToolPresentation(
-                COUIIcons.Edit,
+                MiuixIcons.Edit,
                 Strings.chatToolEdit(baseName(s("file_path") ?: s("notebook_path"))),
                 (s("file_path") ?: s("notebook_path")).orEmpty() +
                     (s("old_string")?.let { "\n\n- $it\n+ ${s("new_string").orEmpty()}" } ?: ""),
@@ -97,7 +97,7 @@ fun presentTool(name: String, input: JsonObject?): ToolPresentation {
         "Task",
         "Agent" ->
             ToolPresentation(
-                COUIIcons.MindMap,
+                MiuixIcons.MindMap,
                 Strings.chatToolAgent(firstLine(s("description") ?: s("prompt"), 50)),
                 s("prompt").orEmpty(),
             )
@@ -105,10 +105,10 @@ fun presentTool(name: String, input: JsonObject?): ToolPresentation {
         "TaskCreate",
         "TaskUpdate",
         "TaskList",
-        "TaskGet" -> ToolPresentation(COUIIcons.SelectAll, todoToolTitle(name, input), json)
-        "AskUserQuestion" -> ToolPresentation(COUIIcons.ReplyAll, Strings.chatToolAsk(), json)
+        "TaskGet" -> ToolPresentation(MiuixIcons.SelectAll, todoToolTitle(name, input), json)
+        "AskUserQuestion" -> ToolPresentation(MiuixIcons.ReplyAll, Strings.chatToolAsk(), json)
         "ExitPlanMode" ->
-            ToolPresentation(COUIIcons.SelectAll, Strings.chatToolPlan(), s("plan") ?: json)
+            ToolPresentation(MiuixIcons.SelectAll, Strings.chatToolPlan(), s("plan") ?: json)
         "Skill" ->
             ToolPresentation(
                 ZetaIcons.Sparkle,
@@ -139,8 +139,8 @@ private fun presentPhoneTool(tool: String, input: JsonObject?, json: String): To
             "long_press",
             "swipe" -> ZetaIcons.Tap
             "scroll" -> ZetaIcons.Swipe
-            "wait" -> COUIIcons.Timer
-            "open_app" -> if (input?.str("uri") != null) COUIIcons.Link else ZetaIcons.Phone
+            "wait" -> MiuixIcons.Timer
+            "open_app" -> if (input?.str("uri") != null) MiuixIcons.Link else ZetaIcons.Phone
             BROWSER_TOOL -> ZetaIcons.Globe
             else -> ZetaIcons.Phone
         }

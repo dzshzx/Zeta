@@ -56,14 +56,15 @@ import com.dzshzx.zeta.i18n.Strings
 import com.dzshzx.zeta.ui.components.FoldEnter
 import com.dzshzx.zeta.ui.components.FoldExit
 import com.dzshzx.zeta.ui.components.MonoFont
-import com.dzshzx.zeta.ui.components.coui2.ZetaIcons
-import io.github.suqi8.coui.kmp.basic.Icon
-import io.github.suqi8.coui.kmp.basic.LinkText
-import io.github.suqi8.coui.kmp.basic.Text
-import io.github.suqi8.coui.kmp.basic.appendLink
-import io.github.suqi8.coui.kmp.icon.COUIIcons
-import io.github.suqi8.coui.kmp.icon.extended.Edit
-import io.github.suqi8.coui.kmp.theme.COUITheme
+import com.dzshzx.zeta.ui.components.isDark
+import com.dzshzx.zeta.ui.components.miuix.LinkText
+import com.dzshzx.zeta.ui.components.miuix.ZetaIcons
+import com.dzshzx.zeta.ui.components.success
+import top.yukonga.miuix.kmp.basic.Icon
+import top.yukonga.miuix.kmp.basic.Text
+import top.yukonga.miuix.kmp.icon.MiuixIcons
+import top.yukonga.miuix.kmp.icon.extended.Edit
+import top.yukonga.miuix.kmp.theme.MiuixTheme
 
 /** 折叠时先露出的对比行数。 */
 private const val PreviewLines = 12
@@ -89,10 +90,10 @@ fun rememberFileChange(step: ToolStep): FileChange? =
 @Composable
 fun FileEditStepRow(step: ToolStep, change: FileChange) {
     var open by rememberSaveable(step.id) { mutableStateOf(false) }
-    val colors = COUITheme.colorScheme
-    val dark = COUITheme.colorScheme.isDark
-    val mutedInk = colors.labelPrimary.copy(alpha = if (dark) 0.56f else 0.52f)
-    val iconInk = colors.labelPrimary.copy(alpha = if (dark) 0.50f else 0.45f)
+    val colors = MiuixTheme.colorScheme
+    val dark = MiuixTheme.colorScheme.isDark
+    val mutedInk = colors.onBackground.copy(alpha = if (dark) 0.56f else 0.52f)
+    val iconInk = colors.onBackground.copy(alpha = if (dark) 0.50f else 0.45f)
     val presentation = step.presentation()
     Column(modifier = Modifier.fillMaxWidth()) {
         Row(
@@ -148,14 +149,9 @@ fun CollapsedFileChanges(steps: List<WorkStep>, onShowAll: () -> Unit) {
         changes.take(CollapsedCards).forEach { change -> FileChangeCard(change, header = true) }
         if (changes.size > CollapsedCards) {
             LinkText(
-                text =
-                    buildAnnotatedString {
-                        appendLink(
-                            Strings.chatMoreChanges(changes.size - CollapsedCards),
-                            onClick = onShowAll,
-                        )
-                    },
-                style = COUITheme.textStyles.bodyS.copy(fontSize = 12.5.sp),
+                text = Strings.chatMoreChanges(changes.size - CollapsedCards),
+                onClick = onShowAll,
+                style = MiuixTheme.textStyles.footnote1.copy(fontSize = 12.5.sp),
                 modifier = Modifier.padding(horizontal = 4.dp, vertical = 4.dp),
             )
         }
@@ -167,7 +163,7 @@ fun CollapsedFileChanges(steps: List<WorkStep>, onShowAll: () -> Unit) {
 private fun ChangeCounts(change: FileChange) {
     val palette = rememberDiffPalette()
     val style =
-        COUITheme.textStyles.bodyS.copy(
+        MiuixTheme.textStyles.footnote1.copy(
             fontFamily = MonoFont,
             fontSize = 11.5.sp,
             fontWeight = FontWeight.Medium,
@@ -186,8 +182,8 @@ private fun ChangeCounts(change: FileChange) {
  */
 @Composable
 fun FileChangeCard(change: FileChange, header: Boolean, modifier: Modifier = Modifier) {
-    val colors = COUITheme.colorScheme
-    val dark = COUITheme.colorScheme.isDark
+    val colors = MiuixTheme.colorScheme
+    val dark = MiuixTheme.colorScheme.isDark
     val shape = RoundedCornerShape(10.dp)
     var open by
         rememberSaveable(change.path, change.lineCount, change.added, header) {
@@ -198,10 +194,10 @@ fun FileChangeCard(change: FileChange, header: Boolean, modifier: Modifier = Mod
             modifier
                 .fillMaxWidth()
                 .clip(shape)
-                .background(colors.labelPrimary.copy(alpha = if (dark) 0.05f else 0.028f), shape)
+                .background(colors.onBackground.copy(alpha = if (dark) 0.05f else 0.028f), shape)
                 .border(
                     0.5.dp,
-                    colors.labelPrimary.copy(alpha = if (dark) 0.10f else 0.07f),
+                    colors.onBackground.copy(alpha = if (dark) 0.10f else 0.07f),
                     shape,
                 ),
     ) {
@@ -211,8 +207,8 @@ fun FileChangeCard(change: FileChange, header: Boolean, modifier: Modifier = Mod
             kindLabel(change)?.let { label ->
                 Text(
                     text = label,
-                    style = COUITheme.textStyles.bodyXS.copy(fontSize = 11.sp),
-                    color = colors.labelSecondary,
+                    style = MiuixTheme.textStyles.footnote2.copy(fontSize = 11.sp),
+                    color = colors.onBackgroundVariant,
                     modifier = Modifier.padding(start = 10.dp, top = 6.dp, bottom = 2.dp),
                 )
             }
@@ -253,8 +249,8 @@ private fun ChangeBody(change: FileChange) {
 private fun TruncatedNote() {
     Text(
         text = Strings.chatDiffClipped(),
-        style = COUITheme.textStyles.bodyXS.copy(fontSize = 11.sp),
-        color = COUITheme.colorScheme.labelSecondary,
+        style = MiuixTheme.textStyles.footnote2.copy(fontSize = 11.sp),
+        color = MiuixTheme.colorScheme.onBackgroundVariant,
         modifier = Modifier.padding(start = 10.dp, end = 10.dp, bottom = 7.dp),
     )
 }
@@ -262,11 +258,11 @@ private fun TruncatedNote() {
 /** 卡片顶上那一行和对比之间的分隔线。 */
 @Composable
 private fun CardDivider() {
-    val colors = COUITheme.colorScheme
+    val colors = MiuixTheme.colorScheme
     Box(
         Modifier.fillMaxWidth()
             .height(0.5.dp)
-            .background(colors.labelPrimary.copy(alpha = if (colors.isDark) 0.10f else 0.07f)),
+            .background(colors.onBackground.copy(alpha = if (colors.isDark) 0.10f else 0.07f)),
     )
 }
 
@@ -277,8 +273,8 @@ private fun NoLinesNote(change: FileChange) {
         text =
             if (change.kind == FileChange.Kind.Create) Strings.chatEmptyFile()
             else Strings.chatNoChanges(),
-        style = COUITheme.textStyles.bodyS.copy(fontSize = 12.sp),
-        color = COUITheme.colorScheme.labelSecondary,
+        style = MiuixTheme.textStyles.footnote1.copy(fontSize = 12.sp),
+        color = MiuixTheme.colorScheme.onBackgroundVariant,
         modifier = Modifier.padding(horizontal = 10.dp, vertical = 8.dp),
     )
 }
@@ -302,7 +298,7 @@ private fun HunkList(
 /** 卡片顶上的一行：新建或修改的图标、文件名、改动方式、增删行数和展开箭头，点它展开或收起对比。 */
 @Composable
 private fun FileChangeHeader(change: FileChange, open: Boolean, onToggle: () -> Unit) {
-    val colors = COUITheme.colorScheme
+    val colors = MiuixTheme.colorScheme
     val dark = colors.isDark
     Row(
         modifier =
@@ -313,10 +309,10 @@ private fun FileChangeHeader(change: FileChange, open: Boolean, onToggle: () -> 
     ) {
         Icon(
             imageVector =
-                if (change.kind == FileChange.Kind.Create) ZetaIcons.FileAdd else COUIIcons.Edit,
+                if (change.kind == FileChange.Kind.Create) ZetaIcons.FileAdd else MiuixIcons.Edit,
             contentDescription = null,
             modifier = Modifier.size(14.dp),
-            tint = colors.labelPrimary.copy(alpha = if (dark) 0.50f else 0.45f),
+            tint = colors.onBackground.copy(alpha = if (dark) 0.50f else 0.45f),
         )
         Spacer(Modifier.width(7.dp))
         Row(
@@ -326,11 +322,11 @@ private fun FileChangeHeader(change: FileChange, open: Boolean, onToggle: () -> 
             Text(
                 text = change.path.substringAfterLast('/'),
                 style =
-                    COUITheme.textStyles.bodyM.copy(
+                    MiuixTheme.textStyles.body2.copy(
                         fontSize = 13.sp,
                         fontWeight = FontWeight.Medium,
                     ),
-                color = colors.labelPrimary.copy(alpha = 0.86f),
+                color = colors.onBackground.copy(alpha = 0.86f),
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis,
                 modifier = Modifier.weight(1f, fill = false),
@@ -339,8 +335,8 @@ private fun FileChangeHeader(change: FileChange, open: Boolean, onToggle: () -> 
                 Spacer(Modifier.width(6.dp))
                 Text(
                     label,
-                    style = COUITheme.textStyles.bodyXS.copy(fontSize = 11.sp),
-                    color = colors.labelSecondary,
+                    style = MiuixTheme.textStyles.footnote2.copy(fontSize = 11.sp),
+                    color = colors.onBackgroundVariant,
                     maxLines = 1,
                 )
             }
@@ -369,11 +365,11 @@ private fun ExpandToggle(lineCount: Int, hidden: Int, expanded: Boolean, onToggl
                     else -> Strings.chatCollapse()
                 },
             style =
-                COUITheme.textStyles.bodyS.copy(
+                MiuixTheme.textStyles.footnote1.copy(
                     fontSize = 12.sp,
                     fontWeight = FontWeight.Medium,
                 ),
-            color = COUITheme.colorScheme.primary,
+            color = MiuixTheme.colorScheme.primary,
             modifier = Modifier.weight(1f),
         )
         Chevron(expanded)
@@ -398,7 +394,7 @@ private fun HunkGap(palette: DiffPalette) {
     ) {
         Text(
             text = "⋯",
-            style = COUITheme.textStyles.bodyXS.copy(fontSize = 11.sp, lineHeight = 14.sp),
+            style = MiuixTheme.textStyles.footnote2.copy(fontSize = 11.sp, lineHeight = 14.sp),
             color = palette.number,
             modifier = Modifier.padding(start = 10.dp),
         )
@@ -533,10 +529,10 @@ private class DiffPalette(
 
 @Composable
 private fun rememberDiffPalette(): DiffPalette {
-    val dark = COUITheme.colorScheme.isDark
-    val ink = COUITheme.colorScheme.labelPrimary
-    val error = COUITheme.colorScheme.error
-    val success = COUITheme.colorScheme.success
+    val dark = MiuixTheme.colorScheme.isDark
+    val ink = MiuixTheme.colorScheme.onBackground
+    val error = MiuixTheme.colorScheme.error
+    val success = MiuixTheme.colorScheme.success
     return remember(dark, ink, error, success) { diffPalette(dark, ink, error, success) }
 }
 

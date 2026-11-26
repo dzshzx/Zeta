@@ -9,12 +9,12 @@ import androidx.compose.ui.graphics.Color
 import com.dzshzx.zeta.core.ConversationHub
 import com.dzshzx.zeta.core.RemoteHosts
 import com.dzshzx.zeta.i18n.Strings
-import com.dzshzx.zeta.ui.components.coui2.PreferenceValue
-import com.dzshzx.zeta.ui.components.coui2.TextInputDialog
-import io.github.suqi8.coui.kmp.basic.BasicComponent
-import io.github.suqi8.coui.kmp.basic.BasicComponentDefaults
-import io.github.suqi8.coui.kmp.preference.ArrowPreference
-import io.github.suqi8.coui.kmp.theme.COUITheme
+import com.dzshzx.zeta.ui.components.miuix.PreferenceValue
+import com.dzshzx.zeta.ui.components.miuix.TextInputDialog
+import top.yukonga.miuix.kmp.basic.BasicComponent
+import top.yukonga.miuix.kmp.basic.BasicComponentDefaults
+import top.yukonga.miuix.kmp.preference.ArrowPreference
+import top.yukonga.miuix.kmp.theme.MiuixTheme
 
 // 设置里几处共用的行：标题加当前值的一行、删除行、设备名一行和改名对话框。
 
@@ -47,7 +47,7 @@ fun ValueRow(
 fun DangerRow(title: String, onClick: () -> Unit) {
     BasicComponent(
         title = title,
-        titleColor = BasicComponentDefaults.titleColor(color = COUITheme.colorScheme.error),
+        titleColor = BasicComponentDefaults.titleColor(color = MiuixTheme.colorScheme.error),
         onClick = onClick,
     )
 }

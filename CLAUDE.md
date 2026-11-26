@@ -1,6 +1,6 @@
 # Zeta 项目约束
 
-Zeta（Ζ）是 root 过的 Android 手机上 Claude Code 的原生客户端：Kotlin、Compose，界面用 COUI 2（ColorOS 17 风格）。包名 `com.dzshzx.zeta`（开发测试装的测试版是 `com.dzshzx.zeta.dev`，见「构建与测试」），默认分支 `master`。它要取代 Eta 做手机上的主力 agent，不只是 Claude Code 的图形界面：自带 Debian 环境的安装与管理、手机操作工具和后台虚拟屏。
+Zeta（Ζ）是 root 过的 Android 手机上 Claude Code 的原生客户端：Kotlin、Compose，界面用 Miuix（HyperOS 风格）。包名 `com.dzshzx.zeta`（开发测试装的测试版是 `com.dzshzx.zeta.dev`，见「构建与测试」），默认分支 `master`。它要取代 Eta 做手机上的主力 agent，不只是 Claude Code 的图形界面：自带 Debian 环境的安装与管理、手机操作工具和后台虚拟屏。
 
 维护者本机的环境事实（设备的 ssh 别名、模拟器、参照源码的本机位置、账号与密钥条目）不进 Git，写在仓根的 `CLAUDE.local.md`，Claude Code 在主 checkout 里会自动加载它；在任务 worktree 里时去读主 checkout 的那一份（`git rev-parse --path-format=absolute --git-common-dir` 的上一级目录）。没有这个文件时，按下面「本机配置」配好自己的设备。
 
@@ -8,12 +8,12 @@ Zeta（Ζ）是 root 过的 Android 手机上 Claude Code 的原生客户端：K
 
 用户定的，改之前先问。
 
-- 手机版界面用 COUI 2（`io.github.suqi8.coui.kmp`）：组件、配色、文字样式默认用它自带的；它没有的在 `ui/components/coui2` 补。写法照它自带的指南（COUI 2 仓库里的 `.claude/skills/coui-app/`），Zeta 的补充件、常见选法和坑见 `docs/ui.md`。不提 Web UI 方案。功能从简。
-- 桌面版（`windows/`）的界面照 ChatGPT 的 Windows 客户端（原 Codex 客户端）：配色和快捷键照它，尺寸按鼠标；布局和交互是 Zeta 自己的，它做得好的地方拿来参考，不照搬手机版和 COUI 的交互；规矩见 `docs/desktop.md`「界面」。
+- 手机版界面用 Miuix（`top.yukonga.miuix.kmp`，HyperOS 4 的玻璃样式）：组件、配色、文字样式默认用它自带的；它没有的在 `ui/components/miuix` 补，Eta（也用 Miuix）里有现成写法的先从 Eta 拷来再改。组件参数以 Miuix 源码为准，Zeta 的补充件、常见选法和坑见 `docs/ui.md`。不提 Web UI 方案。功能从简。
+- 桌面版（`windows/`）的界面照 ChatGPT 的 Windows 客户端（原 Codex 客户端）：配色和快捷键照它，尺寸按鼠标；布局和交互是 Zeta 自己的，它做得好的地方拿来参考，不照搬手机版的交互；规矩见 `docs/desktop.md`「界面」。
 - Claude Code 就是 harness。Eta 里属于 harness 的部分不移植，比如终端。模型供应商只做成「中转」：每台设备的账号页里添加、切换第三方中转接入点，切过去只是让那台的 Claude Code 换用中转的 `ANTHROPIC_BASE_URL`、密钥和默认模型（claude-switch 的非账号目标，见 `docs/core.md`「账号与额度」），能替界面拉中转的模型列表；协议只有 Claude Code 自己会说的 Anthropic Messages，Zeta 不实现模型客户端和协议翻译。压缩上下文和起标题不自己实现，用 Claude Code 自带的；设置里的自动压缩、自动标题只是打开它们、设阈值。和 Eta 比缺什么时，只看手机与界面一侧；像 harness 的功能，先查 Claude Code 自己有没有。管理 Claude Code 自身配置的页面（记忆、Skills、MCP、Subagent）可以做，读写的是 Claude Code 的真实配置，不另造一套。
 - 默认有 root，不照搬 Eta 里兼容无 root 的部分。可选工具里 Go 排第一。
 - 版本号长期停在 0.x.x，不发 1.0。正式版的版本只在发版时升一次 patch（0.7.0 → 0.7.1），用户说了才升 minor；0.8.0 留给 Go 核心迁移全部做完（`docs/core.md`「进度」各步都做完，含撤掉 `shared/`），在那之前都发 0.7.x；合入不改版本号，测试版的版本跟着提交自动走（见「发版与上线」）。
-- Eta：本项目的参考来源，相关权利符合 GPLv3 标准。Eta 和 COUI 2 的上游是 github `Mangi-11/Eta`、`suqi8/coui`，对照前先把本地那份更新到最新。
+- Eta：本项目的参考来源，相关权利符合 GPLv3 标准。Eta 和 Miuix 的上游是 github `Mangi-11/Eta`、`compose-miuix-ui/miuix`，对照前先把本地那份更新到最新。
 
 ## 架构
 
@@ -29,7 +29,7 @@ Zeta 进程 → `su -c` → 管理器 BusyBox 的 `nsenter -t 1 -m` → 私有�
 - `core/voice/`：语音，只用手机自带的服务：`SpeechInput` 是和界面无关的识别（系统 `SpeechRecognizer`，HyperOS 上显式指定小米的识别服务，识别期间前台绑定它的进程才录得了音），输入栏的按住说话（`ui/chat/HoldToTalk.kt`）用它；`ReadAloud` 用系统默认的朗读引擎念回答（`SpeechText` 把 Markdown 换成念得顺的文字），出声期间开媒体播放类前台服务。
 - `phone/`：手机工具 `PhoneTools`（SDK 类型的 MCP 服务器 `phone`，每个对话一份；系统应用开给系统智能体的工具经 `phone/tools/AppTools.kt` 全部接入，工具清单运行时从各应用 APK 的 `assets/app_tools.json` 读；交给 Claude 的整份清单和每个工具的中文说法在 `PhoneToolCatalog`，工具权限页、聊天和胶囊都从这里取；屏幕这一套的定义在 `ScreenToolDefs`，暂停、接管的闸门是 `ControlGate`，对话的后台屏幕怎么建、睡、醒、释放在 `AgentDisplaySlot`），无障碍服务（启用、停用和被系统关掉后加回在 `AccessibilityGuard`），后台虚拟屏（`VirtualScreen`、root 帮手 `VdHelper`、`VdSurfaceProvider`，屏上应用不抢音频焦点的 `AudioFocusGuard`），悬浮层的接口 `Overlay.kt`；Zeta 之外的客户端（工作站上的 Claude Code，经 toolbox 的 `zeta-phone`）用手机工具走外部入口 `PhoneBridge`：抽象套接字 `<包名>.phone`，只认 root，由 `sudo zeta-helper phone-mcp <包名> <客户端标识>` 接上，按标识各一份手机工具、跨连接留着，后台屏幕和对话的一起算全应用的上限、一起被腾，断开后照样闲置休眠（回归 `tools/phone-tests/phone-bridge.sh`）；用着手机时顶部胶囊显示「电脑在操作」（回归 `tools/phone-tests/bridge-capsule.sh`）。
 - `assistant/`：数字助理（系统的助理会话、ASSIST 入口、浮窗 `AssistantActivity`、转给小米的识别服务）；`xposed/`：Zeta 自带的 LSPosed 模块，HyperOS 长按电源键交给 Zeta，并放行本包绑定系统应用的工具服务（正式版、测试版各带一个，各管各的）。做法、用户要启用的步骤和诊断见 `docs/assistant.md`。
-- `ui/`：盖在聊天页上的页面栈 `PageStack.kt`（一层层盖上去的页面都用 `ui/components/SlideInPage.kt`），聊天 `ui/chat`、侧栏 `ui/pane`、设置 `ui/settings`（首页 `SettingsScreen.kt`、各台主机的页面 `HostSettingsScreen.kt` 和各子页），Linux 环境和 Claude Code 配置页 `ui/setup`，后台任务面板 `ui/tasks`，Agent 浏览器 `ui/browser`、悬浮层 `ui/overlay`（顶部状态胶囊与展开画面、主屏边缘流光与触点指示、一轮结束后屏幕底部的结果卡片，都是无障碍服务的 TYPE_ACCESSIBILITY_OVERLAY 窗口；结果卡片弹不弹、何时收起见 `core/ResultCard.kt`）、Markdown 渲染、COUI 2 的补充件 `ui/components/coui2`。
+- `ui/`：盖在聊天页上的页面栈 `PageStack.kt`（一层层盖上去的页面都用 `ui/components/SlideInPage.kt`），聊天 `ui/chat`、侧栏 `ui/pane`、设置 `ui/settings`（首页 `SettingsScreen.kt`、各台主机的页面 `HostSettingsScreen.kt` 和各子页），Linux 环境和 Claude Code 配置页 `ui/setup`，后台任务面板 `ui/tasks`，Agent 浏览器 `ui/browser`、悬浮层 `ui/overlay`（顶部状态胶囊与展开画面、主屏边缘流光与触点指示、一轮结束后屏幕底部的结果卡片，都是无障碍服务的 TYPE_ACCESSIBILITY_OVERLAY 窗口；结果卡片弹不弹、何时收起见 `core/ResultCard.kt`）、Markdown 渲染、Miuix 的补充件 `ui/components/miuix`。
 - `windows/`（Go）：Windows 桌面版，用 Go 和 mygo 原生界面写，只经 SSH 用远程主机上的 Claude Code，手机一侧的功能都不带；设计、设置文件、安装包和功能见 `docs/desktop.md`。在 Linux 上开发和测试，测试前先跑 `windows/scripts/assets.sh` 放好它嵌进程序的 zeta-helper 和脚本。
 - `client/`（仓根，Go）：客户端共用的 Go 代码，和界面无关：SSH 直连与 OpenSSH 配置认证 `client/sshlink`，在主机上跑命令、按内容哈希装 zeta-helper、到 serve 的常驻连接与会话列表的格式 `client/hostlink`，测试用的 SSH 服务器 `client/sshtest`，输入草稿的规矩与存盘格式 `client/drafts`，以及 Android 直连用的程序 zeta-ssh（`client/cmd/zeta-ssh`，协议在 `client/sshbridge`，见 `docs/core.md`「Android 直连（zeta-ssh）」）。Windows 桌面版链接它（`windows/go.mod` 用 replace 指向 `../client`）；zeta-ssh 由 Gradle 任务 `zetaSsh` 编成 android/arm64，当原生库 `lib/arm64-v8a/libzeta_ssh.so` 打进 APK（安装时解到 `nativeLibraryDir`，那里的文件能执行），单元测试用 `zetaSshHost` 编的本机那一份。它的测试从 `helper/` 现编 zeta-helper，不依赖 `windows/` 的 assets。
 - `helper/`（仓根，Go）：Linux 一侧的程序 zeta-helper，常驻模式 `serve` 是 Go 核心的起点（一条连接上收发请求和推送，协议见 `helper/serve.go` 开头，往后怎么搬见 `docs/core.md`），另外读写 `~/.claude/projects` 下的会话（列表、历史、删除、改名等；列表和 Claude Code 自己的一样只读每份记录的头尾，见 `helper/sessions.go` 的 summarize），也做设置里存储页的统计和清理（`storage`、`clean`，删除规矩见 `helper/storage.go` 开头）、子代理查看页的增量读取（`subagent`）、文件浏览和共享文件夹的检查。构建时（Gradle 任务 `zetaHelper`）编成 linux 的 arm64、amd64 两份打进 assets；应用第一次用时按那边 `uname -m` 把对应的一份经标准输入装到 `~/.cache/<ZETA_NAME>/bin/zeta-helper-<版本>`，之后直接执行，版本是两份程序的哈希（`core/HelperProgram.kt`）。托管脚本 `zeta_host.sh` 和 Go 里起、接托管进程的连接（`host.Start`、`host.Attach`）在 `helper/host/`：脚本经 go:embed 编进 zeta-helper，Gradle 任务 `hostScript` 把它拷进 APK 的 assets，桌面版的 `windows/scripts/assets.sh` 也从这里取。只改它时 `cd helper && go test ./...`；Kotlin 的测试在临时 HOME 上跑本机架构的那一份（`TestHelper`），跑托管脚本的测试直接读 `helper/host/zeta_host.sh`。
@@ -128,7 +128,6 @@ Android SDK 取 `ANDROID_HOME`，默认 `~/Android/Sdk`。每次调用时才设�
 ## 坑
 
 - Linux 里的 `/workspace` 是 Android 的 `/data/local/zeta/workspace`（`LinuxEnv.WORKSPACE`）绑过去的，是用户自己的文件，正式版和测试版共用；它在 rootfs 外面，换环境、重装环境都不动它。Zeta 自己要建的目录放进 rootfs 里（共享文件夹挂在 `/mnt/shared`），不放在 `/workspace` 下。Zeta 不碰 Eta 的 `/data/local/tmp/eta`（别人设备上那可能是 Eta 正在用的工作区）；从前 `/workspace` 绑它的设备用 `tools/migrate-workspace.sh` 迁一次：原地改名到新目录，旧位置留一个指向新目录的符号链接，没升级的旧版本照样绑到同一份文件。
-- COUI 对话框按钮栏的 `neutral` 一律画成红色的危险按钮，三个按钮还会竖排挤掉内容；不危险的次要操作放菜单，或做成对话框内容里的链接。
 - app 不能给它的 `su` 子进程发信号（uid 不同），要经 root 杀（`LinuxEnv.kill`）。
 - Android 上 `Process.waitFor(超时)` 是 java.lang.Process 的默认实现，每 100 毫秒才看一次进程结束没有，每条命令平均白等约 50 毫秒；等进程用 `Process.exitsWithin`（`core/ProcessWait.kt`，`ProcessWaitTest` 拦着应用代码里带超时的 `waitFor`）。
 - Compose 在界面停止后只暂停动画帧，重组和测量照做：随回答流式输出频繁变的状态在整页读时经 `whileStarted`（`ui/components/Remembered.kt`），界面看不见时不跟着变。
