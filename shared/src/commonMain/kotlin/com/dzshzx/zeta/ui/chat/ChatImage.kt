@@ -42,6 +42,7 @@ import com.dzshzx.zeta.core.InlineImage
 import com.dzshzx.zeta.core.RemoteImage
 import com.dzshzx.zeta.core.ToolStep
 import com.dzshzx.zeta.core.WorkItem
+import com.dzshzx.zeta.core.str
 import com.dzshzx.zeta.i18n.Strings
 import com.dzshzx.zeta.ui.components.LocalHub
 import com.dzshzx.zeta.ui.components.coui2.ZetaIcons
@@ -52,8 +53,6 @@ import io.github.suqi8.coui.kmp.icon.extended.File
 import io.github.suqi8.coui.kmp.icon.extended.Folder
 import io.github.suqi8.coui.kmp.icon.extended.Image
 import io.github.suqi8.coui.kmp.theme.COUITheme
-import kotlinx.serialization.json.contentOrNull
-import kotlinx.serialization.json.jsonPrimitive
 
 /** 图片的载入结果：bitmap 为 null 表示取不到。 */
 class Loaded(val bitmap: ImageBitmap?)
@@ -64,15 +63,13 @@ val ChatImageShape = RoundedCornerShape(14.dp)
 /** 聊天页正显示的对话在哪台主机上（[Backends]）：会话记录、文件里的图片从那台取。由聊天页提供。 */
 val LocalBackend = staticCompositionLocalOf { Backends.LOCAL }
 
-/**
- * 回答里写的图片文件读不到（被删了、挪走了）时用哪张图代替：按路径找 Claude 用 Read 读这个文件时工具结果里的那张（[readImage]），
- * 它在会话记录里，跟着会话记录走。由聊天页、子代理页按各自的条目提供；没提供时不代替。
- */
+/** 按路径找 [readImage] 的函数：由聊天页、子代理页按各自的条目提供；没提供时不代替。 */
 val LocalReadImage = staticCompositionLocalOf<(String) -> ImageRef?> { { null } }
 
 /**
- * Claude 用 Read 读 [path] 时工具结果里的图，在 [items] 里找，读过几次取最后一次；没读过、结果里没图时为 null。
- * 只在回答里写的图片文件读不到时查一次（[LocalReadImage]），不在条目每次变化时预先建表。
+ * 回答里写的图片文件 [path] 读不到（被删了、挪走了）时用来代替的图：Claude 用 Read 读这个文件时工具结果里的那张，在 [items] 里找，
+ * 读过几次取最后一次；没读过、结果里没图时为 null。图在会话记录里，跟着会话记录走，Zeta 不另存。只在读文件失败时找
+ * （[rememberChatImage]），不在条目每次变化时预先建表。
  */
 fun readImage(items: List<ChatItem>, path: String): ImageRef? {
     for (item in items.asReversed()) {
@@ -80,14 +77,13 @@ fun readImage(items: List<ChatItem>, path: String): ImageRef? {
         for (step in steps.asReversed()) {
             val tool = step as? ToolStep ?: continue
             if (tool.name != "Read" || tool.images.isEmpty()) continue
-            if (tool.input?.get("file_path")?.jsonPrimitive?.contentOrNull == path)
-                return tool.images.first()
+            if (tool.input?.str("file_path") == path) return tool.images.first()
         }
     }
     return null
 }
 
-/** 取一张图：null 表示还在取。回答里写的图片文件读不到时改取 [LocalReadImage] 给的那张。 */
+/** 取一张图：null 表示还在取。回答里写的图片文件读不到时改取 [readImage] 的那张。 */
 @Composable
 fun rememberChatImage(ref: ImageRef): Loaded? {
     val hub = LocalHub.current

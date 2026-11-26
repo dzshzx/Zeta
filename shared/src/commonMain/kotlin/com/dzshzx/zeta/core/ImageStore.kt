@@ -63,13 +63,11 @@ object ImageStore {
             else -> ref.key
         }
 
-    /** 读不到、改用了别的图（[load] 的 fallback）的文件图，缓存在代替它的那张图的键下。 */
-    private val substitutes = ConcurrentHashMap<String, ImageRef>()
+    /** 取不到、改用了 [load] 的 fallback 的图：它的缓存键对代替它的那张图的缓存键（两处显示同一张图时共用一份缓存）。 */
+    private val substitutes = ConcurrentHashMap<String, String>()
 
-    private fun resolvedKey(ref: ImageRef, backend: String): String {
-        val key = cacheKey(ref, backend)
-        return substitutes[key]?.let { cacheKey(it, backend) } ?: key
-    }
+    private fun resolvedKey(ref: ImageRef, backend: String): String =
+        cacheKey(ref, backend).let { substitutes[it] ?: it }
 
     /** 正在取的图（按缓存键）：同一张图同时只取一次，几处一起显示时共用结果。 */
     private val loading = ConcurrentHashMap<String, Deferred<ImageBitmap?>>()
@@ -89,8 +87,7 @@ object ImageStore {
     }
 
     /**
-     * 取一张图。回答里写的图片文件（[FileImage]）读不到时，改取 [fallback] 给的图（Claude 用 Read 读这个文件时会话记录里留下的那张），
-     * 并记住这个替换，之后不再先去读文件。
+     * 取一张图。取不到时改取 [fallback] 给的图，并记住这个替换（[cached]、[original] 也给那张）；取不到的记在 [failed] 里， 之后不再重取它本身。
      */
     suspend fun load(
         hub: ConversationHub,
@@ -99,33 +96,38 @@ object ImageStore {
         fallback: () -> ImageRef? = { null },
     ): ImageBitmap? {
         val key = cacheKey(ref, backend)
-        substitutes[key]?.let {
-            return load(hub, it, backend)
-        }
-        loadOnce(hub, ref, backend, key)?.let {
+        substitutes[key]?.let(cache::get)?.let {
             return it
         }
-        if (ref !is FileImage) return null
+        loadOnce(hub, ref, backend)?.let {
+            return it
+        }
         val other = fallback() ?: return null
-        substitutes[key] = other
-        return load(hub, other, backend)
+        substitutes[key] = cacheKey(other, backend)
+        return loadOnce(hub, other, backend)
     }
 
     private suspend fun loadOnce(
         hub: ConversationHub,
         ref: ImageRef,
         backend: String,
-        key: String,
     ): ImageBitmap? {
+        val key = cacheKey(ref, backend)
         cache.get(key)?.let {
             return it
         }
         if (key in failed) return null
         val job =
             loading.computeIfAbsent(key) {
-                scope.async(start = CoroutineStart.LAZY) { fetchAndKeep(hub, ref, backend, key) }
+                // 先放进表再开始：取完时把自己从表里拿掉，不会赶在放进去之前
+                scope.async(start = CoroutineStart.LAZY) {
+                    try {
+                        fetchAndKeep(hub, ref, backend, key)
+                    } finally {
+                        loading.remove(key)
+                    }
+                }
             }
-        job.invokeOnCompletion { loading.remove(key, job) }
         job.start()
         return job.await()
     }

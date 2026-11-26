@@ -129,7 +129,7 @@ func (v *Viewer) step(d int) {
 
 // bitmap 是一张图在来源列表缓存里的载入结果。
 func (v *Viewer) bitmap(c *ui.Context, im items.Image) (*ui.Bitmap, bool, error) {
-	return v.from.images.get(c, im, v.from.fetcher)
+	return v.from.image(c, im)
 }
 
 // 看大图页上下留给两条栏的高度，左右留给翻页键的宽度。

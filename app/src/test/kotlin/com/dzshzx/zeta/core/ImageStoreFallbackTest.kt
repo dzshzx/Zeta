@@ -1,11 +1,10 @@
 package com.dzshzx.zeta.core
 
 import android.app.Application
-import android.graphics.Bitmap
+import android.graphics.Color
 import androidx.test.core.app.ApplicationProvider
 import com.dzshzx.zeta.shots.Fixtures
-import java.io.ByteArrayOutputStream
-import java.util.Base64
+import com.dzshzx.zeta.shots.testPicture
 import kotlinx.coroutines.runBlocking
 import org.junit.After
 import org.junit.Assert.assertEquals
@@ -27,19 +26,13 @@ class ImageStoreFallbackTest {
 
     @After fun clear() = ImageStore.clearMemory()
 
-    private fun pngBase64(width: Int, height: Int): String {
-        val out = ByteArrayOutputStream()
-        Bitmap.createBitmap(width, height, Bitmap.Config.ARGB_8888)
-            .compress(Bitmap.CompressFormat.PNG, 100, out)
-        return Base64.getEncoder().encodeToString(out.toByteArray())
-    }
-
     @Test
     fun missingFileFallsBackToTheReadImageAndRemembersIt() = runBlocking {
         val hub = Fixtures.readyHub(app)
         // 测试里没有 Linux 环境，手机本机的文件一律读不到，和文件被删了一样
         val file = FileImage("/workspace/gone/shot.png")
-        val read = InlineImage("t:read-shot", pngBase64(4, 3))
+        val read =
+            InlineImage("t:read-shot", testPicture(4, 3, Color.RED, "").substringAfter(";base64,"))
         val backend = Backends.LOCAL
 
         assertNull(ImageStore.load(hub, file, backend))

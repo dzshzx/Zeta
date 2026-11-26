@@ -224,7 +224,7 @@ fun ChatScreen(
                                 LocalTextFinder provides find,
                                 LocalBackend provides conversation.backend,
                                 LocalReadImage provides
-                                    remember(conversation) {
+                                    remember {
                                         { path: String -> readImage(conversation.items, path) }
                                     },
                                 LocalHub provides hub,

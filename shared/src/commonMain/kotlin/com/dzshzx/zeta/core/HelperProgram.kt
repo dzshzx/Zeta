@@ -141,7 +141,8 @@ class HelperProgram(
      */
     fun installCommand(binary: ByteArray): String {
         val sha = hex(MessageDigest.getInstance("SHA-256").digest(binary))
-        // 链接先建在临时名字上再改名换过去（rename 是原子的）：几处同时装时 ln -sfn 先删后建，会撞上别人刚建的链接而失败
+        // 和桌面版 client/hostlink 的 InstallCommand 是同一段命令（链接为什么先建在临时名字上见那里），两份都要拼成
+        // client/hostlink/testdata/install-command.txt（HelperProgramTest 核对）
         val link =
             if (name == ZETA_HELPER)
                 "l=\"\$d/${tempPrefix(name)}.link.\$\$\"; ln -sfn \"$name-$version\" \"\$l\" && mv -f \"\$l\" \"\$d/$name\"; "

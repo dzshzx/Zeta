@@ -160,4 +160,13 @@ class HelperProgramTest {
         assertEquals("amd64", HelperProgram.archOf("x86_64"))
         assertNull(HelperProgram.archOf("riscv64"))
     }
+
+    @Test
+    fun installCommandMatchesDesktop() {
+        // 桌面版 client/hostlink 的 InstallCommand 是同一段命令，并发安装由那边的 Go 测试钉住；这里核对两份拼出来一字不差。
+        // 输入同那边的 installFixture：两份空程序装到 zeta-test 下
+        val program = HelperProgram({ ByteArray(0) }, "zeta-test")
+        val want = File("../client/hostlink/testdata/install-command.txt").readText().trimEnd('\n')
+        assertEquals(want, program.installCommand("#!/bin/sh\necho ok\n".toByteArray()))
+    }
 }
