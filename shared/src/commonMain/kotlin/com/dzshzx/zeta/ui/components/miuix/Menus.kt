@@ -71,13 +71,19 @@ data class MenuItem(
 
 /**
  * 挂在旁边元素（胶囊、按钮、标题、设置行）上的下拉菜单，点一项就收起。和那个元素放进同一个 Box：`Box { 元素; AnchoredMenu(show, entries,
- * onDismiss) }`，菜单以那个 Box 为锚弹出。项可以带二级菜单（[MenuItem.children]），点那一项在旁边弹出下一层。
+ * onDismiss) }`，菜单以那个 Box 为锚弹出。项可以带二级菜单（[MenuItem.children]），点那一项在旁边弹出下一层。 [alignEnd]
+ * 为真时不管锚多宽都和它右边对齐、向左展开（行尾、靠右的图标按钮，居中会伸出所在的面板）。
  */
 @Composable
-fun BoxScope.AnchoredMenu(show: Boolean, entries: List<MenuEntry>, onDismiss: () -> Unit) {
+fun BoxScope.AnchoredMenu(
+    show: Boolean,
+    entries: List<MenuEntry>,
+    onDismiss: () -> Unit,
+    alignEnd: Boolean = false,
+) {
     val anchor = remember { MenuAnchor() }
     Box(Modifier.matchParentSize().onPlaced { anchor.coordinates = it })
-    GlassMenu(show, entries, anchor::bounds, onDismiss)
+    GlassMenu(show, entries, anchor::bounds, onDismiss, alignEnd = alignEnd)
 }
 
 /** 锚的布局坐标。会话列表、聊天气泡每一行都挂着菜单，位置不写进 Compose 状态（滚动时每帧都会变，写进状态就每帧重组一遍），菜单打开时才算一次窗口坐标。 */
@@ -98,13 +104,16 @@ internal fun GlassMenu(
     anchorBounds: () -> Rect,
     onDismiss: () -> Unit,
     onDismissFinished: () -> Unit = {},
+    alignEnd: Boolean = false,
 ) {
     val mounted = remember { mutableStateOf(show) }
     if (show) mounted.value = true
     if (!mounted.value) return
     val groups = remember(entries) { entries.filter { it.items.isNotEmpty() } }
     val finished by rememberUpdatedState(onDismissFinished)
-    MenuPopup(show, groups, mounted, remember(show) { anchorBounds() }, onDismiss) { finished() }
+    MenuPopup(show, groups, mounted, remember(show) { anchorBounds() }, alignEnd, onDismiss) {
+        finished()
+    }
 }
 
 /** 弹层本身：挂在最外层的 Miuix Scaffold 上，收起动画放完把 [mounted] 清掉、调 [onClosed]。 */
@@ -114,6 +123,7 @@ private fun MenuPopup(
     groups: List<MenuEntry>,
     mounted: MutableState<Boolean>,
     anchorBounds: Rect,
+    alignEnd: Boolean,
     onDismiss: () -> Unit,
     onClosed: () -> Unit,
 ) {
@@ -150,9 +160,11 @@ private fun MenuPopup(
         // 宿主底下让出键盘的高度，键盘升起时菜单就往上弹，不被盖住（回归：tools/phone-tests/ime-menu.sh）。
         // 用 imePadding 不手算：设置类页面的最外层 Scaffold 已经让出过键盘（MiuixPage），这里只补还没让出的那部分
         val density = LocalDensity.current
-        // 锚比菜单还宽（整行、整段内容）时和它的右边对齐，否则（胶囊、按钮）和它水平居中；贴着屏幕边的由 Miuix 收回窗口里
+        // 锚比菜单还宽（整行、整段内容）或要求向左展开（alignEnd）时和它的右边对齐，否则（胶囊、按钮）和它水平居中；
+        // 贴着屏幕边的由 Miuix 收回窗口里
         val alignment =
-            if (anchorBounds.width > with(density) { MenuSizing.maxWidth.toPx() }) Alignment.End
+            if (alignEnd || anchorBounds.width > with(density) { MenuSizing.maxWidth.toPx() })
+                Alignment.End
             else Alignment.CenterHorizontally
         // 弹出动画要看到 show 从假变真：Miuix 的 GlassPopup 用 animateFloatAsState，初值就是它第一次组合时的目标值，而这块内容由最外层
         // Scaffold 在打开之后才组合，直接传 show 就没有弹出动画（收起时有）。所以先按收着组合，下一帧再打开。
@@ -301,8 +313,8 @@ fun RowMoreMenu(
 }
 
 /**
- * 平的图标按钮加以它为锚的菜单（[RowMoreMenu]、侧栏的排序按钮）：菜单展开时按钮保持按下的样子，点一项就收起。 [stateDescription]
- * 是读屏在名字之后念的状态（比如当前选的是哪一项），没有就不念。
+ * 平的图标按钮加以它为锚的菜单（[RowMoreMenu]、侧栏的排序按钮）：菜单展开时按钮保持按下的样子，点一项就收起。这类按钮都在行尾， 菜单和按钮右边对齐、向左展开，不伸出所在的面板。
+ * [stateDescription] 是读屏在名字之后念的状态（比如当前选的是哪一项），没有就不念。
  */
 @Composable
 fun IconMenuButton(
@@ -329,6 +341,11 @@ fun IconMenuButton(
             tint = MiuixTheme.colorScheme.onBackgroundVariant,
             onClick = { expanded = true },
         )
-        AnchoredMenu(show = expanded, entries = entries, onDismiss = { expanded = false })
+        AnchoredMenu(
+            show = expanded,
+            entries = entries,
+            onDismiss = { expanded = false },
+            alignEnd = true,
+        )
     }
 }

@@ -19,6 +19,7 @@ import androidx.compose.ui.unit.dp
 import com.dzshzx.zeta.shots.ShotTest
 import com.dzshzx.zeta.ui.app.ZetaTheme
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertTrue
 import org.junit.Test
 import top.yukonga.miuix.kmp.basic.Scaffold
 import top.yukonga.miuix.kmp.glass.GlassPopupDefaults
@@ -29,7 +30,7 @@ import top.yukonga.miuix.kmp.glass.GlassPopupDefaults
  */
 class MenuPopupTest : ShotTest() {
     /** 打开挂在 [width] 宽、屏幕中间的元素上的菜单，返回元素和菜单项的位置。 */
-    private fun openMenu(width: Dp): Pair<DpRect, DpRect> {
+    private fun openMenu(width: Dp, alignEnd: Boolean = false): Pair<DpRect, DpRect> {
         var show by mutableStateOf(false)
         compose.mainClock.autoAdvance = false
         compose.setContent {
@@ -42,6 +43,7 @@ class MenuPopupTest : ShotTest() {
                                 show = show,
                                 entries = listOf(MenuEntry(listOf(MenuItem("复制", onClick = {})))),
                                 onDismiss = { show = false },
+                                alignEnd = alignEnd,
                             )
                         }
                     }
@@ -66,5 +68,18 @@ class MenuPopupTest : ShotTest() {
         val (anchor, menu) = openMenu(320.dp)
         // 菜单项的边界比面板每边窄一个按下底色的内缩
         assertEquals((anchor.right - GlassPopupDefaults.ItemPressInset).value, menu.right.value, 1f)
+    }
+
+    /** 行尾的图标按钮（alignEnd）：再窄也和它右边对齐，向左展开。 */
+    @Test
+    fun rightAlignedWhenAskedOnNarrowAnchor() {
+        val (anchor, menu) = openMenu(36.dp, alignEnd = true)
+        // 右边贴着按钮（差不过一个按下底色的内缩），整个菜单在按钮左边展开
+        assertEquals(
+            anchor.right.value,
+            menu.right.value,
+            GlassPopupDefaults.ItemPressInset.value + 1f,
+        )
+        assertTrue(menu.left < anchor.left - 100.dp)
     }
 }
