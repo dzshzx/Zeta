@@ -14,11 +14,14 @@ type Session struct {
 	Preview string `json:"preview"`
 	// PreviewCode 是 Preview 是核心写的占位（只发了图时的「[图片]」）时它的种类码（核心文字表的键，docs/i18n.md），
 	// 界面按自己的语言出字；预览是用户原话时为空
-	PreviewCode string `json:"preview_code"`
-	Updated     int64  `json:"updated"`  // 毫秒
-	External    bool   `json:"external"` // 正被 Zeta 之外的 Claude Code 进程占着（比如终端里开着）
-	Archived    bool   `json:"archived"`
-	Pinned      bool   `json:"pinned"` // 置顶了（标记在那台的核心里，sessions.pin）
+	PreviewCode string  `json:"preview_code"`
+	Updated     int64   `json:"updated"`  // 毫秒
+	Created     int64   `json:"created"`  // 发起时间（毫秒）：记录里第一条带时刻的
+	Replied     int64   `json:"replied"`  // 最新回答时间（毫秒）：最后一次回答完的时刻，还没回答过时同 Created
+	Rank        float64 `json:"rank"`     // 手动排序的位置，大的在上面：拖过的是 sessions.order 记下的，没拖过的同 Created
+	External    bool    `json:"external"` // 正被 Zeta 之外的 Claude Code 进程占着（比如终端里开着）
+	Archived    bool    `json:"archived"`
+	Pinned      bool    `json:"pinned"` // 置顶了（标记在那台的核心里，sessions.pin）
 	// Ended：没有活着的 Claude Code 进程登记着它（核心给的 live 为假）。核心比客户端旧、没给 live 时，
 	// 和客户端自己拼的会话一样是零值，当作还在运行。
 	Ended   bool   `json:"-"`

@@ -386,6 +386,12 @@ func TestSessionsWritesPushAtOnce(t *testing.T) {
 	views[b][sessionA]["pinned"] = false
 	both(field("pinned", false))
 
+	a.ok("sessions.order", `"session":"`+sessionA+`","rank":12.5`)
+	both(func(v map[string]obj) bool { return v[sessionA] != nil && fmt.Sprint(v[sessionA]["rank"]) == "12.5" })
+	if r := a.call("sessions.order", `"session":"`+sessionA+`"`); r["ok"] == true {
+		t.Errorf("sessions.order without rank: %v", r)
+	}
+
 	b.ok("sessions.rename", `"session":"`+sessionA+`","title":"新名字"`)
 	both(field("title", "新名字"))
 	a.ok("sessions.archive", `"session":"`+sessionA+`","archived":true`)

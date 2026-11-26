@@ -290,7 +290,7 @@ func (w *sessionWatch) snapshot() []obj {
 	return items
 }
 
-// summaryOf 是记录 path 的概要：大小和修改时刻都没变时用上次读的。读不了时 ok 为假。
+// summaryOf 是记录 path 的概要：大小和修改时刻都没变时用上次读的。只是变长了时，最新回答时间只往回找到上次的大小（replyMark）。读不了时 ok 为假。
 func (w *sessionWatch) summaryOf(path string) (cached, bool) {
 	fi, err := os.Stat(path)
 	if err != nil {
@@ -300,7 +300,11 @@ func (w *sessionWatch) summaryOf(path string) (cached, bool) {
 	if c, ok := w.cache[path]; ok && c.size == size && c.mtime == mtime {
 		return c, true
 	}
-	s, ok, err := summarize(path)
+	var known replyMark
+	if c, ok := w.cache[path]; ok && c.ok && c.size < size {
+		known = replyMark{size: c.size, at: c.s.replied}
+	}
+	s, ok, err := summarizeAfter(path, known)
 	if err != nil {
 		return cached{}, false
 	}

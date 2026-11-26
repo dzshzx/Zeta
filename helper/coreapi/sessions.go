@@ -55,6 +55,11 @@ func (cl *Client) PinSession(ctx context.Context, session string, pinned bool) e
 	return call(ctx, cl.c, "sessions.pin", params{"session": session, "pinned": pinned})
 }
 
+// OrderSession 把会话在手动排序里的位置记成 rank（sessions.order）：大的在上面，没拖过的会话位置是它的发起时间。
+func (cl *Client) OrderSession(ctx context.Context, session string, rank float64) error {
+	return call(ctx, cl.c, "sessions.order", params{"session": session, "rank": rank})
+}
+
 // DeletedRecord 是删掉的一份会话记录：Dir 是它的同名目录删没删掉。
 type DeletedRecord struct {
 	File string `json:"file"`

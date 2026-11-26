@@ -2,6 +2,7 @@ package main
 
 import (
 	"bytes"
+	"cmp"
 	"encoding/json"
 	"errors"
 	"io"
@@ -29,13 +30,24 @@ type summary struct {
 	title   string
 	preview string
 	updated int64
+	created int64 // 发起时间：记录里第一条带时刻的（毫秒）；没有时同 updated
+	replied int64 // 最后一次回答完的时刻（isReply，毫秒）；还没回答过时是 0，列表项里的 replied 这时用 created
 }
 
 // item 是列表里的这一项（zeta_sessions 的 upsert、sessions.lookup 的每一项），带上 marks 里它的标记。
 func (s summary) item(marks sessionMarks) obj {
 	return obj{"id": s.id, "file": s.file, "cwd": s.cwd, "title": s.title, "preview": s.preview, "preview_code": s.previewCode(), "updated": s.updated,
+		"created": s.created, "replied": cmp.Or(s.replied, s.created), "rank": s.rank(marks),
 		"external": marks.external[s.id], "archived": marks.archived[s.id], "pinned": marks.pinned[s.id],
 		"live": marks.live[s.id]}
+}
+
+// rank 是手动排序的位置：拖过的取 sessions.order 记下的，没拖过的是发起时间。
+func (s summary) rank(marks sessionMarks) float64 {
+	if r, ok := marks.order[s.id]; ok {
+		return r
+	}
+	return float64(s.created)
 }
 
 // imagePreview 是只发了图的那条消息在预览里的样子（源语言）；推给客户端时另带种类码 previewImage，客户端按自己的语言出字。
@@ -54,6 +66,8 @@ type summaryScan struct {
 	custom, ai    string // 改过的名字、自动起的标题
 	first, prompt string // 第一句话（含斜杠命令）、第一句真正的话
 	cwd           any
+	created       int64 // 第一条带时刻的行
+	replied       int64 // 读到的最后一次回答完（isReply）
 	// 开头读过 liteBytes 还没找到第一句真正的话：不再找，预览用第一句话（结尾那段里的话不是“第一句”）；
 	// 剪到第一条消息之前时重新找
 	settled bool
@@ -68,7 +82,11 @@ const liteBytes = 64 * 1024
 // 开头读到第一句真正的话为止，首句是斜杠命令时再往后找，过了 liteBytes 就不找了，预览用那条斜杠命令；
 // 结尾读最后 liteBytes 取标题：Claude Code 补写元数据时把改过的名字、自动起的标题再追加到末尾，最新的标题总在那里。
 // 中间剪切过（剪到第一条消息之前）的会话，剪切记号不在头尾时预览还是剪掉之前的那句。
-func summarize(path string) (summary, bool, error) {
+func summarize(path string) (summary, bool, error) { return summarizeAfter(path, replyMark{}) }
+
+// summarizeAfter 同 summarize；known 是上次读这份记录时的 replyMark：文件只是变长了时，结尾那段里没有回答就只往回找到 known.size，
+// 再往前的用 known.at。
+func summarizeAfter(path string, known replyMark) (summary, bool, error) {
 	f, err := openFile(path)
 	if err != nil {
 		return summary{}, false, err
@@ -83,7 +101,13 @@ func summarize(path string) (summary, bool, error) {
 	if err != nil {
 		return summary{}, false, err
 	}
-	if err := s.tail(f, read, fi.Size()); err != nil {
+	headReply := s.replied
+	s.replied = 0
+	tailStart, err := s.tail(f, read, fi.Size())
+	if err != nil {
+		return summary{}, false, err
+	}
+	if err := s.findReply(f, read, tailStart, headReply, known, fi.Size()); err != nil {
 		return summary{}, false, err
 	}
 	if s.first == "" {
@@ -97,8 +121,10 @@ func summarize(path string) (summary, bool, error) {
 	if preview == "" {
 		preview = s.first
 	}
+	updated := millis(mtimeOf(fi))
+	created := cmp.Or(s.created, updated)
 	return summary{id: dropRunes(baseName(path), 6), file: path, cwd: orValue(s.cwd, ""), title: title,
-		preview: runePrefix(preview, 200), updated: millis(mtimeOf(fi))}, true, nil
+		preview: runePrefix(preview, 200), updated: updated, created: created, replied: s.replied}, true, nil
 }
 
 // head 从头逐行读到第一句真正的话；首句是斜杠命令时接着找，读过 liteBytes 就停。返回读到哪里（最后读的那行的末尾）。
@@ -121,10 +147,11 @@ func (s *summaryScan) head(f *os.File) (int64, error) {
 }
 
 // tail 读 [from, size) 里最后至多 liteBytes 字节中的整行：开头落在一行中间时那半行不要；最后一行没写完的照样读（同 head）。
-func (s *summaryScan) tail(f *os.File, from, size int64) error {
+// 返回读的第一行的行首（往回找回答时找到这里为止，被丢掉的那半行整行留给往回找）；一行也没读时是 size。
+func (s *summaryScan) tail(f *os.File, from, size int64) (int64, error) {
 	start := max(from, size-liteBytes)
 	if start >= size {
-		return nil
+		return size, nil
 	}
 	// 从 head 读到的地方往后接着读时正是一行的开头；否则多读前一个字节，它是换行才说明 start 是一行的开头
 	cut := start > from
@@ -134,24 +161,57 @@ func (s *summaryScan) tail(f *os.File, from, size int64) error {
 	buf := make([]byte, size-start)
 	n, err := f.ReadAt(buf, start)
 	if err != nil && err != io.EOF {
-		return err
+		return size, err
 	}
 	buf = buf[:n]
 	if cut {
 		i := bytes.IndexByte(buf, '\n')
 		if i < 0 {
-			return nil
+			return size, nil
 		}
 		buf = buf[i+1:]
+		start += int64(i) + 1
 	}
 	lr := newLineReaderSize(bytes.NewReader(buf), liteBytes)
 	for line, ok := lr.next(); ok; line, ok = lr.next() {
 		s.line(line)
 	}
-	return lr.err
+	return start, lr.err
+}
+
+// findReply 定下最新回答时间：结尾那段（从 tailStart 起）里有就用它；没有时往回找 [read, tailStart)，
+// 文件只是在 known 之后变长了时只找到 known.size 为止，再往前的用 known.at；都没有时用开头那段（headReply）里的。
+func (s *summaryScan) findReply(f *os.File, read, tailStart, headReply int64, known replyMark, size int64) error {
+	if s.replied > 0 {
+		return nil
+	}
+	lo, before := read, headReply
+	if known.size > read && known.size <= size {
+		lo, before = known.size, known.at
+	}
+	if lo < tailStart {
+		at, err := lastReplyIn(f, lo, tailStart)
+		if err != nil {
+			return err
+		}
+		s.replied = at
+	}
+	if s.replied == 0 {
+		s.replied = before
+	}
+	return nil
 }
 
 func (s *summaryScan) line(line []byte) {
+	if s.created == 0 && has(line, `"timestamp":"`) {
+		if o, ok := parseObject(line); ok {
+			s.created = entryTime(o)
+		}
+	}
+	if at, ok := isReply(line); ok {
+		s.replied = at
+		return
+	}
 	// 先按子串筛，绝大多数行（请求快照等）不必解析
 	switch {
 	case has(line, `"ai-title"`) || has(line, `"custom-title"`):
@@ -286,10 +346,11 @@ func lookupSessions(e *env, ids []string) []obj {
 
 // sessionMarks 是列表每一项要带的几样标记，按会话 id。
 type sessionMarks struct {
-	external map[string]bool // 正被别的 Claude Code 进程占着（outsideRegistrations）
-	live     map[string]bool // 有还活着的 Claude Code 进程（Zeta 托管的、终端里的都算）；没有的是已结束的会话
-	archived map[string]bool // 归档了
-	pinned   map[string]bool // 置顶了
+	external map[string]bool    // 正被别的 Claude Code 进程占着（outsideRegistrations）
+	live     map[string]bool    // 有还活着的 Claude Code 进程（Zeta 托管的、终端里的都算）；没有的是已结束的会话
+	archived map[string]bool    // 归档了
+	pinned   map[string]bool    // 置顶了
+	order    map[string]float64 // 手动排序拖过的位置（sessionOrder）
 }
 
 func (e *env) sessionMarks() sessionMarks {
@@ -304,7 +365,8 @@ func (e *env) sessionMarks() sessionMarks {
 			external[id] = true
 		}
 	}
-	return sessionMarks{external: external, live: live, archived: e.archivedSessions(), pinned: e.pinnedSessions()}
+	return sessionMarks{external: external, live: live, archived: e.archivedSessions(), pinned: e.pinnedSessions(),
+		order: e.sessionOrder()}
 }
 
 // liveSessions 是有活着的进程的会话 id。不查进程归哪个托管目录（那要读进程的环境和记录末尾）：

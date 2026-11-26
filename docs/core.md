@@ -1,4 +1,5 @@
-# Go 核心
+| `sessions.order` | `session`、`rank` | 手动排序：把会话的位置记成 `rank`（有限的数，大的在上面），只是 Zeta 的标记，记录不动。标记在 `~/.config/<ZETA_NAME>/order`，一行「会话号 位置」，改时持着 `order.lock`，顺手清掉记录已经不在的。客户端拖动时取拖到的上下两个邻居的 `rank` 的中间值（拖到最上面、最下面时比邻居大、小一截），只发给被拖的会话所在的那台；几台设备的会话都按 `rank` 放在一起排。`result` 是 `{rank}` |
+| `sessions.lookup` | `sessions`（会话号的数组） | `result` 是会话摘要的数组，每项和 `zeta_sessions` 推送里 `upsert` 的一项相同（`{id, file, cwd, title, preview, updated, created, replied, rank, external, archived, pinned, live}`）# Go 核心
 
 Zeta 的逻辑往 Go 写的核心里搬：核心是每台主机（手机的 Debian、远程主机）上的 `zeta-helper serve`，客户端只剩界面和平台专有的功能。这一页写目标、现在做到哪一步、接下来按什么顺序做。
 
@@ -24,7 +25,7 @@ Zeta 的逻辑往 Go 写的核心里搬：核心是每台主机（手机的 Debi
 - 请求带 `id` 和 `method`，每个请求回一行 `zeta_reply`；订阅类的方法之后另有推送。客户端要按原因分别处理的错误带 `code`（各方法的说明里列着），没带的只给人看。慢的方法（`config.`、`accounts.`、`quota.`、`storage.`、`files.`、`images.`、`system.`，以及 `conv.` 里要等 Claude Code 应答或等别处进程的：`conv.earlier`、`conv.quota`、`conv.task_output`、`conv.code_changes`、`conv.occupant`、`conv.handoff`，`sessions.` 里订阅以外的，见「会话」）各自做完再答，不挡着同一条连接后面的请求，应答的先后不一定和请求一样，客户端按 `id` 对应答。
 - 客户端每 30 秒发一次 `ping`；serve 输入结束或 90 秒收不到任何一行就退出，不在主机上留下没人用的进程。
 - 版本：每个客户端起自己那个版本的 serve（程序按内容哈希装，见 `HelperProgram`），serve 只转发；同一个包只有一个核心，版本新的接手（见「目标」）。
-- 会话列表：`sessions.watch` 订阅，先推一行整份的 `zeta_sessions`（`full` 为真），之后会话目录有变化时只推变了的几项（`helper/watch.go`）；再发一次再给一份整份的；`sessions.unwatch` 退订，同一条连接上可以接着做别的。每一项是 `{id, file, cwd, title, preview, updated, external, archived, pinned, live}`（`live`：有还活着的 Claude Code 进程登记着这个会话，Zeta 托管的、终端里的都算；为假是已结束的会话，侧栏灰着显示。进程被杀时登记文件常常留着，所以订阅每 10 秒还核对一次登记的进程在不在，变了就推）；列的是最新的 300 个会话，加上置顶了却不在这 300 个里的（排在最后），所以置顶的总在列表里。
+- 会话列表：`sessions.watch` 订阅，先推一行整份的 `zeta_sessions`（`full` 为真），之后会话目录有变化时只推变了的几项（`helper/watch.go`）；再发一次再给一份整份的；`sessions.unwatch` 退订，同一条连接上可以接着做别的。每一项是 `{id, file, cwd, title, preview, updated, created, replied, rank, external, archived, pinned, live}`（`updated` 是记录文件的修改时刻，工具结果、元数据写进去也会变；侧栏排序用的三个：`created` 发起时间，取记录里第一条带 `timestamp` 的行；`replied` 最新回答时间，取最后一条主线上回答完的 assistant 消息（`stop_reason` 有值且不是 `tool_use`、`pause_turn`，子代理的不算）的 `timestamp`，工具结果和正在进行的一轮都不改它，还没回答过时同 `created`，读法见 `helper/sessiontimes.go`；`rank` 手动排序的位置，大的在上面，拖过的是 `sessions.order` 记下的，没拖过的同 `created`，所以新会话在最上面、几台设备的会话能放在一起比。时刻都是毫秒。`live`：有还活着的 Claude Code 进程登记着这个会话，Zeta 托管的、终端里的都算；为假是已结束的会话，侧栏灰着显示。进程被杀时登记文件常常留着，所以订阅每 10 秒还核对一次登记的进程在不在，变了就推）；列的是最新的 300 个会话，加上置顶了却不在这 300 个里的（排在最后），所以置顶的总在列表里。
 - 协议里的类型和客户端也要照着做的规则（导出文件名与几份导出的合成、标题怎么清理、接管的类型与状态、错误代号、任务清单的项、子代理页的状态）在 `helper/sessionproto`：只放类型、常量和纯函数，不依赖核心的其余部分，核心和 Go 写的客户端（Windows）都导入它，不各写一份。
 - Go 写的客户端调核心经 `helper/coreapi`：下面各表里的每个请求方法在那里有一个带类型的函数（参数是 Go 参数或结构体，结果解成结构体），客户端不自己拼方法名、参数和结果类型；推送不经它，客户端自己解。加方法、改名时这里的表和 `coreapi` 一起改，`TestMethodsMatchTheDocs` 核对两边一一对上。
 

@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"math"
 	"slices"
 	"sync"
 	"time"
@@ -33,6 +34,7 @@ type sessionParams struct {
 	Title    string   `json:"title"`
 	Archived bool     `json:"archived"`
 	Pinned   bool     `json:"pinned"`
+	Rank     *float64 `json:"rank"`
 	Sessions []string `json:"sessions"`
 	File     string   `json:"file"`
 	Ref      string   `json:"ref"`
@@ -54,6 +56,7 @@ var sessionMethods = map[string]sessionMethod{
 	"sessions.occupant":   {run: sessionOps.occupant, session: true},
 	"sessions.archive":    {run: sessionOps.archive, session: true, push: true},
 	"sessions.pin":        {run: sessionOps.pin, session: true, push: true},
+	"sessions.order":      {run: sessionOps.order, session: true, push: true},
 	"sessions.delete":     {run: sessionOps.deleteSession, session: true, push: true},
 	"sessions.end":        {run: sessionOps.end, session: true, push: true},
 	"sessions.export":     {run: sessionOps.export},
@@ -227,6 +230,20 @@ func (h sessionOps) pin(q sessionParams) (any, error) {
 		return nil, err
 	}
 	return obj{"pinned": q.Pinned}, nil
+}
+
+// order 记下手动排序里会话的位置（orderSession）。
+func (h sessionOps) order(q sessionParams) (any, error) {
+	if q.Rank == nil || math.IsInf(*q.Rank, 0) || math.IsNaN(*q.Rank) {
+		return nil, errors.New("bad params: rank must be a finite number")
+	}
+	if len(h.e.sessionFilesNamed(q.Session)) == 0 {
+		return nil, errNoSession
+	}
+	if err := orderSession(h.e, q.Session, *q.Rank); err != nil {
+		return nil, err
+	}
+	return obj{"rank": *q.Rank}, nil
 }
 
 func (h sessionOps) deleteSession(q sessionParams) (any, error) {
