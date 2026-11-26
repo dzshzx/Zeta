@@ -115,7 +115,7 @@ Android SDK 取 `ANDROID_HOME`，默认 `~/Android/Sdk`。每次调用时才设�
 ## 发版与上线
 
 - 合入：`wt land`，不改版本号、不发版；改了设备上的行为，先用 `tools/phone-run` 跑相关的 `tools/phone-tests/`。
-- 上线（用户对这个版本说了才做）：跑 fleet-state 的 `tools/rollout/rollout release Zeta`（用户说了才加 `--bump minor`），它派发 `release.yml` 并等它跑完，失败修好后用同一条命令重跑。默认不跑全量门禁（合入门禁与每晚 CI 已查过），用户要时加 `--gate`；要先确认能走通时加 `--dry-run`。发版不跑设备测试。
+- 上线（正式发版由用户发起）：跑 fleet-state 的 `tools/rollout/rollout release Zeta`（用户说了才加 `--bump minor`），它派发 `release.yml` 并等它跑完，失败修好后用同一条命令重跑。默认不跑全量门禁（合入门禁与每晚 CI 已查过），用户要时加 `--gate`；要先确认能走通时加 `--dry-run`。发版不跑设备测试。
 - 其余见 `docs/release.md`。
 
 ## 边界
