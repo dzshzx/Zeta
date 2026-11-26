@@ -20,7 +20,7 @@ import (
 	"github.com/dzshzx/Zeta/helper/sessionproto"
 )
 
-const listLimit = 300 // list、search 只看最新的这么多个会话
+const listLimit = 100 // list、search 只看最新的这么多个会话
 
 // summary 是会话列表里的一项。
 type summary struct {
