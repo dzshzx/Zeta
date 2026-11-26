@@ -51,6 +51,13 @@ func (a *App) toggleSidebar() {
 // frame 排侧栏和右边的页 main：侧栏开着时两者之间是能拖的分隔线；收起时 main 占满，左上角浮着展开侧栏和新对话两个按钮。
 // 在设置里时侧栏是设置的分类，收起了也照样显示。
 func (a *App) frame(c *ui.Context, main func()) {
+	// 侧栏收起、进了设置、行被滤掉时没建到菜单开着的那一行，清掉记着的（见 sessionOps.moreOpen）
+	a.ops.moreSeen = false
+	defer func() {
+		if !a.ops.moreSeen {
+			a.ops.moreOpen = ""
+		}
+	}()
 	l := &a.layout
 	if l.hidden && !a.inSettings() {
 		ui.Box(c).Fill().Children(func() {

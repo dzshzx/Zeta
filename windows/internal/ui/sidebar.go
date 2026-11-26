@@ -189,7 +189,8 @@ func (a *App) sessionRow(c *ui.Context, s hostlink.Session, snippet string) {
 	if hasDraft {
 		place += "\n" + locales.SidebarDraftLine(draft)
 	}
-	row := ui.Row(c.Key(s.Backend+"/"+s.ID)).Margin(0.5, 10).MinHeight(36).Padding(0, 6, 0, 10).Gap(8).AlignItems(ui.Center).
+	key := hub.Key(s)
+	row := ui.Row(c.Key(key)).Margin(0.5, 10).MinHeight(36).Padding(0, 6, 0, 10).Gap(8).AlignItems(ui.Center).
 		Focusable().Label(rowTitle(s)).Description(place).Role(ui.RoleButton).Cursor(ui.CursorPointer)
 	a.rowCard(c, row, s, draft, hasDraft, needle != "")
 	if snippet != "" {
@@ -198,7 +199,7 @@ func (a *App) sessionRow(c *ui.Context, s hostlink.Session, snippet string) {
 	// 标题照 ChatGPT 客户端用次要色，开着的、选中的用正文色，一眼找到当前那个；
 	// 已结束（没有活着的 Claude Code 进程）的再浅一级：一眼看出哪些还占着机器（同手机版）
 	hovered := row.Hovered()
-	chosen := a.ops.selected[hub.Key(s)]
+	chosen := a.ops.selected[key]
 	titleInk := k.Secondary
 	switch {
 	case s.Ended:
@@ -242,16 +243,12 @@ func (a *App) sessionRow(c *ui.Context, s hostlink.Session, snippet string) {
 		} else if pinned && !hovered {
 			ui.Icon(c, widget.IconPin).Size(14, 14).TextColor(k.Tertiary).Shrink(0).Label(locales.SidebarPinned())
 		}
-		if key := hub.Key(s); hovered || current || chosen || a.ops.moreOpen == key {
-			// 菜单开着时照建按钮（见 sessionOps.moreOpen）
-			open := a.ops.moreOpen == key
+		// 菜单开着时照建按钮（见 sessionOps.moreOpen）
+		if open := a.ops.moreOpen == key; hovered || current || chosen || open {
 			more := ui.ButtonBase(c.Key("more")).PopoverMenuButton(func(m *ui.Menu) { a.sessionMenu(m, s) },
 				ui.PopoverMenuButtonOptions{Open: &open})
-			switch {
-			case open:
-				a.ops.moreOpen = key
-			case a.ops.moreOpen == key:
-				a.ops.moreOpen = ""
+			if open {
+				a.ops.moreOpen, a.ops.moreSeen = key, true
 			}
 			widget.FlatButtonOf(c, more, widget.IconMore, locales.SidebarRowActions(), 24, 16)
 		}

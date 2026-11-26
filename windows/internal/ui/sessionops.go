@@ -27,8 +27,10 @@ type sessionOps struct {
 	anchor   string          // 上次不带 Shift 点的那个（hub.Key），Shift+点击从它选起
 	archived bool            // 侧栏在看归档
 	// moreOpen 是行尾「…」的菜单开着的那一行（hub.Key）：按钮平时只在悬停时出现，菜单开着时也要照建，
-	// 不然鼠标一移到菜单上行就不算悬停，按钮不建，mygo 连菜单一起收掉
+	// 不然鼠标一移到菜单上行就不算悬停，按钮不建，mygo 连菜单一起收掉。moreSeen 是这一帧建到了菜单开着的那一行：
+	// 一帧建完没建到（菜单关了、行被搜索滤掉、侧栏收起、进了设置）就清掉 moreOpen（App.frame），免得那一行再出现时菜单自己弹开
 	moreOpen string
+	moreSeen bool
 
 	renaming struct {
 		target hostlink.Session

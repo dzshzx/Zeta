@@ -167,7 +167,7 @@ func (f *fixture) darkestInk(t *testing.T, text string) int {
 }
 
 // 行尾「…」只在悬停时出现；点开它的菜单后鼠标移到菜单上、或移出行和菜单，菜单都还开着（按钮不随悬停消失，
-// 不然 mygo 连菜单一起收掉）；Esc 关掉后不再记着这一行。
+// 不然 mygo 连菜单一起收掉）；Esc 关掉后不再记着这一行；菜单开着时这一行被搜索滤掉，再出现时菜单不自己弹开。
 func TestRowMoreMenuStaysOpenOffRow(t *testing.T) {
 	f := newChatFixture(t)
 	f.devices.Push(f.id, hostlink.SessionsUpdate{Upsert: []hostlink.Session{
@@ -178,33 +178,45 @@ func TestRowMoreMenuStaysOpenOffRow(t *testing.T) {
 	if !ok {
 		t.Fatalf("没有这一行：%q", f.tt.Texts())
 	}
-	f.tt.Move(r.X+r.W/2, r.Y+r.H/2)
-	f.tt.Frame()
-	if err := f.tt.Click("会话操作"); err != nil {
-		t.Fatal(err)
+	open := func() {
+		f.tt.Move(r.X+r.W/2, r.Y+r.H/2)
+		f.tt.Frame()
+		f.click(t, "会话操作")
+		f.tt.Frame()
 	}
-	f.tt.Frame()
+	open()
 	item, ok := f.tt.Find("重命名")
 	if !ok {
 		t.Fatalf("菜单没打开：%q", f.tt.Texts())
 	}
-	for _, at := range []struct {
+	for _, p := range []struct {
 		where string
 		x, y  float32
 	}{
 		{"菜单上", item.X + item.W/2, item.Y + item.H/2},
 		{"行和菜单之外", item.X + item.W/2, r.Y - 40},
 	} {
-		f.tt.Move(at.x, at.y)
+		f.tt.Move(p.x, p.y)
 		f.tt.Frame()
 		if len(f.tt.Menu()) == 0 {
-			t.Fatalf("鼠标移到%s，菜单没了", at.where)
+			t.Fatalf("鼠标移到%s，菜单没了", p.where)
 		}
 	}
 	f.tt.Key(0, ui.KeyEscape)
 	f.tt.Frame()
 	if len(f.tt.Menu()) != 0 || f.app.ops.moreOpen != "" {
 		t.Fatalf("Esc 后菜单 %q，记着的行 %q", f.tt.Menu(), f.app.ops.moreOpen)
+	}
+	open()
+	f.tt.Move(1, 1)
+	f.app.query = "没有这个词"
+	f.tt.Frame()
+	f.tt.Frame()
+	f.app.query = ""
+	f.tt.Frame()
+	f.tt.Frame()
+	if len(f.tt.Menu()) != 0 {
+		t.Fatalf("行滤掉再出现，菜单自己弹开了：%q", f.tt.Menu())
 	}
 }
 
