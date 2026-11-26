@@ -387,12 +387,12 @@ class ConversationHub(val platform: HubPlatform) {
 
     /**
      * 当前对话还没开始（没有内容、没有会话）时，按现在的默认工作目录重建它：环境就绪时， 设置从备份导入后（[Settings.restore]
-     * 已经让各项按导入的值重读），换了默认工作目录时。用户已经在里面选了的模型、思考强度和权限模式留着。在主线程上调用。
+     * 已经让各项按导入的值重读），换了默认工作目录时。用户已经在里面选了的模型、思考强度和权限模式留着； 原来那个可能已经在核心里打开了（选模型时就会），照换对话那样放开。在主线程上调用。
      */
     fun renewBlank() {
         val old = current
         if (old.items.isNotEmpty() || old.sessionId != null) return
-        current = blank().also { if (it.backend == old.backend) it.takeChoicesFrom(old) }
+        replaceCurrent(blank().also { if (it.backend == old.backend) it.takeChoicesFrom(old) })
     }
 
     /** 从外面送进来（分享、打开、截屏）、还等用户选放进哪个对话的东西，见 [offerIntake]。 */

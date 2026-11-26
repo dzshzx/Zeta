@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"errors"
 	"slices"
+	"strings"
 	"testing"
 )
 
@@ -15,12 +16,12 @@ func argAfter(args []string, flag string) string {
 	return ""
 }
 
-// 新对话里选的模型、思考强度和权限模式，核心收掉对话后由客户端在 conv.open 的 choices 里带回来：
+// 新对话里选的模型、思考强度、权限模式和预设的追加说明，核心收掉对话后由客户端在 conv.open 的 choices 里带回来：
 // 新建的对话照它们定，发第一条消息时起的进程带上。
 func TestOpenRestoresChoices(t *testing.T) {
 	h := newHarness(t)
 	h.call(1, "conv.open", map[string]any{"conv": "a", "cwd": "/w",
-		"choices": map[string]any{"model": "sonnet", "effort": "low", "mode": "plan"}})
+		"choices": map[string]any{"model": "sonnet", "effort": "low", "mode": "plan", "hint": "按剧本"}})
 	c := h.conv(1, "a")
 	h.settle(c)
 	if h.state(1, "model") != "sonnet" || h.state(1, "effort") != "low" {
@@ -32,12 +33,13 @@ func TestOpenRestoresChoices(t *testing.T) {
 	h.call(1, "conv.send", map[string]any{"conv": "a", "text": "一"})
 	h.settle(c)
 	args := h.starts[0].Args
-	if argAfter(args, "--model") != "sonnet" || argAfter(args, "--effort") != "low" || argAfter(args, "--permission-mode") != "plan" {
+	if argAfter(args, "--model") != "sonnet" || argAfter(args, "--effort") != "low" || argAfter(args, "--permission-mode") != "plan" ||
+		!strings.HasSuffix(argAfter(args, "--append-system-prompt"), " 按剧本") {
 		t.Fatalf("起进程的参数：%v", args)
 	}
 }
 
-// 选回默认：模型写 default，思考强度、权限模式写空串，都回到没指定。
+// 选回默认（三项都写空串）：都回到没指定。
 func TestOpenRestoresDefaultChoices(t *testing.T) {
 	h := newHarness(t)
 	h.call(1, "conv.open", map[string]any{"conv": "a", "cwd": "/w"})
@@ -47,7 +49,7 @@ func TestOpenRestoresDefaultChoices(t *testing.T) {
 	key, _ := h.state(1, "key").(string)
 	h.m.Gone(1)
 	h.call(2, "conv.open", map[string]any{"conv": "b", "key": key, "cwd": "/w",
-		"choices": map[string]any{"model": "default", "effort": "", "mode": ""}})
+		"choices": map[string]any{"model": "", "effort": "", "mode": ""}})
 	c := h.conv(2, "b")
 	h.settle(c)
 	if h.state(2, "model") != nil || h.state(2, "effort") != nil {

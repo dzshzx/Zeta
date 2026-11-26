@@ -2,10 +2,8 @@ package main
 
 import (
 	"encoding/json"
-	"os"
 	"path/filepath"
 	"slices"
-	"strings"
 	"testing"
 )
 
@@ -17,12 +15,19 @@ func hostedArgs(t *testing.T, e *env, view *convView) []string {
 	if key == "" {
 		t.Fatalf("状态里没有 host_key：%v", view.state)
 	}
-	pid := strings.TrimSpace(readText(filepath.Join(e.hosts, key, "pid")))
-	cmdline, err := os.ReadFile("/proc/" + pid + "/cmdline")
-	if err != nil {
-		t.Fatalf("读托管进程 %q 的命令行：%v", pid, err)
+	pid, ok := readPid(filepath.Join(e.hosts, key, "pid"))
+	if !ok {
+		t.Fatalf("托管目录 %s 里没有进程号", key)
 	}
-	return strings.Split(strings.TrimRight(string(cmdline), "\x00"), "\x00")
+	argv, ok := procArgv(pid)
+	if !ok {
+		t.Fatalf("读不到托管进程 %d 的命令行", pid)
+	}
+	args := make([]string, len(argv))
+	for i, a := range argv {
+		args[i] = string(a)
+	}
+	return args
 }
 
 func wantModel(t *testing.T, args []string, model string) {

@@ -153,29 +153,18 @@ type OpenSpec struct {
 
 // Choices 是 conv.open 的 choices（核心那边是 helper/conv 的 Choices）：用户在这个对话里选的模型、思考强度和权限模式，
 // 客户端记着，每次打开都带上。还没有会话号的对话，核心收掉它、换了核心或选的那次请求没送到时，靠它补回来；有了会话号核心就不看了。
-// nil 是没选过；选回默认时模型是 "default"，另两项是空串（ChoiceOf 换好）。
+// nil 是没选过，空串是选回默认。
 type Choices struct {
 	Model  *string `json:"model,omitempty"`
 	Effort *string `json:"effort,omitempty"`
 	Mode   *string `json:"mode,omitempty"`
 }
 
-// ChoiceOf 把 SetModel、SetEffort、SetMode 的 value（nil 是回到默认）换成 Choices 里的写法：nil 换成 back。
-func ChoiceOf(value *string, back string) *string {
-	if value == nil {
-		return &back
-	}
-	v := *value
-	return &v
-}
-
-func (s Choices) empty() bool { return s.Model == nil && s.Effort == nil && s.Mode == nil }
-
 // Open 打开这个对话（conv.open）；接着推来整份的 conv.state 和 conv.items，可能比应答先到。
 // 带 Key 而那个对话已经不在、又没带会话号时出错，code 为 conversation_gone。
 func (v Conv) Open(ctx context.Context, s OpenSpec) error {
 	p := v.p(params{"options": s.Options})
-	if !s.Choices.empty() {
+	if s.Choices != (Choices{}) {
 		p["choices"] = s.Choices
 	}
 	for k, val := range map[string]string{"session": s.Session, "file": s.File, "key": s.Key, "cwd": s.Cwd, "title": s.Title} {

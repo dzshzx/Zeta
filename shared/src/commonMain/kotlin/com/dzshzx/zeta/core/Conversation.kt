@@ -655,13 +655,13 @@ class Conversation(
     // ---- 模型、思考强度、权限模式
 
     /**
-     * 用户在这个对话里选的模型、思考强度和权限模式，这边也记一份，每次打开都交给核心（[ConvChoices]）：还没有会话号的对话，选的那次请求没送到、
-     * 或核心里那份没了再打开时，核心照它补回来，第一条消息不会按默认的跑。
+     * 用户在这个对话里选的模型、思考强度和权限模式（还有 [preset] 预设的），这边也记一份，每次打开都交给核心（[ConvChoices]）：
+     * 还没有会话号的对话，选的那次请求没送到、或核心里那份没了再打开时，核心照它补回来，第一条消息不会按默认的跑。
      */
     @Volatile private var choices = ConvChoices()
 
-    private fun choose(update: (ConvChoices) -> ConvChoices, request: (CoreConversation) -> Unit) {
-        synchronized(this) { choices = update(choices) }
+    private fun choose(next: ConvChoices, request: (CoreConversation) -> Unit) {
+        choices = next
         call {
             it.keepChoices(choices)
             request(it)
@@ -675,7 +675,7 @@ class Conversation(
 
     /** 用户在这个对话里选了模型（[value] 是选择器里的值，null 或 "default" 是默认模型），只管这个对话。 */
     fun chooseModel(value: String?) =
-        choose({ it.copy(model = value ?: DEFAULT_MODEL) }) { it.setModel(value) }
+        choose(choices.copy(model = value.orEmpty())) { it.setModel(value) }
 
     internal fun selectedModelForMenu(): String? =
         model
@@ -693,16 +693,23 @@ class Conversation(
 
     /** 思考强度：只管这个对话，null 回到 Claude Code 自己的设置。 */
     fun chooseEffort(value: String?) =
-        choose({ it.copy(effort = value.orEmpty()) }) { it.setEffort(value) }
+        choose(choices.copy(effort = value.orEmpty())) { it.setEffort(value) }
 
     /** 用户在输入栏选的权限模式：只管这个对话，之后按它跑。 */
     fun choosePermissionMode(value: String) =
-        choose({ it.copy(mode = value) }) { it.setMode(value) }
+        choose(choices.copy(mode = value)) { it.setMode(value) }
 
     /** 定时任务、数字助理给这个对话定的模型和思考强度：只改这个对话；null 的那项照旧。[hint] 追加进系统提示，下次起进程时生效。 */
-    fun preset(model: String?, effort: String?, hint: String? = null) = call {
-        it.preset(model, effort, hint)
-    }
+    fun preset(model: String?, effort: String?, hint: String? = null) =
+        choose(
+            choices.copy(
+                model = model ?: choices.model,
+                effort = effort ?: choices.effort,
+                hint = hint.orEmpty(),
+            ),
+        ) {
+            it.preset(model, effort, hint)
+        }
 
     // ---- 回应确认、提问、MCP 表单
 

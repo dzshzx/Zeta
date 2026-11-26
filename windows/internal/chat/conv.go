@@ -29,8 +29,6 @@ type Conversation struct {
 	connected, opened bool
 	// forked：这是分支（conv.fork 来的），还没有会话号时按 key 重新打开。
 	forked bool
-	// choices 是用户在这个对话里选的模型、思考强度和权限模式（SetModel 等记下），每次打开都带上。
-	choices coreapi.Choices
 	// pending 是上次 Take 以后的变化。
 	pending Update
 	// watched 是看着的东西（watch.go）和它们最近推来的样子（*Subagent、*tasks.Output），还没推来时为 nil。
@@ -125,9 +123,8 @@ func (c *Conversation) open(ctx context.Context) error {
 	if c.forked && spec.Session == "" {
 		key = c.state.Key
 	}
-	choices := c.choices
 	c.mu.Unlock()
-	open := coreapi.OpenSpec{Session: spec.Session, File: spec.File, Key: key, Cwd: spec.Cwd, Title: spec.Title, Options: spec.Options, Choices: choices}
+	open := coreapi.OpenSpec{Session: spec.Session, File: spec.File, Key: key, Cwd: spec.Cwd, Title: spec.Title, Options: spec.Options, Choices: spec.Choices}
 	if err := c.api.Open(ctx, open); err != nil {
 		return err
 	}

@@ -49,6 +49,8 @@ type Spec struct {
 	Title string
 	// Options 是起 Claude Code 进程用的设置，打开以后可以用 SetOptions 改。
 	Options coreapi.Options
+	// Choices 是用户在这个对话里选的模型、思考强度和权限模式，SetModel、SetEffort、SetMode 记下，每次打开都带上。
+	Choices coreapi.Choices
 }
 
 // Open 打开一个对话。核心里已有这个会话时拿到的就是它（别的客户端也开着时，大家看到的是同一份）。

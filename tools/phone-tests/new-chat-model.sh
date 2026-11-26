@@ -22,12 +22,8 @@ wait_text '^Claude · Sonnet' 15 || { echo "选了 Sonnet，顶栏没变"; vd sh
 # 结束核心：进程号写在它持着的 core.lock 里
 core=$(android "cat $LOCK" | tr -dc 0-9)
 [[ -n $core ]] || { echo "core.lock 里没有进程号"; exit 1; }
-android "kill $core"
-for _ in $(seq 40); do
-  android "[ -d /proc/$core ]" || break
-  sleep 0.25
-done
-android "[ -d /proc/$core ]" && { echo "核心 $core 收到 TERM 后没退出"; exit 1; }
+android "kill $core; n=0; while [ -d /proc/$core ] && [ \$n -lt 100 ]; do sleep 0.1; n=\$((n + 1)); done"
+alive "$core" && { echo "核心 $core 收到 TERM 后没退出"; exit 1; }
 # 等客户端重连上新核心：换了进程号的 core.lock，重连提示也没了
 for _ in $(seq 60); do
   now=$(android "cat $LOCK 2>/dev/null" | tr -dc 0-9 || true)
@@ -39,7 +35,7 @@ echo "核心换了：$core → $now"
 
 send hi
 wait_result 1 60 || { vd shot turn.png >/dev/null; exit 1; }
-pid=$(android "cat $(dirname "$log")/pid" | tr -dc 0-9)
+pid=$(android "cat ${log%/out.jsonl}/pid" | tr -dc 0-9)
 args=$(android "tr '\\0' ' ' </proc/$pid/cmdline")
 echo "起进程的参数：$args"
 [[ $args == *"--model sonnet "* ]] || { echo "起的进程没带 --model sonnet"; exit 1; }

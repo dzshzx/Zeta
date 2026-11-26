@@ -139,7 +139,7 @@ internal constructor(
                 if (spec.cwd.isNotEmpty()) put("cwd", JsonPrimitive(spec.cwd))
                 if (spec.title.isNotEmpty()) put("title", JsonPrimitive(spec.title))
                 put("options", spec.options.json())
-                if (!spec.choices.isEmpty) put("choices", spec.choices.json())
+                spec.choices.json().takeIf { it.isNotEmpty() }?.let { put("choices", it) }
             },
         )
     }
