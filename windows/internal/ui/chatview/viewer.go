@@ -14,19 +14,20 @@ import (
 	"github.com/dzshzx/Zeta/windows/internal/chat/items"
 	"github.com/dzshzx/Zeta/windows/internal/locales"
 	"github.com/dzshzx/Zeta/windows/internal/ui/widget"
-	"github.com/egoist/mygo/plugins/glass"
 	"github.com/egoist/mygo/transfer"
 	"github.com/egoist/mygo/ui"
 )
 
 // 全屏看大图（同手机版 ImageViewer.kt、ImageGallery.kt）：点聊天里的图时列表发出 OpenImages，调用方建一个 Viewer、
-// 每帧画在窗口最上层。遮罩铺满窗口，是毛玻璃（viewerGlass），不管外面是浅色深色都用 COUI 的深色配色；
+// 每帧画在窗口最上层。遮罩铺满窗口，是毛玻璃（Viewer.frost），不管外面是浅色深色都用 COUI 的深色配色；
 // 在遮罩上点一下（图和按钮以外、标题栏以下，按下松开之间没拖动）关上。顶上是返回和「第几张 / 共几张」，
 // 多张时两边是上一张、下一张（也可以按左右键），底下是页码圆点、保存和复制（Ctrl+C 也是复制）。Esc 关上。
 // 保存交给调用方给的 Save；复制把图转成 PNG 放上剪贴板（Windows 上同时给 PNG 和位图两种格式，聊天软件、画图都能粘贴）。
 
 // Viewer 是一次看大图：看的是哪一组图、第几张。图从发出 OpenImages 的那个列表的缓存里取，不再取一遍。
 type Viewer struct {
+	// Opaque 是半透明关着（设置「外观」的半透明）：遮罩不透出底下的界面。调用方每帧照设置填。
+	Opaque bool
 	// Save 存一张图（data 是原始数据，name 是建议的文件名），返回存到哪，取消了是空的。在后台 goroutine 上调；
 	// 没给时保存是灰的。
 	Save func(data []byte, name string) (saved string, err error)
@@ -138,9 +139,11 @@ const (
 	viewerSide   = 76
 )
 
-// viewerGlass 是遮罩的材质：mygo 的毛玻璃（glass.Glass 的 Regular），底下的界面透过来、模糊，深色配色下压暗，
-// 图和按钮在它上面看得清；铺满窗口的大块玻璃按 Clarity 0.5 调得通透些。
-var viewerGlass = glass.Glass{Clarity: 0.5}
+// frost 是遮罩的材质：底下的界面透过来、模糊，叠一半深色配色的窗口底色压暗，图和按钮在它上面看得清；
+// 半透明关着时是不透明的深色。
+func (v *Viewer) frost() widget.Frost {
+	return widget.Frost{Blur: 16, Tint: widget.For(true).Window.Alpha(0.5), Opaque: v.Opaque}
+}
 
 // View 把看大图画在窗口最上层；返回还开着没有（关上了调用方丢掉它）。
 func (v *Viewer) View(c *ui.Context) bool {
@@ -154,8 +157,8 @@ func (v *Viewer) View(c *ui.Context) bool {
 		}
 	}
 	ui.Overlay(c, func() {
-		// 毛玻璃代替深色主题的底色铺满这一层：材质按这一层的主题压暗，浅色窗口下也压暗
-		page := ui.Themed(c, widget.Theme(true)).Material(viewerGlass).Absolute().Left(0).Top(0).Right(0).Bottom(0)
+		// 毛玻璃代替深色主题的底色铺满这一层（Themed 默认铺不透明的主题底色）
+		page := ui.Themed(c, widget.Theme(true)).Material(v.frost()).Absolute().Left(0).Top(0).Right(0).Bottom(0)
 		page = page.Modal().Role(ui.RoleDialog).Label(locales.ChatViewer())
 		page.Children(func() {
 			// 标题栏以下的遮罩，在最底层：点了关上。图所在的框、按钮、两条栏画在它上面，各自接各自的点击

@@ -402,7 +402,8 @@ func TestZoomSnapsToFit(t *testing.T) {
 // 在遮罩上点一下关上看大图：图旁边、两边、底栏的空白处都算；点在图上、标题栏上不关；按下后拖开了不算点。
 // 900×700 的窗里，300×200 的图放大两倍成 600×400，在标题栏（52）和底栏（128）之间、翻页键让出的两边之间居中：
 // 横着 150 到 750，竖着 112 到 512（测试窗按 1 倍缩放画，DIP 就是像素）。
-// 遮罩是毛玻璃，透出底下的聊天界面：浅色窗口里，遮罩上一点（窗口左边、标题栏以下）比底下暗，又远比深色主题的底色亮。
+// 遮罩是毛玻璃，透出底下的聊天界面：浅色窗口里，遮罩上一点（窗口左边、标题栏以下）比底下暗，又远比深色主题的底色亮；
+// 系统要求减少透明（Windows 关了透明效果）时也一样，只有 Opaque（设置里关了半透明）时是不透明的深色。
 func TestViewerBackdropCloses(t *testing.T) {
 	ch := New()
 	ch.LoadImage = func(file, ref string) ([]byte, error) { return testPNG(t, 300, 200), nil }
@@ -417,10 +418,18 @@ func TestViewerBackdropCloses(t *testing.T) {
 		tt.Frame()
 		tt.Advance(time.Second) // 和上一次点隔开，不算双击
 	}
-	open()
 	bg := widget.Theme(true).Background
-	if got, dark := backdrop(), luma(bg.R, bg.G, bg.B); got < dark+60 || got >= under {
-		t.Errorf("遮罩亮度 %.0f：底下是 %.0f，深色底色 %.0f，要在两者之间且比底色亮 60 以上", got, under, dark)
+	for _, reduce := range []bool{false, true} {
+		tt.SetPreferences(ui.Preferences{ReduceMotion: true, ReduceTransparency: reduce})
+		open()
+		if got, dark := backdrop(), luma(bg.R, bg.G, bg.B); got < dark+60 || got >= under {
+			t.Errorf("系统要求减少透明 %v：遮罩亮度 %.0f，底下是 %.0f，深色底色 %.0f，要在两者之间且比底色亮 60 以上", reduce, got, under, dark)
+		}
+	}
+	w.v.Opaque = true
+	tt.Frame()
+	if got, want := tt.Image().RGBAAt(30, 300), widget.For(true).Window; got.R != want.R || got.G != want.G || got.B != want.B {
+		t.Errorf("半透明关着：遮罩是 %v，要是不透明的深色窗口底色 %v", got, want)
 	}
 	for _, c := range []struct {
 		name   string

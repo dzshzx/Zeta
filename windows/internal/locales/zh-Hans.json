@@ -3578,6 +3578,14 @@
   "@settingsTheme": {
     "description": "设置「常规」外观里的一行：浅色、深色或跟随系统（也是下拉的读屏名字）。"
   },
+  "settingsTranslucent": "半透明",
+  "@settingsTranslucent": {
+    "description": "设置「常规」外观里的开关（也是开关的读屏名字）：看大图的遮罩、聊天顶栏这些毛玻璃透不透出底下的界面。"
+  },
+  "settingsTranslucentSummary": "看大图的遮罩、聊天顶栏透出底下模糊的界面；关着时是不透明的底色。不跟随 Windows 的透明效果设置",
+  "@settingsTranslucentSummary": {
+    "description": "半透明开关下面的说明。「透明效果」是 Windows 设置「个性化 > 颜色」里的开关。"
+  },
   "settingsUpdateView": "查看",
   "@settingsUpdateView": {
     "description": "窗口底部「有新版本」提示条上的按钮：进关于页。"

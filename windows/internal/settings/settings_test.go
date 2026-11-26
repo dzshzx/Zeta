@@ -220,6 +220,24 @@ func TestAutoLoadRemoteImagesKey(t *testing.T) {
 	}
 }
 
+// 半透明：桌面版自己的键 desktopTranslucent（布尔），没设过是开着，关了能读回来。
+func TestTranslucentKey(t *testing.T) {
+	dir := t.TempDir()
+	s, _ := Load(dir)
+	if !s.Translucent() {
+		t.Fatal("没设过应该是开着")
+	}
+	if err := s.SetTranslucent(false); err != nil {
+		t.Fatal(err)
+	}
+	if got := string(readRaw(t, dir)["desktopTranslucent"]); got != `{"t":"b","v":false}` {
+		t.Fatalf("写出来的：%s", got)
+	}
+	if again, _ := Load(dir); again.Translucent() {
+		t.Fatal("重新读回来不对")
+	}
+}
+
 // 设置目录：正式版的不能变（%APPDATA%\Zeta，装新版照旧读得到）；测试版另一个目录，和正式版互不干扰。
 func TestDirName(t *testing.T) {
 	release, dev := update.Version{Code: 812, Name: "0.7.6"}, update.Version{Code: 815, Name: "0.7.7-dev.3+gabc1234"}

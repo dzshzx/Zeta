@@ -210,6 +210,21 @@ func (s *Settings) SetAutoLoadRemoteImages(on bool) error {
 	return s.store.SetBool(keyAutoLoadRemoteImages, on)
 }
 
+// keyTranslucent 是半透明（桌面版自己的）：看大图的遮罩、聊天顶栏这些毛玻璃透不透出底下的界面，没设过是开着。
+// 只看这一项，不看 Windows 的「透明效果」（见 widget.Frost）。
+const keyTranslucent = "desktopTranslucent"
+
+// Translucent 是毛玻璃透出底下的界面。
+func (s *Settings) Translucent() bool {
+	v, set := s.store.Bool(keyTranslucent)
+	return v || !set
+}
+
+// SetTranslucent 存半透明的开关。
+func (s *Settings) SetTranslucent(on bool) error {
+	return s.store.SetBool(keyTranslucent, on)
+}
+
 // 桌面版自己的窗口布局（手机版没有这两项）。
 const (
 	keySidebarWidth  = "desktopSidebarWidth"  // 侧栏宽度（DIP，用户拖过才有）

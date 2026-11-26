@@ -9259,6 +9259,36 @@ func (msgs Messages) SettingsTheme() string {
 	return Catalog.Format(msgs.locale, "settingsTheme", nil)
 }
 
+// SettingsTranslucent says "半透明"
+// in the language the app shows.
+//
+// 设置「常规」外观里的开关（也是开关的读屏名字）：看大图的遮罩、聊天顶栏这些毛玻璃透不透出底下的界面。
+func SettingsTranslucent() string { return In(i18n.Locale()).SettingsTranslucent() }
+
+// SettingsTranslucent says "半透明"
+// in the language of msgs.
+//
+// 设置「常规」外观里的开关（也是开关的读屏名字）：看大图的遮罩、聊天顶栏这些毛玻璃透不透出底下的界面。
+func (msgs Messages) SettingsTranslucent() string {
+	return Catalog.Format(msgs.locale, "settingsTranslucent", nil)
+}
+
+// SettingsTranslucentSummary says "看大图的遮罩、聊天顶栏透出底下模糊的界面；关着时是不透明的底色。不跟随 Windows …"
+// in the language the app shows.
+//
+// 半透明开关下面的说明。「透明效果」是 Windows
+// 设置「个性化 > 颜色」里的开关。
+func SettingsTranslucentSummary() string { return In(i18n.Locale()).SettingsTranslucentSummary() }
+
+// SettingsTranslucentSummary says "看大图的遮罩、聊天顶栏透出底下模糊的界面；关着时是不透明的底色。不跟随 Windows …"
+// in the language of msgs.
+//
+// 半透明开关下面的说明。「透明效果」是 Windows
+// 设置「个性化 > 颜色」里的开关。
+func (msgs Messages) SettingsTranslucentSummary() string {
+	return Catalog.Format(msgs.locale, "settingsTranslucentSummary", nil)
+}
+
 // SettingsUpdateView says "查看"
 // in the language the app shows.
 //

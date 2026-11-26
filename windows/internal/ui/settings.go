@@ -165,7 +165,7 @@ func headline(q *acct.Quota, now time.Time) (coreapi.QuotaWindow, bool) {
 
 func percentText(n int) string { return strconv.Itoa(n) + "%" }
 
-// appearanceSection 是外观：主题（跟随系统、浅色、深色，存在设置里，键同手机版）、界面语言和界面缩放（zoom.go）。
+// appearanceSection 是外观：主题（跟随系统、浅色、深色，存在设置里，键同手机版）、半透明、界面语言和界面缩放（zoom.go）。
 func (a *App) appearanceSection(c *ui.Context) {
 	s := a.hub.Settings()
 	widget.Group(c, locales.SettingsAppearance(), "", func(l *widget.List) {
@@ -182,9 +182,23 @@ func (a *App) appearanceSection(c *ui.Context) {
 				}
 			})
 		}})
+		a.translucentRow(c, l)
 		a.languageRow(c, l)
 		a.zoomRow(l)
 	})
+}
+
+// translucentRow 是半透明的开关：毛玻璃（看大图的遮罩、聊天顶栏）透不透出底下的界面。
+func (a *App) translucentRow(c *ui.Context, l *widget.List) {
+	s := a.hub.Settings()
+	on := s.Translucent()
+	l.Row(widget.Row{Icon: widget.IconSparkle, Title: locales.SettingsTranslucent(), Summary: locales.SettingsTranslucentSummary(), End: func() {
+		if widget.Switch(c.Key("translucent"), &on).Label(locales.SettingsTranslucent()).Changed() {
+			if err := s.SetTranslucent(on); err != nil {
+				a.say(locales.CommonSaveFailed(), err.Error())
+			}
+		}
+	}})
 }
 
 // languageRow 是界面语言：跟随系统，或文字表里有的几种（各用自己的写法，「简体中文」「English」）。选了马上换，下次启动还是它

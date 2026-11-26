@@ -4,7 +4,6 @@ import (
 	"math"
 	"sync"
 
-	"github.com/egoist/mygo/plugins/glass"
 	"github.com/egoist/mygo/ui"
 )
 
@@ -107,19 +106,21 @@ type Surface struct {
 	// Edge 不是零值时沿轮廓描一圈细边（Width 宽，默认 1）。
 	Edge  ui.Color
 	Width float32
-	// Blur 不是 0 时，元素下面的内容透过来、按这么多 DIP 模糊（高斯的标准差，mygo 的 glass.Blur）。
+	// Blur 不是 0 时是毛玻璃（Frost）：元素下面的内容透过来、按这么多 DIP 模糊，再叠上 Fill。
 	Blur float32
+	// Opaque 是半透明关着：有 Blur 时不模糊，Fill 按不透明画（见 Frost）。
+	Opaque bool
 }
 
-// PaintMaterial 画这块面：先模糊下面的内容（按轮廓裁），再铺底色、描边。
+// PaintMaterial 画这块面：铺底色（有 Blur 时是按轮廓裁的毛玻璃），再描边。
 func (s Surface) PaintMaterial(p *ui.Painter, box ui.Rect, _ [4]float32) {
 	path := s.Shape.path(box.W, box.H)
 	p.Transform(ui.Translation(box.X, box.Y), 0, 0, func() {
 		local := ui.Rect{W: box.W, H: box.H}
-		if s.Blur > 0 {
-			p.ClipPath(path, func() { glass.Blur{Radius: s.Blur}.PaintMaterial(p, local, [4]float32{}) })
-		}
-		if s.Fill.A > 0 {
+		switch {
+		case s.Blur > 0:
+			p.ClipPath(path, func() { Frost{Blur: s.Blur, Tint: s.Fill, Opaque: s.Opaque}.PaintMaterial(p, local, [4]float32{}) })
+		case s.Fill.A > 0:
 			p.FillPath(path, s.Fill)
 		}
 		if s.Edge.A > 0 {

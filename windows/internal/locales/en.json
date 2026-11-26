@@ -641,6 +641,8 @@
   "settingsOff": "Disconnected",
   "settingsAppearance": "Appearance",
   "settingsTheme": "Theme",
+  "settingsTranslucent": "Translucency",
+  "settingsTranslucentSummary": "The image viewer backdrop and the chat header show a blur of what is behind them. When off, they are opaque. Independent of the Windows transparency effects setting.",
   "settingsUpdateView": "View",
   "settingsUpdateDismiss": "Dismiss",
   "settingsChat": "Conversations",
