@@ -157,7 +157,7 @@ class LiveNotificationTest {
                     .toString()
             },
         )
-        assertTrue(n.extras.getBundle(FocusParam.PICS)!!.containsKey(FocusParam.PIC_ICON))
+        assertTrue(n.extras.getBundle(FocusParam.PICS)!!.containsKey(FocusParam.PIC_APP))
         // 接管着时胶囊上是“你在接管”，没有回答的按钮
         val controlling =
             LiveUpdate.status(
@@ -279,6 +279,7 @@ class LiveNotificationTest {
         val waiting =
             param(FocusParam.alert("修 bug", "需要你确认：建文件", "待确认", listOf("允许", "拒绝"), false))
         assertEquals("待确认", big(waiting, "imageTextInfoLeft"))
+        assertEquals("建文件", big(waiting, "imageTextInfoRight"))
         assertEquals(2, waiting["textButton"]!!.jsonArray.size)
     }
 

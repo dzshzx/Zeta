@@ -39,8 +39,8 @@ internal object FocusParam {
     const val PICS = "miui.focus.pics"
     const val ACTIONS = "miui.focus.actions"
 
-    /** 岛上和焦点卡片上的图标在 [PICS] 里的键。 */
-    const val PIC_ICON = "miui.focus.pic_zeta"
+    /** 应用图标（圆形、彩色）在 [PICS] 里的键：焦点卡片左边、大岛小岛、息屏都用它，和小爱一样。 */
+    const val PIC_APP = "miui.focus.pic_app_icon"
 
     /** 第 [index] 个回答按钮在 [ACTIONS] 里的键。 */
     fun actionKey(index: Int) = "miui.focus.action_reply$index"
@@ -84,18 +84,25 @@ internal object FocusParam {
         val actions = content.replies.indices.map(::actionKey)
         val param = buildJsonObject {
             putJsonObject("param_v2") {
-                put("protocol", 3)
+                put("protocol", 1)
                 put("business", "zeta")
                 put("updatable", true)
                 put("ticker", content.text)
                 put("enableFloat", content.float)
                 put("islandFirstFloat", content.float)
                 put("isShowNotification", true)
-                putJsonObject("baseInfo") {
-                    put("type", 2)
+                put("aodTitle", content.short.ifEmpty { content.text.clip(ISLAND_CHARS) })
+                put("aodPic", PIC_APP)
+                put("outEffectSrc", "outer_glow")
+                putJsonObject("iconTextInfo") {
                     put("title", content.title)
-                    put("content", content.text)
-                    content.note?.let { put("subContent", it) }
+                    put("colorTitle", "#000000")
+                    put("colorTitleDark", "#FFFFFF")
+                    put("content", content.note?.let { "$it · ${content.text}" } ?: content.text)
+                    putJsonObject("animIconInfo") {
+                        put("type", 0)
+                        put("src", PIC_APP)
+                    }
                 }
                 content.progress?.let { p ->
                     putJsonObject("progressInfo") { put("progress", p.done * 100 / p.total) }
@@ -122,7 +129,7 @@ internal object FocusParam {
         return Focus(param.toString(), actions)
     }
 
-    /** 岛：小岛只有图标；大岛左边图标加短词，右边是截短的那一句。 */
+    /** 岛（照小爱）：小岛只有应用图标；大岛左边应用图标加短词，右边是截短的那一句。 */
     private fun island(content: IslandContent): JsonObject = buildJsonObject {
         put("islandProperty", 1)
         put("islandPriority", 2)
@@ -132,12 +139,14 @@ internal object FocusParam {
                 put("type", 1)
                 putJsonObject("picInfo") {
                     put("type", 1)
-                    put("pic", PIC_ICON)
+                    put("pic", PIC_APP)
                 }
                 putJsonObject("textInfo") { put("title", content.short) }
             }
-            // 短词就是那一句时（“已完成”）右边放对话标题，不重复
-            val right = if (content.short == content.text) content.title else content.text
+            // 右边不重复左边的短词：短词就是那一句时（“已完成”）放对话标题；“需要你确认：建文件”这类只放冒号后面的
+            val right =
+                if (content.short == content.text) content.title
+                else content.text.substringAfter('：')
             putJsonObject("imageTextInfoRight") {
                 put("type", 2)
                 putJsonObject("textInfo") { put("title", right.clip(ISLAND_CHARS)) }
@@ -146,7 +155,7 @@ internal object FocusParam {
         putJsonObject("smallIslandArea") {
             putJsonObject("picInfo") {
                 put("type", 1)
-                put("pic", PIC_ICON)
+                put("pic", PIC_APP)
             }
         }
     }
