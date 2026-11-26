@@ -243,3 +243,27 @@ func TestDirName(t *testing.T) {
 		t.Errorf("a test build's Dir() = %q, %v", dir, err)
 	}
 }
+
+// 侧栏的排序：桌面版自己的键，存的是字符串；没设过、存的不认识时是最新回答。
+func TestSessionSortKey(t *testing.T) {
+	dir := t.TempDir()
+	s, _ := Load(dir)
+	if s.SessionSort() != SortReplied {
+		t.Fatalf("没设过：%q", s.SessionSort())
+	}
+	if err := s.SetSessionSort(SortManual); err != nil {
+		t.Fatal(err)
+	}
+	if got := string(readRaw(t, dir)["desktopSessionSort"]); got != `{"t":"s","v":"manual"}` {
+		t.Fatalf("写出来的：%s", got)
+	}
+	if again, _ := Load(dir); again.SessionSort() != SortManual {
+		t.Fatalf("重新读回来：%q", again.SessionSort())
+	}
+	if err := s.SetSessionSort("sideways"); err != nil {
+		t.Fatal(err)
+	}
+	if s.SessionSort() != SortReplied {
+		t.Fatalf("不认识的值：%q", s.SessionSort())
+	}
+}

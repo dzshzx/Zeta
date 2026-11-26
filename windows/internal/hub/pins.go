@@ -13,7 +13,7 @@ import (
 )
 
 // 置顶（docs/core.md「会话」的 sessions.pin）：标记在各台的核心里，列表项带 pinned，几个客户端看到的是同一份；
-// 置顶了却不在最新 300 个里的会话核心也列出来。
+// 置顶了却不在最新 100 个里的会话核心也列出来。
 
 // Pinned：会话 s 置顶了（核心报的，或本机设置里还没迁过去的）。
 func (h *Hub) Pinned(s hostlink.Session) bool { return s.Pinned || h.pins.has(s) }

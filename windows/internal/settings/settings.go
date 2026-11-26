@@ -239,6 +239,35 @@ func (s *Settings) SidebarHidden() bool {
 // SetSidebarHidden 存侧栏收没收起来。
 func (s *Settings) SetSidebarHidden(hidden bool) { logSave(s.store.SetBool(keySidebarHidden, hidden)) }
 
+// keySessionSort 是侧栏会话列表的排序（桌面版自己的，每台电脑各设各的）：SessionSort 的值，没存过是最新回答。
+const keySessionSort = "desktopSessionSort"
+
+// SessionSort 是侧栏会话列表的排序。
+type SessionSort string
+
+// 三种排序（docs/desktop.md「界面」）。
+const (
+	SortReplied SessionSort = "replied" // 最新回答：按最后一次回答完的时间，新的在上
+	SortCreated SessionSort = "created" // 发起时间：按发起的时间，新的在上
+	SortManual  SessionSort = "manual"  // 手动排序：按核心记的位置（rank），大的在上
+)
+
+// SessionSort 是侧栏会话列表的排序，没存过或存的不认识时是最新回答。
+func (s *Settings) SessionSort() SessionSort {
+	switch v, _ := s.store.String(keySessionSort); SessionSort(v) {
+	case SortCreated:
+		return SortCreated
+	case SortManual:
+		return SortManual
+	}
+	return SortReplied
+}
+
+// SetSessionSort 存侧栏会话列表的排序。
+func (s *Settings) SetSessionSort(v SessionSort) error {
+	return s.store.SetString(keySessionSort, string(v))
+}
+
 // keyZoom 是界面缩放（桌面版自己的，手机版没有）：百分数，在系统的 DPI 缩放之上再乘它；没存过是 100。
 const keyZoom = "desktopZoom"
 

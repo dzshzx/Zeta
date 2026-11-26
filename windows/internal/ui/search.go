@@ -40,7 +40,7 @@ func (a *App) searchResults(c *ui.Context) {
 	}
 	sectionTitle(c, locales.SearchResults(), true)
 	for _, s := range results {
-		a.sessionRow(c, s, h.Snippet(s))
+		a.sessionRow(c, s, h.Snippet(s), false)
 	}
 	if text := searchFooter(progress); text != "" {
 		ui.Text(c, text).FontSize(widget.SizeBodyXS).TextColor(widget.Of(c).Secondary).FillWidth().Padding(12, 32)

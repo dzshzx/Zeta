@@ -58,6 +58,7 @@ var (
 	IconBrand       = icon("brand")
 	IconArrowUp     = icon("arrow-up")
 	IconArrowDown   = icon("arrow-down")
+	IconSort        = icon("sort") // 侧栏的排序：一上一下两个箭头（照 ChatGPT 客户端列表标题行的排序按钮）
 	IconChevronDown = icon("chevron-down")
 	IconChevronUp   = icon("chevron-up")   // IconChevronDown 倒过来：查找栏的「上一个」、收起
 	IconChevronBack = icon("chevron-back") // 行尾箭头左右翻过来：看大图的上一张

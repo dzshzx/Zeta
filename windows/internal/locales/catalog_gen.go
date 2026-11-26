@@ -7052,13 +7052,13 @@ func (msgs Messages) SidebarGroupPinned() string {
 // SidebarGroupToday says "今天"
 // in the language the app shows.
 //
-// 侧栏会话列表里今天动过的一组的小标题。
+// 侧栏会话列表里所选时间（最新回答或发起时间）在今天的一组的小标题。
 func SidebarGroupToday() string { return In(i18n.Locale()).SidebarGroupToday() }
 
 // SidebarGroupToday says "今天"
 // in the language of msgs.
 //
-// 侧栏会话列表里今天动过的一组的小标题。
+// 侧栏会话列表里所选时间（最新回答或发起时间）在今天的一组的小标题。
 func (msgs Messages) SidebarGroupToday() string {
 	return Catalog.Format(msgs.locale, "sidebarGroupToday", nil)
 }
@@ -7075,6 +7075,76 @@ func SidebarGroupEarlier() string { return In(i18n.Locale()).SidebarGroupEarlier
 // 侧栏会话列表里更早的一组的小标题。
 func (msgs Messages) SidebarGroupEarlier() string {
 	return Catalog.Format(msgs.locale, "sidebarGroupEarlier", nil)
+}
+
+// SidebarGroupChats says "对话"
+// in the language the app shows.
+//
+// 侧栏会话列表按手动排序时，置顶以外的那一整组的小标题。
+func SidebarGroupChats() string { return In(i18n.Locale()).SidebarGroupChats() }
+
+// SidebarGroupChats says "对话"
+// in the language of msgs.
+//
+// 侧栏会话列表按手动排序时，置顶以外的那一整组的小标题。
+func (msgs Messages) SidebarGroupChats() string {
+	return Catalog.Format(msgs.locale, "sidebarGroupChats", nil)
+}
+
+// SidebarSort says "排序"
+// in the language the app shows.
+//
+// 侧栏会话列表第一个小标题右边的排序按钮的名字（悬停提示和读屏）。
+func SidebarSort() string { return In(i18n.Locale()).SidebarSort() }
+
+// SidebarSort says "排序"
+// in the language of msgs.
+//
+// 侧栏会话列表第一个小标题右边的排序按钮的名字（悬停提示和读屏）。
+func (msgs Messages) SidebarSort() string {
+	return Catalog.Format(msgs.locale, "sidebarSort", nil)
+}
+
+// SidebarSortReplied says "最新回答"
+// in the language the app shows.
+//
+// 侧栏排序菜单的一项：按最后一次回答完的时间排，新的在上面。
+func SidebarSortReplied() string { return In(i18n.Locale()).SidebarSortReplied() }
+
+// SidebarSortReplied says "最新回答"
+// in the language of msgs.
+//
+// 侧栏排序菜单的一项：按最后一次回答完的时间排，新的在上面。
+func (msgs Messages) SidebarSortReplied() string {
+	return Catalog.Format(msgs.locale, "sidebarSortReplied", nil)
+}
+
+// SidebarSortCreated says "发起时间"
+// in the language the app shows.
+//
+// 侧栏排序菜单的一项：按对话发起的时间排，新的在上面。
+func SidebarSortCreated() string { return In(i18n.Locale()).SidebarSortCreated() }
+
+// SidebarSortCreated says "发起时间"
+// in the language of msgs.
+//
+// 侧栏排序菜单的一项：按对话发起的时间排，新的在上面。
+func (msgs Messages) SidebarSortCreated() string {
+	return Catalog.Format(msgs.locale, "sidebarSortCreated", nil)
+}
+
+// SidebarSortManual says "手动排序"
+// in the language the app shows.
+//
+// 侧栏排序菜单的一项：按用户拖出来的先后排。
+func SidebarSortManual() string { return In(i18n.Locale()).SidebarSortManual() }
+
+// SidebarSortManual says "手动排序"
+// in the language of msgs.
+//
+// 侧栏排序菜单的一项：按用户拖出来的先后排。
+func (msgs Messages) SidebarSortManual() string {
+	return Catalog.Format(msgs.locale, "sidebarSortManual", nil)
 }
 
 // SidebarDraftLine says "草稿：{draft}"
@@ -7613,6 +7683,20 @@ func SessionUnpinFailed() string { return In(i18n.Locale()).SessionUnpinFailed()
 // 取消置顶没成时弹框的标题，下面是原因。
 func (msgs Messages) SessionUnpinFailed() string {
 	return Catalog.Format(msgs.locale, "sessionUnpinFailed", nil)
+}
+
+// SessionMoveFailed says "调整位置没成功"
+// in the language the app shows.
+//
+// 手动排序时拖动会话、新位置没记下时弹框的标题，下面是原因。
+func SessionMoveFailed() string { return In(i18n.Locale()).SessionMoveFailed() }
+
+// SessionMoveFailed says "调整位置没成功"
+// in the language of msgs.
+//
+// 手动排序时拖动会话、新位置没记下时弹框的标题，下面是原因。
+func (msgs Messages) SessionMoveFailed() string {
+	return Catalog.Format(msgs.locale, "sessionMoveFailed", nil)
 }
 
 // SessionRenameFailed says "改名没成功"

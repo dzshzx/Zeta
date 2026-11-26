@@ -131,7 +131,7 @@ func (a *App) export(list []hostlink.Session) {
 // clearSelection 取消多选。
 func (a *App) clearSelection() { a.ops.selected = nil }
 
-// visible 是侧栏眼前这份列表（搜索结果、归档或置顶/今天/更早），按显示的先后。
+// visible 是侧栏眼前这份列表（搜索结果、归档或几组会话），按显示的先后。
 func (a *App) visible() []hostlink.Session {
 	h := a.hub
 	switch {
@@ -141,10 +141,10 @@ func (a *App) visible() []hostlink.Session {
 		return h.Archived(a.now(), a.currentSession())
 	}
 	g := h.Groups(a.now(), a.currentSession())
-	return slices.Concat(g.Pinned, g.Today, g.Earlier)
+	return slices.Concat(g.Pinned, g.Today, g.Earlier, g.Chats)
 }
 
-// chosen 是选中的会话，按列表里的先后（开着的会话还不在列表里时排在最后）；已经不在的不算。侧栏每帧算一次，传给要用的地方。
+// chosen 是选中的会话，照侧栏所选的排序（hub.Ordered，置顶的不提前；开着的会话不在列着的设备上时排在最后）；已经不在的不算。侧栏每帧算一次，传给要用的地方。
 func (a *App) chosen() []hostlink.Session {
 	var out []hostlink.Session
 	seen := map[string]bool{}
@@ -154,10 +154,11 @@ func (a *App) chosen() []hostlink.Session {
 			out = append(out, s)
 		}
 	}
-	for _, s := range a.hub.Sessions() {
+	current := a.currentSession()
+	for _, s := range a.hub.Ordered(a.now(), current) {
 		pick(s)
 	}
-	pick(a.currentSession())
+	pick(current) // 不在列着的设备上时 Ordered 里没有它
 	return out
 }
 
@@ -299,7 +300,7 @@ func (a *App) archivedGroup(c *ui.Context) {
 	}
 	sectionTitle(c, locales.SessionArchivedCount(len(list)), true)
 	for _, s := range list {
-		a.sessionRow(c, s, "")
+		a.sessionRow(c, s, "", false)
 	}
 }
 

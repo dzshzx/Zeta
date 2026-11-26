@@ -15,7 +15,15 @@ type Menu struct {
 // 菜单开着没有，由它自己记。
 func MenuButton(c *ui.Context, trigger func(t ui.Element), build func(m *Menu)) ui.Element {
 	holder := ui.Box(c).Shrink(0)
-	open := ui.Local(holder, "open", func() bool { return false })
+	return menuIn(c, holder, ui.Local(holder, "open", func() bool { return false }), trigger, build)
+}
+
+// MenuButtonOpen 同 MenuButton，菜单开着没有记在 open 里（调用方要知道它开着，比如只在悬停时显示的按钮，菜单开着时照建）。
+func MenuButtonOpen(c *ui.Context, open *bool, trigger func(t ui.Element), build func(m *Menu)) ui.Element {
+	return menuIn(c, ui.Box(c).Shrink(0), open, trigger, build)
+}
+
+func menuIn(c *ui.Context, holder ui.Element, open *bool, trigger func(t ui.Element), build func(m *Menu)) ui.Element {
 	holder.Children(func() {
 		parts := ui.MenuBase(c, open)
 		trigger(parts.Trigger)

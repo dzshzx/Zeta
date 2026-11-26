@@ -2686,11 +2686,31 @@
   },
   "sidebarGroupToday": "今天",
   "@sidebarGroupToday": {
-    "description": "侧栏会话列表里今天动过的一组的小标题。"
+    "description": "侧栏会话列表里所选时间（最新回答或发起时间）在今天的一组的小标题。"
   },
   "sidebarGroupEarlier": "更早",
   "@sidebarGroupEarlier": {
     "description": "侧栏会话列表里更早的一组的小标题。"
+  },
+  "sidebarGroupChats": "对话",
+  "@sidebarGroupChats": {
+    "description": "侧栏会话列表按手动排序时，置顶以外的那一整组的小标题。"
+  },
+  "sidebarSort": "排序",
+  "@sidebarSort": {
+    "description": "侧栏会话列表第一个小标题右边的排序按钮的名字（悬停提示和读屏）。"
+  },
+  "sidebarSortReplied": "最新回答",
+  "@sidebarSortReplied": {
+    "description": "侧栏排序菜单的一项：按最后一次回答完的时间排，新的在上面。"
+  },
+  "sidebarSortCreated": "发起时间",
+  "@sidebarSortCreated": {
+    "description": "侧栏排序菜单的一项：按对话发起的时间排，新的在上面。"
+  },
+  "sidebarSortManual": "手动排序",
+  "@sidebarSortManual": {
+    "description": "侧栏排序菜单的一项：按用户拖出来的先后排。"
   },
   "sidebarDraftLine": "草稿：{draft}",
   "@sidebarDraftLine": {
@@ -2925,6 +2945,10 @@
   "sessionUnpinFailed": "取消置顶没成功",
   "@sessionUnpinFailed": {
     "description": "取消置顶没成时弹框的标题，下面是原因。"
+  },
+  "sessionMoveFailed": "调整位置没成功",
+  "@sessionMoveFailed": {
+    "description": "手动排序时拖动会话、新位置没记下时弹框的标题，下面是原因。"
   },
   "sessionRenameFailed": "改名没成功",
   "@sessionRenameFailed": {

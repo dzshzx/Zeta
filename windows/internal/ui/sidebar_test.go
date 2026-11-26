@@ -7,6 +7,7 @@ import (
 
 	"github.com/dzshzx/Zeta/client/drafts"
 	"github.com/dzshzx/Zeta/client/hostlink"
+	"github.com/dzshzx/Zeta/windows/internal/settings"
 	"github.com/egoist/mygo/ui"
 )
 
@@ -87,6 +88,37 @@ var sidebarScenes = map[string]func(t *testing.T, f *chatFixture){
 		f.showTurn(t, false)
 		f.listSample()
 		f.app.draftBook().records["s2"] = drafts.Draft{Key: "s2", Text: "登录按钮再大一点，颜色换成"}
+		f.tt.Frame()
+	},
+	// 排序菜单开着（最新回答）
+	"sidebar-sort-menu": func(t *testing.T, f *chatFixture) {
+		f.showTurn(t, false)
+		f.sortSample()
+		f.push(`"session":"s1"`)
+		f.tt.Move(120, 500)
+		f.tt.Frame()
+		b, ok := f.tt.AccessByRole(ui.RoleMenuButton, "排序")
+		if !ok {
+			t.Fatalf("没有排序按钮：%q", f.tt.Texts())
+		}
+		f.tt.ClickAt(b.Bounds.X+b.Bounds.W/2, b.Bounds.Y+b.Bounds.H/2)
+		f.tt.Frame()
+		if r, ok := f.tt.Find("手动排序"); ok {
+			f.tt.Move(r.X+r.W/2, r.Y+r.H/2) // 鼠标停在菜单上，按钮的悬停提示不挡着
+		}
+	},
+	// 手动排序：按住「部署脚本」拖到「修登录页」的下半，还没松手
+	"sidebar-manual-drag": func(t *testing.T, f *chatFixture) {
+		f.showTurn(t, false)
+		f.sortSample()
+		f.push(`"session":"s1"`)
+		f.hub.SetSort(settings.SortManual)
+		f.tt.Frame()
+		a, b := f.rowBox(t, "部署脚本"), f.rowBox(t, "修登录页")
+		x, y := a.X+a.W/2, a.Y+a.H/2
+		f.tt.Press(x, y)
+		f.tt.Move(x, y-8)
+		f.tt.Move(x+20, b.Y+b.H*3/4)
 		f.tt.Frame()
 	},
 	// 后台任务面板：别的两个会话在后台进行，当前对话有两个后台任务

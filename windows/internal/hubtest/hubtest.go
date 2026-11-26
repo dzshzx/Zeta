@@ -2,6 +2,7 @@
 package hubtest
 
 import (
+	"cmp"
 	"context"
 	"crypto/ed25519"
 	"crypto/rand"
@@ -181,7 +182,8 @@ func (d *Devices) last(id string, open bool) *watcher {
 	return nil
 }
 
-// Push 替设备 id 开着的订阅推一份列表（会话的 Backend 填上 id）。
+// Push 替设备 id 开着的订阅推一份列表（会话的 Backend 填上 id；没给的发起时间、最新回答、手动排序的位置照真核心的补法补上：
+// 发起时间同 Updated，最新回答同发起时间，位置同发起时间）。
 func (d *Devices) Push(id string, u hostlink.SessionsUpdate) {
 	if w := d.last(id, true); w != nil {
 		w.w.Update(withBackend(u, id))
@@ -220,6 +222,10 @@ func withBackend(u hostlink.SessionsUpdate, id string) hostlink.SessionsUpdate {
 	u.Upsert = slices.Clone(u.Upsert)
 	for i := range u.Upsert {
 		u.Upsert[i].Backend = id
+		s := &u.Upsert[i]
+		s.Created = cmp.Or(s.Created, s.Updated)
+		s.Replied = cmp.Or(s.Replied, s.Created)
+		s.Rank = cmp.Or(s.Rank, float64(s.Created))
 	}
 	return u
 }

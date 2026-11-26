@@ -188,15 +188,15 @@ func combined(outcomes []searchOutcome) SearchProgress {
 	return SearchDone
 }
 
-// Results 是搜索结果：列着的会话（连同 current，见 Groups）里内容找到的，和标题或首句里有关键词的（不分大小写），照列表的先后；
-// 归档的也算。不在搜时是空。
+// Results 是搜索结果：列着的会话（连同 current，见 Groups）里内容找到的，和标题或首句里有关键词的（不分大小写），照所选的排序
+// （Ordered，置顶的不提前）；归档的也算。不在搜时是空。
 func (h *Hub) Results(current hostlink.Session, now time.Time) []hostlink.Session {
 	needle := strings.ToLower(h.needle())
 	if needle == "" {
 		return nil
 	}
 	var out []hostlink.Session
-	for _, s := range h.withCurrent(current, now) {
+	for _, s := range h.Ordered(now, current) {
 		_, hit := h.search.hits[Key(s)]
 		if hit || strings.Contains(strings.ToLower(s.Title), needle) || strings.Contains(strings.ToLower(s.Preview), needle) {
 			out = append(out, s)

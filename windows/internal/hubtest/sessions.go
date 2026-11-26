@@ -12,7 +12,7 @@ import (
 )
 
 // 假核心的 sessions.* 方法（docs/core.md「会话」）和取主机上图片文件的 images.file：照 Devices 上预先给的答，结果的样子和真的一样。
-// 置顶、改名、归档、删除、结束只答成功，不改列表（真核心改完经 sessions.watch 推来，测试要的话自己 Push）。
+// 置顶、手动排序、改名、归档、删除、结束只答成功，不改列表（真核心改完经 sessions.watch 推来，测试要的话自己 Push）。
 
 // answerSessions 答连接 l 上的 sessions.* 和 images.file 请求，记下「设备编号 方法 参数 JSON」。
 func (d *Devices) answerSessions(l *ChatLink, c Call) (json.RawMessage, error) {
@@ -32,6 +32,8 @@ func (d *Devices) answerSessions(l *ChatLink, c Call) (json.RawMessage, error) {
 	}
 	var result any
 	switch c.Method {
+	case "sessions.order":
+		result = map[string]any{"rank": c.Params["rank"]}
 	case "sessions.pin":
 		result = map[string]any{"pinned": c.Params["pinned"]}
 	case "sessions.rename":

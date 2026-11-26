@@ -1,4 +1,4 @@
-// Package ui 是桌面版的 mygo 界面：窗口、侧栏（设备切换、置顶/今天/更早）、设备的添加与编辑。只画中枢（hub）的状态、
+// Package ui 是桌面版的 mygo 界面：窗口、侧栏（设备切换、分组和排序）、设备的添加与编辑。只画中枢（hub）的状态、
 // 把操作交给它；要等设备的事（探测、读 SSH 配置）放到后台跑，结果经 post 回到主线程再改状态。
 package ui
 
@@ -62,6 +62,7 @@ type App struct {
 	drafts *draftBook // 各对话没发的输入（drafts.go）
 	query  string     // 侧栏搜索框里的字（每帧交给中枢，见 searchField）
 	ops    sessionOps // 侧栏的会话操作（sessionops.go）
+	order  sortState  // 侧栏的排序菜单和拖动（sidebarsort.go）
 	layout layout     // 侧栏的宽度、收起（layout.go）
 	zoom   int        // 界面缩放的百分数（zoom.go）
 

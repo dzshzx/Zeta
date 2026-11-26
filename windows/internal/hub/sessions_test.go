@@ -228,7 +228,7 @@ func TestPinsGoThroughTheCore(t *testing.T) {
 	if got := f.devices.SessionCalls(); !reflect.DeepEqual(got, want) {
 		t.Errorf("发出 %q", got)
 	}
-	// 核心推来的列表里置顶的（不在最新 300 个里的也在）就在置顶组
+	// 核心推来的列表里置顶的（不在最新 100 个里的也在）就在置顶组
 	f.devices.Push(f.id, hostlink.SessionsUpdate{Upsert: []hostlink.Session{{ID: "far", Updated: 1, Pinned: true}}})
 	if got := ids(f.hub.Groups(time.Now(), hostlink.Session{}).Pinned); !reflect.DeepEqual(got, []string{"s3", "far"}) {
 		t.Errorf("置顶组 %v", got)

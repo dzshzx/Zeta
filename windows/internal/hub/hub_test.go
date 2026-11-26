@@ -82,12 +82,12 @@ func TestUpdatesMergeAndAllHostsListTogether(t *testing.T) {
 		t.Fatalf("watching %v", d.Watching())
 	}
 	d.Push(b.ID, hostlink.SessionsUpdate{Full: true, Upsert: []hostlink.Session{{ID: "b1", Updated: 15}}})
-	if got := ids(h.Sessions()); !reflect.DeepEqual(got, []string{"a2", "b1", "a1"}) {
+	if got := ids(h.Ordered(time.Now(), hostlink.Session{})); !reflect.DeepEqual(got, []string{"a2", "b1", "a1"}) {
 		t.Errorf("merged %v", got)
 	}
-	// 增量：a1 变新、a2 删掉，b 的不动
+	// 增量：a1 有了新回答、a2 删掉，b 的不动
 	d.Push(a.ID, hostlink.SessionsUpdate{Upsert: []hostlink.Session{{ID: "a1", Updated: 30}}, Remove: []string{"a2"}})
-	if got := ids(h.Sessions()); !reflect.DeepEqual(got, []string{"a1", "b1"}) {
+	if got := ids(h.Ordered(time.Now(), hostlink.Session{})); !reflect.DeepEqual(got, []string{"a1", "b1"}) {
 		t.Errorf("after update %v", got)
 	}
 	// 一台连不上：列着几台时注明是哪台；连上了就清掉

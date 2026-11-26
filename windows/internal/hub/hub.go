@@ -8,11 +8,11 @@
 package hub
 
 import (
+	"cmp"
 	"context"
 	"io"
 	"log"
 	"slices"
-	"sort"
 	"strings"
 	"time"
 
@@ -61,7 +61,7 @@ type Hub struct {
 	hosts    []sshlink.Host
 	pins     localPins                               // 本机设置里还没迁到核心的置顶（pins.go）
 	watches  map[string]io.Closer                    // 订阅着的设备
-	sessions []hostlink.Session                      // 列着的各台的会话，合在一起，新的在前
+	sessions []hostlink.Session                      // 列着的各台的会话，合在一起，不按什么排（侧栏的先后见 sorted）
 	problems map[string]func() string                // 各台没读成会话列表的原因（显示时按界面当前的语言出字）
 	activity map[string]map[string]hostlink.Activity // 各台的核心报的各会话忙闲：设备 → 会话号 → 样子
 	unread   map[string]bool                         // 不在眼前时答完了一轮、还没点开看的会话（按 Key）
@@ -247,7 +247,7 @@ func (h *Hub) unwatch(id string) {
 }
 
 // received：设备 id 推来了列表。整份时换掉它的那些；否则 Upsert 是新出现或变了的、Remove 是不再列出的，别的都留着。
-// 置顶了却不在最新 300 个里的会话核心也列着（排在最后），不用另外取。
+// 置顶了却不在最新 100 个里的会话核心也列着，不用另外取。先后不管，侧栏的先后在 sorted 里排。
 func (h *Hub) received(id string, u hostlink.SessionsUpdate) {
 	defer h.changed()
 	dropped := map[string]bool{}
@@ -260,19 +260,10 @@ func (h *Hub) received(id string, u hostlink.SessionsUpdate) {
 	kept := slices.DeleteFunc(slices.Clone(h.sessions), func(s hostlink.Session) bool {
 		return s.Backend == id && (u.Full || dropped[s.ID])
 	})
-	if u.Full && len(kept) == 0 {
-		h.sessions = u.Upsert // 只有这一台时照那边给的先后
-	} else {
-		h.sessions = byTime(append(slices.Clone(u.Upsert), kept...))
-	}
+	h.sessions = append(slices.Clone(u.Upsert), kept...)
 }
 
-func byTime(list []hostlink.Session) []hostlink.Session {
-	sort.SliceStable(list, func(i, j int) bool { return list[i].Updated > list[j].Updated })
-	return list
-}
-
-// Sessions 是列着的各台的会话，新的在前。只读。
+// Sessions 是列着的各台的会话，不按什么排（侧栏的先后见 Groups、Ordered）。只读。
 func (h *Hub) Sessions() []hostlink.Session { return h.sessions }
 
 // Problem 是没读成会话列表的原因；都读成了是空。列着几台时每条前面注明是哪台。
@@ -291,33 +282,43 @@ func (h *Hub) Problem() string {
 	return strings.Join(lines, "\n")
 }
 
-// Groups 是侧栏的分组：置顶、今天、更早（今天按 now 所在时区的零点算）。归档的不列。
+// Groups 是侧栏的分组，组内的先后和分组都照所选的排序（Sort，见 order.go）：最新回答、发起时间是置顶、今天、更早
+// （今天按 now 所在时区的零点算，比的是所选的那个时间），手动排序是置顶和其余的一整组 Chats（这时 Today、Earlier 是空的）。
+// 归档的不列。
 type Groups struct {
-	Pinned, Today, Earlier []hostlink.Session
+	Pinned, Today, Earlier, Chats []hostlink.Session
 }
 
-// view 是按列表算好的侧栏分组和归档：列表、置顶、列哪几台变了（changed）、开着的会话换了或过了零点才重算，
+// view 是按列表算好的侧栏分组和归档：列表、置顶、排序、列哪几台变了（changed）、开着的会话换了或过了零点才重算，
 // 侧栏每帧取它不必每次都分一遍。
 type view struct {
 	fresh    bool
+	now      time.Time // 上次算时的 now（拖动排序时照它重算）
 	today    int64
 	current  hostlink.Session
+	sort     settings.SessionSort
+	ordered  []hostlink.Session // 全部（连同 current、归档的），照所选的排序
 	groups   Groups
 	archived []hostlink.Session
 }
 
-// changed：列表、置顶或列哪几台变了，侧栏的分组要重算。
+// changed：列表、置顶、排序或列哪几台变了，侧栏的分组要重算。
 func (h *Hub) changed() { h.view.fresh = false }
 
 // Groups 把列着的会话分组。current 是聊天窗格里开着的会话（没有会话号时不算）：列表里还没有它（新对话刚有了会话号、
-// 那边的列表还没推来，或在最近 300 个之外）时也放进来，正开着的那个一直找得到。结果只读。
+// 那边的列表还没推来，或在最近 100 个之外）时也放进来，正开着的那个一直找得到。结果只读。
 func (h *Hub) Groups(now time.Time, current hostlink.Session) Groups {
 	return h.sorted(now, current).groups
 }
 
-// Archived 是列着的会话里归档了的（current 同 Groups），新的在前。结果只读。
+// Archived 是列着的会话里归档了的（current 同 Groups），照所选的排序。结果只读。
 func (h *Hub) Archived(now time.Time, current hostlink.Session) []hostlink.Session {
 	return h.sorted(now, current).archived
+}
+
+// Ordered 是列着的会话（current 同 Groups，归档的也在），照所选的排序，置顶的不提前。结果只读。
+func (h *Hub) Ordered(now time.Time, current hostlink.Session) []hostlink.Session {
+	return h.sorted(now, current).ordered
 }
 
 // sorted 是算好的分组和归档，没算过或过时了先算。
@@ -328,14 +329,19 @@ func (h *Hub) sorted(now time.Time, current hostlink.Session) *view {
 	if v.fresh && v.today == today && v.current == current {
 		return v
 	}
-	*v = view{fresh: true, today: today, current: current}
-	for _, s := range h.withCurrent(current, now) {
+	mode := h.Sort()
+	*v = view{fresh: true, now: now, today: today, current: current, sort: mode}
+	v.ordered = slices.Clone(h.withCurrent(current, now))
+	slices.SortFunc(v.ordered, func(a, b hostlink.Session) int { return compareIn(mode, a, b) })
+	for _, s := range v.ordered {
 		switch {
 		case s.Archived:
 			v.archived = append(v.archived, s)
 		case h.Pinned(s):
 			v.groups.Pinned = append(v.groups.Pinned, s)
-		case s.Updated >= today:
+		case mode == settings.SortManual:
+			v.groups.Chats = append(v.groups.Chats, s)
+		case sortTime(mode, s) >= today:
 			v.groups.Today = append(v.groups.Today, s)
 		default:
 			v.groups.Earlier = append(v.groups.Earlier, s)
@@ -344,16 +350,18 @@ func (h *Hub) sorted(now time.Time, current hostlink.Session) *view {
 	return v
 }
 
-// withCurrent 是列着的会话，加上列表里还没有的 current（排在最前，时间算作 now）。
-// current 不在列着的设备上时不加。
+// withCurrent 是列着的会话，加上列表里还没有的 current（新会话：发起、最新回答的时间和手动排序的位置都算作 now，
+// 所以在最上面；悬停卡片的「多久以前动过」也算作 now）。current 不在列着的设备上时不加。
 func (h *Hub) withCurrent(current hostlink.Session, now time.Time) []hostlink.Session {
 	if current.ID == "" || !slices.Contains(h.Listed(), current.Backend) ||
 		slices.ContainsFunc(h.sessions, func(s hostlink.Session) bool { return sameSession(s, current) }) {
 		return h.sessions
 	}
-	if current.Updated == 0 {
-		current.Updated = now.UnixMilli()
-	}
+	ms := now.UnixMilli()
+	current.Updated = cmp.Or(current.Updated, ms)
+	current.Created = cmp.Or(current.Created, ms)
+	current.Replied = cmp.Or(current.Replied, ms)
+	current.Rank = cmp.Or(current.Rank, float64(ms))
 	return append([]hostlink.Session{current}, h.sessions...)
 }
 

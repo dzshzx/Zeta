@@ -109,7 +109,8 @@ type BackgroundChat struct {
 
 // BackgroundChats 是列着的各台上核心报在回答、等确认或还有后台任务的会话（同手机版 parkedConversations 里还在跑的），
 // 聊天窗格开着的那个不算：桌面版只拿着眼前这一个对话，别的对话在核心里接着跑，忙闲看 conv.activity，
-// 手机或别的客户端开着的也在里面。按会话列表的先后（新的在前），列表里还没有的排在最后、按会话号。
+// 手机或别的客户端开着的也在里面。按最近动过的先后（记录的修改时间 Updated，新的在前；不跟侧栏所选的排序），
+// 列表里还没有的排在最后、按会话号。
 func (h *Hub) BackgroundChats() []BackgroundChat {
 	var out []BackgroundChat
 	for _, id := range h.Listed() {
@@ -131,7 +132,7 @@ func inProgress(a hostlink.Activity) bool {
 	return a.State == "waiting" || a.State == "answering" || a.State == "background" || a.Tasks > 0
 }
 
-// listed 是会话列表里设备 backend 上的会话 id；列表里还没有（新会话那边还没推来，或在最近 300 个之外）时只有设备和会话号。
+// listed 是会话列表里设备 backend 上的会话 id；列表里还没有（新会话那边还没推来，或在最近 100 个之外）时只有设备和会话号。
 func (h *Hub) listed(backend, id string) hostlink.Session {
 	if i := slices.IndexFunc(h.sessions, func(x hostlink.Session) bool { return x.Backend == backend && x.ID == id }); i >= 0 {
 		return h.sessions[i]

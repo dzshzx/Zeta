@@ -13,8 +13,8 @@ import (
 )
 
 // sidebar 是左边的侧栏（布局照 ChatGPT 的 Windows 客户端）：灰底铺到窗口顶边，顶上一行品牌和收起侧栏的按钮同时是
-// 标题栏（空白处拖动窗口）；然后是「新对话」、搜索框、设备切换，置顶/今天/更早几组会话（搜索时换成结果，看归档时换成
-// 归档的）；底下是「设置」和归档的入口。宽度能拖（App.View 里的 ui.Split）。多选照资源管理器，操作在右键菜单里（sessionops.go）。
+// 标题栏（空白处拖动窗口）；然后是「新对话」、搜索框、设备切换，几组会话（照所选的排序分组，排序按钮在第一组标题的右边，
+// 见 sidebarsort.go；搜索时换成结果，看归档时换成归档的）；底下是「设置」和归档的入口。宽度能拖（App.View 里的 ui.Split）。多选照资源管理器，操作在右键菜单里（sessionops.go）。
 func (a *App) sidebar(c *ui.Context) {
 	if a.inSettings() {
 		a.settingsNav(c)
@@ -22,7 +22,9 @@ func (a *App) sidebar(c *ui.Context) {
 	}
 	k := widget.Of(c)
 	hosts := len(a.hub.Hosts()) > 0
-	ui.Column(c).Fill().Background(k.Sidebar).Children(func() {
+	pane := ui.Column(c).Fill().Background(k.Sidebar)
+	a.order.hovered = pane.Hovered() // 排序按钮只在鼠标在侧栏上时显示
+	pane.Children(func() {
 		a.sidebarTop(c)
 		if hosts {
 			ui.Column(c).Padding(0, 10, 8, 10).Gap(6).Shrink(0).Children(func() {
@@ -105,7 +107,8 @@ func (a *App) hostSwitcher(c *ui.Context) {
 	})
 }
 
-// sessionGroups 是侧栏的会话：列不出来时说原因，没有时说一声；否则置顶、今天、更早几组。正开着的会话一直在里面（见 hub.Groups）。
+// sessionGroups 是侧栏的会话：列不出来时说原因，没有时说一声；否则照所选的排序分几组（置顶、今天、更早，手动排序时是置顶和
+// 「对话」，见 hub.Groups）。正开着的会话一直在里面。手动排序时各行能拖动改位置（sidebarsort.go）。
 func (a *App) sessionGroups(c *ui.Context) {
 	h := a.hub
 	if len(h.Hosts()) == 0 {
@@ -116,23 +119,25 @@ func (a *App) sessionGroups(c *ui.Context) {
 		paneMessage(c, why)
 	}
 	g := h.Groups(a.now(), a.currentSession())
-	if len(g.Pinned)+len(g.Today)+len(g.Earlier) == 0 {
+	if len(g.Pinned)+len(g.Today)+len(g.Earlier)+len(g.Chats) == 0 {
 		if h.Problem() == "" {
 			paneMessage(c, locales.SidebarNoChats())
 		}
 		return
 	}
+	movable := a.canDrag()
 	first := true
 	for _, group := range []struct {
 		title string
 		list  []hostlink.Session
-	}{{locales.SidebarGroupPinned(), g.Pinned}, {locales.SidebarGroupToday(), g.Today}, {locales.SidebarGroupEarlier(), g.Earlier}} {
+	}{{locales.SidebarGroupPinned(), g.Pinned}, {locales.SidebarGroupToday(), g.Today}, {locales.SidebarGroupEarlier(), g.Earlier},
+		{locales.SidebarGroupChats(), g.Chats}} {
 		if len(group.list) == 0 {
 			continue
 		}
-		sectionTitle(c, group.title, first)
+		a.groupTitle(c, group.title, first)
 		for _, s := range group.list {
-			a.sessionRow(c, s, "")
+			a.sessionRow(c, s, "", movable)
 		}
 		first = false
 	}
@@ -178,8 +183,8 @@ func (a *App) currentSession() hostlink.Session {
 // 前面是设备名）放在悬停提示里；搜索时标题下面多一行对话内容里命中的片段。有没发出的草稿时行尾标「草稿」，草稿的开头
 // 接在悬停提示里（正开着的那个草稿就在输入框里，不标）。行尾是状态（回答中、等你确认……），
 // 没有状态时置顶的标个图钉；鼠标移上去或正开着时多一个「…」，点开和右键一样是会话操作（sessionMenu）。
-// 正开着的那个和多选选中的是选中的底色；点击带 Ctrl、Shift 是多选（clickRow）。
-func (a *App) sessionRow(c *ui.Context, s hostlink.Session, snippet string) {
+// 正开着的那个和多选选中的是选中的底色；点击带 Ctrl、Shift 是多选（clickRow）。movable 时能拖动改位置（手动排序，sidebarsort.go）。
+func (a *App) sessionRow(c *ui.Context, s hostlink.Session, snippet string, movable bool) {
 	k := widget.Of(c)
 	pinned := a.hub.Pinned(s)
 	current := a.showing(s)
@@ -193,6 +198,10 @@ func (a *App) sessionRow(c *ui.Context, s hostlink.Session, snippet string) {
 	row := ui.Row(c.Key(key)).Margin(0.5, 10).MinHeight(36).Padding(0, 6, 0, 10).Gap(8).AlignItems(ui.Center).
 		Focusable().Label(rowTitle(s)).Description(place).Role(ui.RoleButton).Cursor(ui.CursorPointer)
 	a.rowCard(c, row, s, draft, hasDraft, needle != "")
+	line := noLine
+	if movable {
+		line = a.movable(row, s)
+	}
 	if snippet != "" {
 		row.Padding(6, 6, 6, 10)
 	}
@@ -252,6 +261,7 @@ func (a *App) sessionRow(c *ui.Context, s hostlink.Session, snippet string) {
 			}
 			widget.FlatButtonOf(c, more, widget.IconMore, locales.SidebarRowActions(), 24, 16)
 		}
+		line.draw(c)
 	})
 }
 
