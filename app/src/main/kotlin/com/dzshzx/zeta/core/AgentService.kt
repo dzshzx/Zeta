@@ -13,6 +13,7 @@ import android.content.pm.PackageManager
 import android.content.pm.ServiceInfo
 import android.graphics.drawable.Icon
 import android.os.Build
+import android.os.Bundle
 import android.os.Handler
 import android.os.IBinder
 import android.os.Looper
@@ -97,7 +98,7 @@ internal object Notifier {
 
     /**
      * 对话 [key] 的提醒（跑完、等你处理）：每个对话一条，tag 就是 [key]，同一个对话再发就替换；点开切到这个对话。[detail] 是展开后的全文，[actions]
-     * 是通知上的按钮，[silent] 见 [post]。
+     * 是通知上的按钮，[silent] 见 [post]。也上超级岛（[FocusParam.alert]，[short] 是岛上的短词）：不静音的弹出来停几秒。
      */
     fun alert(
         context: Context,
@@ -107,6 +108,7 @@ internal object Notifier {
         detail: String? = null,
         actions: List<Notification.Action> = emptyList(),
         silent: Boolean = false,
+        short: String? = null,
     ) =
         post(
             context,
@@ -118,7 +120,42 @@ internal object Notifier {
             bigText = detail,
             silent = silent,
             actions = actions,
+            island =
+                FocusParam.alert(
+                    title,
+                    text,
+                    short,
+                    actions.map { it.title.toString() },
+                    silent,
+                ),
         )
+
+    /**
+     * 把超级岛的焦点参数（见 [FocusParam]）放进 [builder] 的 extras：JSON、图标，按钮是通知上同一批 [actions]，顺序同
+     * [IslandContent.replies]。
+     */
+    fun island(
+        context: Context,
+        builder: Notification.Builder,
+        content: IslandContent,
+        actions: List<Notification.Action>,
+    ) {
+        val focus = FocusParam.build(content)
+        val pics =
+            Bundle().apply {
+                putParcelable(
+                    FocusParam.PIC_ICON,
+                    Icon.createWithResource(context, R.drawable.ic_stat_zeta),
+                )
+            }
+        val buttons =
+            Bundle().apply {
+                focus.actions.zip(actions).forEach { (key, action) -> putParcelable(key, action) }
+            }
+        builder.extras.putString(FocusParam.EXTRA, focus.json)
+        builder.extras.putBundle(FocusParam.PICS, pics)
+        builder.extras.putBundle(FocusParam.ACTIONS, buttons)
+    }
 
     /** 撤掉对话 [key] 的提醒（用户看到了，或等的请求已经处理掉）。 */
     fun clearAlert(context: Context, key: String) = cancel(context, key, ID_ALERT)
@@ -126,7 +163,7 @@ internal object Notifier {
     /**
      * 发一条提醒（默认渠道“完成与确认提醒”，[channel] 可换，点开后自动收起）：没有通知权限就不发；测试版的标题前注明“测试版”。 [tag] 和 [id]
      * 一起认出这一条，同一条再发就替换；有 [bigText] 时展开能看到这段全文。 [silent]：这一条不响铃、不振动、不横幅弹出，只进通知栏（屏幕底部已经弹了结果卡片）。
-     * [actions] 是通知上的按钮（系统最多画三个）。
+     * [actions] 是通知上的按钮（系统最多画三个）。[island] 不为 null 时也上超级岛（见 [island]）。
      */
     fun post(
         context: Context,
@@ -139,6 +176,7 @@ internal object Notifier {
         silent: Boolean = false,
         channel: String = CHANNEL_ALERT,
         actions: List<Notification.Action> = emptyList(),
+        island: IslandContent? = null,
     ) {
         if (
             context.checkSelfPermission(Manifest.permission.POST_NOTIFICATIONS) !=
@@ -165,6 +203,7 @@ internal object Notifier {
                 .apply { actions.forEach(::addAction) }
                 .setContentIntent(open)
                 .setAutoCancel(true)
+                .apply { island?.let { island(context, this, it, actions) } }
                 .build()
         context.getSystemService(NotificationManager::class.java).notify(tag, id, notification)
     }
@@ -246,7 +285,9 @@ class AgentService : Service() {
         if (live != null && Build.VERSION.SDK_INT >= Build.VERSION_CODES.BAKLAVA) {
             promote(builder, live)
             // 实时通知（超级岛展开时也是它）只在停下来等用户时带按钮，是替用户回答的那几个；“停止”“截屏”在岛上用不着
-            replyActions(live).forEach(builder::addAction)
+            val replies = replyActions(live)
+            replies.forEach(builder::addAction)
+            Notifier.island(this, builder, FocusParam.of(live), replies)
             return builder.build()
         } else {
             builder
@@ -303,8 +344,9 @@ class AgentService : Service() {
 
     /**
      * 常驻通知的骨架，在“运行状态”渠道。一轮里要更新很多次，平时只在第一次发出时提醒（用户把这个渠道调成会弹横幅时，不然每次更新都再弹一次）。
-     * 实时通知上显示的对话停下来等用户、这个请求第一次出现时提醒一次，弹不弹、响不响照用户给这个渠道的设置。 HyperOS 把实时通知转成超级岛时不让它自己展开（转出来的参数里
-     * enableFloat、islandFirstFloat 都是 false），岛弹出来靠这次提醒。 手机上实测：另建一个重要度“高”的渠道，岛不展开；用户调高过的“运行状态”渠道能展开。
+     * 实时通知上显示的对话停下来等用户、这个请求第一次出现时提醒一次，弹不弹、响不响照用户给这个渠道的设置。 Zeta 的 LSPosed 模块在系统界面里生效时， 岛按 Zeta
+     * 自己的焦点参数自己展开（[FocusParam.of]）；没生效时 HyperOS 把实时通知转成岛，转出来的参数里 enableFloat、islandFirstFloat 都是
+     * false，岛弹出来靠这次提醒（手机上实测：另建一个重要度“高”的渠道，岛不展开；用户调高过的“运行状态”渠道能展开）。
      */
     private fun statusBuilder(live: LiveStatus?): Notification.Builder {
         val waiting =

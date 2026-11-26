@@ -27,8 +27,12 @@ enum class PowerKeyRoute(val label: String) {
  * `ShortCutActionsUtils.triggerFunction` 里功能是 launch_voice_assistant、来源是电源键的那几次；纯函数，单元测试覆盖。
  */
 object PowerKeyPolicy {
-    /** 模块日志（LSPosed 模块日志和 logcat）的标签，见 [AppVariant.powerKeyTag]。 */
-    val LOG_TAG: String = AppVariant.current.powerKeyTag
+    /**
+     * 本包模块日志（LSPosed 模块日志和 logcat）的标签，见 [AppVariant.powerKeyTag]；应用里用。模块里用 ZetaModule 按模块自己的包建的
+     * AppVariant。
+     */
+    val LOG_TAG: String
+        get() = AppVariant.current.powerKeyTag
 
     const val FUNCTION = "launch_voice_assistant"
 
@@ -54,7 +58,7 @@ object PowerKeyPolicy {
         assistant: String?,
         locked: Boolean,
         duplicate: Boolean,
-        self: String = AppVariant.current.packageName,
+        self: String,
     ): PowerKeyRoute =
         when {
             !matches(function, source) -> PowerKeyRoute.NotOurs

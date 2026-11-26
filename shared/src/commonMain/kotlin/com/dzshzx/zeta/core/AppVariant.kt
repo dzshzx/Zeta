@@ -53,6 +53,10 @@ class AppVariant(val packageName: String) {
     val appToolsTag: String
         get() = if (isDev) "ZetaDevAppTools" else "ZetaAppTools"
 
+    /** 放行本包的超级岛焦点通知（xposed/FocusAuthHook.kt）写日志用的标签，同样按包分开、互不包含。 */
+    val islandTag: String
+        get() = if (isDev) "ZetaDevIsland" else "ZetaIsland"
+
     /** 通知标题：测试版前面注明，免得和正式版的通知混在一起。 */
     fun notificationTitle(title: String): String =
         if (isDev) Strings.coreVariantNotificationTitle(title) else title

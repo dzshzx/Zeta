@@ -23,14 +23,14 @@ import java.lang.reflect.Method
  * （`IVoiceInteractionManagerService.showSessionForActiveService`，和 SystemUI 唤起助理同一个入口），
  * 成功才消费这次动作，失败走原逻辑。别的按键和动作原样放行。
  *
- * 诊断：装没装上、每次电源键走了哪条路，都写进 LSPosed 的模块日志和 logcat（标签 [PowerKeyPolicy.LOG_TAG]）。 Zeta 的 设置 › 诊断 › 数字助理
+ * 诊断：装没装上、每次电源键走了哪条路，都写进 LSPosed 的模块日志和 logcat（标签 [AppVariant.powerKeyTag]）。 Zeta 的 设置 › 诊断 › 数字助理
  * 读的就是这两处。
  */
 internal object PowerKeyHook {
     private val gate = PowerKeyGate()
 
-    fun install(module: XposedModule, loader: ClassLoader) {
-        val log = ModuleLog(module, PowerKeyPolicy.LOG_TAG)
+    fun install(module: XposedModule, loader: ClassLoader, variant: AppVariant) {
+        val log = ModuleLog(module, variant.powerKeyTag)
         try {
             val type = runCatching {
                 Class.forName(PowerKeySignature.CLASS, false, loader)
@@ -59,8 +59,8 @@ internal object PowerKeyHook {
             module
                 .hook(method)
                 .setExceptionMode(XposedInterface.ExceptionMode.PROTECTIVE)
-                .setId("${AppVariant.current.packageName}.power-key")
-                .intercept { chain -> intercept(chain, contextField, log) }
+                .setId("${variant.packageName}.power-key")
+                .intercept { chain -> intercept(chain, contextField, log, variant.packageName) }
             log.info(
                 "装上了：${PowerKeySignature.CLASS.substringAfterLast('.')}.${PowerKeySignature.describe(method)}",
             )
@@ -69,7 +69,12 @@ internal object PowerKeyHook {
         }
     }
 
-    private fun intercept(chain: XposedInterface.Chain, contextField: Field, log: ModuleLog): Any? {
+    private fun intercept(
+        chain: XposedInterface.Chain,
+        contextField: Field,
+        log: ModuleLog,
+        self: String,
+    ): Any? {
         val function = chain.getArg(0) as? String
         val source = chain.getArg(1) as? String
         if (!PowerKeyPolicy.matches(function, source)) return chain.proceed()
@@ -87,7 +92,8 @@ internal object PowerKeyHook {
             context.getSystemService(KeyguardManager::class.java)?.isKeyguardLocked == true
         }
             .getOrDefault(false)
-        val route = PowerKeyPolicy.route(function, source, assistant, locked, gate.duplicate(now))
+        val route =
+            PowerKeyPolicy.route(function, source, assistant, locked, gate.duplicate(now), self)
         val who = PowerKeyPolicy.packageOf(assistant) ?: "没有"
         return when (route) {
             PowerKeyRoute.NotOurs -> chain.proceed()

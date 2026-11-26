@@ -26,7 +26,7 @@ Zeta 可以被选为系统的默认数字助理。唤起后在当前应用上弹
 
 ## 长按电源键（HyperOS）
 
-HyperOS 长按电源键由 system_server 直接拉起小爱，不看默认数字助理是谁。Zeta 自带一个 LSPosed 模块（`xposed/`，libxposed API 102，入口登记在 `resources/META-INF/xposed/`，依赖只 compileOnly），作用域只有系统框架：
+HyperOS 长按电源键由 system_server 直接拉起小爱，不看默认数字助理是谁。Zeta 自带一个 LSPosed 模块（`xposed/`，libxposed API 102，入口登记在 `resources/META-INF/xposed/`，依赖只 compileOnly），作用域是系统框架和系统界面（系统界面只用于下面「超级岛」一节）：
 
 - 拦 `com.miui.server.input.util.ShortCutActionsUtils.triggerFunction`。HyperOS 4（OS4.0.6）上有四参数和五参数两个重载，四参数的直接转调五参数的，所以有五参数的就只拦它；返回类型不是 boolean、两个都对不上时不装，并在日志里写出系统里有的签名。
 - 只处理功能 `launch_voice_assistant`、来源 `long_press_power_key` 或 `imperceptible_press_power_key` 的那几次。默认数字助理（secure `voice_interaction_service`）是本包、没锁屏时，请系统显示当前默认助理的会话（`showSessionForActiveService`，和 SystemUI 唤起助理同一个入口）；成功才消费这次动作，同一次按键 1 秒内的重复派发直接吞掉；失败、锁屏、默认助理不是本包都放行（给另一个包的模块，都不接管时到小爱）。别的按键和动作原样放行。
@@ -42,6 +42,19 @@ HyperOS 长按电源键由 system_server 直接拉起小爱，不看默认数字
 
 诊断：装没装上和第一次放行写进 LSPosed 的模块日志和 logcat，标签正式版 `ZetaAppTools`、测试版 `ZetaDevAppTools`。命令行：`logcat -d -s ZetaAppTools ZetaDevAppTools`。启用步骤和电源键的一样（下面「用户要做的」第 2、3 步）；只用工具不用电源键时，不必换默认助理。
 
+## 超级岛
+
+同一个模块还让 Zeta 的通知按 Zeta 自己写的参数上小米超级岛（焦点通知：通知 extras 里的 `miui.focus.param`、`miui.focus.pics`、`miui.focus.actions`，拼法在 `core/FocusParam.kt`）。两种通知都带：常驻的实时通知（停下来等用户时岛自己展开，带回答按钮），对话的提醒（跑完、中断、等你；不静音的弹出来停 5 秒收起，通知留在通知栏）。
+
+焦点通知插件（`miui.systemui.plugin`，跑在系统界面进程里）有两道关，模块在系统界面里各拦一处，查的是本包时答是（`xposed/FocusAuthHook.kt`）：
+
+- 实时通知不在 `NotificationSettingsManager.isDynamicIslandLiveUpdateBlackList` 里时，插件清掉应用写的焦点参数，换成从实时通知转出来的（岛不自己展开、没有应用的按钮）。本包算在名单里，插件就用 Zeta 的参数。
+- 国行系统上不带自定义视图的焦点通知要过 `SignatureChecker.checkSignatures(packageName)`（和系统界面同签名），否则去小米服务器核对申请过的权限，没申请过不上岛。
+
+这两个类在插件的 ClassLoader 里，插件晚于系统界面加载，模块等 `PluginInstance$PluginFactory.createPluginContext` 建出插件的 Context 再装。模块没启用时实时通知照常由系统转成岛（不自己展开），提醒照常是横幅。
+
+诊断：装没装上和第一次放行写进 LSPosed 的模块日志和 logcat，标签正式版 `ZetaIsland`、测试版 `ZetaDevIsland`。命令行：`logcat -d -s ZetaIsland ZetaDevIsland`；岛用了谁的参数看 `logcat -d -s DynamicIslandEventCoordinator` 里本包那条的 `tickerData`（图标是 `miui.focus.pic_zeta` 的是 Zeta 的，`miui.focus.pic_liveupdate` 的是系统转的）。重装后的旧 APK 路径问题（上面「长按电源键」末段）在系统界面里一样：重装后系统界面按旧路径加载失败，重启手机后才装上。
+
 ## 开机保持默认助理
 
 用户在系统设置里选默认助理时，系统只改 `assistant` 和 `voice_interaction_service`，不改默认语音识别 `voice_recognition_service`。开机时（Android 16 的 VoiceInteractionManagerService.initForUser）系统先看默认识别服务：为空、找不到或不是 `selectableAsDefault` 的，就把默认助理重选成它找到的第一个可用助理（装着 Eta 时就是 Eta，所以重启后默认助理被换掉）。
@@ -55,7 +68,7 @@ HyperOS 长按电源键由 system_server 直接拉起小爱，不看默认数字
 代理不替用户换默认助理、不在 LSPosed 里启用模块、不重启手机。正式版、测试版各做各的，下面以要用的那个包为准（测试版在系统设置和 LSPosed 里叫「Zeta 测试」）。
 
 1. 系统设置 › 默认应用 › 数字助理（Zeta 设置 › 能力 › 数字助理 能跳过去），选这个包。
-2. LSPosed 管理器 › 模块，启用这个包的模块，作用域勾「系统框架」。
+2. LSPosed 管理器 › 模块，启用这个包的模块，作用域勾「系统框架」和「系统界面」（后者只为超级岛）。
 3. 重启手机。
 4. 验：这个包的 设置 › 诊断 › 数字助理：「系统语音识别」是这个包，「长按电源键接管」是「已装上」（重装过这个包后第一次重启可能还不是，再重启一次）。打开任意应用长按电源键，应弹出它的浮窗而不是小爱；记录里多一条「已显示 <包名> 的助理会话」。
 

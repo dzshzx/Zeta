@@ -24,8 +24,8 @@ internal object AppToolBindHook {
     /** 调用方 uid 是不是本包；system_server 活着期间 uid 不变，查一次记下。 */
     private val mine = ConcurrentHashMap<Int, Boolean>()
 
-    fun install(module: XposedModule, loader: ClassLoader) {
-        val log = ModuleLog(module, AppVariant.current.appToolsTag)
+    fun install(module: XposedModule, loader: ClassLoader, variant: AppVariant) {
+        val log = ModuleLog(module, variant.appToolsTag)
         try {
             val type = Class.forName(CLASS, false, loader)
             val methods = pick(type)
@@ -43,11 +43,14 @@ internal object AppToolBindHook {
                     .hook(method)
                     .setExceptionMode(XposedInterface.ExceptionMode.PROTECTIVE)
                     .setId(
-                        "${AppVariant.current.packageName}.app-tool-bind.${method.parameterCount}",
+                        "${variant.packageName}.app-tool-bind.${method.parameterCount}",
                     )
                     .intercept { chain ->
                         val uid = chain.getArg(UID_ARG) as Int
-                        if (chain.getArg(0) == AppToolCall.BIND_PERMISSION && isMine(uid, log))
+                        if (
+                            chain.getArg(0) == AppToolCall.BIND_PERMISSION &&
+                                isMine(uid, log, variant.packageName)
+                        )
                             PackageManager.PERMISSION_GRANTED
                         else chain.proceed()
                     }
@@ -76,7 +79,7 @@ internal object AppToolBindHook {
 
     private const val UID_ARG = 2
 
-    private fun isMine(uid: Int, log: ModuleLog): Boolean =
+    private fun isMine(uid: Int, log: ModuleLog, self: String): Boolean =
         mine.getOrPut(uid) {
             val identity = Binder.clearCallingIdentity()
             val packages =
@@ -93,7 +96,7 @@ internal object AppToolBindHook {
                 } finally {
                     Binder.restoreCallingIdentity(identity)
                 }
-            (packages?.contains(AppVariant.current.packageName) == true).also {
+            (packages?.contains(self) == true).also {
                 if (it) log.info("放行 uid $uid 绑定系统应用的工具服务")
             }
         }

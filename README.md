@@ -30,7 +30,7 @@ Zeta 是 root 过的 Android 手机上 [Claude Code](https://github.com/anthropi
 
 - Android 15 或更新，arm64（arm64-v8a）。
 - root：KernelSU（含 SukiSU 等分支）或 Magisk。Linux 环境、后台虚拟屏和一键授权都要 root，没有 root 的手机用不了 Zeta 的大部分功能（远程主机的 SSH 直连除外）。
-- 可选：LSPosed。Zeta 自带一个 LSPosed 模块，只在 HyperOS 上有用：长按电源键唤起 Zeta，以及调用系统应用开放给系统智能体的工具。
+- 可选：LSPosed。Zeta 自带一个 LSPosed 模块，只在 HyperOS 上有用：长按电源键唤起 Zeta，调用系统应用开放给系统智能体的工具，以及让 Zeta 的通知上超级岛并自己展开。
 - HyperOS 专有的功能：小米的语音识别服务、长按电源键、小米便签和系统应用的工具。别的系统上这些用不了，其余功能照常。
 - 存储：Debian 环境和工具装在手机的 `/data/local/zeta` 下，装之前留够空间。
 

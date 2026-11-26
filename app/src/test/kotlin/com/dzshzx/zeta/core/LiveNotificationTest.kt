@@ -9,8 +9,14 @@ import com.dzshzx.zeta.phone.PhoneTools
 import com.dzshzx.zeta.shots.Fixtures
 import com.dzshzx.zeta.shots.Fixtures.showChat
 import com.dzshzx.zeta.ui.chat.toolTitle
+import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonObject
+import kotlinx.serialization.json.boolean
 import kotlinx.serialization.json.buildJsonObject
+import kotlinx.serialization.json.int
+import kotlinx.serialization.json.jsonArray
+import kotlinx.serialization.json.jsonObject
+import kotlinx.serialization.json.jsonPrimitive
 import kotlinx.serialization.json.put
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
@@ -132,6 +138,26 @@ class LiveNotificationTest {
         assertEquals("需要你确认：建文件", n.extras.getCharSequence(Notification.EXTRA_TEXT).toString())
         assertEquals(listOf("允许", "拒绝"), n.actions.map { it.title.toString() })
         assertEquals(listOf(true, false), n.actions.map { it.isAuthenticationRequired })
+        // 超级岛的焦点参数：等用户时岛自己展开，按钮是同一批回答，键对得上放进 extras 的按钮
+        val focus = focus(n)
+        assertEquals(true, focus["enableFloat"]?.jsonPrimitive?.boolean)
+        assertEquals(true, focus["islandFirstFloat"]?.jsonPrimitive?.boolean)
+        val buttons = focus["textButton"]!!.jsonArray.map { it.jsonObject }
+        assertEquals(listOf("允许", "拒绝"), buttons.map { it["actionTitle"]!!.jsonPrimitive.content })
+        val actions = n.extras.getBundle(FocusParam.ACTIONS)!!
+        assertEquals(
+            listOf("允许", "拒绝"),
+            buttons.map {
+                actions
+                    .getParcelable(
+                        it["action"]!!.jsonPrimitive.content,
+                        Notification.Action::class.java,
+                    )!!
+                    .title
+                    .toString()
+            },
+        )
+        assertTrue(n.extras.getBundle(FocusParam.PICS)!!.containsKey(FocusParam.PIC_ICON))
         // 接管着时胶囊上是“你在接管”，没有回答的按钮
         val controlling =
             LiveUpdate.status(
@@ -141,7 +167,14 @@ class LiveNotificationTest {
             )
         val plain = service.notification(StatusNotice(true, true, listOf("修 bug"), controlling))
         assertEquals("实时通知平时不带停止、截屏", 0, plain.actions?.size ?: 0)
+        assertNull(focus(plain)["textButton"])
     }
+
+    /** 通知里超级岛焦点参数的 param_v2。 */
+    private fun focus(n: Notification): JsonObject =
+        Json.parseToJsonElement(n.extras.getString(FocusParam.EXTRA)!!)
+            .jsonObject["param_v2"]!!
+            .jsonObject
 
     /** 测试版上试过的两个渠道还在就删掉，不在时不去删（删渠道会顺带清一遍这个应用的通知）。 */
     @Test
@@ -173,6 +206,10 @@ class LiveNotificationTest {
         assertEquals(2, n.extras.getInt(Notification.EXTRA_PROGRESS))
         assertEquals(5, n.extras.getInt(Notification.EXTRA_PROGRESS_MAX))
         assertTrue(n.hasPromotableCharacteristics())
+        // 超级岛上同一份进度（百分比）；没在等用户，岛不自己展开
+        val focus = focus(n)
+        assertEquals(40, focus["progressInfo"]!!.jsonObject["progress"]!!.jsonPrimitive.int)
+        assertEquals(false, focus["enableFloat"]?.jsonPrimitive?.boolean)
     }
 
     @Test
@@ -189,6 +226,7 @@ class LiveNotificationTest {
                 )
         assertFalse(n.extras.getBoolean(Notification.EXTRA_REQUEST_PROMOTED_ONGOING))
         assertNull(n.shortCriticalText)
+        assertNull("不提升时不上超级岛", n.extras.getString(FocusParam.EXTRA))
         assertEquals(
             AppVariant.current.notificationTitle("Claude 正在工作"),
             n.extras.getCharSequence(Notification.EXTRA_TITLE).toString(),
@@ -204,6 +242,44 @@ class LiveNotificationTest {
             idle.extras.getCharSequence(Notification.EXTRA_TITLE).toString(),
         )
         assertFalse(idle.extras.getBoolean(Notification.EXTRA_REQUEST_PROMOTED_ONGOING))
+    }
+
+    /** 对话的提醒上超级岛：不静音的弹出来、停几秒收起；短词够短时就是那一句，右边换成对话标题；静音的不弹。 */
+    @Test
+    fun alertsGoOnIsland() {
+        fun param(content: IslandContent) =
+            Json.parseToJsonElement(FocusParam.build(content).json)
+                .jsonObject["param_v2"]!!
+                .jsonObject
+        fun big(p: JsonObject, side: String) =
+            p["param_island"]!!
+                .jsonObject["bigIslandArea"]!!
+                .jsonObject[side]!!
+                .jsonObject["textInfo"]!!
+                .jsonObject["title"]!!
+                .jsonPrimitive
+                .content
+
+        val done = param(FocusParam.alert("修 bug", "已完成", null, emptyList(), silent = false))
+        assertEquals(true, done["islandFirstFloat"]?.jsonPrimitive?.boolean)
+        assertEquals(
+            FocusParam.ALERT_ISLAND_SECONDS,
+            done["param_island"]!!.jsonObject["islandTimeout"]!!.jsonPrimitive.int,
+        )
+        assertEquals("已完成", big(done, "imageTextInfoLeft"))
+        assertEquals("修 bug", big(done, "imageTextInfoRight"))
+
+        val quiet = param(FocusParam.alert("修 bug", "已完成", null, emptyList(), silent = true))
+        assertEquals(false, quiet["enableFloat"]?.jsonPrimitive?.boolean)
+
+        val long = param(FocusParam.alert("修 bug", "答完了，后台还有 2 个任务在跑", null, emptyList(), false))
+        assertEquals("", big(long, "imageTextInfoLeft"))
+        assertEquals("答完了，后台还有 2 …", big(long, "imageTextInfoRight"))
+
+        val waiting =
+            param(FocusParam.alert("修 bug", "需要你确认：建文件", "待确认", listOf("允许", "拒绝"), false))
+        assertEquals("待确认", big(waiting, "imageTextInfoLeft"))
+        assertEquals(2, waiting["textButton"]!!.jsonArray.size)
     }
 
     @Test

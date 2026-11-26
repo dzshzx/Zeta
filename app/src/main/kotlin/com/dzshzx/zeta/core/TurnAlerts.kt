@@ -169,6 +169,7 @@ class TurnAlerts internal constructor(private val hub: ConversationHub) : TurnEv
                     AlertReplyReceiver.action(app, key, request.requestId, index, reply)
                 },
             silent = !Notifier.firstRing(request.requestId),
+            short = AlertNotice.waitingStep(request).kind.short,
         )
     }
 

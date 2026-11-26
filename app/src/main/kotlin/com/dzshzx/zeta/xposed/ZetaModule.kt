@@ -1,24 +1,37 @@
 package com.dzshzx.zeta.xposed
 
 import android.util.Log
+import com.dzshzx.zeta.core.AppVariant
 import io.github.libxposed.api.XposedModule
 import io.github.libxposed.api.XposedModuleInterface.ModuleLoadedParam
+import io.github.libxposed.api.XposedModuleInterface.PackageLoadedParam
 import io.github.libxposed.api.XposedModuleInterface.SystemServerStartingParam
 
 /**
- * Zeta 自带的 LSPosed 模块（libxposed API 102，入口登记在 resources/META-INF/xposed/java_init.list）， 作用域只有
- * system（system_server）。做两件事，各自装不上时互不影响，也都只认本包：
+ * Zeta 自带的 LSPosed 模块（libxposed API 102，入口登记在 resources/META-INF/xposed/java_init.list），作用域是
+ * system（system_server）和系统界面（scope.list）。做三件事，各自装不上时互不影响，也都只认本包：
  * - [PowerKeyHook]：HyperOS 长按电源键时系统直接拉起小爱，默认助理是本包时改为显示它的助理会话。
- * - [AppToolBindHook]：放行本包绑定系统应用开给系统智能体的工具服务（签名级权限，Zeta 拿不到）。 正式版、测试版各带一个，在 LSPosed 里各自启用，互不干扰。
+ * - [AppToolBindHook]：放行本包绑定系统应用开给系统智能体的工具服务（签名级权限，Zeta 拿不到）。
+ * - [FocusAuthHook]（系统界面）：放行本包的超级岛焦点通知，不用向小米申请权限。
+ *
+ * 正式版、测试版各带一个，在 LSPosed 里各自启用，互不干扰。本包是哪个取 LSPosed 给的模块信息（[variant]），不用 [AppVariant.current]：它经
+ * ServiceLoader 读 APK 里的登记，在系统界面进程里实测读不到。
  */
 class ZetaModule : XposedModule() {
+    private val variant by lazy { AppVariant(moduleApplicationInfo.packageName) }
+
     override fun onModuleLoaded(param: ModuleLoadedParam) {
-        if (!param.isSystemServer) detach()
+        if (!param.isSystemServer && param.processName != FocusAuthHook.PROCESS) detach()
+    }
+
+    override fun onPackageLoaded(param: PackageLoadedParam) {
+        if (param.packageName == FocusAuthHook.PROCESS && param.isFirstPackage)
+            FocusAuthHook.install(this, param.defaultClassLoader, variant)
     }
 
     override fun onSystemServerStarting(param: SystemServerStartingParam) {
-        PowerKeyHook.install(this, param.classLoader)
-        AppToolBindHook.install(this, param.classLoader)
+        PowerKeyHook.install(this, param.classLoader, variant)
+        AppToolBindHook.install(this, param.classLoader, variant)
     }
 }
 
