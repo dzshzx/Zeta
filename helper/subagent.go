@@ -54,26 +54,42 @@ func (e *env) findSubagent(toolUse, hint string, sessions []string) (agent, path
 				return hint, p, orObj(meta), true, nil
 			}
 		}
-		names, err := readNames(dir)
-		if err != nil {
-			return "", "", nil, false, err
-		}
-		sort.Strings(names)
-		for _, name := range names {
-			if !strings.HasPrefix(name, "agent-") || !strings.HasSuffix(name, ".meta.json") || len(name) < 16 {
-				continue
+		err := eachSubagent(dir, func(a, p string, m obj) bool {
+			if m["toolUseId"] != toolUse {
+				return true
 			}
-			meta := readJSONObject(joinPath(dir, name))
-			if len(meta) == 0 || meta["toolUseId"] != toolUse {
-				continue
-			}
-			agent := name[len("agent-") : len(name)-len(".meta.json")]
-			if p := joinPath(dir, "agent-"+agent+".jsonl"); isRegularFollow(p) {
-				return agent, p, meta, true, nil
-			}
+			agent, path, meta, found = a, p, m, true
+			return false
+		})
+		if err != nil || found {
+			return agent, path, meta, found, err
 		}
 	}
 	return "", "", nil, false, nil
+}
+
+// eachSubagent 按 agent id 的次序把 subagents 目录 dir 里有 meta、也有记录文件的子代理交给 fn（agent id、记录文件、meta），
+// fn 返回 false 时停下。
+func eachSubagent(dir string, fn func(agent, path string, meta obj) bool) error {
+	names, err := readNames(dir)
+	if err != nil {
+		return err
+	}
+	sort.Strings(names)
+	for _, name := range names {
+		if !strings.HasPrefix(name, "agent-") || !strings.HasSuffix(name, ".meta.json") || len(name) < 16 {
+			continue
+		}
+		meta := readJSONObject(joinPath(dir, name))
+		if len(meta) == 0 {
+			continue
+		}
+		agent := name[len("agent-") : len(name)-len(".meta.json")]
+		if p := joinPath(dir, "agent-"+agent+".jsonl"); isRegularFollow(p) && !fn(agent, p, meta) {
+			return nil
+		}
+	}
+	return nil
 }
 
 func orObj(m obj) obj {
@@ -96,11 +112,11 @@ func subagentEvent(o obj, number int64) obj {
 		if len(blocks) == 0 {
 			return nil
 		}
-		e := obj{"type": "assistant", "message": obj{"id": message["id"], "content": blocks}}
-		// 这次回答实际用的模型和思考强度（meta 里的是派它时指定的，可能是 sonnet 这样的别名，或者没有）；
-		// Claude Code 合成的回答（模型是 <synthetic>）不算
-		if model := asString(message["model"]); model != "" && !strings.HasPrefix(model, "<") {
-			e["model"] = model
+		m := obj{"id": message["id"], "content": blocks}
+		e := obj{"type": "assistant", "message": m}
+		// 这次回答实际用的模型和思考强度，写法同主记录（meta 里的是派它时指定的，可能是 sonnet 这样的别名，或者没有）
+		if model := asString(message["model"]); realModel(model) {
+			m["model"] = model
 			if effort := asString(o["effort"]); effort != "" {
 				e["effort"] = effort
 			}

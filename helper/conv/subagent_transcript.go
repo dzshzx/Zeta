@@ -72,8 +72,7 @@ func (h *subagentHead) meta() *subagentMeta {
 type subagentEvent struct {
 	Type          string                    `json:"type"`
 	Prompt        bool                      `json:"prompt"` // 交给它的指令（记录的第一行）
-	Model         string                    `json:"model"`  // assistant：这次回答实际用的模型
-	Effort        string                    `json:"effort"` // assistant：和思考强度
+	Effort        string                    `json:"effort"` // assistant：这次回答实际用的思考强度（模型在 message 里）
 	Message       transcript.Message        `json:"message"`
 	ToolUseResult *transcript.ToolUseResult `json:"tool_use_result"`
 }
@@ -166,8 +165,8 @@ func (t *subagentTranscript) appendFileEvents(events []subagentEvent) {
 			t.prompt = promptText(e.Message)
 			continue
 		}
-		if e.Model != "" {
-			t.model, t.effort = e.Model, e.Effort
+		if e.Message.Model != "" {
+			t.model, t.effort = e.Message.Model, e.Effort
 		}
 		t.fileEvents = append(t.fileEvents, e)
 		t.index(e)

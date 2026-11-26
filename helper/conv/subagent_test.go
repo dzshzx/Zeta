@@ -546,7 +546,7 @@ func TestSubagentShowsTheModelAndEffortItActuallyUsed(t *testing.T) {
 		t.Fatalf("只有 meta：%+v", m)
 	}
 	l.t.applyRead(subagentRead(foundHead(20, 2, false, 0),
-		`{"type":"assistant","model":"claude-sonnet-5-5","effort":"medium","message":{"id":"m1","content":[{"type":"text","text":"x"}]}}`,
+		`{"type":"assistant","effort":"medium","message":{"id":"m1","model":"claude-sonnet-5-5","content":[{"type":"text","text":"x"}]}}`,
 		reportEvent))
 	if m := meta(); m.Model != "claude-sonnet-5-5" || m.Effort != "medium" {
 		t.Fatalf("有了回答：%+v", m)

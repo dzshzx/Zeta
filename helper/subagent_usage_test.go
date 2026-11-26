@@ -79,10 +79,10 @@ func TestSubagentEventsCarryModelAndEffort(t *testing.T) {
 	if meta := asObj(out[0]["meta"]); meta["model"] != "sonnet" || meta["effort"] != "medium" {
 		t.Errorf("meta %v", meta)
 	}
-	if len(out) != 3 || out[1]["model"] != "claude-sonnet-5-5" || out[1]["effort"] != "medium" {
+	if len(out) != 3 || asObj(out[1]["message"])["model"] != "claude-sonnet-5-5" || out[1]["effort"] != "medium" {
 		t.Fatalf("events %v", out)
 	}
-	if _, ok := out[2]["model"]; ok {
+	if _, ok := asObj(out[2]["message"])["model"]; ok {
 		t.Errorf("synthetic answer carries a model: %v", out[2])
 	}
 	if _, ok := out[2]["effort"]; ok {

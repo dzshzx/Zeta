@@ -526,7 +526,7 @@ func lastAnswer(events []obj) (model string, effort any, ok bool) {
 		if e["type"] != "assistant" {
 			continue
 		}
-		if m := asString(asObj(e["message"])["model"]); m != "" && !strings.HasPrefix(m, "<") {
+		if m := asString(asObj(e["message"])["model"]); realModel(m) {
 			return m, e["effort"], true
 		}
 	}
@@ -563,3 +563,6 @@ func todoSeed(skipped []obj) []any {
 	}
 	return seed
 }
+
+// realModel：model 是真的请求了模型的回答用的模型。斜杠命令的输出没有模型，Claude Code 合成的回答（出错提示等）是 <synthetic>。
+func realModel(model string) bool { return model != "" && !strings.HasPrefix(model, "<") }
