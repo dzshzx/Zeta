@@ -94,6 +94,14 @@ func (v *vd) onDisplay(cmd string) string {
 	return ""
 }
 
+// onScreen 在虚拟屏上跑 cmd（找不到虚拟屏就失败），main 时在设备的主屏上：两种都由 cmd 里的 $d 取屏号。
+func (v *vd) onScreen(main bool, cmd string) string {
+	if main {
+		return v.android("d=0; " + cmd)
+	}
+	return v.onDisplay(cmd)
+}
+
 func (v *vd) displayID() (int, bool) {
 	id, err := strconv.Atoi(strings.TrimSpace(v.try(v.findDisplay() + `echo "$d"`)))
 	return id, err == nil
@@ -230,16 +238,26 @@ func stale(target, src string) bool {
 	return err == nil && t.ModTime().Before(s.ModTime())
 }
 
-// shot 在一次远端调用里做完：记下日志长度，叫 VdHold 截图，在设备上等日志里出现 VD_SHOT 再把 PNG 吐出来。
-func (v *vd) shot(path string) {
-	png := v.onDisplay(fmt.Sprintf(`n=$(wc -c < %[1]s/log); echo 'shot %[1]s/out/shot.png' > %[1]s/ctl; i=0; `+
-		`while [ $i -lt 40 ]; do t=$(tail -c +$((n + 1)) %[1]s/log); `+
-		`case $t in *VD_SHOT:*) exec cat %[1]s/out/shot.png ;; *VD_ERR:*) echo "$t" >&2; exit 1 ;; esac; `+
-		`sleep 0.25; i=$((i + 1)); done; echo 截图超时 >&2; exit 1`, v.work))
+// shot 截虚拟屏，main 时截设备的主屏（screencap -d 要的是物理屏号，先向 SurfaceFlinger 查）。
+func (v *vd) shot(path string, main bool) {
+	var png string
+	if main {
+		png = v.android(`id=$(dumpsys SurfaceFlinger --display-id | grep -m1 -oE "^Display [0-9]+"); exec screencap -d "${id#Display }" -p`)
+	} else {
+		png = v.screenShot()
+	}
 	if err := os.WriteFile(path, []byte(png), 0o644); err != nil {
 		die("%v", err)
 	}
 	fmt.Println(path)
+}
+
+// screenShot 截虚拟屏，在一次远端调用里做完：记下日志长度，叫 VdHold 截图，在设备上等日志里出现 VD_SHOT 再把 PNG 吐出来。
+func (v *vd) screenShot() string {
+	return v.onDisplay(fmt.Sprintf(`n=$(wc -c < %[1]s/log); echo 'shot %[1]s/out/shot.png' > %[1]s/ctl; i=0; `+
+		`while [ $i -lt 40 ]; do t=$(tail -c +$((n + 1)) %[1]s/log); `+
+		`case $t in *VD_SHOT:*) exec cat %[1]s/out/shot.png ;; *VD_ERR:*) echo "$t" >&2; exit 1 ;; esac; `+
+		`sleep 0.25; i=$((i + 1)); done; echo 截图超时 >&2; exit 1`, v.work))
 }
 
 func (v *vd) stop() {

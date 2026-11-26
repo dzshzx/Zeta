@@ -64,7 +64,7 @@ func (a *App) escBack() func() {
 	case a.page == pageDevice && a.acct != nil:
 		return a.accountsBack
 	case a.page == pageDiag && a.diag != nil && a.diag.Nested():
-		return func() { a.diag.Back() }
+		return a.diag.Back
 	}
 	return nil
 }

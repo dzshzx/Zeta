@@ -34,7 +34,8 @@ type spec struct {
 	local        bool                   // 只在本机做，不碰设备
 	pipesStdin   bool                   // 认 --stdin：把本地的标准输入交给远端
 	devOnly      bool                   // 只给测试版用：带了 --release 就拒绝
-	onMain       bool                   // 认 --main：对设备的主屏（屏号 0）做，不是虚拟屏；只在模拟器上（main 里拒绝手机）
+	onMain       bool                   // 认 --main：对设备的主屏（屏号 0）做，不是虚拟屏；只在模拟器上（main 里拒绝手机），mainAnywhere 的除外
+	mainAnywhere bool                   // --main 只读主屏、不碰用户在用的界面，手机上也行
 	check        func(c *command) error // 核对参数；只看个数的不写
 	run          func(v *vd, c *command)
 }
@@ -46,15 +47,10 @@ var commands = []spec{
 		help: "建虚拟屏并在上面启动 Zeta（手机上默认取主屏尺寸，模拟器上默认和手机一样大）",
 		run:  func(v *vd, c *command) { v.start(c.args) }},
 	{name: "launch", params: "[--main]", onMain: true, help: "在虚拟屏（带 --main 时是主屏）上重新启动 Zeta（装了新包之后）",
-		run: func(v *vd, c *command) {
-			if c.main {
-				v.android(v.launchCmd("0"))
-			} else {
-				v.onDisplay(v.launchCmd(`"$d"`))
-			}
-		}},
-	{name: "shot", params: "文件.png", min: 1, max: 1, help: "截图",
-		run: func(v *vd, c *command) { v.shot(c.args[0]) }},
+		run: func(v *vd, c *command) { v.onScreen(c.main, v.launchCmd(`"$d"`)) }},
+	{name: "shot", params: "[--main] 文件.png", min: 1, max: 1, onMain: true, mainAnywhere: true,
+		help: "截图；带 --main 时截设备的主屏（手机上也行：只截图，不碰用户在用的界面）",
+		run:  func(v *vd, c *command) { v.shot(c.args[0], c.main) }},
 	{name: "tap", params: "X Y", min: 2, max: 2, check: checkIntegers, help: "点一下", run: inputArgs},
 	{name: "swipe", params: "X1 Y1 X2 Y2 [毫秒]", min: 4, max: 5, check: checkIntegers, help: "滑动", run: inputArgs},
 	{name: "text", params: "文字", min: 1, max: 1, help: "输入文字，只能是 ASCII",
@@ -125,7 +121,7 @@ type command struct {
 	args    []string
 	release bool
 	stdin   bool           // sh、debian 带了 --stdin
-	main    bool           // nodes、tap-text 带了 --main
+	main    bool           // launch、shot、nodes、tap-text 带了 --main
 	match   *regexp.Regexp // nodes、tap-text 的正则
 }
 
@@ -249,7 +245,7 @@ func main() {
 	if !c.local {
 		v.connect()
 	}
-	if c.main && v.device != "emu" {
+	if c.main && !c.mainAnywhere && v.device != "emu" {
 		die("vd %s --main 只在模拟器上用：手机的主屏是用户在用的", c.name)
 	}
 	c.run(v, &c)

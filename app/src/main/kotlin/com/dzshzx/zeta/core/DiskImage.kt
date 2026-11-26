@@ -31,6 +31,10 @@ data class DiskImageOp(
     val running: Boolean
         get() = phase == "running" && !interrupted
 
+    /** 做完了，结果是好的（[message] 是结果，不是原因）。 */
+    val succeeded: Boolean
+        get() = phase == "ok"
+
     /** 这项维护依次要做的几步（脚本写进 msg 的步骤名）。 */
     val steps: List<String>
         get() = STEPS[name] ?: listOf(message)
@@ -170,7 +174,7 @@ class DiskImageService(assets: (String) -> String) {
     }
         .fold(
             { result ->
-                problem(result)?.let { Result.failure(IllegalStateException(it)) }
+                result.problem()?.let { Result.failure(IllegalStateException(it)) }
                     ?: Result.success(
                         Regex("trimmed=(\\d+)").find(result.stdout)?.groupValues?.get(1)?.toLong()
                             ?: 0L,
@@ -181,7 +185,7 @@ class DiskImageService(assets: (String) -> String) {
 
     /** 在后台开始一项维护（convert、check、resize、delete-old）；成功开始了返回 null，否则是原因。 */
     fun start(op: String, vararg arguments: String): String? = runCatching {
-        problem(call("start", op, *arguments))
+        call("start", op, *arguments).problem()
     }
         .getOrElse { it.message ?: Strings.coreFailed() }
 
@@ -191,15 +195,6 @@ class DiskImageService(assets: (String) -> String) {
             timeoutMs,
             stdin = script,
         )
-
-    private fun problem(result: CommandResult): String? {
-        if (result.exitCode == 0) return null
-        return result.stdout
-            .lineSequence()
-            .firstOrNull { it.startsWith("@zeta error ") }
-            ?.removePrefix("@zeta error ")
-            ?: result.stderr.ifBlank { result.stdout }.trim().ifBlank { Strings.coreFailed() }
-    }
 
     private companion object {
         /** 从标准输入收脚本，写到磁盘上（两个包轮流写同一份，内容没变时不动），再执行它。 */
@@ -271,9 +266,13 @@ class DiskImageController(private val hub: ConversationHub, assets: (String) -> 
         }
     }
 
+    /** 没有维护在做、也没有请求在发。 */
+    val idle: Boolean
+        get() = status?.busy != true && !acting
+
     /** 要停 Debian 的维护只在没有对话在进行时做：停 Debian 会结束正在回答的 Claude Code。 */
     val canStopDebian: Boolean
-        get() = !hub.conversationsWorking && status?.busy != true && !acting
+        get() = idle && !hub.conversationsWorking
 
     fun trim() = act {
         service
@@ -343,7 +342,7 @@ internal fun convertForInstall(
         }
         return when {
             op.interrupted -> Strings.coreImageInterrupted()
-            op.phase == "ok" -> null
+            op.succeeded -> null
             else -> op.message.ifBlank { Strings.coreFailed() }
         }
     }

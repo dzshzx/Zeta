@@ -102,8 +102,7 @@ func (s *Settings) SetPaneAll(all bool) error { return s.store.SetBool(keyPaneAl
 
 // Pins 是置顶的会话（PinKey），按存的先后。
 func (s *Settings) Pins() []string {
-	pins := s.store.StringsOr(keyPins, nil)
-	return pins
+	return s.store.StringsOr(keyPins, nil)
 }
 
 // SetPins 存置顶的会话。

@@ -33,7 +33,7 @@ step() { echo "[$(date +%T)] $*"; }
 snap() {
   local state
   state=$(android "dumpsys power 2>/dev/null | grep -m1 -oE 'mWakefulness=[A-Za-z]+'; dumpsys window 2>/dev/null | grep -m1 -oE 'isKeyguardShowing=[a-z]+'" | tr '\n' ' ')
-  main_shot "main-$1.png"
+  vd shot --main "main-$1.png" >/dev/null
   echo "[$(date +%T)] 主屏 $1：$state→ main-$1.png"
 }
 

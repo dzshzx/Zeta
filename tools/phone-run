@@ -97,11 +97,7 @@ cleanup() {
     wait "$child"
   fi
   if [[ -n $t0 ]]; then
-    if [[ -n $main ]]; then
-      android "screencap -p | base64" 2>/dev/null | base64 -d >"$OUT/final.png"
-    else
-      vd shot "$OUT/final.png" >/dev/null 2>&1
-    fi
+    vd shot $main "$OUT/final.png" >/dev/null 2>&1
     # 崩溃缓冲区是全机的：只留本包进程的行
     local crashes
     crashes=$(android "logcat -d -b crash -t '$t0.000'" 2>/dev/null)

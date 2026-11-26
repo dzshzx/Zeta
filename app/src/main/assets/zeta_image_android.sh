@@ -217,8 +217,8 @@ size_gb() {
   [ "$1" -ge 1 ] && [ "$1" -le 4096 ] || fail "大小要在 1 到 4096 GB 之间"
 }
 
-op_check() {
-  [ -f "$IMG" ] || fail "没有磁盘镜像"
+# offline_check <修不了时的后半句>：停 Debian、卸下镜像、完整检查（之后失败了由 recover 挂回）；e2fsck 的退出码留在 rc
+offline_check() {
   ON_FAIL=recover
   state running stop
   stop_debian
@@ -227,10 +227,20 @@ op_check() {
   log "完整检查 $IMG"
   /system/bin/e2fsck -f -y "$IMG" >> "$LOG" 2>&1
   rc=$?
-  [ $rc -lt 4 ] || fail "文件系统里有修不了的错误（e2fsck 退出码 $rc），详情见 $LOG"
+  [ $rc -lt 4 ] || fail "文件系统里有修不了的错误（e2fsck 退出码 $rc），$1"
+}
+
+# back_online：维护做完，挂回镜像、拉起服务
+back_online() {
   do_mount
   ON_FAIL=
   restart_services
+}
+
+op_check() {
+  [ -f "$IMG" ] || fail "没有磁盘镜像"
+  offline_check "详情见 $LOG"
+  back_online
   if [ $rc = 0 ]; then state ok clean; else state ok fixed; fi
 }
 
@@ -243,14 +253,7 @@ op_resize() {
     state ok "$1"
     return 0
   }
-  ON_FAIL=recover
-  state running stop
-  stop_debian
-  unmount_image
-  state running check
-  /system/bin/e2fsck -f -y "$IMG" >> "$LOG" 2>&1
-  rc=$?
-  [ $rc -lt 4 ] || fail "文件系统里有修不了的错误（e2fsck 退出码 $rc），先做一次「检查并修复」"
+  offline_check "先做一次「检查并修复」"
   state running resize
   log "镜像上限 $have → $want 字节"
   if [ "$want" -gt "$have" ]; then
@@ -260,9 +263,7 @@ op_resize() {
     /system/bin/resize2fs "$IMG" "$1G" >> "$LOG" 2>&1 || fail "缩不到 $1 GB：Debian 里的文件放不下"
     "$BB" truncate -s "$want" "$IMG" || fail "缩小不了镜像文件"
   fi
-  do_mount
-  ON_FAIL=
-  restart_services
+  back_online
   state ok "$1"
 }
 

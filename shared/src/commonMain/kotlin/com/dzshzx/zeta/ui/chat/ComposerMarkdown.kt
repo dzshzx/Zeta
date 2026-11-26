@@ -198,13 +198,23 @@ class ComposerMarkdownStyle(answer: MarkdownStyle) : OutputTransformation {
                 SpanStyle(color = answer.inline.linkColor, fontWeight = FontWeight.Bold),
         )
 
+    /** 上次扫过的文字和按叠放先后排好的区间：只动了光标、选区时文字没变，不重扫（桌面版 `draftMarks.of` 同样）。 */
+    private var lastText: String? = null
+    private var lastSpans: List<ComposerSpan> = emptyList()
+
+    private fun spansOf(text: String): List<ComposerSpan> {
+        if (text != lastText) {
+            // 标记符号最后叠，压过它所在的加粗、标题
+            val (markers, content) =
+                composerMarkdownSpans(text).partition { it.mark == ComposerMark.Marker }
+            lastText = text
+            lastSpans = content + markers
+        }
+        return lastSpans
+    }
+
     override fun TextFieldBuffer.transformOutput() {
-        // 标记符号最后叠，压过它所在的加粗、标题
-        val (markers, content) =
-            composerMarkdownSpans(originalText.toString()).partition {
-                it.mark == ComposerMark.Marker
-            }
-        for (span in content + markers) {
+        for (span in spansOf(originalText.toString())) {
             if (span.start < span.end) addStyle(styles.getValue(span.mark), span.start, span.end)
         }
     }

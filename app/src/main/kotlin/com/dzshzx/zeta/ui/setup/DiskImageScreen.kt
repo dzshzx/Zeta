@@ -6,7 +6,6 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.produceState
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
@@ -25,8 +24,8 @@ import com.dzshzx.zeta.ui.components.miuix.MiuixPage
 import com.dzshzx.zeta.ui.components.miuix.PreferenceGroup
 import com.dzshzx.zeta.ui.components.miuix.PreferenceValue
 import com.dzshzx.zeta.ui.components.miuix.TextInputDialog
+import com.dzshzx.zeta.ui.components.rememberNow
 import com.dzshzx.zeta.ui.settings.ValueRow
-import kotlinx.coroutines.delay
 import top.yukonga.miuix.kmp.basic.BasicComponent
 import top.yukonga.miuix.kmp.basic.InfiniteProgressIndicator
 import top.yukonga.miuix.kmp.basic.LinearProgressIndicator
@@ -161,7 +160,6 @@ private fun MaintainGroup(
     status: DiskImageStatus,
     ask: (ImageAsk) -> Unit,
 ) {
-    val idle = !status.busy && !image.acting
     val canStop = image.canStopDebian
     PreferenceGroup(
         title = Strings.setupImageMaintain(),
@@ -173,7 +171,7 @@ private fun MaintainGroup(
             BasicComponent(
                 title = Strings.setupImageTrim(),
                 summary = Strings.setupImageTrimSummary(),
-                enabled = idle && status.mounted,
+                enabled = image.idle && status.mounted,
                 onClick = image::trim,
             )
         }
@@ -198,7 +196,7 @@ private fun MaintainGroup(
                 BasicComponent(
                     title = Strings.setupImageDeleteOld(),
                     summary = Strings.setupImageDeleteOldSummary(),
-                    enabled = idle && status.mounted,
+                    enabled = image.idle && status.mounted,
                     onClick = { ask(ImageAsk.DeleteOld) },
                 )
             }
@@ -286,7 +284,7 @@ private fun opCard(op: DiskImageOp): EnvController.Maintenance =
         title = opTitle(op.name),
         running = false,
         detail = if (op.interrupted) Strings.setupImageInterrupted() else opDetail(op),
-        ok = !op.interrupted && op.phase != "error",
+        ok = !op.interrupted && op.succeeded,
     )
 
 /** 一项维护：进行中的列出各步与进度，做完的是结果卡片，点一下收起。 */
@@ -381,17 +379,7 @@ internal fun installImageText(op: DiskImageOp, now: Long): String =
         .joinToString(" · ")
 
 /** 每秒变一次的当前时刻（Unix 秒）：让显示的已用时间一直在走。 */
-@Composable
-internal fun nowSeconds(): Long {
-    val now by
-        produceState(System.currentTimeMillis() / 1000) {
-            while (true) {
-                delay(1_000)
-                value = System.currentTimeMillis() / 1000
-            }
-        }
-    return now
-}
+@Composable internal fun nowSeconds(): Long = rememberNow(1_000) / 1000
 
 /** 用了多久，如 0:48、3:42、1:05:09。 */
 internal fun clockText(seconds: Long): String {
@@ -414,7 +402,7 @@ private fun opTitle(name: String): String =
         else -> Strings.setupImageCheck()
     }
 
-private fun opDetail(op: DiskImageOp): String = if (op.phase == "ok") resultText(op) else op.message
+private fun opDetail(op: DiskImageOp): String = if (op.succeeded) resultText(op) else op.message
 
 private fun stepTitle(step: String): String =
     when (step) {

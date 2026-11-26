@@ -141,20 +141,16 @@ func (p *Page) reload() {
 	})
 }
 
-// Nested：在看文件或运行日志，Esc 先回到清单（Back 会返回真）。
+// Nested：在看文件或运行日志，Esc 先回到清单（交给 Back）。
 func (p *Page) Nested() bool { return p.open != nil || p.log.open }
 
-// Back 从看文件、看运行日志回到清单；都没在看时返回假（设置页拿 Esc 的时候用）。
-func (p *Page) Back() bool {
+// Back 从看文件回到清单，没在看文件时从运行日志回到清单（设置页拿 Esc 的时候用）。
+func (p *Page) Back() {
 	if p.open != nil {
 		p.open = nil
-		return true
-	}
-	if !p.Nested() {
-		return false
+		return
 	}
 	p.log.open = false
-	return true
 }
 
 // View 画诊断页：清单，或点开的那个文件、运行日志。

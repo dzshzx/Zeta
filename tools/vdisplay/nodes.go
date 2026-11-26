@@ -75,14 +75,7 @@ func matching(nodes []node, re *regexp.Regexp) []node {
 
 // screenNodes 在一次远端调用里找到虚拟屏（main 时是主屏，屏号 0）、让测试版列出屏上的控件（am broadcast 等接收方做完才返回），交回屏号和控件。
 func (v *vd) screenNodes(main bool) (string, []node) {
-	cmd := fmt.Sprintf(`echo "$d"; am broadcast -n %s/%s --ei display "$d"`, v.pkg, uiNodes)
-	var out string
-	if main {
-		out = v.android("d=0; " + cmd)
-	} else {
-		out = v.onDisplay(cmd)
-	}
-	display, out, _ := strings.Cut(out, "\n")
+	display, out, _ := strings.Cut(v.onScreen(main, fmt.Sprintf(`echo "$d"; am broadcast -n %s/%s --ei display "$d"`, v.pkg, uiNodes)), "\n")
 	code, data, err := parseBroadcast(out)
 	if err == nil && code != 0 {
 		err = fmt.Errorf("测试版读不到控件：%s", data)

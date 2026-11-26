@@ -1,5 +1,6 @@
 package com.dzshzx.zeta.core
 
+import com.dzshzx.zeta.i18n.Strings
 import java.io.ByteArrayOutputStream
 import kotlin.concurrent.thread
 
@@ -18,8 +19,22 @@ class CommandResult(val exitCode: Int, val stdout: String, val stderr: String) {
     val timedOut: Boolean
         get() = exitCode == -1 && stderr == TIMEOUT
 
+    /**
+     * Zeta 的 root 脚本失败时给用户看的原因：脚本自己报的 `@zeta error` 那一行，没有就用 stderr、再是 stdout，都空时是通用的失败说法；成功时是
+     * null。
+     */
+    fun problem(): String? {
+        if (exitCode == 0) return null
+        return stdout
+            .lineSequence()
+            .firstOrNull { it.startsWith(ERROR_PREFIX) }
+            ?.removePrefix(ERROR_PREFIX)
+            ?: stderr.ifBlank { stdout }.trim().ifBlank { Strings.coreFailed() }
+    }
+
     companion object {
         const val TIMEOUT = "timeout"
+        const val ERROR_PREFIX = "@zeta error "
     }
 }
 
@@ -64,8 +79,10 @@ object LinuxEnv {
 
     private const val FIND_BUSYBOX =
         "BB=; for b in /data/adb/ksu/bin/busybox /data/adb/magisk/busybox /data/adb/ap/bin/busybox; do " +
-            "[ -x \"\$b\" ] && BB=\$b && break; done; [ -n \"\$BB\" ] || { echo 'zeta: busybox not found' >&2; exit 126; }; " +
-            MOUNT_IMAGE
+            "[ -x \"\$b\" ] && BB=\$b && break; done; [ -n \"\$BB\" ] || { echo 'zeta: busybox not found' >&2; exit 126; }; "
+
+    /** 碰环境的脚本的开头：找到 BusyBox，环境在磁盘镜像里还没挂上时先挂上（[MOUNT_IMAGE]）。 */
+    private const val FIND_BUSYBOX_MOUNTED = FIND_BUSYBOX + MOUNT_IMAGE
 
     // 参数：$1 BusyBox，$2 rootfs，$3 要执行的命令，$4 家目录，$5 用户名，$6 uid，$7 gid，$8 时区，
     // $9 共享文件夹（每行“名字<Tab>Android 侧目录”，见 SharedFolders.mountSpec）。
@@ -97,7 +114,7 @@ object LinuxEnv {
 
     /** 给 `su -c` 的整段脚本：在 Debian 里以 [config] 的用户身份、登录 shell 的环境执行 [command]。 */
     fun enterScript(config: LinuxEnvConfig, command: String): String =
-        FIND_BUSYBOX +
+        FIND_BUSYBOX_MOUNTED +
             "exec \"\$BB\" nsenter -t 1 -m -- \"\$BB\" unshare -m --propagation private \"\$BB\" sh -c " +
             quote(MOUNT_AND_CHROOT) +
             " zeta \"\$BB\" " +
@@ -133,7 +150,7 @@ object LinuxEnv {
      * [arguments]。
      */
     fun androidScript(script: String, vararg arguments: String): String =
-        FIND_BUSYBOX +
+        FIND_BUSYBOX_MOUNTED +
             "exec \"\$BB\" nsenter -t 1 -m -- \"\$BB\" sh -c " +
             quote(script) +
             " zeta-setup \"\$BB\"" +
@@ -240,7 +257,7 @@ object LinuxEnv {
     /** [rootfs] 那里是不是真有一个系统。 */
     fun exists(rootfs: String): Boolean = runCatching {
         runRoot(
-                FIND_BUSYBOX +
+                FIND_BUSYBOX_MOUNTED +
                     "exec \"\$BB\" nsenter -t 1 -m -- \"\$BB\" test -x " +
                     quote("$rootfs/bin/bash"),
             )
@@ -254,7 +271,7 @@ object LinuxEnv {
      */
     fun detect(rootfs: String): LinuxEnvConfig? {
         val script =
-            FIND_BUSYBOX +
+            FIND_BUSYBOX_MOUNTED +
                 "exec \"\$BB\" nsenter -t 1 -m -- \"\$BB\" sh -c " +
                 quote(
                     "R=\$1; [ -r \"\$R/etc/passwd\" ] || exit 3; " +

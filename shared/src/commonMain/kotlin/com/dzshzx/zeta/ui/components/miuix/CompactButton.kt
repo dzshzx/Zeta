@@ -36,8 +36,8 @@ fun CompactButton(
 }
 
 /**
- * 顶栏右边的文字按钮（保存、清除已结束）：主题色的字，按下时有 Miuix 的按压反馈；不能点时字变灰。[pill] 时垫卡片底色的胶囊、带返回钮那档玻璃阴影（在玻璃顶栏里默认如此，见
- * [LocalInGlassTopBar]），一直显出按钮的样子，不像玻璃圆钮那样页面滚动后才显出底色；否则不垫底色（侧栏多选顶部那一行，和旁边的平圆钮一致）。
+ * 顶栏右边的文字按钮（保存、清除已结束）：主题色的字，按下时有 Miuix
+ * 的按压反馈；不能点时字变灰。在玻璃顶栏里（[LocalInGlassTopBar]）垫卡片底色的胶囊、带返回钮那档玻璃阴影，一直显出按钮的样子，不像玻璃圆钮那样页面滚动后才显出底色；否则不垫底色（侧栏多选顶部那一行，和旁边的平圆钮一致）。
  */
 @Composable
 fun TopBarTextButton(
@@ -45,8 +45,8 @@ fun TopBarTextButton(
     onClick: () -> Unit,
     modifier: Modifier = Modifier,
     enabled: Boolean = true,
-    pill: Boolean = LocalInGlassTopBar.current,
 ) {
+    val pill = LocalInGlassTopBar.current
     val colors = MiuixTheme.colorScheme
     val fill = if (pill) colors.surfaceContainer else Color.Transparent
     TextButton(

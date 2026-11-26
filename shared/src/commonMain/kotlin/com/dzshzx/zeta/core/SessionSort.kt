@@ -21,9 +21,13 @@ enum class SessionSort(
             Created -> session.created
         }
 
-    /** 按这个时间从新到旧排；同一时刻的保持原来的先后。 */
+    /** 按这个时间从新到旧排；同一时刻的按主机、会话号排，每次推来的列表顺序不同也排得一样（桌面版 `hub.compareIn` 同样）。 */
     fun ordered(list: List<SessionSummary>): List<SessionSummary> =
-        list.sortedByDescending(::timeOf)
+        list.sortedWith(
+            compareByDescending(::timeOf)
+                .thenBy(SessionSummary::backend)
+                .thenBy(SessionSummary::id),
+        )
 
     companion object {
         val Default = Replied

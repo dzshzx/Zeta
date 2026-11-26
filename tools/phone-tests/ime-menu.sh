@@ -14,7 +14,7 @@ until_ok() {
   shift
   until "$@"; do
     ((SECONDS < end)) || {
-      main_shot timeout.png
+      vd shot --main timeout.png >/dev/null
       vd nodes --main >timeout-nodes.txt || true
       fail "10 秒没等到：$what" timeout.png
     }
@@ -36,11 +36,11 @@ read -r px low _ <<<"$PLUS"
 android "input tap $((px + 250)) $((low - 100))"
 until_ok "输入法弹出来" ime_shown
 until_ok "输入栏随键盘上移" plus_above "$low"
-main_shot 01-keyboard.png
+vd shot --main 01-keyboard.png >/dev/null
 read -r _ py _ <<<"$PLUS"
 vd tap-text --main '^添加附件$' >/dev/null
 until_ok "附件菜单弹出来" menu_shown
-main_shot 02-menu.png
+vd shot --main 02-menu.png >/dev/null
 ime_shown || fail "点 + 号后键盘收起了，这一轮验不到" 02-menu.png
 android "input keyevent KEYCODE_BACK"
 echo "+ 号中心 y=$py（键盘收起时 $low）；菜单各项："

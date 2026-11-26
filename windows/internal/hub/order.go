@@ -30,7 +30,7 @@ func (h *Hub) SetSort(mode settings.SessionSort) {
 	h.changed()
 }
 
-// compareIn 是排序 mode 下 a、b 的先后：所选的那个值大的在前，相同时按 Key。
+// compareIn 是排序 mode 下 a、b 的先后：所选的那个值大的在前，相同时按主机、会话号（手机版 SessionSort.ordered 同样）。
 func compareIn(mode settings.SessionSort, a, b hostlink.Session) int {
 	var by int
 	if mode == settings.SortManual {
@@ -38,7 +38,7 @@ func compareIn(mode settings.SessionSort, a, b hostlink.Session) int {
 	} else {
 		by = cmp.Compare(sortTime(mode, b), sortTime(mode, a))
 	}
-	return cmp.Or(by, strings.Compare(Key(a), Key(b)))
+	return cmp.Or(by, strings.Compare(a.Backend, b.Backend), strings.Compare(a.ID, b.ID))
 }
 
 // sortTime 是排序 mode 下分「今天 / 更早」、排先后用的时间（毫秒）：发起时间或最新回答。

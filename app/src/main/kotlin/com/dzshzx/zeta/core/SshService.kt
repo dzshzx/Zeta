@@ -1,7 +1,5 @@
 package com.dzshzx.zeta.core
 
-import com.dzshzx.zeta.i18n.Strings
-
 /** SSH 服务的状态：Debian 里实际生效的配置，加上 Android 侧看到的进程和开机脚本。 */
 data class SshStatus(
     val installed: Boolean,
@@ -54,25 +52,17 @@ class SshService(private val installer: EnvInstaller, assets: (String) -> String
 
     /** 下面三个返回失败的原因，成功是 null。 */
     fun start(config: LinuxEnvConfig): String? =
-        problem(android("start", config.rootfs, enterScript))
+        android("start", config.rootfs, enterScript).problem()
 
-    fun stop(config: LinuxEnvConfig): String? = problem(android("stop", config.rootfs))
+    fun stop(config: LinuxEnvConfig): String? = android("stop", config.rootfs).problem()
 
-    fun autostart(config: LinuxEnvConfig, on: Boolean): String? =
-        problem(
+    fun autostart(config: LinuxEnvConfig, on: Boolean): String? {
+        val result =
             if (on) android("autostart", config.rootfs, "on", enterScript)
-            else android("autostart", config.rootfs, "off"),
-        )
+            else android("autostart", config.rootfs, "off")
+        return result.problem()
+    }
 
     private fun android(command: String, rootfs: String, vararg more: String): CommandResult =
         LinuxEnv.runRoot(LinuxEnv.androidScript(androidScript, command, rootfs, *more), 30_000)
-
-    private fun problem(result: CommandResult): String? {
-        if (result.exitCode == 0) return null
-        return result.stdout
-            .lineSequence()
-            .firstOrNull { it.startsWith("@zeta error ") }
-            ?.removePrefix("@zeta error ")
-            ?: result.stderr.ifBlank { result.stdout }.trim().ifBlank { Strings.coreFailed() }
-    }
 }
