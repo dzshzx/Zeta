@@ -97,8 +97,9 @@ func (s *modelSource) setCatalog(catalog coreapi.ModelCatalog, err error, at tim
 	s.catalog = catalog
 	s.ready, s.pending, s.readAt = err == nil || catalog.Relay != "", false, at
 	s.relay = nil
+	// 中转报的就是具体 ID，它对应的完整 ID 就是它自己（同手机版），之后和 Claude Code 的清单一样按 FullID 取
 	for _, m := range catalog.Models {
-		s.relay = append(s.relay, chat.ModelOption{Value: m.ID, DisplayName: m.DisplayName})
+		s.relay = append(s.relay, chat.ModelOption{Value: m.ID, DisplayName: m.DisplayName, ResolvedModel: m.ID})
 	}
 	s.gen++
 }
@@ -146,14 +147,9 @@ func (s *modelSource) choices() (latest, older []chat.ModelOption) {
 
 func deviceModelChoices(s *modelSource) []claudecfg.Model {
 	latest, older := s.choices()
-	relay := s.catalog.Relay != ""
 	var out []claudecfg.Model
 	add := func(m chat.ModelOption, older bool) {
-		id := m.FullID()
-		if relay { // 中转的 ID 没有统一写法，报什么就按什么设
-			id = m.Value
-		}
-		out = append(out, claudecfg.Model{Value: m.Value, Label: m.Name(), ID: id, Older: older})
+		out = append(out, claudecfg.Model{Value: m.Value, Label: m.Name(), ID: m.FullID(), Older: older})
 	}
 	for _, m := range latest {
 		if m.Value != chat.DefaultModel {

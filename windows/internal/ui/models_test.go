@@ -287,3 +287,18 @@ func TestComposerModelMenuSplitsOlder(t *testing.T) {
 		t.Fatalf("更多模型旁边没写选中的旧版本：%q", texts)
 	}
 }
+
+// 交给设备设置页的模型带上思考强度按它设的 ID：中转报的 ID 就是它自己（不论像不像 Claude 的完整 ID），名字用它报的。
+func TestDeviceModelChoicesRelayID(t *testing.T) {
+	s := &modelSource{harness: &harnessModels{}}
+	s.setCatalog(coreapi.ModelCatalog{Relay: "r", Models: []coreapi.RelayModel{
+		{ID: "gpt-x", DisplayName: "GPT X"}, {ID: "claude-opus-5-5", DisplayName: "Opus"},
+	}}, nil, time.Now())
+	var got []string
+	for _, m := range deviceModelChoices(s) {
+		got = append(got, m.Value+"/"+m.ID+"/"+m.Label)
+	}
+	if want := []string{"gpt-x/gpt-x/GPT X", "claude-opus-5-5/claude-opus-5-5/Opus"}; !slices.Equal(got, want) {
+		t.Fatalf("得到 %v，要 %v", got, want)
+	}
+}

@@ -298,10 +298,10 @@ type effortRow struct {
 // effortRows：设过的模型、模型清单里的模型（按 Model.ID，同手机版 effortRows），同一个 ID 只列一次，最后是「其他模型」。
 func (p *Page) effortRows(d coreapi.Defaults) []effortRow {
 	var rows []effortRow
-	// 中转的 ID 没有统一写法，用它报的名字；Claude Code 的完整 ID 按 ID 写。
+	// 中转的 ID 没有统一写法，用它报的名字；Claude Code 的完整 ID 按 ID 写（别名和 [1m] 可能对应同一个 ID，它们的名字代表不了这个 ID）。
 	name := func(id string) string {
 		if p.modelSource != ModelSourceHarness {
-			if i := slices.IndexFunc(p.models, func(m Model) bool { return m.Value == id }); i >= 0 {
+			if i := slices.IndexFunc(p.models, func(m Model) bool { return m.ID == id }); i >= 0 {
 				return p.models[i].Label
 			}
 		}
