@@ -56,7 +56,7 @@ jobs:
           persist-credentials: false
 
       - name: 安装 Go
-        uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
+        uses: actions/setup-go@d8cbb8045d7f43706b9177cceb36c1f91a6644d5 # v7.1.0
         with:
           go-version-file: tools/release/go.mod
           cache: false
@@ -104,7 +104,7 @@ jobs:
 
       # 构建时编 zeta-helper 要 go
       - name: 安装 Go
-        uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
+        uses: actions/setup-go@d8cbb8045d7f43706b9177cceb36c1f91a6644d5 # v7.1.0
         with:
           go-version-file: helper/go.mod
           cache: false
@@ -150,7 +150,7 @@ jobs:
 
       # 编 Zeta.exe 和嵌进它、装到 Linux 主机上的 zeta-helper、claude-switch（helper/go.mod 是同一个 Go 版本）
       - name: 安装 Go
-        uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
+        uses: actions/setup-go@d8cbb8045d7f43706b9177cceb36c1f91a6644d5 # v7.1.0
         with:
           go-version-file: windows/go.mod
           cache: false
@@ -208,7 +208,7 @@ jobs:
           java-version: '25'
 
       - name: 安装 Go
-        uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
+        uses: actions/setup-go@d8cbb8045d7f43706b9177cceb36c1f91a6644d5 # v7.1.0
         with:
           go-version-file: tools/release/go.mod
           cache: false
@@ -291,7 +291,7 @@ jobs:
           persist-credentials: false
 
       - name: 安装 Go
-        uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
+        uses: actions/setup-go@d8cbb8045d7f43706b9177cceb36c1f91a6644d5 # v7.1.0
         with:
           go-version-file: tools/release/go.mod
           cache: false

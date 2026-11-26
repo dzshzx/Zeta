@@ -191,7 +191,7 @@ Go 团队维护的文字编码库，zeta-helper 读 GB18030 文本时用，静�
 
 | 版本 | 许可证 | 上游 |
 |---|---|---|
-| v0.57.0 | BSD-3-Clause | https://go.googlesource.com/crypto |
+| v0.59.0 | BSD-3-Clause | https://go.googlesource.com/crypto |
 
 Go 团队维护的加密库，zeta-ssh 用它的 SSH 客户端直连远程主机（密钥交换、主机签名的核对、通道），静态链接进 lib/arm64-v8a/libzeta_ssh.so。
 

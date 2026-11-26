@@ -1,5 +1,5 @@
 [versions]
-agp = "9.5.1"
+agp = "9.5.2"
 # app 和 shared 共用的 Android SDK 版本。编译用 37.2：Miuix 要求依赖它的模块至少照 37.2 编译。
 android-compileSdk = "37"
 android-compileSdkMinor = "2"
@@ -19,7 +19,7 @@ healthConnect = "1.1.0"
 # LSPosed 的现代模块接口（libxposed），只在编译时用，不打进 APK；手机上 LSPosed v2.2.1 加载 API 102 的模块
 libxposedApi = "102.0.0"
 # 只在测试里用：测试里的 SSH 服务器（Apache MINA SSHD）靠它认 Ed25519 密钥
-bouncycastle = "1.86"
+bouncycastle = "1.87"
 # shared/ 模块用的 Compose Multiplatform；在 Android 上映射到 androidx 的 Compose，版本跟 Miuix 用的一致
 compose-multiplatform = "1.13.0-rc01"
 junit = "4.13.2"

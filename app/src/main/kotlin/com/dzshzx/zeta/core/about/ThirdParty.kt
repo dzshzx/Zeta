@@ -255,7 +255,7 @@ internal object ThirdParty {
             listOf(
                 Component(
                     name = "golang.org/x/crypto",
-                    version = "v0.57.0",
+                    version = "v0.59.0",
                     license = "BSD-3-Clause",
                     url = "https://go.googlesource.com/crypto",
                     copyright = listOf("Copyright 2009 The Go Authors."),
