@@ -23,14 +23,14 @@ func TestNoticeSaysTheUILanguage(t *testing.T) {
 	}
 }
 
-// hook 附加上下文这类提示和出错提示都能右键复制，复制的是全文：出错的那块最多显示三行，选中只选得到看得见的。
+// 提示都能右键复制全文：出错的那块最多显示三行。
 func TestNoticeCopiesFullText(t *testing.T) {
 	hook := "SessionStart hook 附加上下文：\n第一行\n第二行"
 	failure := "API Error: 529\n第二行\n第三行\n第四行\n第五行"
 	ch := New()
 	ch.SetItems(decodeItems(t, `[
-		{"kind":"notice","id":"n1","text":"SessionStart hook 附加上下文：\n第一行\n第二行"},
-		{"kind":"notice","id":"n2","text":"API Error: 529\n第二行\n第三行\n第四行\n第五行","error":true}]`))
+		{"kind":"notice","id":"n1","text":`+jsonString(hook)+`},
+		{"kind":"notice","id":"n2","text":`+jsonString(failure)+`,"error":true}]`))
 	tt := newTester(ch, 900, 600, false)
 	tt.Frame()
 	for _, want := range []string{hook, failure} {

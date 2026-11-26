@@ -1,6 +1,9 @@
 package widget
 
-import "github.com/egoist/mygo/ui"
+import (
+	"github.com/dzshzx/Zeta/windows/internal/locales"
+	"github.com/egoist/mygo/ui"
+)
 
 // Tone 是提示条的语气。
 type Tone int
@@ -14,7 +17,8 @@ const (
 	Failure
 )
 
-// Notice 是一条提示条：8 的圆角、内边距 14/10，字 13，最多三行。
+// Notice 是一条提示条：8 的圆角、内边距 14/10，字 13，最多三行。文字能选中，右键「复制」复制全文：
+// 超过三行的报错选中只选得到看得见的。
 func Notice(c *ui.Context, text string, tone Tone) ui.Element {
 	k := Of(c)
 	ink, fill := k.Secondary, k.Tint
@@ -24,6 +28,14 @@ func Notice(c *ui.Context, text string, tone Tone) ui.Element {
 	case Failure:
 		ink, fill = k.Error, k.Error.Alpha(0.08)
 	}
-	t := ui.Text(c, text).FontSize(SizeBodyS).LineHeight(1.45).TextColor(ink).MaxLines(3).FillWidth().Padding(10, 14).Selectable()
+	t := ui.Text(c, text).FontSize(SizeBodyS).LineHeight(1.45).TextColor(ink).MaxLines(3).FillWidth().Padding(10, 14).Selectable().
+		ContextMenu(func(m *ui.Menu) { CopyItem(c, m, text) })
 	return Surface{Shape: Rounded(8, 2.5), Fill: fill}.Paint(t)
+}
+
+// CopyItem 往右键菜单里加「复制」，选了把 text 写进剪贴板。它取代可选中文字自带的「复制」「全选」，复制的是整段。
+func CopyItem(c *ui.Context, m *ui.Menu, text string) {
+	if m.Item(locales.CommonCopy()).Chosen() {
+		c.Services().WriteClipboard(text)
+	}
 }

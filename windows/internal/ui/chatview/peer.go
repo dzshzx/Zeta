@@ -50,11 +50,7 @@ func (ch *Chat) peerMessage(c *ui.Context, it items.Item) {
 				}
 			})
 			body := ch.bubbleText(c, it).Selectable().FontSize(widget.SizeBodyL).LineHeight(1.44).TextColor(t.Text).
-				Padding(0, 14, 10, 14).ContextMenu(func(m *ui.Menu) {
-				if m.Item(locales.CommonCopy()).Chosen() {
-					c.Services().WriteClipboard(text)
-				}
-			})
+				Padding(0, 14, 10, 14).ContextMenu(func(m *ui.Menu) { widget.CopyItem(c, m, text) })
 			if long && !*open {
 				body.MaxLines(peerLines).Ellipsis("…")
 			}

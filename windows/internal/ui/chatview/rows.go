@@ -44,9 +44,7 @@ func (ch *Chat) userMessage(c *ui.Context, it items.Item, row int) {
 		bubble := widget.Surface{Shape: widget.ShapeBubble, Fill: k.Bubble, Edge: ch.editingEdge(c, it)}
 		bubble.Paint(ch.bubbleText(c, it)).Selectable().FontSize(widget.SizeBodyXL).LineHeight(1.44).TextColor(k.Text).MaxWidthPercent(bubbleWidthPercent).
 			Padding(10.5, 16).ContextMenu(func(m *ui.Menu) {
-			if m.Item(locales.CommonCopy()).Chosen() {
-				c.Services().WriteClipboard(text)
-			}
+			widget.CopyItem(c, m, text)
 			if ch.UserMenu != nil {
 				ch.UserMenu(c, m, it, ch.laterThan(row))
 			}
@@ -152,22 +150,17 @@ func triangle(p float32) float32 {
 	return (1 - p) * 2
 }
 
-// noticeRow 画 Zeta 自己加的提示：出错的是淡红底的一块，别的是居中的一行灰字。两种都能选中文字，
-// 右键「复制」复制全文（出错的那块最多显示三行，hook 附加上下文这类长提示选不全）。
+// noticeRow 画 Zeta 自己加的提示：出错的是淡红底的一块，别的是居中的灰字（hook 附加上下文这类可能有好几行）。
+// 都能选中，右键「复制」复制全文。
 func noticeRow(c *ui.Context, it items.Item) {
 	t := c.Theme()
 	said := it.Said(c.Locale())
-	copyMenu := func(m *ui.Menu) {
-		if m.Item(locales.CommonCopy()).Chosen() {
-			c.Services().WriteClipboard(said)
-		}
-	}
 	if it.Error {
-		widget.Notice(c, said, widget.Failure).MarginY(6).ContextMenu(copyMenu)
+		widget.Notice(c, said, widget.Failure).MarginY(6)
 		return
 	}
 	ui.Row(c).FillWidth().Justify(ui.Center).PaddingY(8).Children(func() {
-		ui.Text(c, said).Selectable().FontSize(12.5).TextColor(t.TextMuted).ContextMenu(copyMenu)
+		ui.Text(c, said).Selectable().FontSize(12.5).TextColor(t.TextMuted).ContextMenu(func(m *ui.Menu) { widget.CopyItem(c, m, said) })
 	})
 }
 
