@@ -395,3 +395,24 @@ func TestDefaultModelWhileAskingForModels(t *testing.T) {
 	f.press("默认模型")
 	f.see("Opus 5.5")
 }
+
+// 思考强度页：Claude Code 清单里各系列最新的是别名，按它指向的完整 ID 列；同一个完整 ID 只列一次，设过的排前面。
+func TestEffortRowsUseResolvedModel(t *testing.T) {
+	f := newFixture(t, Options{})
+	f.page.SetModelChoices([]Model{
+		{Value: "opus", Label: "Opus 5.5", Resolved: "claude-opus-5-5"},
+		{Value: "opus[1m]", Label: "Opus 5.5 (1M)", Resolved: "claude-opus-5-5"},
+		{Value: "fable", Label: "Fable 5.2", Resolved: "claude-fable-5-2"},
+		{Value: "haiku", Label: "Haiku"},
+		{Value: "claude-opus-4-6", Label: "Opus 4.6", Older: true},
+	}, ModelSourceHarness, false)
+	d := coreapi.Defaults{Effort: "medium", Efforts: []coreapi.ModelEffort{{Model: "claude-fable-5-2", Level: "high"}}}
+	var got []string
+	for _, r := range f.page.effortRows(d) {
+		got = append(got, r.model+"="+r.value)
+	}
+	want := []string{"claude-fable-5-2=high", "claude-opus-5-5=", "claude-opus-4-6=", "=medium"}
+	if strings.Join(got, " ") != strings.Join(want, " ") {
+		t.Fatalf("行：%v，要 %v", got, want)
+	}
+}

@@ -149,11 +149,11 @@ func deviceModelChoices(s *modelSource) []claudecfg.Model {
 	var out []claudecfg.Model
 	for _, m := range latest {
 		if m.Value != chat.DefaultModel {
-			out = append(out, claudecfg.Model{Value: m.Value, Label: m.Name()})
+			out = append(out, claudecfg.Model{Value: m.Value, Label: m.Name(), Resolved: m.ResolvedModel})
 		}
 	}
 	for _, m := range older {
-		out = append(out, claudecfg.Model{Value: m.Value, Label: m.Name(), Older: true})
+		out = append(out, claudecfg.Model{Value: m.Value, Label: m.Name(), Resolved: m.ResolvedModel, Older: true})
 	}
 	return out
 }

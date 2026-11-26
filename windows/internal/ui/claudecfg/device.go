@@ -295,7 +295,8 @@ type effortRow struct {
 	model, title, value string
 }
 
-// effortRows：设过的模型、模型清单里的完整 ID，最后是「其他模型」。
+// effortRows：设过的模型、模型清单里的模型，最后是「其他模型」。Claude Code 的清单里各系列最新的是别名（opus），
+// 按它指向的完整 ID（claude-opus-5-5）列，同手机版 effortRows；同一个完整 ID 只列一次。
 func (p *Page) effortRows(d coreapi.Defaults) []effortRow {
 	var rows []effortRow
 	// 中转的 ID 没有统一写法，用它报的名字；Claude Code 的完整 ID 按 ID 写。
@@ -306,12 +307,22 @@ func (p *Page) effortRows(d coreapi.Defaults) []effortRow {
 		}
 		return chat.ReadableModel(id)
 	}
+	listed := map[string]bool{}
 	for _, e := range d.Efforts {
 		rows = append(rows, effortRow{e.Model, name(e.Model), e.Level})
+		listed[e.Model] = true
 	}
 	for _, m := range p.models {
-		if (!harness || strings.HasPrefix(m.Value, "claude-")) && d.EffortOf(m.Value) == "" {
-			rows = append(rows, effortRow{m.Value, name(m.Value), ""})
+		id := m.Value
+		if harness {
+			id = m.Resolved
+			if id == "" && strings.HasPrefix(m.Value, "claude-") {
+				id = m.Value
+			}
+		}
+		if id != "" && !listed[id] {
+			rows = append(rows, effortRow{id, name(id), ""})
+			listed[id] = true
 		}
 	}
 	return append(rows, effortRow{"", locales.ClaudecfgEffortOtherModels(), d.Effort})
