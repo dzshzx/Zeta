@@ -1,5 +1,7 @@
 .gradle/
 build/
+# gradle wrapper 顺带生成的 Windows 脚本；这个仓只用 gradlew
+/gradlew.bat
 local.properties
 *.jks
 .kotlin/
