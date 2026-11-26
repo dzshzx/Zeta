@@ -348,8 +348,7 @@ class AndroidHubPlatform(
             } ?: title
         }
         AgentService.update(app, active, busy, running)
-        alerts.syncProgress(answering)
-        alerts.syncAll()
+        alerts.sync()
     }
 
     override fun unattendedName(conversation: Conversation): String? =

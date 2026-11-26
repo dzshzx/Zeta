@@ -16,7 +16,7 @@ cleanup() {
   sleep 2
   android "for d in \$($mine); do rm -rf \$d && echo 删了对话目录; done; rm -f $ref"
   # 收尾的 final.png 不照到聊天里的工具结果：把 Zeta 压到后面
-  android "am start --display $DISPLAY_ID -n com.android.traceur/.MainActivity >/dev/null 2>&1"
+  background || true
 }
 trap cleanup EXIT
 trap 'exit 143' TERM INT

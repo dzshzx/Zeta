@@ -630,7 +630,7 @@
   "coreStorageBusyMaintenance": "Installation or maintenance",
   "coreStorageAptFailed": "apt-get clean failed",
   "coreStorageAptFailedReason": "apt-get clean failed: {reason}",
-  "coreChannelStatus": "Running in background",
+  "coreChannelService": "Running in background",
   "coreChannelAlert": "Conversation progress",
   "coreChannelUpdate": "Updates",
   "coreStatusWorking": "Claude is working",

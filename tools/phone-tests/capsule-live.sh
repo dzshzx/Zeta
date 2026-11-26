@@ -16,7 +16,7 @@ PROMOTED=$((0x40000))
 look() {
   local out rec flags count
   out=$(android "dumpsys notification --noredact | grep -E 'NotificationRecord\\(|^ +flags=|miui\\.focus\\.pics='; echo @@; dumpsys window windows | grep -c ZetaCapsule; true")
-  rec=$(sed '/^@@$/,$d' <<<"$out" | awk -v p="pkg=$PKG " '/NotificationRecord\(/ { if (done) exit; keep = index($0, p) > 0 && index($0, " id=2 ") > 0; if (keep) done = 1; next } keep')
+  rec=$(sed '/^@@$/,$d' <<<"$out" | awk -v p="pkg=$PKG " '/NotificationRecord\(/ { if (done) exit; keep = index($0, p) > 0 && index($0, " id=2 ") > 0 && index($0, "g:Aggregate_") == 0; if (keep) done = 1; next } keep')
   count=$(sed -n '/^@@$/{n;p;}' <<<"$out")
   local p=无通知
   flags=$(grep -m1 -E '^ +flags=' <<<"$rec" | sed 's/^ *flags=//' || true)

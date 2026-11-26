@@ -299,15 +299,31 @@ two_turns_across_drop() {
 }
 
 # ours：dumpsys 里本包的通知记录（一条记录连同它下面缩进的几行）；别的应用的通知内容不落盘
+# 系统替几条通知自动建的组摘要（tag 里带 g:Aggregate_，id 也可能和本包的撞上）不算：没有测试要看它
 ours() {
   android "dumpsys notification --noredact" | awk -v p="pkg=$PKG " '
-    /NotificationRecord\(/ { keep = index($0, p) > 0; ind = match($0, /[^ ]/); if (keep) print; next }
+    /NotificationRecord\(/ { keep = index($0, p) > 0 && index($0, "g:Aggregate_") == 0; ind = match($0, /[^ ]/); if (keep) print; next }
     keep { if (match($0, /[^ ]/) <= ind) keep = 0; else print }'
 }
 
-# notice <id>：本包 id 为 <id> 的通知记录（1 是前台服务保活的那条，2 是对话那条；几个对话时有几条），没有时是空的。
-# 系统替几条通知自动建的组摘要（tag 里带 g:Aggregate_，id 也可能是 1）不算
-notice() { ours | awk -v id=" id=$1 " '/NotificationRecord\(/ { keep = index($0, id) > 0 && index($0, "g:Aggregate_") == 0 } keep'; }
+# pick <id>：从标准输入的 ours 输出里取 id 为 <id> 的记录（1 是前台服务保活的那条，2 是对话那条；几个对话时各一条）。
+# 同一条（同一个 tag）连着更新时，已发出的那份后面还列着排队中的几份，越往后越新：每个 tag 只留最后一份。
+# 一次 ours 要取几种记录时先存成文件再各取一次，不多跑 dumpsys
+pick() {
+  awk -v id=" id=$1 " '
+    /NotificationRecord\(/ {
+      keep = index($0, id) > 0
+      if (!keep) next
+      match($0, / tag=[^ ]*/); tag = substr($0, RSTART, RLENGTH)
+      if (!(tag in rec)) order[++n] = tag
+      rec[tag] = $0 "\n"; next
+    }
+    keep { rec[tag] = rec[tag] $0 "\n" }
+    END { for (i = 1; i <= n; i++) printf "%s", rec[order[i]] }'
+}
+
+# notice <id>：本包 id 为 <id> 的通知记录，没有时是空的
+notice() { ours | pick "$1"; }
 
 # 把测试版压到后台：测试屏上开另一个应用（NEW_TASK | EXCLUDE_FROM_RECENTS，不在「最近任务」里留记录），确认测试版不在前台了。
 # 「系统跟踪」要开着开发者选项，否则一启动就退出，压不住

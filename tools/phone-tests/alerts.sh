@@ -25,11 +25,11 @@ snap() {
   echo "[$(date +%T)] 主屏 $1：$state→ main-$1.png"
 }
 
-# alert：本包对话那条通知（id=2）的记录，没有时是空的；前台服务那条（id=1）的第一条记录写进 status.txt
+# alert：本包对话那条通知（id=2）的记录，没有时是空的；前台服务那条（id=1）的记录写进 status.txt
 alert() {
   ours >all.txt
-  awk '/NotificationRecord\(/ { keep = index($0, " id=2 ") > 0 } keep' all.txt
-  awk '/NotificationRecord\(/ { keep = index($0, " id=1 ") > 0 && index($0, "g:Aggregate_") == 0 && !done; if (keep) done = 1 } keep' all.txt >status.txt
+  pick 2 <all.txt
+  pick 1 <all.txt >status.txt
 }
 
 # wait_progress：等对话那条通知变成“进行中”（带焦点参数、没有按钮；最多 40 秒），记录存进 alert-progress.txt

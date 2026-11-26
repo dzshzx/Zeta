@@ -4422,7 +4422,7 @@ object Strings {
      *
      * 通知渠道名（系统设置的通知类别里显示）：Zeta 有对话在跑时为保活常驻的那条通知（最低重要度，折叠在通知栏底部）。
      */
-    fun coreChannelStatus(): String = catalog.say("coreChannelStatus")
+    fun coreChannelService(): String = catalog.say("coreChannelService")
 
     /**
      * 「对话进展」

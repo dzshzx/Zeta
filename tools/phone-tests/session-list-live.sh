@@ -47,7 +47,7 @@ vd shot renamed.png >/dev/null
 echo "改的名字自己出现在侧栏里"
 
 # 退到后台：订阅断开，那边的 serve 退出
-android "am start --display $DISPLAY_ID -n com.android.traceur/.MainActivity >/dev/null"
+background
 for _ in $(seq 20); do [[ $(serves) -eq 0 ]] && break; sleep 0.5; done
 [[ $(serves) -eq 0 ]] || { echo "测试版退到后台 10 秒了，Debian 里还有 $(serves) 个 zeta-helper serve"; exit 1; }
 echo "退到后台：zeta-helper serve 退出了"

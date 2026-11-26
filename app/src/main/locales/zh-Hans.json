@@ -3515,8 +3515,8 @@
       }
     }
   },
-  "coreChannelStatus": "后台运行",
-  "@coreChannelStatus": {
+  "coreChannelService": "后台运行",
+  "@coreChannelService": {
     "description": "通知渠道名（系统设置的通知类别里显示）：Zeta 有对话在跑时为保活常驻的那条通知（最低重要度，折叠在通知栏底部）。"
   },
   "coreChannelAlert": "对话进展",

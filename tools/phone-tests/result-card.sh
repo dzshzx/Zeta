@@ -32,8 +32,7 @@ send_turn() {
   send "$1" 1
   sleep 2
   vd shot sent.png
-  # Zeta 退到后台：测试屏上开另一个应用压在上面（NEW_TASK | EXCLUDE_FROM_RECENTS：不在用户的「最近任务」里留记录）
-  android "am start --display $DISPLAY_ID -f 0x10800000 -n com.android.traceur/.MainActivity >/dev/null 2>&1"
+  background
 }
 
 wait_card() {
@@ -70,10 +69,8 @@ gone() {
 
 silent_notice() {
   # 完成通知（id 2）还在通知栏里，但归在不提醒的组里（弹了卡片就不响铃）。只看键、组这几项，不看通知内容
-  android "dumpsys notification" >notifications.txt || true
   echo "完成通知的记录："
-  grep -A40 "NotificationRecord.*$PKG.*id=2 " notifications.txt | grep -E "NotificationRecord|groupKey|mGroup|group=|gr[ou]*pAlert|flags=" | head -12 || true
-  rm -f notifications.txt
+  notice 2 | grep -E "NotificationRecord|groupKey|mGroup|group=|gr[ou]*pAlert|flags=" | head -12 || true
 }
 
 # 一轮：在后台屏上开计算器

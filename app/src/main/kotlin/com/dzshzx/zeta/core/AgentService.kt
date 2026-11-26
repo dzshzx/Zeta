@@ -61,7 +61,7 @@ internal object Notifier {
         manager.createNotificationChannel(
             NotificationChannel(
                 CHANNEL_SERVICE,
-                Strings.coreChannelStatus(),
+                Strings.coreChannelService(),
                 NotificationManager.IMPORTANCE_MIN,
             ),
         )
@@ -217,7 +217,9 @@ internal object Notifier {
                 PackageManager.PERMISSION_GRANTED
         )
             return
-        ensureChannels(context)
+        val manager = context.getSystemService(NotificationManager::class.java)
+        // 进行中的那条一轮里要发很多次：渠道已经在就不再一遍遍建（建渠道、改名在前台服务那条通知里照常做）
+        if (manager.getNotificationChannel(channel) == null) ensureChannels(context)
         val notification =
             Notification.Builder(context, channel)
                 .setSmallIcon(R.drawable.ic_stat_zeta)
@@ -240,7 +242,7 @@ internal object Notifier {
                 .apply { island?.let { island(context, this, it, actions) } }
                 .apply(extra)
                 .build()
-        context.getSystemService(NotificationManager::class.java).notify(tag, id, notification)
+        manager.notify(tag, id, notification)
     }
 
     fun cancel(context: Context, tag: String?, id: Int) {
@@ -318,13 +320,13 @@ class AgentService : Service() {
                 .setSmallIcon(R.drawable.ic_stat_zeta)
                 .setOngoing(true)
                 .setOnlyAlertOnce(true)
-        builder
-            .setContentTitle(
-                AppVariant.current.notificationTitle(
-                    if (state.busy) Strings.coreStatusWorking() else Strings.coreStatusHolding(),
-                ),
-            )
-            .setContentIntent(Notifier.openAppIntent(this))
+                .setContentTitle(
+                    AppVariant.current.notificationTitle(
+                        if (state.busy) Strings.coreStatusWorking()
+                        else Strings.coreStatusHolding(),
+                    ),
+                )
+                .setContentIntent(Notifier.openAppIntent(this))
         when (running.size) {
             0 -> Unit
             1 -> builder.setContentText(running.first())

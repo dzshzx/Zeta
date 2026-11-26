@@ -61,8 +61,9 @@ start=$SECONDS
 while ((SECONDS - start < LOOP_SECONDS)); do
   sleep 3
   i=$((i + 1))
-  notice 2 >"notif-$i.txt"
-  notice 1 >"service-$i.txt"
+  ours >"all-$i.txt"
+  pick 2 <"all-$i.txt" >"notif-$i.txt"
+  pick 1 <"all-$i.txt" >"service-$i.txt"
   line=$(summary "notif-$i.txt")
   echo "$i: $line"
   if grep -q 'miui\.focus\.pics=' "service-$i.txt"; then service=$((service + 1)); fi

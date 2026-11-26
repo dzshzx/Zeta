@@ -315,7 +315,7 @@ class TurnAlertsTest {
         val chat = hub.current
         val key = chat.openKey
         chat.core { it.copy(busy = true) }
-        hub.alerts.syncProgress(listOf(chat))
+        hub.alerts.sync()
         val progress = notification(key)!!
         assertEquals(chat.overlay.stepInfo.text, text(key))
         assertEquals("进行中不响", "silent", progress.group)
@@ -324,7 +324,7 @@ class TurnAlertsTest {
         assertEquals(1, alerts().size)
 
         chat.ask(bash("one-r1"))
-        hub.alerts.syncProgress(listOf(chat))
+        hub.alerts.sync()
         val waiting = notification(key)!!
         assertEquals("需要你确认：列出文件", text(key))
         assertEquals(listOf("允许", "拒绝"), waiting.actions.map { it.title.toString() })
@@ -334,30 +334,30 @@ class TurnAlertsTest {
         assertEquals(1, alerts().size)
 
         chat.withdraw("one-r1")
-        hub.alerts.syncProgress(listOf(chat))
+        hub.alerts.sync()
         assertEquals("请求没了，接着显示进行中", chat.overlay.stepInfo.text, text(key))
 
         chat.core { it.copy(busy = false) }
         hub.alerts.turnFinished(chat, stopped = false)
-        hub.alerts.syncProgress(emptyList())
+        hub.alerts.sync()
         assertEquals(listOf("已完成"), alerts())
 
         // 叫停：进行中的那条撤掉
         clear()
         chat.core { it.copy(busy = true) }
-        hub.alerts.syncProgress(listOf(chat))
+        hub.alerts.sync()
         assertEquals(1, alerts().size)
         chat.core { it.copy(busy = false) }
         hub.alerts.turnFinished(chat, stopped = true)
-        hub.alerts.syncProgress(emptyList())
+        hub.alerts.sync()
         assertEquals(emptyList<String>(), alerts())
 
         // 看着这个对话时不发，回到前台看着它时撤掉
         chat.core { it.copy(busy = true) }
-        hub.alerts.syncProgress(listOf(chat))
+        hub.alerts.sync()
         assertEquals(1, alerts().size)
         hub.foreground = true
-        hub.alerts.syncProgress(listOf(chat))
+        hub.alerts.sync()
         assertEquals(emptyList<String>(), alerts())
     }
 }
