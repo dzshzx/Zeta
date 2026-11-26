@@ -11,9 +11,6 @@ import android.content.Context
 import android.content.Intent
 import android.content.pm.PackageManager
 import android.content.pm.ServiceInfo
-import android.graphics.Bitmap
-import android.graphics.Canvas
-import android.graphics.Path
 import android.graphics.drawable.Icon
 import android.os.Build
 import android.os.Bundle
@@ -145,7 +142,13 @@ internal object Notifier {
         content: IslandContent,
         actions: List<Notification.Action>,
     ) {
-        val pics = Bundle().apply { putParcelable(FocusParam.PIC_APP, appIcon(context)) }
+        val pics =
+            Bundle().apply {
+                putParcelable(
+                    FocusParam.PIC_APP,
+                    Icon.createWithResource(context, R.drawable.ic_island_icon),
+                )
+            }
         val buttons =
             Bundle().apply {
                 actions.forEachIndexed { i, action ->
@@ -156,27 +159,6 @@ internal object Notifier {
         builder.extras.putBundle(FocusParam.PICS, pics)
         builder.extras.putBundle(FocusParam.ACTIONS, buttons)
     }
-
-    /** 岛和焦点卡片上的应用图标：启动图标（自适应图标）画成圆形位图，和小爱的一样；画一次记下。 */
-    @Volatile private var appIcon: Icon? = null
-
-    private fun appIcon(context: Context): Icon =
-        appIcon
-            ?: run {
-                val size = APP_ICON_PX
-                val bitmap = Bitmap.createBitmap(size, size, Bitmap.Config.ARGB_8888)
-                val canvas = Canvas(bitmap)
-                val clip =
-                    Path().apply { addCircle(size / 2f, size / 2f, size / 2f, Path.Direction.CW) }
-                canvas.clipPath(clip)
-                context.getDrawable(R.drawable.ic_launcher)!!.apply {
-                    setBounds(0, 0, size, size)
-                    draw(canvas)
-                }
-                Icon.createWithBitmap(bitmap).also { appIcon = it }
-            }
-
-    private const val APP_ICON_PX = 144
 
     /** 撤掉对话 [key] 的提醒（用户看到了，或等的请求已经处理掉）。 */
     fun clearAlert(context: Context, key: String) = cancel(context, key, ID_ALERT)
