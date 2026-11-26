@@ -878,10 +878,10 @@ private fun ConversationInput(
                     enabled = !conversation.loadingHistory,
                     onChange = conversation::chooseEffort,
                 )
+                UsageButton(conversation.usage, onClick = { viewingUsage = true })
             },
             status = {
                 if (hasMessages) HostCpuButton({ hostCpu.value }, onClick = { viewingCpu = true })
-                UsageButton(conversation.usage, onClick = { viewingUsage = true })
             },
             voice = voice,
             focus = composerFocus,

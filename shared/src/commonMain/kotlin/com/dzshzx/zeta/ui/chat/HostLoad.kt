@@ -74,7 +74,7 @@ private fun severityOf(percent: Int?): QuotaSeverity =
     }
 
 /**
- * 上下文圆环左边的负载标识：主机整机的 CPU 使用率，字是百分数的数字（两位，字高和旁边的图标相当；%
+ * 发送键左边的负载标识：主机整机的 CPU 使用率，字是百分数的数字（两位，字高和旁边的图标相当；%
  * 在长按提示和说明里），忙时变色（[CPU_WARNING]、[CPU_CRITICAL]，颜色同额度）；还不知道时是一道横线。点开是 [HostCpuDialog]。
  */
 @Composable

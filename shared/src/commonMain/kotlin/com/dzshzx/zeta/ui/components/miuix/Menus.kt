@@ -5,8 +5,10 @@ import androidx.compose.animation.ExitTransition
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxScope
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.ime
 import androidx.compose.foundation.layout.padding
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.Immutable
@@ -23,6 +25,7 @@ import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.layout.LayoutCoordinates
 import androidx.compose.ui.layout.boundsInWindow
 import androidx.compose.ui.layout.onPlaced
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalLayoutDirection
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
@@ -141,7 +144,9 @@ private fun MenuPopup(
         enableBackHandler = false,
         renderInRootScaffold = true,
     ) {
-        Box(Modifier.fillMaxSize()) {
+        // Miuix 的弹层只避开状态栏和导航栏，不避开输入法，但会把菜单收在宿主里：宿主底下让出键盘的高度，键盘升起时菜单就往上弹，不被盖住
+        val imeBottom = with(LocalDensity.current) { WindowInsets.ime.getBottom(this).toDp() }
+        Box(Modifier.fillMaxSize().padding(bottom = imeBottom)) {
             GlassPopup(
                 show = show,
                 onDismissRequest = onDismiss,

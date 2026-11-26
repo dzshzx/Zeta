@@ -163,9 +163,9 @@ fun Composer(
     onSend: (String) -> Unit,
     onStop: () -> Unit,
     modifier: Modifier = Modifier,
-    /** 附件键后面的底栏按钮（权限模式、思考强度）。 */
+    /** 附件键后面的底栏按钮（权限模式、思考强度、上下文圆环）。 */
     tools: @Composable () -> Unit = {},
-    /** 发送键左边的底栏按钮（上下文圆环）。 */
+    /** 发送键左边的底栏按钮（主机负载）。 */
     status: @Composable () -> Unit = {},
     /** 按住说话（见 HoldToTalk.kt）；手机上没有识别服务时为 null。 */
     voice: HoldToTalk? = null,
