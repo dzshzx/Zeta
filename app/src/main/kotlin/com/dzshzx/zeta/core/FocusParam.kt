@@ -16,23 +16,21 @@ import kotlinx.serialization.json.putJsonObject
  * 对话的提醒（跑完、中断、等你，[alert]：岛弹出来停 [ALERT_ISLAND_SECONDS] 秒后收起，通知留在通知栏）。这里是不碰 Android 的部分。
  */
 
-/** 岛和焦点卡片上显示什么。[short] 是大岛左边图标旁的短词，[float] 时岛自己展开，[islandSeconds] 不为 null 时岛停这么久后收起。 */
+/**
+ * 岛和焦点卡片上显示什么。大岛左边是图标加 [short]（“待确认”“已完成”这类短词），右边是 [right]（等的是什么、或对话标题）； [float] 时岛自己展开，[timesOut]
+ * 时岛停 [FocusParam.ALERT_ISLAND_SECONDS] 秒后收起。
+ */
 internal data class IslandContent(
     val title: String,
     val text: String,
     val short: String,
+    val right: String,
     val note: String? = null,
     val replies: List<String> = emptyList(),
     val progress: TodoProgress? = null,
     val float: Boolean = false,
-    val islandSeconds: Int? = null,
+    val timesOut: Boolean = false,
 )
-
-/**
- * 一条通知的焦点参数：[json] 放进 [FocusParam.EXTRA]，[actions] 是按钮在 [FocusParam.ACTIONS] 里的键，顺序同
- * [IslandContent.replies]。
- */
-internal data class Focus(val json: String, val actions: List<String>)
 
 internal object FocusParam {
     const val EXTRA = "miui.focus.param"
@@ -45,11 +43,8 @@ internal object FocusParam {
     /** 第 [index] 个回答按钮在 [ACTIONS] 里的键。 */
     fun actionKey(index: Int) = "miui.focus.action_reply$index"
 
-    /** 大岛右边那句最多几个字，再长岛放不下。 */
-    const val ISLAND_CHARS = 12
-
-    /** 大岛左边的短词最多几个字。 */
-    const val SHORT_CHARS = 6
+    /** 大岛右边那句截到几个字（再接省略号），再长岛放不下。 */
+    const val ISLAND_CHARS = 11
 
     /** 提醒的岛弹出来停几秒。 */
     const val ALERT_ISLAND_SECONDS = 5
@@ -60,6 +55,7 @@ internal object FocusParam {
             title = live.title,
             text = live.text,
             short = live.short,
+            right = live.subject,
             note = live.note,
             replies = live.replies.map { it.label },
             progress = live.progress,
@@ -67,21 +63,29 @@ internal object FocusParam {
         )
 
     /**
-     * 对话的提醒：标题是对话标题，[text] 是“已完成”“出错了”“需要你确认：…”这类一句，[short] 是大岛左边的短词（等你时的“待确认”）， 不给时 [text]
-     * 够短就用它、否则只有图标。[silent] 的不弹岛，只进通知栏。
+     * 对话的提醒：标题是对话标题，[text] 是“已完成”“需要你确认：…”这类一句，[short]、[right] 是大岛左右两边（见 [IslandContent]）。 [silent]
+     * 的不弹岛，只进通知栏。
      */
-    fun alert(title: String, text: String, short: String?, replies: List<String>, silent: Boolean) =
+    fun alert(
+        title: String,
+        text: String,
+        short: String,
+        right: String,
+        replies: List<String>,
+        silent: Boolean,
+    ) =
         IslandContent(
             title = title,
             text = text,
-            short = short ?: text.takeIf { it.length <= SHORT_CHARS }.orEmpty(),
+            short = short,
+            right = right,
             replies = replies,
             float = !silent,
-            islandSeconds = ALERT_ISLAND_SECONDS,
+            timesOut = true,
         )
 
-    fun build(content: IslandContent): Focus {
-        val actions = content.replies.indices.map(::actionKey)
+    /** [content] 的焦点参数 JSON，放进 [EXTRA]；按钮的键是 [actionKey]，顺序同 [IslandContent.replies]。 */
+    fun build(content: IslandContent): String {
         val param = buildJsonObject {
             putJsonObject("param_v2") {
                 put("protocol", 1)
@@ -91,7 +95,7 @@ internal object FocusParam {
                 put("enableFloat", content.float)
                 put("islandFirstFloat", content.float)
                 put("isShowNotification", true)
-                put("aodTitle", content.short.ifEmpty { content.text.clip(ISLAND_CHARS) })
+                put("aodTitle", content.short)
                 put("aodPic", PIC_APP)
                 put("outEffectSrc", "outer_glow")
                 putJsonObject("iconTextInfo") {
@@ -116,7 +120,7 @@ internal object FocusParam {
                                     buildJsonObject {
                                         put("type", 1)
                                         put("actionTitle", label)
-                                        put("action", actions[i])
+                                        put("action", actionKey(i))
                                     },
                                 )
                             }
@@ -126,14 +130,14 @@ internal object FocusParam {
                 put("param_island", island(content))
             }
         }
-        return Focus(param.toString(), actions)
+        return param.toString()
     }
 
-    /** 岛（照小爱）：小岛只有应用图标；大岛左边应用图标加短词，右边是截短的那一句。 */
+    /** 岛（照小爱）：小岛只有应用图标；大岛左边应用图标加短词，右边是截短的 [IslandContent.right]。 */
     private fun island(content: IslandContent): JsonObject = buildJsonObject {
         put("islandProperty", 1)
         put("islandPriority", 2)
-        content.islandSeconds?.let { put("islandTimeout", it) }
+        if (content.timesOut) put("islandTimeout", ALERT_ISLAND_SECONDS)
         putJsonObject("bigIslandArea") {
             putJsonObject("imageTextInfoLeft") {
                 put("type", 1)
@@ -143,13 +147,9 @@ internal object FocusParam {
                 }
                 putJsonObject("textInfo") { put("title", content.short) }
             }
-            // 右边不重复左边的短词：短词就是那一句时（“已完成”）放对话标题；“需要你确认：建文件”这类只放冒号后面的
-            val right =
-                if (content.short == content.text) content.title
-                else content.text.substringAfter('：')
             putJsonObject("imageTextInfoRight") {
                 put("type", 2)
-                putJsonObject("textInfo") { put("title", right.clip(ISLAND_CHARS)) }
+                putJsonObject("textInfo") { put("title", content.right.clipLine(ISLAND_CHARS)) }
             }
         }
         putJsonObject("smallIslandArea") {
@@ -158,10 +158,5 @@ internal object FocusParam {
                 put("pic", PIC_APP)
             }
         }
-    }
-
-    private fun String.clip(max: Int): String {
-        val line = lineSequence().firstOrNull().orEmpty().trim()
-        return if (line.length <= max) line else line.take(max - 1) + "…"
     }
 }

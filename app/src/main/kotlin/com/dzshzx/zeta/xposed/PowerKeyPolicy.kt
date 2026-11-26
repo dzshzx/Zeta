@@ -1,7 +1,6 @@
 package com.dzshzx.zeta.xposed
 
 import android.os.Bundle
-import com.dzshzx.zeta.core.AppVariant
 import java.lang.reflect.Method
 
 /** 一次电源键快捷动作该怎么走。 */
@@ -27,13 +26,6 @@ enum class PowerKeyRoute(val label: String) {
  * `ShortCutActionsUtils.triggerFunction` 里功能是 launch_voice_assistant、来源是电源键的那几次；纯函数，单元测试覆盖。
  */
 object PowerKeyPolicy {
-    /**
-     * 本包模块日志（LSPosed 模块日志和 logcat）的标签，见 [AppVariant.powerKeyTag]；应用里用。模块里用 ZetaModule 按模块自己的包建的
-     * AppVariant。
-     */
-    val LOG_TAG: String
-        get() = AppVariant.current.powerKeyTag
-
     const val FUNCTION = "launch_voice_assistant"
 
     /** 长按电源键，以及 HyperOS 按下到一定时长时先派发的那一路（`postPowerLongPress`）。 */
@@ -106,15 +98,4 @@ object PowerKeySignature {
         return candidates.firstOrNull { it.parameterTypes.toList() == five }
             ?: candidates.firstOrNull { it.parameterTypes.toList() == four }
     }
-
-    /** 日志里的写法：triggerFunction(String, String, Bundle, boolean, String)。 */
-    fun describe(method: Method): String =
-        method.name + method.parameterTypes.joinToString(", ", "(", ")") { it.simpleName }
-
-    /** 这个类里有哪些 triggerFunction（签名对不上时写进日志，方便看 ROM 改成了什么）。 */
-    fun available(type: Class<*>): String =
-        type.declaredMethods
-            .filter { it.name == METHOD }
-            .joinToString("；") { it.returnType.simpleName + " " + describe(it) }
-            .ifEmpty { "没有" }
 }

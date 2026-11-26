@@ -60,6 +60,7 @@ app/src/main/kotlin/com/dzshzx/zeta/ui/settings/PhoneScreen.kt | 手机操作页
 app/src/main/kotlin/com/dzshzx/zeta/core/diag/UiNodes.kt | * | 只在测试版里给设备脚本用的读控件入口，原因进日志、出错交回脚本
 app/src/main/kotlin/com/dzshzx/zeta/xposed/PowerKeyHook.kt | * | LSPosed 模块的日志
 app/src/main/kotlin/com/dzshzx/zeta/xposed/PowerKeyPolicy.kt | * | 电源键各种走向的说法，只进 LSPosed 模块的日志
+app/src/main/kotlin/com/dzshzx/zeta/xposed/ZetaModule.kt | * | 方法签名的写法，只进 LSPosed 模块的日志
 app/src/main/kotlin/com/dzshzx/zeta/assistant/AssistantRole.kt | 装上了 | 认 LSPosed 模块日志里装没装上的那一行
 app/src/main/kotlin/com/dzshzx/zeta/assistant/AssistantRole.kt | 没装 | 认 LSPosed 模块日志里装没装上的那一行
 app/src/main/kotlin/com/dzshzx/zeta/ui/settings/Diagnostics.kt | * | 导出的诊断包正文，给维护者看

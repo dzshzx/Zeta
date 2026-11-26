@@ -43,7 +43,7 @@ internal object PowerKeyHook {
             val method = PowerKeySignature.pick(type)
             if (method == null) {
                 log.info(
-                    "没装：${PowerKeySignature.METHOD} 签名对不上，系统里有的是：${PowerKeySignature.available(type)}",
+                    "没装：${PowerKeySignature.METHOD} 签名对不上，系统里有的是：${available(type, PowerKeySignature.METHOD)}",
                 )
                 return
             }
@@ -62,7 +62,7 @@ internal object PowerKeyHook {
                 .setId("${variant.packageName}.power-key")
                 .intercept { chain -> intercept(chain, contextField, log, variant.packageName) }
             log.info(
-                "装上了：${PowerKeySignature.CLASS.substringAfterLast('.')}.${PowerKeySignature.describe(method)}",
+                "装上了：${PowerKeySignature.CLASS.substringAfterLast('.')}.${method.describe()}",
             )
         } catch (e: Exception) {
             log.info("没装：安装时出错 ${e.javaClass.simpleName}: ${e.message}")

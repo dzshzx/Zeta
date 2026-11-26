@@ -113,6 +113,8 @@ class TurnAlerts internal constructor(private val hub: ConversationHub) : TurnEv
                 conversation.openKey,
                 title(conversation),
                 endText(conversation, text),
+                short = text,
+                right = title(conversation),
                 silent = showed || conversation.backgroundTasks > 0,
             )
         }
@@ -163,13 +165,14 @@ class TurnAlerts internal constructor(private val hub: ConversationHub) : TurnEv
             key,
             title(conversation),
             notice.text,
+            short = AlertNotice.waitingStep(request).kind.short,
+            right = notice.subject,
             detail = notice.detail,
             actions =
                 notice.replies.mapIndexed { index, reply ->
                     AlertReplyReceiver.action(app, key, request.requestId, index, reply)
                 },
             silent = !Notifier.firstRing(request.requestId),
-            short = AlertNotice.waitingStep(request).kind.short,
         )
     }
 

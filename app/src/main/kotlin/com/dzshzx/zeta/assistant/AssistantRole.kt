@@ -159,7 +159,7 @@ object PowerKeyLog {
 
     /** 在后台线程调用。读不到返回 null（没有 root）。 */
     fun read(): PowerKeyStatus? {
-        val tag = PowerKeyPolicy.LOG_TAG
+        val tag = AppVariant.current.powerKeyTag
         val script =
             "f=\$(ls -t /data/adb/lspd/log/modules_*.log 2>/dev/null | head -n 1); " +
                 "[ -n \"\$f\" ] && grep -a '$tag' \"\$f\" | tail -n $MAX; echo '$SPLIT'; logcat -d -v time -s '$tag:I' 2>/dev/null | tail -n $MAX"
@@ -171,7 +171,7 @@ object PowerKeyLog {
     internal const val SPLIT = "@@zeta-logcat@@"
 
     /** LSPosed 日志里有就用它（从开机起都在），没有再看 logcat（会滚掉）。只认本包模块的标签 [tag]。 */
-    fun parse(output: String, tag: String = PowerKeyPolicy.LOG_TAG): PowerKeyStatus {
+    fun parse(output: String, tag: String = AppVariant.current.powerKeyTag): PowerKeyStatus {
         val lspd = output.substringBefore(SPLIT)
         val logcat = output.substringAfter(SPLIT, "")
         val lines = messages(lspd, tag).ifEmpty { messages(logcat, tag) }

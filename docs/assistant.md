@@ -53,7 +53,7 @@ HyperOS 长按电源键由 system_server 直接拉起小爱，不看默认数字
 
 这两个类在插件的 ClassLoader 里，插件晚于系统界面加载，模块等 `PluginInstance$PluginFactory.createPluginContext` 建出插件的 Context 再装。模块没启用时实时通知照常由系统转成岛（不自己展开），提醒照常是横幅。
 
-诊断：装没装上和第一次放行写进 LSPosed 的模块日志和 logcat，标签正式版 `ZetaIsland`、测试版 `ZetaDevIsland`。命令行：`logcat -d -s ZetaIsland ZetaDevIsland`；岛用了谁的参数看 `logcat -d -s DynamicIslandEventCoordinator` 里本包那条的 `tickerData`（图标是 `miui.focus.pic_zeta` 的是 Zeta 的，`miui.focus.pic_liveupdate` 的是系统转的）。重装后的旧 APK 路径问题（上面「长按电源键」末段）在系统界面里一样：重装后系统界面按旧路径加载失败，重启手机后才装上。
+诊断：装没装上和第一次放行写进 LSPosed 的模块日志和 logcat，标签正式版 `ZetaIsland`、测试版 `ZetaDevIsland`。命令行：`logcat -d -s ZetaIsland ZetaDevIsland`；岛用了谁的参数看 `logcat -d -s DynamicIslandEventCoordinator` 里本包那条的 `tickerData`（图标是 `miui.focus.pic_app_icon` 的是 Zeta 的，`miui.focus.pic_liveupdate` 的是系统转的）。重装后的旧 APK 路径问题（上面「长按电源键」末段）在系统界面里一样：重装后系统界面按旧路径加载失败，重启手机后才装上。
 
 ## 开机保持默认助理
 

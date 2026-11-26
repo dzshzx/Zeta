@@ -156,9 +156,9 @@ internal fun AssistantDiagnosticsGroup(
                 .value
     val recent = log?.recent.orEmpty()
     // HyperOS 长按电源键默认直接拉起小爱，要交给本包得在 LSPosed 里启用本包的模块（作用域「系统框架」）并重启；
-    // 正式版、测试版的模块各管各的。记录取自 LSPosed 的模块日志和 logcat，标签 PowerKeyPolicy.LOG_TAG
+    // 正式版、测试版的模块各管各的。记录取自 LSPosed 的模块日志和 logcat，标签 AppVariant.powerKeyTag
     // HyperOS 长按电源键默认直接拉起小爱，要交给本包得在 LSPosed 里启用本包的模块（作用域「系统框架」）并重启；
-    // 正式版、测试版的模块各管各的。记录取自 LSPosed 的模块日志和 logcat，标签 PowerKeyPolicy.LOG_TAG
+    // 正式版、测试版的模块各管各的。记录取自 LSPosed 的模块日志和 logcat，标签 AppVariant.powerKeyTag
     PreferenceGroup(
         title = Strings.settingsAssistantTitle(),
         footer = assistantFootnote(reading, log, recent),

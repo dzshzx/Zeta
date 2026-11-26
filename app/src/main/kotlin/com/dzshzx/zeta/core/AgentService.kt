@@ -101,17 +101,18 @@ internal object Notifier {
 
     /**
      * 对话 [key] 的提醒（跑完、等你处理）：每个对话一条，tag 就是 [key]，同一个对话再发就替换；点开切到这个对话。[detail] 是展开后的全文，[actions]
-     * 是通知上的按钮，[silent] 见 [post]。也上超级岛（[FocusParam.alert]，[short] 是岛上的短词）：不静音的弹出来停几秒。
+     * 是通知上的按钮，[silent] 见 [post]。也上超级岛（[FocusParam.alert]，[short]、[right] 是大岛左右两边）：不静音的弹出来停几秒。
      */
     fun alert(
         context: Context,
         key: String,
         title: String,
         text: String,
+        short: String,
+        right: String,
         detail: String? = null,
         actions: List<Notification.Action> = emptyList(),
         silent: Boolean = false,
-        short: String? = null,
     ) =
         post(
             context,
@@ -128,6 +129,7 @@ internal object Notifier {
                     title,
                     text,
                     short,
+                    right,
                     actions.map { it.title.toString() },
                     silent,
                 ),
@@ -143,13 +145,14 @@ internal object Notifier {
         content: IslandContent,
         actions: List<Notification.Action>,
     ) {
-        val focus = FocusParam.build(content)
         val pics = Bundle().apply { putParcelable(FocusParam.PIC_APP, appIcon(context)) }
         val buttons =
             Bundle().apply {
-                focus.actions.zip(actions).forEach { (key, action) -> putParcelable(key, action) }
+                actions.forEachIndexed { i, action ->
+                    putParcelable(FocusParam.actionKey(i), action)
+                }
             }
-        builder.extras.putString(FocusParam.EXTRA, focus.json)
+        builder.extras.putString(FocusParam.EXTRA, FocusParam.build(content))
         builder.extras.putBundle(FocusParam.PICS, pics)
         builder.extras.putBundle(FocusParam.ACTIONS, buttons)
     }

@@ -80,6 +80,8 @@ data class LiveStatus(
     val detail: String? = null,
     /** 通知上替用户回答的按钮（见 [AlertNotice.replies]），超级岛展开时也在；空的时候是“停止”“截屏”。 */
     val replies: List<AlertReply> = emptyList(),
+    /** 超级岛右边那句：等用户时是等的是什么（[WaitingNotice.subject]），否则就是 [text]。 */
+    val subject: String = text,
 ) {
     /** 状态栏小胶囊上的词。 */
     val short: String
@@ -137,6 +139,7 @@ internal object LiveUpdate {
             requestId = request?.requestId,
             detail = waiting?.detail,
             replies = waiting?.replies.orEmpty(),
+            subject = waiting?.subject ?: chosen.step.text,
         )
     }
 

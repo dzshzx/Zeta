@@ -31,10 +31,7 @@ internal object AppToolBindHook {
             val methods = pick(type)
             if (methods.isEmpty()) {
                 log.info(
-                    "没装：$METHOD 签名对不上，系统里有的是：" +
-                        type.declaredMethods
-                            .filter { it.name == METHOD }
-                            .joinToString("；") { describe(it) },
+                    "没装：$METHOD 签名对不上，系统里有的是：${available(type, METHOD)}",
                 )
                 return
             }
@@ -55,7 +52,7 @@ internal object AppToolBindHook {
                         else chain.proceed()
                     }
             }
-            log.info("装上了：" + methods.joinToString("；") { describe(it) })
+            log.info("装上了：" + methods.joinToString("；") { it.describe() })
         } catch (e: Exception) {
             log.info("没装：安装时出错 ${e.javaClass.simpleName}: ${e.message}")
         }
@@ -100,7 +97,4 @@ internal object AppToolBindHook {
                 if (it) log.info("放行 uid $uid 绑定系统应用的工具服务")
             }
         }
-
-    private fun describe(method: Method): String =
-        method.name + "(" + method.parameterTypes.joinToString(", ") { it.simpleName } + ")"
 }

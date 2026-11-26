@@ -37,9 +37,13 @@ sealed interface AlertReply {
     }
 }
 
-/** 停下来等用户时提醒上的内容：[text] 是收起时的一行，[detail] 是展开后的全文（命令、问题），[replies] 是按钮。 */
+/**
+ * 停下来等用户时提醒上的内容：[text] 是收起时的一行，[subject] 是其中等的是什么（不带“需要你确认”，超级岛右边用），[detail]
+ * 是展开后的全文（命令、问题），[replies] 是按钮。
+ */
 internal data class WaitingNotice(
     val text: String,
+    val subject: String,
     val detail: String,
     val replies: List<AlertReply>,
 )
@@ -63,6 +67,7 @@ internal object AlertNotice {
             prompt as? PermissionRequest
                 ?: return WaitingNotice(
                     text = prompt.noticeSaid(),
+                    subject = prompt.noticeSaid(),
                     detail = (prompt as ElicitationRequest).message.clipChars(DETAIL_CHARS, "…"),
                     replies = emptyList(),
                 )
@@ -70,6 +75,7 @@ internal object AlertNotice {
             val question = request.questions.singleOrNull()?.question?.takeIf { it.isNotBlank() }
             return WaitingNotice(
                 text = question?.let { Strings.coreStepWithDetail(step, it) } ?: step,
+                subject = question ?: step,
                 detail = (question ?: step).clipChars(DETAIL_CHARS, "…"),
                 replies = replies(request),
             )
@@ -79,6 +85,7 @@ internal object AlertNotice {
         val detail = if (request.toolName == PLAN) "" else presentation.detail
         return WaitingNotice(
             text = Strings.coreStepWithDetail(step, presentation.title),
+            subject = presentation.title,
             detail =
                 listOf(presentation.title, detail)
                     .filter { it.isNotBlank() }

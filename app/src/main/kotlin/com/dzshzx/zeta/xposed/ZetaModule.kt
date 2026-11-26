@@ -6,6 +6,7 @@ import io.github.libxposed.api.XposedModule
 import io.github.libxposed.api.XposedModuleInterface.ModuleLoadedParam
 import io.github.libxposed.api.XposedModuleInterface.PackageLoadedParam
 import io.github.libxposed.api.XposedModuleInterface.SystemServerStartingParam
+import java.lang.reflect.Method
 
 /**
  * Zeta 自带的 LSPosed 模块（libxposed API 102，入口登记在 resources/META-INF/xposed/java_init.list），作用域是
@@ -42,3 +43,16 @@ internal class ModuleLog(private val module: XposedModule, private val tag: Stri
         Log.i(tag, message)
     }
 }
+
+/** 日志里方法的写法：triggerFunction(String, String, Bundle, boolean, String)。 */
+internal fun Method.describe(): String =
+    name + parameterTypes.joinToString(", ", "(", ")") { it.simpleName }
+
+/** [type] 里叫 [name] 的方法有哪些（签名对不上时写进日志，方便看 ROM 改成了什么）。 */
+internal fun available(type: Class<*>?, name: String): String =
+    type
+        ?.declaredMethods
+        ?.filter { it.name == name }
+        ?.joinToString("；") { it.returnType.simpleName + " " + it.describe() }
+        .orEmpty()
+        .ifEmpty { "没有" }

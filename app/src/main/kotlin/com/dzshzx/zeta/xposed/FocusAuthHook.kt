@@ -91,13 +91,7 @@ internal object FocusAuthHook {
             val method = type?.let { pick(it, name) }
             if (method == null) {
                 log.info(
-                    "没装：插件里没有 ${className.substringAfterLast('.')}.$name(String)，有的是：" +
-                        type
-                            ?.declaredMethods
-                            ?.filter { it.name == name }
-                            ?.joinToString("；") {
-                                describe(it)
-                            },
+                    "没装：插件里没有 ${className.substringAfterLast('.')}.$name(String)，有的是：${available(type, name)}",
                 )
                 continue
             }
@@ -111,7 +105,7 @@ internal object FocusAuthHook {
                         true
                     } else chain.proceed()
                 }
-            log.info("装上了：${className.substringAfterLast('.')}.${describe(method)}")
+            log.info("装上了：${className.substringAfterLast('.')}.${method.describe()}")
         }
         return true
     }
@@ -123,7 +117,4 @@ internal object FocusAuthHook {
                 it.returnType == Boolean::class.javaPrimitiveType &&
                 it.parameterTypes.contentEquals(arrayOf(String::class.java))
         }
-
-    private fun describe(method: Method): String =
-        method.name + "(" + method.parameterTypes.joinToString(", ") { it.simpleName } + ")"
 }

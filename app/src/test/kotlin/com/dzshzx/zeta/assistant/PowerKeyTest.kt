@@ -6,6 +6,8 @@ import com.dzshzx.zeta.xposed.PowerKeyGate
 import com.dzshzx.zeta.xposed.PowerKeyPolicy
 import com.dzshzx.zeta.xposed.PowerKeyRoute
 import com.dzshzx.zeta.xposed.PowerKeySignature
+import com.dzshzx.zeta.xposed.available
+import com.dzshzx.zeta.xposed.describe
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNull
@@ -170,7 +172,7 @@ class PowerKeyTest {
         assertEquals(5, PowerKeySignature.pick(HyperOs4::class.java)!!.parameterCount)
         assertEquals(
             "triggerFunction(String, String, Bundle, boolean, String)",
-            PowerKeySignature.describe(PowerKeySignature.pick(HyperOs4::class.java)!!),
+            PowerKeySignature.pick(HyperOs4::class.java)!!.describe(),
         )
         assertEquals(4, PowerKeySignature.pick(OnlyFour::class.java)!!.parameterCount)
     }
@@ -178,13 +180,13 @@ class PowerKeyTest {
     @Test
     fun mismatchedSignaturesAreNotHooked() {
         assertNull(PowerKeySignature.pick(Changed::class.java))
-        val available = PowerKeySignature.available(Changed::class.java)
+        val available = available(Changed::class.java, PowerKeySignature.METHOD)
         assertTrue(available, available.contains("boolean triggerFunction(String, String, Bundle)"))
         assertTrue(
             available,
             available.contains("void triggerFunction(String, String, Bundle, boolean)"),
         )
-        assertEquals("没有", PowerKeySignature.available(String::class.java))
+        assertEquals("没有", available(String::class.java, PowerKeySignature.METHOD))
     }
 
     @Test

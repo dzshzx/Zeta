@@ -35,6 +35,7 @@ class AlertNoticeTest {
             )
         val notice = AlertNotice.waiting(request)
         assertEquals("需要你确认：清掉构建目录", notice.text)
+        assertEquals("超级岛右边只放等的是什么", "清掉构建目录", notice.subject)
         assertEquals("清掉构建目录\nrm -rf build", notice.detail)
         assertEquals(listOf(AlertReply.Allow, AlertReply.Deny), notice.replies)
     }
