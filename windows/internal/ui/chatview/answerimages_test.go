@@ -169,10 +169,12 @@ func TestRemoteAnswerImageAutoLoads(t *testing.T) {
 }
 
 // 回答里写的图片文件读不到（被删了）时，画 Claude 用 Read 读这个文件时结果里的那张图；没读过的照样显示取不到。
+// ~ 开头的按主机的家目录对上 Read 记的绝对路径。
 // 看大图里保存用的也是那张。
 func TestAnswerImageFallsBackToReadResult(t *testing.T) {
 	shot := testPNG(t, 160, 100)
 	ch := New()
+	ch.Home = "/home/u"
 	ch.LoadMarkdownImage = func(url string) ([]byte, error) { return nil, errors.New("没有这个文件") }
 	read := func(id, path string, images ...items.Image) items.Step {
 		return items.Step{Kind: items.Tool, ID: id, Name: "Read", Input: map[string]any{"file_path": path}, Status: items.ToolSuccess, Images: images}
@@ -181,8 +183,9 @@ func TestAnswerImageFallsBackToReadResult(t *testing.T) {
 		{Kind: items.Work, ID: "w", Steps: []items.Step{
 			read("r1", "/tmp/shot.png", items.Image{Kind: items.Inline, Key: "old", Data: "不是图"}),
 			read("r2", "/tmp/shot.png", items.Image{Kind: items.Inline, Key: "read-shot", Data: base64.StdEncoding.EncodeToString(shot)}),
+			read("r3", "/home/u/pic.png", items.Image{Kind: items.Inline, Key: "read-pic", Data: base64.StdEncoding.EncodeToString(shot)}),
 		}},
-		{Kind: items.Answer, ID: "a", Text: "截图：\n\n![首页](/tmp/shot.png)\n\n![没读过](/tmp/never.png)"},
+		{Kind: items.Answer, ID: "a", Text: "截图：\n\n![首页](/tmp/shot.png)\n\n![没读过](/tmp/never.png)\n\n![家目录下的](~/pic.png)"},
 	})
 	tt := newTester(ch, 700, 900, false)
 	settleImages(ch, tt)
@@ -193,6 +196,11 @@ func TestAnswerImageFallsBackToReadResult(t *testing.T) {
 		t.Fatal("回答里的图没去取")
 	} else if bmp, done, err := e.result(); !done || bmp == nil || err != nil {
 		t.Fatalf("读过的那张：%v %v %v", bmp, done, err)
+	}
+	if e := entry("~/pic.png"); e == nil {
+		t.Fatal("家目录下的图没去取")
+	} else if bmp, done, err := e.result(); !done || bmp == nil || err != nil {
+		t.Fatalf("~ 开头、Read 记的是绝对路径的那张：%v %v %v", bmp, done, err)
 	}
 	if e := entry("/tmp/never.png"); e == nil {
 		t.Fatal("没读过的图没去取")

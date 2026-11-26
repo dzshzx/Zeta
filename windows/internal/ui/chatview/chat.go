@@ -58,6 +58,8 @@ type Chat struct {
 	LoadMarkdownImage func(url string) ([]byte, error)
 	// Cwd 是对话的工作目录：回答里图片的相对路径按它解析。为空时相对路径的图留在正文里。
 	Cwd string
+	// Home 是对话所在主机的家目录：回答里 ~ 开头的图片读不到时，按它找 Read 读那个文件的那一步（readImage）。
+	Home string
 	// Earlier 是更早记录的情况。
 	Earlier Earlier
 	// Top 是列表顶上被浮着的东西（标题栏）盖住的高度：内容从它下面开始排，往上翻时从它底下滚过去。

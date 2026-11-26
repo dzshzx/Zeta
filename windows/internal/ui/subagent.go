@@ -108,7 +108,7 @@ func (a *App) subagentPage(c *ui.Context, p *chatPane, v *subagentView) {
 	if s.Rev != v.rev {
 		v.follow(s)
 	}
-	v.list.Cwd = p.list.Cwd
+	v.list.Cwd, v.list.Home = p.list.Cwd, p.list.Home
 	widget.Header(c, locales.SubagentTitle(), func() { a.back(p) })
 	// 每一帧照这一版的 s 重设
 	l := v.list

@@ -110,15 +110,20 @@ func (ch *Chat) fetcher(im items.Image) func() ([]byte, error) {
 
 // readImage 是回答里写的主机上的图片文件 im 读不到（被删了、挪走了）时用来代替的图：Claude 用 Read 读这个文件时工具结果里的那张，
 // 读过几次取最后一次；不是主机上的文件、没读过、结果里没图时 ok 为 false。同手机版 ChatImage.kt 的 readImage。
+// Read 记的是绝对路径，~ 开头的先按 Home 展开再比（手机版在拆回答时就展开了）。
 func (ch *Chat) readImage(im items.Image) (items.Image, bool) {
 	if im.Kind != items.Linked || im.Remote() {
 		return items.Image{}, false
+	}
+	path := im.URL
+	if rest, ok := strings.CutPrefix(path, "~/"); ok && ch.Home != "" {
+		path = strings.TrimRight(ch.Home, "/") + "/" + rest
 	}
 	for i := len(ch.items) - 1; i >= 0; i-- {
 		steps := ch.items[i].Steps
 		for j := len(steps) - 1; j >= 0; j-- {
 			s := &steps[j]
-			if s.Kind == items.Tool && s.Name == "Read" && len(s.Images) > 0 && s.Str("file_path") == im.URL {
+			if s.Kind == items.Tool && s.Name == "Read" && len(s.Images) > 0 && s.Str("file_path") == path {
 				return s.Images[0], true
 			}
 		}
