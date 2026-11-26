@@ -143,7 +143,7 @@ var (
 )
 
 // injectedPrefixes 开头的用户消息是系统注入的，不是用户亲手输入的。
-var injectedPrefixes = []string{"<command-name>", "<local-command", "<system-reminder>", "<task-notification>", "Caveat:", "[Request interrupted", "<bash-stdout>", "<bash-stderr>"}
+var injectedPrefixes = []string{"<local-command", "<system-reminder>", "<task-notification>", "Caveat:", "[Request interrupted", "<bash-stdout>", "<bash-stderr>"}
 
 // userText 是用户亲手输入的文字（斜杠命令还原成 /名字 参数，! 命令还原成 ! 命令）；工具结果、系统注入的内容、! 命令的输出是空串。
 func userText(content any) string {
@@ -154,7 +154,8 @@ func userText(content any) string {
 		}
 		return ""
 	}
-	if strings.HasPrefix(text, "<command-name>") {
+	// 斜杠命令：内置命令以 <command-name> 开头，技能命令（/simplify 这类）以 <command-message> 开头（2.1.332）
+	if strings.HasPrefix(text, "<command-name>") || strings.HasPrefix(text, "<command-message>") {
 		name := commandName.FindStringSubmatch(text)
 		if name == nil {
 			return ""
