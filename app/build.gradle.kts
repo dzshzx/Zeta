@@ -34,8 +34,8 @@ android {
     namespace = "com.dzshzx.zeta"
     compileSdk {
         version =
-            release(37) {
-                minorApiLevel = 2
+            release(libs.versions.android.compileSdk.get().toInt()) {
+                minorApiLevel = libs.versions.android.compileSdkMinor.get().toInt()
             }
     }
 
@@ -43,7 +43,7 @@ android {
 
     defaultConfig {
         applicationId = "com.dzshzx.zeta"
-        minSdk = 35
+        minSdk = libs.versions.android.minSdk.get().toInt()
         targetSdk = 37
         versionCode = commitCount
         versionName = versionLabel

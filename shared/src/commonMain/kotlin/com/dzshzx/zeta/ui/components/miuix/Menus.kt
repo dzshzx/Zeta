@@ -11,6 +11,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.Immutable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.MutableState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -19,8 +20,9 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Rect
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.layout.LayoutCoordinates
 import androidx.compose.ui.layout.boundsInWindow
-import androidx.compose.ui.layout.onGloballyPositioned
+import androidx.compose.ui.layout.onPlaced
 import androidx.compose.ui.platform.LocalLayoutDirection
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
@@ -67,48 +69,62 @@ data class MenuItem(
  * onDismiss) }`，菜单以那个 Box 为锚弹出。项可以带二级菜单（[MenuItem.children]），点那一项在旁边弹出下一层。
  */
 @Composable
-fun BoxScope.AnchoredMenu(
-    show: Boolean,
-    entries: List<MenuEntry>,
-    onDismiss: () -> Unit,
-    onDismissFinished: () -> Unit = {},
-) {
-    var bounds by remember { mutableStateOf(Rect.Zero) }
-    Box(Modifier.matchParentSize().onGloballyPositioned { bounds = it.boundsInWindow() })
-    GlassMenu(show, entries, bounds, onDismiss, onDismissFinished)
+fun BoxScope.AnchoredMenu(show: Boolean, entries: List<MenuEntry>, onDismiss: () -> Unit) {
+    val anchor = remember { MenuAnchor() }
+    Box(Modifier.matchParentSize().onPlaced { anchor.coordinates = it })
+    GlassMenu(show, entries, anchor::bounds, onDismiss)
+}
+
+/** 锚的布局坐标。会话列表、聊天气泡每一行都挂着菜单，位置不写进 Compose 状态（滚动时每帧都会变，写进状态就每帧重组一遍），菜单打开时才算一次窗口坐标。 */
+internal class MenuAnchor {
+    var coordinates: LayoutCoordinates? = null
+
+    fun bounds(): Rect = coordinates?.takeIf { it.isAttached }?.boundsInWindow() ?: Rect.Zero
 }
 
 /**
- * 以窗口坐标里的 [anchorBounds] 为锚的玻璃菜单；拿不到 BoxScope 时用（比如锚是整个设置行），其余用 [AnchoredMenu]。收起动画放完后调
- * [onDismissFinished]。
+ * 以 [anchorBounds]（打开时取一次的窗口坐标）为锚的玻璃菜单；锚是整个设置行、拿不到 BoxScope 时用，其余用
+ * [AnchoredMenu]。没打开过时什么都不建；收起动画放完后调 [onDismissFinished]。
  */
 @Composable
-fun GlassMenu(
+internal fun GlassMenu(
     show: Boolean,
     entries: List<MenuEntry>,
-    anchorBounds: Rect,
+    anchorBounds: () -> Rect,
     onDismiss: () -> Unit,
     onDismissFinished: () -> Unit = {},
 ) {
+    val mounted = remember { mutableStateOf(show) }
+    if (show) mounted.value = true
+    if (!mounted.value) return
     val groups = remember(entries) { entries.filter { it.items.isNotEmpty() } }
-    val mounted = remember { mutableStateOf(false) }
+    val finished by rememberUpdatedState(onDismissFinished)
+    MenuPopup(show, groups, mounted, remember(show) { anchorBounds() }, onDismiss) { finished() }
+}
+
+/** 弹层本身：挂在最外层的 Miuix Scaffold 上，收起动画放完把 [mounted] 清掉、调 [onClosed]。 */
+@Composable
+private fun MenuPopup(
+    show: Boolean,
+    groups: List<MenuEntry>,
+    mounted: MutableState<Boolean>,
+    anchorBounds: Rect,
+    onDismiss: () -> Unit,
+    onClosed: () -> Unit,
+) {
     // 二级菜单：childOpen 管弹出收起，child 留到收起动画放完，收起时内容不跟着先没了
     var child by remember { mutableStateOf<MenuItem?>(null) }
     var childOpen by remember { mutableStateOf(false) }
     var childBounds by remember { mutableStateOf(Rect.Zero) }
-    val finished by rememberUpdatedState(onDismissFinished)
     LaunchedEffect(show) {
-        if (show) {
-            mounted.value = true
-        } else if (mounted.value) {
+        if (!show) {
             childOpen = false
             delay(MENU_EXIT_MILLIS)
-            mounted.value = false
             child = null
-            finished()
+            mounted.value = false
+            onClosed()
         }
     }
-    if (!mounted.value || groups.isEmpty()) return
     // 在这里读：弹层挂在最外层的 Scaffold 上，那里没有页面提供的背景
     val backdrop = LocalPageBackdrop.current
     // 二级菜单的头一行（回到上一层）箭头转向和 Miuix 的级联菜单一样
@@ -164,8 +180,8 @@ fun GlassMenu(
 }
 
 /**
- * 一级菜单的各组：带二级菜单的项点了交给 [onOpenChild]（带上这一行的窗口坐标），其余的交给 [onPick]。每组（连同它前面的分隔线）包成一列： Miuix
- * 的玻璃菜单估算高度时只量前 8 个子项，多出来的要滚动才看得到，按行放的话七项加一条分隔线就把单独一组的删除挤进了滚动区。
+ * 一级菜单的各组，组与组之间一条分隔线；带二级菜单的项点了交给 [onOpenChild]（带上这一行此刻的窗口坐标），其余的交给 [onPick]。全部包成一列：Miuix
+ * 的玻璃菜单估算高度时只量前 8 个子项，多出来的要滚动才看得到，逐行放的话七项加一条分隔线就把删除挤进了滚动区。
  */
 @Composable
 private fun MenuRows(
@@ -173,33 +189,29 @@ private fun MenuRows(
     onPick: (MenuItem) -> Unit,
     onOpenChild: (MenuItem, Rect) -> Unit,
 ) {
-    groups.forEachIndexed { index, entry ->
-        Column(Modifier.fillMaxWidth()) {
+    Column(Modifier.fillMaxWidth()) {
+        groups.forEachIndexed { index, entry ->
             if (index > 0) MenuDivider()
-            MenuGroup(entry, onPick, onOpenChild)
+            entry.items.forEach { item -> MenuGroupRow(item, entry.enabled, onPick, onOpenChild) }
         }
     }
 }
 
 @Composable
-private fun MenuGroup(
-    entry: MenuEntry,
+private fun MenuGroupRow(
+    item: MenuItem,
+    groupEnabled: Boolean,
     onPick: (MenuItem) -> Unit,
     onOpenChild: (MenuItem, Rect) -> Unit,
 ) {
-    entry.items.forEach { item ->
-        if (item.children.isNullOrEmpty()) {
-            MenuRow(item, entry.enabled) { onPick(item) }
-        } else {
-            var rowBounds by remember(item) { mutableStateOf(Rect.Zero) }
-            MenuRow(
-                item,
-                entry.enabled,
-                Modifier.onGloballyPositioned { rowBounds = it.boundsInWindow() },
-            ) {
-                onOpenChild(item, rowBounds)
-            }
-        }
+    val hasChildren = !item.children.isNullOrEmpty()
+    val anchor = remember { MenuAnchor() }
+    MenuRow(
+        item,
+        groupEnabled,
+        if (hasChildren) Modifier.onPlaced { anchor.coordinates = it } else Modifier,
+    ) {
+        if (hasChildren) onOpenChild(item, anchor.bounds()) else onPick(item)
     }
 }
 
@@ -237,7 +249,7 @@ private fun MenuDivider() {
     )
 }
 
-/** 菜单最高 600dp（Miuix 默认 416dp）：每组算一个子项以后，长的一组（模型清单）也整个量进来，放得下就不滚；屏幕不够时弹层自己收在窗口里。 */
+/** 菜单最高 600dp（Miuix 默认 416dp）：Zeta 最长的菜单（会话的九项、模型清单）放得下就整个展开，不用滚；屏幕不够时弹层自己收在窗口里。 */
 private val MenuSizing = GlassPopupSizing(maxHeight = 600.dp)
 
 /** 收起动画的时长（照 Eta 的 GlassSpinnerPreference），放完才把弹层从 Scaffold 上撤下。 */
@@ -245,15 +257,12 @@ private const val MENU_EXIT_MILLIS = 420L
 
 /** 顶栏右边的“更多”：在玻璃顶栏里是玻璃圆钮，[entries] 每组之间有分隔线，点一项就收起。 */
 @Composable
-fun TopBarMoreMenu(
-    entries: List<MenuEntry>,
-    contentDescription: String = Strings.componentsMore(),
-) {
+fun TopBarMoreMenu(entries: List<MenuEntry>) {
     var expanded by remember { mutableStateOf(false) }
     Box {
         IconActionButton(
             icon = MiuixIcons.More,
-            contentDescription = contentDescription,
+            contentDescription = Strings.componentsMore(),
             holdDownState = expanded,
             onClick = { expanded = true },
         )

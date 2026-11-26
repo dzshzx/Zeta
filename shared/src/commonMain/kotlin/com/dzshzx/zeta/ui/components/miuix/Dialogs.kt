@@ -130,9 +130,8 @@ fun DialogButtonBar(
 }
 
 /**
- * 确认对话框：取消 + 确认。确认是主操作（主题色）；[destructive] 时确认画成红色。 点取消默认和点外面、按返回一样走
- * [onDismissRequest]；要区分「明确拒绝」和「随手关掉」时另给 [onCancel]。 [content] 是说明下面的额外内容（放进
- * customContent，已留好左右边距）。
+ * 确认对话框：取消 + 确认。确认是主操作（主题色）；[destructive] 时确认画成红色。点取消和点外面、按返回一样走 [onDismissRequest]。 [content]
+ * 是说明下面的额外内容（放进 customContent，已留好左右边距）。
  */
 @Composable
 fun ConfirmDialog(
@@ -144,7 +143,6 @@ fun ConfirmDialog(
     onDismissRequest: () -> Unit,
     modifier: Modifier = Modifier,
     cancelText: String = Strings.commonCancel(),
-    onCancel: () -> Unit = onDismissRequest,
     confirmEnabled: Boolean = true,
     destructive: Boolean = false,
     content: (@Composable () -> Unit)? = null,
@@ -155,8 +153,7 @@ fun ConfirmDialog(
         modifier = modifier,
         title = title,
         summary = summary,
-        customContent =
-            content?.let { { Box(Modifier.padding(horizontal = DialogContentPadding)) { it() } } },
+        customContent = padded(content),
     ) {
         val confirm =
             DialogButtonBarAction(
@@ -167,7 +164,7 @@ fun ConfirmDialog(
                 onClick = onConfirm,
             )
         DialogButtonBar(
-            negative = DialogButtonBarAction(cancelText, onClick = onCancel),
+            negative = DialogButtonBarAction(cancelText, onClick = onDismissRequest),
             positive = confirm,
         )
     }
@@ -190,8 +187,7 @@ fun NoticeDialog(
         modifier = modifier,
         title = title,
         summary = summary,
-        customContent =
-            content?.let { { Box(Modifier.padding(horizontal = DialogContentPadding)) { it() } } },
+        customContent = padded(content),
     ) {
         DialogButtonBar(
             negative = null,
@@ -199,6 +195,11 @@ fun NoticeDialog(
                 DialogButtonBarAction(closeText, recommended = true, onClick = onDismissRequest),
         )
     }
+}
+
+/** 说明下面的额外内容：左右留出 [DialogContentPadding]。 */
+private fun padded(content: (@Composable () -> Unit)?): (@Composable () -> Unit)? = content?.let {
+    { Box(Modifier.padding(horizontal = DialogContentPadding)) { it() } }
 }
 
 /** 单行输入对话框的输入框最多几行，再长就在框里滚动。 */
@@ -221,7 +222,6 @@ fun TextInputDialog(
     summary: String? = null,
     label: String = "",
     confirmEnabled: Boolean = true,
-    cancelText: String = Strings.commonCancel(),
     keyboardOptions: KeyboardOptions = KeyboardOptions.Default,
 ) {
     ConfirmDialog(
@@ -232,7 +232,6 @@ fun TextInputDialog(
         onConfirm = onConfirm,
         onDismissRequest = onDismissRequest,
         modifier = modifier,
-        cancelText = cancelText,
         confirmEnabled = confirmEnabled,
     ) {
         val focus = remember { FocusRequester() }

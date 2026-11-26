@@ -792,6 +792,9 @@ private fun AppPicker(
         searching = false
         query = ""
     }
+    val onExpandedChange = { expanded: Boolean ->
+        if (expanded) searching = true else stopSearching()
+    }
     // 列表的滚动位置提出来：搜索时列表换成结果，回来时还在原处
     val listState = rememberLazyListState()
     val resultsState = rememberLazyListState()
@@ -811,7 +814,7 @@ private fun AppPicker(
                         onQueryChange = { query = it },
                         onSearch = { query = it },
                         expanded = searching,
-                        onExpandedChange = { if (it) searching = true else stopSearching() },
+                        onExpandedChange = onExpandedChange,
                         label = Strings.notifySearchApps(),
                     )
                 },
@@ -831,28 +834,19 @@ private fun AppPicker(
                     )
                 },
                 expanded = searching,
-                onExpandedChange = { if (it) searching = true else stopSearching() },
+                onExpandedChange = onExpandedChange,
                 content = {},
             )
         },
     ) { scope ->
         Box(Modifier.fillMaxSize()) {
-            if (searching) {
-                LazyColumn(
-                    state = resultsState,
-                    modifier = Modifier.miuixPageScroll(scope),
-                    contentPadding = scope.contentPadding,
-                ) {
-                    appSearchItems(apps.orEmpty(), active, query, cards)
-                }
-            } else {
-                LazyColumn(
-                    state = listState,
-                    modifier = Modifier.miuixPageScroll(scope),
-                    contentPadding = scope.contentPadding,
-                ) {
-                    appListItems(apps, active, cards)
-                }
+            LazyColumn(
+                state = shownState,
+                modifier = Modifier.miuixPageScroll(scope),
+                contentPadding = scope.contentPadding,
+            ) {
+                if (searching) appSearchItems(apps.orEmpty(), active, query, cards)
+                else appListItems(apps, active, cards)
             }
             ManualPackageDialog(
                 show = manual,

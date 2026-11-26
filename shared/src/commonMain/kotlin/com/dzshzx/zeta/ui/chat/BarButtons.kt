@@ -4,14 +4,11 @@ import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
 import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.CircleShape
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.Immutable
-import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -25,29 +22,24 @@ import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
-import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.window.Popup
 import com.dzshzx.zeta.ui.components.fill8
 import com.dzshzx.zeta.ui.components.isDark
 import com.dzshzx.zeta.ui.components.miuix.AnchoredMenu
 import com.dzshzx.zeta.ui.components.miuix.MenuEntry
-import kotlinx.coroutines.delay
-import top.yukonga.miuix.kmp.basic.Text
+import top.yukonga.miuix.kmp.basic.TooltipAnchorPosition
+import top.yukonga.miuix.kmp.basic.TooltipBox
 import top.yukonga.miuix.kmp.theme.LocalContentColor
 import top.yukonga.miuix.kmp.theme.MiuixTheme
 
 /** 底栏按钮的底色和图标色，由 [barChipColors]、[barChipThemeColors] 给。 */
-@Immutable class BarChipColors(val containerColor: Color, val contentColor: Color)
+@Immutable data class BarChipColors(val containerColor: Color, val contentColor: Color)
 
 /** 底栏按钮的大小：28dp 见方的圆。 */
 private val BarButtonSize = 28.dp
 
 /** 底栏按钮里图标的位置（16dp，超出的裁掉）：底栏上自己画的图形（上下文圆环、负载数字）按它算大小。 */
 val BarIconSize = 16.dp
-
-/** 长按弹出的说明停留多久。 */
-private const val BarTooltipMillis = 1_500L
 
 /**
  * 输入栏底栏的按钮：28dp 的圆，16dp 图标，只放图标，底栏上不写字。[description] 同时是读屏说明和长按弹出的说明，档位名、百分比都写在这句话里； 图标自己的读屏说明给
@@ -63,56 +55,33 @@ fun BarButton(
     colors: BarChipColors = barChipColors(null),
     icon: @Composable () -> Unit,
 ) {
-    var tip by remember { mutableStateOf(false) }
     val haptic = LocalHapticFeedback.current
     val content =
         if (enabled) colors.contentColor else MiuixTheme.colorScheme.disabledOnSecondaryVariant
-    Box(
-        modifier
-            .size(BarButtonSize)
-            .clip(CircleShape)
-            .background(colors.containerColor)
-            .combinedClickable(
-                enabled = enabled,
-                role = Role.Button,
-                onLongClick = {
-                    haptic.performHapticFeedback(HapticFeedbackType.LongPress)
-                    tip = true
-                },
-                onClick = onClick,
-            )
-            .semantics { contentDescription = description },
-        contentAlignment = Alignment.Center,
+    // 长按时 Miuix 的 TooltipBox 在按钮上方弹出说明，过一会儿自己收起，并吞掉松手那一下，不再算一次点击；按钮自己的长按只管震动
+    TooltipBox(
+        text = description,
+        modifier = modifier,
+        enabled = enabled,
+        positioning = TooltipAnchorPosition.Above,
     ) {
-        Box(Modifier.size(BarIconSize), contentAlignment = Alignment.Center) {
-            CompositionLocalProvider(LocalContentColor provides content) { icon() }
+        Box(
+            Modifier.size(BarButtonSize)
+                .clip(CircleShape)
+                .background(colors.containerColor)
+                .combinedClickable(
+                    enabled = enabled,
+                    role = Role.Button,
+                    onLongClick = { haptic.performHapticFeedback(HapticFeedbackType.LongPress) },
+                    onClick = onClick,
+                )
+                .semantics { contentDescription = description },
+            contentAlignment = Alignment.Center,
+        ) {
+            Box(Modifier.size(BarIconSize), contentAlignment = Alignment.Center) {
+                CompositionLocalProvider(LocalContentColor provides content) { icon() }
+            }
         }
-        if (tip) BarTooltip(description) { tip = false }
-    }
-}
-
-/** 长按底栏按钮时浮在它上方的一句说明，过一会儿自己收起。 */
-@Composable
-private fun BarTooltip(text: String, onDismiss: () -> Unit) {
-    LaunchedEffect(Unit) {
-        delay(BarTooltipMillis)
-        onDismiss()
-    }
-    val colors = MiuixTheme.colorScheme
-    Popup(
-        alignment = Alignment.TopCenter,
-        offset = IntOffset(0, -120),
-        onDismissRequest = onDismiss,
-    ) {
-        Text(
-            text = text,
-            modifier =
-                Modifier.clip(RoundedCornerShape(12.dp))
-                    .background(colors.surfaceContainerHighest)
-                    .padding(horizontal = 12.dp, vertical = 8.dp),
-            style = MiuixTheme.textStyles.footnote1,
-            color = colors.onSurfaceContainerHighest,
-        )
     }
 }
 

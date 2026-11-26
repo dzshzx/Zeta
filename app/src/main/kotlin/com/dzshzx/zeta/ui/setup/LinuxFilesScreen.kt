@@ -397,7 +397,7 @@ private fun LazyListScope.browserItems(
 ) {
     val parent = LinuxFiles.parent(path)
     val entries = (listing as? LinuxListing.Entries)?.entries.orEmpty()
-    // 上级目录和各项连成一张卡片；项目可能很多，所以逐项放进列表，不用 CardListGroup
+    // 上级目录和各项连成一张卡片；项目可能很多，所以逐项放进列表，不用 PreferenceGroup
     val offset = if (parent != null) 1 else 0
     val count = offset + entries.size
     if (parent != null) {

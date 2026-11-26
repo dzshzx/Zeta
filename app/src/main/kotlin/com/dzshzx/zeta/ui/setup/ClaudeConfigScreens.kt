@@ -54,6 +54,7 @@ import com.dzshzx.zeta.ui.components.miuix.IconActionButton
 import com.dzshzx.zeta.ui.components.miuix.MiuixPageScaffold
 import com.dzshzx.zeta.ui.components.miuix.MiuixTopBarStyle
 import com.dzshzx.zeta.ui.components.miuix.NoticeDialog
+import com.dzshzx.zeta.ui.components.miuix.SegmentedTabs
 import com.dzshzx.zeta.ui.components.rememberRetained
 import com.dzshzx.zeta.ui.markdown.LazyStaticMarkdown
 import com.dzshzx.zeta.ui.markdown.MarkdownTone
@@ -66,7 +67,6 @@ import top.yukonga.miuix.kmp.basic.Card
 import top.yukonga.miuix.kmp.basic.HorizontalDivider
 import top.yukonga.miuix.kmp.basic.Icon
 import top.yukonga.miuix.kmp.basic.InfiniteProgressIndicator
-import top.yukonga.miuix.kmp.basic.TabRowWithContour
 import top.yukonga.miuix.kmp.basic.Text
 import top.yukonga.miuix.kmp.icon.MiuixIcons
 import top.yukonga.miuix.kmp.icon.extended.Delete
@@ -417,17 +417,13 @@ private fun DocumentCardHeader(
                 color = if (overLimit) colors.error else colors.onBackgroundVariant,
             )
         }
-        // 分段标签自己横向撑满，套一层定宽，文件名那一列才分得到宽度
-        Box(Modifier.width(160.dp)) {
-            TabRowWithContour(
-                tabs = listOf(Strings.setupClaudePreview(), Strings.setupClaudeEdit()),
-                selectedTabIndex = DocumentMode.entries.indexOf(mode),
-                // 分段标签没有不可用的样子：加载中忽略点击
-                onTabSelected = { index ->
-                    if (!loading) DocumentMode.entries.getOrNull(index)?.let(onModeChange)
-                },
-            )
-        }
+        SegmentedTabs(
+            tabs = listOf(Strings.setupClaudePreview(), Strings.setupClaudeEdit()),
+            selectedIndex = DocumentMode.entries.indexOf(mode),
+            onSelect = { index -> DocumentMode.entries.getOrNull(index)?.let(onModeChange) },
+            modifier = Modifier.width(160.dp),
+            enabled = !loading,
+        )
     }
 }
 

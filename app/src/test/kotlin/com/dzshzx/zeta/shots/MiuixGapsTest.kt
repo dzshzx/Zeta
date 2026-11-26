@@ -1,5 +1,7 @@
 package com.dzshzx.zeta.shots
 
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.width
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
@@ -9,18 +11,21 @@ import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.semantics.SemanticsProperties
 import androidx.compose.ui.test.SemanticsMatcher
 import androidx.compose.ui.test.assert
+import androidx.compose.ui.test.getUnclippedBoundsInRoot
 import androidx.compose.ui.test.hasSetTextAction
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.performTextInput
+import androidx.compose.ui.unit.dp
 import com.dzshzx.zeta.ui.app.ZetaTheme
 import org.junit.Assert.assertEquals
 import org.junit.Test
 import top.yukonga.miuix.kmp.basic.IconButton
+import top.yukonga.miuix.kmp.basic.TabRowWithContour
 import top.yukonga.miuix.kmp.basic.TextField
 import top.yukonga.miuix.kmp.theme.LocalContentColor
 
 /**
- * Miuix 的两处缺口，Zeta 在本地补着（见 docs/ui.md「补上游缺口」）。这里断言缺口还在：升级 Miuix 后哪条失败，说明上游已经补上，删掉对应的本地补丁，再删掉这条断言。
+ * Miuix 的几处缺口，Zeta 在本地补着（见 docs/ui.md「补上游缺口」）。这里断言缺口还在：升级 Miuix 后哪条失败，说明上游已经补上，删掉对应的本地补丁，再删掉这条断言。
  */
 class MiuixGapsTest : ShotTest() {
     /** 补丁在 `IconActionButton`：不能点时自己把图标染成 disabledOnSurface，并补上按钮角色和「已停用」。 */
@@ -60,6 +65,30 @@ class MiuixGapsTest : ShotTest() {
                 "也对了再删 TextFields.kt 里的光标处理和 TextFieldSourcesTest",
             "/claude/workspace",
             text,
+        )
+    }
+
+    /** 补丁在 `SegmentedTabs`：外面套一层 Box 承接调用方的宽度，另补上不能点的样子。 */
+    @Test
+    fun tabRowWithContourIgnoresCallerWidth() {
+        compose.setContent {
+            ZetaTheme(darkTheme = false, windowBackdrop = false) {
+                Box(Modifier.width(300.dp)) {
+                    TabRowWithContour(
+                        tabs = listOf("A", "B"),
+                        selectedTabIndex = 0,
+                        onTabSelected = {},
+                        modifier = Modifier.width(100.dp).testTag("tabs"),
+                    )
+                }
+            }
+        }
+        val bounds = compose.onNodeWithTag("tabs").getUnclippedBoundsInRoot()
+        assertEquals(
+            "Miuix 的 TabRowWithContour 已经照调用方给的宽度排：SegmentedTabs 去掉外面那层 Box，modifier 直接交给它",
+            300f,
+            (bounds.right - bounds.left).value,
+            0.5f,
         )
     }
 }

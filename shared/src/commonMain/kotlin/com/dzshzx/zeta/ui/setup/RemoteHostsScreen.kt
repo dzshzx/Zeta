@@ -32,6 +32,7 @@ import com.dzshzx.zeta.ui.components.miuix.DropdownPreference
 import com.dzshzx.zeta.ui.components.miuix.MiuixPage
 import com.dzshzx.zeta.ui.components.miuix.NoticeDialog
 import com.dzshzx.zeta.ui.components.miuix.PreferenceGroup
+import com.dzshzx.zeta.ui.components.miuix.SegmentedTabs
 import com.dzshzx.zeta.ui.components.miuix.TextInputDialog
 import com.dzshzx.zeta.ui.components.rememberRetained
 import com.dzshzx.zeta.ui.settings.DangerRow
@@ -42,7 +43,6 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import top.yukonga.miuix.kmp.basic.BasicComponent
-import top.yukonga.miuix.kmp.basic.TabRowWithContour
 import top.yukonga.miuix.kmp.preference.ArrowPreference
 import top.yukonga.miuix.kmp.preference.SwitchPreference
 
@@ -239,10 +239,10 @@ private fun TypeAddressDialog(
             modifier = Modifier.fillMaxWidth(),
         ) {
             if (debian) {
-                TabRowWithContour(
+                SegmentedTabs(
                     tabs = Vias.map { it.label },
-                    selectedTabIndex = Vias.indexOf(via),
-                    onTabSelected = { index -> Vias.getOrNull(index)?.let(onViaChange) },
+                    selectedIndex = Vias.indexOf(via),
+                    onSelect = { index -> Vias.getOrNull(index)?.let(onViaChange) },
                     modifier = Modifier.fillMaxWidth(),
                 )
             }

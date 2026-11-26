@@ -11,12 +11,12 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.dzshzx.zeta.core.SessionSummary
 import com.dzshzx.zeta.i18n.Strings
 import com.dzshzx.zeta.ui.chat.endConfirmSummary
+import com.dzshzx.zeta.ui.components.miuix.TopBarTextButton
 import top.yukonga.miuix.kmp.basic.ButtonDefaults
 import top.yukonga.miuix.kmp.basic.Text
 import top.yukonga.miuix.kmp.basic.TextButton
@@ -134,20 +134,10 @@ fun SelectionHeader(
             maxLines = 1,
             modifier = Modifier.weight(1f),
         )
-        // 顶栏上的文字按钮：主题色，无底色
-        TextButton(
+        TopBarTextButton(
             text = if (allSelected) Strings.sidebarSelectNone() else Strings.sidebarSelectAll(),
             onClick = onToggleAll,
             enabled = canSelectAll,
-            minWidth = 0.dp,
-            minHeight = 40.dp,
-            colors =
-                ButtonDefaults.textButtonColors(
-                    color = Color.Transparent,
-                    disabledColor = Color.Transparent,
-                    textColor = MiuixTheme.colorScheme.primary,
-                ),
-            textStyle = MiuixTheme.textStyles.button,
         )
     }
 }

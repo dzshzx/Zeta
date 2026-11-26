@@ -46,9 +46,9 @@ import com.dzshzx.zeta.ui.components.miuix.MiuixPage
 import com.dzshzx.zeta.ui.components.miuix.PreferenceGroup
 import com.dzshzx.zeta.ui.components.miuix.PreferenceGroupScope
 import com.dzshzx.zeta.ui.components.miuix.PreferenceValue
+import com.dzshzx.zeta.ui.components.miuix.SegmentedTabs
 import com.dzshzx.zeta.ui.components.rememberRetained
 import top.yukonga.miuix.kmp.basic.BasicComponent
-import top.yukonga.miuix.kmp.basic.TabRowWithContour
 import top.yukonga.miuix.kmp.basic.Text
 import top.yukonga.miuix.kmp.icon.MiuixIcons
 import top.yukonga.miuix.kmp.icon.extended.Add
@@ -616,14 +616,12 @@ private fun RuleEditorDialog(
             modifier = Modifier.fillMaxWidth(),
         ) {
             val behaviors = PermissionBehavior.entries
-            TabRowWithContour(
+            SegmentedTabs(
                 tabs = behaviors.map(::behaviorLabel),
-                selectedTabIndex = behaviors.indexOf(behavior),
-                // 分段标签没有不可用的样子：保存中忽略点击
-                onTabSelected = { index ->
-                    if (!saving) behaviors.getOrNull(index)?.let { behavior = it }
-                },
+                selectedIndex = behaviors.indexOf(behavior),
+                onSelect = { index -> behaviors.getOrNull(index)?.let { behavior = it } },
                 modifier = Modifier.fillMaxWidth(),
+                enabled = !saving,
             )
             DialogTextField(
                 value = text,

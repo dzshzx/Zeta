@@ -56,9 +56,10 @@ Miuix 没有的才在 `ui/components/miuix` 补，页面文件里不各写一份
 
 ## 补上游缺口
 
-下面两处是 Miuix 的缺口，Zeta 在本地补着。`MiuixGapsTest` 断言缺口还在：升级 Miuix 后它哪条失败，说明上游已经补上，删掉对应的补丁和那条断言。
+下面几处是 Miuix 的缺口，Zeta 在本地补着。`MiuixGapsTest` 断言缺口还在：升级 Miuix 后它哪条失败，说明上游已经补上，删掉对应的补丁和那条断言。
 
 - 图标按钮不能点时不变灰，也没有按钮角色（`IconButtonContainer` 不给内容提供 `LocalContentColor`，禁用时不加 `clickable`）。补在 `IconActionButton`：自己换 tint，补上按钮角色和「已停用」。
+- 分段标签 `TabRowWithContour` 没有 `enabled`，也不认调用方给的宽度（先 `fillMaxWidth()` 再接 `modifier`，给的宽度不起作用）。补在 `SegmentedTabs`：外面套一层 `Box` 承接 `modifier`，不能点时忽略点击，文字和选中块换成 Miuix 不可用的颜色（`disabledOnSecondaryVariant`、`disabledSecondaryVariant`）。应用代码里的分段标签都用它。`MiuixGapsTest` 只测得出宽度这一条。
 - 输入框 `TextField` 的 String 版本把光标初始化在开头，文字从外面改了（清除按钮、调用方重设）以后光标也不跟到末尾：自动聚焦的输入框里打的字插到原有内容前面，点清除后打完第一个字光标又跳回开头。补在 `TextField`（`TextFields.kt`）：用 Miuix 的 TextFieldValue 版本，光标自己管；`TextInputDialog`、`DialogTextField`、`FieldGroup` 里的输入框都用它。应用代码不直接用 Miuix 的 `TextField`（`TextFieldSourcesTest` 断言）。`MiuixGapsTest` 只测得出第一个现象；第二个现象要真的输入法才出现，在设备上验：打开「外观与主题 › 界面缩放」，点清除，依次输入 9、5，应是 95（有缺口时是 59）。
 
 ## 图标
@@ -76,7 +77,7 @@ Miuix 没有的才在 `ui/components/miuix` 补，页面文件里不各写一份
 | 开关、勾选、单选、下拉选一个、滑杆 | `SwitchPreference`（加载中 `SwitchLoadingPreference`）、`CheckboxPreference`、`RadioButtonPreference`、`DropdownPreference`（Miuix 的玻璃下拉行，自己带上页面背景）、`SliderPreference` |
 | 列表行带开关、点行进编辑页 | `SwitchWithDividerPreference` |
 | 分组标题、页面底部说明 | `SmallTitle`、`FooterHint` |
-| 两三个选项切换 | `TabRowWithContour(tabs, selectedTabIndex, onTabSelected)`；它没有不可用的样子，忙着时在 `onTabSelected` 里忽略点击 |
+| 两三个选项切换 | `SegmentedTabs(tabs, selectedIndex, onSelect, modifier, enabled)`；忙着时传 `enabled = false`，要撑满整行传 `Modifier.fillMaxWidth()` |
 | 选时间、日期、数字 | 对话框里放几列 Miuix 的 `NumberPicker`（见 `ui/settings/ScheduleScreen.kt` 的 `WheelColumn`） |
 | 列表上的搜索 | Miuix 的 `SearchBar` 放进 `MiuixPageScaffold` 的 `topBarBottomContent`，搜索中把列表换成结果列表（见 `ui/settings/NotifyTriggerScreen.kt`） |
 | 图标按钮、顶栏的文字按钮 | `IconActionButton`（平的小圆钮 `FlatIconButton`，复制键 `CopyIconButton`）、`TopBarTextButton` |
@@ -96,6 +97,5 @@ Miuix 没有的才在 `ui/components/miuix` 补，页面文件里不各写一份
 - `PreferenceGroup` 的花括号里不是 composable，`remember`、取字这类调用要写进 `item { }`。
 - 浮层（对话框、胶囊、弹窗这类面板）上不用卡片配色 `surfaceContainer`：深色下它和面板底色一样，分不出层次。按钮底用 `secondaryVariant`，输入框底 `secondaryContainer`，提示字 `onSecondaryContainer`。
 - 换主题时 Miuix 就地改同一个配色对象，`remember(colorScheme)` 会拿到旧颜色；要按具体的颜色值做键。
-- Miuix 的菜单项不能单独给文字上色：删除这类危险项只有图标是红的，靠随后的确认对话框把关。
 - 截图测试画不出：平滑圆角（着色器裁剪，块会整块空白，截图里可以临时关掉 `LocalSquircleEnabled`）、毛玻璃和玻璃顶栏的渐进模糊、公式。这些上真机看。`ScheduleStore`、`NotifyRuleStore` 是进程级单例，同一个 JVM 里前面测试留下的数据会串到后面，用到的测试先清空。
 - 一直循环的提示动画（转圈、呼吸、闪烁的点）用 `ui/components/IndicatorClock.kt` 的 `rememberIndicatorClock()`，配 `turn`、`pingPong` 换算，值只在绘制阶段读；不用 `rememberInfiniteTransition`、`infiniteRepeatable`（`IndicatorClockTest` 拦着）：它们每帧要一次新画面，回答进行中整窗按刷新率一直重画，耗电。Miuix 的 `InfiniteProgressIndicator` 只用在短暂的加载里。

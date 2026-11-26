@@ -82,6 +82,7 @@ import com.dzshzx.zeta.ui.components.accentPurple
 import com.dzshzx.zeta.ui.components.fill4
 import com.dzshzx.zeta.ui.components.fill8
 import com.dzshzx.zeta.ui.components.isDark
+import com.dzshzx.zeta.ui.components.miuix.FlatIconButton
 import com.dzshzx.zeta.ui.components.miuix.MenuEntry
 import com.dzshzx.zeta.ui.components.miuix.MenuItem
 import com.dzshzx.zeta.ui.components.miuix.SquircleShape
@@ -398,16 +399,15 @@ private fun ComposerAttachments(
                 modifier = Modifier.widthIn(max = 220.dp),
                 folder = AttachedPaths.isFolder(file.path.orEmpty()),
             ) {
-                Icon(
-                    MiuixIcons.Close,
+                FlatIconButton(
+                    icon = MiuixIcons.Close,
                     contentDescription = Strings.composerRemove(),
-                    modifier =
-                        Modifier.size(22.dp)
-                            .clip(CircleShape)
-                            .clickable { onRemoveFile(file) }
-                            .padding(4.dp),
+                    size = 22.dp,
+                    iconSize = 14.dp,
                     tint = MiuixTheme.colorScheme.onBackgroundVariant,
-                )
+                ) {
+                    onRemoveFile(file)
+                }
             }
         }
         attachments.forEach { attachment ->
@@ -459,23 +459,16 @@ private fun RemovableThumbnail(
     val colors = MiuixTheme.colorScheme
     Box(modifier) {
         Box(Modifier.size(64.dp).clip(RoundedCornerShape(ZetaCorner.M))) { content() }
-        Box(
-            modifier =
-                Modifier.align(Alignment.TopEnd)
-                    .padding(3.dp)
-                    .size(20.dp)
-                    .clip(CircleShape)
-                    .background(colors.windowDimming)
-                    .clickable(onClick = onRemove),
-            contentAlignment = Alignment.Center,
-        ) {
-            Icon(
-                MiuixIcons.Close,
-                contentDescription = Strings.composerRemove(),
-                modifier = Modifier.size(13.dp),
-                tint = colors.onPrimary,
-            )
-        }
+        FlatIconButton(
+            icon = MiuixIcons.Close,
+            contentDescription = Strings.composerRemove(),
+            size = 20.dp,
+            iconSize = 13.dp,
+            modifier = Modifier.align(Alignment.TopEnd).padding(3.dp),
+            backgroundColor = colors.windowDimming,
+            tint = colors.onPrimary,
+            onClick = onRemove,
+        )
     }
 }
 

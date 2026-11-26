@@ -42,16 +42,13 @@ import top.yukonga.miuix.kmp.basic.VerticalScrollBar
 import top.yukonga.miuix.kmp.basic.rememberScrollBarAdapter
 import top.yukonga.miuix.kmp.blur.Backdrop
 import top.yukonga.miuix.kmp.glass.GlassTopAppBar
-import top.yukonga.miuix.kmp.glass.GlassTopAppBarDefaults
 import top.yukonga.miuix.kmp.icon.MiuixIcons
 import top.yukonga.miuix.kmp.icon.glass.ChevronBackward
-import top.yukonga.miuix.kmp.material.isRuntimeShaderSupported
-import top.yukonga.miuix.kmp.theme.MiuixTheme
 import top.yukonga.miuix.kmp.utils.overScrollVertical
 import top.yukonga.miuix.kmp.utils.scrollEndHaptic
 
 // 页面骨架照 Eta 的 ScaffoldPage.kt、AdaptiveTopAppBar.kt（HyperOS 4 的玻璃顶栏）：手机上大标题随上滑折叠，宽屏时是固定的小标题、
-// 内容限在居中的最大宽度内；顶栏是渐进模糊的玻璃，模糊的是录进 [PageBlur] 的页面。
+// 内容限在居中的最大宽度内；顶栏是渐进模糊的玻璃，模糊的是录进页面背景（[rememberPageBackdrop]）的页面。
 // Zeta 的改动：窗口有焦点时才给键盘让位，免得输入对话框打开时背景页面提前空出键盘高度；顶栏的按钮槽提供 LocalInGlassTopBar，
 // 里面的 IconActionButton 自己画成玻璃圆钮。
 
@@ -80,7 +77,7 @@ fun Modifier.miuixPageScroll(scope: MiuixPageContentScope): Modifier {
         .fillMaxHeight()
 }
 
-/** Miuix 页面：玻璃顶栏；页面录进背景图（[PageBlur]），顶栏和页面上弹出的对话框、菜单拿它做毛玻璃。内容随意排，列表页用 [MiuixPage]。 */
+/** Miuix 页面：玻璃顶栏；页面录进背景图（[rememberPageBackdrop]），顶栏和页面上弹出的对话框、菜单拿它做毛玻璃。内容随意排，列表页用 [MiuixPage]。 */
 @Composable
 fun MiuixPageScaffold(
     title: String,
@@ -89,10 +86,10 @@ fun MiuixPageScaffold(
     topBarStyle: MiuixTopBarStyle = MiuixTopBarStyle.Large,
     actions: @Composable RowScope.() -> Unit = {},
     topBarBottomContent: @Composable () -> Unit = {},
-    isContentScrolled: Boolean? = null,
+    isContentScrolled: Boolean = false,
     content: @Composable (MiuixPageContentScope) -> Unit,
 ) {
-    val blur = rememberPageBlur()
+    val pageBackdrop = rememberPageBackdrop()
     val scrollBehavior = MiuixScrollBehavior()
     val windowFocused = LocalWindowInfo.current.isWindowFocused
     val imePadding = if (windowFocused) Modifier.imePadding() else Modifier
@@ -104,7 +101,7 @@ fun MiuixPageScaffold(
             MiuixPageTopBar(
                 title = title,
                 scrollBehavior = scrollBehavior,
-                backdrop = blur.backdrop,
+                backdrop = pageBackdrop,
                 onBack = onBack,
                 style = topBarStyle,
                 isContentScrolled = isContentScrolled,
@@ -115,7 +112,7 @@ fun MiuixPageScaffold(
     ) { innerPadding ->
         val layoutDirection = LocalLayoutDirection.current
         val navBottom = WindowInsets.navigationBars.asPaddingValues().calculateBottomPadding()
-        Box(Modifier.fillMaxSize().pageBlurSource(blur)) {
+        Box(Modifier.fillMaxSize().pageBlurSource(pageBackdrop)) {
             WidePageContent { sidePadding ->
                 val top = innerPadding.calculateTopPadding() + 12.dp
                 val bottom =
@@ -129,7 +126,7 @@ fun MiuixPageScaffold(
                             scrollBehavior,
                         )
                     }
-                PageBlurHost(blur) { content(scope) }
+                PageBlurHost(pageBackdrop) { content(scope) }
             }
         }
     }
@@ -145,9 +142,7 @@ fun MiuixPage(
     title: String,
     modifier: Modifier = Modifier,
     onBack: (() -> Unit)? = null,
-    topBarStyle: MiuixTopBarStyle = MiuixTopBarStyle.Large,
     actions: @Composable RowScope.() -> Unit = {},
-    topBarBottomContent: @Composable () -> Unit = {},
     listState: LazyListState = rememberLazyListState(),
     dialogs: @Composable () -> Unit = {},
     content: LazyListScope.() -> Unit,
@@ -158,9 +153,7 @@ fun MiuixPage(
         title = title,
         modifier = modifier,
         onBack = onBack,
-        topBarStyle = topBarStyle,
         actions = actions,
-        topBarBottomContent = topBarBottomContent,
         isContentScrolled = scrolled,
     ) { scope ->
         Box(Modifier.fillMaxSize()) {
@@ -183,65 +176,38 @@ fun MiuixPage(
 }
 
 /**
- * 页面的玻璃顶栏（HyperOS 4）：系统支持运行时着色器、页面录了背景时是渐进模糊，否则是从页面底色往下淡掉的色带。 [isContentScrolled]
- * 给出时玻璃按列表位置显出，不给时按顶栏的滚动联动。
+ * 页面的玻璃顶栏（HyperOS 4）：页面录了背景（[backdrop]，系统不支持运行时着色器时为 null）时是渐进模糊，否则是从页面底色往下淡掉的色带；
+ * [isContentScrolled] 时玻璃显出。按钮槽里的 [IconActionButton] 画成玻璃圆钮。
  */
 @Composable
-fun MiuixPageTopBar(
+private fun MiuixPageTopBar(
     title: String,
     scrollBehavior: ScrollBehavior,
     backdrop: Backdrop?,
-    modifier: Modifier = Modifier,
-    onBack: (() -> Unit)? = null,
-    style: MiuixTopBarStyle = MiuixTopBarStyle.Large,
-    isContentScrolled: Boolean? = null,
-    actions: @Composable RowScope.() -> Unit = {},
-    bottomContent: @Composable () -> Unit = {},
+    onBack: (() -> Unit)?,
+    style: MiuixTopBarStyle,
+    isContentScrolled: Boolean,
+    actions: @Composable RowScope.() -> Unit,
+    bottomContent: @Composable () -> Unit,
 ) {
-    val surface = MiuixTheme.colorScheme.surface
-    val bandBrush = remember(surface) { GlassTopAppBarDefaults.bandBrush(surface) }
-    val expandable = style == MiuixTopBarStyle.Large && !rememberIsWideScreen()
-    val progressiveBlur = backdrop != null && isRuntimeShaderSupported()
-    val backDescription = Strings.commonBack()
-    val navigationIcon: @Composable () -> Unit = {
-        if (onBack != null) {
-            CompositionLocalProvider(LocalInGlassTopBar provides true) {
-                IconActionButton(
-                    MiuixIcons.Glass.ChevronBackward,
-                    backDescription,
-                    onClick = onBack,
-                )
-            }
-        }
-    }
-    val glassActions: @Composable RowScope.() -> Unit = {
-        CompositionLocalProvider(LocalInGlassTopBar provides true) { actions() }
-    }
-    if (isContentScrolled != null) {
+    CompositionLocalProvider(LocalInGlassTopBar provides true) {
         GlassTopAppBar(
             title = title,
             isContentScrolled = isContentScrolled,
-            modifier = modifier,
-            expandable = expandable,
-            progressiveBlur = progressiveBlur,
+            expandable = style == MiuixTopBarStyle.Large && !rememberIsWideScreen(),
+            progressiveBlur = backdrop != null,
             backdrop = backdrop,
             scrollBehavior = scrollBehavior,
-            bandBrush = bandBrush,
-            navigationIcon = navigationIcon,
-            actions = glassActions,
-            bottomContent = bottomContent,
-        )
-    } else {
-        GlassTopAppBar(
-            title = title,
-            modifier = modifier,
-            expandable = expandable,
-            progressiveBlur = progressiveBlur,
-            backdrop = backdrop,
-            scrollBehavior = scrollBehavior,
-            bandBrush = bandBrush,
-            navigationIcon = navigationIcon,
-            actions = glassActions,
+            navigationIcon = {
+                if (onBack != null) {
+                    IconActionButton(
+                        MiuixIcons.Glass.ChevronBackward,
+                        Strings.commonBack(),
+                        onClick = onBack,
+                    )
+                }
+            },
+            actions = actions,
             bottomContent = bottomContent,
         )
     }

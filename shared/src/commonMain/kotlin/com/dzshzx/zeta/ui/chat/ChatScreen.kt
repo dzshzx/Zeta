@@ -96,7 +96,7 @@ import com.dzshzx.zeta.ui.components.miuix.TopBarMoreMenu
 import com.dzshzx.zeta.ui.components.miuix.ZetaCorner
 import com.dzshzx.zeta.ui.components.miuix.ZetaIcons
 import com.dzshzx.zeta.ui.components.miuix.pageBlurSource
-import com.dzshzx.zeta.ui.components.miuix.rememberPageBlur
+import com.dzshzx.zeta.ui.components.miuix.rememberPageBackdrop
 import com.dzshzx.zeta.ui.components.rememberRetained
 import com.dzshzx.zeta.ui.components.whileStarted
 import com.dzshzx.zeta.ui.markdown.LocalTextFinder
@@ -119,7 +119,6 @@ import top.yukonga.miuix.kmp.basic.Text
 import top.yukonga.miuix.kmp.basic.TextButton
 import top.yukonga.miuix.kmp.blur.LayerBackdrop
 import top.yukonga.miuix.kmp.glass.GlassTopAppBar
-import top.yukonga.miuix.kmp.glass.GlassTopAppBarDefaults
 import top.yukonga.miuix.kmp.icon.MiuixIcons
 import top.yukonga.miuix.kmp.icon.extended.Search
 import top.yukonga.miuix.kmp.icon.extended.Settings
@@ -143,7 +142,7 @@ fun endConfirmSummary(external: Boolean, occupant: Occupant?, busy: Boolean): St
 
 /**
  * 聊天页。根上是 Miuix 的 Scaffold（页面上的对话框、菜单都画在它里面），顶栏是 Miuix 的玻璃小顶栏，中间换成对话标题和模型切换。
- * 内容录进页面背景（[PageBlur]），顶栏光晕、对话框和菜单拿它做毛玻璃；做法同 MiuixPageScaffold，
+ * 内容录进页面背景（[rememberPageBackdrop]），顶栏光晕、对话框和菜单拿它做毛玻璃；做法同 MiuixPageScaffold，
  * 只是聊天页铺整页底色（background），输入栏在内容里跟着键盘走。
  */
 @Composable
@@ -173,7 +172,7 @@ fun ChatScreen(
     LaunchedEffect(hub, conversation.backend, usable) {
         if (usable) hub.refreshClaudeDefaults(conversation.backend)
     }
-    val blur = rememberPageBlur()
+    val pageBackdrop = rememberPageBackdrop()
     // 结束确认框的说明，打开时定下（框开着时对话闲下来，说明也不跟着变）；null 是没开着
     var endSummary by remember(conversation) { mutableStateOf<String?>(null) }
     Scaffold(
@@ -183,7 +182,7 @@ fun ChatScreen(
             WindowInsets.safeDrawing.only(WindowInsetsSides.Top + WindowInsetsSides.Horizontal),
         topBar = {
             // 顶栏在页面录制范围之外：它的菜单可以模糊页面
-            PageBlurHost(blur) {
+            PageBlurHost(pageBackdrop) {
                 ChatTopBar(
                     conversation = conversation,
                     host =
@@ -191,7 +190,7 @@ fun ChatScreen(
                             conversation.backend != Backends.LOCAL
                         },
                     models = hub.modelOptions(conversation.backend),
-                    backdrop = blur.backdrop,
+                    backdrop = pageBackdrop,
                     listState = listState.takeIf { usable },
                     onOpenPane = onOpenPane,
                     onNewChat = hub::startNew,
@@ -213,9 +212,9 @@ fun ChatScreen(
         },
     ) { padding ->
         Box(
-            Modifier.fillMaxSize().pageBlurSource(blur).background(colors.background),
+            Modifier.fillMaxSize().pageBlurSource(pageBackdrop).background(colors.background),
         ) {
-            PageBlurHost(blur) {
+            PageBlurHost(pageBackdrop) {
                 when {
                     // 换对话时这一块整个重建：ConversationBody 里记住的东西（草稿、消息操作、列表项和输入栏各控件的状态）都从头来
                     usable ->
@@ -300,34 +299,29 @@ private fun ChatTopBar(
     onFind: (() -> Unit)?,
 ) {
     val scrolled by remember(listState) { derivedStateOf { listState?.canScrollBackward == true } }
-    val surface = MiuixTheme.colorScheme.surface
-    val bandBrush = remember(surface) { GlassTopAppBarDefaults.bandBrush(surface) }
     Box {
-        GlassTopAppBar(
-            title = "",
-            isContentScrolled = scrolled,
-            expandable = false,
-            progressiveBlur = backdrop != null,
-            backdrop = backdrop,
-            bandBrush = bandBrush,
-            navigationIcon = {
-                onOpenPane?.let {
-                    CompositionLocalProvider(LocalInGlassTopBar provides true) {
+        CompositionLocalProvider(LocalInGlassTopBar provides true) {
+            GlassTopAppBar(
+                title = "",
+                isContentScrolled = scrolled,
+                expandable = false,
+                progressiveBlur = backdrop != null,
+                backdrop = backdrop,
+                navigationIcon = {
+                    onOpenPane?.let {
                         IconActionButton(MiuixIcons.Sidebar, Strings.chatHistory(), onClick = it)
                     }
-                }
-            },
-            actions = {
-                CompositionLocalProvider(LocalInGlassTopBar provides true) {
+                },
+                actions = {
                     OverflowMenu(
                         onNewChat = onNewChat,
                         onEnd = onEnd,
                         onOpenSettings = onOpenSettings,
                         onFind = onFind,
                     )
-                }
-            },
-        )
+                },
+            )
+        }
         // 标题位置：两边让出图标按钮，竖直方向和顶栏的 52dp 工具栏对齐
         Box(
             modifier =
@@ -640,9 +634,12 @@ private fun BackToBottomButton(visible: Boolean, onClick: () -> Unit, modifier: 
         enter = fadeIn(tween(160)) + scaleIn(tween(180), initialScale = 0.82f),
         exit = fadeOut(tween(100)) + scaleOut(tween(120), targetScale = 0.86f),
     ) {
-        CompositionLocalProvider(LocalInGlassTopBar provides true) {
-            IconActionButton(ZetaIcons.ArrowDown, Strings.chatScrollToBottom(), onClick = onClick)
-        }
+        IconActionButton(
+            ZetaIcons.ArrowDown,
+            Strings.chatScrollToBottom(),
+            glass = true,
+            onClick = onClick,
+        )
     }
 }
 

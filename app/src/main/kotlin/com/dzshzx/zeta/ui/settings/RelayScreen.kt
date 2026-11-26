@@ -36,7 +36,6 @@ import com.dzshzx.zeta.ui.components.miuix.PreferenceGroup
 import com.dzshzx.zeta.ui.components.miuix.TextField
 import com.dzshzx.zeta.ui.components.miuix.TopBarTextButton
 import top.yukonga.miuix.kmp.basic.BasicComponent
-import top.yukonga.miuix.kmp.basic.BasicComponentDefaults
 import top.yukonga.miuix.kmp.icon.MiuixIcons
 import top.yukonga.miuix.kmp.icon.extended.Hide
 import top.yukonga.miuix.kmp.icon.extended.Show
@@ -222,13 +221,7 @@ private fun UrlField(draft: RelayDraft, update: (RelayDraft) -> Unit) {
 private fun DeleteGroup(relay: ClaudeRelay, enabled: Boolean, onClick: () -> Unit) {
     PreferenceGroup(footer = if (relay.current) CoreStrings.errRelayInUse() else null) {
         item {
-            BasicComponent(
-                title = Strings.relayDelete(),
-                titleColor =
-                    BasicComponentDefaults.titleColor(color = MiuixTheme.colorScheme.error),
-                enabled = enabled && !relay.current,
-                onClick = onClick,
-            )
+            DangerRow(Strings.relayDelete(), enabled = enabled && !relay.current, onClick = onClick)
         }
     }
 }

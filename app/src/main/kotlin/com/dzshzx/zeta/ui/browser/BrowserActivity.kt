@@ -18,7 +18,6 @@ import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.shrinkHorizontally
 import androidx.compose.foundation.background
-import androidx.compose.foundation.clickable
 import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -62,7 +61,6 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.platform.LocalSoftwareKeyboardController
 import androidx.compose.ui.text.TextRange
-import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.TextFieldValue
@@ -76,6 +74,7 @@ import com.dzshzx.zeta.i18n.Strings
 import com.dzshzx.zeta.phone.browser.AgentBrowser
 import com.dzshzx.zeta.phone.browser.BrowserUrls
 import com.dzshzx.zeta.ui.app.ZetaTheme
+import com.dzshzx.zeta.ui.components.miuix.CompactButton
 import com.dzshzx.zeta.ui.components.miuix.ConfirmDialog
 import com.dzshzx.zeta.ui.components.miuix.FlatIconButton
 import com.dzshzx.zeta.ui.components.miuix.IconActionButton
@@ -85,7 +84,7 @@ import com.dzshzx.zeta.ui.components.miuix.PageBlurHost
 import com.dzshzx.zeta.ui.components.miuix.TopBarMoreMenu
 import com.dzshzx.zeta.ui.components.miuix.ZetaIcons
 import com.dzshzx.zeta.ui.components.miuix.pageBlurSource
-import com.dzshzx.zeta.ui.components.miuix.rememberPageBlur
+import com.dzshzx.zeta.ui.components.miuix.rememberPageBackdrop
 import top.yukonga.miuix.kmp.basic.Icon
 import top.yukonga.miuix.kmp.basic.Scaffold
 import top.yukonga.miuix.kmp.basic.Text
@@ -340,16 +339,18 @@ private fun BrowserPage(modifier: Modifier) {
 /**
  * 浏览器页的 Miuix 骨架：菜单和对话框画在 Scaffold 的弹窗层里，没有它就弹不出来。 工具栏是自己的，不用
  * [com.dzshzx.zeta.ui.components.miuix.MiuixPageScaffold] 的顶栏；
- * 照它把页面录成背景图（[com.dzshzx.zeta.ui.components.miuix.PageBlur]），菜单和对话框拿它做毛玻璃。系统栏和键盘的留白由内容自己处理。
+ * 照它把页面录成背景图（[com.dzshzx.zeta.ui.components.miuix.rememberPageBackdrop]），菜单和对话框拿它做毛玻璃。系统栏和键盘的留白由内容自己处理。
  */
 @Composable
 private fun BrowserScaffold(content: @Composable () -> Unit) {
-    val blur = rememberPageBlur()
+    val pageBackdrop = rememberPageBackdrop()
     Scaffold(
         containerColor = MiuixTheme.colorScheme.surface,
         contentWindowInsets = WindowInsets(0),
     ) {
-        Box(Modifier.fillMaxSize().pageBlurSource(blur)) { PageBlurHost(blur, content) }
+        Box(Modifier.fillMaxSize().pageBlurSource(pageBackdrop)) {
+            PageBlurHost(pageBackdrop, content)
+        }
     }
 }
 
@@ -390,15 +391,10 @@ private fun StatusPill(modifier: Modifier = Modifier) {
             modifier = Modifier.weight(1f).padding(vertical = 12.dp),
         )
         if (controlling) {
-            Text(
+            CompactButton(
                 text = Strings.browserHandBack(),
-                style = MiuixTheme.textStyles.footnote1.copy(fontWeight = FontWeight.Medium),
-                color = colors.onPrimary,
-                modifier =
-                    Modifier.clip(CircleShape)
-                        .background(colors.primary)
-                        .clickable { AgentBrowser.handBackByUser() }
-                        .padding(horizontal = 12.dp, vertical = 6.dp),
+                onClick = { AgentBrowser.handBackByUser() },
+                primary = true,
             )
         }
     }

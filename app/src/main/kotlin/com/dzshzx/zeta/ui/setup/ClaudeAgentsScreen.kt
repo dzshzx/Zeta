@@ -16,8 +16,6 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.dzshzx.zeta.core.ConversationHub
@@ -25,6 +23,7 @@ import com.dzshzx.zeta.core.claude.Subagent
 import com.dzshzx.zeta.core.claude.SubagentDraft
 import com.dzshzx.zeta.core.clipLine
 import com.dzshzx.zeta.i18n.Strings
+import com.dzshzx.zeta.ui.components.MonoFont
 import com.dzshzx.zeta.ui.components.SlideInPage
 import com.dzshzx.zeta.ui.components.fill8
 import com.dzshzx.zeta.ui.components.miuix.ConfirmDialog
@@ -37,6 +36,7 @@ import com.dzshzx.zeta.ui.components.miuix.NoticeDialog
 import com.dzshzx.zeta.ui.components.miuix.PreferenceGroup
 import com.dzshzx.zeta.ui.components.miuix.PreferenceValue
 import com.dzshzx.zeta.ui.components.miuix.TextField
+import com.dzshzx.zeta.ui.components.miuix.TopBarTextButton
 import com.dzshzx.zeta.ui.components.rememberRetained
 import top.yukonga.miuix.kmp.basic.BasicComponent
 import top.yukonga.miuix.kmp.basic.ButtonDefaults
@@ -262,7 +262,7 @@ private fun AgentDetail(agent: Subagent, onEdit: () -> Unit, onDelete: () -> Uni
                         ) {
                             Text(
                                 text = tool,
-                                style = styles.footnote2.copy(fontFamily = FontFamily.Monospace),
+                                style = styles.footnote2.copy(fontFamily = MonoFont),
                                 color = colors.onBackgroundVariant,
                             )
                         }
@@ -345,17 +345,10 @@ private fun AgentEditor(
         title = if (original == null) Strings.setupAgentsNew() else Strings.setupAgentsEdit(),
         onBack = onBack,
         actions = {
-            TextButton(
+            TopBarTextButton(
                 text = if (saving) Strings.setupClaudeSaving() else Strings.setupClaudeSave(),
                 onClick = ::save,
                 enabled = valid && !saving,
-                minWidth = 0.dp,
-                colors =
-                    ButtonDefaults.textButtonColors(
-                        color = Color.Transparent,
-                        disabledColor = Color.Transparent,
-                        textColor = MiuixTheme.colorScheme.primary,
-                    ),
             )
         },
     ) {

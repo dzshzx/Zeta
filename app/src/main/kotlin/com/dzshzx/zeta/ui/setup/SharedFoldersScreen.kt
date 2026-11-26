@@ -5,18 +5,13 @@ import android.provider.DocumentsContract
 import androidx.activity.compose.BackHandler
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
-import androidx.compose.foundation.clickable
-import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.runtime.Composable
@@ -29,10 +24,8 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.clip
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.input.ImeAction
-import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import com.dzshzx.zeta.core.Backends
 import com.dzshzx.zeta.core.ConversationHub
@@ -47,6 +40,9 @@ import com.dzshzx.zeta.ui.components.MonoFont
 import com.dzshzx.zeta.ui.components.miuix.ConfirmDialog
 import com.dzshzx.zeta.ui.components.miuix.DialogTextField
 import com.dzshzx.zeta.ui.components.miuix.DropdownValuePreference
+import com.dzshzx.zeta.ui.components.miuix.FolderPickerNote
+import com.dzshzx.zeta.ui.components.miuix.FolderPickerRow
+import com.dzshzx.zeta.ui.components.miuix.LinkText
 import com.dzshzx.zeta.ui.components.miuix.MenuEntry
 import com.dzshzx.zeta.ui.components.miuix.MenuItem
 import com.dzshzx.zeta.ui.components.miuix.MiuixPage
@@ -56,11 +52,8 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import top.yukonga.miuix.kmp.basic.BasicComponent
 import top.yukonga.miuix.kmp.basic.BasicComponentDefaults
-import top.yukonga.miuix.kmp.basic.Icon
 import top.yukonga.miuix.kmp.basic.InfiniteProgressIndicator
 import top.yukonga.miuix.kmp.basic.Text
-import top.yukonga.miuix.kmp.icon.MiuixIcons
-import top.yukonga.miuix.kmp.icon.extended.Folder
 import top.yukonga.miuix.kmp.theme.MiuixTheme
 
 /*
@@ -356,20 +349,17 @@ private fun FolderPickerContent(current: FolderPicker, onSystemPicker: () -> Uni
             keyboardActions = KeyboardActions(onGo = { current.navigate(current.input) }),
         )
         // 次要操作做成链接，不在按钮栏上放第三个按钮：三个按钮挤在一行放不下字
-        Text(
+        LinkText(
             text = Strings.setupSharedSystemPicker(),
+            onClick = onSystemPicker,
             style = MiuixTheme.textStyles.footnote1,
-            color = colors.primary,
-            modifier =
-                Modifier.clip(RoundedCornerShape(10.dp))
-                    .clickable(onClick = onSystemPicker)
-                    .padding(horizontal = 4.dp, vertical = 8.dp),
+            modifier = Modifier.padding(vertical = 8.dp),
         )
-        current.browseError?.let { PickerNote(it, error = true) }
+        current.browseError?.let { FolderPickerNote(it, error = true) }
         LazyColumn(modifier = Modifier.fillMaxWidth().heightIn(max = 240.dp).padding(top = 8.dp)) {
             if (current.path != "/") {
                 item(key = "..") {
-                    PickerRow("../") {
+                    FolderPickerRow("../") {
                         current.navigate(current.path.substringBeforeLast('/').ifEmpty { "/" })
                     }
                 }
@@ -386,10 +376,10 @@ private fun FolderPickerContent(current: FolderPicker, onSystemPicker: () -> Uni
                         }
                     }
                 entries.isEmpty() && current.browseError == null ->
-                    item(key = "empty") { PickerNote(Strings.setupSharedNoSubfolders()) }
+                    item(key = "empty") { FolderPickerNote(Strings.setupSharedNoSubfolders()) }
                 else ->
                     items(entries, key = { it }) { entry ->
-                        PickerRow(entry) {
+                        FolderPickerRow(entry) {
                             current.navigate(current.path.trimEnd('/') + "/" + entry)
                         }
                     }
@@ -411,44 +401,6 @@ private fun FolderPickerContent(current: FolderPicker, onSystemPicker: () -> Uni
             title = Strings.setupSharedMountName(),
             modifier = Modifier.padding(top = 8.dp),
         )
-        current.formError?.let { PickerNote(it, error = true) }
+        current.formError?.let { FolderPickerNote(it, error = true) }
     }
-}
-
-@Composable
-private fun PickerRow(label: String, onClick: () -> Unit) {
-    Row(
-        verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.spacedBy(10.dp),
-        modifier =
-            Modifier.fillMaxWidth()
-                .clip(RoundedCornerShape(10.dp))
-                .clickable(onClick = onClick)
-                .padding(vertical = 10.dp, horizontal = 6.dp),
-    ) {
-        Icon(
-            imageVector = MiuixIcons.Folder,
-            contentDescription = null,
-            modifier = Modifier.size(18.dp),
-            tint = MiuixTheme.colorScheme.primary,
-        )
-        Text(
-            text = label,
-            style = MiuixTheme.textStyles.body2.copy(fontFamily = MonoFont),
-            color = MiuixTheme.colorScheme.onBackground,
-            maxLines = 1,
-            overflow = TextOverflow.Ellipsis,
-        )
-    }
-}
-
-@Composable
-private fun PickerNote(text: String, error: Boolean = false) {
-    Text(
-        text = text,
-        style = MiuixTheme.textStyles.footnote1,
-        color =
-            if (error) MiuixTheme.colorScheme.error else MiuixTheme.colorScheme.onBackgroundVariant,
-        modifier = Modifier.padding(horizontal = 4.dp, vertical = 8.dp),
-    )
 }

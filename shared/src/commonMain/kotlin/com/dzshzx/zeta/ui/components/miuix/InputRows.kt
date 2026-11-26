@@ -1,9 +1,6 @@
 package com.dzshzx.zeta.ui.components.miuix
 
-import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.RowScope
-import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.runtime.Composable
@@ -12,7 +9,6 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import top.yukonga.miuix.kmp.basic.BasicComponent
 import top.yukonga.miuix.kmp.basic.InfiniteProgressIndicator
-import top.yukonga.miuix.kmp.basic.SmallTitle
 import top.yukonga.miuix.kmp.basic.Switch
 import top.yukonga.miuix.kmp.basic.VerticalDivider
 
@@ -29,18 +25,7 @@ fun FieldGroup(
     footer: String? = null,
     field: @Composable () -> Unit,
 ) {
-    Column(modifier) {
-        if (title != null) SmallTitle(text = title)
-        Box(
-            Modifier.fillMaxWidth()
-                .padding(horizontal = 12.dp)
-                .padding(bottom = if (footer == null) 12.dp else 0.dp),
-            propagateMinConstraints = true,
-        ) {
-            field()
-        }
-        if (footer != null) FooterHint(summary = footer, modifier = Modifier.padding(top = 8.dp))
-    }
+    GroupFrame(title, footer, modifier, field)
 }
 
 /** 点行进编辑页、右边的开关单独管开关的一行：开关前面一条竖线，把「点行」和「拨开关」分开。 */
@@ -52,24 +37,20 @@ fun SwitchWithDividerPreference(
     modifier: Modifier = Modifier,
     onClick: (() -> Unit)? = null,
     summary: String? = null,
-    startAction: (@Composable () -> Unit)? = null,
-    enabled: Boolean = true,
 ) {
     BasicComponent(
         modifier = modifier,
         title = title,
         summary = summary,
-        startAction = startAction,
         endActions = {
             VerticalDivider(
                 Modifier.height(28.dp)
                     .padding(horizontal = 12.dp)
                     .align(Alignment.CenterVertically),
             )
-            Switch(checked = checked, onCheckedChange = onCheckedChange, enabled = enabled)
+            Switch(checked = checked, onCheckedChange = onCheckedChange)
         },
         onClick = onClick,
-        enabled = enabled,
     )
 }
 
@@ -82,7 +63,6 @@ fun SwitchLoadingPreference(
     modifier: Modifier = Modifier,
     isLoading: Boolean = false,
     summary: String? = null,
-    startAction: (@Composable () -> Unit)? = null,
     endActions: @Composable RowScope.() -> Unit = {},
     enabled: Boolean = true,
 ) {
@@ -90,7 +70,6 @@ fun SwitchLoadingPreference(
         modifier = modifier,
         title = title,
         summary = summary,
-        startAction = startAction,
         endActions = {
             endActions()
             if (isLoading) {

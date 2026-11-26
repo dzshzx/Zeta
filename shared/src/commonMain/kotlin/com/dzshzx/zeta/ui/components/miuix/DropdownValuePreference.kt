@@ -8,9 +8,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.geometry.Rect
-import androidx.compose.ui.layout.boundsInWindow
-import androidx.compose.ui.layout.onGloballyPositioned
+import androidx.compose.ui.layout.onPlaced
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
@@ -64,22 +62,20 @@ fun DropdownValuePreference(
     summary: String? = null,
     value: String? = null,
     enabled: Boolean = true,
-    startAction: (@Composable () -> Unit)? = null,
 ) {
     var expanded by remember { mutableStateOf(false) }
     // 菜单开着和收起动画放完之前，这一行保持按下的样子
     var holdDown by remember { mutableStateOf(false) }
-    var rowBounds by remember { mutableStateOf(Rect.Zero) }
-    val nonEmpty = entries.filter { it.items.isNotEmpty() }
+    val anchor = remember { MenuAnchor() }
+    val nonEmpty = remember(entries) { entries.filter { it.items.isNotEmpty() } }
     val actualEnabled = enabled && nonEmpty.isNotEmpty()
     val actionColor =
         if (actualEnabled) MiuixTheme.colorScheme.onSurfaceVariantActions
         else MiuixTheme.colorScheme.disabledOnSecondaryVariant
     BasicComponent(
-        modifier = modifier.onGloballyPositioned { rowBounds = it.boundsInWindow() },
+        modifier = modifier.onPlaced { anchor.coordinates = it },
         title = title,
         summary = summary,
-        startAction = startAction,
         endActions = {
             if (!value.isNullOrBlank()) {
                 Text(
@@ -108,7 +104,7 @@ fun DropdownValuePreference(
     GlassMenu(
         show = expanded && actualEnabled,
         entries = nonEmpty,
-        anchorBounds = rowBounds,
+        anchorBounds = anchor::bounds,
         onDismiss = { expanded = false },
         onDismissFinished = { holdDown = false },
     )

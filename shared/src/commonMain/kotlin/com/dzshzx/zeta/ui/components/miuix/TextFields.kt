@@ -11,15 +11,11 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.TextRange
-import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.input.TextFieldValue
 import androidx.compose.ui.text.input.VisualTransformation
-import androidx.compose.ui.unit.DpSize
 import androidx.compose.ui.unit.dp
 import com.dzshzx.zeta.i18n.Strings
 import top.yukonga.miuix.kmp.basic.TextField as MiuixTextField
-import top.yukonga.miuix.kmp.basic.TextFieldColors
-import top.yukonga.miuix.kmp.basic.TextFieldDefaults
 import top.yukonga.miuix.kmp.icon.MiuixIcons
 import top.yukonga.miuix.kmp.icon.extended.Clear
 import top.yukonga.miuix.kmp.theme.MiuixTheme
@@ -35,13 +31,10 @@ fun TextField(
     value: String,
     onValueChange: (String) -> Unit,
     modifier: Modifier = Modifier,
-    insideMargin: DpSize = TextFieldDefaults.InsideMargin,
-    colors: TextFieldColors = TextFieldDefaults.textFieldColors(),
     label: String = "",
     useLabelAsPlaceholder: Boolean = true,
     enabled: Boolean = true,
     showClearButton: Boolean = false,
-    textStyle: TextStyle = MiuixTheme.textStyles.main,
     keyboardOptions: KeyboardOptions = KeyboardOptions.Default,
     keyboardActions: KeyboardActions = KeyboardActions.Default,
     trailingIcon: (@Composable () -> Unit)? = null,
@@ -85,12 +78,9 @@ fun TextField(
             }
         },
         modifier = modifier,
-        insideMargin = insideMargin,
-        colors = colors,
         label = label,
         useLabelAsPlaceholder = useLabelAsPlaceholder,
         enabled = enabled,
-        textStyle = textStyle,
         keyboardOptions = keyboardOptions,
         keyboardActions = keyboardActions,
         trailingIcon = clear ?: trailingIcon,

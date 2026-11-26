@@ -42,12 +42,13 @@ fun ValueRow(
     )
 }
 
-/** 编辑页最下面的“删除…”：错误色的标题，点了弹确认框。 */
+/** 危险操作的一行（编辑页最下面的“删除…”、停止后台任务）：错误色的标题，点了通常弹确认框；不能点（[enabled] 为 false）时标题变灰。 */
 @Composable
-fun DangerRow(title: String, onClick: () -> Unit) {
+fun DangerRow(title: String, enabled: Boolean = true, onClick: () -> Unit) {
     BasicComponent(
         title = title,
         titleColor = BasicComponentDefaults.titleColor(color = MiuixTheme.colorScheme.error),
+        enabled = enabled,
         onClick = onClick,
     )
 }

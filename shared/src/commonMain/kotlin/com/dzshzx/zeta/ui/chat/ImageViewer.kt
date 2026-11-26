@@ -77,7 +77,7 @@ import com.dzshzx.zeta.ui.components.miuix.LocalPageBackdrop
 import com.dzshzx.zeta.ui.components.miuix.PageBlurHost
 import com.dzshzx.zeta.ui.components.miuix.bottomBarGlass
 import com.dzshzx.zeta.ui.components.miuix.pageBlurSource
-import com.dzshzx.zeta.ui.components.miuix.rememberPageBlur
+import com.dzshzx.zeta.ui.components.miuix.rememberPageBackdrop
 import java.time.LocalDateTime
 import kotlin.math.abs
 import kotlinx.coroutines.flow.first
@@ -131,11 +131,11 @@ fun ImageViewer(refs: List<ImageRef>, start: Int, onDismiss: (Int) -> Unit) {
     ) {
         ChatPlatform.current.ImmersiveImageWindow()
         MiuixTheme(colors = dark) {
-            val blur = rememberPageBlur()
+            val pageBackdrop = rememberPageBackdrop()
             AnimatedVisibility(shown, enter = fadeIn(tween(220)), exit = fadeOut(tween(180))) {
                 Box(Modifier.fillMaxSize().background(MiuixTheme.colorScheme.surface)) {
                     Box(
-                        Modifier.fillMaxSize().pageBlurSource(blur).pointerInput(pager) {
+                        Modifier.fillMaxSize().pageBlurSource(pageBackdrop).pointerInput(pager) {
                             pinchGestures { zooms.getOrPut(pager.currentPage) { ZoomState() } }
                         },
                     ) {
@@ -154,7 +154,7 @@ fun ImageViewer(refs: List<ImageRef>, start: Int, onDismiss: (Int) -> Unit) {
                             )
                         }
                     }
-                    PageBlurHost(blur) {
+                    PageBlurHost(pageBackdrop) {
                         val page = pager.currentPage
                         ViewerBars(chrome, pager, refs[page], originals[page], close)
                     }

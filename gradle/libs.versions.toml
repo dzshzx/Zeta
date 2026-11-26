@@ -1,5 +1,9 @@
 [versions]
 agp = "9.5.1"
+# app 和 shared 共用的 Android SDK 版本。编译用 37.2：Miuix 要求依赖它的模块至少照 37.2 编译。
+android-compileSdk = "37"
+android-compileSdkMinor = "2"
+android-minSdk = "35"
 kotlin = "2.4.21"
 # Miuix：HyperOS 风格的 Compose Multiplatform 组件库，https://github.com/compose-miuix-ui/miuix
 miuix = "0.9.5-rc01"

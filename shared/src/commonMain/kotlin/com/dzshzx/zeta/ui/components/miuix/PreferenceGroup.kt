@@ -1,5 +1,6 @@
 package com.dzshzx.zeta.ui.components.miuix
 
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
@@ -40,14 +41,31 @@ fun PreferenceGroup(
     content: PreferenceGroupScope.() -> Unit,
 ) {
     val rows = PreferenceGroupScopeImpl().apply(content).rows
+    GroupFrame(title, footer, modifier) {
+        Card { rows.forEachIndexed { index, (rowKey, row) -> key(rowKey ?: index) { row() } } }
+    }
+}
+
+/**
+ * 一组的框架（[PreferenceGroup]、[FieldGroup] 共用）：分类标题 [title]，[content] 离屏幕边 12dp、横向撑满、离下一组 12dp（照 Miuix
+ * 的示例和 Eta 的设置页），下面接说明 [footer]。
+ */
+@Composable
+internal fun GroupFrame(
+    title: String?,
+    footer: String?,
+    modifier: Modifier = Modifier,
+    content: @Composable () -> Unit,
+) {
     Column(modifier) {
         if (title != null) SmallTitle(text = title)
-        // 卡片离屏幕边 12dp、离下一张卡片 12dp（照 Miuix 的示例和 Eta 的设置页）
-        Card(
-            Modifier.padding(horizontal = 12.dp)
+        Box(
+            Modifier.fillMaxWidth()
+                .padding(horizontal = 12.dp)
                 .padding(bottom = if (footer == null) 12.dp else 0.dp),
+            propagateMinConstraints = true,
         ) {
-            rows.forEachIndexed { index, (rowKey, row) -> key(rowKey ?: index) { row() } }
+            content()
         }
         if (footer != null) FooterHint(summary = footer, modifier = Modifier.padding(top = 8.dp))
     }

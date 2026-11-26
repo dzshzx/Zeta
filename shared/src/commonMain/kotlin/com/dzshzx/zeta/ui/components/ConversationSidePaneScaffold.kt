@@ -54,7 +54,7 @@ import androidx.navigationevent.compose.rememberNavigationEventState
 import com.dzshzx.zeta.i18n.Strings
 import com.dzshzx.zeta.ui.components.miuix.PageBlurHost
 import com.dzshzx.zeta.ui.components.miuix.pageBlurSource
-import com.dzshzx.zeta.ui.components.miuix.rememberPageBlur
+import com.dzshzx.zeta.ui.components.miuix.rememberPageBackdrop
 import kotlin.math.roundToInt
 import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.launch
@@ -91,7 +91,7 @@ fun ConversationSidePaneScaffold(
     val sceneLifecycleState by
         LocalLifecycleOwner.current.lifecycle.currentStateFlow.collectAsState()
     val navigationEventState = rememberNavigationEventState(NavigationEventInfo.None)
-    val blur = rememberPageBlur()
+    val pageBackdrop = rememberPageBackdrop()
     // 两个槽位各自处理系统栏留白，这一层不给内容加留白
     Scaffold(
         modifier = modifier.fillMaxSize(),
@@ -145,10 +145,10 @@ fun ConversationSidePaneScaffold(
                 val measurePolicy =
                     remember(pushed.drag, paneWidthPx) { sidePaneMeasure(pushed.drag, paneWidthPx) }
                 Layout(
-                    modifier = Modifier.fillMaxSize().pageBlurSource(blur),
+                    modifier = Modifier.fillMaxSize().pageBlurSource(pageBackdrop),
                     content = {
                         // 只给侧栏：聊天页有自己的 Scaffold 和背景图，外面提供了它的弹窗宿主就不给毛玻璃了
-                        PageBlurHost(blur) {
+                        PageBlurHost(pageBackdrop) {
                             pane(paneWidth, isRevealed, Modifier.pushedSlot { !pushed.isRevealed })
                         }
                         ChatSlot(pushed, paneWidthPx, content)

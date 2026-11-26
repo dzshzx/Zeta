@@ -51,6 +51,7 @@ import com.dzshzx.zeta.ui.components.pingPong
 import com.dzshzx.zeta.ui.components.rememberIndicatorClock
 import com.dzshzx.zeta.ui.components.rememberNow
 import com.dzshzx.zeta.ui.components.success
+import com.dzshzx.zeta.ui.settings.DangerRow
 import com.dzshzx.zeta.ui.settings.ValueRow
 import top.yukonga.miuix.kmp.basic.BasicComponent
 import top.yukonga.miuix.kmp.basic.BasicComponentDefaults
@@ -350,12 +351,10 @@ private fun TaskInfoGroup(
         }
         if (task.running) {
             item(key = "stop") {
-                BasicComponent(
+                DangerRow(
                     title =
                         if (task.stopping) Strings.tasksStoppingEllipsis()
                         else Strings.tasksStopThis(),
-                    titleColor =
-                        BasicComponentDefaults.titleColor(color = MiuixTheme.colorScheme.error),
                     enabled = !task.stopping && conversation.isProcessAlive,
                     onClick = onStop,
                 )

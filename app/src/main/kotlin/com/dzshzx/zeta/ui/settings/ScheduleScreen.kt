@@ -50,6 +50,7 @@ import com.dzshzx.zeta.ui.components.miuix.IconActionButton
 import com.dzshzx.zeta.ui.components.miuix.MiuixPage
 import com.dzshzx.zeta.ui.components.miuix.PreferenceGroup
 import com.dzshzx.zeta.ui.components.miuix.PreferenceValue
+import com.dzshzx.zeta.ui.components.miuix.SegmentedTabs
 import com.dzshzx.zeta.ui.components.miuix.SettingsIcon
 import com.dzshzx.zeta.ui.components.miuix.SwitchWithDividerPreference
 import com.dzshzx.zeta.ui.components.miuix.TextField
@@ -72,7 +73,6 @@ import kotlinx.coroutines.withContext
 import top.yukonga.miuix.kmp.basic.BasicComponent
 import top.yukonga.miuix.kmp.basic.BasicComponentDefaults
 import top.yukonga.miuix.kmp.basic.NumberPicker
-import top.yukonga.miuix.kmp.basic.TabRowWithContour
 import top.yukonga.miuix.kmp.basic.Text
 import top.yukonga.miuix.kmp.icon.MiuixIcons
 import top.yukonga.miuix.kmp.icon.extended.Add
@@ -540,10 +540,10 @@ private fun TaskTimeGroup(
     PreferenceGroup(title = Strings.settingsScheduleTime(), footer = footer) {
         item(key = "kind") {
             Box(Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 12.dp)) {
-                TabRowWithContour(
+                SegmentedTabs(
                     tabs = RuleKind.entries.map { it.label },
-                    selectedTabIndex = kind.ordinal,
-                    onTabSelected = { index ->
+                    selectedIndex = kind.ordinal,
+                    onSelect = { index ->
                         RuleKind.entries.getOrNull(index)?.let(onKind)
                     },
                     modifier = Modifier.fillMaxWidth(),

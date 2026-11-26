@@ -80,6 +80,7 @@ import com.dzshzx.zeta.ui.components.AsleepFrameAlpha
 import com.dzshzx.zeta.ui.components.FrameRate
 import com.dzshzx.zeta.ui.components.LiveFrames
 import com.dzshzx.zeta.ui.components.drawFrame
+import com.dzshzx.zeta.ui.components.fill8
 import kotlin.math.hypot
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.first
@@ -220,8 +221,7 @@ internal fun AgentDisplayStage(
                     .background(colors.secondaryContainer)
                     .border(
                         if (held) 1.dp else 0.75.dp,
-                        if (held) accent.copy(alpha = 0.55f)
-                        else colors.onBackground.copy(alpha = 0.08f),
+                        if (held) accent.copy(alpha = 0.55f) else colors.fill8,
                         shape,
                     )
                     .pointerInput(screen) { forwardTouches({ currentFocus }, { takeOver() }) }

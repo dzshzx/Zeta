@@ -34,11 +34,11 @@ import com.dzshzx.zeta.ui.components.miuix.MiuixPage
 import com.dzshzx.zeta.ui.components.miuix.PreferenceGroup
 import com.dzshzx.zeta.ui.components.miuix.PreferenceGroupScope
 import com.dzshzx.zeta.ui.components.miuix.PreferenceValue
+import com.dzshzx.zeta.ui.components.miuix.SegmentedTabs
 import com.dzshzx.zeta.ui.components.success
+import com.dzshzx.zeta.ui.settings.DangerRow
 import com.dzshzx.zeta.ui.settings.ValueRow
 import top.yukonga.miuix.kmp.basic.BasicComponent
-import top.yukonga.miuix.kmp.basic.BasicComponentDefaults
-import top.yukonga.miuix.kmp.basic.TabRowWithContour
 import top.yukonga.miuix.kmp.basic.Text
 import top.yukonga.miuix.kmp.icon.MiuixIcons
 import top.yukonga.miuix.kmp.icon.extended.Add
@@ -429,17 +429,16 @@ private fun AddServerDialog(
     }
 }
 
-/** 服务器类型的分段标签。分段标签没有不可用的样子，[enabled] 为 false 时只是忽略点击。 */
+/** 服务器类型的分段标签。 */
 @Composable
 private fun ServerTypeTabs(type: String, enabled: Boolean, onSelect: (String) -> Unit) {
     val types = listOf("http" to "HTTP", "sse" to "SSE", "stdio" to Strings.setupMcpTypeCommand())
-    TabRowWithContour(
+    SegmentedTabs(
         tabs = types.map { it.second },
-        selectedTabIndex = types.indexOfFirst { it.first == type }.coerceAtLeast(0),
-        onTabSelected = { index ->
-            if (enabled) types.getOrNull(index)?.let { onSelect(it.first) }
-        },
+        selectedIndex = types.indexOfFirst { it.first == type }.coerceAtLeast(0),
+        onSelect = { index -> types.getOrNull(index)?.let { onSelect(it.first) } },
         modifier = Modifier.fillMaxWidth(),
+        enabled = enabled,
     )
 }
 
@@ -594,15 +593,9 @@ private fun McpServerDetail(
         }
         item(key = "delete") {
             PreferenceGroup {
+                // 经 claude mcp remove 从配置里移除
                 item {
-                    BasicComponent(
-                        title = Strings.setupMcpDelete(),
-                        // 经 claude mcp remove 从配置里移除
-                        titleColor =
-                            BasicComponentDefaults.titleColor(color = MiuixTheme.colorScheme.error),
-                        enabled = !working,
-                        onClick = { confirmDelete = true },
-                    )
+                    DangerRow(Strings.setupMcpDelete(), enabled = !working) { confirmDelete = true }
                 }
             }
         }
