@@ -145,6 +145,7 @@ func (a *App) async(work func() func()) {
 // View 是窗口的内容：COUI 的配色（跟着系统的深浅色），左边侧栏（能拖宽、能收起，layout.go），右边是在看的那一页。
 func (a *App) View(c *ui.Context) {
 	c.SetTheme(widget.Theme(a.dark(c.Theme().Dark)))
+	widget.SetTranslucent(a.hub.Settings().Translucent())
 	a.applyZoom(c)
 	a.syncChat()
 	a.saveDraftsWhenDue(c)
@@ -199,9 +200,6 @@ func (a *App) openImages(from *chatview.Chat, list []items.Image, index int) {
 
 // viewImages 画开着的看大图，关上了丢掉。看大图是黑底：开着时系统按钮画浅色字形，关上后回到跟着主题（只在变了时交代）。
 func (a *App) viewImages(c *ui.Context) {
-	if a.viewer != nil {
-		a.viewer.Opaque = !a.hub.Settings().Translucent()
-	}
 	if a.viewer != nil && !a.viewer.View(c) {
 		a.viewer = nil
 	}

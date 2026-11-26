@@ -26,8 +26,6 @@ import (
 
 // Viewer 是一次看大图：看的是哪一组图、第几张。图从发出 OpenImages 的那个列表的缓存里取，不再取一遍。
 type Viewer struct {
-	// Opaque 是半透明关着（设置「外观」的半透明）：遮罩不透出底下的界面。调用方每帧照设置填。
-	Opaque bool
 	// Save 存一张图（data 是原始数据，name 是建议的文件名），返回存到哪，取消了是空的。在后台 goroutine 上调；
 	// 没给时保存是灰的。
 	Save func(data []byte, name string) (saved string, err error)
@@ -142,7 +140,7 @@ const (
 // frost 是遮罩的材质：底下的界面透过来、模糊，叠一半深色配色的窗口底色压暗，图和按钮在它上面看得清；
 // 半透明关着时是不透明的深色。
 func (v *Viewer) frost() widget.Frost {
-	return widget.Frost{Blur: 16, Tint: widget.For(true).Window.Alpha(0.5), Opaque: v.Opaque}
+	return widget.Frost{Blur: 16, Tint: widget.For(true).Window.Alpha(0.5)}
 }
 
 // View 把看大图画在窗口最上层；返回还开着没有（关上了调用方丢掉它）。

@@ -108,8 +108,6 @@ type Surface struct {
 	Width float32
 	// Blur 不是 0 时是毛玻璃（Frost）：元素下面的内容透过来、按这么多 DIP 模糊，再叠上 Fill。
 	Blur float32
-	// Opaque 是半透明关着：有 Blur 时不模糊，Fill 按不透明画（见 Frost）。
-	Opaque bool
 }
 
 // PaintMaterial 画这块面：铺底色（有 Blur 时是按轮廓裁的毛玻璃），再描边。
@@ -119,7 +117,7 @@ func (s Surface) PaintMaterial(p *ui.Painter, box ui.Rect, _ [4]float32) {
 		local := ui.Rect{W: box.W, H: box.H}
 		switch {
 		case s.Blur > 0:
-			p.ClipPath(path, func() { Frost{Blur: s.Blur, Tint: s.Fill, Opaque: s.Opaque}.PaintMaterial(p, local, [4]float32{}) })
+			p.ClipPath(path, func() { Frost{Blur: s.Blur, Tint: s.Fill}.PaintMaterial(p, local, [4]float32{}) })
 		case s.Fill.A > 0:
 			p.FillPath(path, s.Fill)
 		}

@@ -182,23 +182,24 @@ func (a *App) appearanceSection(c *ui.Context) {
 				}
 			})
 		}})
-		a.translucentRow(c, l)
+		// 半透明：毛玻璃（看大图的遮罩、聊天顶栏）透不透出底下的界面
+		a.switchRow(c, l, "translucent", widget.Row{Icon: widget.IconSparkle, Title: locales.SettingsTranslucent(),
+			Summary: locales.SettingsTranslucentSummary()}, s.Translucent(), s.SetTranslucent)
 		a.languageRow(c, l)
 		a.zoomRow(l)
 	})
 }
 
-// translucentRow 是半透明的开关：毛玻璃（看大图的遮罩、聊天顶栏）透不透出底下的界面。
-func (a *App) translucentRow(c *ui.Context, l *widget.List) {
-	s := a.hub.Settings()
-	on := s.Translucent()
-	l.Row(widget.Row{Icon: widget.IconSparkle, Title: locales.SettingsTranslucent(), Summary: locales.SettingsTranslucentSummary(), End: func() {
-		if widget.Switch(c.Key("translucent"), &on).Label(locales.SettingsTranslucent()).Changed() {
-			if err := s.SetTranslucent(on); err != nil {
+// switchRow 是设置里存一个开关的一行：on 是现在的值，改了经 set 存下，没存上弹框说原因。
+func (a *App) switchRow(c *ui.Context, l *widget.List, key string, row widget.Row, on bool, set func(bool) error) {
+	row.End = func() {
+		if widget.Switch(c.Key(key), &on).Label(row.Title).Changed() {
+			if err := set(on); err != nil {
 				a.say(locales.CommonSaveFailed(), err.Error())
 			}
 		}
-	}})
+	}
+	l.Row(row)
 }
 
 // languageRow 是界面语言：跟随系统，或文字表里有的几种（各用自己的写法，「简体中文」「English」）。选了马上换，下次启动还是它
@@ -369,15 +370,7 @@ func (a *App) updateBar(c *ui.Context) {
 func (a *App) chatSection(c *ui.Context) {
 	s := a.hub.Settings()
 	widget.Group(c, locales.SettingsChat(), "", func(l *widget.List) {
-		on := s.AutoLoadRemoteImages()
-		l.Row(widget.Row{Icon: widget.IconImage, Title: locales.SettingsAutoLoadImages(),
-			Summary: locales.SettingsAutoLoadImagesSummary(),
-			End: func() {
-				if widget.Switch(c.Key("auto-load-images"), &on).Label(locales.SettingsAutoLoadImages()).Changed() {
-					if err := s.SetAutoLoadRemoteImages(on); err != nil {
-						a.say(locales.CommonSaveFailed(), err.Error())
-					}
-				}
-			}})
+		a.switchRow(c, l, "auto-load-images", widget.Row{Icon: widget.IconImage, Title: locales.SettingsAutoLoadImages(),
+			Summary: locales.SettingsAutoLoadImagesSummary()}, s.AutoLoadRemoteImages(), s.SetAutoLoadRemoteImages)
 	})
 }

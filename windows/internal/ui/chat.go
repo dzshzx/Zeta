@@ -299,7 +299,7 @@ func (a *App) chatHeader(c *ui.Context, p *chatPane) {
 	cwd := a.chatCwd(p)
 	bar := ui.Column(c)
 	if p.list.Scrolled() {
-		widget.Surface{Fill: k.Window.Alpha(0.8), Blur: widget.BlurBar, Opaque: !a.hub.Settings().Translucent()}.Paint(bar)
+		widget.Surface{Fill: k.Window.Alpha(0.8), Blur: widget.BlurBar}.Paint(bar)
 	}
 	start := float32(20)
 	if a.layout.hidden {
