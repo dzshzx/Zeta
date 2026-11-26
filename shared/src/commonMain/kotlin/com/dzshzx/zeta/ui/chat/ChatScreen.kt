@@ -56,8 +56,11 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.focus.FocusRequester
+import androidx.compose.ui.geometry.Rect
 import androidx.compose.ui.input.nestedscroll.NestedScrollConnection
 import androidx.compose.ui.input.nestedscroll.nestedScroll
+import androidx.compose.ui.layout.onPlaced
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
@@ -86,13 +89,14 @@ import com.dzshzx.zeta.ui.components.LocalHub
 import com.dzshzx.zeta.ui.components.fill4
 import com.dzshzx.zeta.ui.components.miuix.AnchoredMenu
 import com.dzshzx.zeta.ui.components.miuix.ConfirmDialog
+import com.dzshzx.zeta.ui.components.miuix.GlassMenu
 import com.dzshzx.zeta.ui.components.miuix.IconActionButton
 import com.dzshzx.zeta.ui.components.miuix.LocalInGlassTopBar
+import com.dzshzx.zeta.ui.components.miuix.MenuAnchor
 import com.dzshzx.zeta.ui.components.miuix.MenuEntry
 import com.dzshzx.zeta.ui.components.miuix.MenuItem
 import com.dzshzx.zeta.ui.components.miuix.PageBlurHost
 import com.dzshzx.zeta.ui.components.miuix.TextInputDialog
-import com.dzshzx.zeta.ui.components.miuix.TopBarMoreMenu
 import com.dzshzx.zeta.ui.components.miuix.ZetaCorner
 import com.dzshzx.zeta.ui.components.miuix.ZetaIcons
 import com.dzshzx.zeta.ui.components.miuix.pageBlurSource
@@ -120,6 +124,7 @@ import top.yukonga.miuix.kmp.basic.TextButton
 import top.yukonga.miuix.kmp.blur.LayerBackdrop
 import top.yukonga.miuix.kmp.glass.GlassTopAppBar
 import top.yukonga.miuix.kmp.icon.MiuixIcons
+import top.yukonga.miuix.kmp.icon.extended.More
 import top.yukonga.miuix.kmp.icon.extended.Search
 import top.yukonga.miuix.kmp.icon.extended.Settings
 import top.yukonga.miuix.kmp.icon.extended.Sidebar
@@ -1077,30 +1082,58 @@ private fun OverflowMenu(
     onOpenSettings: () -> Unit,
     onFind: (() -> Unit)?,
 ) {
-    TopBarMoreMenu(
-        listOf(
-            MenuEntry(
-                items =
-                    listOf(
-                        MenuItem(Strings.chatNewChat(), ZetaIcons.NewChat, onNewChat),
-                        MenuItem(
-                            Strings.chatEndChat(),
-                            ZetaIcons.Exit,
-                            { onEnd?.invoke() },
-                            enabled = onEnd != null,
-                        ),
-                        MenuItem(
-                            Strings.chatFindInChat(),
-                            MiuixIcons.Search,
-                            { onFind?.invoke() },
-                            enabled = onFind != null,
-                        ),
-                        MenuItem(Strings.chatSettings(), MiuixIcons.Settings, onOpenSettings),
-                    ),
-            ),
-        ),
+    var expanded by remember { mutableStateOf(false) }
+    val anchor = remember { MenuAnchor() }
+    val gap = with(LocalDensity.current) { OverflowMenuGap.toPx() }
+    Box(Modifier.onPlaced { anchor.coordinates = it }) {
+        IconActionButton(
+            icon = MiuixIcons.More,
+            contentDescription = Strings.componentsMore(),
+            holdDownState = expanded,
+            onClick = { expanded = true },
+        )
+    }
+    // 菜单从按钮下边弹出，不盖住顶栏的标题（Miuix 的玻璃菜单默认从按钮的顶边往下展开）：锚换成按钮下边往下一点的一条线
+    GlassMenu(
+        show = expanded,
+        entries = overflowEntries(onNewChat, onEnd, onOpenSettings, onFind),
+        anchorBounds = {
+            anchor.bounds().let { Rect(it.left, it.bottom + gap, it.right, it.bottom + gap) }
+        },
+        onDismiss = { expanded = false },
     )
 }
+
+/** 会话首页「更多」菜单和顶栏按钮之间的缝。 */
+private val OverflowMenuGap = 6.dp
+
+private fun overflowEntries(
+    onNewChat: () -> Unit,
+    onEnd: (() -> Unit)?,
+    onOpenSettings: () -> Unit,
+    onFind: (() -> Unit)?,
+): List<MenuEntry> =
+    listOf(
+        MenuEntry(
+            items =
+                listOf(
+                    MenuItem(Strings.chatNewChat(), ZetaIcons.NewChat, onNewChat),
+                    MenuItem(
+                        Strings.chatEndChat(),
+                        ZetaIcons.Exit,
+                        { onEnd?.invoke() },
+                        enabled = onEnd != null,
+                    ),
+                    MenuItem(
+                        Strings.chatFindInChat(),
+                        MiuixIcons.Search,
+                        { onFind?.invoke() },
+                        enabled = onFind != null,
+                    ),
+                    MenuItem(Strings.chatSettings(), MiuixIcons.Settings, onOpenSettings),
+                ),
+        ),
+    )
 
 @Composable
 private fun EmptyState(
