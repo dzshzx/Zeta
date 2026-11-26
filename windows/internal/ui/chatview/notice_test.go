@@ -22,3 +22,27 @@ func TestNoticeSaysTheUILanguage(t *testing.T) {
 		t.Fatalf("换回中文后：%q", tt.Texts())
 	}
 }
+
+// hook 附加上下文这类提示和出错提示都能右键复制，复制的是全文：出错的那块最多显示三行，选中只选得到看得见的。
+func TestNoticeCopiesFullText(t *testing.T) {
+	hook := "SessionStart hook 附加上下文：\n第一行\n第二行"
+	failure := "API Error: 529\n第二行\n第三行\n第四行\n第五行"
+	ch := New()
+	ch.SetItems(decodeItems(t, `[
+		{"kind":"notice","id":"n1","text":"SessionStart hook 附加上下文：\n第一行\n第二行"},
+		{"kind":"notice","id":"n2","text":"API Error: 529\n第二行\n第三行\n第四行\n第五行","error":true}]`))
+	tt := newTester(ch, 900, 600, false)
+	tt.Frame()
+	for _, want := range []string{hook, failure} {
+		tt.SetClipboard("")
+		if err := tt.RightClick(want); err != nil {
+			t.Fatal(err)
+		}
+		if err := tt.ChooseMenuItem("复制"); err != nil {
+			t.Fatal(err)
+		}
+		if got := tt.Clipboard(); got != want {
+			t.Errorf("复制了 %q，要 %q", got, want)
+		}
+	}
+}

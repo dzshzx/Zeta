@@ -152,15 +152,22 @@ func triangle(p float32) float32 {
 	return (1 - p) * 2
 }
 
-// noticeRow 画 Zeta 自己加的提示：出错的是淡红底的一块，别的是居中的一行灰字。
+// noticeRow 画 Zeta 自己加的提示：出错的是淡红底的一块，别的是居中的一行灰字。两种都能选中文字，
+// 右键「复制」复制全文（出错的那块最多显示三行，hook 附加上下文这类长提示选不全）。
 func noticeRow(c *ui.Context, it items.Item) {
 	t := c.Theme()
+	said := it.Said(c.Locale())
+	copyMenu := func(m *ui.Menu) {
+		if m.Item(locales.CommonCopy()).Chosen() {
+			c.Services().WriteClipboard(said)
+		}
+	}
 	if it.Error {
-		widget.Notice(c, it.Said(c.Locale()), widget.Failure).MarginY(6)
+		widget.Notice(c, said, widget.Failure).MarginY(6).ContextMenu(copyMenu)
 		return
 	}
 	ui.Row(c).FillWidth().Justify(ui.Center).PaddingY(8).Children(func() {
-		ui.Text(c, it.Said(c.Locale())).FontSize(12.5).TextColor(t.TextMuted)
+		ui.Text(c, said).Selectable().FontSize(12.5).TextColor(t.TextMuted).ContextMenu(copyMenu)
 	})
 }
 
