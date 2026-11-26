@@ -328,7 +328,7 @@ open_conversation() {
   sleep "${2:-6}"
 }
 
-# ---- 外部入口（phone/PhoneBridge.kt）：像工作站上的 zeta-phone 那样，以 root 跑这棵树编出的 zeta-helper phone-mcp，一次调用连一次 ----
+# ---- 外部入口（phone/PhoneBridge.kt）：像工作站上的 `phone ui` 那样，以 root 跑这棵树编出的 zeta-helper phone-mcp，一次调用连一次 ----
 BRIDGE_BIN=/data/local/tmp/zeta-bridge-helper
 # bridge_helper：把这棵树编出的、设备架构的 zeta-helper 推到 $BRIDGE_BIN（本机上那份的路径记在 BRIDGE_HELPER），清掉上次留下的请求和应答
 bridge_helper() {

@@ -17,7 +17,7 @@ check() { # check <说明> <命令…>：命令成功算通过
 
 . "$ZETA_ROOT/tools/phone-tests/lib.sh"
 bridge_helper
-# talk <名字> <请求…>：以工作站上 zeta-phone 默认的客户端标识调一次
+# talk <名字> <请求…>：以工作站上的 `phone ui` 默认的客户端标识调一次
 talk() { bridge_talk workstation "$@"; }
 # inflight <名字>：等放在后台的 talk 开始处理调用，再等胶囊换好那一句
 inflight() {
