@@ -263,11 +263,9 @@ func (c *Conversation) handleLifecycle(e event) bool {
 	return false
 }
 
-// shellIntoContext 照终端版处理 ! 命令的结果：终端里命令和输出是会话记录里的两条用户消息，写完接着请求模型，
-// 模型看了输出回一轮（2.1.332 终端实测）。stream-json 的 bash_command 只回放给客户端看，不进上下文、不写会话记录、
-// 不请求模型（2.1.330，ClaudeInteractionContractTest 钉住，那边改成自己并进上下文时那个用例失败，这段连同
-// contextNotes 一起删掉）。所以等到输出时把回放的两行原样交回去：命令那行 shouldQuery 为假，只并进上下文和会话记录，
-// 出一个 num_turns 为 0 的 result，不算一轮；输出那行是普通的用户消息，模型照它回一轮（回答进行中时并进那一轮）。
+// shellIntoContext 照终端版把 ! 命令的两行交回去：命令那行 shouldQuery 为假，只进上下文，不算一轮；输出那行是普通的
+// 用户消息，模型照它回一轮。stream-json 的 bash_command 自己不做这些（ClaudeInteractionContractTest 钉住，
+// 那个用例失败时这段连同 contextNotes 一起删掉）。
 func (c *Conversation) shellIntoContext(text string) {
 	if strings.HasPrefix(strings.TrimSpace(text), "<bash-input>") {
 		c.shellInput = text
