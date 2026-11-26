@@ -8,17 +8,18 @@ set -euo pipefail
 . "$ZETA_ROOT/tools/phone-tests/lib.sh"
 
 fail() { echo "$1（看 $2）"; exit 1; }
-# until_ok <说明> <命令…>：命令成功就返回；10 秒还不成功就截图、失败退出
+# until_ok <说明> <命令…>：命令成功就返回；WAIT 秒（默认 10）还不成功就截图、失败退出
 until_ok() {
   local what=$1
   shift
-  for _ in $(seq 40); do
+  local wait=${WAIT:-10}
+  for _ in $(seq $((wait * 4))); do
     "$@" && return 0
     sleep 0.25
   done
   main_shot timeout.png
   vd nodes --main >timeout-nodes.txt || true
-  fail "10 秒没等到：$what" timeout.png
+  fail "$wait 秒没等到：$what" timeout.png
 }
 # grep 读完整段再判断：grep -q 提前退出时 dumpsys 会报 Broken pipe
 ime_shown() { android "dumpsys input_method | grep mInputShown=true >/dev/null"; }
@@ -30,12 +31,20 @@ ROWS=''
 menu_shown() { ROWS=$(vd nodes --main '^(图片|文件|文件夹|输入路径|常用指令)$'); [[ -n $ROWS ]]; }
 
 android "input keyevent KEYCODE_WAKEUP; wm dismiss-keyguard"
-android "am start -W --display 0 -n $PKG/com.dzshzx.zeta.ui.MainActivity >/dev/null"
-until_ok "主屏上出现输入栏" plus_shown
+# phone-run 已把测试版开在虚拟屏上。不能 am start --display 0 把它挪过来：挪过来的窗口，系统的输入分发还当它在虚拟屏上
+# （logcat：InputDispatcher: Found window … in display 0, but it should belong to display <虚拟屏>），主屏上的点按送不到它，
+# 无障碍读到的主屏窗口也可能是空的。所以 -S 先结束它、在主屏上冷启动；force-stop 拿掉的无障碍服务由 vd nodes 加回，等得久些
+android "am start -S -W --display 0 -n $PKG/com.dzshzx.zeta.ui.MainActivity >/dev/null"
+WAIT=30 until_ok "主屏上出现输入栏" plus_shown
 read -r px low _ <<<"$PLUS"
-# 输入框本身不在控件清单里（没有文字）：点 + 号右上方的输入区
-android "input tap $((px + 250)) $((low - 100))"
-until_ok "输入法弹出来" ime_shown
+# 输入框本身不在控件清单里（没有文字）：点 + 号右上方的输入区。冷启动后头几秒的点按会丢，
+# 所以没弹出键盘时每隔约 1 秒（until_ok 的 4 轮）再点一次
+TAPS=0
+tap_field() {
+  ((TAPS++ % 4)) || android "input tap $((px + 250)) $((low - 100))"
+  ime_shown
+}
+until_ok "输入法弹出来" tap_field
 until_ok "输入栏随键盘上移" plus_above "$low"
 main_shot 01-keyboard.png
 read -r _ py _ <<<"$PLUS"
