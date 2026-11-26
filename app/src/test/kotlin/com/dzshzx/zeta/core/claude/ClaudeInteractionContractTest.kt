@@ -44,9 +44,8 @@ import org.junit.Test
  * - MCP 服务器的 elicitation 以 control_request 交给 Zeta（stdio + --permission-prompt-tool stdio 默认就会），交回的
  *   content 原样到服务器。
  * - bash_command（TUI 的 `!`）：直接执行，回放 <bash-input>、<bash-stdout> 两行，command_lifecycle completed
- *   收尾，不请求模型；命令和输出不进下一轮的上下文（TUI 里进，并接着请求模型），所以核心把回放的两行交回去（helper/conv 的
- *   shellIntoContext）：命令那行带 shouldQuery 为假，不请求模型，下一轮看得到，出一个带它 uuid 的 init 和 num_turns 为 0
- *   的 result；输出那行是普通的用户消息，模型照它回一轮。
+ *   收尾，不请求模型；命令和输出不进下一轮的上下文（TUI 里进，并接着请求模型），所以核心把回放的两行交回去（helper/conv 的 shellIntoContext）：命令那行带
+ *   shouldQuery 为假，不请求模型，下一轮看得到，出一个带它 uuid 的 init 和 num_turns 为 0 的 result；输出那行是普通的用户消息，模型照它回一轮。
  * - rewind_files：起进程时设了 [CODE_REWIND_ENV] 才有快照；dry_run 报改过的文件，真还原把文件改回去；换个进程 --resume 照样能还原。
  */
 class ClaudeInteractionContractTest {
