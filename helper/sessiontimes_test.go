@@ -98,11 +98,11 @@ func TestSummaryAfterStopsAtKnownSize(t *testing.T) {
 	}
 	f.Close()
 	// 上次读到的时刻故意和记录里的不同：用了它说明没有往前读
-	s, ok, err := summarizeAfter(path, replyMark{size: fi.Size(), at: 42})
+	s, ok, err := summarizeAfter(path, &replyMark{size: fi.Size(), at: 42})
 	if err != nil || !ok || s.replied != 42 {
 		t.Errorf("replied %d (%v %v), want the known 42", s.replied, ok, err)
 	}
-	if s, _, _ := summarizeAfter(path, replyMark{}); s.replied != ms(2) {
+	if s, _, _ := summarizeAfter(path, &replyMark{}); s.replied != ms(2) {
 		t.Errorf("full scan replied %d, want %d", s.replied, ms(2))
 	}
 }

@@ -187,8 +187,9 @@ class SessionList constructor(private val hub: ConversationHub) {
 
     /** 读到了主机 [backend] 的整份列表：换掉列表里它的那些，别的主机的留着，合起来按时间从新到旧排。在主线程上调用。 */
     fun listedOn(backend: String, list: List<SessionSummary>) {
-        // 只有这一台时也重排：助手按记录文件的修改时刻给，侧栏按设置里选的时间排
-        listed(byTime(list + sessions.filter { it.backend != backend }))
+        val others = sessions.filter { it.backend != backend }
+        // 只有这一台时照助手给的顺序，不重排
+        if (others.isEmpty()) listed(list) else listed(byTime(list + others))
     }
 
     /** 只留主机 [backend] 的：换成只列它时，已经读到的不用等重读。在主线程上调用。 */
@@ -198,8 +199,8 @@ class SessionList constructor(private val hub: ConversationHub) {
         problems = problems.filterKeys { it == backend }
     }
 
-    /** 按设置里选的时间（[Settings.sessionSort]）从新到旧排；换了排法时侧栏自己重排（见 SessionPane）。 */
-    private fun byTime(list: List<SessionSummary>) = hub.settings.sessionSort.ordered(list)
+    /** 按修改时刻从新到旧排；侧栏的先后另按设置里选的时间排（SessionPane 的 withFarSessions）。 */
+    private fun byTime(list: List<SessionSummary>) = list.sortedByDescending { it.updated }
 
     /** 读到了整份列表。自动起的标题：读到了就不再替它补；这份列表要是在标题写进去之前读的，先用记着的。在主线程上调用。 */
     fun listed(list: List<SessionSummary>) {

@@ -10,7 +10,6 @@ import (
 	"math"
 	"os"
 	"slices"
-	"sort"
 	"strconv"
 	"strings"
 	"syscall"
@@ -82,11 +81,12 @@ const liteBytes = 64 * 1024
 // 开头读到第一句真正的话为止，首句是斜杠命令时再往后找，过了 liteBytes 就不找了，预览用那条斜杠命令；
 // 结尾读最后 liteBytes 取标题：Claude Code 补写元数据时把改过的名字、自动起的标题再追加到末尾，最新的标题总在那里。
 // 中间剪切过（剪到第一条消息之前）的会话，剪切记号不在头尾时预览还是剪掉之前的那句。
-func summarize(path string) (summary, bool, error) { return summarizeAfter(path, replyMark{}) }
+// 只要标题、预览的调用方用它：replied 只看头尾，不准，会话列表用 summarizeAfter。
+func summarize(path string) (summary, bool, error) { return summarizeAfter(path, nil) }
 
-// summarizeAfter 同 summarize；known 是上次读这份记录时的 replyMark：文件只是变长了时，结尾那段里没有回答就只往回找到 known.size，
-// 再往前的用 known.at。
-func summarizeAfter(path string, known replyMark) (summary, bool, error) {
+// summarizeAfter 同 summarize，另把最新回答时间找准：结尾那段里没有回答时往回找（findReply）。known 是上次读这份记录时的
+// replyMark：文件只是变长了时只往回找到 known.size，再往前的用 known.at；没有上次的给零值。known 为 nil 时不往回找。
+func summarizeAfter(path string, known *replyMark) (summary, bool, error) {
 	f, err := openFile(path)
 	if err != nil {
 		return summary{}, false, err
@@ -107,7 +107,9 @@ func summarizeAfter(path string, known replyMark) (summary, bool, error) {
 	if err != nil {
 		return summary{}, false, err
 	}
-	if err := s.findReply(f, read, tailStart, headReply, known, fi.Size()); err != nil {
+	if known == nil {
+		s.replied = cmp.Or(s.replied, headReply)
+	} else if err := s.findReply(f, read, tailStart, headReply, *known, fi.Size()); err != nil {
 		return summary{}, false, err
 	}
 	if s.first == "" {
@@ -289,7 +291,7 @@ func previewText(text string) string {
 func cmdList(e *env, o *emitter) error {
 	marks := e.sessionMarks()
 	for _, path := range listedFiles(e, marks.pinned) {
-		s, ok, err := summarize(path)
+		s, ok, err := summarizeAfter(path, &replyMark{})
 		if err == nil && ok {
 			o.out(s.item(marks))
 		}
@@ -334,7 +336,7 @@ func lookupSessions(e *env, ids []string) []obj {
 	items := []obj{}
 	for _, id := range ids {
 		for _, path := range e.sessionFilesNamed(id) {
-			s, ok, err := summarize(path)
+			s, ok, err := summarizeAfter(path, &replyMark{})
 			if err == nil && ok {
 				items = append(items, s.item(marks))
 				break
@@ -390,19 +392,29 @@ func (e *env) archivedSessions() map[string]bool { return readMarks(e.archive) }
 // pinnedSessions 是置顶的会话 id。置顶只是 Zeta 的标记，记录文件不动；置顶的总在列表里（listedFiles）。
 func (e *env) pinnedSessions() map[string]bool { return readMarks(e.pinned) }
 
-// readMarks 读一份标记文件（归档、置顶）：一行一个会话 id。读不了时是空的。
+// readMarks 读一份标记文件（归档、置顶）里的会话 id（readMarkLines）。读不了时是空的。
 func readMarks(path string) map[string]bool {
 	ids := map[string]bool{}
-	data, err := os.ReadFile(path)
-	if err != nil {
-		return ids
-	}
-	for _, line := range strings.Split(decodeString(data), "\n") {
-		if id := strings.TrimSpace(line); id != "" {
-			ids[id] = true
-		}
+	for id := range readMarkLines(path) {
+		ids[id] = true
 	}
 	return ids
+}
+
+// readMarkLines 读一份标记文件：一行一个会话 id，手动排序的（order）在 id 后面隔一个空格带一个值，别的没有值。
+// 结果是 id → 值。读不了时是空的。
+func readMarkLines(path string) map[string]string {
+	marks := map[string]string{}
+	data, err := os.ReadFile(path)
+	if err != nil {
+		return marks
+	}
+	for _, line := range strings.Split(decodeString(data), "\n") {
+		if id, value, _ := strings.Cut(strings.TrimSpace(line), " "); id != "" {
+			marks[id] = value
+		}
+	}
+	return marks
 }
 
 func cmdArchive(e *env, o *emitter, sessions []string, on bool) error {
@@ -425,10 +437,23 @@ func pinSessions(e *env, sessions []string, on bool) error {
 	return markSessions(e, e.pinned, sessions, on)
 }
 
-// markSessions 在标记文件 path（归档、置顶）里记上（on）或去掉这些会话，顺手清掉记录文件已经不在的；先写临时文件再改名换上。
-// 读、改、换整个过程持着同目录的 <文件名>.lock（flock）：核心里几个客户端同时改，和 zeta-helper archive 子命令
-// 在另一个进程里改，都一个一个来（同一个进程里各自打开的锁文件也互相挡着）。
+// markSessions 在标记文件 path（归档、置顶）里记上（on）或去掉这些会话（editMarks）。
 func markSessions(e *env, path string, sessions []string, on bool) error {
+	return editMarks(e, path, func(marks map[string]string) {
+		for _, id := range sessions {
+			if on {
+				marks[id] = ""
+			} else {
+				delete(marks, id)
+			}
+		}
+	})
+}
+
+// editMarks 改标记文件 path（归档、置顶、手动排序，格式见 readMarkLines）：读出来、顺手清掉记录文件已经不在的、交给 edit 改，
+// 再按 id 排好先写临时文件再改名换上。读、改、换整个过程持着同目录的 <文件名>.lock（flock）：核心里几个客户端同时改，
+// 和 zeta-helper archive 子命令在另一个进程里改，都一个一个来（同一个进程里各自打开的锁文件也互相挡着）。
+func editMarks(e *env, path string, edit func(marks map[string]string)) error {
 	if err := os.MkdirAll(dirName(path), 0o777); err != nil {
 		return err
 	}
@@ -440,28 +465,23 @@ func markSessions(e *env, path string, sessions []string, on bool) error {
 	if err := syscall.Flock(int(lock.Fd()), syscall.LOCK_EX); err != nil {
 		return err
 	}
-	keep := map[string]bool{}
-	for id := range readMarks(path) {
-		// 顺手清掉记录文件已经不在的
-		if len(e.sessionFilesNamed(id)) > 0 {
-			keep[id] = true
+	marks := readMarkLines(path)
+	if len(marks) > 0 {
+		existing := e.sessionIDs() // 扫一遍目录，不按每项各扫一遍
+		for id := range marks {
+			if !existing[id] {
+				delete(marks, id)
+			}
 		}
 	}
-	for _, id := range sessions {
-		if on {
-			keep[id] = true
-		} else {
-			delete(keep, id)
-		}
-	}
-	ids := make([]string, 0, len(keep))
-	for id := range keep {
-		ids = append(ids, id)
-	}
-	sort.Strings(ids)
+	edit(marks)
 	var b strings.Builder
-	for _, id := range ids {
-		b.WriteString(id + "\n")
+	for _, id := range slices.Sorted(maps.Keys(marks)) {
+		b.WriteString(id)
+		if v := marks[id]; v != "" {
+			b.WriteString(" " + v)
+		}
+		b.WriteString("\n")
 	}
 	return writeFileAtomic(path, []byte(b.String()))
 }

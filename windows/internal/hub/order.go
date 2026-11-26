@@ -26,7 +26,7 @@ func (h *Hub) SetSort(mode settings.SessionSort) {
 	if mode == h.Sort() {
 		return
 	}
-	logSave(h.settings.SetSessionSort(mode))
+	h.settings.SetSessionSort(mode)
 	h.changed()
 }
 
@@ -103,7 +103,7 @@ func (h *Hub) placement(s, target hostlink.Session, below bool) (list []hostlink
 	if !v.fresh {
 		v = h.sorted(v.now, v.current)
 	}
-	if v.sort != settings.SortManual || sameSession(s, target) {
+	if h.Sort() != settings.SortManual || sameSession(s, target) {
 		return nil, 0, false
 	}
 	for _, group := range [][]hostlink.Session{v.groups.Pinned, v.groups.Chats} {

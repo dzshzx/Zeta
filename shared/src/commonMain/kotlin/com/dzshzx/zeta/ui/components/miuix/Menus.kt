@@ -28,6 +28,8 @@ import androidx.compose.ui.layout.boundsInWindow
 import androidx.compose.ui.layout.onPlaced
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalLayoutDirection
+import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.semantics.stateDescription
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import com.dzshzx.zeta.i18n.Strings
@@ -296,13 +298,33 @@ fun RowMoreMenu(
     modifier: Modifier = Modifier,
     iconSize: Dp = 24.dp,
 ) {
+    IconMenuButton(MiuixIcons.More, contentDescription, entries, modifier, iconSize = iconSize)
+}
+
+/**
+ * 平的图标按钮加以它为锚的菜单（[RowMoreMenu]、侧栏的排序按钮）：菜单展开时按钮保持按下的样子，点一项就收起。 [stateDescription]
+ * 是读屏在名字之后念的状态（比如当前选的是哪一项），没有就不念。
+ */
+@Composable
+fun IconMenuButton(
+    icon: ImageVector,
+    contentDescription: String,
+    entries: List<MenuEntry>,
+    modifier: Modifier = Modifier,
+    size: Dp = IconButtonDefaults.MinWidth,
+    iconSize: Dp = 24.dp,
+    stateDescription: String? = null,
+) {
     var expanded by remember { mutableStateOf(false) }
     Box(modifier) {
         FlatIconButton(
-            icon = MiuixIcons.More,
+            icon = icon,
             contentDescription = contentDescription,
-            size = IconButtonDefaults.MinWidth,
+            size = size,
             iconSize = iconSize,
+            modifier =
+                if (stateDescription == null) Modifier
+                else Modifier.semantics { this.stateDescription = stateDescription },
             holdDownState = expanded,
             tint = MiuixTheme.colorScheme.onBackgroundVariant,
             onClick = { expanded = true },

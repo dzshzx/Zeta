@@ -254,18 +254,15 @@ const (
 
 // SessionSort 是侧栏会话列表的排序，没存过或存的不认识时是最新回答。
 func (s *Settings) SessionSort() SessionSort {
-	switch v, _ := s.store.String(keySessionSort); SessionSort(v) {
-	case SortCreated:
-		return SortCreated
-	case SortManual:
-		return SortManual
+	if v, _ := s.store.String(keySessionSort); SessionSort(v) == SortCreated || SessionSort(v) == SortManual {
+		return SessionSort(v)
 	}
 	return SortReplied
 }
 
 // SetSessionSort 存侧栏会话列表的排序。
-func (s *Settings) SetSessionSort(v SessionSort) error {
-	return s.store.SetString(keySessionSort, string(v))
+func (s *Settings) SetSessionSort(v SessionSort) {
+	logSave(s.store.SetString(keySessionSort, string(v)))
 }
 
 // keyZoom 是界面缩放（桌面版自己的，手机版没有）：百分数，在系统的 DPI 缩放之上再乘它；没存过是 100。

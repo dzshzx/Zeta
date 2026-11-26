@@ -47,7 +47,7 @@ Miuix 没有的才在 `ui/components/miuix` 补，页面文件里不各写一份
 
 ## 侧栏的会话列表
 
-- 主列表分「置顶 / 今天 / 更早」三组，看归档时只有「已归档」一组。分组和组内先后都按设置里选的时间（`Settings.sessionSort`，`core/SessionSort.kt`），新的在上面：「最新回答」（默认，会话项的 `replied`）或「发起时间」（`created`），两个时间的意思见 `docs/core.md` 的会话列表。记录文件的修改时刻 `updated` 不用来排，工具结果一写它就变；核心比这两项旧、没给时都按 `updated`。
+- 主列表分「置顶 / 今天 / 更早」三组，看归档时只有「已归档」一组。分组和组内先后都按设置里选的时间（`Settings.sessionSort`，`core/SessionSort.kt`），新的在上面：「最新回答」（默认，会话项的 `replied`）或「发起时间」（`created`），两个时间的意思见 `docs/core.md` 的会话列表。记录文件的修改时刻 `updated` 不用来排，工具结果一写它就变。
 - 换排法的入口是列表第一组标题那一行右边的排序按钮（`ui/pane/SessionSortButton.kt`，常显，读屏念「排序」和当前的排法），点开玻璃菜单列两种，当前的打勾。手机版没有手动拖动排序（长按一行是会话菜单）。这一项是这一端自己的设置，跟着设置备份走。
 
 ## 聊天页的图片
@@ -90,7 +90,7 @@ Miuix 没有的才在 `ui/components/miuix` 补，页面文件里不各写一份
 | 输入框 | 编辑页里一项一项填的用 `FieldGroup(title, footer) { TextField(…) }`（照 Eta 的角色编辑页：小标题，输入框直接放在页面上、不套卡片），对话框里带标题的 `DialogTextField`，其他用 Zeta 的 `TextField` |
 | 确认、告知、单行输入 | `ConfirmDialog`（危险操作 `destructive = true`，确认键画成红色；要区分「拒绝」和「随手关掉」给 `onCancel`）、`NoticeDialog`、`TextInputDialog` |
 | 自定义对话框 | `PageDialog(customContent = { 内容，左右留 DialogContentPadding }) { DialogButtonBar(…) }`，主操作 `DialogButtonBarAction(…, recommended = true)` |
-| 「更多」菜单 | 顶栏 `TopBarMoreMenu(entries)`，列表行 `RowMoreMenu(说明, entries)` |
+| 「更多」菜单 | 顶栏 `TopBarMoreMenu(entries)`，列表行 `RowMoreMenu(说明, entries)`；别的图标点开菜单（如侧栏的排序）用 `IconMenuButton(图标, 说明, entries)` |
 | 长按菜单 | `LongPressMenu(entries) { 内容 }` |
 | 菜单项、挂在别的元素上的菜单 | `MenuItem(文字, 图标, onClick)`，删除这类 `alert = true`；`Box { 元素; AnchoredMenu(show, entries, onDismiss) }`，元素和菜单同在一个 `Box` 里；锚比菜单窄（胶囊、按钮）时菜单和它水平居中，宽（整行、整段内容）时和它右边对齐；锚是整行、拿不到 `Box` 时用 `GlassMenu(show, entries, anchorBounds, onDismiss)` |
 | 二级菜单（如模型菜单的「更多模型」） | 那一项写 `MenuItem(文字, summary = 选中的子项, children = 子项)`，点它在旁边弹出下一层（`GlassSecondaryPopup`，头一行点了回到上一层）；两层的选择菜单用 `choiceEntries` |

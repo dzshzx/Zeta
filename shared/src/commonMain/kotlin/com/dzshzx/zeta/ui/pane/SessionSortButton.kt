@@ -1,25 +1,15 @@
 package com.dzshzx.zeta.ui.pane
 
-import androidx.compose.foundation.layout.Box
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.remember
-import androidx.compose.runtime.setValue
-import androidx.compose.ui.Modifier
-import androidx.compose.ui.semantics.semantics
-import androidx.compose.ui.semantics.stateDescription
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import com.dzshzx.zeta.core.SessionSort
 import com.dzshzx.zeta.i18n.Strings
-import com.dzshzx.zeta.ui.components.miuix.AnchoredMenu
-import com.dzshzx.zeta.ui.components.miuix.FlatIconButton
+import com.dzshzx.zeta.ui.components.miuix.IconMenuButton
 import com.dzshzx.zeta.ui.components.miuix.MenuEntry
 import com.dzshzx.zeta.ui.components.miuix.MenuItem
 import top.yukonga.miuix.kmp.icon.MiuixIcons
 import top.yukonga.miuix.kmp.icon.extended.Sort
-import top.yukonga.miuix.kmp.theme.MiuixTheme
 
 /** 排序按钮见方的边长：比分组标题那一行矮，放进去不撑高标题。 */
 internal val SortButtonSize: Dp = 28.dp
@@ -37,7 +27,6 @@ fun sessionSortLabel(sort: SessionSort): String =
 /** 侧栏列表第一组标题右边的排序按钮（手机上没有悬停，常显）：点开玻璃菜单列两种排法，当前的 [sort] 打勾，选了交给 [onSort]。 读屏念「排序」和当前的排法。 */
 @Composable
 internal fun SessionSortButton(sort: SessionSort, onSort: (SessionSort) -> Unit) {
-    var open by remember { mutableStateOf(false) }
     val entries =
         listOf(
             MenuEntry(
@@ -50,18 +39,12 @@ internal fun SessionSortButton(sort: SessionSort, onSort: (SessionSort) -> Unit)
                 },
             ),
         )
-    val current = sessionSortLabel(sort)
-    Box {
-        FlatIconButton(
-            icon = MiuixIcons.Sort,
-            contentDescription = Strings.sidebarSort(),
-            size = SortButtonSize,
-            iconSize = SortIconSize,
-            modifier = Modifier.semantics { stateDescription = current },
-            holdDownState = open,
-            tint = MiuixTheme.colorScheme.onBackgroundVariant,
-            onClick = { open = true },
-        )
-        AnchoredMenu(show = open, entries = entries, onDismiss = { open = false })
-    }
+    IconMenuButton(
+        icon = MiuixIcons.Sort,
+        contentDescription = Strings.sidebarSort(),
+        entries = entries,
+        size = SortButtonSize,
+        iconSize = SortIconSize,
+        stateDescription = sessionSortLabel(sort),
+    )
 }

@@ -154,7 +154,12 @@ func sectionTitle(c *ui.Context, title string, first bool) {
 	if first {
 		top = 6
 	}
-	ui.Text(c, title).FontSize(widget.SizeBodyXS).FontWeight(widget.Medium).TextColor(widget.Of(c).Tertiary).Padding(top, 20, 4, 20)
+	sectionText(c, title).Padding(top, 20, 4, 20)
+}
+
+// sectionText 是会话分组小标题的字（sectionTitle、带排序按钮的 groupTitle 共用）。
+func sectionText(c *ui.Context, title string) ui.Element {
+	return ui.Text(c, title).FontSize(widget.SizeBodyXS).FontWeight(widget.Medium).TextColor(widget.Of(c).Tertiary)
 }
 
 // currentSession 是聊天窗格里开着的会话；新对话有了会话号以后也算，标题用核心报的。还没有会话号时是零值。

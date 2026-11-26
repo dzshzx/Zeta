@@ -47,10 +47,9 @@ func (a *App) groupTitle(c *ui.Context, title string, first bool) {
 		sectionTitle(c, title, false)
 		return
 	}
-	k := widget.Of(c)
 	// 和别的标题一样高的位置写字，按钮的高度由行吃掉，显不显示按钮这一行都一样高
 	ui.Row(c).FillWidth().Height(26).Padding(2, 12, 0, 20).AlignItems(ui.Center).Children(func() {
-		ui.Text(c, title).FontSize(widget.SizeBodyXS).FontWeight(widget.Medium).TextColor(k.Tertiary).Grow(1).MinWidth(0).SingleLine()
+		sectionText(c, title).Grow(1).MinWidth(0).SingleLine()
 		if a.order.hovered || a.order.menu {
 			a.sortButton(c)
 		}

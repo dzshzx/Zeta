@@ -16,7 +16,7 @@ func filler(n int) string {
 
 func summaryOf(t *testing.T, path string) obj {
 	t.Helper()
-	s, ok, err := summarize(path)
+	s, ok, err := summarizeAfter(path, &replyMark{})
 	if err != nil || !ok {
 		t.Fatalf("summarize %s: %v %v", path, ok, err)
 	}

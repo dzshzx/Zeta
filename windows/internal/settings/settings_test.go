@@ -251,18 +251,14 @@ func TestSessionSortKey(t *testing.T) {
 	if s.SessionSort() != SortReplied {
 		t.Fatalf("没设过：%q", s.SessionSort())
 	}
-	if err := s.SetSessionSort(SortManual); err != nil {
-		t.Fatal(err)
-	}
+	s.SetSessionSort(SortManual)
 	if got := string(readRaw(t, dir)["desktopSessionSort"]); got != `{"t":"s","v":"manual"}` {
 		t.Fatalf("写出来的：%s", got)
 	}
 	if again, _ := Load(dir); again.SessionSort() != SortManual {
 		t.Fatalf("重新读回来：%q", again.SessionSort())
 	}
-	if err := s.SetSessionSort("sideways"); err != nil {
-		t.Fatal(err)
-	}
+	s.SetSessionSort("sideways")
 	if s.SessionSort() != SortReplied {
 		t.Fatalf("不认识的值：%q", s.SessionSort())
 	}

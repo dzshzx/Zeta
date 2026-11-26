@@ -367,9 +367,9 @@ data class SessionSummary(
     val live: Boolean = true,
     /** [preview] 是核心写的（第一句话只有图）时它的种类码；是用户原话时为空。 */
     val previewCode: String = "",
-    /** 发起时间（毫秒）：记录里第一条带时刻的；核心没给时（比它旧）同 [updated]。 */
+    /** 发起时间（毫秒）：记录里第一条带时刻的。默认同 [updated]，只为界面自己拼的项和测试省事。 */
     val created: Long = updated,
-    /** 最新回答时间（毫秒）：最后一次回答完的时刻，工具结果和正在进行的一轮不改它；还没回答过时同 [created]，核心没给时同 [updated]。 */
+    /** 最新回答时间（毫秒）：最后一次回答完的时刻，工具结果和正在进行的一轮不改它；还没回答过时同 [created]。默认同 [updated]，同 [created]。 */
     val replied: Long = updated,
 ) {
     /** 预览用界面语言说出来：核心写的按种类码出字，用户原话照原样。 */
@@ -405,7 +405,7 @@ object HostKeys {
 
 /** 会话概要的一项（serve 推来的 zeta_sessions、核心的 sessions.lookup 里的一项）；缺 id 或文件的是 null。 */
 fun sessionSummaryOf(o: JsonObject, backend: String): SessionSummary? {
-    val updated = o.millis("updated") ?: 0L
+    val updated = o.long("updated") ?: 0L
     return SessionSummary(
         id = o.str("id") ?: return null,
         file = o.str("file") ?: return null,
@@ -414,9 +414,8 @@ fun sessionSummaryOf(o: JsonObject, backend: String): SessionSummary? {
         preview = o.str("preview").orEmpty(),
         previewCode = o.str("preview_code").orEmpty(),
         updated = updated,
-        // 核心比这两项旧时没有它们，按记录文件的修改时刻排，和从前一样
-        created = o.millis("created") ?: updated,
-        replied = o.millis("replied") ?: updated,
+        created = o.long("created") ?: 0L,
+        replied = o.long("replied") ?: 0L,
         external = o.bool("external") == true,
         archived = o.bool("archived") == true,
         backend = backend,
@@ -424,10 +423,6 @@ fun sessionSummaryOf(o: JsonObject, backend: String): SessionSummary? {
         live = o.bool("live") != false,
     )
 }
-
-/** 毫秒时刻的一项（数，也认写成数字的字符串）；没有或不是整数时为 null。 */
-private fun JsonObject.millis(key: String): Long? =
-    (this[key] as? JsonPrimitive)?.content?.toLongOrNull()
 
 /** 核心的 `sessions.lookup` 的结果（会话摘要的数组）里的会话（[backend] 是在哪台主机上查的）；结果不成样子时是 null。 */
 fun lookedUpSessions(result: JsonElement, backend: String): List<SessionSummary>? =

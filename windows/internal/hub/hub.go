@@ -296,7 +296,6 @@ type view struct {
 	now      time.Time // 上次算时的 now（拖动排序时照它重算）
 	today    int64
 	current  hostlink.Session
-	sort     settings.SessionSort
 	ordered  []hostlink.Session // 全部（连同 current、归档的），照所选的排序
 	groups   Groups
 	archived []hostlink.Session
@@ -330,7 +329,7 @@ func (h *Hub) sorted(now time.Time, current hostlink.Session) *view {
 		return v
 	}
 	mode := h.Sort()
-	*v = view{fresh: true, now: now, today: today, current: current, sort: mode}
+	*v = view{fresh: true, now: now, today: today, current: current}
 	v.ordered = slices.Clone(h.withCurrent(current, now))
 	slices.SortFunc(v.ordered, func(a, b hostlink.Session) int { return compareIn(mode, a, b) })
 	for _, s := range v.ordered {
