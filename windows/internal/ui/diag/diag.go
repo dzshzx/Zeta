@@ -141,6 +141,9 @@ func (p *Page) reload() {
 	})
 }
 
+// Nested：在看文件或运行日志，Esc 先回到清单（Back 会返回真）。
+func (p *Page) Nested() bool { return p.open != nil || p.log.open }
+
 // Back 从看文件、看运行日志回到清单；都没在看时返回假（设置页拿 Esc 的时候用）。
 func (p *Page) Back() bool {
 	switch {

@@ -53,11 +53,13 @@ func TestDiagnosticsPage(t *testing.T) {
 	raw := "MCP 连不上：Authorization: Bearer fake-token-1\nboom\n"
 	f.until(t, "读到内容", func() bool { return f.shows(raw) })
 	f.see(t, "复制", "刷新")
+	f.notSee(t, "Esc") // 这时 Esc 回到清单，「返回应用」旁边不标
 	f.tt.Key(0, ui.KeyEscape)
 	f.tt.Frame()
 	if f.app.page != pageDiag || !f.shows("old.log") {
 		t.Fatalf("Esc 应回到清单，现在是 %q：%q", f.app.page, f.tt.Texts())
 	}
+	f.see(t, "Esc")
 	f.tt.Key(0, ui.KeyEscape)
 	f.tt.Frame()
 	if f.app.page != pageHome {

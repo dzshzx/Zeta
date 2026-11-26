@@ -196,12 +196,14 @@ func TestDevicePageOpensItsAccounts(t *testing.T) {
 	}
 	f.until(t, "账号页读完", func() bool { return f.shows("b@example.com") && f.shows("每周 · 全部模型") })
 	f.see(t, "lab · 账号与额度", "订阅额度", "每周 · 全部模型", "当前", "切换", "刷新")
+	f.notSee(t, "Esc") // 这里 Esc 回设备页，「返回应用」旁边不标
 
 	// 返回键和 Esc 都回到那台的设备页，设备页上再按 Esc 才回到对话
 	f.click(t, "返回")
 	if f.app.page != pageDevice || f.app.device != hosts[1].ID {
 		t.Fatalf("返回到了 page %q, device %q", f.app.page, f.app.device)
 	}
+	f.see(t, "Esc")
 	f.click(t, "账号与额度")
 	f.tt.Key(0, ui.KeyEscape)
 	f.tt.Frame()

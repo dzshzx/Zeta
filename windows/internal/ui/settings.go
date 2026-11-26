@@ -50,23 +50,40 @@ func (a *App) leaveSettings() { a.page = pageHome }
 
 // escapeSettings 是设置里按 Esc：诊断页点开着一个日志文件时先回到清单，账号页同它的返回键，别的时候回到对话。
 func (a *App) escapeSettings() {
-	if a.page == pageDiag && a.diag != nil && a.diag.Back() {
-		return
-	}
-	if a.page == pageAccounts {
+	switch {
+	case a.page == pageAccounts:
 		a.accountsBack()
-		return
+	case a.page == pageDiag && a.diag != nil:
+		if !a.diag.Back() {
+			a.leaveSettings()
+		}
+	default:
+		a.leaveSettings()
 	}
-	a.leaveSettings()
+}
+
+// escLeaves：这时按 Esc 回到对话（同 escapeSettings 的判断）。「返回应用」旁边只在这时标 Esc。
+func (a *App) escLeaves() bool {
+	switch {
+	case a.page == pageAccounts:
+		return false
+	case a.page == pageDiag && a.diag != nil:
+		return !a.diag.Nested()
+	}
+	return true
 }
 
 // settingsNav 是在设置里时的侧栏：顶上一行「返回应用」同时是标题栏，下面一类一行，选中的那类是白底。
 func (a *App) settingsNav(c *ui.Context) {
 	k := widget.Of(c)
 	c.OnWindowShortcut(0, ui.KeyEscape, a.escapeSettings)
+	esc := ""
+	if a.escLeaves() {
+		esc = "Esc"
+	}
 	ui.Column(c).Fill().Background(k.Sidebar).Children(func() {
 		ui.Row(c).Height(widget.TitleBarHeight).Padding(0, 10, 0, 10).AlignItems(ui.Center).Shrink(0).DragWindow().Children(func() {
-			widget.NavItem(c, widget.IconBack, locales.SettingsBackToApp(), "Esc", false).OnClick(a.leaveSettings).Width(0).Grow(1)
+			widget.NavItem(c, widget.IconBack, locales.SettingsBackToApp(), esc, false).OnClick(a.leaveSettings).Width(0).Grow(1)
 		})
 		ui.Scroll(c.Key("settings-nav")).Grow(1).MinHeight(0).Children(func() {
 			ui.Column(c).Padding(4, 10, 12, 10).Gap(2).Children(func() { a.settingsCategories(c) })
