@@ -15896,4 +15896,396 @@ object Strings {
      * 开源许可页 Go 标准库与运行时一条的说明。
      */
     fun thirdPartyGoStdNote(): String = catalog.say("thirdPartyGoStdNote")
+
+    /**
+     * 「建磁盘镜像」
+     *
+     * 安装 Linux 环境的一步：把解压好的环境放进磁盘镜像。
+     */
+    fun coreInstallImage(): String = catalog.say("coreInstallImage")
+
+    /**
+     * 「释放了 {size}」
+     *
+     * 磁盘镜像页释放空间（fstrim）做完的结果，size 是还给手机的空间。
+     */
+    fun coreImageTrimmed(size: String): String = catalog.say("coreImageTrimmed", mapOf("size" to size))
+
+    /**
+     * 「读不到磁盘镜像的状态」
+     *
+     * 安装时建磁盘镜像这一步读不到状态的出错。
+     */
+    fun coreImageStatusFailed(): String = catalog.say("coreImageStatusFailed")
+
+    /**
+     * 「建磁盘镜像的途中被打断了，请重试」
+     *
+     * 安装时建磁盘镜像这一步做到一半被打断（比如手机重启）。
+     */
+    fun coreImageInterrupted(): String = catalog.say("coreImageInterrupted")
+
+    /**
+     * 「磁盘镜像」
+     *
+     * Linux 环境页的一行和磁盘镜像页的标题：Zeta 自带的 Debian 存在一个镜像文件里。
+     */
+    fun setupImageTitle(): String = catalog.say("setupImageTitle")
+
+    /**
+     * 「Debian 存放的方式、大小和检查」
+     *
+     * 「磁盘镜像」一行的说明：还不知道状态时。
+     */
+    fun setupImageSummaryIdle(): String = catalog.say("setupImageSummaryIdle")
+
+    /**
+     * 「上限 {size}，已用 {used}」
+     *
+     * 「磁盘镜像」一行的说明：环境在镜像里。size 是镜像上限，used 是 Debian 已用的空间。
+     */
+    fun setupImageSummaryOn(size: String, used: String): String = catalog.say("setupImageSummaryOn", mapOf("size" to size, "used" to used))
+
+    /**
+     * 「未使用，转成镜像能让手机开机快一些」
+     *
+     * 「磁盘镜像」一行的说明：环境还是普通目录。
+     */
+    fun setupImageSummaryOff(): String = catalog.say("setupImageSummaryOff")
+
+    /**
+     * 「没有可用的环境」
+     *
+     * 磁盘镜像页的状态值：Zeta 自带的位置上既没有镜像也没有环境。
+     */
+    fun setupImageNone(): String = catalog.say("setupImageNone")
+
+    /**
+     * 「装好 Zeta 自带的 Debian 后，这里管理它的磁盘镜像。」
+     *
+     * 磁盘镜像页没有环境时的说明。
+     */
+    fun setupImageNoneFooter(): String = catalog.say("setupImageNoneFooter")
+
+    /**
+     * 「镜像」
+     *
+     * 磁盘镜像页第一组的标题。
+     */
+    fun setupImageGroup(): String = catalog.say("setupImageGroup")
+
+    /**
+     * 「镜像是稀疏文件：上限不预先占空间，Debian 里用多少才占多少。每次开机自动检查、挂上镜像，并释放一次空间。」
+     *
+     * 「镜像」一组下面的说明。
+     */
+    fun setupImageFooter(): String = catalog.say("setupImageFooter")
+
+    /**
+     * 「已挂上」
+     *
+     * 磁盘镜像的状态：挂在 Debian 的位置上，可以用。
+     */
+    fun setupImageMounted(): String = catalog.say("setupImageMounted")
+
+    /**
+     * 「没有挂上」
+     *
+     * 磁盘镜像的状态：没挂上（比如检查出修不了的错误）。
+     */
+    fun setupImageNotMounted(): String = catalog.say("setupImageNotMounted")
+
+    /**
+     * 「镜像上限」
+     *
+     * 「镜像」一组的一行：镜像最多能装多少。
+     */
+    fun setupImageLimit(): String = catalog.say("setupImageLimit")
+
+    /**
+     * 「Debian 已用」
+     *
+     * 「镜像」一组的一行：Debian 里已经用了多少。
+     */
+    fun setupImageUsed(): String = catalog.say("setupImageUsed")
+
+    /**
+     * 「{used}，剩余 {free}」
+     *
+     * 「Debian 已用」右边的值。
+     */
+    fun setupImageUsedValue(used: String, free: String): String = catalog.say("setupImageUsedValue", mapOf("used" to used, "free" to free))
+
+    /**
+     * 「实际占用手机」
+     *
+     * 「镜像」一组的一行：镜像文件实际占了手机多少存储。
+     */
+    fun setupImageAllocated(): String = catalog.say("setupImageAllocated")
+
+    /**
+     * 「维护」
+     *
+     * 磁盘镜像页第二组的标题。
+     */
+    fun setupImageMaintain(): String = catalog.say("setupImageMaintain")
+
+    /**
+     * 「调整大小、检查都要先停掉 Debian 里的全部程序（Claude Code、SSH 服务等），做完自动重新启动。」
+     *
+     * 「维护」一组下面的说明。
+     */
+    fun setupImageMaintainFooter(): String = catalog.say("setupImageMaintainFooter")
+
+    /**
+     * 「有对话在进行，等它结束后才能调整大小、检查：这两项要先停掉 Debian。」
+     *
+     * 「维护」一组下面的说明：有对话在进行时。
+     */
+    fun setupImageChatRunning(): String = catalog.say("setupImageChatRunning")
+
+    /**
+     * 「释放空间」
+     *
+     * 「维护」一组的一行：fstrim。
+     */
+    fun setupImageTrim(): String = catalog.say("setupImageTrim")
+
+    /**
+     * 「把 Debian 里删掉的文件占的空间还给手机，不用停 Debian」
+     *
+     * 「释放空间」的说明。
+     */
+    fun setupImageTrimSummary(): String = catalog.say("setupImageTrimSummary")
+
+    /**
+     * 「调整大小」
+     *
+     * 「维护」一组的一行和输入框标题：改镜像上限。
+     */
+    fun setupImageResize(): String = catalog.say("setupImageResize")
+
+    /**
+     * 「改镜像上限，要先停 Debian」
+     *
+     * 「调整大小」的说明。
+     */
+    fun setupImageResizeSummary(): String = catalog.say("setupImageResizeSummary")
+
+    /**
+     * 「填新的上限（GB），不能小于 Debian 已用的 {used}。手机剩余 {free}。要先停掉 Debian 里的全部程序，做完自动重新启动。」
+     *
+     * 调整大小输入框的说明。
+     */
+    fun setupImageResizeHint(used: String, free: String): String = catalog.say("setupImageResizeHint", mapOf("used" to used, "free" to free))
+
+    /**
+     * 「检查并修复」
+     *
+     * 「维护」一组的一行：完整检查文件系统（e2fsck -f）。
+     */
+    fun setupImageCheck(): String = catalog.say("setupImageCheck")
+
+    /**
+     * 「完整检查一遍文件系统，要先停 Debian」
+     *
+     * 「检查并修复」的说明。
+     */
+    fun setupImageCheckSummary(): String = catalog.say("setupImageCheckSummary")
+
+    /**
+     * 「检查并修复磁盘镜像？」
+     *
+     * 检查并修复的确认框标题。
+     */
+    fun setupImageCheckTitle(): String = catalog.say("setupImageCheckTitle")
+
+    /**
+     * 「要先停掉 Debian 里的全部程序，包括 Claude Code 和 SSH 服务，检查完自动重新启动，一般一两分钟。」
+     *
+     * 检查并修复的确认框说明。
+     */
+    fun setupImageCheckConfirm(): String = catalog.say("setupImageCheckConfirm")
+
+    /**
+     * 「删除转换前的目录」
+     *
+     * 「维护」一组的一行：转成镜像后留下的原目录还在时。
+     */
+    fun setupImageDeleteOld(): String = catalog.say("setupImageDeleteOld")
+
+    /**
+     * 「它还占着手机空间，开机也会因此变慢；确认 Debian 一切正常后再删」
+     *
+     * 「删除转换前的目录」的说明。
+     */
+    fun setupImageDeleteOldSummary(): String = catalog.say("setupImageDeleteOldSummary")
+
+    /**
+     * 「删除转换前的目录？」
+     *
+     * 删除转换前目录的确认框标题。
+     */
+    fun setupImageDeleteOldTitle(): String = catalog.say("setupImageDeleteOldTitle")
+
+    /**
+     * 「删掉以后就不能退回到转换前的样子了。Debian 不用停。」
+     *
+     * 删除转换前目录的确认框说明。
+     */
+    fun setupImageDeleteOldConfirm(): String = catalog.say("setupImageDeleteOldConfirm")
+
+    /**
+     * 「删除」
+     *
+     * 删除转换前目录的确认按钮。
+     */
+    fun setupImageDelete(): String = catalog.say("setupImageDelete")
+
+    /**
+     * 「转成磁盘镜像」
+     *
+     * 磁盘镜像页的一组标题（环境还是普通目录时），也是转换这项维护的名字。
+     */
+    fun setupImageConvertGroup(): String = catalog.say("setupImageConvertGroup")
+
+    /**
+     * 「普通目录」
+     *
+     * 磁盘镜像页的状态值：环境还是 /data 下的普通目录。
+     */
+    fun setupImageDirectory(): String = catalog.say("setupImageDirectory")
+
+    /**
+     * 「转成镜像」
+     *
+     * 「转成磁盘镜像」一组的一行和输入框标题。
+     */
+    fun setupImageConvert(): String = catalog.say("setupImageConvert")
+
+    /**
+     * 「Android 每次开机都要把普通目录里的文件逐个重核一遍安全标签，Debian 有几十万个文件，开机会因此慢上十几秒。放进镜像后开机时它只算一个文件。」
+     *
+     * 「转成镜像」的说明。
+     */
+    fun setupImageConvertSummary(): String = catalog.say("setupImageConvertSummary")
+
+    /**
+     * 「要先停掉 Debian 里的全部程序，做完自动重新启动；复制时临时多占和 Debian 一样大的空间。原来的目录改名留着作回退，确认没问题后在这页删掉。」
+     *
+     * 「转成磁盘镜像」一组下面的说明。
+     */
+    fun setupImageConvertFooter(): String = catalog.say("setupImageConvertFooter")
+
+    /**
+     * 「填镜像上限（GB）。镜像是稀疏文件，上限不预先占空间；手机剩余 {free}。」
+     *
+     * 转成镜像输入框的说明。
+     */
+    fun setupImageConvertHint(free: String): String = catalog.say("setupImageConvertHint", mapOf("free" to free))
+
+    /**
+     * 「GB」
+     *
+     * 填镜像上限的输入框里的提示。
+     */
+    fun setupImageSizeLabel(): String = catalog.say("setupImageSizeLabel")
+
+    /**
+     * 「开始」
+     *
+     * 磁盘镜像维护的确认按钮。
+     */
+    fun setupImageStart(): String = catalog.say("setupImageStart")
+
+    /**
+     * 「做到一半被打断了（比如手机重启），可以再做一次」
+     *
+     * 磁盘镜像维护卡片：做的途中被打断了。
+     */
+    fun setupImageInterrupted(): String = catalog.say("setupImageInterrupted")
+
+    /**
+     * 「准备中」
+     *
+     * 磁盘镜像维护的步骤：刚开始。
+     */
+    fun setupImageStepStart(): String = catalog.say("setupImageStepStart")
+
+    /**
+     * 「正在停止 Debian」
+     *
+     * 磁盘镜像维护的步骤。
+     */
+    fun setupImageStepStop(): String = catalog.say("setupImageStepStop")
+
+    /**
+     * 「正在统计大小」
+     *
+     * 磁盘镜像维护的步骤：转换前统计 Debian 占多大。
+     */
+    fun setupImageStepMeasure(): String = catalog.say("setupImageStepMeasure")
+
+    /**
+     * 「正在复制文件：{done} / {total}」
+     *
+     * 磁盘镜像维护的步骤：转换时把文件拷进镜像。
+     */
+    fun setupImageStepCopy(done: String, total: String): String = catalog.say("setupImageStepCopy", mapOf("done" to done, "total" to total))
+
+    /**
+     * 「正在检查文件系统」
+     *
+     * 磁盘镜像维护的步骤。
+     */
+    fun setupImageStepCheck(): String = catalog.say("setupImageStepCheck")
+
+    /**
+     * 「正在调整大小」
+     *
+     * 磁盘镜像维护的步骤。
+     */
+    fun setupImageStepResize(): String = catalog.say("setupImageStepResize")
+
+    /**
+     * 「正在删除」
+     *
+     * 磁盘镜像维护的步骤：删除转换前的目录。
+     */
+    fun setupImageStepDelete(): String = catalog.say("setupImageStepDelete")
+
+    /**
+     * 「转换完成。原来的目录留作回退，确认 Debian 正常后在这页删掉它，开机才会变快。」
+     *
+     * 转成镜像做完的结果。
+     */
+    fun setupImageResultConverted(): String = catalog.say("setupImageResultConverted")
+
+    /**
+     * 「已删除」
+     *
+     * 删除转换前目录做完的结果。
+     */
+    fun setupImageResultDeleted(): String = catalog.say("setupImageResultDeleted")
+
+    /**
+     * 「镜像上限改成了 {size} GB」
+     *
+     * 调整大小做完的结果。
+     */
+    fun setupImageResultResized(size: Int): String = catalog.say("setupImageResultResized", mapOf("size" to size))
+
+    /**
+     * 「没有发现问题」
+     *
+     * 检查并修复做完的结果：没问题。
+     */
+    fun setupImageResultClean(): String = catalog.say("setupImageResultClean")
+
+    /**
+     * 「发现并修复了问题」
+     *
+     * 检查并修复做完的结果：修好了。
+     */
+    fun setupImageResultFixed(): String = catalog.say("setupImageResultFixed")
 }

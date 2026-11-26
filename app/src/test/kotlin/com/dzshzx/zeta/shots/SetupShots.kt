@@ -57,6 +57,7 @@ class SetupShots : ShotTest() {
                 onOpenInstall = {},
                 onOpenLogin = {},
                 onOpenSsh = {},
+                onOpenImage = {},
             )
         }
     }
@@ -72,6 +73,7 @@ class SetupShots : ShotTest() {
                 onOpenInstall = {},
                 onOpenLogin = {},
                 onOpenSsh = {},
+                onOpenImage = {},
             )
         }
     }
@@ -87,6 +89,7 @@ class SetupShots : ShotTest() {
                 onOpenInstall = {},
                 onOpenLogin = {},
                 onOpenSsh = {},
+                onOpenImage = {},
             )
         }
     }

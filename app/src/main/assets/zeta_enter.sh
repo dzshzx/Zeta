@@ -10,6 +10,9 @@ for b in /data/adb/ksu/bin/busybox /data/adb/magisk/busybox /data/adb/ap/bin/bus
 done
 [ "$(id -u)" = 0 ] || { echo "需要 root：su -c sh $0" >&2; exit 1; }
 [ -n "$BB" ] || { echo "找不到 root 管理器自带的 BusyBox" >&2; exit 1; }
+# Zeta 的环境在磁盘镜像里、还没挂上（刚开机、做完维护）时先挂上，见 /data/local/zeta/image.sh
+[ -f /data/local/zeta/debian/rootfs.img ] && ! "$BB" grep -q ' /data/local/zeta/debian/rootfs ' /proc/1/mounts &&
+  "$BB" sh /data/local/zeta/image.sh "$BB" mount >&2
 [ -x "$R/bin/bash" ] || { echo "环境不存在：$R" >&2; exit 1; }
 
 if [ "${ZETA_INNS:-}" != 1 ]; then

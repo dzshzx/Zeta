@@ -43,6 +43,7 @@ import com.dzshzx.zeta.ui.pane.SessionReveal
 import com.dzshzx.zeta.ui.settings.HostSettingsScreen
 import com.dzshzx.zeta.ui.settings.SettingsLink
 import com.dzshzx.zeta.ui.settings.SettingsScreen
+import com.dzshzx.zeta.ui.setup.DiskImageScreen
 import com.dzshzx.zeta.ui.setup.EnvInstallScreen
 import com.dzshzx.zeta.ui.setup.LinuxScreen
 import com.dzshzx.zeta.ui.setup.LoginScreen
@@ -307,8 +308,10 @@ private fun ZetaApp(hub: ConversationHub, conversationRequests: Int) {
                     onOpenInstall = { pages.open(AppPage.Install) },
                     onOpenLogin = { pages.open(AppPage.Login) },
                     onOpenSsh = { pages.open(AppPage.Ssh) },
+                    onOpenImage = { pages.open(AppPage.DiskImage) },
                 )
             AppPage.Ssh -> SshScreen(hub = hub, onBack = { pages.close(page) })
+            AppPage.DiskImage -> DiskImageScreen(hub = hub, onBack = { pages.close(page) })
             AppPage.Install ->
                 EnvInstallScreen(
                     hub = hub,

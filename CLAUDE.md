@@ -129,6 +129,7 @@ Android SDK 取 `ANDROID_HOME`，默认 `~/Android/Sdk`。每次调用时才设�
 ## 坑
 
 - Linux 里的 `/workspace` 是 Android 的 `/data/local/zeta/workspace`（`LinuxEnv.WORKSPACE`）绑过去的，是用户自己的文件，正式版和测试版共用；它在 rootfs 外面，换环境、重装环境都不动它。Zeta 自己要建的目录放进 rootfs 里（共享文件夹挂在 `/mnt/shared`），不放在 `/workspace` 下。Zeta 不碰 Eta 的 `/data/local/tmp/eta`（别人设备上那可能是 Eta 正在用的工作区）；从前 `/workspace` 绑它的设备用 `tools/migrate-workspace.sh` 迁一次：原地改名到新目录，旧位置留一个指向新目录的符号链接，没升级的旧版本照样绑到同一份文件。
+- Zeta 自带的 Debian 存在磁盘镜像 `/data/local/zeta/debian/rootfs.img`（ext4，稀疏文件）里，挂在全局挂载命名空间的 `rootfs/` 上，挂载会传到各个应用的命名空间，所以路径和普通目录一样。为什么：Android 每次开机在 post-fs-data 对 /data 做 restorecon，装了 KernelSU 模块的设备上总有改不了标签的文件，它就永远不记目录摘要、每次全量重扫，几十万个文件的 Debian 放成普通目录会让开机多等二十来秒。镜像的事全在 `assets/zeta_image_android.sh`：Zeta 每次调它时先写到 `/data/local/zeta/image.sh`，开机脚本 `89-zeta-image.sh`（检查、挂上、fstrim）和进环境前（`LinuxEnv.MOUNT_IMAGE`、`zeta_enter.sh`）都经磁盘上那份挂镜像；转换、检查、调整大小要停掉 Debian 里根目录在 rootfs 下的全部进程，在 Android 一侧的后台进程里做，做完重新执行 service.d 里提到 rootfs 的开机脚本。新装的环境解压后就转成镜像；还是普通目录的在设置 › Linux 环境 › 磁盘镜像里转。设备上的回归是 `tools/phone-tests/disk-image-*.sh`（只在模拟器上跑）。
 - app 不能给它的 `su` 子进程发信号（uid 不同），要经 root 杀（`LinuxEnv.kill`）。
 - Android 上 `Process.waitFor(超时)` 是 java.lang.Process 的默认实现，每 100 毫秒才看一次进程结束没有，每条命令平均白等约 50 毫秒；等进程用 `Process.exitsWithin`（`core/ProcessWait.kt`，`ProcessWaitTest` 拦着应用代码里带超时的 `waitFor`）。
 - Compose 在界面停止后只暂停动画帧，重组和测量照做：随回答流式输出频繁变的状态在整页读时经 `whileStarted`（`ui/components/Remembered.kt`），界面看不见时不跟着变。

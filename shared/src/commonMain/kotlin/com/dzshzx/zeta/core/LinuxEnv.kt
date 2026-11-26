@@ -45,12 +45,27 @@ object LinuxEnv {
      */
     const val WORKSPACE = "/data/local/zeta/workspace"
 
+    /** Zeta 自带的环境存在磁盘镜像里时的镜像文件（见 assets 的 zeta_image_android.sh）。 */
+    const val OWN_IMAGE = "$OWN_BASE/rootfs.img"
+
+    /** Zeta 写到磁盘上的那份镜像脚本：进环境前、开机时经它挂上镜像。 */
+    const val IMAGE_SCRIPT = "/data/local/zeta/image.sh"
+
     /** 以 root 身份进入 [rootfs]（装环境时用，这时还没有普通用户）。 */
     fun rootConfig(rootfs: String) = LinuxEnvConfig(rootfs, "root", 0, 0, "/root", "/")
 
+    /**
+     * 环境在磁盘镜像里、还没挂上（刚开机、做完维护）时先挂上，各条以 root 碰环境的脚本开头都带着它。挂不上的原因写到标准错误，接下来的命令照常报环境不在。 已经挂着时只多读一次
+     * /proc/1/mounts。
+     */
+    const val MOUNT_IMAGE =
+        "[ -f $OWN_IMAGE ] && ! \"\$BB\" grep -q ' $OWN_ROOTFS ' /proc/1/mounts && " +
+            "\"\$BB\" sh $IMAGE_SCRIPT \"\$BB\" mount >&2; "
+
     private const val FIND_BUSYBOX =
         "BB=; for b in /data/adb/ksu/bin/busybox /data/adb/magisk/busybox /data/adb/ap/bin/busybox; do " +
-            "[ -x \"\$b\" ] && BB=\$b && break; done; [ -n \"\$BB\" ] || { echo 'zeta: busybox not found' >&2; exit 126; }; "
+            "[ -x \"\$b\" ] && BB=\$b && break; done; [ -n \"\$BB\" ] || { echo 'zeta: busybox not found' >&2; exit 126; }; " +
+            MOUNT_IMAGE
 
     // 参数：$1 BusyBox，$2 rootfs，$3 要执行的命令，$4 家目录，$5 用户名，$6 uid，$7 gid，$8 时区，
     // $9 共享文件夹（每行“名字<Tab>Android 侧目录”，见 SharedFolders.mountSpec）。

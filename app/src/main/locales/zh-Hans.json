@@ -11965,5 +11965,276 @@
   "thirdPartyGoStdNote": "zeta-helper 和 claude-switch 是 Go 程序，各编成 linux 的 arm64、amd64 两份打进 assets/zeta-helper/、assets/claude-switch/；直连远程主机的 zeta-ssh 也是，编成 android/arm64 打进 lib/arm64-v8a/libzeta_ssh.so。都静态链接 Go 标准库和运行时。",
   "@thirdPartyGoStdNote": {
     "description": "开源许可页 Go 标准库与运行时一条的说明。"
+  },
+  "coreInstallImage": "建磁盘镜像",
+  "@coreInstallImage": {
+    "description": "安装 Linux 环境的一步：把解压好的环境放进磁盘镜像。"
+  },
+  "coreImageTrimmed": "释放了 {size}",
+  "@coreImageTrimmed": {
+    "description": "磁盘镜像页释放空间（fstrim）做完的结果，size 是还给手机的空间。",
+    "placeholders": {
+      "size": {
+        "type": "String"
+      }
+    }
+  },
+  "coreImageStatusFailed": "读不到磁盘镜像的状态",
+  "@coreImageStatusFailed": {
+    "description": "安装时建磁盘镜像这一步读不到状态的出错。"
+  },
+  "coreImageInterrupted": "建磁盘镜像的途中被打断了，请重试",
+  "@coreImageInterrupted": {
+    "description": "安装时建磁盘镜像这一步做到一半被打断（比如手机重启）。"
+  },
+  "setupImageTitle": "磁盘镜像",
+  "@setupImageTitle": {
+    "description": "Linux 环境页的一行和磁盘镜像页的标题：Zeta 自带的 Debian 存在一个镜像文件里。"
+  },
+  "setupImageSummaryIdle": "Debian 存放的方式、大小和检查",
+  "@setupImageSummaryIdle": {
+    "description": "「磁盘镜像」一行的说明：还不知道状态时。"
+  },
+  "setupImageSummaryOn": "上限 {size}，已用 {used}",
+  "@setupImageSummaryOn": {
+    "description": "「磁盘镜像」一行的说明：环境在镜像里。size 是镜像上限，used 是 Debian 已用的空间。",
+    "placeholders": {
+      "size": {
+        "type": "String"
+      },
+      "used": {
+        "type": "String"
+      }
+    }
+  },
+  "setupImageSummaryOff": "未使用，转成镜像能让手机开机快一些",
+  "@setupImageSummaryOff": {
+    "description": "「磁盘镜像」一行的说明：环境还是普通目录。"
+  },
+  "setupImageNone": "没有可用的环境",
+  "@setupImageNone": {
+    "description": "磁盘镜像页的状态值：Zeta 自带的位置上既没有镜像也没有环境。"
+  },
+  "setupImageNoneFooter": "装好 Zeta 自带的 Debian 后，这里管理它的磁盘镜像。",
+  "@setupImageNoneFooter": {
+    "description": "磁盘镜像页没有环境时的说明。"
+  },
+  "setupImageGroup": "镜像",
+  "@setupImageGroup": {
+    "description": "磁盘镜像页第一组的标题。"
+  },
+  "setupImageFooter": "镜像是稀疏文件：上限不预先占空间，Debian 里用多少才占多少。每次开机自动检查、挂上镜像，并释放一次空间。",
+  "@setupImageFooter": {
+    "description": "「镜像」一组下面的说明。"
+  },
+  "setupImageMounted": "已挂上",
+  "@setupImageMounted": {
+    "description": "磁盘镜像的状态：挂在 Debian 的位置上，可以用。"
+  },
+  "setupImageNotMounted": "没有挂上",
+  "@setupImageNotMounted": {
+    "description": "磁盘镜像的状态：没挂上（比如检查出修不了的错误）。"
+  },
+  "setupImageLimit": "镜像上限",
+  "@setupImageLimit": {
+    "description": "「镜像」一组的一行：镜像最多能装多少。"
+  },
+  "setupImageUsed": "Debian 已用",
+  "@setupImageUsed": {
+    "description": "「镜像」一组的一行：Debian 里已经用了多少。"
+  },
+  "setupImageUsedValue": "{used}，剩余 {free}",
+  "@setupImageUsedValue": {
+    "description": "「Debian 已用」右边的值。",
+    "placeholders": {
+      "used": {
+        "type": "String"
+      },
+      "free": {
+        "type": "String"
+      }
+    }
+  },
+  "setupImageAllocated": "实际占用手机",
+  "@setupImageAllocated": {
+    "description": "「镜像」一组的一行：镜像文件实际占了手机多少存储。"
+  },
+  "setupImageMaintain": "维护",
+  "@setupImageMaintain": {
+    "description": "磁盘镜像页第二组的标题。"
+  },
+  "setupImageMaintainFooter": "调整大小、检查都要先停掉 Debian 里的全部程序（Claude Code、SSH 服务等），做完自动重新启动。",
+  "@setupImageMaintainFooter": {
+    "description": "「维护」一组下面的说明。"
+  },
+  "setupImageChatRunning": "有对话在进行，等它结束后才能调整大小、检查：这两项要先停掉 Debian。",
+  "@setupImageChatRunning": {
+    "description": "「维护」一组下面的说明：有对话在进行时。"
+  },
+  "setupImageTrim": "释放空间",
+  "@setupImageTrim": {
+    "description": "「维护」一组的一行：fstrim。"
+  },
+  "setupImageTrimSummary": "把 Debian 里删掉的文件占的空间还给手机，不用停 Debian",
+  "@setupImageTrimSummary": {
+    "description": "「释放空间」的说明。"
+  },
+  "setupImageResize": "调整大小",
+  "@setupImageResize": {
+    "description": "「维护」一组的一行和输入框标题：改镜像上限。"
+  },
+  "setupImageResizeSummary": "改镜像上限，要先停 Debian",
+  "@setupImageResizeSummary": {
+    "description": "「调整大小」的说明。"
+  },
+  "setupImageResizeHint": "填新的上限（GB），不能小于 Debian 已用的 {used}。手机剩余 {free}。要先停掉 Debian 里的全部程序，做完自动重新启动。",
+  "@setupImageResizeHint": {
+    "description": "调整大小输入框的说明。",
+    "placeholders": {
+      "used": {
+        "type": "String"
+      },
+      "free": {
+        "type": "String"
+      }
+    }
+  },
+  "setupImageCheck": "检查并修复",
+  "@setupImageCheck": {
+    "description": "「维护」一组的一行：完整检查文件系统（e2fsck -f）。"
+  },
+  "setupImageCheckSummary": "完整检查一遍文件系统，要先停 Debian",
+  "@setupImageCheckSummary": {
+    "description": "「检查并修复」的说明。"
+  },
+  "setupImageCheckTitle": "检查并修复磁盘镜像？",
+  "@setupImageCheckTitle": {
+    "description": "检查并修复的确认框标题。"
+  },
+  "setupImageCheckConfirm": "要先停掉 Debian 里的全部程序，包括 Claude Code 和 SSH 服务，检查完自动重新启动，一般一两分钟。",
+  "@setupImageCheckConfirm": {
+    "description": "检查并修复的确认框说明。"
+  },
+  "setupImageDeleteOld": "删除转换前的目录",
+  "@setupImageDeleteOld": {
+    "description": "「维护」一组的一行：转成镜像后留下的原目录还在时。"
+  },
+  "setupImageDeleteOldSummary": "它还占着手机空间，开机也会因此变慢；确认 Debian 一切正常后再删",
+  "@setupImageDeleteOldSummary": {
+    "description": "「删除转换前的目录」的说明。"
+  },
+  "setupImageDeleteOldTitle": "删除转换前的目录？",
+  "@setupImageDeleteOldTitle": {
+    "description": "删除转换前目录的确认框标题。"
+  },
+  "setupImageDeleteOldConfirm": "删掉以后就不能退回到转换前的样子了。Debian 不用停。",
+  "@setupImageDeleteOldConfirm": {
+    "description": "删除转换前目录的确认框说明。"
+  },
+  "setupImageDelete": "删除",
+  "@setupImageDelete": {
+    "description": "删除转换前目录的确认按钮。"
+  },
+  "setupImageConvertGroup": "转成磁盘镜像",
+  "@setupImageConvertGroup": {
+    "description": "磁盘镜像页的一组标题（环境还是普通目录时），也是转换这项维护的名字。"
+  },
+  "setupImageDirectory": "普通目录",
+  "@setupImageDirectory": {
+    "description": "磁盘镜像页的状态值：环境还是 /data 下的普通目录。"
+  },
+  "setupImageConvert": "转成镜像",
+  "@setupImageConvert": {
+    "description": "「转成磁盘镜像」一组的一行和输入框标题。"
+  },
+  "setupImageConvertSummary": "Android 每次开机都要把普通目录里的文件逐个重核一遍安全标签，Debian 有几十万个文件，开机会因此慢上十几秒。放进镜像后开机时它只算一个文件。",
+  "@setupImageConvertSummary": {
+    "description": "「转成镜像」的说明。"
+  },
+  "setupImageConvertFooter": "要先停掉 Debian 里的全部程序，做完自动重新启动；复制时临时多占和 Debian 一样大的空间。原来的目录改名留着作回退，确认没问题后在这页删掉。",
+  "@setupImageConvertFooter": {
+    "description": "「转成磁盘镜像」一组下面的说明。"
+  },
+  "setupImageConvertHint": "填镜像上限（GB）。镜像是稀疏文件，上限不预先占空间；手机剩余 {free}。",
+  "@setupImageConvertHint": {
+    "description": "转成镜像输入框的说明。",
+    "placeholders": {
+      "free": {
+        "type": "String"
+      }
+    }
+  },
+  "setupImageSizeLabel": "GB",
+  "@setupImageSizeLabel": {
+    "description": "填镜像上限的输入框里的提示。"
+  },
+  "setupImageStart": "开始",
+  "@setupImageStart": {
+    "description": "磁盘镜像维护的确认按钮。"
+  },
+  "setupImageInterrupted": "做到一半被打断了（比如手机重启），可以再做一次",
+  "@setupImageInterrupted": {
+    "description": "磁盘镜像维护卡片：做的途中被打断了。"
+  },
+  "setupImageStepStart": "准备中",
+  "@setupImageStepStart": {
+    "description": "磁盘镜像维护的步骤：刚开始。"
+  },
+  "setupImageStepStop": "正在停止 Debian",
+  "@setupImageStepStop": {
+    "description": "磁盘镜像维护的步骤。"
+  },
+  "setupImageStepMeasure": "正在统计大小",
+  "@setupImageStepMeasure": {
+    "description": "磁盘镜像维护的步骤：转换前统计 Debian 占多大。"
+  },
+  "setupImageStepCopy": "正在复制文件：{done} / {total}",
+  "@setupImageStepCopy": {
+    "description": "磁盘镜像维护的步骤：转换时把文件拷进镜像。",
+    "placeholders": {
+      "done": {
+        "type": "String"
+      },
+      "total": {
+        "type": "String"
+      }
+    }
+  },
+  "setupImageStepCheck": "正在检查文件系统",
+  "@setupImageStepCheck": {
+    "description": "磁盘镜像维护的步骤。"
+  },
+  "setupImageStepResize": "正在调整大小",
+  "@setupImageStepResize": {
+    "description": "磁盘镜像维护的步骤。"
+  },
+  "setupImageStepDelete": "正在删除",
+  "@setupImageStepDelete": {
+    "description": "磁盘镜像维护的步骤：删除转换前的目录。"
+  },
+  "setupImageResultConverted": "转换完成。原来的目录留作回退，确认 Debian 正常后在这页删掉它，开机才会变快。",
+  "@setupImageResultConverted": {
+    "description": "转成镜像做完的结果。"
+  },
+  "setupImageResultDeleted": "已删除",
+  "@setupImageResultDeleted": {
+    "description": "删除转换前目录做完的结果。"
+  },
+  "setupImageResultResized": "镜像上限改成了 {size} GB",
+  "@setupImageResultResized": {
+    "description": "调整大小做完的结果。",
+    "placeholders": {
+      "size": {
+        "type": "int"
+      }
+    }
+  },
+  "setupImageResultClean": "没有发现问题",
+  "@setupImageResultClean": {
+    "description": "检查并修复做完的结果：没问题。"
+  },
+  "setupImageResultFixed": "发现并修复了问题",
+  "@setupImageResultFixed": {
+    "description": "检查并修复做完的结果：修好了。"
   }
 }

@@ -58,6 +58,9 @@ class EnvController constructor(private val hub: ConversationHub, assets: (Strin
     val installer = EnvInstaller(hub, assets)
     private val sshService = SshService(installer, assets)
 
+    /** Zeta 自带环境的磁盘镜像（设置 › Linux 环境 › 磁盘镜像）。 */
+    val image = DiskImageController(hub, assets)
+
     /** 当前环境里 SSH 服务的状态；还没查过是 null。 */
     var ssh by mutableStateOf<SshStatus?>(null)
 
@@ -127,6 +130,8 @@ class EnvController constructor(private val hub: ConversationHub, assets: (Strin
                 setup = state
                 ownStatus = own
                 if (state == SetupState.Ready) {
+                    // 顺带把磁盘上的镜像脚本换成这个版本的
+                    image.refresh()
                     refreshAccount()
                     hub.onEnvironmentReady()
                 }

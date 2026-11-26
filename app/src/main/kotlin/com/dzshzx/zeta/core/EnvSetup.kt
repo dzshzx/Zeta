@@ -26,6 +26,7 @@ enum class InstallStep(private val titleText: () -> String) {
     Check(Strings::coreInstallCheck),
     Download(Strings::coreInstallDownload),
     Extract(Strings::coreInstallExtract),
+    Image(Strings::coreInstallImage),
     Tools(Strings::coreInstallTools),
     User(Strings::coreInstallUser),
     Claude(Strings::coreInstallClaude);
@@ -112,6 +113,7 @@ class EnvInstaller(private val hub: ConversationHub, private val assets: (String
     @Volatile private var cancelled = false
     private val androidScript by lazy { assets("zeta_setup_android.sh") }
     private val debianScript by lazy { assets("zeta_setup_debian.sh") }
+    private val imageService = DiskImageService(assets)
 
     private class Artifact(val sha256: String, val size: Long, val file: String)
 
@@ -237,6 +239,10 @@ class EnvInstaller(private val hub: ConversationHub, private val assets: (String
                 return it
             }
         }
+        // 环境放进磁盘镜像：开机时 Android 不用把它的二十多万个文件逐个重核 SELinux 标签
+        runImage()?.let {
+            return it
+        }
         val root = LinuxEnv.rootConfig(rootfs)
         if (status(base).tools) markDone(InstallStep.Tools)
         else
@@ -263,6 +269,21 @@ class EnvInstaller(private val hub: ConversationHub, private val assets: (String
     }
 
     private fun markDone(vararg steps: InstallStep) = main.post { done = done + steps }
+
+    /** 转成磁盘镜像（已经是镜像就跳过）。转换在 Android 一侧的后台做，这边等它做完；取消也要等它做完才停。 */
+    private fun runImage(): String? {
+        if (cancelled) return Strings.coreCancelled()
+        main.post {
+            step = InstallStep.Image
+            progress = null
+            detail = ""
+        }
+        val problem =
+            convertForInstall(imageService) { fraction -> main.post { progress = fraction } }
+        if (problem != null) return problem
+        markDone(InstallStep.Image)
+        return if (cancelled) Strings.coreCancelled() else null
+    }
 
     private fun runAndroid(step: InstallStep, vararg arguments: String): String? =
         run(step) { LinuxEnv.startRoot(LinuxEnv.androidScript(androidScript, *arguments)) }

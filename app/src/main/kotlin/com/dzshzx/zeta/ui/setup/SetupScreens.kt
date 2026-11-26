@@ -24,6 +24,7 @@ import androidx.compose.ui.unit.dp
 import com.dzshzx.zeta.core.AccountStatus
 import com.dzshzx.zeta.core.Backends
 import com.dzshzx.zeta.core.ConversationHub
+import com.dzshzx.zeta.core.DiskImageStatus
 import com.dzshzx.zeta.core.EnvController
 import com.dzshzx.zeta.core.EnvHealth
 import com.dzshzx.zeta.core.EnvInstaller
@@ -76,6 +77,7 @@ internal fun LinuxScreen(
     onOpenInstall: () -> Unit,
     onOpenLogin: () -> Unit,
     onOpenSsh: () -> Unit,
+    onOpenImage: () -> Unit,
 ) {
     val env = hub.settings.env
     val ready = hub.environment.setup == SetupState.Ready && env != null
@@ -160,6 +162,7 @@ internal fun LinuxScreen(
                 onRemove = { removing = it },
                 onOpenFiles = { filesPage = it },
                 onOpenSsh = onOpenSsh,
+                onOpenImage = onOpenImage,
                 onOpenLogin = onOpenLogin,
                 onLogout = { confirmLogout = true },
             )
@@ -313,6 +316,7 @@ private fun LazyListScope.readyItems(
     onRemove: (String) -> Unit,
     onOpenFiles: (LinuxFilesPage) -> Unit,
     onOpenSsh: () -> Unit,
+    onOpenImage: () -> Unit,
     onOpenLogin: () -> Unit,
     onLogout: () -> Unit,
 ) {
@@ -346,7 +350,19 @@ private fun LazyListScope.readyItems(
                 }
         }
     }
-    item(key = "files") { FilesGroup(hub.environment.ssh, onOpenFiles, onOpenSsh) }
+    item(key = "files") {
+        FilesGroup(
+            ssh = hub.environment.ssh,
+            // 磁盘镜像只管 Zeta 自带的环境
+            image =
+                hub.environment.image.status.takeIf {
+                    hub.settings.env?.rootfs == LinuxEnv.OWN_ROOTFS
+                },
+            onOpenFiles = onOpenFiles,
+            onOpenSsh = onOpenSsh,
+            onOpenImage = onOpenImage,
+        )
+    }
     item(key = "claude") {
         ClaudeGroup(hub, health, maintenanceRunning, onOpenLogin = onOpenLogin, onLogout = onLogout)
     }
@@ -396,8 +412,10 @@ private fun healthFindings(health: EnvHealth): List<String> = buildList {
 @Composable
 private fun FilesGroup(
     ssh: SshStatus?,
+    image: DiskImageStatus?,
     onOpenFiles: (LinuxFilesPage) -> Unit,
     onOpenSsh: () -> Unit,
+    onOpenImage: () -> Unit,
 ) {
     PreferenceGroup(title = Strings.setupFilesGroup()) {
         item {
@@ -420,6 +438,15 @@ private fun FilesGroup(
                 summary = sshSummary(ssh),
                 onClick = onOpenSsh,
             )
+        }
+        if (image != null) {
+            item {
+                ArrowPreference(
+                    title = Strings.setupImageTitle(),
+                    summary = diskImageSummary(image),
+                    onClick = onOpenImage,
+                )
+            }
         }
     }
 }

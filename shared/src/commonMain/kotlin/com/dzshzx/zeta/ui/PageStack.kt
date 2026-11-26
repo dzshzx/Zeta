@@ -32,6 +32,8 @@ sealed interface AppPage {
 
     @Serializable data object Ssh : AppPage
 
+    @Serializable data object DiskImage : AppPage
+
     @Serializable data object Install : AppPage
 
     @Serializable data object Login : AppPage

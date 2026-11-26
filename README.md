@@ -57,7 +57,7 @@ Zeta 是 root 过的 Android 手机上 [Claude Code](https://github.com/anthropi
 
 ## 第一次使用
 
-1. **装 Linux 环境**：按 Zeta 的引导安装（之后在 设置 › 设备 里点这台手机，进「Linux 环境」维护）。它下载固定版本的 Debian rootfs 并校验，建一个 Linux 用户（默认叫 `zeta`），再装 Claude Code 和你选的工具。
+1. **装 Linux 环境**：按 Zeta 的引导安装（之后在 设置 › 设备 里点这台手机，进「Linux 环境」维护）。它下载固定版本的 Debian rootfs 并校验，放进一个磁盘镜像（稀疏文件，用多少占多少；手机开机时不用逐个重核里面文件的安全标签），建一个 Linux 用户（默认叫 `zeta`），再装 Claude Code 和你选的工具。
 2. **登录 Claude Code**：环境装好后按提示登录，走的是 Claude Code 自己的登录流程（`claude auth login`）。也可以在 Debian 里给 Claude Code 配别的 API 提供方，Zeta 不管这一层。
 3. **授予权限**：设置 › 手机与工具 › 权限健康 里能看到每项权限的状态，有 root 时大多一键就能授予。只想聊天、不让 Claude 操作手机的话，除了 root 都可以不开。
 
