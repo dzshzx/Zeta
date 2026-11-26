@@ -26,6 +26,13 @@ case $ZETA_DEVICE in
   phone) where=手机 kind=dev ;;
   *) echo "ZETA_DEVICE 只能是 emu 或 phone（现在是 $ZETA_DEVICE）" >&2; exit 2 ;;
 esac
+# 脚本里有一行「# phone-run: --main」时，测试版开在设备的主屏上（输入法只服务全局焦点所在的屏，键盘弹不到不抢焦点的测试屏）。
+# 只在模拟器上：手机的主屏是用户在用的
+main=
+if grep -qx "# phone-run: --main" "$script"; then
+  [[ $ZETA_DEVICE == emu ]] || { echo "$script 要用设备的主屏，只在模拟器上跑" >&2; exit 2; }
+  main=--main
+fi
 max=300
 limit=${ZETA_PHONE_RUN_TIMEOUT:-$max}
 if ((limit > max)); then
@@ -90,7 +97,11 @@ cleanup() {
     wait "$child"
   fi
   if [[ -n $t0 ]]; then
-    vd shot "$OUT/final.png" >/dev/null 2>&1
+    if [[ -n $main ]]; then
+      android "screencap -p | base64" 2>/dev/null | base64 -d >"$OUT/final.png"
+    else
+      vd shot "$OUT/final.png" >/dev/null 2>&1
+    fi
     # 崩溃缓冲区是全机的：只留本包进程的行
     local crashes
     crashes=$(android "logcat -d -b crash -t '$t0.000'" 2>/dev/null)
@@ -137,7 +148,10 @@ fi
 vd prefs-set "phoneDisplay:int=$DISPLAY_ID" backend=local >/dev/null
 [[ $(vd prefs phoneDisplay) == *"value=\"$DISPLAY_ID\""* ]] || { echo "phoneDisplay 没写上，不跑" >&2; exit 1; }
 [[ $(vd prefs backend) == *">local<"* ]] || { echo "backend 没改回手机本机，不跑" >&2; exit 1; }
-vd launch
+# 带 --main 时直接在主屏上冷启动（prefs-set 已经结束了测试版），不从测试屏挪过去：挪过去的窗口，系统的输入分发还当它在测试屏上，
+# 主屏上的点按送不到它（logcat：InputDispatcher: Found window … in display 0, but it should belong to display <测试屏>）
+[[ -z $main ]] || android "input keyevent KEYCODE_WAKEUP; wm dismiss-keyguard"
+vd launch $main
 sleep 10 # 冷启动后马上输入会丢字
 echo "跑 $script（限时 $limit 秒）"
 # 放到后台再 wait：收到 TERM 时马上收尾，不用等脚本跑完

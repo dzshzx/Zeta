@@ -17,7 +17,7 @@ func TestParse(t *testing.T) {
 		{"swipe", "1", "2", "3", "4"}, {"swipe", "1", "2", "3", "4", "300"}, {"text", "hi"}, {"key", "KEYCODE_BACK"},
 		{"prefs", "a", "b_c"}, {"prefs-set", "cwd=/tmp", "phoneDisplay:int=3"}, {"fake", "x.jsonl"}, {"fake", "--off"}, {"fake", "--mark", "paused"},
 		{"status"}, {"stop"}, {"--release", "stop"}, {"sh", "ls"}, {"sh", "--stdin", "cat"}, {"debian", "--stdin", "cat"},
-		{"nodes"}, {"nodes", "^继续$"}, {"nodes", "--main"}, {"nodes", "--main", "^图片$"}, {"tap-text", "结束"}, {"tap-text", "--main", "结束"},
+		{"nodes"}, {"nodes", "^继续$"}, {"nodes", "--main"}, {"nodes", "--main", "^图片$"}, {"tap-text", "结束"}, {"tap-text", "--main", "结束"}, {"launch", "--main"},
 	}
 	for _, argv := range good {
 		if _, err := parse(argv); err != nil {

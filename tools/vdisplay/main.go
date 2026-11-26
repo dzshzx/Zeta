@@ -34,7 +34,7 @@ type spec struct {
 	local        bool                   // 只在本机做，不碰设备
 	pipesStdin   bool                   // 认 --stdin：把本地的标准输入交给远端
 	devOnly      bool                   // 只给测试版用：带了 --release 就拒绝
-	onMain       bool                   // 认 --main：读、点设备的主屏（屏号 0），不是虚拟屏
+	onMain       bool                   // 认 --main：对设备的主屏（屏号 0）做，不是虚拟屏；只在模拟器上（main 里拒绝手机）
 	check        func(c *command) error // 核对参数；只看个数的不写
 	run          func(v *vd, c *command)
 }
@@ -45,8 +45,14 @@ var commands = []spec{
 	{name: "start", params: "[宽 高 dpi]", max: 3, check: checkStart,
 		help: "建虚拟屏并在上面启动 Zeta（手机上默认取主屏尺寸，模拟器上默认和手机一样大）",
 		run:  func(v *vd, c *command) { v.start(c.args) }},
-	{name: "launch", help: "在虚拟屏上重新启动 Zeta（装了新包之后）",
-		run: func(v *vd, _ *command) { v.onDisplay(v.launchCmd(`"$d"`)) }},
+	{name: "launch", params: "[--main]", onMain: true, help: "在虚拟屏（带 --main 时是主屏）上重新启动 Zeta（装了新包之后）",
+		run: func(v *vd, c *command) {
+			if c.main {
+				v.android(v.launchCmd("0"))
+			} else {
+				v.onDisplay(v.launchCmd(`"$d"`))
+			}
+		}},
 	{name: "shot", params: "文件.png", min: 1, max: 1, help: "截图",
 		run: func(v *vd, c *command) { v.shot(c.args[0]) }},
 	{name: "tap", params: "X Y", min: 2, max: 2, check: checkIntegers, help: "点一下", run: inputArgs},
@@ -56,7 +62,7 @@ var commands = []spec{
 	{name: "key", params: "键码", min: 1, max: 1, check: checkKey, help: "按一个键，比如 KEYCODE_BACK",
 		run: func(v *vd, c *command) { v.input("keyevent " + c.args[0]) }},
 	{name: "nodes", params: "[--main] [正则]", max: 1, check: compileMatch, devOnly: true, onMain: true,
-		help: `虚拟屏（带 --main 时是设备的主屏，只在模拟器上用：手机的主屏是用户在用的）上看得见、带文字或说明的控件，含 Zeta 自己的悬浮层（胶囊、结果卡片），最上层窗口的在前；
+		help: `虚拟屏（带 --main 时是设备的主屏，只在模拟器上能用：手机的主屏是用户在用的）上看得见、带文字或说明的控件，含 Zeta 自己的悬浮层（胶囊、结果卡片），最上层窗口的在前；
 一行一个：中心 x、y、文字、说明，以制表符分隔。给了正则时只列文字或说明对得上的。
 经测试版自己的无障碍服务读（core/diag/UiNodes），只给测试版用`,
 		run: func(v *vd, c *command) { v.nodes(c.match, c.main) }},
@@ -242,6 +248,9 @@ func main() {
 	v := newVD(!c.release)
 	if !c.local {
 		v.connect()
+	}
+	if c.main && v.device != "emu" {
+		die("vd %s --main 只在模拟器上用：手机的主屏是用户在用的", c.name)
 	}
 	c.run(v, &c)
 }
