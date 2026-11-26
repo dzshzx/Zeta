@@ -396,15 +396,15 @@ func TestDefaultModelWhileAskingForModels(t *testing.T) {
 	f.see("Opus 5.5")
 }
 
-// 思考强度页：Claude Code 清单里各系列最新的是别名，按它指向的完整 ID 列；同一个完整 ID 只列一次，设过的排前面。
-func TestEffortRowsUseResolvedModel(t *testing.T) {
+// 思考强度页按 Model.ID 列：同一个 ID 只列一次，没有 ID 的不列，设过的排前面。
+func TestEffortRowsByModelID(t *testing.T) {
 	f := newFixture(t, Options{})
 	f.page.SetModelChoices([]Model{
-		{Value: "opus", Label: "Opus 5.5", Resolved: "claude-opus-5-5"},
-		{Value: "opus[1m]", Label: "Opus 5.5 (1M)", Resolved: "claude-opus-5-5"},
-		{Value: "fable", Label: "Fable 5.2", Resolved: "claude-fable-5-2"},
+		{Value: "opus", Label: "Opus 5.5", ID: "claude-opus-5-5"},
+		{Value: "opus[1m]", Label: "Opus 5.5 (1M)", ID: "claude-opus-5-5"},
+		{Value: "fable", Label: "Fable 5.2", ID: "claude-fable-5-2"},
 		{Value: "haiku", Label: "Haiku"},
-		{Value: "claude-opus-4-6", Label: "Opus 4.6", Older: true},
+		{Value: "claude-opus-4-6", Label: "Opus 4.6", ID: "claude-opus-4-6", Older: true},
 	}, ModelSourceHarness, false)
 	d := coreapi.Defaults{Effort: "medium", Efforts: []coreapi.ModelEffort{{Model: "claude-fable-5-2", Level: "high"}}}
 	var got []string

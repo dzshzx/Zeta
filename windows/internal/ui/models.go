@@ -146,14 +146,22 @@ func (s *modelSource) choices() (latest, older []chat.ModelOption) {
 
 func deviceModelChoices(s *modelSource) []claudecfg.Model {
 	latest, older := s.choices()
+	relay := s.catalog.Relay != ""
 	var out []claudecfg.Model
+	add := func(m chat.ModelOption, older bool) {
+		id := m.FullID()
+		if relay { // 中转的 ID 没有统一写法，报什么就按什么设
+			id = m.Value
+		}
+		out = append(out, claudecfg.Model{Value: m.Value, Label: m.Name(), ID: id, Older: older})
+	}
 	for _, m := range latest {
 		if m.Value != chat.DefaultModel {
-			out = append(out, claudecfg.Model{Value: m.Value, Label: m.Name(), Resolved: m.ResolvedModel})
+			add(m, false)
 		}
 	}
 	for _, m := range older {
-		out = append(out, claudecfg.Model{Value: m.Value, Label: m.Name(), Resolved: m.ResolvedModel, Older: true})
+		add(m, true)
 	}
 	return out
 }

@@ -101,6 +101,15 @@ func newestUncovered(info []modelInfo) map[string]int {
 	return newest
 }
 
+// FullID 是这一项对应的完整模型 ID：value 本身是完整 ID 时就是它，别名（opus）是 Claude Code 报的 resolvedModel；
+// 都没有（「默认」没报指向谁、认不出的写法）时为空。
+func (m ModelOption) FullID() string {
+	if _, _, ok := modelSeries(m.Value); ok {
+		return m.Value
+	}
+	return m.ResolvedModel
+}
+
 var fullModelID = regexp.MustCompile(`^claude-([a-z]+)-(\d+(?:-\d{1,2})*)(?:-\d{8})?(\[1m\])?$`)
 
 // modelSeries 是完整模型 ID 的系列和版本：claude-opus-4-6 是 opus、[4 6]，claude-opus-5-5[1m] 是 opus[1m]、[5 5]；

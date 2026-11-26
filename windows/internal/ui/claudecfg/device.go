@@ -295,15 +295,15 @@ type effortRow struct {
 	model, title, value string
 }
 
-// effortRows：设过的模型、模型清单里的模型，最后是「其他模型」。Claude Code 的清单里各系列最新的是别名（opus），
-// 按它指向的完整 ID（claude-opus-5-5）列，同手机版 effortRows；同一个完整 ID 只列一次。
+// effortRows：设过的模型、模型清单里的模型（按 Model.ID，同手机版 effortRows），同一个 ID 只列一次，最后是「其他模型」。
 func (p *Page) effortRows(d coreapi.Defaults) []effortRow {
 	var rows []effortRow
 	// 中转的 ID 没有统一写法，用它报的名字；Claude Code 的完整 ID 按 ID 写。
-	harness := p.modelSource == ModelSourceHarness
 	name := func(id string) string {
-		if i := slices.IndexFunc(p.models, func(m Model) bool { return m.Value == id }); i >= 0 && !harness {
-			return p.models[i].Label
+		if p.modelSource != ModelSourceHarness {
+			if i := slices.IndexFunc(p.models, func(m Model) bool { return m.Value == id }); i >= 0 {
+				return p.models[i].Label
+			}
 		}
 		return chat.ReadableModel(id)
 	}
@@ -313,16 +313,9 @@ func (p *Page) effortRows(d coreapi.Defaults) []effortRow {
 		listed[e.Model] = true
 	}
 	for _, m := range p.models {
-		id := m.Value
-		if harness {
-			id = m.Resolved
-			if id == "" && strings.HasPrefix(m.Value, "claude-") {
-				id = m.Value
-			}
-		}
-		if id != "" && !listed[id] {
-			rows = append(rows, effortRow{id, name(id), ""})
-			listed[id] = true
+		if m.ID != "" && !listed[m.ID] {
+			rows = append(rows, effortRow{m.ID, name(m.ID), ""})
+			listed[m.ID] = true
 		}
 	}
 	return append(rows, effortRow{"", locales.ClaudecfgEffortOtherModels(), d.Effort})

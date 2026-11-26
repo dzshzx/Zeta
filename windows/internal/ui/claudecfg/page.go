@@ -27,10 +27,10 @@ type Options struct {
 }
 
 // Model 是一个可选的模型：Value 写进 settings.json，Label 给人看；Older 是旧版本，收在「更多模型」里。
-// Resolved 是 Claude Code 报的这一项现在指向的完整模型 ID（别名 opus 指向 claude-opus-5-5），思考强度按它设；中转和没报时为空。
+// ID 是思考强度按它设的完整模型 ID（别名 opus 对应 claude-opus-5-5，中转就是 Value）；不知道时为空，思考强度页不列。
 type Model struct {
-	Value, Label, Resolved string
-	Older                  bool
+	Value, Label, ID string
+	Older            bool
 }
 
 // ModelSourceKind 是这台设备的模型从哪来，决定默认模型下拉和思考强度页怎么列。

@@ -88,3 +88,21 @@ func TestReadableModel(t *testing.T) {
 		}
 	}
 }
+
+// FullID：完整 ID 就是它自己，别名看 Claude Code 报的 resolvedModel，都没有时为空。
+func TestModelFullID(t *testing.T) {
+	for _, c := range []struct {
+		m    ModelOption
+		want string
+	}{
+		{ModelOption{Value: "opus", ResolvedModel: "claude-opus-5-5"}, "claude-opus-5-5"},
+		{ModelOption{Value: "claude-opus-4-6"}, "claude-opus-4-6"},
+		{ModelOption{Value: "claude-opus-5-5[1m]", ResolvedModel: "claude-opus-5-5"}, "claude-opus-5-5[1m]"},
+		{ModelOption{Value: "haiku"}, ""},
+		{ModelOption{Value: "claude-foo"}, ""},
+	} {
+		if got := c.m.FullID(); got != c.want {
+			t.Errorf("%+v.FullID() = %q，要 %q", c.m, got, c.want)
+		}
+	}
+}
