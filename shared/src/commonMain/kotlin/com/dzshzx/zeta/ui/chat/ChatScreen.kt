@@ -88,12 +88,13 @@ import com.dzshzx.zeta.ui.components.miuix.AnchoredMenu
 import com.dzshzx.zeta.ui.components.miuix.ConfirmDialog
 import com.dzshzx.zeta.ui.components.miuix.IconActionButton
 import com.dzshzx.zeta.ui.components.miuix.LocalInGlassTopBar
+import com.dzshzx.zeta.ui.components.miuix.MenuEntry
+import com.dzshzx.zeta.ui.components.miuix.MenuItem
 import com.dzshzx.zeta.ui.components.miuix.PageBlurHost
 import com.dzshzx.zeta.ui.components.miuix.TextInputDialog
 import com.dzshzx.zeta.ui.components.miuix.TopBarMoreMenu
 import com.dzshzx.zeta.ui.components.miuix.ZetaCorner
 import com.dzshzx.zeta.ui.components.miuix.ZetaIcons
-import com.dzshzx.zeta.ui.components.miuix.menuItem
 import com.dzshzx.zeta.ui.components.miuix.pageBlurSource
 import com.dzshzx.zeta.ui.components.miuix.rememberPageBlur
 import com.dzshzx.zeta.ui.components.rememberRetained
@@ -112,7 +113,6 @@ import kotlinx.coroutines.flow.drop
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import top.yukonga.miuix.kmp.basic.ButtonDefaults
-import top.yukonga.miuix.kmp.basic.DropdownEntry
 import top.yukonga.miuix.kmp.basic.Icon
 import top.yukonga.miuix.kmp.basic.Scaffold
 import top.yukonga.miuix.kmp.basic.Text
@@ -1082,23 +1082,23 @@ private fun OverflowMenu(
 ) {
     TopBarMoreMenu(
         listOf(
-            DropdownEntry(
+            MenuEntry(
                 items =
                     listOf(
-                        menuItem(Strings.chatNewChat(), ZetaIcons.NewChat, onNewChat),
-                        menuItem(
+                        MenuItem(Strings.chatNewChat(), ZetaIcons.NewChat, onNewChat),
+                        MenuItem(
                             Strings.chatEndChat(),
                             ZetaIcons.Exit,
                             { onEnd?.invoke() },
                             enabled = onEnd != null,
                         ),
-                        menuItem(
+                        MenuItem(
                             Strings.chatFindInChat(),
                             MiuixIcons.Search,
                             { onFind?.invoke() },
                             enabled = onFind != null,
                         ),
-                        menuItem(Strings.chatSettings(), MiuixIcons.Settings, onOpenSettings),
+                        MenuItem(Strings.chatSettings(), MiuixIcons.Settings, onOpenSettings),
                     ),
             ),
         ),

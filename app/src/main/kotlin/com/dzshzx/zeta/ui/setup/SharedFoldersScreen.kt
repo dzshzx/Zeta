@@ -47,6 +47,8 @@ import com.dzshzx.zeta.ui.components.MonoFont
 import com.dzshzx.zeta.ui.components.miuix.ConfirmDialog
 import com.dzshzx.zeta.ui.components.miuix.DialogTextField
 import com.dzshzx.zeta.ui.components.miuix.DropdownValuePreference
+import com.dzshzx.zeta.ui.components.miuix.MenuEntry
+import com.dzshzx.zeta.ui.components.miuix.MenuItem
 import com.dzshzx.zeta.ui.components.miuix.MiuixPage
 import com.dzshzx.zeta.ui.components.miuix.PreferenceGroup
 import kotlinx.coroutines.Dispatchers
@@ -54,8 +56,6 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import top.yukonga.miuix.kmp.basic.BasicComponent
 import top.yukonga.miuix.kmp.basic.BasicComponentDefaults
-import top.yukonga.miuix.kmp.basic.DropdownEntry
-import top.yukonga.miuix.kmp.basic.DropdownItem
 import top.yukonga.miuix.kmp.basic.Icon
 import top.yukonga.miuix.kmp.basic.InfiniteProgressIndicator
 import top.yukonga.miuix.kmp.basic.Text
@@ -307,18 +307,19 @@ internal fun SharedFoldersScreen(hub: ConversationHub, onBack: () -> Unit) {
                             value = folderState(folder, present, access, checking),
                             entries =
                                 listOf(
-                                    DropdownEntry(
+                                    MenuEntry(
                                         items =
                                             listOf(
-                                                DropdownItem(
+                                                MenuItem(
                                                     text = Strings.setupSharedCopyMountPoint(),
                                                     onClick = {
                                                         copyLinuxPath(context, folder.mountPoint)
                                                     },
                                                 ),
-                                                DropdownItem(
+                                                MenuItem(
                                                     text = Strings.setupSharedRemoveConfirm(),
                                                     onClick = { removing = folder },
+                                                    alert = true,
                                                 ),
                                             ),
                                     ),

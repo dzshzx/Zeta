@@ -79,13 +79,13 @@ import com.dzshzx.zeta.ui.app.ZetaTheme
 import com.dzshzx.zeta.ui.components.miuix.ConfirmDialog
 import com.dzshzx.zeta.ui.components.miuix.FlatIconButton
 import com.dzshzx.zeta.ui.components.miuix.IconActionButton
+import com.dzshzx.zeta.ui.components.miuix.MenuEntry
+import com.dzshzx.zeta.ui.components.miuix.MenuItem
 import com.dzshzx.zeta.ui.components.miuix.PageBlurHost
 import com.dzshzx.zeta.ui.components.miuix.TopBarMoreMenu
 import com.dzshzx.zeta.ui.components.miuix.ZetaIcons
 import com.dzshzx.zeta.ui.components.miuix.pageBlurSource
 import com.dzshzx.zeta.ui.components.miuix.rememberPageBlur
-import top.yukonga.miuix.kmp.basic.DropdownEntry
-import top.yukonga.miuix.kmp.basic.DropdownItem
 import top.yukonga.miuix.kmp.basic.Icon
 import top.yukonga.miuix.kmp.basic.Scaffold
 import top.yukonga.miuix.kmp.basic.Text
@@ -260,10 +260,10 @@ private fun BrowserToolbar(
         }
         TopBarMoreMenu(
             listOf(
-                DropdownEntry(
+                MenuEntry(
                     items =
                         listOf(
-                            DropdownItem(
+                            MenuItem(
                                 text = Strings.browserClearData(),
                                 onClick = onClearData,
                             ),

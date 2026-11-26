@@ -43,6 +43,7 @@ import com.dzshzx.zeta.ui.components.SlideInPage
 import com.dzshzx.zeta.ui.components.StatusWarning
 import com.dzshzx.zeta.ui.components.miuix.CardListSegment
 import com.dzshzx.zeta.ui.components.miuix.ConfirmDialog
+import com.dzshzx.zeta.ui.components.miuix.DropdownPreference
 import com.dzshzx.zeta.ui.components.miuix.FooterHint
 import com.dzshzx.zeta.ui.components.miuix.IconActionButton
 import com.dzshzx.zeta.ui.components.miuix.MiuixPage
@@ -62,7 +63,6 @@ import top.yukonga.miuix.kmp.icon.MiuixIcons
 import top.yukonga.miuix.kmp.icon.extended.Delete
 import top.yukonga.miuix.kmp.icon.extended.Refresh
 import top.yukonga.miuix.kmp.preference.ArrowPreference
-import top.yukonga.miuix.kmp.preference.OverlayDropdownPreference
 import top.yukonga.miuix.kmp.theme.MiuixTheme
 
 /** 诊断页里再往下的一层。 */
@@ -367,7 +367,7 @@ private fun DiagLogPage(entries: List<DiagEntry>, onBack: () -> Unit) {
         item(key = "filters") {
             PreferenceGroup {
                 item {
-                    OverlayDropdownPreference(
+                    DropdownPreference(
                         title = Strings.diagFilterTopic(),
                         items = topics.map { it?.label ?: Strings.diagFilterAll() },
                         selectedIndex = topicIndex,
@@ -375,7 +375,7 @@ private fun DiagLogPage(entries: List<DiagEntry>, onBack: () -> Unit) {
                     )
                 }
                 item {
-                    OverlayDropdownPreference(
+                    DropdownPreference(
                         title = Strings.diagFilterLevel(),
                         items =
                             listOf(

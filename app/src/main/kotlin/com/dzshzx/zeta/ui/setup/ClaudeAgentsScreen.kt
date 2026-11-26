@@ -28,6 +28,7 @@ import com.dzshzx.zeta.i18n.Strings
 import com.dzshzx.zeta.ui.components.SlideInPage
 import com.dzshzx.zeta.ui.components.fill8
 import com.dzshzx.zeta.ui.components.miuix.ConfirmDialog
+import com.dzshzx.zeta.ui.components.miuix.DropdownPreference
 import com.dzshzx.zeta.ui.components.miuix.FieldGroup
 import com.dzshzx.zeta.ui.components.miuix.FooterHint
 import com.dzshzx.zeta.ui.components.miuix.IconActionButton
@@ -44,7 +45,6 @@ import top.yukonga.miuix.kmp.basic.TextButton
 import top.yukonga.miuix.kmp.icon.MiuixIcons
 import top.yukonga.miuix.kmp.icon.extended.Add
 import top.yukonga.miuix.kmp.preference.CheckboxPreference
-import top.yukonga.miuix.kmp.preference.OverlayDropdownPreference
 import top.yukonga.miuix.kmp.preference.SwitchPreference
 import top.yukonga.miuix.kmp.squircle.squircleBackground
 import top.yukonga.miuix.kmp.theme.MiuixTheme
@@ -451,7 +451,7 @@ private fun AgentModelGroup(model: String, enabled: Boolean, onModelChange: (Str
             val options =
                 if (ModelOptions.any { it.first.equals(model, ignoreCase = true) }) ModelOptions
                 else ModelOptions + (model to model)
-            OverlayDropdownPreference(
+            DropdownPreference(
                 items = options.map { it.second },
                 selectedIndex = options.indexOfFirst { it.first.equals(model, ignoreCase = true) },
                 title = Strings.setupAgentsModel(),

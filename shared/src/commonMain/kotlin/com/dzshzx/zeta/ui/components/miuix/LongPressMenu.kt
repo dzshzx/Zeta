@@ -17,7 +17,6 @@ import androidx.compose.ui.input.pointer.isSecondaryPressed
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalHapticFeedback
 import kotlinx.coroutines.withTimeoutOrNull
-import top.yukonga.miuix.kmp.basic.DropdownEntry
 
 // 长按手势照 COUI 2 的 OverlayContextMenu.kt（Apache-2.0，Copyright 2026 compose-coui-ui
 // contributors，https://github.com/suqi8/coui）。
@@ -29,7 +28,7 @@ import top.yukonga.miuix.kmp.basic.DropdownEntry
  */
 @Composable
 fun LongPressMenu(
-    entries: List<DropdownEntry>,
+    entries: List<MenuEntry>,
     modifier: Modifier = Modifier,
     enabled: Boolean = true,
     content: @Composable () -> Unit,

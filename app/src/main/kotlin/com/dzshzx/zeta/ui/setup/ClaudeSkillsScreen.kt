@@ -23,6 +23,8 @@ import com.dzshzx.zeta.core.claude.SyncedSkill
 import com.dzshzx.zeta.core.clipLine
 import com.dzshzx.zeta.i18n.Strings
 import com.dzshzx.zeta.ui.components.miuix.ConfirmDialog
+import com.dzshzx.zeta.ui.components.miuix.MenuEntry
+import com.dzshzx.zeta.ui.components.miuix.MenuItem
 import com.dzshzx.zeta.ui.components.miuix.MiuixPage
 import com.dzshzx.zeta.ui.components.miuix.NoticeDialog
 import com.dzshzx.zeta.ui.components.miuix.PreferenceGroup
@@ -32,8 +34,6 @@ import com.dzshzx.zeta.ui.components.miuix.SwitchLoadingPreference
 import com.dzshzx.zeta.ui.components.rememberRetained
 import java.io.IOException
 import top.yukonga.miuix.kmp.basic.BasicComponent
-import top.yukonga.miuix.kmp.basic.DropdownEntry
-import top.yukonga.miuix.kmp.basic.DropdownItem
 import top.yukonga.miuix.kmp.basic.InfiniteProgressIndicator
 
 /** ZIP 读进内存再交给那台的核心；Skill 包一般很小，太大的多半选错了文件。 */
@@ -347,22 +347,23 @@ private fun SkillRow(
                 contentDescription = Strings.setupClaudeMoreFor(skill.name),
                 entries =
                     listOf(
-                        DropdownEntry(
+                        MenuEntry(
                             items =
                                 listOf(
-                                    DropdownItem(
+                                    MenuItem(
                                         text = Strings.setupSkillsShowDescription(),
                                         onClick = onDescribe,
                                     ),
                                 ),
                         ),
-                        DropdownEntry(
+                        MenuEntry(
                             items =
                                 listOf(
-                                    DropdownItem(
+                                    MenuItem(
                                         text = Strings.setupClaudeDelete(),
                                         enabled = enabled,
                                         onClick = { if (enabled) onDelete() },
+                                        alert = true,
                                     ),
                                 ),
                         ),

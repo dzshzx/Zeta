@@ -6,8 +6,8 @@ import com.dzshzx.zeta.core.ModelOption
 import com.dzshzx.zeta.core.modelLabel
 import com.dzshzx.zeta.core.modelMenu
 import com.dzshzx.zeta.i18n.Strings
-import top.yukonga.miuix.kmp.basic.DropdownEntry
-import top.yukonga.miuix.kmp.basic.DropdownItem
+import com.dzshzx.zeta.ui.components.miuix.MenuEntry
+import com.dzshzx.zeta.ui.components.miuix.MenuItem
 
 /** [models]（一般是 [ConversationHub.modelOptions]）里可选的模型，值和显示名，按 [modelMenu] 分两层。 */
 fun modelChoices(models: List<ModelOption>): ModelMenu<Pair<String, String>> =
@@ -19,9 +19,9 @@ fun <V> choiceEntries(
     more: List<Pair<V, String>>,
     selected: V?,
     onPick: (V) -> Unit,
-): List<DropdownEntry> {
+): List<MenuEntry> {
     fun item(choice: Pair<V, String>) =
-        DropdownItem(
+        MenuItem(
             text = choice.second,
             selected = choice.first == selected,
             onClick = { onPick(choice.first) },
@@ -30,11 +30,11 @@ fun <V> choiceEntries(
         more
             .takeIf { it.isNotEmpty() }
             ?.let { choices ->
-                DropdownItem(
+                MenuItem(
                     text = Strings.settingsModelMore(),
                     summary = choices.firstOrNull { it.first == selected }?.second,
                     children = choices.map(::item),
                 )
             }
-    return listOf(DropdownEntry(items = top.map(::item) + listOfNotNull(older)))
+    return listOf(MenuEntry(items = top.map(::item) + listOfNotNull(older)))
 }

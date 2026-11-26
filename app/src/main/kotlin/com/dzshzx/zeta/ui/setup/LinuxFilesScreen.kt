@@ -60,12 +60,13 @@ import com.dzshzx.zeta.ui.components.SlideInPage
 import com.dzshzx.zeta.ui.components.miuix.CardListSegment
 import com.dzshzx.zeta.ui.components.miuix.FooterHint
 import com.dzshzx.zeta.ui.components.miuix.LongPressMenu
+import com.dzshzx.zeta.ui.components.miuix.MenuEntry
+import com.dzshzx.zeta.ui.components.miuix.MenuItem
 import com.dzshzx.zeta.ui.components.miuix.MiuixPage
 import com.dzshzx.zeta.ui.components.miuix.PreferenceGroup
 import com.dzshzx.zeta.ui.components.miuix.PreferenceValue
 import com.dzshzx.zeta.ui.components.miuix.TopBarMoreMenu
 import com.dzshzx.zeta.ui.components.miuix.ZetaIcons
-import com.dzshzx.zeta.ui.components.miuix.menuItem
 import java.time.Instant
 import java.time.ZoneId
 import java.time.format.DateTimeFormatter
@@ -73,7 +74,6 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import top.yukonga.miuix.kmp.basic.BasicComponent
 import top.yukonga.miuix.kmp.basic.BasicComponentDefaults
-import top.yukonga.miuix.kmp.basic.DropdownEntry
 import top.yukonga.miuix.kmp.basic.Icon
 import top.yukonga.miuix.kmp.basic.InfiniteProgressIndicator
 import top.yukonga.miuix.kmp.basic.LinearProgressIndicator
@@ -326,35 +326,35 @@ private fun BrowserMenu(
 ) {
     TopBarMoreMenu(
         listOf(
-            DropdownEntry(
+            MenuEntry(
                 items =
                     listOf(
-                        menuItem(
+                        MenuItem(
                             Strings.setupLinuxFilesImportHere(),
                             MiuixIcons.Import,
                             onImport,
                             enabled = !LinuxTransfers.running,
                         ),
-                        menuItem(Strings.setupLinuxFilesRefresh(), MiuixIcons.Refresh, onRefresh),
+                        MenuItem(Strings.setupLinuxFilesRefresh(), MiuixIcons.Refresh, onRefresh),
                     ),
             ),
-            DropdownEntry(
+            MenuEntry(
                 items =
                     listOf(
-                        menuItem(
+                        MenuItem(
                             Strings.setupLinuxFilesWorkDir(),
                             ZetaIcons.FolderStar,
                             { onGo(start) },
                         ),
-                        menuItem(Strings.setupLinuxFilesHome(), ZetaIcons.Home, { onGo(home) }),
-                        menuItem("/workspace", MiuixIcons.GridView, { onGo("/workspace") }),
-                        menuItem(Strings.setupLinuxFilesRoot(), ZetaIcons.Storage, { onGo("/") }),
+                        MenuItem(Strings.setupLinuxFilesHome(), ZetaIcons.Home, { onGo(home) }),
+                        MenuItem("/workspace", MiuixIcons.GridView, { onGo("/workspace") }),
+                        MenuItem(Strings.setupLinuxFilesRoot(), ZetaIcons.Storage, { onGo("/") }),
                     ),
             ),
-            DropdownEntry(
+            MenuEntry(
                 items =
                     listOf(
-                        menuItem(
+                        MenuItem(
                             Strings.setupLinuxFilesCopyCurrentPath(),
                             MiuixIcons.Copy,
                             onCopyPath,
@@ -370,17 +370,17 @@ private fun BrowserMenu(
 private fun PreviewMenu(exportable: Boolean, onExport: () -> Unit, onCopyPath: () -> Unit) {
     TopBarMoreMenu(
         listOf(
-            DropdownEntry(
+            MenuEntry(
                 items =
                     listOfNotNull(
-                        menuItem(
+                        MenuItem(
                                 Strings.setupLinuxFilesExport(),
                                 MiuixIcons.Download,
                                 onExport,
                                 enabled = !LinuxTransfers.running,
                             )
                             .takeIf { exportable },
-                        menuItem(Strings.setupLinuxFilesCopyPath(), MiuixIcons.Copy, onCopyPath),
+                        MenuItem(Strings.setupLinuxFilesCopyPath(), MiuixIcons.Copy, onCopyPath),
                     ),
             ),
         ),
@@ -597,9 +597,9 @@ private fun EntryRow(
         }
     val actions =
         listOfNotNull(
-            menuItem(Strings.setupLinuxFilesCopyPath(), MiuixIcons.Copy, onCopyPath),
+            MenuItem(Strings.setupLinuxFilesCopyPath(), MiuixIcons.Copy, onCopyPath),
             onExport?.let {
-                menuItem(
+                MenuItem(
                     Strings.setupLinuxFilesExport(),
                     MiuixIcons.Download,
                     it,
@@ -610,7 +610,7 @@ private fun EntryRow(
     val startAction: @Composable () -> Unit = {
         RowIcon(icon, if (entry.directory) colors.primary else colors.onBackgroundVariant)
     }
-    LongPressMenu(entries = listOf(DropdownEntry(items = actions))) {
+    LongPressMenu(entries = listOf(MenuEntry(items = actions))) {
         // 目录点进去是下一层，带箭头；文件点开是预览
         if (entry.directory) {
             ArrowPreference(

@@ -30,7 +30,7 @@ private class PreferenceGroupScopeImpl : PreferenceGroupScope {
 
 /**
  * 设置页的一组：分类标题、圆角卡片里的一组设置行、卡片下面的说明文字。行用 Miuix 的设置项（SwitchPreference、ArrowPreference、
- * OverlayDropdownPreference、BasicComponent……）写在 `item { }` 里；HyperOS 的卡片里行与行之间不画分隔线。
+ * DropdownPreference、BasicComponent……）写在 `item { }` 里；HyperOS 的卡片里行与行之间不画分隔线。
  */
 @Composable
 fun PreferenceGroup(

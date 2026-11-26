@@ -20,7 +20,7 @@ Miuix 没有的才在 `ui/components/miuix` 补，页面文件里不各写一份
 - `DropdownValuePreference`：右边显示这一行自己的值，点开弹出操作菜单。
 - `FieldGroup`、`SwitchWithDividerPreference`、`SwitchLoadingPreference`（`InputRows.kt`）：编辑页里的一个输入项（小标题、直接放在页面上的输入框、下面的说明，照 Eta 的角色编辑页；输入框自带底色，不套卡片）；点行进编辑页、右边开关单独管的行（开关前一条竖线）；开关在等异步结果时换成转圈的行。
 - `IconActionButton`、`FlatIconButton`、`CopyIconButton`（`IconActionButton.kt`）：只放一个图标的按钮。`IconActionButton` 参数照 Miuix 的 `IconButton`（顶栏的新建、刷新、返回，在顶栏里是玻璃圆钮）；`FlatIconButton(size, iconSize)` 是平的小圆钮（查找栏、消息下方、排队条）；`CopyIconButton` 是点了复制、短暂显示对勾的复制键。图标按钮都从这三个建，不直接用 Miuix 的 `IconButton`、`GlassIconButton`。
-- `menuItem`、`AnchoredMenu`、`TopBarMoreMenu`、`RowMoreMenu`（`Menus.kt`）、`LongPressMenu`：带图标的菜单项；挂在胶囊、按钮、标题上的下拉菜单；顶栏和列表行里的「更多」；长按内容弹出的菜单（不吃掉普通点按）。
+- `MenuItem`、`MenuEntry`、`AnchoredMenu`、`GlassMenu`、`TopBarMoreMenu`、`RowMoreMenu`（`Menus.kt`）、`LongPressMenu`：菜单的一项和一组；挂在胶囊、按钮、标题上的玻璃菜单（照 Eta：Miuix 的 `GlassPopup` 和 `GlassPopupItem`，图标在文字前，警示项文字和图标都是红色，二级菜单是 `GlassSecondaryPopup`）；顶栏和列表行里的「更多」；长按内容弹出的菜单（不吃掉普通点按）。
 - `PageDialog`、`ConfirmDialog`、`NoticeDialog`、`TextInputDialog`、`DialogTextField`、`DialogButtonBar`（`Dialogs.kt`）：玻璃对话框（模糊页面背景），对话框里带标题的输入框，对话框底部平分整行的按钮栏（`DialogButtonBarAction`：`recommended` 主题色、`destructive` 红色）。
 - `TextField`（`TextFields.kt`）：参数照 Miuix 的 `TextField`，加了 `showClearButton`，光标由 Zeta 管（见「补上游缺口」）；应用代码里的输入框都用它。
 - `CompactButton`、`TopBarTextButton`、`LinkText`：卡片里、列表行里的小号文字按钮；顶栏右边的文字按钮（保存）；一句可点的主题色文字（对话框、卡片里不值得占一个按钮的次要操作）。
@@ -56,10 +56,9 @@ Miuix 没有的才在 `ui/components/miuix` 补，页面文件里不各写一份
 
 ## 补上游缺口
 
-下面三处是 Miuix 的缺口，Zeta 在本地补着。`MiuixGapsTest` 断言缺口还在：升级 Miuix 后它哪条失败，说明上游已经补上，删掉对应的补丁和那条断言。
+下面两处是 Miuix 的缺口，Zeta 在本地补着。`MiuixGapsTest` 断言缺口还在：升级 Miuix 后它哪条失败，说明上游已经补上，删掉对应的补丁和那条断言。
 
 - 图标按钮不能点时不变灰，也没有按钮角色（`IconButtonContainer` 不给内容提供 `LocalContentColor`，禁用时不加 `clickable`）。补在 `IconActionButton`：自己换 tint，补上按钮角色和「已停用」。
-- 菜单行给文字上色却不给图标上色（图标槽没有 `LocalContentColor`）。补在 `menuItem`：图标颜色照 `DropdownColors` 按可用、警示状态取。
 - 输入框 `TextField` 的 String 版本把光标初始化在开头，文字从外面改了（清除按钮、调用方重设）以后光标也不跟到末尾：自动聚焦的输入框里打的字插到原有内容前面，点清除后打完第一个字光标又跳回开头。补在 `TextField`（`TextFields.kt`）：用 Miuix 的 TextFieldValue 版本，光标自己管；`TextInputDialog`、`DialogTextField`、`FieldGroup` 里的输入框都用它。应用代码不直接用 Miuix 的 `TextField`（`TextFieldSourcesTest` 断言）。`MiuixGapsTest` 只测得出第一个现象；第二个现象要真的输入法才出现，在设备上验：打开「外观与主题 › 界面缩放」，点清除，依次输入 9、5，应是 95（有缺口时是 59）。
 
 ## 图标
@@ -74,7 +73,7 @@ Miuix 没有的才在 `ui/components/miuix` 补，页面文件里不各写一份
 | 设置页 | `MiuixPage(title, onBack, dialogs = { 对话框 }) { item { PreferenceGroup(title, footer) { item { 行 } } } }`，首页和子页的分别见上面「设置页」 |
 | 点了进别的页 | `ArrowPreference` |
 | 点了执行操作、开对话框 | `BasicComponent(onClick = …)`（不带箭头），右侧值 `endActions = { PreferenceValue(…) }` |
-| 开关、勾选、单选、下拉选一个、滑杆 | `SwitchPreference`（加载中 `SwitchLoadingPreference`）、`CheckboxPreference`、`RadioButtonPreference`、`OverlayDropdownPreference`、`SliderPreference` |
+| 开关、勾选、单选、下拉选一个、滑杆 | `SwitchPreference`（加载中 `SwitchLoadingPreference`）、`CheckboxPreference`、`RadioButtonPreference`、`DropdownPreference`（Miuix 的玻璃下拉行，自己带上页面背景）、`SliderPreference` |
 | 列表行带开关、点行进编辑页 | `SwitchWithDividerPreference` |
 | 分组标题、页面底部说明 | `SmallTitle`、`FooterHint` |
 | 两三个选项切换 | `TabRowWithContour(tabs, selectedTabIndex, onTabSelected)`；它没有不可用的样子，忙着时在 `onTabSelected` 里忽略点击 |
@@ -87,8 +86,8 @@ Miuix 没有的才在 `ui/components/miuix` 补，页面文件里不各写一份
 | 自定义对话框 | `PageDialog(customContent = { 内容，左右留 DialogContentPadding }) { DialogButtonBar(…) }`，主操作 `DialogButtonBarAction(…, recommended = true)` |
 | 「更多」菜单 | 顶栏 `TopBarMoreMenu(entries)`，列表行 `RowMoreMenu(说明, entries)` |
 | 长按菜单 | `LongPressMenu(entries) { 内容 }` |
-| 菜单项、挂在别的元素上的菜单 | `menuItem(文字, 图标, onClick)`（图标颜色跟着可用、警示状态，带图标的菜单项都从它建）；`Box { 元素; AnchoredMenu(show, entries, onDismiss) }`，元素和菜单同在一个 `Box` 里 |
-| 二级菜单（如模型菜单的「更多模型」） | 那一项写 `DropdownItem(文字, summary = 选中的子项, children = 子项)`；`AnchoredMenu`（`DropdownValuePreference` 也用它）是 Miuix 的级联弹层，点那一项在旁边弹出下一层；两层的选择菜单用 `choiceEntries` |
+| 菜单项、挂在别的元素上的菜单 | `MenuItem(文字, 图标, onClick)`，删除这类 `alert = true`；`Box { 元素; AnchoredMenu(show, entries, onDismiss) }`，元素和菜单同在一个 `Box` 里；锚是整行、拿不到 `Box` 时用 `GlassMenu(show, entries, anchorBounds, onDismiss)` |
+| 二级菜单（如模型菜单的「更多模型」） | 那一项写 `MenuItem(文字, summary = 选中的子项, children = 子项)`，点它在旁边弹出下一层（`GlassSecondaryPopup`，头一行点了回到上一层）；两层的选择菜单用 `choiceEntries` |
 
 ## 坑
 

@@ -36,23 +36,24 @@ import com.dzshzx.zeta.ui.components.SlideInPage
 import com.dzshzx.zeta.ui.components.miuix.CompactButton
 import com.dzshzx.zeta.ui.components.miuix.ConfirmDialog
 import com.dzshzx.zeta.ui.components.miuix.DialogTextField
+import com.dzshzx.zeta.ui.components.miuix.DropdownPreference
+import com.dzshzx.zeta.ui.components.miuix.DropdownValuePreference
 import com.dzshzx.zeta.ui.components.miuix.FooterHint
 import com.dzshzx.zeta.ui.components.miuix.IconActionButton
+import com.dzshzx.zeta.ui.components.miuix.MenuEntry
+import com.dzshzx.zeta.ui.components.miuix.MenuItem
 import com.dzshzx.zeta.ui.components.miuix.MiuixPage
 import com.dzshzx.zeta.ui.components.miuix.PreferenceGroup
 import com.dzshzx.zeta.ui.components.miuix.PreferenceGroupScope
 import com.dzshzx.zeta.ui.components.miuix.PreferenceValue
 import com.dzshzx.zeta.ui.components.rememberRetained
 import top.yukonga.miuix.kmp.basic.BasicComponent
-import top.yukonga.miuix.kmp.basic.DropdownEntry
-import top.yukonga.miuix.kmp.basic.DropdownItem
 import top.yukonga.miuix.kmp.basic.TabRowWithContour
 import top.yukonga.miuix.kmp.basic.Text
 import top.yukonga.miuix.kmp.icon.MiuixIcons
 import top.yukonga.miuix.kmp.icon.extended.Add
 import top.yukonga.miuix.kmp.icon.extended.Refresh
 import top.yukonga.miuix.kmp.preference.ArrowPreference
-import top.yukonga.miuix.kmp.preference.OverlayDropdownPreference
 import top.yukonga.miuix.kmp.theme.MiuixTheme
 
 /**
@@ -106,7 +107,7 @@ private fun ToolRow(
     enabled: Boolean,
     onChoose: (PermissionBehavior?) -> Unit,
 ) {
-    OverlayDropdownPreference(
+    DropdownPreference(
         items = ChoiceLabels,
         selectedIndex = Choices.indexOf(own),
         title = title,
@@ -530,31 +531,35 @@ private fun RuleRow(
     onDelete: () -> Unit,
 ) {
     // 右边显示它在哪张表；菜单里换表、编辑、删除
-    OverlayDropdownPreference(
+    DropdownValuePreference(
         entries =
             listOf(
-                DropdownEntry(
+                MenuEntry(
                     items =
                         PermissionBehavior.entries.map {
-                            DropdownItem(
+                            MenuItem(
                                 text = behaviorLabel(it),
                                 selected = it == rule.behavior,
                                 onClick = { if (it != rule.behavior) onMove(it) },
                             )
                         },
                 ),
-                DropdownEntry(
+                MenuEntry(
                     items =
                         listOf(
-                            DropdownItem(text = Strings.setupToolPermEditMenu(), onClick = onEdit),
-                            DropdownItem(text = Strings.setupClaudeDelete(), onClick = onDelete),
+                            MenuItem(text = Strings.setupToolPermEditMenu(), onClick = onEdit),
+                            MenuItem(
+                                text = Strings.setupClaudeDelete(),
+                                onClick = onDelete,
+                                alert = true,
+                            ),
                         ),
                 ),
             ),
         title = rule.rule,
         summary = if (malformed) Strings.setupToolPermMalformed() else null,
+        value = behaviorLabel(rule.behavior),
         enabled = enabled,
-        collapseOnSelection = true,
     )
 }
 

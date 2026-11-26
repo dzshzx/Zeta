@@ -48,10 +48,10 @@ import com.dzshzx.zeta.i18n.Strings
 import com.dzshzx.zeta.ui.components.StatusWarning
 import com.dzshzx.zeta.ui.components.isDark
 import com.dzshzx.zeta.ui.components.miuix.ConfirmDialog
+import com.dzshzx.zeta.ui.components.miuix.MenuEntry
+import com.dzshzx.zeta.ui.components.miuix.MenuItem
 import com.dzshzx.zeta.ui.components.miuix.ZetaIcons
 import com.dzshzx.zeta.ui.components.success
-import top.yukonga.miuix.kmp.basic.DropdownEntry
-import top.yukonga.miuix.kmp.basic.DropdownItem
 import top.yukonga.miuix.kmp.basic.Icon
 import top.yukonga.miuix.kmp.basic.Text
 import top.yukonga.miuix.kmp.theme.MiuixTheme
@@ -77,20 +77,20 @@ fun EffortChip(
         remember(defaultText, effort) {
             val items =
                 listOf(
-                    DropdownItem(
+                    MenuItem(
                         text = defaultText,
                         selected = effort == null,
                         onClick = { choose(null) },
                     ),
                 ) +
                     EffortLevels.map { (value, label) ->
-                        DropdownItem(
+                        MenuItem(
                             text = label,
                             selected = value == effort,
                             onClick = { choose(value) },
                         )
                     }
-            listOf(DropdownEntry(items = items))
+            listOf(MenuEntry(items = items))
         }
     // 第几档，从 1 数；不知道是哪档时为 0
     val level = EffortLevels.indexOfFirst { it.first == (effort ?: applied) } + 1

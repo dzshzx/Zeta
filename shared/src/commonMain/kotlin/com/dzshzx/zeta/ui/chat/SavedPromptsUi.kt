@@ -34,13 +34,13 @@ import com.dzshzx.zeta.core.SavedPrompts
 import com.dzshzx.zeta.i18n.Strings
 import com.dzshzx.zeta.ui.components.LocalHub
 import com.dzshzx.zeta.ui.components.miuix.ConfirmDialog
+import com.dzshzx.zeta.ui.components.miuix.MenuEntry
+import com.dzshzx.zeta.ui.components.miuix.MenuItem
 import com.dzshzx.zeta.ui.components.miuix.RowMoreMenu
 import com.dzshzx.zeta.ui.components.miuix.TextField
 import com.dzshzx.zeta.ui.components.miuix.ZetaIcons
-import com.dzshzx.zeta.ui.components.miuix.menuItem
 import com.dzshzx.zeta.ui.components.rememberRetained
 import java.util.UUID
-import top.yukonga.miuix.kmp.basic.DropdownEntry
 import top.yukonga.miuix.kmp.basic.Text
 import top.yukonga.miuix.kmp.icon.MiuixIcons
 import top.yukonga.miuix.kmp.icon.extended.Delete
@@ -244,21 +244,21 @@ private fun PromptRow(prompt: SavedPrompt, first: Boolean, last: Boolean, ui: Pr
     val entries =
         remember(first, last, ui) {
             listOf(
-                DropdownEntry(
+                MenuEntry(
                     items =
                         listOf(
-                            menuItem(
+                            MenuItem(
                                 Strings.composerEdit(),
                                 MiuixIcons.Edit,
                                 { ui.startEdit(current) },
                             ),
-                            menuItem(
+                            MenuItem(
                                 Strings.composerMoveUp(),
                                 ZetaIcons.ArrowUp,
                                 { ui.move(current, -1) },
                                 enabled = !first,
                             ),
-                            menuItem(
+                            MenuItem(
                                 Strings.composerMoveDown(),
                                 ZetaIcons.ArrowDown,
                                 { ui.move(current, 1) },
@@ -266,10 +266,10 @@ private fun PromptRow(prompt: SavedPrompt, first: Boolean, last: Boolean, ui: Pr
                             ),
                         ),
                 ),
-                DropdownEntry(
+                MenuEntry(
                     items =
                         listOf(
-                            menuItem(
+                            MenuItem(
                                 Strings.composerDelete(),
                                 MiuixIcons.Delete,
                                 { ui.askDelete(current) },

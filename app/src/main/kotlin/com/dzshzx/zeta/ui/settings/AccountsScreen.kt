@@ -30,8 +30,11 @@ import com.dzshzx.zeta.ui.chat.quotaFootnote
 import com.dzshzx.zeta.ui.chat.severityColor
 import com.dzshzx.zeta.ui.components.SlideInPage
 import com.dzshzx.zeta.ui.components.miuix.ConfirmDialog
+import com.dzshzx.zeta.ui.components.miuix.DropdownValuePreference
 import com.dzshzx.zeta.ui.components.miuix.FlatIconButton
 import com.dzshzx.zeta.ui.components.miuix.FooterHint
+import com.dzshzx.zeta.ui.components.miuix.MenuEntry
+import com.dzshzx.zeta.ui.components.miuix.MenuItem
 import com.dzshzx.zeta.ui.components.miuix.MiuixPage
 import com.dzshzx.zeta.ui.components.miuix.PreferenceGroup
 import com.dzshzx.zeta.ui.components.miuix.PreferenceValue
@@ -39,12 +42,9 @@ import com.dzshzx.zeta.ui.components.miuix.SettingsIcon
 import com.dzshzx.zeta.ui.components.rememberNow
 import com.dzshzx.zeta.ui.setup.LoginScreen
 import top.yukonga.miuix.kmp.basic.BasicComponent
-import top.yukonga.miuix.kmp.basic.DropdownEntry
-import top.yukonga.miuix.kmp.basic.DropdownItem
 import top.yukonga.miuix.kmp.icon.MiuixIcons
 import top.yukonga.miuix.kmp.icon.extended.ContactsBook
 import top.yukonga.miuix.kmp.icon.extended.Edit
-import top.yukonga.miuix.kmp.menu.OverlayDropdownMenu
 import top.yukonga.miuix.kmp.preference.ArrowPreference
 import top.yukonga.miuix.kmp.theme.MiuixTheme
 
@@ -348,17 +348,20 @@ private fun AccountRow(
         ValueRow(account.title, Strings.commonCurrent(), summary = summary)
         return
     }
-    OverlayDropdownMenu(
-        entry =
-            DropdownEntry(
-                listOf(
-                    DropdownItem(
-                        text = Strings.settingsAccountsSwitchTo(),
-                        onClick = { onSwitch(account) },
-                    ),
-                    DropdownItem(
-                        text = Strings.settingsAccountsRemove(),
-                        onClick = { onRemove(account) },
+    DropdownValuePreference(
+        entries =
+            listOf(
+                MenuEntry(
+                    listOf(
+                        MenuItem(
+                            text = Strings.settingsAccountsSwitchTo(),
+                            onClick = { onSwitch(account) },
+                        ),
+                        MenuItem(
+                            text = Strings.settingsAccountsRemove(),
+                            onClick = { onRemove(account) },
+                            alert = true,
+                        ),
                     ),
                 ),
             ),

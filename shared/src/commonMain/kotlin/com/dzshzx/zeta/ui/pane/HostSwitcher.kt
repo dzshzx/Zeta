@@ -25,9 +25,9 @@ import com.dzshzx.zeta.core.ConversationHub
 import com.dzshzx.zeta.core.RemoteHosts
 import com.dzshzx.zeta.i18n.Strings
 import com.dzshzx.zeta.ui.components.miuix.AnchoredMenu
+import com.dzshzx.zeta.ui.components.miuix.MenuEntry
+import com.dzshzx.zeta.ui.components.miuix.MenuItem
 import com.dzshzx.zeta.ui.components.miuix.ZetaIcons
-import com.dzshzx.zeta.ui.components.miuix.menuItem
-import top.yukonga.miuix.kmp.basic.DropdownEntry
 import top.yukonga.miuix.kmp.basic.Icon
 import top.yukonga.miuix.kmp.basic.Text
 import top.yukonga.miuix.kmp.theme.MiuixTheme
@@ -98,7 +98,7 @@ private fun hostMenu(
     forList: Boolean,
     all: Boolean,
     onSelected: () -> Unit,
-): List<DropdownEntry> {
+): List<MenuEntry> {
     val pick: (String) -> Unit = if (forList) hub::listOnly else hub::selectBackend
     val items =
         listOf(Triple(Backends.LOCAL, hub.backendName(Backends.LOCAL), RemoteHosts.LOCAL_SUMMARY)) +
@@ -110,10 +110,10 @@ private fun hostMenu(
                 )
             }
     val hosts =
-        DropdownEntry(
+        MenuEntry(
             items =
                 items.map { (id, name, summary) ->
-                    menuItem(
+                    MenuItem(
                             name,
                             hostIcon(id),
                             onClick = {
@@ -137,10 +137,10 @@ fun allHostsLabel(): String = Strings.sidebarAllDevices()
 
 /** 菜单里「全部设备」那一组；[selected] 是正列着全部设备。 */
 private fun allHostsEntry(selected: Boolean, onClick: () -> Unit) =
-    DropdownEntry(
+    MenuEntry(
         items =
             listOf(
-                menuItem(allHostsLabel(), ZetaIcons.Globe, onClick = onClick)
+                MenuItem(allHostsLabel(), ZetaIcons.Globe, onClick = onClick)
                     .copy(selected = selected, summary = Strings.sidebarAllDevicesSummary()),
             ),
     )

@@ -67,8 +67,9 @@ import com.dzshzx.zeta.ui.components.isDark
 import com.dzshzx.zeta.ui.components.miuix.CopyIconButton
 import com.dzshzx.zeta.ui.components.miuix.FlatIconButton
 import com.dzshzx.zeta.ui.components.miuix.LongPressMenu
+import com.dzshzx.zeta.ui.components.miuix.MenuEntry
+import com.dzshzx.zeta.ui.components.miuix.MenuItem
 import com.dzshzx.zeta.ui.components.miuix.ZetaIcons
-import com.dzshzx.zeta.ui.components.miuix.menuItem
 import com.dzshzx.zeta.ui.components.pingPong
 import com.dzshzx.zeta.ui.components.rememberIndicatorClock
 import com.dzshzx.zeta.ui.components.success
@@ -81,7 +82,6 @@ import com.dzshzx.zeta.ui.markdown.StreamingMarkdown
 import com.dzshzx.zeta.ui.markdown.StreamingMarkdownStateCache
 import com.dzshzx.zeta.ui.markdown.findOccurrences
 import com.dzshzx.zeta.ui.markdown.staticMarkdownDocumentCache
-import top.yukonga.miuix.kmp.basic.DropdownEntry
 import top.yukonga.miuix.kmp.basic.Icon
 import top.yukonga.miuix.kmp.basic.Text
 import top.yukonga.miuix.kmp.icon.MiuixIcons
@@ -341,19 +341,19 @@ private fun userMenuEntries(
     onSave: (() -> Unit)?,
     onEdit: (() -> Unit)?,
     onDelete: (() -> Unit)?,
-): List<DropdownEntry> {
+): List<MenuEntry> {
     val main = buildList {
-        add(menuItem(Strings.chatCopy(), MiuixIcons.Copy, onCopy))
-        if (onSave != null) add(menuItem(Strings.chatSaveAsPrompt(), MiuixIcons.Favorites, onSave))
-        if (onEdit != null) add(menuItem(Strings.chatEdit(), MiuixIcons.Edit, onEdit))
+        add(MenuItem(Strings.chatCopy(), MiuixIcons.Copy, onCopy))
+        if (onSave != null) add(MenuItem(Strings.chatSaveAsPrompt(), MiuixIcons.Favorites, onSave))
+        if (onEdit != null) add(MenuItem(Strings.chatEdit(), MiuixIcons.Edit, onEdit))
     }
     val danger =
         if (onDelete != null) {
-            listOf(menuItem(Strings.chatDelete(), MiuixIcons.Delete, onDelete, alert = true))
+            listOf(MenuItem(Strings.chatDelete(), MiuixIcons.Delete, onDelete, alert = true))
         } else {
             emptyList()
         }
-    return listOf(DropdownEntry(items = main), DropdownEntry(items = danger))
+    return listOf(MenuEntry(items = main), MenuEntry(items = danger))
 }
 
 @Composable

@@ -77,11 +77,12 @@ import com.dzshzx.zeta.ui.components.isDark
 import com.dzshzx.zeta.ui.components.miuix.ConfirmDialog
 import com.dzshzx.zeta.ui.components.miuix.IconActionButton
 import com.dzshzx.zeta.ui.components.miuix.LongPressMenu
+import com.dzshzx.zeta.ui.components.miuix.MenuEntry
+import com.dzshzx.zeta.ui.components.miuix.MenuItem
 import com.dzshzx.zeta.ui.components.miuix.NoticeDialog
 import com.dzshzx.zeta.ui.components.miuix.SquircleShape
 import com.dzshzx.zeta.ui.components.miuix.TextInputDialog
 import com.dzshzx.zeta.ui.components.miuix.ZetaIcons
-import com.dzshzx.zeta.ui.components.miuix.menuItem
 import com.dzshzx.zeta.ui.components.rememberRetained
 import com.dzshzx.zeta.ui.tasks.BackgroundTasksEntry
 import java.util.Calendar
@@ -93,7 +94,6 @@ import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.withContext
 import top.yukonga.miuix.kmp.basic.Checkbox
-import top.yukonga.miuix.kmp.basic.DropdownEntry
 import top.yukonga.miuix.kmp.basic.Icon
 import top.yukonga.miuix.kmp.basic.InputField
 import top.yukonga.miuix.kmp.basic.SmallTitle
@@ -1160,50 +1160,50 @@ private fun sessionMenu(
     session: SessionSummary,
     pinned: Boolean,
     actions: () -> RowActions,
-): List<DropdownEntry> =
+): List<MenuEntry> =
     listOf(
-        DropdownEntry(
+        MenuEntry(
             items =
                 listOfNotNull(
-                    menuItem(
+                    MenuItem(
                         Strings.sidebarSelect(),
                         MiuixIcons.SelectAll,
                         { actions().select(session) },
                     ),
-                    menuItem(
+                    MenuItem(
                         if (pinned) Strings.sidebarUnpin() else Strings.sidebarPin(),
                         if (pinned) MiuixIcons.Unpin else MiuixIcons.Pin,
                         { actions().togglePin(session) },
                     ),
-                    menuItem(
+                    MenuItem(
                         Strings.sidebarRename(),
                         MiuixIcons.Rename,
                         { actions().rename(session) },
                     ),
-                    menuItem(
+                    MenuItem(
                         Strings.sidebarExport(),
                         MiuixIcons.Download,
                         { actions().export(session) },
                     ),
-                    menuItem(
+                    MenuItem(
                         Strings.sidebarShare(),
                         MiuixIcons.Share,
                         { actions().share(session) },
                     ),
-                    menuItem(
+                    MenuItem(
                         if (session.archived) Strings.sidebarUnarchive()
                         else Strings.sidebarArchive(),
                         if (session.archived) ZetaIcons.Unarchive else ZetaIcons.Archive,
                         { actions().archive(session) },
                     ),
-                    menuItem(Strings.chatEndChat(), ZetaIcons.Exit, { actions().end(session) })
+                    MenuItem(Strings.chatEndChat(), ZetaIcons.Exit, { actions().end(session) })
                         .takeIf { session.live },
                 ),
         ),
-        DropdownEntry(
+        MenuEntry(
             items =
                 listOf(
-                    menuItem(
+                    MenuItem(
                         Strings.sidebarDelete(),
                         MiuixIcons.Delete,
                         { actions().delete(session) },

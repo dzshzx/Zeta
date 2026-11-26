@@ -13,11 +13,11 @@ import com.dzshzx.zeta.i18n.Strings
 import com.dzshzx.zeta.ui.app.MAX_INTERFACE_SCALE
 import com.dzshzx.zeta.ui.app.MIN_INTERFACE_SCALE
 import com.dzshzx.zeta.ui.app.normalizeInterfaceScale
+import com.dzshzx.zeta.ui.components.miuix.DropdownPreference
 import com.dzshzx.zeta.ui.components.miuix.MiuixPage
 import com.dzshzx.zeta.ui.components.miuix.PreferenceGroup
 import com.dzshzx.zeta.ui.components.miuix.TextInputDialog
 import kotlin.math.roundToInt
-import top.yukonga.miuix.kmp.preference.OverlayDropdownPreference
 import top.yukonga.miuix.kmp.preference.SliderPreference
 
 /** 外观与主题：深浅色、界面缩放。照 Eta 的外观页，去掉了 Zeta 用不到的样式切换和返回手势。 */
@@ -64,7 +64,7 @@ internal fun AppearanceScreen(hub: ConversationHub, onBack: () -> Unit) {
         item(key = "appearance") {
             PreferenceGroup {
                 item {
-                    OverlayDropdownPreference(
+                    DropdownPreference(
                         title = Strings.settingsAppearanceTheme(),
                         items =
                             listOf(

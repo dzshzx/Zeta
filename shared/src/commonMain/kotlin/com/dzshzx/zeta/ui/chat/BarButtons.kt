@@ -31,8 +31,8 @@ import androidx.compose.ui.window.Popup
 import com.dzshzx.zeta.ui.components.fill8
 import com.dzshzx.zeta.ui.components.isDark
 import com.dzshzx.zeta.ui.components.miuix.AnchoredMenu
+import com.dzshzx.zeta.ui.components.miuix.MenuEntry
 import kotlinx.coroutines.delay
-import top.yukonga.miuix.kmp.basic.DropdownEntry
 import top.yukonga.miuix.kmp.basic.Text
 import top.yukonga.miuix.kmp.theme.LocalContentColor
 import top.yukonga.miuix.kmp.theme.MiuixTheme
@@ -120,7 +120,7 @@ private fun BarTooltip(text: String, onDismiss: () -> Unit) {
 @Composable
 fun BarMenuButton(
     description: String,
-    entries: List<DropdownEntry>,
+    entries: List<MenuEntry>,
     modifier: Modifier = Modifier,
     enabled: Boolean = true,
     colors: BarChipColors = barChipColors(null),

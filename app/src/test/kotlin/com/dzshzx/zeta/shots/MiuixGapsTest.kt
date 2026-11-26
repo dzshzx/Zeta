@@ -15,15 +15,12 @@ import androidx.compose.ui.test.performTextInput
 import com.dzshzx.zeta.ui.app.ZetaTheme
 import org.junit.Assert.assertEquals
 import org.junit.Test
-import top.yukonga.miuix.kmp.basic.DropdownImpl
-import top.yukonga.miuix.kmp.basic.DropdownItem
 import top.yukonga.miuix.kmp.basic.IconButton
 import top.yukonga.miuix.kmp.basic.TextField
 import top.yukonga.miuix.kmp.theme.LocalContentColor
-import top.yukonga.miuix.kmp.theme.MiuixTheme
 
 /**
- * Miuix 的三处缺口，Zeta 在本地补着（见 docs/ui.md「补上游缺口」）。这里断言缺口还在：升级 Miuix 后哪条失败，说明上游已经补上，删掉对应的本地补丁，再删掉这条断言。
+ * Miuix 的两处缺口，Zeta 在本地补着（见 docs/ui.md「补上游缺口」）。这里断言缺口还在：升级 Miuix 后哪条失败，说明上游已经补上，删掉对应的本地补丁，再删掉这条断言。
  */
 class MiuixGapsTest : ShotTest() {
     /** 补丁在 `IconActionButton`：不能点时自己把图标染成 disabledOnSurface，并补上按钮角色和「已停用」。 */
@@ -46,32 +43,6 @@ class MiuixGapsTest : ShotTest() {
             .assert(
                 SemanticsMatcher("不能点时没有按钮角色") { SemanticsProperties.Role !in it.config },
             )
-    }
-
-    /** 补丁在 `menuItem`：图标颜色按可用、警示状态自己取。 */
-    @Test
-    fun dropdownRowLeavesIconColorToCaller() {
-        var inner = Color.Unspecified
-        var primary = Color.Unspecified
-        compose.setContent {
-            ZetaTheme(darkTheme = false, windowBackdrop = false) {
-                primary = MiuixTheme.colorScheme.onBackground
-                DropdownImpl(
-                    item =
-                        DropdownItem(
-                            text = "删除",
-                            enabled = false,
-                            icon = { inner = LocalContentColor.current },
-                        ),
-                    optionSize = 1,
-                    isSelected = false,
-                    index = 0,
-                    onSelectedIndexChange = {},
-                )
-            }
-        }
-        compose.waitForIdle()
-        assertEquals("Miuix 的菜单行已经给图标上色：删掉 menuItem 里的 tint", primary, inner)
     }
 
     /** 补丁在 ui/components/miuix 的 `TextField`（TextFields.kt）：用 Miuix 的 TextFieldValue 版本，光标自己管。 */

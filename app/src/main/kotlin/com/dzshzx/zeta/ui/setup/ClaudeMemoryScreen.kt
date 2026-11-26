@@ -16,13 +16,13 @@ import com.dzshzx.zeta.core.clipLine
 import com.dzshzx.zeta.i18n.Strings
 import com.dzshzx.zeta.ui.components.SlideInPage
 import com.dzshzx.zeta.ui.components.miuix.DropdownValuePreference
+import com.dzshzx.zeta.ui.components.miuix.MenuEntry
+import com.dzshzx.zeta.ui.components.miuix.MenuItem
 import com.dzshzx.zeta.ui.components.miuix.MiuixPage
 import com.dzshzx.zeta.ui.components.miuix.PreferenceGroup
 import com.dzshzx.zeta.ui.components.miuix.PreferenceGroupScope
 import com.dzshzx.zeta.ui.components.miuix.PreferenceValue
 import com.dzshzx.zeta.ui.settings.ValueRow
-import top.yukonga.miuix.kmp.basic.DropdownEntry
-import top.yukonga.miuix.kmp.basic.DropdownItem
 import top.yukonga.miuix.kmp.preference.ArrowPreference
 import top.yukonga.miuix.kmp.preference.SwitchPreference
 
@@ -243,10 +243,10 @@ private fun PreferenceGroupScope.memoryLocationRows(
                 value = current?.let { Strings.setupMemoryCount(it.count) },
                 entries =
                     listOf(
-                        DropdownEntry(
+                        MenuEntry(
                             items =
                                 o.projects.map {
-                                    DropdownItem(
+                                    MenuItem(
                                         text =
                                             shortPath(it.label, home).let { p ->
                                                 if (it.isDefault)

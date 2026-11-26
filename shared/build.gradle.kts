@@ -12,7 +12,13 @@ kotlin {
     jvmToolchain(25)
     android {
         namespace = "com.dzshzx.zeta.shared"
-        compileSdk = 37
+        // Miuix 要求依赖它的模块至少照 37.2 编译（同 app）
+        compileSdk {
+            version =
+                release(37) {
+                    minorApiLevel = 2
+                }
+        }
         minSdk = 35
     }
 

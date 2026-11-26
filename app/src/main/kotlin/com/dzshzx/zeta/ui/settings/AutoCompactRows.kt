@@ -4,12 +4,12 @@ import androidx.compose.runtime.Composable
 import com.dzshzx.zeta.core.AutoCompact
 import com.dzshzx.zeta.core.ConversationHub
 import com.dzshzx.zeta.i18n.Strings
+import com.dzshzx.zeta.ui.components.miuix.DropdownPreference
 import com.dzshzx.zeta.ui.components.miuix.SettingsIcon
 import com.dzshzx.zeta.ui.components.miuix.ZetaIcons
 import top.yukonga.miuix.kmp.icon.MiuixIcons
 import top.yukonga.miuix.kmp.icon.extended.Backup
 import top.yukonga.miuix.kmp.icon.extended.Tune
-import top.yukonga.miuix.kmp.preference.OverlayDropdownPreference
 import top.yukonga.miuix.kmp.preference.SwitchPreference
 
 internal fun compactPercentLabel(percent: Int?): String =
@@ -53,7 +53,7 @@ internal fun CompactTimingPreference(hub: ConversationHub, backend: String) {
         listOf<Int?>(null) +
             AutoCompact.Percents +
             listOfNotNull(percent?.takeIf { it !in AutoCompact.Percents })
-    OverlayDropdownPreference(
+    DropdownPreference(
         title = Strings.settingsCompactTiming(),
         startAction = {
             SettingsIcon(MiuixIcons.Tune, enabled = claude.autoCompact)

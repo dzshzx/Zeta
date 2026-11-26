@@ -28,6 +28,7 @@ import com.dzshzx.zeta.i18n.Strings
 import com.dzshzx.zeta.ui.components.SlideInPage
 import com.dzshzx.zeta.ui.components.miuix.ConfirmDialog
 import com.dzshzx.zeta.ui.components.miuix.DialogTextField
+import com.dzshzx.zeta.ui.components.miuix.DropdownPreference
 import com.dzshzx.zeta.ui.components.miuix.MiuixPage
 import com.dzshzx.zeta.ui.components.miuix.NoticeDialog
 import com.dzshzx.zeta.ui.components.miuix.PreferenceGroup
@@ -43,7 +44,6 @@ import kotlinx.coroutines.withContext
 import top.yukonga.miuix.kmp.basic.BasicComponent
 import top.yukonga.miuix.kmp.basic.TabRowWithContour
 import top.yukonga.miuix.kmp.preference.ArrowPreference
-import top.yukonga.miuix.kmp.preference.OverlayDropdownPreference
 import top.yukonga.miuix.kmp.preference.SwitchPreference
 
 private val Vias = listOf(RemoteHost.Via.Debian, RemoteHost.Via.Direct)
@@ -702,7 +702,7 @@ private fun ViaChoice(
     enabled: Boolean,
     onSwitch: (RemoteHost.Via) -> Unit,
 ) {
-    OverlayDropdownPreference(
+    DropdownPreference(
         title = Strings.setupRemoteVia(),
         summary = switching?.let { Strings.setupRemoteSwitching(it.label) },
         items = Vias.map { it.label },

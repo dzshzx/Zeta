@@ -42,6 +42,8 @@ import com.dzshzx.zeta.ui.components.miuix.ConfirmDialog
 import com.dzshzx.zeta.ui.components.miuix.DropdownValuePreference
 import com.dzshzx.zeta.ui.components.miuix.FieldGroup
 import com.dzshzx.zeta.ui.components.miuix.FooterHint
+import com.dzshzx.zeta.ui.components.miuix.MenuEntry
+import com.dzshzx.zeta.ui.components.miuix.MenuItem
 import com.dzshzx.zeta.ui.components.miuix.MiuixPage
 import com.dzshzx.zeta.ui.components.miuix.PreferenceGroup
 import com.dzshzx.zeta.ui.components.miuix.PreferenceValue
@@ -50,8 +52,6 @@ import com.dzshzx.zeta.ui.components.miuix.TextInputDialog
 import com.dzshzx.zeta.ui.settings.ValueRow
 import top.yukonga.miuix.kmp.basic.BasicComponent
 import top.yukonga.miuix.kmp.basic.ButtonDefaults
-import top.yukonga.miuix.kmp.basic.DropdownEntry
-import top.yukonga.miuix.kmp.basic.DropdownItem
 import top.yukonga.miuix.kmp.basic.TextButton
 import top.yukonga.miuix.kmp.preference.ArrowPreference
 import top.yukonga.miuix.kmp.theme.MiuixTheme
@@ -265,15 +265,15 @@ private fun EnvGroup(
                 enabled = hub.environment.canSwitchEnvironment,
                 entries =
                     listOf(
-                        DropdownEntry(
+                        MenuEntry(
                             items =
                                 listOf(
-                                    DropdownItem(
+                                    MenuItem(
                                         text = Strings.setupLocationOwn(),
                                         selected = current == LinuxEnv.OWN_ROOTFS,
                                         onClick = { choose(LinuxEnv.OWN_ROOTFS) },
                                     ),
-                                    DropdownItem(
+                                    MenuItem(
                                         text = Strings.setupCustomPathMenu(),
                                         selected = current != LinuxEnv.OWN_ROOTFS,
                                         onClick = { onEdit(LinuxEdit.Rootfs, current) },
@@ -908,16 +908,17 @@ private fun OptionalToolRow(
                 enabled = enabled,
                 entries =
                     listOf(
-                        DropdownEntry(
+                        MenuEntry(
                             items =
                                 listOf(
-                                    DropdownItem(
+                                    MenuItem(
                                         text = Strings.setupUpdateLatest(),
                                         onClick = onInstall,
                                     ),
-                                    DropdownItem(
+                                    MenuItem(
                                         text = Strings.setupUninstall(),
                                         onClick = onRemove,
+                                        alert = true,
                                     ),
                                 ),
                         ),

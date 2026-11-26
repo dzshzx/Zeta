@@ -1,81 +1,252 @@
 package com.dzshzx.zeta.ui.components.miuix
 
+import androidx.compose.animation.EnterTransition
+import androidx.compose.animation.ExitTransition
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxScope
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.padding
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.Immutable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.geometry.Rect
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.layout.boundsInWindow
+import androidx.compose.ui.layout.onGloballyPositioned
+import androidx.compose.ui.platform.LocalLayoutDirection
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import com.dzshzx.zeta.i18n.Strings
-import top.yukonga.miuix.kmp.basic.DropdownDefaults
-import top.yukonga.miuix.kmp.basic.DropdownEntry
-import top.yukonga.miuix.kmp.basic.DropdownItem
-import top.yukonga.miuix.kmp.basic.Icon
+import kotlinx.coroutines.delay
+import top.yukonga.miuix.kmp.basic.HorizontalDivider
 import top.yukonga.miuix.kmp.basic.IconButtonDefaults
+import top.yukonga.miuix.kmp.glass.GlassPopup
+import top.yukonga.miuix.kmp.glass.GlassPopupDefaults
+import top.yukonga.miuix.kmp.glass.GlassPopupItem
+import top.yukonga.miuix.kmp.glass.GlassPopupSizing
+import top.yukonga.miuix.kmp.glass.GlassSecondaryPopup
 import top.yukonga.miuix.kmp.icon.MiuixIcons
 import top.yukonga.miuix.kmp.icon.extended.More
-import top.yukonga.miuix.kmp.overlay.OverlayCascadingListPopup
+import top.yukonga.miuix.kmp.layout.CascadingPopupDefaults
 import top.yukonga.miuix.kmp.theme.MiuixTheme
+import top.yukonga.miuix.kmp.utils.MiuixPopupUtils.Companion.PopupLayout
+
+// 菜单照 Eta 的玻璃菜单（ConversationPanePanel.kt 的「更多」、GlassSpinnerPreference.kt 的挂法）：HyperOS 4 的玻璃弹层，
+// 行是 Miuix 的 GlassPopupItem（图标在文字前，警示项文字和图标都是红色），组与组之间一条分隔线，二级菜单是 GlassSecondaryPopup。
+// 弹层挂在最外层的 Miuix Scaffold 上，拿页面背景（LocalPageBackdrop）做毛玻璃。
 
 /**
- * 菜单里带图标的一项，带图标的菜单项都从这里建：图标取和文字同一份颜色（[DropdownDefaults.dropdownColors]），不可用的变灰。[alert]
- * 的（删除）图标是红色；Miuix 的菜单项不能单独给文字上色，文字仍是普通颜色。
+ * 菜单里的一项。[icon] 画在文字前面；[alert] 的（删除这类）文字和图标都是红色；[selected] 的打勾；[children] 非空时点它在旁边弹出下一层， 这一项自己的
+ * [onClick] 不用。
  */
-fun menuItem(
-    text: String,
-    icon: ImageVector,
-    onClick: () -> Unit,
-    enabled: Boolean = true,
-    alert: Boolean = false,
-): DropdownItem =
-    DropdownItem(
-        text = text,
-        enabled = enabled,
-        onClick = onClick,
-        icon = { modifier ->
-            val colors = MiuixTheme.colorScheme
-            Icon(
-                imageVector = icon,
-                contentDescription = null,
-                modifier = modifier,
-                tint =
-                    when {
-                        !enabled -> colors.disabledOnSecondaryVariant
-                        alert -> colors.error
-                        else -> DropdownDefaults.dropdownColors().contentColor
-                    },
-            )
-        },
-    )
+@Immutable
+data class MenuItem(
+    val text: String,
+    val icon: ImageVector? = null,
+    val onClick: (() -> Unit)? = null,
+    val enabled: Boolean = true,
+    val alert: Boolean = false,
+    val selected: Boolean = false,
+    val summary: String? = null,
+    val children: List<MenuItem>? = null,
+)
+
+/** 菜单里的一组，组与组之间有分隔线；[enabled] 为 false 时整组不能点。 */
+@Immutable data class MenuEntry(val items: List<MenuItem>, val enabled: Boolean = true)
 
 /**
  * 挂在旁边元素（胶囊、按钮、标题、设置行）上的下拉菜单，点一项就收起。和那个元素放进同一个 Box：`Box { 元素; AnchoredMenu(show, entries,
- * onDismiss) }`，菜单从那个 Box 的边上弹出。项可以带二级菜单（DropdownItem 的 children），点那一项在旁边弹出下一层。
+ * onDismiss) }`，菜单以那个 Box 为锚弹出。项可以带二级菜单（[MenuItem.children]），点那一项在旁边弹出下一层。
  */
 @Composable
-fun AnchoredMenu(
+fun BoxScope.AnchoredMenu(
     show: Boolean,
-    entries: List<DropdownEntry>,
+    entries: List<MenuEntry>,
     onDismiss: () -> Unit,
     onDismissFinished: () -> Unit = {},
 ) {
-    OverlayCascadingListPopup(
-        show = show,
-        entries = entries,
-        onDismissRequest = onDismiss,
-        onDismissFinished = onDismissFinished,
-        collapseOnSelection = true,
+    var bounds by remember { mutableStateOf(Rect.Zero) }
+    Box(Modifier.matchParentSize().onGloballyPositioned { bounds = it.boundsInWindow() })
+    GlassMenu(show, entries, bounds, onDismiss, onDismissFinished)
+}
+
+/**
+ * 以窗口坐标里的 [anchorBounds] 为锚的玻璃菜单；拿不到 BoxScope 时用（比如锚是整个设置行），其余用 [AnchoredMenu]。收起动画放完后调
+ * [onDismissFinished]。
+ */
+@Composable
+fun GlassMenu(
+    show: Boolean,
+    entries: List<MenuEntry>,
+    anchorBounds: Rect,
+    onDismiss: () -> Unit,
+    onDismissFinished: () -> Unit = {},
+) {
+    val groups = remember(entries) { entries.filter { it.items.isNotEmpty() } }
+    val mounted = remember { mutableStateOf(false) }
+    // 二级菜单：childOpen 管弹出收起，child 留到收起动画放完，收起时内容不跟着先没了
+    var child by remember { mutableStateOf<MenuItem?>(null) }
+    var childOpen by remember { mutableStateOf(false) }
+    var childBounds by remember { mutableStateOf(Rect.Zero) }
+    val finished by rememberUpdatedState(onDismissFinished)
+    LaunchedEffect(show) {
+        if (show) {
+            mounted.value = true
+        } else if (mounted.value) {
+            childOpen = false
+            delay(MENU_EXIT_MILLIS)
+            mounted.value = false
+            child = null
+            finished()
+        }
+    }
+    if (!mounted.value || groups.isEmpty()) return
+    // 在这里读：弹层挂在最外层的 Scaffold 上，那里没有页面提供的背景
+    val backdrop = LocalPageBackdrop.current
+    // 二级菜单的头一行（回到上一层）箭头转向和 Miuix 的级联菜单一样
+    val headerArrow = CascadingPopupDefaults.arrowRotation(LocalLayoutDirection.current)
+    val pick: (MenuItem) -> Unit = { item ->
+        item.onClick?.invoke()
+        onDismiss()
+    }
+    PopupLayout(
+        visible = mounted,
+        enterTransition = EnterTransition.None,
+        exitTransition = ExitTransition.None,
+        enableWindowDim = false,
+        enableBackHandler = false,
+        renderInRootScaffold = true,
+    ) {
+        Box(Modifier.fillMaxSize()) {
+            GlassPopup(
+                show = show,
+                onDismissRequest = onDismiss,
+                anchorBounds = anchorBounds,
+                backdrop = backdrop,
+                sizing = MenuSizing,
+            ) {
+                MenuRows(groups, onPick = pick) { item, rowBounds ->
+                    child = item
+                    childBounds = rowBounds
+                    childOpen = true
+                }
+            }
+            GlassSecondaryPopup(
+                show = show && childOpen,
+                onDismissRequest = { childOpen = false },
+                anchorBounds = childBounds,
+                backdrop = backdrop,
+                sizing = MenuSizing,
+                onDismissFinished = { if (!childOpen) child = null },
+            ) {
+                child?.let { parent ->
+                    GlassPopupItem(
+                        text = parent.text,
+                        onClick = { childOpen = false },
+                        summary = parent.summary,
+                        showArrow = true,
+                        arrowRotation = { headerArrow },
+                    )
+                    MenuDivider()
+                    parent.children.orEmpty().forEach { item -> MenuRow(item, true) { pick(item) } }
+                }
+            }
+        }
+    }
+}
+
+/**
+ * 一级菜单的各组：带二级菜单的项点了交给 [onOpenChild]（带上这一行的窗口坐标），其余的交给 [onPick]。每组（连同它前面的分隔线）包成一列： Miuix
+ * 的玻璃菜单估算高度时只量前 8 个子项，多出来的要滚动才看得到，按行放的话七项加一条分隔线就把单独一组的删除挤进了滚动区。
+ */
+@Composable
+private fun MenuRows(
+    groups: List<MenuEntry>,
+    onPick: (MenuItem) -> Unit,
+    onOpenChild: (MenuItem, Rect) -> Unit,
+) {
+    groups.forEachIndexed { index, entry ->
+        Column(Modifier.fillMaxWidth()) {
+            if (index > 0) MenuDivider()
+            MenuGroup(entry, onPick, onOpenChild)
+        }
+    }
+}
+
+@Composable
+private fun MenuGroup(
+    entry: MenuEntry,
+    onPick: (MenuItem) -> Unit,
+    onOpenChild: (MenuItem, Rect) -> Unit,
+) {
+    entry.items.forEach { item ->
+        if (item.children.isNullOrEmpty()) {
+            MenuRow(item, entry.enabled) { onPick(item) }
+        } else {
+            var rowBounds by remember(item) { mutableStateOf(Rect.Zero) }
+            MenuRow(
+                item,
+                entry.enabled,
+                Modifier.onGloballyPositioned { rowBounds = it.boundsInWindow() },
+            ) {
+                onOpenChild(item, rowBounds)
+            }
+        }
+    }
+}
+
+@Composable
+private fun MenuRow(
+    item: MenuItem,
+    groupEnabled: Boolean,
+    modifier: Modifier = Modifier,
+    onClick: () -> Unit,
+) {
+    GlassPopupItem(
+        text = item.text,
+        onClick = onClick,
+        modifier = modifier,
+        icon = item.icon,
+        summary = item.summary,
+        enabled = groupEnabled && item.enabled,
+        selected = item.selected,
+        showArrow = !item.children.isNullOrEmpty(),
+        contentColor =
+            if (item.alert) MiuixTheme.colorScheme.error
+            else MiuixTheme.colorScheme.onSurfaceContainer,
     )
 }
+
+@Composable
+private fun MenuDivider() {
+    HorizontalDivider(
+        modifier =
+            Modifier.padding(
+                horizontal = GlassPopupDefaults.DividerPaddingHorizontal,
+                vertical = GlassPopupDefaults.DividerPaddingVertical,
+            ),
+        thickness = GlassPopupDefaults.DividerThickness,
+    )
+}
+
+/** 菜单最高 600dp（Miuix 默认 416dp）：每组算一个子项以后，长的一组（模型清单）也整个量进来，放得下就不滚；屏幕不够时弹层自己收在窗口里。 */
+private val MenuSizing = GlassPopupSizing(maxHeight = 600.dp)
+
+/** 收起动画的时长（照 Eta 的 GlassSpinnerPreference），放完才把弹层从 Scaffold 上撤下。 */
+private const val MENU_EXIT_MILLIS = 420L
 
 /** 顶栏右边的“更多”：在玻璃顶栏里是玻璃圆钮，[entries] 每组之间有分隔线，点一项就收起。 */
 @Composable
 fun TopBarMoreMenu(
-    entries: List<DropdownEntry>,
+    entries: List<MenuEntry>,
     contentDescription: String = Strings.componentsMore(),
 ) {
     var expanded by remember { mutableStateOf(false) }
@@ -94,7 +265,7 @@ fun TopBarMoreMenu(
 @Composable
 fun RowMoreMenu(
     contentDescription: String,
-    entries: List<DropdownEntry>,
+    entries: List<MenuEntry>,
     modifier: Modifier = Modifier,
     iconSize: Dp = 24.dp,
 ) {

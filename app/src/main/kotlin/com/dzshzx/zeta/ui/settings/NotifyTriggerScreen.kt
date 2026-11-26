@@ -44,6 +44,7 @@ import com.dzshzx.zeta.ui.components.SlideInPage
 import com.dzshzx.zeta.ui.components.StatusWarning
 import com.dzshzx.zeta.ui.components.miuix.CardListSegment
 import com.dzshzx.zeta.ui.components.miuix.ConfirmDialog
+import com.dzshzx.zeta.ui.components.miuix.DropdownPreference
 import com.dzshzx.zeta.ui.components.miuix.FieldGroup
 import com.dzshzx.zeta.ui.components.miuix.FooterHint
 import com.dzshzx.zeta.ui.components.miuix.IconActionButton
@@ -74,7 +75,6 @@ import top.yukonga.miuix.kmp.basic.Text
 import top.yukonga.miuix.kmp.icon.MiuixIcons
 import top.yukonga.miuix.kmp.icon.extended.Add
 import top.yukonga.miuix.kmp.preference.ArrowPreference
-import top.yukonga.miuix.kmp.preference.OverlayDropdownPreference
 import top.yukonga.miuix.kmp.preference.SwitchPreference
 import top.yukonga.miuix.kmp.theme.MiuixTheme
 
@@ -638,7 +638,7 @@ private fun RuleLimitsGroup(draft: RuleDraft, update: (RuleDraft.() -> RuleDraft
         val cooldown = draft.cooldownMinutes
         val cooldowns = (NotifyRules.COOLDOWN_CHOICES + cooldown).distinct().sorted()
         item(key = "cooldown") {
-            OverlayDropdownPreference(
+            DropdownPreference(
                 title = Strings.notifyCooldown(),
                 items = cooldowns.map(NotifyRules::cooldownText),
                 selectedIndex = cooldowns.indexOf(cooldown),
@@ -652,7 +652,7 @@ private fun RuleLimitsGroup(draft: RuleDraft, update: (RuleDraft.() -> RuleDraft
         val dailyLimit = draft.dailyLimit
         val limits = (NotifyRules.DAILY_LIMIT_CHOICES + dailyLimit).distinct().sorted()
         item(key = "limit") {
-            OverlayDropdownPreference(
+            DropdownPreference(
                 title = Strings.notifyDailyMax(),
                 items = limits.map(Strings::notifyTimes),
                 selectedIndex = limits.indexOf(dailyLimit),

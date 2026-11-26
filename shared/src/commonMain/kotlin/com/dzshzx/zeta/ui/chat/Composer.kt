@@ -82,15 +82,14 @@ import com.dzshzx.zeta.ui.components.accentPurple
 import com.dzshzx.zeta.ui.components.fill4
 import com.dzshzx.zeta.ui.components.fill8
 import com.dzshzx.zeta.ui.components.isDark
+import com.dzshzx.zeta.ui.components.miuix.MenuEntry
+import com.dzshzx.zeta.ui.components.miuix.MenuItem
 import com.dzshzx.zeta.ui.components.miuix.SquircleShape
 import com.dzshzx.zeta.ui.components.miuix.ZetaCorner
 import com.dzshzx.zeta.ui.components.miuix.ZetaIcons
-import com.dzshzx.zeta.ui.components.miuix.menuItem
 import com.dzshzx.zeta.ui.markdown.EditorialLineHeightStyle
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
-import top.yukonga.miuix.kmp.basic.DropdownEntry
-import top.yukonga.miuix.kmp.basic.DropdownItem
 import top.yukonga.miuix.kmp.basic.HorizontalDivider
 import top.yukonga.miuix.kmp.basic.Icon
 import top.yukonga.miuix.kmp.basic.Text
@@ -538,23 +537,23 @@ private fun attachMenu(
     onPickFolder: (() -> Unit)?,
     onEnterPath: () -> Unit,
     onOpenPrompts: () -> Unit,
-): List<DropdownEntry> =
+): List<MenuEntry> =
     listOf(
-        DropdownEntry(
+        MenuEntry(
             items =
                 listOfNotNull(
-                    menuItem(Strings.composerMenuImages(), MiuixIcons.Image, onPickImages),
-                    menuItem(Strings.composerMenuFiles(), ZetaIcons.Paperclip, onPickFiles),
+                    MenuItem(Strings.composerMenuImages(), MiuixIcons.Image, onPickImages),
+                    MenuItem(Strings.composerMenuFiles(), ZetaIcons.Paperclip, onPickFiles),
                     onPickFolder?.let {
-                        menuItem(Strings.composerMenuFolder(), MiuixIcons.Folder, it)
+                        MenuItem(Strings.composerMenuFolder(), MiuixIcons.Folder, it)
                     },
-                    menuItem(Strings.composerMenuEnterPath(), MiuixIcons.Edit, onEnterPath),
+                    MenuItem(Strings.composerMenuEnterPath(), MiuixIcons.Edit, onEnterPath),
                 ),
         ),
-        DropdownEntry(
+        MenuEntry(
             items =
                 listOf(
-                    menuItem(Strings.composerMenuPrompts(), MiuixIcons.Favorites, onOpenPrompts),
+                    MenuItem(Strings.composerMenuPrompts(), MiuixIcons.Favorites, onOpenPrompts),
                 ),
         ),
     )
@@ -766,10 +765,10 @@ fun PermissionModeChip(mode: String?, onChange: (String) -> Unit) {
         }
     val entries =
         listOf(
-            DropdownEntry(
+            MenuEntry(
                 items =
                     PermissionModes.map { (value, label) ->
-                        DropdownItem(
+                        MenuItem(
                             text = label,
                             selected = value == mode,
                             onClick = { onChange(value) },
