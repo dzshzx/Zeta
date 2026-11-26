@@ -76,7 +76,28 @@ data class ConvSpec(
     val cwd: String = "",
     val title: String = "",
     val options: ConvOptions = ConvOptions(),
+    val choices: ConvChoices = ConvChoices(),
 )
+
+/**
+ * conv.open 的 choices（helper/conv 的 Choices）：用户在这个对话里选的模型、思考强度和权限模式，每次打开都带上。还没有会话号的对话，
+ * 核心收掉它、换了核心或选的那次请求没送到时，靠它补回来；有了会话号核心就不看了。null 是没选过；选回默认时模型是 "default"，另两项是空串。
+ */
+@Immutable
+data class ConvChoices(
+    val model: String? = null,
+    val effort: String? = null,
+    val mode: String? = null,
+) {
+    fun json(): JsonObject = buildJsonObject {
+        model?.let { put("model", it) }
+        effort?.let { put("effort", it) }
+        mode?.let { put("mode", it) }
+    }
+
+    val isEmpty: Boolean
+        get() = model == null && effort == null && mode == null
+}
 
 /** conv.open、conv.options、conv.fork 的 options（helper/conv/conv.go 的 Options）。都可省，零值不写出。 */
 @Immutable

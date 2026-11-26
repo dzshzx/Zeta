@@ -278,6 +278,33 @@ func TestDisconnectAndReconnect(t *testing.T) {
 	}
 }
 
+// 断线时选的模型、思考强度没送到：重连后重新打开时带在 choices 里，核心照它定（新对话还没有会话号，核心那份可能已经没了）。
+func TestChoicesMadeOfflineGoWithTheReopen(t *testing.T) {
+	link := &fakeLink{}
+	client := NewClient(link, nil)
+	conv, err := client.Open(context.Background(), Spec{Cwd: "/h/p"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	link.took()
+	client.Disconnected()
+	ctx := context.Background()
+	sonnet := "sonnet"
+	if err := conv.SetModel(ctx, &sonnet); !errors.Is(err, errNotConnected) {
+		t.Fatalf("断线时选模型：%v", err)
+	}
+	if err := conv.SetEffort(ctx, nil); !errors.Is(err, errNotConnected) {
+		t.Fatalf("断线时选思考强度：%v", err)
+	}
+	if err := client.Reconnected(ctx); err != nil {
+		t.Fatal(err)
+	}
+	calls := link.took()
+	if len(calls) != 1 || calls[0].method != "conv.open" || !strings.Contains(calls[0].params, `"choices":{"model":"sonnet","effort":""}`) {
+		t.Fatalf("重连后的打开：%v", calls)
+	}
+}
+
 func TestRequests(t *testing.T) {
 	link, _, conv, _ := opened(t)
 	ctx := context.Background()

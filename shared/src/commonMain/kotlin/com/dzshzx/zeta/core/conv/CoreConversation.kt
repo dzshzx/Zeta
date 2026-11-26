@@ -139,6 +139,7 @@ internal constructor(
                 if (spec.cwd.isNotEmpty()) put("cwd", JsonPrimitive(spec.cwd))
                 if (spec.title.isNotEmpty()) put("title", JsonPrimitive(spec.title))
                 put("options", spec.options.json())
+                if (!spec.choices.isEmpty) put("choices", spec.choices.json())
             },
         )
     }
@@ -299,6 +300,11 @@ internal constructor(
                 view.connected.also { view = view.copy(connected = false) }
             }
         if (send) client.call("conv.close", nameOnly())
+    }
+
+    /** 记下用户在这个对话里的选择（[ConvChoices]），之后重新打开时带上。只改这边，不发请求。 */
+    fun keepChoices(choices: ConvChoices) {
+        synchronized(client.lock) { spec = spec.copy(choices = choices) }
     }
 
     /** 改起进程用的设置，下次起进程时生效；重连后重新打开时也用它。 */

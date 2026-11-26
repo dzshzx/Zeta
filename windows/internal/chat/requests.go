@@ -78,19 +78,29 @@ func (c *Conversation) Elicit(ctx context.Context, requestID string, action prom
 	return err
 }
 
-// SetModel、SetEffort、SetMode 只管这个对话的模型、思考强度、权限模式；nil 回到默认。
+// SetModel、SetEffort、SetMode 只管这个对话的模型、思考强度、权限模式；nil 回到默认。选的这边也记着，
+// 之后打开时带上（coreapi.Choices）：这次没送到、或核心里那份没了，重新打开时核心照它补回来。
 func (c *Conversation) SetModel(ctx context.Context, value *string) error {
+	c.keepChoice(func(ch *coreapi.Choices) { ch.Model = coreapi.ChoiceOf(value, "default") })
 	return c.do(func(v coreapi.Conv) error { return v.SetModel(ctx, value) })
 }
 
 // SetEffort 见 SetModel。
 func (c *Conversation) SetEffort(ctx context.Context, value *string) error {
+	c.keepChoice(func(ch *coreapi.Choices) { ch.Effort = coreapi.ChoiceOf(value, "") })
 	return c.do(func(v coreapi.Conv) error { return v.SetEffort(ctx, value) })
 }
 
 // SetMode 见 SetModel。
 func (c *Conversation) SetMode(ctx context.Context, value *string) error {
+	c.keepChoice(func(ch *coreapi.Choices) { ch.Mode = coreapi.ChoiceOf(value, "") })
 	return c.do(func(v coreapi.Conv) error { return v.SetMode(ctx, value) })
+}
+
+func (c *Conversation) keepChoice(set func(*coreapi.Choices)) {
+	c.mu.Lock()
+	set(&c.choices)
+	c.mu.Unlock()
 }
 
 // SetOptions 改起进程用的设置，下次起进程时生效；重连后重新打开时也用它。

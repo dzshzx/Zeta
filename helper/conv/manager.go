@@ -61,6 +61,7 @@ type request struct {
 	Cwd       string              `json:"cwd"`
 	Title     string              `json:"title"`
 	Options   *Options            `json:"options"`
+	Choices   *Choices            `json:"choices"` // conv.open：客户端替还没有会话号的对话记着的选择（见 Choices）
 	UUID      string              `json:"uuid"`
 	Recall    bool                `json:"recall"`
 	Rest      bool                `json:"rest"`
@@ -346,6 +347,11 @@ func (m *Manager) open(client int, r request) error {
 	m.mu.Unlock()
 	if blocked && c == existing {
 		if err := c.blockReopened(occupant); err != nil {
+			return err
+		}
+	}
+	if r.Choices != nil {
+		if _, err := c.Call(func() (any, error) { c.restoreChoices(*r.Choices); return nil, nil }); err != nil {
 			return err
 		}
 	}

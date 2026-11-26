@@ -265,15 +265,7 @@ func (c *Conversation) chooseModel(value string) {
 	if chosen == defaultModel {
 		chosen = ""
 	}
-	switch {
-	case chosen != "":
-		c.model = &chosen
-	case c.resumed():
-		d := defaultModel
-		c.model = &d
-	default:
-		c.model = nil
-	}
+	c.model = c.modelFor(chosen)
 	// 上次 init 报的模型作废，下一轮的 init 再报实际用的
 	c.reportedModel = ""
 	if p := c.proc; p != nil {
@@ -286,8 +278,60 @@ func (c *Conversation) chooseModel(value string) {
 	c.changed()
 }
 
+// modelFor 是选了 chosen（空是默认模型，"default" 已换成空）以后 c.model 该是的样子，见 chooseModel。
+func (c *Conversation) modelFor(chosen string) *string {
+	switch {
+	case chosen != "":
+		return &chosen
+	case c.resumed():
+		d := defaultModel
+		return &d
+	}
+	return nil
+}
+
 // resumed：接着已有的会话（打开时有会话号）。
 func (c *Conversation) resumed() bool { return c.openedSession != "" }
+
+// Choices 是客户端替一个还没有会话号的对话（新对话、还没发过消息的分支）记着的、用户在里面选的模型、思考强度和权限模式，
+// 每次 conv.open 都带上（choices）。值的写法同 conv.model、conv.effort、conv.mode 的 value；nil 是没选过，空串是选回默认。
+//
+// 这时选的只在核心的内存里：核心收掉没人拿着的对话、换了核心，或者选的那次请求没送到（连接刚好断着），选择就没了，
+// 客户端重新打开时靠它补回来。有了会话号以后进程已经按选的起过，之后 Claude Code 照会话记录接着，不再看它。
+type Choices struct {
+	Model  *string `json:"model"`
+	Effort *string `json:"effort"`
+	Mode   *string `json:"mode"`
+}
+
+// restoreChoices：打开时照客户端记着的选择定下来，和现在的一样的不动（不重复问用量、发控制请求）。已有会话号的不看。
+func (c *Conversation) restoreChoices(ch Choices) {
+	if c.session != "" {
+		return
+	}
+	if v := ch.Model; v != nil {
+		chosen := *v
+		if chosen == defaultModel {
+			chosen = ""
+		}
+		if !sameModel(c.modelFor(chosen), c.model) {
+			c.chooseModel(chosen)
+		}
+	}
+	if v := ch.Effort; v != nil && *v != c.effort {
+		c.chooseEffort(*v)
+	}
+	if v := ch.Mode; v != nil && *v != c.modes.user {
+		c.chooseMode(*v)
+	}
+}
+
+func sameModel(a, b *string) bool {
+	if a == nil || b == nil {
+		return a == b
+	}
+	return *a == *b
+}
 
 // chooseEffort：思考强度只管这个对话，空是回到 Claude Code 自己的设置。进程已经起来就当场改，没起来时起进程的参数带上。
 func (c *Conversation) chooseEffort(value string) {

@@ -4,6 +4,7 @@ import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
+import com.dzshzx.zeta.core.conv.ConvChoices
 import com.dzshzx.zeta.core.conv.ConvImage
 import com.dzshzx.zeta.core.conv.ConvMessage
 import com.dzshzx.zeta.core.conv.ConvOptions
@@ -383,6 +384,7 @@ class Conversation(
             cwd = cwd,
             title = title,
             options = options(),
+            choices = choices,
         )
     }
 
@@ -652,8 +654,28 @@ class Conversation(
 
     // ---- 模型、思考强度、权限模式
 
+    /**
+     * 用户在这个对话里选的模型、思考强度和权限模式，这边也记一份，每次打开都交给核心（[ConvChoices]）：还没有会话号的对话，选的那次请求没送到、
+     * 或核心里那份没了再打开时，核心照它补回来，第一条消息不会按默认的跑。
+     */
+    @Volatile private var choices = ConvChoices()
+
+    private fun choose(update: (ConvChoices) -> ConvChoices, request: (CoreConversation) -> Unit) {
+        synchronized(this) { choices = update(choices) }
+        call {
+            it.keepChoices(choices)
+            request(it)
+        }
+    }
+
+    /** 接着 [other] 里还没送出去的选择：还没开始的新对话按新的默认工作目录重建时（[ConversationHub.renewBlank]）。 */
+    internal fun takeChoicesFrom(other: Conversation) {
+        choices = other.choices
+    }
+
     /** 用户在这个对话里选了模型（[value] 是选择器里的值，null 或 "default" 是默认模型），只管这个对话。 */
-    fun chooseModel(value: String?) = call { it.setModel(value) }
+    fun chooseModel(value: String?) =
+        choose({ it.copy(model = value ?: DEFAULT_MODEL) }) { it.setModel(value) }
 
     internal fun selectedModelForMenu(): String? =
         model
@@ -670,10 +692,12 @@ class Conversation(
     }
 
     /** 思考强度：只管这个对话，null 回到 Claude Code 自己的设置。 */
-    fun chooseEffort(value: String?) = call { it.setEffort(value) }
+    fun chooseEffort(value: String?) =
+        choose({ it.copy(effort = value.orEmpty()) }) { it.setEffort(value) }
 
     /** 用户在输入栏选的权限模式：只管这个对话，之后按它跑。 */
-    fun choosePermissionMode(value: String) = call { it.setMode(value) }
+    fun choosePermissionMode(value: String) =
+        choose({ it.copy(mode = value) }) { it.setMode(value) }
 
     /** 定时任务、数字助理给这个对话定的模型和思考强度：只改这个对话；null 的那项照旧。[hint] 追加进系统提示，下次起进程时生效。 */
     fun preset(model: String?, effort: String?, hint: String? = null) = call {
