@@ -126,7 +126,7 @@ func TestSettingsPage(t *testing.T) {
 	f.click(t, "设置")
 	// 侧栏换成设置的分类，右边是常规；各台的额度标在分类上
 	f.until(t, "读到额度", func() bool { return f.shows("已用 86%") })
-	f.see(t, "返回应用", "常规", "设备", "box", "添加设备", "账号与额度", "关于", "外观", "主题模式", "跟随系统", "快捷键", "Ctrl+N")
+	f.see(t, "返回应用", "常规", "设备", "box", "添加设备", "关于", "外观", "主题模式", "跟随系统", "快捷键", "Ctrl+N")
 	f.notSee(t, "修登录页", "有新版本")
 
 	// 外观：选深色，存进设置，界面跟着换
@@ -181,17 +181,38 @@ func TestSettingsPage(t *testing.T) {
 	}
 }
 
-func TestSettingsListsEachDevicesAccount(t *testing.T) {
+func TestDevicePageOpensItsAccounts(t *testing.T) {
 	f := newSettingsFixture(t)
 	hosts := f.withHosts(t, "box", "lab")
 	f.click(t, "设置")
-	// 「账号与额度」下面每台一行（设备一组里也各有一行同名的，是第二个）
-	f.clickButton(t, "lab", 1)
+	// 账号与额度不单列一组：侧栏只有设备，额度写在设备行上；设备页里一行进它
+	f.until(t, "读到额度", func() bool { return f.shows("已用 86%") })
+	f.notSee(t, "账号与额度")
+	f.clickButton(t, "lab", 0)
+	f.see(t, "账号与额度", "检查连接")
+	f.click(t, "账号与额度")
 	if f.app.page != pageAccounts || f.app.device != hosts[1].ID {
 		t.Fatalf("page %q, device %q", f.app.page, f.app.device)
 	}
 	f.until(t, "账号页读完", func() bool { return f.shows("b@example.com") && f.shows("每周 · 全部模型") })
 	f.see(t, "lab · 账号与额度", "订阅额度", "每周 · 全部模型", "当前", "切换", "刷新")
+
+	// 返回键和 Esc 都回到那台的设备页，设备页上再按 Esc 才回到对话
+	f.click(t, "返回")
+	if f.app.page != pageDevice || f.app.device != hosts[1].ID {
+		t.Fatalf("返回到了 page %q, device %q", f.app.page, f.app.device)
+	}
+	f.click(t, "账号与额度")
+	f.tt.Key(0, ui.KeyEscape)
+	f.tt.Frame()
+	if f.app.page != pageDevice {
+		t.Fatalf("Esc 以后在 %q", f.app.page)
+	}
+	f.tt.Key(0, ui.KeyEscape)
+	f.tt.Frame()
+	if f.app.page != pageHome {
+		t.Fatalf("设备页上 Esc 以后在 %q", f.app.page)
+	}
 }
 
 func TestDevicePageShowsClaudeConfig(t *testing.T) {
@@ -254,7 +275,8 @@ func TestSettingsPreviews(t *testing.T) {
 		}},
 		{"settings-accounts", 900, func(t *testing.T, f *settingsFixture) {
 			f.click(t, "设置")
-			f.clickButton(t, "box", 1) // 「账号与额度」下面那台
+			f.clickButton(t, "box", 0)
+			f.click(t, "账号与额度")
 			f.until(t, "账号页读完", func() bool { return f.shows("b@example.com") && f.shows("每周 · 全部模型") })
 		}},
 		{"settings-about", 1000, func(t *testing.T, f *settingsFixture) {
@@ -410,7 +432,9 @@ func TestRelayHidesQuota(t *testing.T) {
 	f.click(t, "设置")
 	f.until(t, "读到中转", func() bool { return f.shows("中转 cpa") })
 	f.notSee(t, "已用 86%")
-	f.click(t, "中转 cpa")
+	f.click(t, "中转 cpa") // 侧栏那台：进设备页，「账号与额度」一行也写着中转
+	f.until(t, "设备页写着中转", func() bool { return f.app.page == pageDevice && f.shows("检查连接") })
+	f.click(t, "账号与额度")
 	f.until(t, "账号页", func() bool { return f.shows("添加中转") })
 	f.see(t, "cpa", "当前", "https://relay.example.com", "a@example.com")
 	f.notSee(t, "每周 · 全部模型", "还没有登录")

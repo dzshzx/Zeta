@@ -64,7 +64,7 @@ func (a *App) loadDeviceHome(x sshlink.Host) {
 	})
 }
 
-// devicePage 是一台设备：连接（名称、地址、SSH 密钥、指纹、家目录、默认工作目录）、检查连接，那台上的 Claude Code
+// devicePage 是一台设备：连接（名称、地址、SSH 密钥、指纹、家目录、默认工作目录）、账号与额度的入口、检查连接，那台上的 Claude Code
 // （新对话默认、自动压缩与标题、Claude Code 配置的入口，点进去换成那一页），删除。
 func (a *App) devicePage(c *ui.Context) {
 	x, ok := a.hub.Host(a.device)
@@ -84,6 +84,7 @@ func (a *App) devicePage(c *ui.Context) {
 	widget.Header(c, x.Name(), nil)
 	widget.Body(c, "device", func() {
 		a.connectionSection(c, x)
+		a.accountsEntry(c, x)
 		widget.Group(c, "", locales.Now(a.edit.check), func(l *widget.List) {
 			title := locales.DeviceCheck()
 			if a.edit.checking {
@@ -138,6 +139,18 @@ func (a *App) connectionSection(c *ui.Context, x sshlink.Host) {
 			a.edit.verifying, a.edit.cwdProblem = false, ""
 			a.edit.cwdRound++
 		}})
+	})
+}
+
+// accountsEntry 是进这台账号与额度页的一行，右边同设置侧栏这台的提示；「连接」关着时点不进去。
+func (a *App) accountsEntry(c *ui.Context, x sshlink.Host) {
+	widget.Group(c, "", "", func(l *widget.List) {
+		row := widget.Row{Title: locales.SettingsAccounts(), Value: a.accountsHint(c, x)}
+		if a.hub.Remote(x.ID) != nil {
+			row.Arrow = true
+			row.OnClick = func() { a.open(pageAccounts) }
+		}
+		l.Row(row)
 	})
 }
 

@@ -40,7 +40,7 @@ func (a *App) startSettings() {
 }
 
 // settings 是设置（布局照 ChatGPT 的 Windows 客户端）：侧栏换成设置的分类（settingsNav），右边是选中的那一类，
-// 没有返回键；侧栏顶上的「返回应用」或 Esc 回到对话。分类：常规（外观、快捷键）、各台设备、添加设备、各台的账号与额度、诊断、关于。
+// 没有返回键；侧栏顶上的「返回应用」或 Esc 回到对话。分类：常规（外观、快捷键）、各台设备、添加设备、诊断、关于；账号与额度是设备页里的一页。
 
 // inSettings：在看设置的某一页（不是对话）。
 func (a *App) inSettings() bool { return a.page != pageHome && a.page != pageTasks }
@@ -48,12 +48,13 @@ func (a *App) inSettings() bool { return a.page != pageHome && a.page != pageTas
 // leaveSettings 回到对话。
 func (a *App) leaveSettings() { a.page = pageHome }
 
-// escapeSettings 是设置里按 Esc：诊断页点开着一个日志文件时先回到清单，账号页在编辑中转时先回到账号页，别的时候回到对话。
+// escapeSettings 是设置里按 Esc：诊断页点开着一个日志文件时先回到清单，账号页同它的返回键，别的时候回到对话。
 func (a *App) escapeSettings() {
 	if a.page == pageDiag && a.diag != nil && a.diag.Back() {
 		return
 	}
-	if a.page == pageAccounts && a.acct != nil && a.acct.Back() {
+	if a.page == pageAccounts {
+		a.accountsBack()
 		return
 	}
 	a.leaveSettings()
@@ -78,19 +79,14 @@ func (a *App) settingsCategories(c *ui.Context) {
 	widget.NavItem(c, widget.IconSettings, locales.SettingsGeneral(), "", a.page == pageSettings).OnClick(func() { a.open(pageSettings) })
 	navTitle(c, locales.SettingsDevices())
 	for _, x := range a.hub.Hosts() {
-		widget.NavItem(c.Key("device/"+x.ID), widget.IconServer, x.Name(), offLabel(x), a.page == pageDevice && a.device == x.ID).
+		selected := (a.page == pageDevice || a.page == pageAccounts) && a.device == x.ID
+		widget.NavItem(c.Key("device/"+x.ID), widget.IconServer, x.Name(), a.accountsHint(c, x), selected).
 			OnClick(func() {
 				a.device = x.ID
 				a.open(pageDevice)
 			})
 	}
 	widget.NavItem(c, widget.IconAdd, locales.SettingsAddDevice(), "", a.page == pageDevices).OnClick(func() { a.open(pageDevices) })
-	if hosts := a.hub.Hosts(); len(hosts) > 0 {
-		navTitle(c, locales.SettingsAccounts())
-		for _, x := range hosts {
-			a.accountsItem(c, x)
-		}
-	}
 	navTitle(c, "")
 	widget.NavItem(c, widget.IconWrench, locales.SettingsDiagnostics(), "", a.page == pageDiag).OnClick(func() { a.open(pageDiag) })
 	hint := ""
@@ -100,26 +96,20 @@ func (a *App) settingsCategories(c *ui.Context) {
 	widget.NavItem(c, widget.IconInfo, locales.SettingsAbout(), hint, a.page == pageAbout).OnClick(func() { a.open(pageAbout) })
 }
 
-// accountsItem 是一台设备的账号与额度：名字是设备名，右边是最要紧的额度窗口用了多少（在用中转时是中转名，不写额度）；「连接」关着的那台写已断开，点不进去。
-func (a *App) accountsItem(c *ui.Context, x sshlink.Host) {
+// accountsHint 是一台设备在设置侧栏和设备页「账号与额度」一行右边写的：最要紧的额度窗口用了多少，在用中转时是中转名（不写额度），
+// 「连接」关着时是已断开。
+func (a *App) accountsHint(c *ui.Context, x sshlink.Host) string {
 	r := a.hub.Remote(x.ID)
-	hint := offLabel(x)
-	if r != nil {
-		if relay := r.Quota.Relay(); relay != "" {
-			hint = locales.SettingsAccountsRelay(relay)
-		} else if h, ok := headline(r.Quota, c.Now()); ok {
-			hint = locales.SettingsQuotaUsed(h.Percent())
-		}
-	}
-	item := widget.NavItem(c.Key("accounts/"+x.ID), widget.IconContacts, x.Name(), hint, a.page == pageAccounts && a.device == x.ID)
 	if r == nil {
-		item.Disabled(true)
-		return
+		return offLabel(x)
 	}
-	item.OnClick(func() {
-		a.device = x.ID
-		a.open(pageAccounts)
-	})
+	if relay := r.Quota.Relay(); relay != "" {
+		return locales.SettingsAccountsRelay(relay)
+	}
+	if h, ok := headline(r.Quota, c.Now()); ok {
+		return locales.SettingsQuotaUsed(h.Percent())
+	}
+	return ""
 }
 
 // navTitle 是设置侧栏里一组的小标题（空时只留一段空白）。
@@ -256,7 +246,7 @@ func (a *App) startAccounts() {
 	a.acct = &uiacct.Page{Accounts: r.Accounts, Quota: r.Quota}
 }
 
-// accountsPage 是一台的账号与额度。几台设备时标题带设备名。
+// accountsPage 是一台的账号与额度，设备页里的一页：返回键和 Esc 回到设备页（在编辑中转时先回到账号页）。几台设备时标题带设备名。
 func (a *App) accountsPage(c *ui.Context) {
 	x, ok := a.hub.Host(a.device)
 	if !ok || a.acct == nil {
@@ -270,7 +260,16 @@ func (a *App) accountsPage(c *ui.Context) {
 	case len(a.hub.Hosts()) > 1:
 		title = locales.SettingsAccountsOnDevice(x.Name())
 	}
-	a.subPage(c, title, "accounts", func() { a.acct.View(c) })
+	widget.Header(c, title, a.accountsBack)
+	widget.Body(c, "accounts", func() { a.acct.View(c) })
+}
+
+// accountsBack 是账号页的返回：在编辑中转时回到账号页，不然回到那台的设备页。
+func (a *App) accountsBack() {
+	if a.acct != nil && a.acct.Back() {
+		return
+	}
+	a.open(pageDevice)
 }
 
 // aboutPage 是关于：版本、检查更新、新版本的下载安装、开源许可。
