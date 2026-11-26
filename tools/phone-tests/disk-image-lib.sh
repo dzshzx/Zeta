@@ -24,6 +24,11 @@ wait_op() {
     android "tail -n 20 /data/local/zeta/debian/image.log"
     exit 1
   fi
+  # 界面拿这两个时刻显示已用时间：开始时刻要从 start 传到后台进程，步骤时刻不晚于最后更新
+  local started step time
+  started=$(value started) step=$(value step) time=$(value time)
+  [[ $started =~ ^[0-9]+$ && $step =~ ^[0-9]+$ ]] || { echo "状态里没有开始时刻：$STATUS"; exit 1; }
+  ((started <= step && step <= time)) || { echo "时刻不对：started=$started step=$step time=$time"; exit 1; }
   echo "$1：$(value phase) $(value msg)，用了 $((SECONDS - start)) 秒"
 }
 

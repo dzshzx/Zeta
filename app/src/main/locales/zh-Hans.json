@@ -12176,39 +12176,27 @@
   "@setupImageInterrupted": {
     "description": "磁盘镜像维护卡片：做的途中被打断了。"
   },
-  "setupImageStepStart": "准备中",
-  "@setupImageStepStart": {
-    "description": "磁盘镜像维护的步骤：刚开始。"
-  },
-  "setupImageStepStop": "正在停止 Debian",
+  "setupImageStepStop": "停止 Debian",
   "@setupImageStepStop": {
     "description": "磁盘镜像维护的步骤。"
   },
-  "setupImageStepMeasure": "正在统计大小",
+  "setupImageStepMeasure": "统计大小",
   "@setupImageStepMeasure": {
     "description": "磁盘镜像维护的步骤：转换前统计 Debian 占多大。"
   },
-  "setupImageStepCopy": "正在复制文件：{done} / {total}",
+  "setupImageStepCopy": "复制文件",
   "@setupImageStepCopy": {
-    "description": "磁盘镜像维护的步骤：转换时把文件拷进镜像。",
-    "placeholders": {
-      "done": {
-        "type": "String"
-      },
-      "total": {
-        "type": "String"
-      }
-    }
+    "description": "磁盘镜像维护的步骤：转换时把文件拷进镜像。"
   },
-  "setupImageStepCheck": "正在检查文件系统",
+  "setupImageStepCheck": "检查文件系统",
   "@setupImageStepCheck": {
     "description": "磁盘镜像维护的步骤。"
   },
-  "setupImageStepResize": "正在调整大小",
+  "setupImageStepResize": "调整大小",
   "@setupImageStepResize": {
     "description": "磁盘镜像维护的步骤。"
   },
-  "setupImageStepDelete": "正在删除",
+  "setupImageStepDelete": "删除转换前的目录",
   "@setupImageStepDelete": {
     "description": "磁盘镜像维护的步骤：删除转换前的目录。"
   },
@@ -12236,5 +12224,60 @@
   "setupImageResultFixed": "发现并修复了问题",
   "@setupImageResultFixed": {
     "description": "检查并修复做完的结果：修好了。"
+  },
+  "setupImageStepFinish": "收尾",
+  "@setupImageStepFinish": {
+    "description": "磁盘镜像转换的最后一步。"
+  },
+  "setupImageStepFinishSummary": "挂载镜像、写开机脚本、启动 Debian",
+  "@setupImageStepFinishSummary": {
+    "description": "磁盘镜像转换最后一步做些什么。"
+  },
+  "setupImageMeasureHint": "文件多时要一两分钟",
+  "@setupImageMeasureHint": {
+    "description": "磁盘镜像转换统计大小这一步的说明：没有进度可显示。"
+  },
+  "setupImageElapsed": "已用 {time}",
+  "@setupImageElapsed": {
+    "description": "磁盘镜像维护已经用了多久，如 3:42。",
+    "placeholders": {
+      "time": {
+        "type": "String"
+      }
+    }
+  },
+  "setupImageCopied": "{done} / {total}",
+  "@setupImageCopied": {
+    "description": "磁盘镜像转换：已复制的、总共的大小。",
+    "placeholders": {
+      "done": {
+        "type": "String"
+      },
+      "total": {
+        "type": "String"
+      }
+    }
+  },
+  "setupImageSpeed": "{size}/s",
+  "@setupImageSpeed": {
+    "description": "磁盘镜像转换的复制速度，如 38 MB/s。",
+    "placeholders": {
+      "size": {
+        "type": "String"
+      }
+    }
+  },
+  "setupImageLeftMinutes": "约剩 {minutes} 分钟",
+  "@setupImageLeftMinutes": {
+    "description": "磁盘镜像转换的复制大约还要多久。",
+    "placeholders": {
+      "minutes": {
+        "type": "int"
+      }
+    }
+  },
+  "setupImageLeftUnderMinute": "约剩不到 1 分钟",
+  "@setupImageLeftUnderMinute": {
+    "description": "磁盘镜像转换的复制不到一分钟就做完。"
   }
 }

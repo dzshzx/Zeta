@@ -23,9 +23,57 @@ data class DiskImageOp(
     val interrupted: Boolean,
     /** 状态最后一次更新的时刻（Unix 秒）。 */
     val time: Long = 0L,
+    /** 这项维护开始的时刻（Unix 秒），0 表示不知道（旧版脚本写的状态）。 */
+    val started: Long = 0L,
+    /** 当前这一步开始的时刻（Unix 秒），0 表示不知道。 */
+    val stepStarted: Long = 0L,
 ) {
     val running: Boolean
         get() = phase == "running" && !interrupted
+
+    /** 这项维护依次要做的几步（脚本写进 msg 的步骤名）。 */
+    val steps: List<String>
+        get() = STEPS[name] ?: listOf(message)
+
+    /** 正在做第几步（从 0 数）；刚开始（start）算在第一步。 */
+    val stepIndex: Int
+        get() = steps.indexOf(message).coerceAtLeast(0)
+
+    /** 复制的进度，0 到 1；不在复制时是 null。已用空间里有文件系统自己的开销，所以按 1 封顶。 */
+    val fraction: Float?
+        get() =
+            progress
+                ?.takeIf { message == "copy" }
+                ?.let { (done, total) -> (done.toFloat() / total).coerceIn(0f, 1f) }
+
+    /** 复制的平均速度（字节每秒），从复制开始算；刚开始几秒还算不准时是 null。 */
+    val bytesPerSecond: Long?
+        get() {
+            val (done, _) = progress?.takeIf { message == "copy" } ?: return null
+            val seconds = time - stepStarted
+            if (stepStarted <= 0 || seconds < MIN_RATE_SECONDS || done <= 0) return null
+            return done * 1024 / seconds
+        }
+
+    /** 照平均速度估的复制还要多少秒；算不出速度时是 null。 */
+    val secondsLeft: Long?
+        get() {
+            val rate = bytesPerSecond?.takeIf { it > 0 } ?: return null
+            val (done, total) = progress ?: return null
+            return ((total - done).coerceAtLeast(0) * 1024 / rate)
+        }
+
+    private companion object {
+        val STEPS =
+            mapOf(
+                "convert" to listOf("stop", "measure", "copy", "finish"),
+                "check" to listOf("stop", "check"),
+                "resize" to listOf("stop", "check", "resize"),
+                "delete-old" to listOf("delete"),
+            )
+
+        const val MIN_RATE_SECONDS = 4L
+    }
 }
 
 /** Zeta 自带环境的磁盘镜像（zeta_image_android.sh status）。 */
@@ -82,6 +130,8 @@ data class DiskImageStatus(
                                 },
                             interrupted = v["interrupted"] == "1",
                             time = long("time") ?: 0L,
+                            started = long("started") ?: 0L,
+                            stepStarted = long("step") ?: 0L,
                         )
                     }
             return DiskImageStatus(
@@ -276,7 +326,7 @@ class DiskImageController(private val hub: ConversationHub, assets: (String) -> 
 /** 安装环境的最后一段：把刚解压的环境转成磁盘镜像，等它做完。返回 null 表示成功，否则是原因。 */
 internal fun convertForInstall(
     service: DiskImageService,
-    onProgress: (Float?) -> Unit,
+    onProgress: (DiskImageOp) -> Unit,
 ): String? {
     val before = service.status() ?: return Strings.coreImageStatusFailed()
     if (before.image) return null
@@ -288,9 +338,7 @@ internal fun convertForInstall(
         val s = service.status() ?: continue
         val op = s.op ?: continue
         if (op.running) {
-            onProgress(
-                op.progress?.let { (done, total) -> (done.toFloat() / total).coerceIn(0f, 1f) },
-            )
+            onProgress(op)
             continue
         }
         return when {

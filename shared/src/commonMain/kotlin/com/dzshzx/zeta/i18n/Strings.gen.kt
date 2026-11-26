@@ -16206,49 +16206,42 @@ object Strings {
     fun setupImageInterrupted(): String = catalog.say("setupImageInterrupted")
 
     /**
-     * 「准备中」
-     *
-     * 磁盘镜像维护的步骤：刚开始。
-     */
-    fun setupImageStepStart(): String = catalog.say("setupImageStepStart")
-
-    /**
-     * 「正在停止 Debian」
+     * 「停止 Debian」
      *
      * 磁盘镜像维护的步骤。
      */
     fun setupImageStepStop(): String = catalog.say("setupImageStepStop")
 
     /**
-     * 「正在统计大小」
+     * 「统计大小」
      *
      * 磁盘镜像维护的步骤：转换前统计 Debian 占多大。
      */
     fun setupImageStepMeasure(): String = catalog.say("setupImageStepMeasure")
 
     /**
-     * 「正在复制文件：{done} / {total}」
+     * 「复制文件」
      *
      * 磁盘镜像维护的步骤：转换时把文件拷进镜像。
      */
-    fun setupImageStepCopy(done: String, total: String): String = catalog.say("setupImageStepCopy", mapOf("done" to done, "total" to total))
+    fun setupImageStepCopy(): String = catalog.say("setupImageStepCopy")
 
     /**
-     * 「正在检查文件系统」
+     * 「检查文件系统」
      *
      * 磁盘镜像维护的步骤。
      */
     fun setupImageStepCheck(): String = catalog.say("setupImageStepCheck")
 
     /**
-     * 「正在调整大小」
+     * 「调整大小」
      *
      * 磁盘镜像维护的步骤。
      */
     fun setupImageStepResize(): String = catalog.say("setupImageStepResize")
 
     /**
-     * 「正在删除」
+     * 「删除转换前的目录」
      *
      * 磁盘镜像维护的步骤：删除转换前的目录。
      */
@@ -16288,4 +16281,60 @@ object Strings {
      * 检查并修复做完的结果：修好了。
      */
     fun setupImageResultFixed(): String = catalog.say("setupImageResultFixed")
+
+    /**
+     * 「收尾」
+     *
+     * 磁盘镜像转换的最后一步。
+     */
+    fun setupImageStepFinish(): String = catalog.say("setupImageStepFinish")
+
+    /**
+     * 「挂载镜像、写开机脚本、启动 Debian」
+     *
+     * 磁盘镜像转换最后一步做些什么。
+     */
+    fun setupImageStepFinishSummary(): String = catalog.say("setupImageStepFinishSummary")
+
+    /**
+     * 「文件多时要一两分钟」
+     *
+     * 磁盘镜像转换统计大小这一步的说明：没有进度可显示。
+     */
+    fun setupImageMeasureHint(): String = catalog.say("setupImageMeasureHint")
+
+    /**
+     * 「已用 {time}」
+     *
+     * 磁盘镜像维护已经用了多久，如 3:42。
+     */
+    fun setupImageElapsed(time: String): String = catalog.say("setupImageElapsed", mapOf("time" to time))
+
+    /**
+     * 「{done} / {total}」
+     *
+     * 磁盘镜像转换：已复制的、总共的大小。
+     */
+    fun setupImageCopied(done: String, total: String): String = catalog.say("setupImageCopied", mapOf("done" to done, "total" to total))
+
+    /**
+     * 「{size}/s」
+     *
+     * 磁盘镜像转换的复制速度，如 38 MB/s。
+     */
+    fun setupImageSpeed(size: String): String = catalog.say("setupImageSpeed", mapOf("size" to size))
+
+    /**
+     * 「约剩 {minutes} 分钟」
+     *
+     * 磁盘镜像转换的复制大约还要多久。
+     */
+    fun setupImageLeftMinutes(minutes: Int): String = catalog.say("setupImageLeftMinutes", mapOf("minutes" to minutes))
+
+    /**
+     * 「约剩不到 1 分钟」
+     *
+     * 磁盘镜像转换的复制不到一分钟就做完。
+     */
+    fun setupImageLeftUnderMinute(): String = catalog.say("setupImageLeftUnderMinute")
 }

@@ -1,13 +1,17 @@
 package com.dzshzx.zeta.ui.setup
 
+import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.produceState
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.input.KeyboardType
+import androidx.compose.ui.unit.dp
 import com.dzshzx.zeta.core.ConversationHub
 import com.dzshzx.zeta.core.DiskImageController
 import com.dzshzx.zeta.core.DiskImageOp
@@ -19,9 +23,13 @@ import com.dzshzx.zeta.i18n.Strings
 import com.dzshzx.zeta.ui.components.miuix.ConfirmDialog
 import com.dzshzx.zeta.ui.components.miuix.MiuixPage
 import com.dzshzx.zeta.ui.components.miuix.PreferenceGroup
+import com.dzshzx.zeta.ui.components.miuix.PreferenceValue
 import com.dzshzx.zeta.ui.components.miuix.TextInputDialog
 import com.dzshzx.zeta.ui.settings.ValueRow
+import kotlinx.coroutines.delay
 import top.yukonga.miuix.kmp.basic.BasicComponent
+import top.yukonga.miuix.kmp.basic.InfiniteProgressIndicator
+import top.yukonga.miuix.kmp.basic.LinearProgressIndicator
 
 /** 磁盘镜像页上要先确认的操作。 */
 private enum class ImageAsk {
@@ -88,7 +96,7 @@ internal fun DiskImageScreen(hub: ConversationHub, onBack: () -> Unit) {
             ?.op
             ?.takeIf { it != dismissed && recent(it) }
             ?.let { op ->
-                item(key = "op") { MaintenanceGroup(opCard(op), onDismiss = { dismissed = op }) }
+                item(key = "op") { OpGroup(op, onDismiss = { dismissed = op }) }
             }
         image.notice?.let { notice ->
             item(key = "notice") {
@@ -272,14 +280,131 @@ private fun sizeHint(kind: ImageAsk, status: DiskImageStatus?): String {
 private fun recent(op: DiskImageOp): Boolean =
     op.running || System.currentTimeMillis() / 1000 - op.time < 3600
 
-/** 一项维护在维护卡片上的样子：标题是哪一项，内容是做到哪一步或结果。 */
+/** 做完（或被打断）的一项维护在维护卡片上的样子：标题是哪一项，内容是结果。 */
 private fun opCard(op: DiskImageOp): EnvController.Maintenance =
     EnvController.Maintenance(
         title = opTitle(op.name),
-        running = op.running,
+        running = false,
         detail = if (op.interrupted) Strings.setupImageInterrupted() else opDetail(op),
         ok = !op.interrupted && op.phase != "error",
     )
+
+/** 一项维护：进行中的列出各步与进度，做完的是结果卡片，点一下收起。 */
+@Composable
+private fun OpGroup(op: DiskImageOp, onDismiss: () -> Unit) {
+    if (op.running) OpProgressGroup(op) else MaintenanceGroup(opCard(op), onDismiss = onDismiss)
+}
+
+/** 进行中的一项维护：开头一行是总共用了多久，下面每一步一行，做完的写「完成」，正在做的有进度条（复制时）或转圈加这一步用了多久，后面的灰着。时间每秒都在走，免得看着像卡住了。 */
+@Composable
+private fun OpProgressGroup(op: DiskImageOp) {
+    val now = nowSeconds()
+    PreferenceGroup(title = opTitle(op.name)) {
+        item(key = "total") {
+            BasicComponent(
+                title = Strings.setupMaintenanceRunning(),
+                endActions =
+                    op.started
+                        .takeIf { it > 0 }
+                        ?.let { started ->
+                            {
+                                PreferenceValue(
+                                    Strings.setupImageElapsed(clockText(now - started)),
+                                    clickable = false,
+                                )
+                            }
+                        },
+            )
+        }
+        op.steps.forEachIndexed { index, step ->
+            item(key = step) { OpStepRow(op, step, index, now) }
+        }
+    }
+}
+
+@Composable
+private fun OpStepRow(op: DiskImageOp, step: String, index: Int, now: Long) {
+    val current = index == op.stepIndex
+    val done = index < op.stepIndex
+    val fraction = if (current) op.fraction else null
+    BasicComponent(
+        title = stepTitle(step),
+        // 还没做到的步骤灰着
+        enabled = current || done,
+        summary =
+            when {
+                current -> runningStepText(op, now)
+                step == "finish" -> Strings.setupImageStepFinishSummary()
+                else -> null
+            },
+        endActions =
+            when {
+                done -> ({ PreferenceValue(Strings.setupStepDone(), clickable = false) })
+                fraction != null -> ({
+                        PreferenceValue("${(fraction * 100).toInt()}%", clickable = false)
+                    })
+                current -> ({ InfiniteProgressIndicator(size = 20.dp) })
+                else -> null
+            },
+        bottomAction =
+            fraction?.let { f ->
+                { LinearProgressIndicator(progress = f, modifier = Modifier.fillMaxWidth()) }
+            },
+    )
+}
+
+/** 正在做的这一步的一句话：复制时是「4.5 GB / 10.1 GB · 38 MB/s · 约剩 2 分钟」，别的步骤是这一步用了多久（统计大小再加一句要多久）。 */
+internal fun runningStepText(op: DiskImageOp, now: Long): String {
+    val progress = op.progress
+    if (op.message == "copy" && progress != null) {
+        val (done, total) = progress
+        return listOfNotNull(
+                Strings.setupImageCopied(formatBytes(done * 1024), formatBytes(total * 1024)),
+                op.bytesPerSecond?.let { Strings.setupImageSpeed(formatBytes(it)) },
+                op.secondsLeft?.let { leftText(it) },
+            )
+            .joinToString(" · ")
+    }
+    return listOfNotNull(
+            op.stepStarted
+                .takeIf { it > 0 }
+                ?.let { Strings.setupImageElapsed(clockText(now - it)) },
+            Strings.setupImageMeasureHint().takeIf { op.message == "measure" },
+        )
+        .joinToString(" · ")
+}
+
+/** 安装向导里建磁盘镜像那一步的说明：在做哪一小步，再加 [runningStepText]。 */
+internal fun installImageText(op: DiskImageOp, now: Long): String =
+    listOf(stepTitle(op.steps[op.stepIndex]), runningStepText(op, now))
+        .filter { it.isNotEmpty() }
+        .joinToString(" · ")
+
+/** 每秒变一次的当前时刻（Unix 秒）：让显示的已用时间一直在走。 */
+@Composable
+internal fun nowSeconds(): Long {
+    val now by
+        produceState(System.currentTimeMillis() / 1000) {
+            while (true) {
+                delay(1_000)
+                value = System.currentTimeMillis() / 1000
+            }
+        }
+    return now
+}
+
+/** 用了多久，如 0:48、3:42、1:05:09。 */
+internal fun clockText(seconds: Long): String {
+    val s = seconds.coerceAtLeast(0)
+    val h = s / 3600
+    val m = s / 60 % 60
+    val sec = (s % 60).toString().padStart(2, '0')
+    return if (h > 0) "$h:${m.toString().padStart(2, '0')}:$sec" else "$m:$sec"
+}
+
+private fun leftText(seconds: Long): String =
+    if (seconds < 60) Strings.setupImageLeftUnderMinute()
+    else Strings.setupImageLeftMinutes(((seconds + 59) / 60).toInt())
 
 private fun opTitle(name: String): String =
     when (name) {
@@ -289,25 +414,18 @@ private fun opTitle(name: String): String =
         else -> Strings.setupImageCheck()
     }
 
-private fun opDetail(op: DiskImageOp): String =
-    when (op.phase) {
-        "running" -> stepText(op)
-        "ok" -> resultText(op)
-        else -> op.message
-    }
+private fun opDetail(op: DiskImageOp): String = if (op.phase == "ok") resultText(op) else op.message
 
-private fun stepText(op: DiskImageOp): String =
-    when (op.message) {
+private fun stepTitle(step: String): String =
+    when (step) {
         "stop" -> Strings.setupImageStepStop()
         "measure" -> Strings.setupImageStepMeasure()
-        "copy" ->
-            op.progress?.let { (done, total) ->
-                Strings.setupImageStepCopy(formatBytes(done * 1024), formatBytes(total * 1024))
-            } ?: Strings.setupImageStepMeasure()
+        "copy" -> Strings.setupImageStepCopy()
+        "finish" -> Strings.setupImageStepFinish()
         "check" -> Strings.setupImageStepCheck()
         "resize" -> Strings.setupImageStepResize()
         "delete" -> Strings.setupImageStepDelete()
-        else -> Strings.setupImageStepStart()
+        else -> step
     }
 
 private fun resultText(op: DiskImageOp): String =

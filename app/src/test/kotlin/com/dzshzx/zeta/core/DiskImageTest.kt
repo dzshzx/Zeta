@@ -120,4 +120,55 @@ class DiskImageTest {
             assertEquals("$name: $output", 0, check.waitFor())
         }
     }
+
+    @Test
+    fun aCopyShowsItsStepFractionSpeedAndTimeLeft() {
+        val op =
+            DiskImageStatus.parse(
+                    "op=convert\nphase=running\nmsg=copy\nprogress=1048576 4194304\n" +
+                        "time=1795700100\nstarted=1795700000\nstep=1795700080\n",
+                )
+                .op!!
+        assertEquals(listOf("stop", "measure", "copy", "finish"), op.steps)
+        assertEquals(2, op.stepIndex)
+        assertEquals(1_795_700_000L, op.started)
+        assertEquals(0.25f, op.fraction!!, 0.0001f)
+        // 1 GB 用了 20 秒
+        assertEquals(DiskImageStatus.GB / 20, op.bytesPerSecond)
+        assertEquals(60L, op.secondsLeft)
+    }
+
+    @Test
+    fun noSpeedYetAtTheStartOfACopyAndNoFractionOutsideIt() {
+        val fresh =
+            DiskImageStatus.parse(
+                    "op=convert\nphase=running\nmsg=copy\nprogress=0 4194304\ntime=100\nstarted=90\nstep=99\n",
+                )
+                .op!!
+        assertNull(fresh.bytesPerSecond)
+        assertNull(fresh.secondsLeft)
+        assertEquals(0f, fresh.fraction!!, 0f)
+        // 已用空间带着文件系统的开销，可能超过统计出的大小
+        val over =
+            DiskImageStatus.parse("op=convert\nphase=running\nmsg=copy\nprogress=5000 4000\n").op!!
+        assertEquals(1f, over.fraction!!, 0f)
+        val measuring =
+            DiskImageStatus.parse("op=convert\nphase=running\nmsg=measure\nprogress=\n").op!!
+        assertNull(measuring.fraction)
+        assertEquals(1, measuring.stepIndex)
+        // 刚开始（start）算在第一步；旧版脚本没写开始时刻
+        val starting = DiskImageStatus.parse("op=resize\nphase=running\nmsg=start\n").op!!
+        assertEquals(listOf("stop", "check", "resize"), starting.steps)
+        assertEquals(0, starting.stepIndex)
+        assertEquals(0L, starting.started)
+    }
+
+    @Test
+    fun theScriptWritesEveryStepTheAppLists() {
+        for (step in listOf("stop", "measure", "copy", "finish", "check", "resize", "delete")) {
+            assertTrue(step, Regex("state running $step\\b").containsMatchIn(script))
+        }
+        assertTrue(script.contains("echo \"started=\$STARTED\""))
+        assertTrue(script.contains("echo \"step=\$STEP_AT\""))
+    }
 }

@@ -53,6 +53,7 @@ import com.dzshzx.zeta.ui.components.miuix.TextInputDialog
 import com.dzshzx.zeta.ui.settings.ValueRow
 import top.yukonga.miuix.kmp.basic.BasicComponent
 import top.yukonga.miuix.kmp.basic.ButtonDefaults
+import top.yukonga.miuix.kmp.basic.LinearProgressIndicator
 import top.yukonga.miuix.kmp.basic.TextButton
 import top.yukonga.miuix.kmp.preference.ArrowPreference
 import top.yukonga.miuix.kmp.theme.MiuixTheme
@@ -622,10 +623,25 @@ internal fun EnvInstallScreen(hub: ConversationHub, onBack: () -> Unit, onOpenLo
 private fun InstallStepRow(step: InstallStep, installer: EnvInstaller, complete: Boolean) {
     val current = installer.running && installer.step == step
     val value = installStepValue(step, installer, complete, current)
+    // 建磁盘镜像这一步做得久：写清在做哪一小步、用了多久，复制时加进度条
+    val imageOp = installer.imageOp?.takeIf { current && step == InstallStep.Image }
+    val now = if (imageOp != null) nowSeconds() else 0L
+    val fraction = if (current) installer.progress else null
     BasicComponent(
         title = step.title,
-        summary = if (current) installer.detail.ifBlank { null } else null,
+        summary =
+            when {
+                imageOp != null -> installImageText(imageOp, now)
+                current -> installer.detail.ifBlank { null }
+                else -> null
+            },
         endActions = if (value.isEmpty()) null else ({ PreferenceValue(value, clickable = false) }),
+        bottomAction =
+            fraction
+                ?.takeIf { imageOp != null }
+                ?.let { f ->
+                    { LinearProgressIndicator(progress = f, modifier = Modifier.fillMaxWidth()) }
+                },
     )
 }
 

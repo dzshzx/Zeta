@@ -98,6 +98,10 @@ class EnvInstaller(private val hub: ConversationHub, private val assets: (String
     var progress by mutableStateOf<Float?>(null)
         private set
 
+    /** 建磁盘镜像那一步做到哪了；不在这一步时是 null。 */
+    var imageOp by mutableStateOf<DiskImageOp?>(null)
+        private set
+
     /** 当前这一步最近输出的一行。 */
     var detail by mutableStateOf("")
         private set
@@ -277,9 +281,16 @@ class EnvInstaller(private val hub: ConversationHub, private val assets: (String
             step = InstallStep.Image
             progress = null
             detail = ""
+            imageOp = null
         }
         val problem =
-            convertForInstall(imageService) { fraction -> main.post { progress = fraction } }
+            convertForInstall(imageService) { op ->
+                main.post {
+                    imageOp = op
+                    progress = op.fraction
+                }
+            }
+        main.post { imageOp = null }
         if (problem != null) return problem
         markDone(InstallStep.Image)
         return if (cancelled) Strings.coreCancelled() else null

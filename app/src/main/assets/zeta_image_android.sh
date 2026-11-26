@@ -68,13 +68,23 @@ g() { "$BB" nsenter -t 1 -m -- "$@"; }
 
 mounted() { "$BB" grep -q " $1 " /proc/1/mounts; }
 
+# 状态文件：哪项维护、做到哪一步。started 是这项维护开始的时刻（start 记下、经环境变量传给后台进程），
+# step 是这一步开始的时刻，界面拿它们显示已用时间、算复制速度
 state() {
+  now=$(date +%s)
+  STARTED=${STARTED:-$now}
+  [ "$2" = "${STEP_MSG:-}" ] || {
+    STEP_MSG=$2
+    STEP_AT=$now
+  }
   {
     echo "op=$OP"
     echo "phase=$1"
     echo "msg=$2"
     echo "progress=${3:-}"
-    echo "time=$(date +%s)"
+    echo "time=$now"
+    echo "started=$STARTED"
+    echo "step=$STEP_AT"
   } > "$STATE.new" && "$BB" mv "$STATE.new" "$STATE"
 }
 
@@ -313,6 +323,7 @@ op_convert() {
     "$BB" sleep 2
   done
   wait $tar_pid || fail "复制没有成功，详情见 $LOG"
+  state running finish
   [ -x "$NEW/bin/bash" ] || fail "复制出来的环境不完整"
   g "$BB" umount "$NEW" 9>&- || fail "卸不下新镜像"
   "$BB" rmdir "$NEW"
@@ -393,7 +404,9 @@ start)
   [ -f "$SELF" ] || fail "找不到 $SELF"
   (lock_now) || fail "正在做另一项维护"
   OP=$op
+  STARTED=
   state running start
+  export STARTED
   OP=
   check_log_size
   log "开始 $*"
