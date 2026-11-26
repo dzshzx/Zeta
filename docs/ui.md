@@ -92,7 +92,7 @@ Miuix 没有的才在 `ui/components/miuix` 补，页面文件里不各写一份
 | 自定义对话框 | `PageDialog(customContent = { 内容，左右留 DialogContentPadding }) { DialogButtonBar(…) }`，主操作 `DialogButtonBarAction(…, recommended = true)` |
 | 「更多」菜单 | 顶栏 `TopBarMoreMenu(entries)`，列表行 `RowMoreMenu(说明, entries)` |
 | 长按菜单 | `LongPressMenu(entries) { 内容 }` |
-| 菜单项、挂在别的元素上的菜单 | `MenuItem(文字, 图标, onClick)`，删除这类 `alert = true`；`Box { 元素; AnchoredMenu(show, entries, onDismiss) }`，元素和菜单同在一个 `Box` 里；锚是整行、拿不到 `Box` 时用 `GlassMenu(show, entries, anchorBounds, onDismiss)` |
+| 菜单项、挂在别的元素上的菜单 | `MenuItem(文字, 图标, onClick)`，删除这类 `alert = true`；`Box { 元素; AnchoredMenu(show, entries, onDismiss) }`，元素和菜单同在一个 `Box` 里；锚比菜单窄（胶囊、按钮）时菜单和它水平居中，宽（整行、整段内容）时和它右边对齐；锚是整行、拿不到 `Box` 时用 `GlassMenu(show, entries, anchorBounds, onDismiss)` |
 | 二级菜单（如模型菜单的「更多模型」） | 那一项写 `MenuItem(文字, summary = 选中的子项, children = 子项)`，点它在旁边弹出下一层（`GlassSecondaryPopup`，头一行点了回到上一层）；两层的选择菜单用 `choiceEntries` |
 
 ## 坑

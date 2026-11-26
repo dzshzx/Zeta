@@ -19,6 +19,7 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Rect
 import androidx.compose.ui.graphics.vector.ImageVector
@@ -146,14 +147,25 @@ private fun MenuPopup(
     ) {
         // Miuix 的弹层只避开状态栏和导航栏，不避开输入法，但会把菜单收在宿主里：
         // 宿主底下让出键盘的高度，键盘升起时菜单就往上弹，不被盖住（回归：tools/phone-tests/ime-menu.sh）
-        val imeBottom = with(LocalDensity.current) { WindowInsets.ime.getBottom(this).toDp() }
+        val density = LocalDensity.current
+        val imeBottom = with(density) { WindowInsets.ime.getBottom(this).toDp() }
+        // 锚比菜单还宽（整行、整段内容）时和它的右边对齐，否则（胶囊、按钮）和它水平居中；贴着屏幕边的由 Miuix 收回窗口里
+        val alignment =
+            if (anchorBounds.width > with(density) { MenuSizing.maxWidth.toPx() }) Alignment.End
+            else Alignment.CenterHorizontally
+        // 弹出动画要看到 show 从假变真：Miuix 的 GlassPopup 用 animateFloatAsState，初值就是它第一次组合时的目标值，而这块内容由最外层
+        // Scaffold 在打开之后才组合，直接传 show 就没有弹出动画（收起时有）。所以先按收着组合，下一帧再打开。
+        // GlassPopup 的进度改成从 0 起步、或首次组合就打开也有弹出动画后，删掉 entered
+        var entered by remember { mutableStateOf(false) }
+        LaunchedEffect(Unit) { entered = true }
         Box(Modifier.fillMaxSize().padding(bottom = imeBottom)) {
             GlassPopup(
-                show = show,
+                show = show && entered,
                 onDismissRequest = onDismiss,
                 anchorBounds = anchorBounds,
                 backdrop = backdrop,
                 sizing = MenuSizing,
+                horizontalAlignment = alignment,
             ) {
                 MenuRows(groups, onPick = pick) { item, rowBounds ->
                     child = item
