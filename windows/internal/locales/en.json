@@ -729,7 +729,6 @@
   "notifyQuestions": "Has questions for you",
   "notifyPlan": "Plan needs your approval",
   "notifyApprove": "Needs your approval: {action}",
-  "hubOffProblem": "Disconnected. Turn on Connect on the device page.",
   "hubOffline": "{device} is disconnected",
   "hubDeletedDevice": "Deleted device",
   "hubListFailed": "Couldn't load conversations: {reason}",

@@ -7,7 +7,6 @@ import (
 	"testing"
 
 	"github.com/dzshzx/Zeta/client/hostlink"
-	"github.com/dzshzx/Zeta/windows/internal/locales"
 	"github.com/dzshzx/Zeta/windows/internal/settings"
 )
 
@@ -30,7 +29,7 @@ func TestDisconnectingADeviceStopsConnectingUntilReconnected(t *testing.T) {
 	if c := h.Chat(); c == nil || c.Conv != nil || c.Opening || c.Session.ID != session || c.Backend != id {
 		t.Fatalf("断开后的聊天窗格：%+v", c)
 	}
-	if !h.Off(id) || h.Problem() != locales.HubOffProblem() || h.Remote(id) != nil {
+	if !h.Off(id) || h.Problem() != "" || h.Remote(id) != nil {
 		t.Fatalf("断开后：Off %v，问题 %q", h.Off(id), h.Problem())
 	}
 	chats := d.Chats()
@@ -52,7 +51,7 @@ func TestDisconnectingADeviceStopsConnectingUntilReconnected(t *testing.T) {
 	if d.Chats() != chats+1 || len(calls) == 0 || calls[0].Method != "conv.open" || calls[0].Str("session") != session {
 		t.Fatalf("连上后没重新打开：%d 条连接，%+v", d.Chats(), calls)
 	}
-	if c := h.Chat(); c.Conv == nil || h.Off(id) || h.Problem() == locales.HubOffProblem() || !slices.Contains(d.Watching(), id) {
+	if c := h.Chat(); c.Conv == nil || h.Off(id) || h.Problem() != "" || !slices.Contains(d.Watching(), id) {
 		t.Fatalf("连上后：%+v，问题 %q，订阅 %v", c, h.Problem(), d.Watching())
 	}
 }

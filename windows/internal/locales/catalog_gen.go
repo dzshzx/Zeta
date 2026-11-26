@@ -10515,20 +10515,6 @@ func (msgs Messages) NotifyApprove(action string) string {
 	return Catalog.Format(msgs.locale, "notifyApprove", map[string]any{"action": action})
 }
 
-// HubOffProblem says "已断开，在设备页打开「连接」"
-// in the language the app shows.
-//
-// 侧栏会话列表的问题那一行：这台设备的「连接」开关关着。
-func HubOffProblem() string { return In(i18n.Locale()).HubOffProblem() }
-
-// HubOffProblem says "已断开，在设备页打开「连接」"
-// in the language of msgs.
-//
-// 侧栏会话列表的问题那一行：这台设备的「连接」开关关着。
-func (msgs Messages) HubOffProblem() string {
-	return Catalog.Format(msgs.locale, "hubOffProblem", nil)
-}
-
 // HubOffline says "「{device}」已断开"
 // in the language the app shows.
 //

@@ -4102,10 +4102,6 @@
       }
     }
   },
-  "hubOffProblem": "已断开，在设备页打开「连接」",
-  "@hubOffProblem": {
-    "description": "侧栏会话列表的问题那一行：这台设备的「连接」开关关着。"
-  },
   "hubOffline": "「{device}」已断开",
   "@hubOffline": {
     "description": "「连接」关着的设备上要连设备的操作得到的错误（查路径、开对话等处显示）。",
@@ -4140,7 +4136,7 @@
       },
       "problem": {
         "type": "String",
-        "example": "已断开，在设备页打开「连接」"
+        "example": "没读到会话列表：网络不通"
       }
     }
   },

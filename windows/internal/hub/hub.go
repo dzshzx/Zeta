@@ -161,7 +161,7 @@ func (h *Hub) ListAll() {
 }
 
 // Refresh 让列着的各台的会话列表跟上那边：还没订阅的订阅上，订阅着但连不上的马上重连，不再列着的断开、它的会话拿掉；
-// 「连接」关着的不订阅，留着上次的会话，问题那一行说已断开。
+// 「连接」关着的不订阅，留着上次的会话，问题那一行不提它（断开是用户自己关的）。
 func (h *Hub) Refresh() {
 	listed := h.Listed()
 	for id := range h.watches {
@@ -183,8 +183,8 @@ func (h *Hub) Refresh() {
 	h.changed()
 	for _, id := range listed {
 		if h.Off(id) {
-			h.unwatch(id) // 会话留着上次的，侧栏说已断开
-			h.problems[id] = locales.HubOffProblem
+			h.unwatch(id) // 会话留着上次的
+			delete(h.problems, id)
 			continue
 		}
 		if _, live := h.watches[id]; live && h.problems[id] == nil {
