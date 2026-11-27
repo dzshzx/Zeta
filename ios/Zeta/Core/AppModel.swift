@@ -18,27 +18,38 @@ final class AppModel {
     var alert: String?
 
     private var core: Core?
+    private var starting = false
     private var refreshing = false
 
+    /// 起核心。读设置、钥匙串和建设备都在后台线程上做，不卡主线程；起好以后回到主线程取公钥和第一份状态。
     func start() {
-        guard core == nil else { return }
-        do {
-            let support = try FileManager.default.url(
-                for: .applicationSupportDirectory, in: .userDomainMask, appropriateFor: nil, create: true)
-            let dir = support.appending(path: "Zeta", directoryHint: .isDirectory)
-            try FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
-            let lang = Locale.preferredLanguages.first?.hasPrefix("zh") == false ? "en" : "zh-Hans"
-            let core = try Core.start(dir: dir, seed: KeyStore.seed(), lang: lang, device: UIDevice.current.name) {
-                Task { @MainActor in AppModel.shared.scheduleRefresh() }
+        guard core == nil, !starting else { return }
+        starting = true
+        let lang = Locale.preferredLanguages.first?.hasPrefix("zh") == false ? "en" : "zh-Hans"
+        let device = UIDevice.current.name
+        Task {
+            defer { starting = false }
+            do {
+                let core = try await Task.detached { try Self.launch(lang: lang, device: device) }.value
+                self.core = core
+                struct Key: Decodable { let `public`: String; let version: String }
+                let key = try core.call("key", as: Key.self)
+                publicKey = key.public
+                version = key.version
+                refresh()
+            } catch {
+                startProblem = error.localizedDescription
             }
-            self.core = core
-            struct Key: Decodable { let `public`: String; let version: String }
-            let key = try core.call("key", as: Key.self)
-            publicKey = key.public
-            version = key.version
-            refresh()
-        } catch {
-            startProblem = error.localizedDescription
+        }
+    }
+
+    private nonisolated static func launch(lang: String, device: String) throws -> Core {
+        let support = try FileManager.default.url(
+            for: .applicationSupportDirectory, in: .userDomainMask, appropriateFor: nil, create: true)
+        let dir = support.appending(path: "Zeta", directoryHint: .isDirectory)
+        try FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
+        return try Core.start(dir: dir, seed: KeyStore.seed(), lang: lang, device: device) {
+            Task { @MainActor in AppModel.shared.scheduleRefresh() }
         }
     }
 
