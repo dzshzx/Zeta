@@ -11,6 +11,8 @@ final class AppModel {
     private(set) var state = CoreState.empty
     private(set) var items: [Item] = []
     private(set) var publicKey = ""
+    /// 登录用的是导入的私钥（不是 Zeta 自己生成的那把）。
+    private(set) var keyImported = false
     private(set) var version = ""
     /// 核心起不来的原因（界面整页显示它）。
     private(set) var startProblem: String?
@@ -32,10 +34,8 @@ final class AppModel {
             do {
                 let core = try await Task.detached { try Self.launch(lang: lang, device: device) }.value
                 self.core = core
-                struct Key: Decodable { let `public`: String; let version: String }
-                let key = try core.call("key", as: Key.self)
-                publicKey = key.public
-                version = key.version
+                try useKey(core.call("key", as: KeyInfo.self))
+                restoreImportedKey(core)
                 refresh()
             } catch {
                 startProblem = error.localizedDescription
@@ -117,6 +117,49 @@ final class AppModel {
     func add(_ probed: Probed) throws {
         guard let core else { throw Core.Failure(message: "core not started") }
         _ = try core.call("add", ["token": probed.token])
+    }
+
+    private struct KeyInfo: Decodable {
+        let `public`: String
+        let imported: Bool
+        let version: String
+        let pem: String?
+    }
+
+    private func useKey(_ key: KeyInfo) {
+        publicKey = key.public
+        keyImported = key.imported
+        version = key.version
+    }
+
+    /// 把上次导入、存在钥匙串里的私钥交给核心；交不进去时（不该发生）照用 Zeta 自己的密钥，并说一声。
+    private func restoreImportedKey(_ core: Core) {
+        do {
+            guard let pem = try KeyStore.imported() else { return }
+            try useKey(core.call("importkey", ["key": pem], as: KeyInfo.self))
+        } catch {
+            alert = error.localizedDescription
+        }
+    }
+
+    /// 导入私钥 text（OpenSSH 或 PEM，有密码时给 passphrase）：核心认得出才换上并存进钥匙串，认不出时抛出原因。
+    func importKey(_ text: String, passphrase: String) throws {
+        guard let core else { throw Core.Failure(message: "core not started") }
+        let key = try core.call("importkey", ["key": text, "passphrase": passphrase], as: KeyInfo.self)
+        try KeyStore.saveImported(key.pem ?? "")
+        useKey(key)
+    }
+
+    /// 换回 Zeta 自己的密钥，删掉钥匙串里导入的私钥。
+    func resetKey() {
+        guard let core else { return }
+        do {
+            let key = try core.call("resetkey", as: KeyInfo.self)
+            KeyStore.clearImported()
+            useKey(key)
+        } catch {
+            alert = error.localizedDescription
+        }
     }
 
     func deviceName(_ id: String) -> String {

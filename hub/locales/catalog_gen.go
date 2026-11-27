@@ -1267,6 +1267,52 @@ func (msgs Messages) AccountsRelayRemoveFailed(error string) string {
 	return Catalog.Format(msgs.locale, "accountsRelayRemoveFailed", map[string]any{"error": error})
 }
 
+// MobileImportedKeyRejected says "服务器不认导入的私钥：把它对应的公钥加进那台设备的 ~/.ssh/authorized_keys…"
+// in the language the app shows.
+//
+// iOS 版：用导入的私钥登录、SSH
+// 登录被拒时设备页和聊天页说的原因。
+func MobileImportedKeyRejected() string { return In(i18n.Locale()).MobileImportedKeyRejected() }
+
+// MobileImportedKeyRejected says "服务器不认导入的私钥：把它对应的公钥加进那台设备的 ~/.ssh/authorized_keys…"
+// in the language of msgs.
+//
+// iOS 版：用导入的私钥登录、SSH
+// 登录被拒时设备页和聊天页说的原因。
+func (msgs Messages) MobileImportedKeyRejected() string {
+	return Catalog.Format(msgs.locale, "mobileImportedKeyRejected", nil)
+}
+
+// MobileKeyNeedsPassphrase says "这把私钥有密码，请填上密码再导入"
+// in the language the app shows.
+//
+// iOS 版：导入加了密码的私钥、没填密码时说的原因。
+func MobileKeyNeedsPassphrase() string { return In(i18n.Locale()).MobileKeyNeedsPassphrase() }
+
+// MobileKeyNeedsPassphrase says "这把私钥有密码，请填上密码再导入"
+// in the language of msgs.
+//
+// iOS 版：导入加了密码的私钥、没填密码时说的原因。
+func (msgs Messages) MobileKeyNeedsPassphrase() string {
+	return Catalog.Format(msgs.locale, "mobileKeyNeedsPassphrase", nil)
+}
+
+// MobileKeyUnreadable says "认不出这把私钥：要 OpenSSH 或 PEM 格式的私钥（不是公钥），密码要对"
+// in the language the app shows.
+//
+// iOS
+// 版：导入的私钥解析不了（格式不对、是公钥、密码错）时说的原因。
+func MobileKeyUnreadable() string { return In(i18n.Locale()).MobileKeyUnreadable() }
+
+// MobileKeyUnreadable says "认不出这把私钥：要 OpenSSH 或 PEM 格式的私钥（不是公钥），密码要对"
+// in the language of msgs.
+//
+// iOS
+// 版：导入的私钥解析不了（格式不对、是公钥、密码错）时说的原因。
+func (msgs Messages) MobileKeyUnreadable() string {
+	return Catalog.Format(msgs.locale, "mobileKeyUnreadable", nil)
+}
+
 // MobileKeyRejected says "服务器不认 Zeta 的公钥：在设置里复制公钥，加进那台设备的 ~/.ssh/authorized_keys"
 // in the language the app shows.
 //

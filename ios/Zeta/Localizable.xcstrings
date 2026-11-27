@@ -643,6 +643,156 @@
           }
         }
       }
+    },
+    "导入私钥": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Import Private Key"
+          }
+        }
+      }
+    },
+    "换回 Zeta 的密钥": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Use Zeta’s Own Key"
+          }
+        }
+      }
+    },
+    "导入的私钥": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Imported Private Key"
+          }
+        }
+      }
+    },
+    "Zeta 用导入的私钥登录，上面是它的公钥。私钥只在这台设备的钥匙串里。": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Zeta signs in with the imported private key; its public key is shown above. The private key stays in this device’s keychain."
+          }
+        }
+      }
+    },
+    "换回 Zeta 的密钥？": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Switch back to Zeta’s own key?"
+          }
+        }
+      }
+    },
+    "换回": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Switch Back"
+          }
+        }
+      }
+    },
+    "导入的私钥从这台设备上删掉，之后用 Zeta 自己的密钥登录。": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "The imported private key is deleted from this device, and Zeta signs in with its own key again."
+          }
+        }
+      }
+    },
+    "从文件选取": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Choose File"
+          }
+        }
+      }
+    },
+    "私钥": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Private Key"
+          }
+        }
+      }
+    },
+    "粘贴或选取 OpenSSH、PEM 格式的私钥文件（如 ~/.ssh/id_ed25519），不是 .pub 公钥。": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Paste or choose an OpenSSH or PEM private key file (such as ~/.ssh/id_ed25519), not a .pub public key."
+          }
+        }
+      }
+    },
+    "没有密码就留空": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Leave empty if none"
+          }
+        }
+      }
+    },
+    "密码": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Passphrase"
+          }
+        }
+      }
+    },
+    "导入后私钥去掉密码存进这台设备的钥匙串，以后不再问。": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "After import, the key is stored in this device’s keychain without the passphrase, so you won’t be asked again."
+          }
+        }
+      }
+    },
+    "导入": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Import"
+          }
+        }
+      }
+    },
+    "这个文件不是文本，不像私钥": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "This file isn’t text, so it can’t be a private key"
+          }
+        }
+      }
     }
   }
 }

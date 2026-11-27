@@ -599,6 +599,18 @@
       }
     }
   },
+  "mobileImportedKeyRejected": "服务器不认导入的私钥：把它对应的公钥加进那台设备的 ~/.ssh/authorized_keys，或在设置里换回 Zeta 自己的密钥",
+  "@mobileImportedKeyRejected": {
+    "description": "iOS 版：用导入的私钥登录、SSH 登录被拒时设备页和聊天页说的原因。"
+  },
+  "mobileKeyNeedsPassphrase": "这把私钥有密码，请填上密码再导入",
+  "@mobileKeyNeedsPassphrase": {
+    "description": "iOS 版：导入加了密码的私钥、没填密码时说的原因。"
+  },
+  "mobileKeyUnreadable": "认不出这把私钥：要 OpenSSH 或 PEM 格式的私钥（不是公钥），密码要对",
+  "@mobileKeyUnreadable": {
+    "description": "iOS 版：导入的私钥解析不了（格式不对、是公钥、密码错）时说的原因。"
+  },
   "mobileKeyRejected": "服务器不认 Zeta 的公钥：在设置里复制公钥，加进那台设备的 ~/.ssh/authorized_keys",
   "@mobileKeyRejected": {
     "description": "iOS 版：SSH 登录被拒时设备页和聊天页说的原因。"
