@@ -84,8 +84,8 @@ private class OpenedTask {
 
     /** 点了对话 [conversation] 的 [task]：子代理直接进它的查看页；还不知道是哪一步发起的（task_started 没到）才看任务详情。 */
     fun open(conversation: String, task: BackgroundTask) {
-        val use = task.toolUseId.takeIf { task.kind == TaskKind.Agent }
-        if (use != null) steps = TaskRef(conversation, use)
+        val use = task.toolUseId
+        if (task.kind == TaskKind.Agent && use != null) steps = TaskRef(conversation, use)
         else viewing = TaskRef(conversation, task.id)
     }
 }

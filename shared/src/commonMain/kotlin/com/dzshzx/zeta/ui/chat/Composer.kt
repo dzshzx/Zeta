@@ -471,11 +471,19 @@ private fun AttachmentThumbnail(
     viewing?.let { ref -> ImageViewer(listOf(ref), 0) { viewing = null } }
 }
 
-/** 输入栏里看大图用的那张：本机原文件读得到就是它，否则是缩小图。 */
+/** 看大图时本机原文件整份读进内存（再经内联图交给看图页），超过这么大的不读，看缩小图。 */
+private const val MAX_ORIGINAL_VIEW_BYTES = 32L * 1024 * 1024
+
+/** 输入栏里看大图用的那张：本机原文件读得到、不太大就是它，否则是缩小图。 */
 private suspend fun draftImageRef(attachment: Attachment, local: PickedFile?): ImageRef {
     val original = local?.let { file ->
         withContext(Dispatchers.IO) {
-            runCatching { file.open()?.use { it.readBytes() } }.getOrNull()
+            runCatching {
+                val size = file.size()
+                if (size != null && size > MAX_ORIGINAL_VIEW_BYTES) null
+                else file.open()?.use { it.readBytes() }
+            }
+                .getOrNull()
         }
     }
     return if (original != null)

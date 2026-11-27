@@ -11,7 +11,6 @@ struct SubagentView: View {
 
     @State private var page: SubagentPage?
     @State private var failed = ""
-    @State private var stopAsked = false
     @State private var promptOpen = false
 
     /// 它在后台任务清单里的那一项；不在清单里时没有。
@@ -67,11 +66,6 @@ struct SubagentView: View {
         .onAppear { model.perform("watch", ["kind": "subagent", "id": toolUseID, "on": true]) }
         .onDisappear { model.perform("watch", ["kind": "subagent", "id": toolUseID, "on": false]) }
         .task(id: model.revision) { await load() }
-        .confirmationDialog("停止这个任务？", isPresented: $stopAsked, titleVisibility: .visible) {
-            Button("停止", role: .destructive) {
-                if let task { model.perform("stoptask", ["task": task.id]) }
-            }
-        }
     }
 
     /// 头一组：说明、状态、用时、子代理类型、模型、思考强度、工具调用、所属对话（知道的才列），在跑时最后是停止。
@@ -79,25 +73,13 @@ struct SubagentView: View {
         Section {
             Text(title).font(.headline)
             LabeledContent("状态") { Text(stateText).foregroundStyle(stateColor) }
-            if let task {
-                TimelineView(.periodic(from: .now, by: 1)) { context in
-                    LabeledContent(task.running ? LocalizedStringKey("已运行") : LocalizedStringKey("用时")) {
-                        Text(task.elapsed(now: context.date), format: TaskInfo.elapsedStyle)
-                    }
-                }
-            }
+            if let task { TaskElapsedRow(task: task) }
             facts
             Button(action: openChat) {
                 LabeledContent("所属对话", value: model.state.chat?.title ?? "")
             }
             .foregroundStyle(.primary)
-            if let task, task.running {
-                Button(
-                    task.stopping == true ? LocalizedStringKey("正在停止…") : LocalizedStringKey("停止这个任务"),
-                    role: .destructive
-                ) { stopAsked = true }
-                .disabled(task.stopping == true || model.state.chat?.process == false)
-            }
+            if let task, task.running { StopTaskButton(task: task) }
         }
     }
 

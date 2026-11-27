@@ -151,7 +151,6 @@ struct TaskDetailView: View {
 
     @State private var output: TaskOutput?
     @State private var failed = ""
-    @State private var stopAsked = false
 
     private var task: TaskInfo? { model.state.chat?.tasks.first { $0.id == taskID } }
 
@@ -177,9 +176,6 @@ struct TaskDetailView: View {
         .onAppear { watch(true) }
         .onDisappear { watch(false) }
         .task(id: model.revision) { await load() }
-        .confirmationDialog("停止这个任务？", isPresented: $stopAsked, titleVisibility: .visible) {
-            Button("停止", role: .destructive) { model.perform("stoptask", ["task": taskID]) }
-        }
     }
 
     private func form(_ task: TaskInfo) -> some View {
@@ -201,10 +197,8 @@ struct TaskDetailView: View {
             if let error = task.error, !error.isEmpty {
                 Section("出错") { Text(error).foregroundStyle(.red).textSelection(.enabled) }
             }
-            if task.running && task.stopping != true {
-                Section {
-                    Button("停止任务", role: .destructive) { stopAsked = true }
-                }
+            if task.running {
+                Section { StopTaskButton(task: task) }
             }
         }
     }
@@ -216,11 +210,7 @@ struct TaskDetailView: View {
             if let type = task.agentType, !type.isEmpty {
                 LabeledContent("类型", value: type)
             }
-            TimelineView(.periodic(from: .now, by: 1)) { context in
-                LabeledContent("已运行") {
-                    Text(task.elapsed(now: context.date), format: TaskInfo.elapsedStyle)
-                }
-            }
+            TaskElapsedRow(task: task)
             if let uses = task.toolUses {
                 LabeledContent("工具调用") { Text(uses, format: .number) }
             }
@@ -259,6 +249,37 @@ struct TaskDetailView: View {
             failed = ""
         } catch {
             failed = error.localizedDescription
+        }
+    }
+}
+
+/// 任务的「已运行」或「用时」一行，在跑时每秒走一次（任务详情页和子代理页共用）。
+struct TaskElapsedRow: View {
+    let task: TaskInfo
+
+    var body: some View {
+        TimelineView(.periodic(from: .now, by: 1)) { context in
+            LabeledContent(task.running ? LocalizedStringKey("已运行") : LocalizedStringKey("用时")) {
+                Text(task.elapsed(now: context.date), format: TaskInfo.elapsedStyle)
+            }
+        }
+    }
+}
+
+/// 停止一个在跑的任务的按钮，点了先确认；正在停止、对话的进程没了时点不了（任务详情页和子代理页共用）。
+struct StopTaskButton: View {
+    @Environment(AppModel.self) private var model
+    let task: TaskInfo
+    @State private var asked = false
+
+    var body: some View {
+        Button(
+            task.stopping == true ? LocalizedStringKey("正在停止…") : LocalizedStringKey("停止这个任务"),
+            role: .destructive
+        ) { asked = true }
+        .disabled(task.stopping == true || model.state.chat?.process == false)
+        .confirmationDialog("停止这个任务？", isPresented: $asked, titleVisibility: .visible) {
+            Button("停止", role: .destructive) { model.perform("stoptask", ["task": task.id]) }
         }
     }
 }

@@ -142,9 +142,13 @@ class IntakeSink(
                     )
                     return
                 }
-        val upload = FileUpload(UUID.randomUUID().toString(), FileLimits.label(name, size))
-        upload.local = file
-        upload.fresh = true
+        val upload =
+            FileUpload(
+                UUID.randomUUID().toString(),
+                FileLimits.label(name, size),
+                fresh = true,
+                local = file,
+            )
         draft.uploads.add(upload)
         if (type?.startsWith("image/") == true || AttachedPaths.isImage(name)) {
             launch { upload.inline = withContext(Dispatchers.IO) { file.loadImage() } }
@@ -191,8 +195,11 @@ class IntakeSink(
                     return
                 }
         val upload =
-            FileUpload(UUID.randomUUID().toString(), FileLimits.label(name, bytes.size.toLong()))
-        upload.fresh = true
+            FileUpload(
+                UUID.randomUUID().toString(),
+                FileLimits.label(name, bytes.size.toLong()),
+                fresh = true,
+            )
         draft.uploads.add(upload)
         scope.launch {
             val path = withContext(Dispatchers.IO) { Uploads.copyBytes(shell, name, bytes) }

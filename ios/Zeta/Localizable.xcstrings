@@ -4094,16 +4094,6 @@
         }
       }
     },
-    "停止任务": {
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Stop task"
-          }
-        }
-      }
-    },
     "输出（最后 8 KB，共 %@）": {
       "localizations": {
         "en": {

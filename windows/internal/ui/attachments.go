@@ -64,11 +64,10 @@ type draftFile struct {
 	entry  string // 传好了的主机路径（/…）或引用（@…）
 	// uploaded 是这份草稿自己传到设备上的路径（撤回放回的、草稿里恢复的、输入的路径没有）：没发就移除时把那边的删掉。
 	uploaded string
-	// local、data 是这次选的本机原文件、粘贴来的原文：输入栏点开看大图时读它。放回的、草稿里恢复的没有。
-	local  string
-	data   []byte
-	failed string // 没传成的原因
-	sent   int64  // 已传的字节数
+	// original 读这次选的本机原文件、粘贴来的原文：输入栏点开看大图时用。放回的、草稿里恢复的和文件夹没有。
+	original func() ([]byte, error)
+	failed   string // 没传成的原因
+	sent     int64  // 已传的字节数
 	// encoding 时缩小图还在做（做好才能发）；shrunk 是做好的缩小图（随消息内联发，带着输入栏的缩略图）。
 	// 做不成时两样都空，只当文件。
 	encoding bool
@@ -180,50 +179,62 @@ func (at *attachments) removeImage(id int) {
 
 // removeFile 是用户点了附件上的移除：从输入栏拿掉（在传的取消），这份草稿自己传好的那份在后台从设备上删掉。
 func (a *App) removeFile(p *chatPane, id int) {
-	for _, f := range p.att.files {
-		if f.id == id && f.uploaded != "" {
-			remove, path := a.hub.UploadRemover(p.src.Backend), f.uploaded
-			a.run(func() { remove(path) })
-		}
+	if f := p.att.removeFile(id); f != nil && f.uploaded != "" {
+		remove, path := a.hub.UploadRemover(p.src.Backend), f.uploaded
+		a.run(func() { remove(path) })
 	}
-	p.att.removeFile(id)
 }
 
-// viewPicture 看输入栏里一张待发的图片文件：有本机原文件、粘贴来的原文时看原图（直接读本机，不经设备），读不了、没有时看缩小图。
+// maxOriginalView：看大图时本机原文件整份读进内存（再经内联图交给看大图），超过这么大的不读，看缩小图。
+const maxOriginalView = 32 << 20
+
+// viewPicture 看输入栏里一张待发的图片文件：有本机原文件、粘贴来的原文时看原图（直接读本机，不经设备），
+// 没有、读不了、太大时看缩小图。
 func (a *App) viewPicture(p *chatPane, f *draftFile) {
 	shrunk := f.shrunk
 	if shrunk == nil {
 		return
 	}
-	local, data := f.local, f.data
+	read := f.original
+	if read == nil || f.size > maxOriginalView {
+		a.viewDraftImage(p, shrunk)
+		return
+	}
 	a.async(func() func() {
-		if local != "" {
-			data, _ = os.ReadFile(local)
-		}
+		data, _ := read()
 		return func() {
 			if len(data) == 0 {
 				a.viewDraftImage(p, shrunk)
 				return
 			}
-			a.openImages(p.list, []items.Image{{Kind: items.Inline, Key: "draft-original:" + shrunk.contentHash(),
-				Data: base64.StdEncoding.EncodeToString(data)}}, 0)
+			a.viewInline(p, "draft-original:"+shrunk.contentHash(), data)
 		}
 	})
 }
 
 // viewDraftImage 看输入栏里一张内联图（放回的、草稿里存着的，或图片文件的缩小图）。
 func (a *App) viewDraftImage(p *chatPane, im *draftImage) {
-	a.openImages(p.list, []items.Image{{Kind: items.Inline, Key: "draft:" + im.contentHash(),
-		Data: base64.StdEncoding.EncodeToString(im.image.Data)}}, 0)
+	a.viewInline(p, "draft:"+im.contentHash(), im.image.Data)
 }
 
-func (at *attachments) removeFile(id int) {
+// viewInline 用看大图打开手里的一张图 data，key 是它的缓存键。
+func (a *App) viewInline(p *chatPane, key string, data []byte) {
+	a.openImages(p.list, []items.Image{{Kind: items.Inline, Key: key, Data: base64.StdEncoding.EncodeToString(data)}}, 0)
+}
+
+// removeFile 从输入栏拿掉 id 那个文件（在传的取消），返回它；没有这个时是 nil。
+func (at *attachments) removeFile(id int) (removed *draftFile) {
 	at.files = removeWhere(at.files, func(f *draftFile) bool {
-		if f.id == id && f.cancel != nil {
+		if f.id != id {
+			return false
+		}
+		if f.cancel != nil {
 			f.cancel()
 		}
-		return f.id == id
+		removed = f
+		return true
 	})
+	return removed
 }
 
 func removeWhere[T any](list []T, gone func(T) bool) []T {
@@ -363,8 +374,12 @@ func (a *App) startUpload(p *chatPane, u host.Upload, f *draftFile) {
 	u.Limit = attach.MaxBytes
 	ctx, cancel := context.WithCancel(context.Background())
 	f.id, f.cancel = p.att.id(), cancel
-	if !u.Folder {
-		f.local, f.data = u.Local, u.Data
+	switch {
+	case u.Folder:
+	case u.Local != "":
+		f.original = func() ([]byte, error) { return os.ReadFile(u.Local) }
+	default:
+		f.original = func() ([]byte, error) { return u.Data, nil }
 	}
 	p.att.files = append(p.att.files, f)
 	upload := a.hub.Uploader(p.src.Backend)

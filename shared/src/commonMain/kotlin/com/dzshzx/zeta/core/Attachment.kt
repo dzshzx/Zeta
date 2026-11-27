@@ -55,14 +55,15 @@ object Attachments {
  * 图片文件另有 [inline]：缩小的一份，随消息内联发给模型先看（带上 original 指明是这个文件的），原文件仍复制进主机，模型看不清时
  * 自己去读。输入栏只画它的缩略图；没有时（草稿里恢复的）缩略图从主机上的 [path] 取，只发文件。
  */
-class FileUpload(val id: String, val name: String) {
+class FileUpload(
+    val id: String,
+    val name: String,
+    /** 这次复制进主机的文件是这份草稿自己传的、还没随消息发出去：从输入栏移除时把主机上那份删掉（[Uploads.discard]）。放回的、草稿里恢复的可能是发过的消息里的，不删。 */
+    val fresh: Boolean = false,
     /** 这份草稿自己选的、分享来的本机文件：输入栏点开看大图时读它（原图，不经主机）。放回的、草稿里恢复的没有。 */
-    var local: PickedFile? = null
-
-    /** 这次复制进主机的文件是这份草稿自己传的、还没随消息发出去：从输入栏移除时把主机上那份删掉（[Uploads.discard]）。放回的、草稿里恢复的 可能是发过的消息里的，不删。 */
-    var fresh = false
-
-    /** 用户从输入栏移除了它；还在复制的，复制完由复制的那边删掉主机上那份。 */
+    val local: PickedFile? = null,
+) {
+    /** 用户从输入栏移除了它（IntakeSink.remove）；还在复制的，复制完由复制的那边删掉主机上那份。 */
     var removed = false
     var path by mutableStateOf<String?>(null)
     var inline by mutableStateOf<Attachment?>(null)
@@ -86,8 +87,7 @@ object Uploads {
         open: () -> InputStream?,
     ): Copied = runCatching {
         val input = open() ?: return@runCatching Copied(null)
-        val directory =
-            "${AppVariant.current.cacheDir(shell.home)}/files/${UUID.randomUUID().toString().take(8)}"
+        val directory = uploadRoot(shell) + UUID.randomUUID().toString().take(8)
         val target = "$directory/$name"
         val process =
             shell.startPlain(
@@ -99,7 +99,7 @@ object Uploads {
         // 关掉标准输入 cat 就会结束（app 给不了 su 的子进程发信号，只能这样让它停）
         val ok = process.waitFor() == 0
         if (over) {
-            runCatching { shell.run("rm -rf " + LinuxEnv.quote(directory), plain = true) }
+            removeDirectory(shell, directory)
             return@runCatching Copied(null, tooLarge = true)
         }
         Copied(if (ok) target else null)
@@ -108,20 +108,27 @@ object Uploads {
 
     /**
      * 用户从输入栏移除了 [upload]：是这份草稿自己传的（[FileUpload.fresh]）就删掉主机上那次复制的目录（[copyFrom] 建的 `files/<8
-     * 位十六进制>`，路径对不上这个样子的不动）。还在复制的只记下，复制完再调一次。阻塞，别在主线程调用。
+     * 位十六进制>`，路径对不上这个样子的不动）。还没复制完的什么也不做，复制完再调一次。阻塞，别在主线程调用。
      */
     fun discard(shell: LinuxShell, upload: FileUpload) {
-        upload.removed = true
         val path = upload.path ?: return
         if (!upload.fresh) return
         val directory = path.substringBeforeLast('/')
-        val root = "${AppVariant.current.cacheDir(shell.home)}/files/"
-        if (!directory.startsWith(root) || !UploadDirectory.matches(directory.removePrefix(root)))
-            return
-        runCatching { shell.run("rm -rf " + LinuxEnv.quote(directory), plain = true) }
+        val root = uploadRoot(shell)
+        if (directory.startsWith(root) && UploadDirectory.matches(directory.removePrefix(root)))
+            removeDirectory(shell, directory)
     }
 
     private val UploadDirectory = Regex("[0-9a-f]{8}")
+
+    /** 各次复制的目录都在它下面（以 / 结尾）。 */
+    private fun uploadRoot(shell: LinuxShell): String =
+        "${AppVariant.current.cacheDir(shell.home)}/files/"
+
+    /** 删掉一次复制的目录，尽力而为。 */
+    private fun removeDirectory(shell: LinuxShell, directory: String) {
+        runCatching { shell.run("rm -rf " + LinuxEnv.quote(directory), plain = true) }
+    }
 
     /** 把 [source] 抄进 [sink]，超过 [limit] 字节就停下；返回是不是超了（超了的那一块不写）。 */
     private fun copyLimited(source: InputStream, sink: OutputStream, limit: Long): Boolean {

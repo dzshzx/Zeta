@@ -153,9 +153,11 @@ private struct Thumbnail: View {
             full = image
             viewing = true
         }
-        .fullScreenCover(isPresented: $viewing) {
-            if let full { ImageViewer(image: full) }
-        }
+        .fullScreenCover(
+            isPresented: $viewing, onDismiss: { full = nil },
+            content: {
+                if let full { ImageViewer(image: full) }
+            })
         .accessibilityLabel(item.failed.isEmpty ? item.name : item.failed)
         .accessibilityAddTraits(.isButton)
     }
