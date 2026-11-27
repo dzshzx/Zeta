@@ -112,6 +112,16 @@ func (s State) StatusIn(locale string) string {
 	return locales.Msg{Key: s.StatusCode, Args: s.StatusArgs}.In(locale)
 }
 
+// AgentTask 是后台任务清单里 Agent 调用 toolUseID 发起的那个子代理；不在清单里时 ok 为假。
+func (s State) AgentTask(toolUseID string) (t tasks.Task, ok bool) {
+	for _, t := range s.Tasks {
+		if t.Kind == tasks.KindAgent && t.ToolUseID == toolUseID {
+			return t, true
+		}
+	}
+	return tasks.Task{}, false
+}
+
 // RunningTasks 是还在跑的后台任务数。
 func (s State) RunningTasks() int {
 	n := 0

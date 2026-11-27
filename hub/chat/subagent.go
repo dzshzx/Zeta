@@ -7,7 +7,6 @@ import (
 	"log"
 
 	"github.com/dzshzx/Zeta/helper/coreapi"
-	"github.com/dzshzx/Zeta/helper/tasks"
 	"github.com/dzshzx/Zeta/hub/chat/items"
 )
 
@@ -74,10 +73,7 @@ func (c *Conversation) Subagent(toolUseID string) (s Subagent, ok bool) {
 	if p != nil {
 		s = *p
 	}
-	for _, t := range c.state.Tasks {
-		if t.Kind != tasks.KindAgent || t.ToolUseID != toolUseID {
-			continue
-		}
+	if t, listed := c.state.AgentTask(toolUseID); listed {
 		var meta SubagentMeta // 另起一份，不改记着的那份
 		if s.Meta != nil {
 			meta = *s.Meta
@@ -88,7 +84,6 @@ func (c *Conversation) Subagent(toolUseID string) (s Subagent, ok bool) {
 			s.Meta = &meta
 		}
 		s.Prompt = cmp.Or(s.Prompt, t.Command)
-		break
 	}
 	return s, ok
 }

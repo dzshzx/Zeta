@@ -112,7 +112,7 @@ func (a *App) subagentPage(c *ui.Context, p *chatPane, v *subagentView) {
 	}
 	v.list.Cwd, v.list.Home = p.list.Cwd, p.list.Home
 	widget.Header(c, locales.SubagentTitle(), func() { a.back(p) })
-	task, listed := agentTask(p.state, v.toolUseID)
+	task, listed := p.state.AgentTask(v.toolUseID)
 	if listed && task.Running() {
 		c.After(time.Second) // 已运行的时间每秒走一次
 	}
@@ -135,16 +135,6 @@ func (a *App) subagentPage(c *ui.Context, p *chatPane, v *subagentView) {
 	l.View(c).Grow(1).MinHeight(0)
 }
 
-// agentTask 是这个对话的后台任务清单里，Agent 调用 toolUseID 发起的那个子代理。
-func agentTask(s chat.State, toolUseID string) (tasks.Task, bool) {
-	for _, t := range s.Tasks {
-		if t.Kind == tasks.KindAgent && t.ToolUseID == toolUseID {
-			return t, true
-		}
-	}
-	return tasks.Task{}, false
-}
-
 // subagentHead 是步骤上面的部分：概要、出错的原因、交给它的指令和「步骤」这个分组标题。task 是它在后台任务清单里的那一项，
 // 不在清单里时为 nil。
 func (a *App) subagentHead(c *ui.Context, p *chatPane, v *subagentView, s chat.Subagent, task *tasks.Task) {
@@ -153,14 +143,13 @@ func (a *App) subagentHead(c *ui.Context, p *chatPane, v *subagentView, s chat.S
 	if s.Meta != nil {
 		meta = *s.Meta
 	}
-	prompt := s.Prompt
 	meta.Description = cmp.Or(meta.Description, locales.SubagentTitle())
 	a.subagentSummary(c, p, s, meta, task)
 	if task != nil && task.Error != "" {
 		textBlock(c, locales.TasksError(), task.Error, false)
 	}
-	if prompt != "" {
-		promptBlock(c, v, prompt)
+	if s.Prompt != "" {
+		promptBlock(c, v, s.Prompt)
 	}
 	title := locales.SubagentSteps()
 	if s.Skipped > 0 {
