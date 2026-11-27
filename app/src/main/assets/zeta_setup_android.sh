@@ -26,7 +26,7 @@ status)
   # 只认通用的迹象，不认 Zeta 自己的标记：不是安装向导解压出来的环境（自己放到这个位置的）也要认得
   [ -x "$R/bin/bash" ] && [ -e "$R/usr/bin/setpriv" ] || { echo "base=0"; exit 0; }
   echo "base=1"
-  { [ -e "$R/usr/bin/python3" ] || [ -L "$R/usr/bin/python3" ] || [ -L "$R/usr/local/bin/python3" ]; } && [ -e "$R/usr/bin/sudo" ] && echo "tools=1" || echo "tools=0"
+  [ -e "$R/usr/bin/sudo" ] && echo "tools=1" || echo "tools=0"
   while IFS=: read -r name _ uid gid _ home _; do
     [ "$uid" -ge 1000 ] 2>/dev/null && [ "$uid" -lt 60000 ] || continue
     echo "user=$name:$uid:$gid:$home"

@@ -323,7 +323,7 @@ private fun LazyListScope.readyItems(
 ) {
     val health = hub.environment.health
     item(key = "health") { HealthGroup(hub, health, maintenanceRunning) }
-    // 基础环境里已经有 git、ripgrep、python3 这些常用工具，这里是按需再装的。环境里原来就有的（不是 Zeta 装的）只显示版本。
+    // 基础环境里已经有 git、ripgrep 这些常用工具，这里是按需再装的。环境里原来就有的（不是 Zeta 装的）只显示版本。
     // Go 顺带配好 ~/go/bin；Python 是 uv 管理的最新版，带 pip；Node.js 的全局包装在 ~/.npm-global；
     // APK 分析包括 jadx、apktool、smali/baksmali，环境里没有 Java 时一并装上 OpenJDK。
     item(key = "optional") {

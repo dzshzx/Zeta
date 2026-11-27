@@ -25,9 +25,9 @@ shift
 say() { echo "@zeta $*"; }
 fail() { say "error $*"; exit 1; }
 
-# Eta 的包清单，加上 Zeta 自己要用的：python3（zeta_host.sh 报告 Claude Code 退出时用）、sudo、tzdata
+# Eta 的包清单，加上 Zeta 自己要用的：sudo、tzdata
 PACKAGES="bash ca-certificates coreutils curl diffutils file findutils gawk git grep gzip jq less openssl openssh-client
-  patch procps ripgrep rsync sed sqlite3 tar unzip util-linux wget xz-utils zip zstd fd-find python3 sudo tzdata"
+  patch procps ripgrep rsync sed sqlite3 tar unzip util-linux wget xz-utils zip zstd fd-find sudo tzdata"
 TOOLS_REVISION=1
 
 # 逐个尝试镜像，把能用的写回 sources.list；装之前和之后都检查一遍 dpkg 的状态。照 Eta 的 eta-apt。

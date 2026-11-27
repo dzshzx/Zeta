@@ -363,7 +363,7 @@ class EnvInstaller(private val hub: ConversationHub, private val assets: (String
     fun health(config: LinuxEnvConfig): EnvHealth? {
         val script =
             """
-            for c in bash git rg fd python3 curl jq sudo claude; do command -v ${'$'}c >/dev/null 2>&1 || echo "missing=${'$'}c"; done
+            for c in bash git rg fd curl jq sudo claude; do command -v ${'$'}c >/dev/null 2>&1 || echo "missing=${'$'}c"; done
             [ -d "${'$'}1" ] && [ -w "${'$'}1" ] && echo workspace=1
             getent hosts api.anthropic.com >/dev/null 2>&1 && echo network=1
             echo "free=${'$'}(df -k / | awk 'NR==2 {print ${'$'}4}')"
