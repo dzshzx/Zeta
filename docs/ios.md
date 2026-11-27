@@ -50,6 +50,10 @@ Swift 经三个 C 函数调核心（`hub/cmd/zeta-ios`）：
 | `send`、`interrupt`、`earlier` | `text` | 对聊天页的对话发消息、停止、载入更早的 |
 | `answer` | `request_id`、`reply` | 回应确认或提问，`reply` 是 `helper/prompt` 的 Reply |
 | `core` | `backend`、`method`、`params` | 把 `method` 转给设备 `backend` 的核心，结果原样交回（`AppModel.device`）；只转 `config.*`、`diag.*`、`system.*`（各方法见 `docs/core.md`），对话、会话列表、账号这些有中枢自己的状态，走中枢的方法；阻塞，最多 60 秒 |
+| `claudecfg.local` | `backend` | 客户端本地存的这台的 `{autoCompact, compactPercent, compactPercents, autoTitle}`（`hub/claudecfg`，0 是 Claude Code 自己的压缩时机），和这台的默认工作目录 `cwd` |
+| `claudecfg.setlocal` | `backend`，`autoCompact`、`compactPercent`、`autoTitle` 给哪个改哪个 | 同 `claudecfg.local` |
+| `claudecfg.models` | `backend` | 默认模型下拉的清单 `{source, models: [{value, label, id, older}]}`：`source` 是 `relay`（中转报的具体 ID）、`harness`（Claude Code 报的清单分好两层，`older` 的收进「更多模型」；聊天页开着这台的对话、报过清单就用它，不然开一个不发消息的对话去要，要不到时是常用的别名）或 `unknown`（读不到、账号在切换，默认模型不能改）；阻塞，最多约 1 分钟 |
+| `claudecfg.slow` | 同 `core` | 同 `core`，只转要跑 claude 或连 MCP 服务器的几个（`config.mcp.status`、`tools`、`addHttp`、`addStdio`、`remove`、`setToken` 最多等 3 分钟，`system.claude_update` 6 分钟） |
 
 `send`、`interrupt`、`answer`、`earlier` 在后台做，没成的原因放在下一次 `state` 的 `chat.failed` 里。
 
@@ -60,6 +64,10 @@ Swift 经三个 C 函数调核心（`hub/cmd/zeta-ios`）：
 - Go 一侧的改动照常在本机测：`cd hub && go test ./mobile`（先跑过 `hub/scripts/assets.sh`），合入门禁也跑它。
 - Swift 在本机只过 SwiftLint 和圈复杂度（`scripts/format.sh --lint`，合入门禁里跑）；编译、模拟器测试只在 CI 上。
 - ipa 不签名：用自己的开发者账号重签后装到设备上。
+
+## Claude Code 配置
+
+设备页上「Claude Code 配置」一行进去（`ClaudeConfigView(backend:)`，`ios/Zeta/Views/ClaudeConfig/`），行为同桌面版 `windows/internal/ui/claudecfg/`：新对话默认（默认模型、默认思考强度、默认权限模式、上下文窗口）、Claude 一组（自动压缩、压缩时机、自动标题、闲置超时、那台的 Claude Code 版本和「更新」）、记忆与 CLAUDE.md、Skills、MCP 服务器、Subagent、工具权限。那台主机上的配置经 `core`（慢的经 `claudecfg.slow`）转给核心的 `config.*`、`system.*`，解析、校验和改写都在核心，Swift 只按 `helper/coreapi/config.go` 的结果画；工具权限每行的状态、一键开关会加删的规则也由核心算好。只有自动压缩、压缩时机、自动标题存在这台手机上（`claudecfg.local`）。记忆页的文件有内容时打开先预览，能切到编辑；预览用 `AttributedString(markdown:)` 只排行内样式。Skill 从「文件」里选 ZIP 导入，最大 45 MB。
 
 ## 现在没有的
 

@@ -84,6 +84,7 @@ private struct DeviceView: View {
             Form {
                 Section {
                     Toggle("连接", isOn: Binding { !device.off } set: { model.perform("connect", ["id": id, "on": $0]) })
+                    NavigationLink("Claude Code 配置") { ClaudeConfigView(backend: id) }
                 } footer: {
                     Text("关掉后 Zeta 不连这台设备，它上面的对话在那边照样跑。")
                 }
