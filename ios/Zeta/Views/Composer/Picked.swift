@@ -23,6 +23,16 @@ enum Picked {
         send(paths, model: model)
     }
 
+    /// 相机拍的照片：存成 JPEG 交给核心。
+    @MainActor
+    static func attach(photo: UIImage, model: AppModel) async {
+        let base = "IMG-\(Int(Date.now.timeIntervalSince1970))"
+        guard let data = photo.jpegData(compressionQuality: 0.9) else { return }
+        if let path = await Task.detached(operation: { Self.write(data, base: base, ext: "jpg") }).value {
+            send([path], model: model)
+        }
+    }
+
     @MainActor
     static func attach(files: [URL], model: AppModel) async {
         let paths = await Task.detached { files.compactMap(Self.copy) }.value

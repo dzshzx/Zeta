@@ -3,14 +3,14 @@ import UIKit
 
 /// 块级 Markdown：自己把块拆出来（标题、列表与任务列表、引用、表格、代码块、公式、分隔线、段落、图片），
 /// 行内的样式交给 AttributedString(markdown:)。每块是一个 Equatable 的视图，流式输出时只有内容变了的那块（一般是最后一块）重排。
-/// 公式（$$…$$、\[…\]）先按原文等宽显示；桌面版和手机版用 RaTeX 排，iOS 上还没有。
+/// 公式照核心排（MathView）：先经 math.source 认出哪些 $ 是公式，块公式（$$…$$、\[…\]、math 代码块）居中，行内的 \( \) 跟着文字折行。
 struct MarkdownView: View {
     let text: String
     /// 回答里用 Markdown 引用的图怎么画（聊天页给，别处不给时只显示替代文字）。
     var image: ((String, String) -> AnyView)?
 
     var body: some View {
-        let blocks = MarkdownBlock.parse(text)
+        let blocks = MarkdownBlock.parse(MathStore.shared.source(text))
         VStack(alignment: .leading, spacing: 10) {
             ForEach(Array(blocks.enumerated()), id: \.offset) { _, block in
                 if case .image(let alt, let url) = block {
@@ -267,13 +267,17 @@ enum MarkdownBlock: Equatable {
 /// 一块的样子。内容没变时不重画（Equatable）。
 private struct BlockView: View, Equatable {
     let block: MarkdownBlock
+    @Environment(\.displayScale) private var scale
+    @Environment(\.colorScheme) private var scheme
+
+    nonisolated static func == (lhs: Self, rhs: Self) -> Bool { lhs.block == rhs.block }
 
     var body: some View {
         switch block {
         case .paragraph(let text):
-            Text(MarkdownBlock.inline(text)).textSelection(.enabled)
+            MathText.text(text, scale: scale, scheme: scheme).textSelection(.enabled)
         case .heading(let level, let text):
-            Text(MarkdownBlock.inline(text))
+            MathText.text(text, scale: scale, scheme: scheme)
                 .font(level == 1 ? .title2.bold() : level == 2 ? .title3.bold() : .headline)
                 .padding(.top, 4)
                 .textSelection(.enabled)
@@ -287,7 +291,7 @@ private struct BlockView: View, Equatable {
                         } else {
                             Text(entry.number ?? "•").monospacedDigit().foregroundStyle(.secondary)
                         }
-                        Text(MarkdownBlock.inline(entry.text)).textSelection(.enabled)
+                        MathText.text(entry.text, scale: scale, scheme: scheme).textSelection(.enabled)
                     }
                     .padding(.leading, CGFloat(entry.depth) * 16)
                 }
@@ -301,7 +305,7 @@ private struct BlockView: View, Equatable {
         case .code(let language, let text):
             CodeBlock(language: language, text: text)
         case .math(let text):
-            CodeBlock(language: "", text: text)
+            MathBlockView(tex: text)
         case .table(let header, let rows):
             TableBlock(header: header, rows: rows)
         case .rule:

@@ -1,5 +1,5 @@
 // Package mathtex 排 LaTeX 公式：用的是手机版同一个 RaTeX（npm 包 ratex-wasm 里编好的 wasm，版本同 gradle/libs.versions.toml 的 ratex），
-// 由 wazero 的解释器跑（纯 Go，不要 cgo），排出的绘制清单（字形、线、矩形、路径，以 em 为单位）用 KaTeX 字体画（draw.go）。
+// 由 wazero 的解释器跑（纯 Go，不要 cgo），排出的是绘制清单（字形、线、矩形、路径，以 em 为单位，见 list.go），由各端用 KaTeX 字体画（桌面版 windows/internal/mathtex，iOS 版经 hub/mobile 的 math 交给 Swift）。
 // wasm 和字体由 hub/scripts/assets.sh 放进 assets/gen/ratex。
 //
 // 第一次排公式时才起 wasm（解释器起来约 0.1 秒），之后一条公式约 1 毫秒；排好的按公式和模式缓存。

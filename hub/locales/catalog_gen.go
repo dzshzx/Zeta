@@ -1417,6 +1417,38 @@ func (msgs Messages) MobilePromptExists() string {
 	return Catalog.Format(msgs.locale, "mobilePromptExists", nil)
 }
 
+// MobileSlashConfig says "Claude Code 配置"
+// in the language the app shows.
+//
+// iOS 版：斜杠命令 /config
+// 的说明，发出去是打开这台设备的 Claude Code 配置页。
+func MobileSlashConfig() string { return In(i18n.Locale()).MobileSlashConfig() }
+
+// MobileSlashConfig says "Claude Code 配置"
+// in the language of msgs.
+//
+// iOS 版：斜杠命令 /config
+// 的说明，发出去是打开这台设备的 Claude Code 配置页。
+func (msgs Messages) MobileSlashConfig() string {
+	return Catalog.Format(msgs.locale, "mobileSlashConfig", nil)
+}
+
+// MobileSlashPermissions says "工具权限"
+// in the language the app shows.
+//
+// iOS 版：斜杠命令 /permissions
+// 的说明，发出去是打开工具权限页。
+func MobileSlashPermissions() string { return In(i18n.Locale()).MobileSlashPermissions() }
+
+// MobileSlashPermissions says "工具权限"
+// in the language of msgs.
+//
+// iOS 版：斜杠命令 /permissions
+// 的说明，发出去是打开工具权限页。
+func (msgs Messages) MobileSlashPermissions() string {
+	return Catalog.Format(msgs.locale, "mobileSlashPermissions", nil)
+}
+
 // DiagBundleEnvLine says "{name}：{value}"
 // in the language the app shows.
 //

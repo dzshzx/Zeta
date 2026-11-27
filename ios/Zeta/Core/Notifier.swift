@@ -20,7 +20,8 @@ struct SessionEvent: Sendable {
 
 /// 本地通知（同桌面版 windows/internal/ui/notify.go）：App 不在前台，或在前台但看的不是那个会话时，答完一轮、开始等你回应就发一条。
 /// 聊天页开着的对话照它自己的推送（答完的各轮、新来的请求），别的会话照核心报的忙闲（state 的 side.alerts）。
-/// 每个会话一个编号，后一条换掉前一条；点通知打开那个会话；等你回应的那条在请求处理掉后撤掉。第一次要发时才请求权限。
+/// 每个会话一个编号，后一条换掉前一条；点通知打开那个会话；聊天页对话的工具确认上有允许、拒绝两个按钮（reply）；
+/// 等你回应的那条在请求处理掉后撤掉。第一次要发时才请求权限。
 /// 退到后台时申请一段后台时间，尽量把正在跑的这一轮收完（系统给多久不由 App 定）。
 @MainActor @Observable
 final class Notifier: NSObject, UNUserNotificationCenterDelegate {
@@ -38,8 +39,21 @@ final class Notifier: NSObject, UNUserNotificationCenterDelegate {
     @ObservationIgnored private var alertNote: String?
     @ObservationIgnored private var background: UIBackgroundTaskIdentifier = .invalid
 
+    /// 工具确认的通知上的两个按钮（同桌面版、手机版的允许一次、拒绝）：允许要先解锁，都不把 App 叫到前台。
+    private static let toolCategory = "zeta-tool"
+    private static let allowAction = "zeta-allow"
+    private static let denyAction = "zeta-deny"
+
     func install() {
-        UNUserNotificationCenter.current().delegate = self
+        let center = UNUserNotificationCenter.current()
+        center.delegate = self
+        let allow = UNNotificationAction(
+            identifier: Self.allowAction, title: String(localized: "允许"), options: [.authenticationRequired])
+        let deny = UNNotificationAction(
+            identifier: Self.denyAction, title: String(localized: "拒绝"), options: [.destructive])
+        center.setNotificationCategories([
+            UNNotificationCategory(identifier: Self.toolCategory, actions: [allow, deny], intentIdentifiers: [])
+        ])
     }
 
     private static func noteID(_ backend: String, _ id: String) -> String {
@@ -109,7 +123,8 @@ final class Notifier: NSObject, UNUserNotificationCenterDelegate {
         emit(event)
         // 开着的对话在眼前时不发
         guard !active else { return }
-        post(event, waiting: waiting)
+        let tool = waiting ? chat.prompts.first.flatMap { $0.isToolConfirmation ? $0.requestID : nil } : nil
+        post(event, waiting: waiting, request: tool)
         alertNote = waiting ? id : nil
     }
 
@@ -127,7 +142,8 @@ final class Notifier: NSObject, UNUserNotificationCenterDelegate {
         return String(localized: "等你确认：\(prompt.toolName ?? "")")
     }
 
-    private func post(_ event: SessionEvent, waiting: Bool) {
+    /// request 是聊天页对话里等你确认的工具请求：通知上带允许、拒绝两个按钮。
+    private func post(_ event: SessionEvent, waiting: Bool, request toolRequest: String? = nil) {
         let id = Self.noteID(event.backend, event.id)
         if waiting { waitingNotes.insert(id) } else { waitingNotes.remove(id) }
         let content = UNMutableNotificationContent()
@@ -135,7 +151,8 @@ final class Notifier: NSObject, UNUserNotificationCenterDelegate {
         content.body = event.body
         content.sound = .default
         content.threadIdentifier = id
-        content.userInfo = ["backend": event.backend, "id": event.id]
+        content.userInfo = ["backend": event.backend, "id": event.id, "request": toolRequest ?? ""]
+        if toolRequest != nil { content.categoryIdentifier = Self.toolCategory }
         let request = UNNotificationRequest(identifier: id, content: content, trigger: nil)
         let ask = !asked
         asked = true
@@ -179,6 +196,35 @@ final class Notifier: NSObject, UNUserNotificationCenterDelegate {
     ) async {
         let info = response.notification.request.content.userInfo
         guard let backend = info["backend"] as? String, let id = info["id"] as? String, !id.isEmpty else { return }
-        await MainActor.run { Notifier.shared.opening = .session(backend: backend, id: id) }
+        let request = info["request"] as? String ?? ""
+        let action = response.actionIdentifier
+        await MainActor.run {
+            if action == Self.allowAction || action == Self.denyAction {
+                Notifier.shared.reply(allow: action == Self.allowAction, request: request, backend: backend, id: id)
+            } else {
+                Notifier.shared.opening = .session(backend: backend, id: id)
+            }
+        }
+    }
+
+    /// 通知上点了允许或拒绝：请求还在聊天页的对话里等着、连接还在就回应它（answer），再要一段后台时间让它发出去、把这一轮跑完。
+    /// 连接已经断了（退到后台太久）回应发不出去：补一条通知请用户打开 App 再回应。请求已经不在了（在别处回应过）什么也不做。
+    private func reply(allow: Bool, request: String, backend: String, id: String) {
+        let model = AppModel.shared
+        guard let chat = model.state.chat, chat.backend == backend, chat.session == id else {
+            opening = .session(backend: backend, id: id)
+            return
+        }
+        guard chat.prompts.contains(where: { $0.requestID == request }) else { return }
+        guard chat.connected else {
+            post(
+                SessionEvent(
+                    backend: backend, id: id, title: chat.title, kind: .waiting,
+                    body: String(localized: "连接已断开，打开 Zeta 再回应")),
+                waiting: true)
+            return
+        }
+        model.perform("answer", ["request_id": request, "reply": ["kind": allow ? "allow" : "deny"]])
+        enteredBackground(busy: true)
     }
 }

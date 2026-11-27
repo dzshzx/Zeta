@@ -4,7 +4,9 @@ import (
 	"context"
 	"encoding/base64"
 	"errors"
+	"net/http"
 	"slices"
+	"strings"
 	"time"
 
 	"github.com/dzshzx/Zeta/helper/coreapi"
@@ -22,6 +24,11 @@ type (
 		Target string   `json:"target"`
 		Text   string   `json:"text"`
 		Files  []string `json:"files"`
+		// Images：改写时带回去的原消息里的图（界面经 image 取来的原始数据；Original 同 items.Image，是 Files 里那一项的缩小图）。
+		Images []struct {
+			Data     []byte `json:"data"`
+			Original string `json:"original"`
+		} `json:"images"`
 		// Code：重新生成时先还原代码；Drop：还原代码后再删这一轮。
 		Code bool `json:"code"`
 		Drop bool `json:"drop"`
@@ -60,7 +67,7 @@ const chatOpTimeout = 60 * time.Second
 func init() {
 	inChat("rewrite", func(p roundParams) (func(ctx context.Context, conv *chat.Conversation) error, error) {
 		return func(ctx context.Context, conv *chat.Conversation) error {
-			return conv.Rewrite(ctx, p.Target, coreapi.Outgoing{Text: p.Text, Files: p.Files})
+			return conv.Rewrite(ctx, p.Target, coreapi.Outgoing{Text: p.Text, Images: p.pictures(), Files: p.Files})
 		}, nil
 	})
 	inChat("regenerate", func(p roundParams) (func(ctx context.Context, conv *chat.Conversation) error, error) {
@@ -188,6 +195,17 @@ func promptsSaid(list []prompt.Prompt, locale string) []prompt.Prompt {
 		p.SuggestionLines = p.SuggestionLinesIn(locale)
 		p.AgentLabel = p.AgentLabelIn(locale)
 		p.Notice = p.NoticeIn(locale)
+	}
+	return out
+}
+
+// pictures 是要带上的图；认不出是图片的不带（同桌面版 reattach）。
+func (p roundParams) pictures() []coreapi.Image {
+	var out []coreapi.Image
+	for _, im := range p.Images {
+		if kind := http.DetectContentType(im.Data); strings.HasPrefix(kind, "image/") {
+			out = append(out, coreapi.Image{MediaType: kind, Data: im.Data, Original: im.Original})
+		}
 	}
 	return out
 }

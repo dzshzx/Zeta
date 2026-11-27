@@ -6533,6 +6533,66 @@
           }
         }
       }
+    },
+    "拍照": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Take Photo"
+          }
+        }
+      }
+    },
+    "有 %lld 张图取不回来，没有带上。": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Couldn’t load %lld image(s); sent without them."
+          }
+        }
+      }
+    },
+    "连接已断开，打开 Zeta 再回应": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Disconnected. Open Zeta to respond."
+          }
+        }
+      }
+    },
+    "排回答里的数学公式，同手机版（MIT）": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Typesets math in replies, as in the phone app (MIT)"
+          }
+        }
+      }
+    },
+    "公式用的字体（OFL-1.1）": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Fonts for math (OFL-1.1)"
+          }
+        }
+      }
+    },
+    "运行 RaTeX 的 WebAssembly（Apache-2.0）": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Runs RaTeX’s WebAssembly (Apache-2.0)"
+          }
+        }
+      }
     }
   }
 }

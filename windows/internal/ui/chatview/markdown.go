@@ -1,6 +1,7 @@
 package chatview
 
 import (
+	"github.com/dzshzx/Zeta/hub/mathtex"
 	"github.com/dzshzx/Zeta/windows/internal/locales"
 	"github.com/dzshzx/Zeta/windows/internal/ui/widget"
 	"github.com/egoist/mygo/ui"
@@ -61,5 +62,5 @@ func NewDocument() *Document {
 // View 排 text，配色每帧跟着深浅色换。
 func (d *Document) View(c *ui.Context, text string) ui.Element {
 	styleMarkdown(c, &d.theme, &d.unused)
-	return markdown.View(c, mathSource(text), &d.opts)
+	return markdown.View(c, mathtex.Source(text), &d.opts)
 }

@@ -35,9 +35,9 @@ func TestLayoutInk(t *testing.T) {
 	var plain, red int
 	for _, it := range l.Items {
 		switch {
-		case it.defaultInk:
+		case it.DefaultInk:
 			plain++
-		case it.Color.R == 255 && it.Color.G == 0 && it.Color.A == 255:
+		case it.Color == [4]uint8{255, 0, 0, 255}:
 			red++
 		}
 	}

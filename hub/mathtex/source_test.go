@@ -1,4 +1,4 @@
-package chatview
+package mathtex
 
 import "testing"
 
@@ -37,8 +37,8 @@ func TestMathSource(t *testing.T) {
 		{"公式里的 \\[ 不换", `$a\[b$`, `\(a\[b\)`},
 		{"没有公式", `普通的一句话`, `普通的一句话`},
 	} {
-		if got := mathSource(c.in); got != c.want {
-			t.Errorf("%s: mathSource(%q) = %q, want %q", c.name, c.in, got, c.want)
+		if got := Source(c.in); got != c.want {
+			t.Errorf("%s: Source(%q) = %q, want %q", c.name, c.in, got, c.want)
 		}
 	}
 }

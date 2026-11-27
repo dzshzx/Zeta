@@ -66,7 +66,7 @@ Swift 经三个 C 函数调核心（`hub/cmd/zeta-ios`）：
 | `taskoutput`、`subagent` | `task`；`tool_use_id` | 看着的输出（`{got, text, total_bytes, truncated, error}`，已去掉终端转义）、子代理（`chat.Subagent` 的字段，`items` 整份、`rev`） |
 | `composer.draft` | `text`、`caret` | 输入框里的字和光标（UTF-16）交给核心存草稿；答 `{commands}`：光标前在打斜杠命令时要提示的（开始打 / 而对话没起进程时先让核心起好）；不算变化 |
 | `composer.complete` | `text`、`caret`、`name` | 选了斜杠命令：答 `{text, caret}`，只换掉光标处那个词 |
-| `composer.send` | `text` | 发输入框里的字和传好了的附件，答 `{sent}`；还有在传的、没东西可发时不发；没发出去时字和附件放回输入栏 |
+| `composer.send` | `text` | 发输入框里的字和传好了的附件，答 `{sent, open}`；还有在传的、没东西可发时不发；没发出去时字和附件放回输入栏；单独是 `/config`、`/permissions` 时不发，`open` 是 `config` 或 `permissions`，界面打开那一页 |
 | `composer.attach` | `files`（`[{path}]`） | 收 App 临时目录里选好的文件：传到对话所在的设备上，图片另做缩小图；收不了的原因放进 `composer.problems` |
 | `composer.remove`、`composer.problems` | `id`；无 | 移除一个待发的附件（在传的取消）；清掉没收进来的原因 |
 | `composer.model`、`composer.effort`、`composer.mode` | `value`（省掉是回到默认） | 这个对话的模型、思考强度、权限模式 |
@@ -74,7 +74,7 @@ Swift 经三个 C 函数调核心（`hub/cmd/zeta-ios`）：
 | `composer.quota` | `force` | 让对话所在设备的订阅额度刷新（不够新才问，`force` 时一定问） |
 | `composer.flush` | | 马上把草稿写盘（退到后台时）；阻塞 |
 | `prompts`、`prompts.add`、`prompts.update`、`prompts.remove`、`prompts.move` | `id`、`name`、`text`、`delta`、`dedupe` | 常用指令：答 `{list, full}`；`dedupe` 时已有同样内容的不加、答出错 |
-| `rewrite` | `target`、`text`、`files` | 改写：剪掉条目 `target`（用户消息）和之后的，再发改过的（`conv.rewrite`） |
+| `rewrite` | `target`、`text`、`files`、`images`（`[{data, original}]`） | 改写：剪掉条目 `target`（用户消息）和之后的，再发改过的（`conv.rewrite`）；`images` 是界面经 `image` 取回的原消息里的图（base64），认不出是图片的不带 |
 | `regenerate`、`drop` | `target`、`code` | 重新生成、删除这一轮；`code` 时先还原代码 |
 | `restorecode` | `target`、`drop` | 把文件改回这条消息之前，`drop` 时再删这一轮 |
 | `codechanges` | `target` | 还原代码会动到的 `{files, insertions, deletions}`，没有可还原的是 null；阻塞 |
@@ -82,6 +82,9 @@ Swift 经三个 C 函数调核心（`hub/cmd/zeta-ios`）：
 | `handover` | | 把别处运行的会话接过来（`hub.HandOver`） |
 | `elicit` | `request_id`、`action`、`values` | 回应 MCP 表单或网址；表单不对时答 `{problems}`（键 → 原因），表单留着；阻塞 |
 | `image` | `kind`、`key`、`file`、`ref`、`url` | 取聊天里的一张图（`items.Image` 的取法，同桌面版的 ImageLoader 三种），答 `{data}`（base64）；阻塞 |
+| `math` | `tex`、`display` | 排一条公式（`hub/mathtex`，同桌面版的 RaTeX）：`{items, width, height, depth}`，坐标以 em 为单位，`items` 每项的 `kind` 是 0 字（`font`、`char`、`scale`）、1 横线、2 矩形、3 路径（`commands`），`defaultInk` 为真时用正文的颜色，否则用 `color`（RGBA）；排不出时出错；阻塞 |
+| `math.fonts` | | 画公式用的 KaTeX 字体：`[{id, data}]`（TTF，base64）；阻塞 |
+| `math.source` | `text` | 哪些算公式照手机版（`mathtex.Source`）：答 `{text}`，配上的单个 $ 换成 `\(` `\)`，不算块公式的 `\[` 换成 `&#91;`；不算变化 |
 | `core` | `backend`、`method`、`params` | 把 `method` 转给设备 `backend` 的核心，结果原样交回（`AppModel.device`）；只转 `config.*`、`diag.*`、`system.*`（各方法见 `docs/core.md`），对话、会话列表、账号这些有中枢自己的状态，走中枢的方法；阻塞，最多 60 秒 |
 | `devices` | | 设置里的各台（`DeviceInfo`）：名字、地址、家目录、默认工作目录、连法、指纹、「连接」，和首页那一行右边写的（在用的中转名 `relay`，或最要紧的额度窗口已用百分比 `used`，没有时 -1） |
 | `settings.open` | | 打开设置时让各台还没读过的账号、额度读一遍 |
@@ -106,9 +109,10 @@ Swift 经三个 C 函数调核心（`hub/cmd/zeta-ios`）：
 
 聊天页的界面在 `ios/Zeta/Views/Chat/`，行为照桌面版的 `chatview`，交互照手机版。
 
-- Markdown：`MarkdownView` 自己拆块（标题、列表与任务列表、引用、表格、代码块、公式、分隔线、单独一行的图），行内样式交给 `AttributedString(markdown:)`；每块是 Equatable 的视图，流式输出时只重画变了的块。表格和代码块横向滚动，代码块能复制。公式（`$$…$$`、`\[…\]`、`math` 代码块）先按原文等宽显示，还没有 RaTeX。
+- Markdown：`MarkdownView` 自己拆块（标题、列表与任务列表、引用、表格、代码块、公式、分隔线、单独一行的图），行内样式交给 `AttributedString(markdown:)`；每块是 Equatable 的视图，流式输出时只重画变了的块。表格和代码块横向滚动，代码块能复制。
+- 公式（`Views/Chat/MathView.swift`）：先经 `math.source` 认出哪些 $ 是公式（规则同桌面版、手机版，排除金额）；块公式（行首的 `$$…$$`、`\[…\]` 和 `math` 代码块）居中、宽过一行时横着滚，行内的 `\(…\)` 跟着文字折行、基线对上四周的字。排版经 `math` 由核心做，Swift 照绘制清单用 KaTeX 字体（`math.fonts`，Core Text 直接用，不注册进系统）画成图；没写 `\color` 的公式画成模板图，跟着前景色。字号同桌面版：块公式是正文的 17/16，行内的是 1.06 倍。排好之前、排不出时照原文显示。
 - 条目：工作组是一张折叠卡，思考显示想了几秒，改文件的工具画红绿对比（`clipped` 时注明只显示了一部分）；另一个会话发来的消息注明来自哪个会话。图片（工具结果里的、随消息发的、回答里引用的）经 `image` 取，按 `cacheKey` 只取一次；网络图片等点一下才下载，设置里开了自动加载（`chat.auto_images`）时直接下载。点图看大图：缩放、拖动、双击复原、保存到相册、分享。
-- 长按消息：复制、收藏为常用指令、改写、还原代码、删除这一轮；一轮的最后一项上还有重新生成、删除这一轮、从这里分支（这一轮在进行时不出现，`can_rewind` 为假时变灰）。重新生成、删除、还原代码先确认，确认框里先问 `codechanges`。改写只带文字和附带的路径，图片不带。
+- 长按消息：复制、收藏为常用指令、改写、还原代码、删除这一轮；一轮的最后一项上还有重新生成、删除这一轮、从这里分支（这一轮在进行时不出现，`can_rewind` 为假时变灰）。重新生成、删除、还原代码先确认，确认框里先问 `codechanges`。改写时原消息里的图列在编辑框上面，能去掉不要的，发送时取回留下的一起带上（去掉的图是附件文件的缩小图时，那个文件也不带），取不回来的不带并说一声。
 - 工具栏的放大镜在对话内查找：按条目的文字（工作组按各步的文字）找，上一个、下一个滚到那一项并铺底色。
 - 会话在别处运行时，输入栏上方是接管卡片（照 `chat.occupant` 说那边在哪、在做什么，能接管时点「接管」）。
 - 往上翻到顶自动载入更早的；离开底部时右下角有回到底部。
@@ -117,16 +121,16 @@ Swift 经三个 C 函数调核心（`hub/cmd/zeta-ios`）：
 
 - 会话列表（`Views/Sidebar/`）：行尾标核心报的忙闲（`state` 会话行的 `activity`、`tasks`：等你回应、在回答、后台任务在跑、有新回答），已结束的标题灰。右滑置顶，左滑归档、删除，长按有置顶、改名、归档、结束、导出、删除；删除、结束先确认。导出交回的 Markdown 存进临时目录，用系统分享面板交出去。顶栏「更多」里选排序、进多选（List 的 EditMode，底栏批量结束、归档、删除）、看已归档；手动排序时编辑状态下拖动行（`move`）。`.searchable` 的字交给 `search`。
 - 后台任务面板（`Views/Tasks/`）：会话列表顶上一行进，行尾是后台对话加当前对话在跑的任务的个数；上面是后台对话（`side.background`，点了切过去），下面是聊天页这个对话的后台任务，点进去看详情和子代理页。聊天页输入栏上方是任务清单条和后台任务条（`ChatTaskBar`）。详情页、子代理页打开时 `watch`，每次 `state` 变了重取 `taskoutput`、`subagent`，离开时停止看着。
-- 通知（`Core/Notifier.swift`，照桌面版）：App 不在前台，或在前台但聊天页开着的不是那个会话时（banner），聊天页的对话答完一轮（`chat.finished`）、来了确认或提问，别的会话照 `side.alerts` 答完一轮或开始等你时发一条；每个会话一个编号（`zeta-<设备>/<会话>`），后一条换掉前一条，点了打开那个会话；等你回应的那条在请求处理掉后撤掉。第一次要发时请求通知权限。每件事（开始在跑、等你、答完、不再等）也交给 `Notifier.onEvent`。退到后台时聊天页的对话在跑就申请一段后台时间（`beginBackgroundTask`），答完或系统收回时结束；系统给多久不由 App 定，之后 SSH 断开，回到前台再重连。
+- 通知（`Core/Notifier.swift`，照桌面版）：App 不在前台，或在前台但聊天页开着的不是那个会话时（banner），聊天页的对话答完一轮（`chat.finished`）、来了确认或提问，别的会话照 `side.alerts` 答完一轮或开始等你时发一条；每个会话一个编号（`zeta-<设备>/<会话>`），后一条换掉前一条，点了打开那个会话；聊天页对话的工具确认（不是提问、计划、MCP 表单）通知上有「允许」「拒绝」：允许要先解锁，都不把 App 叫到前台，请求还在等就经 `answer` 回应、再申请一段后台时间，已经不在了就打开那个会话；等你回应的那条在请求处理掉后撤掉。第一次要发时请求通知权限。每件事（开始在跑、等你、答完、不再等）也交给 `Notifier.onEvent`。退到后台时聊天页的对话在跑就申请一段后台时间（`beginBackgroundTask`），答完或系统收回时结束；系统给多久不由 App 定，之后 SSH 断开，回到前台再重连。
 ## 输入栏
 
 规矩照桌面版的输入栏（`docs/desktop.md`「功能」），界面在 `ios/Zeta/Views/Composer/`，交互照手机版。`state` 的 `chat.composer`（`hub/mobile/composer.go` 的 `Composer`）是输入栏要画的整份，对话还没打开成时没有。
 
 - 输入框里的字归 Swift 管，每改一次经 `composer.draft` 交给核心；核心改了字（撤回的消息放回来、没发出去放回来、换了对话恢复草稿）时 `rev` 加一，界面见 `rev` 变了才换上 `text`。光标都按 UTF-16 算。
 - 草稿按会话号存（还没开始的新对话共用一份，拿到会话号时挪过去），存在设置目录的 `zeta_drafts.json`，格式和上限见 `client/drafts`，和桌面版、手机版一样；停下约一秒存一次，换对话、退到后台时马上存。
-- 附件：相册里选图（PhotosPicker）、选文件（fileImporter），Swift 写进 App 临时目录（每个一个单独的目录，文件名就是传上去的名字；相册的 HEIC 等核心解不开的先转成 JPEG），把路径交给 `composer.attach`；传到设备、缩小图、大小上限都照 `hub/attach`。PhotosPicker 在 App 之外的进程里选，不要相册权限。没有拍照。
+- 附件：相册里选图（PhotosPicker）、选文件（fileImporter），Swift 写进 App 临时目录（每个一个单独的目录，文件名就是传上去的名字；相册的 HEIC 等核心解不开的先转成 JPEG），把路径交给 `composer.attach`；传到设备、缩小图、大小上限都照 `hub/attach`。PhotosPicker 在 App 之外的进程里选，不要相册权限。有相机的设备上「+」里有拍照（`UIImagePickerController`，要相机权限），拍的存成 JPEG 同样交给 `composer.attach`。
 - 模型菜单照桌面版：在用中转时只列中转报的，否则是 Claude Code 报的清单分两层（`chat.SplitModels`，旧版本收进「更多模型」），还没报时是常用的别名。
-- 斜杠命令：光标前的词以 / 开头（句中也算）时在输入栏上方提示，选了只换掉那个词；没有桌面版的 `/config`、`/permissions` 两条设置命令。
+- 斜杠命令：光标前的词以 / 开头（句中也算）时在输入栏上方提示，选了只换掉那个词；同桌面版另有 Zeta 的两条设置命令（核心列在 Claude Code 的命令后面）：单独发 `/config` 打开这台设备的 Claude Code 配置页，`/permissions` 按对话的工作目录打开工具权限页，都不发给 Claude Code。
 - 排队：回答中发的消息进核心的队列，输入栏上方列出，点正文撤回到输入框，删除键撤回不要，「立即插话」把排队的送进这一轮。
 - 常用指令：「+」菜单里列出，点了填进输入框（空着就换上，有字插在光标处），「管理常用指令」里新建、编辑、删除、排序。消息上的「收藏为常用指令」调 `AppModel.savePrompt`（已有同样内容的不加）。
 - 用量：输入栏上的圆环是上下文用了多少（按程度变色），点开是订阅额度（在用中转时没有这一节）、上下文、本对话累计、各轮明细和「压缩上下文」。
@@ -168,8 +172,5 @@ Swift 经三个 C 函数调核心（`hub/cmd/zeta-ios`）：
 
 和手机版比，下面这些没做或不一样：
 
-- 公式按原文等宽显示，没有排版（手机版和桌面版用 RaTeX）。
-- 输入栏不能拍照（能从相册和「文件」里选）；斜杠命令里没有 `/config`、`/permissions` 这两条跳设置页的。
-- 改写一条消息时只带回文字和文件路径，原消息里的图不带回去。
-- 通知上没有「允许」「拒绝」这类按钮，要回应就点通知回到 App（同桌面版）。
-- iOS 退到后台后 SSH 连接很快会断：通知和灵动岛只在退到后台后系统给的那一小段后台时间里更新（时长由系统定），之后停在最后的样子，回到前台时中枢照常重连、再对上。要在后台一直更新得有推送服务，Zeta 没有。
+- 通知上的「允许」「拒绝」只有聊天页开着的那个对话的工具确认有；别的会话等你时，核心只报了在等，要点通知回到 App 再回应（同桌面版）。
+- iOS 退到后台后 SSH 连接很快会断：通知和灵动岛只在退到后台后系统给的那一小段后台时间里更新（时长由系统定），之后停在最后的样子，回到前台时中枢照常重连、再对上；连接断了以后点通知上的「允许」「拒绝」发不出去，Zeta 补一条通知请你打开 App 再回应。要在后台一直更新得有推送服务，Zeta 没有。

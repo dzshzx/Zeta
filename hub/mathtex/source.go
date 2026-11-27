@@ -1,4 +1,4 @@
-package chatview
+package mathtex
 
 import (
 	"strings"
@@ -8,7 +8,7 @@ import (
 	"github.com/dzshzx/Zeta/client/mdmarks"
 )
 
-// mathSource 把回答里的公式写法换成 mygo 的 Markdown 认的，哪些算公式照手机版
+// Source 把回答里的公式写法换成 mygo 的 Markdown 认的（桌面版直接交给 mygo；iOS 版经 hub/mobile 的 math.source 拿去，再自己认 \( \) 和块公式），哪些算公式照手机版
 // （shared 的 TexMathDelimiters 和 MarkdownMathParser 的 ChatMathSequentialParser）：
 //
 //   - 单个 $ 包的行内公式：左边的 $ 后面不是空白、前面不是英文字母、数字、_ 或 $；右边的 $ 前面不是空白、后面不是英文字母、数字、_ 或 $；
@@ -21,7 +21,7 @@ import (
 //     $ 只在同一块里配：空行、围栏、列表项、标题、引用、表格的行和格子之间不配。
 //
 // 不像手机版那样等长替换：mygo 的行内公式只有 \( \) 一种写法，所以配上的公式比原文长两个字。
-func mathSource(src string) string {
+func Source(src string) string {
 	if !strings.Contains(src, "$") && !strings.Contains(src, `\[`) {
 		return src
 	}

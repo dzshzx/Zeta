@@ -18,7 +18,7 @@ const (
 
 // setMath 让 o 把公式排成公式（RaTeX，见 mathtex）：块公式居中，宽过一行时横着滚；行内的跟着文字折行。
 // 排不出的照原文显示（mygo 的默认样子：块公式是淡色等宽字）。颜色每次画的时候从 th 取，跟着深浅色变。
-// 交给 o 的原文要先过 mathSource（哪些算公式照手机版）。
+// 交给 o 的原文要先过 hub/mathtex 的 Source（哪些算公式照手机版）。
 func setMath(o *markdown.Options, th *markdown.Theme, blockScale float32) {
 	o.InlineMath = func(tex string, size float32) (markdown.InlineObject, bool) {
 		l, err := mathtex.Layout(tex, false)

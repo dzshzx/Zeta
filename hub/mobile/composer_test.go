@@ -153,12 +153,12 @@ func TestComposerAttachAndSend(t *testing.T) {
 	}
 }
 
-// 打 / 时让核心起进程、列核心报的命令；选了只换掉那个词。
+// 打 / 时让核心起进程、列核心报的命令和 Zeta 的两条设置命令；选了只换掉那个词。
 func TestComposerSlash(t *testing.T) {
 	x := openComposer(t, t.TempDir())
 	x.push(t, `"commands":[{"name":"compact","description":"压缩"},{"name":"clear"}]`)
 	got := call[SlashView](t, x.c, "composer.draft", map[string]any{"text": "先 /co", "caret": 5})
-	if len(got.Commands) != 1 || got.Commands[0].Name != "compact" {
+	if len(got.Commands) != 2 || got.Commands[0].Name != "compact" || got.Commands[1].Name != "config" {
 		t.Fatalf("提示 %+v", got.Commands)
 	}
 	x.waitCall(t, "conv.prepare")
@@ -168,6 +168,27 @@ func TestComposerSlash(t *testing.T) {
 	}
 	if got := call[SlashView](t, x.c, "composer.draft", map[string]any{"text": "a/co", "caret": 4}); len(got.Commands) != 0 {
 		t.Fatalf("紧挨着字也提示了 %+v", got.Commands)
+	}
+}
+
+// 单独发 /config、/permissions 不发给 Claude Code，答要打开的页；输入框的字清掉。
+func TestComposerSettingsCommands(t *testing.T) {
+	x := openComposer(t, t.TempDir())
+	for text, want := range map[string]string{" /config ": "config", "/permissions": "permissions"} {
+		call[SlashView](t, x.c, "composer.draft", map[string]any{"text": text, "caret": 0})
+		got := call[Sent](t, x.c, "composer.send", map[string]string{"text": text})
+		if !got.Sent || got.Open != want {
+			t.Fatalf("%q：%+v", text, got)
+		}
+		if c := composerOf(t, x.c); c.Text != "" {
+			t.Fatalf("字还在 %q", c.Text)
+		}
+	}
+	if got := call[Sent](t, x.c, "composer.send", map[string]string{"text": "/config 看看"}); !got.Sent || got.Open != "" {
+		t.Fatalf("带参数的照常发 %+v", got)
+	}
+	if send := x.waitCall(t, "conv.send"); send.Str("text") != "/config 看看" {
+		t.Fatalf("发的 %s", send.JSON())
 	}
 }
 

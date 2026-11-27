@@ -37,4 +37,23 @@ struct CoreTests {
             .table(header: ["a", "b"], rows: [["1", "2"]]), .rule, .math("x^2")
         ])
     }
+
+    /// 公式的绘制清单从核心解得出来（JSON 两头对得上），字、线都在。
+    @Test func mathLayout() throws {
+        let core = try core()
+        let list = try core.call("math", ["tex": "\\frac{1}{2}", "display": true], as: MathList.self)
+        #expect(list.width > 0 && list.height > 0)
+        #expect(list.items?.contains { $0.kind == 0 && $0.char != nil && $0.font != nil } == true)
+        #expect(list.items?.contains { $0.kind == 1 && ($0.thickness ?? 0) > 0 } == true)
+        struct Font: Decodable { let id: String }
+        #expect(try core.call("math.fonts", as: [Font].self).count == 20)
+    }
+
+    /// 行内的 \( \) 拆成公式，行内代码里的、没配上的不算。
+    @Test func inlineMath() {
+        #expect(MathText.segments(#"面积 \(\pi r^2\) 和 `\(x\)`"#) == [
+            .text("面积 "), .math(#"\pi r^2"#), .text(#" 和 `\(x\)`"#)
+        ])
+        #expect(MathText.segments(#"没配上 \(x"#) == [.text(#"没配上 \(x"#)])
+    }
 }

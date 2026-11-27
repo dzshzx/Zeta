@@ -137,6 +137,8 @@ struct Prompt: Decodable, Sendable, Identifiable {
 
     var id: String { requestID }
     var isPermission: Bool { kind == "permission" }
+    /// 普通的工具确认（不是提问、计划审批、MCP 表单）：通知上能直接允许、拒绝。
+    var isToolConfirmation: Bool { isPermission && (questions ?? []).isEmpty && isPlan != true }
 
     enum CodingKeys: String, CodingKey {
         case kind, input, questions, suggestions, reason, server, message, url, fields

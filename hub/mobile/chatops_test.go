@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"testing"
 
+	"github.com/dzshzx/Zeta/helper/coreapi"
 	"github.com/dzshzx/Zeta/hub/hubtest"
 )
 
@@ -64,6 +65,27 @@ func TestRoundActions(t *testing.T) {
 	call[map[string]bool](t, c, "rewrite", map[string]any{"target": "u1", "text": "改过的"})
 	if x := tookCall(t, c, changed, l, "conv.rewrite"); x.Str("target") != "u1" || x.Str("text") != "改过的" {
 		t.Fatalf("改写 %s", x.JSON())
+	}
+	// 带回原消息里的图：是图片的照带（Original 跟着），认不出的不带
+	png := base64.StdEncoding.EncodeToString([]byte("\x89PNG\r\n\x1a\n0000"))
+	call[map[string]bool](t, c, "rewrite", map[string]any{"target": "u5", "text": "带图", "images": []map[string]string{
+		{"data": png, "original": "/w/a.png"}, {"data": base64.StdEncoding.EncodeToString([]byte("不是图"))}}})
+	var x hubtest.Call
+	until(t, c, changed, func() bool {
+		for _, y := range l.Took() {
+			if y.Method == "conv.rewrite" && y.Str("target") == "u5" {
+				x = y
+				return true
+			}
+		}
+		return false
+	})
+	var sent struct {
+		Images []coreapi.Image `json:"images"`
+	}
+	if err := json.Unmarshal([]byte(x.JSON()), &sent); err != nil || len(sent.Images) != 1 ||
+		sent.Images[0].MediaType != "image/png" || sent.Images[0].Original != "/w/a.png" {
+		t.Fatalf("改写带的图 %s", x.JSON())
 	}
 	call[map[string]bool](t, c, "drop", map[string]any{"target": "u2"})
 	if x := tookCall(t, c, changed, l, "conv.drop"); x.Str("target") != "u2" {

@@ -138,33 +138,77 @@ struct RoundConfirmSheet: View {
     }
 }
 
-/// 改写一条消息：发出后剪掉它和之后的内容，换成改过的（conv.rewrite）。附带的文件路径照旧带上；图片不带（还没做取回）。
+/// 改写一条消息：发出后剪掉它和之后的内容，换成改过的（conv.rewrite）。附带的文件路径照旧带上；原消息里的图列在上面，
+/// 能去掉不要的，发送时取回留下的那些一起带上（同桌面版 reattach），取不回来的不带并说一声。
 struct RewriteSheet: View {
     @Environment(AppModel.self) private var model
     @Environment(\.dismiss) private var dismiss
     let item: Item
     @State private var text = ""
+    @State private var images: [ChatImage] = []
+    @State private var sending = false
 
     var body: some View {
         NavigationStack {
-            TextEditor(text: $text)
-                .padding(.horizontal)
-                .navigationTitle("改写消息")
-                .navigationBarTitleDisplayMode(.inline)
-                .toolbar {
-                    ToolbarItem(placement: .cancellationAction) {
-                        Button("取消", role: .cancel) { dismiss() }
-                    }
-                    ToolbarItem(placement: .confirmationAction) {
-                        Button("发送") {
-                            model.perform("rewrite", ["target": item.id, "text": text, "files": item.files ?? []])
-                            dismiss()
+            VStack(spacing: 8) {
+                if !images.isEmpty {
+                    ScrollView(.horizontal) {
+                        HStack(spacing: 8) {
+                            ForEach(images, id: \.cacheKey) { image in
+                                ChatImageView(image: image, maxHeight: 72)
+                                    .overlay(alignment: .topTrailing) {
+                                        Button("移除", systemImage: "xmark.circle.fill") {
+                                            images.removeAll { $0.cacheKey == image.cacheKey }
+                                        }
+                                        .labelStyle(.iconOnly)
+                                        .symbolRenderingMode(.palette)
+                                        .foregroundStyle(.white, .black.opacity(0.6))
+                                        .padding(4)
+                                    }
+                            }
                         }
-                        .disabled(text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
+                        .padding(.horizontal)
                     }
                 }
-                .onAppear { text = item.text }
+                TextEditor(text: $text)
+                    .padding(.horizontal)
+            }
+            .navigationTitle("改写消息")
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .cancellationAction) {
+                    Button("取消", role: .cancel) { dismiss() }
+                }
+                ToolbarItem(placement: .confirmationAction) {
+                    Button("发送") { Task { await send() } }
+                        .disabled(sending || text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
+                }
+            }
+            .onAppear {
+                text = item.text
+                images = item.images ?? []
+            }
         }
         .presentationDetents([.medium, .large])
+    }
+
+    /// 取回留下的图（实时收到的带着数据的就地用，别的经 image 取），再交给核心改写。
+    private func send() async {
+        sending = true
+        var pictures: [[String: String]] = []
+        for image in images {
+            var data = image.data
+            if data == nil {
+                data = try? await model.request("image", image.params, as: Picture.self).data
+            }
+            if let data { pictures.append(["data": data, "original": image.original ?? ""]) }
+        }
+        let lost = images.count - pictures.count
+        // 去掉的图是附件文件的缩小图时，那个文件也不带
+        let removed = Set((item.images ?? []).compactMap(\.original)).subtracting(images.compactMap(\.original))
+        let files = (item.files ?? []).filter { !removed.contains($0) }
+        model.perform("rewrite", ["target": item.id, "text": text, "files": files, "images": pictures])
+        if lost > 0 { model.alert = String(localized: "有 \(lost) 张图取不回来，没有带上。") }
+        dismiss()
     }
 }

@@ -4,6 +4,7 @@ import (
 	"time"
 
 	"github.com/dzshzx/Zeta/hub/chat/items"
+	"github.com/dzshzx/Zeta/hub/mathtex"
 	"github.com/dzshzx/Zeta/windows/internal/locales"
 	"github.com/dzshzx/Zeta/windows/internal/ui/widget"
 	"github.com/egoist/mygo/ui"
@@ -213,7 +214,7 @@ func stepText(s items.Step, locale string) (title, detail string) {
 func (ch *Chat) stepDetailView(c *ui.Context, s items.Step, detail string) {
 	t := c.Theme()
 	if s.Kind == items.Thinking {
-		markdown.View(c, mathSource(detail), &ch.thinking).FillWidth()
+		markdown.View(c, mathtex.Source(detail), &ch.thinking).FillWidth()
 		return
 	}
 	bg := t.Text.Alpha(0.035)

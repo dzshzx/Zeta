@@ -13,7 +13,12 @@ struct AboutView: View {
             url: "https://github.com/anthropics/claude-code"),
         Credit(name: "Go x/crypto", summary: "连设备用的 SSH（BSD-3-Clause）", url: "https://github.com/golang/crypto"),
         Credit(name: "Go x/text", summary: "界面文字的多语言（BSD-3-Clause）", url: "https://github.com/golang/text"),
-        Credit(name: "mygo", summary: "和桌面版共用的文字表格式与取字（MIT）", url: "https://github.com/egoist/mygo")
+        Credit(name: "mygo", summary: "和桌面版共用的文字表格式与取字（MIT）", url: "https://github.com/egoist/mygo"),
+        Credit(name: "RaTeX", summary: "排回答里的数学公式，同手机版（MIT）", url: "https://github.com/erweixin/RaTeX"),
+        Credit(name: "KaTeX", summary: "公式用的字体（OFL-1.1）", url: "https://github.com/KaTeX/KaTeX"),
+        Credit(
+            name: "wazero", summary: "运行 RaTeX 的 WebAssembly（Apache-2.0）",
+            url: "https://github.com/tetratelabs/wazero")
     ]
 
     var body: some View {

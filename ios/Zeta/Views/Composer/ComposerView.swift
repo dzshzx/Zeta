@@ -18,6 +18,9 @@ struct ComposerView: View {
     @State private var pickingFiles = false
     @State private var managingPrompts = false
     @State private var showingUsage = false
+    @State private var takingPhoto = false
+    /// 单独发了 /config 或 /permissions：要打开的那一页。
+    @State private var settingsPage: SettingsPage?
 
     private var state: ComposerState? { chat.composer }
     private var enabled: Bool { chat.connected && !chat.blocked && state?.ready == true }
@@ -56,6 +59,16 @@ struct ComposerView: View {
             guard case .success(let urls) = result else { return }
             Task { await Picked.attach(files: urls, model: model) }
         }
+        .fullScreenCover(isPresented: $takingPhoto) {
+            CameraPicker { photo in
+                takingPhoto = false
+                if let photo { Task { await Picked.attach(photo: photo, model: model) } }
+            }
+            .ignoresSafeArea()
+        }
+        .sheet(item: $settingsPage) { page in
+            ChatSettingsSheet(page: page, backend: chat.backend, cwd: chat.cwd)
+        }
         .sheet(isPresented: $managingPrompts) {
             SavedPromptsView(draft: text, insert: insert)
         }
@@ -84,7 +97,8 @@ struct ComposerView: View {
             HStack(spacing: 6) {
                 if let state {
                     AttachMenu(
-                        enabled: enabled, pickPhotos: { pickingPhotos = true }, pickFiles: { pickingFiles = true },
+                        enabled: enabled, pickPhotos: { pickingPhotos = true }, takePhoto: { takingPhoto = true },
+                        pickFiles: { pickingFiles = true },
                         insert: insert, manage: { managingPrompts = true })
                     ModeMenu(composer: state)
                     Spacer(minLength: 0)
@@ -105,9 +119,13 @@ struct ComposerView: View {
         Button(stopping ? String(localized: "停止") : String(localized: "发送"), systemImage: sendIcon) {
             if stopping {
                 model.perform("interrupt")
-            } else if model.sendComposer(text) {
-                text = ""
-                selection = nil
+            } else {
+                let sent = model.sendComposer(text)
+                if sent.sent {
+                    text = ""
+                    selection = nil
+                }
+                settingsPage = sent.open.flatMap(SettingsPage.init(rawValue:))
             }
         }
         .labelStyle(.iconOnly)
@@ -183,5 +201,38 @@ struct ComposerView: View {
             message += "\n\n" + String(localized: "太大的文件可以先放到设备上，再在消息里写它的路径。")
         }
         return message
+    }
+}
+
+/// 斜杠命令打开的设置页（同桌面版 /config、/permissions）：这个对话所在设备的 Claude Code 配置，或按对话的工作目录看工具权限。
+enum SettingsPage: String, Identifiable {
+    case config, permissions
+
+    var id: String { rawValue }
+}
+
+private struct ChatSettingsSheet: View {
+    @Environment(AppModel.self) private var model
+    @Environment(\.dismiss) private var dismiss
+    let page: SettingsPage
+    let backend: String
+    let cwd: String
+
+    var body: some View {
+        NavigationStack {
+            Group {
+                switch page {
+                case .config:
+                    ClaudeConfigView(backend: backend)
+                case .permissions:
+                    PermissionsView(calls: ConfigCalls(model: model, backend: backend), cwd: cwd)
+                }
+            }
+            .toolbar {
+                ToolbarItem(placement: .confirmationAction) {
+                    Button("完成", systemImage: "checkmark") { dismiss() }
+                }
+            }
+        }
     }
 }

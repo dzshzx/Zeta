@@ -172,12 +172,12 @@ extension AppModel {
     }
 
     /// 发输入框里的字和传好了的附件；答发出去了没有（没东西可发、还有在传的时不发）。
-    func sendComposer(_ text: String) -> Bool {
+    func sendComposer(_ text: String) -> Sent {
         do {
-            return try callCore("composer.send", ["text": text], as: Sent.self).sent
+            return try callCore("composer.send", ["text": text], as: Sent.self)
         } catch {
             alert = error.localizedDescription
-            return false
+            return Sent(sent: false, open: nil)
         }
     }
 
@@ -207,6 +207,8 @@ extension AppModel {
     }
 }
 
-private struct Sent: Decodable, Sendable {
+/// composer.send 的结果：发出去了；open 不为空时没发，是单独打的 /config 或 /permissions，要打开那一页。
+struct Sent: Decodable, Sendable {
     let sent: Bool
+    let open: String?
 }

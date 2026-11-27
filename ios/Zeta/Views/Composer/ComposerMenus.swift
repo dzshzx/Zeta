@@ -5,6 +5,7 @@ struct AttachMenu: View {
     @Environment(AppModel.self) private var model
     let enabled: Bool
     let pickPhotos: () -> Void
+    let takePhoto: () -> Void
     let pickFiles: () -> Void
     let insert: (String) -> Void
     let manage: () -> Void
@@ -13,6 +14,9 @@ struct AttachMenu: View {
         Menu {
             Section {
                 Button("图片", systemImage: "photo", action: pickPhotos)
+                if CameraPicker.available {
+                    Button("拍照", systemImage: "camera", action: takePhoto)
+                }
                 Button("文件", systemImage: "paperclip", action: pickFiles)
             }
             .disabled(!enabled)
