@@ -482,6 +482,29 @@ func TestSessionsEndEndsTheOpenConversation(t *testing.T) {
 	}
 }
 
+// 归档同结束：核心里开着的会话归档时进程一并结束，对话推 process 为假；之后再结束答 0。
+func TestSessionsArchiveEndsTheOpenConversation(t *testing.T) {
+	e0, _ := coreEnv(t)
+	e := newEnvAt(e0.home, "zeta-dev")
+	t.Setenv("ZETA_NAME", e.name)
+	fakeClaudeIn(t, e, `{"steps":[{"text":"好"}]}`)
+	c := startServe(t, e, testIdle)
+	c.ok("conv.open", `"conv":"a","cwd":`+quote(e.home))
+	c.ok("conv.send", `"conv":"a","text":"你好"`)
+	state := c.nextWhere("conv.state", func(m obj) bool { return asString(m["session"]) != "" })
+	session := asString(state["session"])
+	c.nextWhere("conv.turn", func(m obj) bool { return m["phase"] == "finished" })
+	writeSession(t, e, session, "你好")
+
+	if got := asObj(c.ok("sessions.archive", `"session":`+quote(session)+`,"archived":true`)); got["archived"] != true {
+		t.Fatalf("归档：%v", got)
+	}
+	c.nextWhere("conv.state", func(m obj) bool { return m["process"] == false })
+	if got := asObj(c.ok("sessions.end", `"session":`+quote(session))); num(t, got["ended"]) != 0 {
+		t.Fatalf("归档后再结束：%v", got)
+	}
+}
+
 // 删会话同结束：核心里没开着、本包托管的闲着的进程还在跑这个会话时，先结束它再删记录，不留给看门狗（它之后退出时还会写那份记录）。
 func TestSessionsDeleteEndsAnOwnHostedProcess(t *testing.T) {
 	e := testEnv(t)

@@ -215,7 +215,12 @@ func (h sessionOps) rename(q sessionParams) (any, error) {
 	return obj{"title": title}, nil
 }
 
+// archive 归档或取消归档会话 session。归档时同时结束本包占着它的 Claude Code 进程（同 sessions.end，等它退出），
+// 再关它的 tmux 窗口；Zeta 之外占着的不管。
 func (h sessionOps) archive(q sessionParams) (any, error) {
+	if q.Archived {
+		h.endOwn(q.Session)
+	}
 	if err := archiveSessions(h.e, []string{q.Session}, q.Archived); err != nil {
 		return nil, err
 	}
