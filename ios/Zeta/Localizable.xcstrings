@@ -4284,16 +4284,6 @@
         }
       }
     },
-    "超出套餐后按量计费": {
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Extra usage"
-          }
-        }
-      }
-    },
     "撤回到输入框": {
       "localizations": {
         "en": {

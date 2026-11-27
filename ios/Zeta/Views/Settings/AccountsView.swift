@@ -16,7 +16,7 @@ struct AccountsView: View {
             if let state {
                 StatusSection(id: id, state: state)
                 if let quota = state.quota {
-                    QuotaSection(id: id, quota: quota)
+                    QuotaSection(quota: quota) { model.perform("accounts.refresh", ["id": id, "force": true]) }
                 }
                 accountsSection(state)
                 relaysSection(state)
@@ -211,55 +211,3 @@ private struct RelayLabel: View {
     }
 }
 
-/// 订阅额度：各个窗口用了多少、什么时候重置，额外用量，多久以前的数；刷新向 Claude Code 要一次。
-private struct QuotaSection: View {
-    @Environment(AppModel.self) private var model
-    let id: String
-    let quota: QuotaView
-
-    var body: some View {
-        Section {
-            if quota.blocked {
-                let until = quota.blockedUntil
-                Text(until.isEmpty ? String(localized: "额度用完了") : String(localized: "额度用完了，\(until)恢复"))
-                    .foregroundStyle(.red)
-            }
-            ForEach(quota.windows) { window in
-                VStack(alignment: .leading) {
-                    LabeledContent(window.label, value: "\(window.percent)%")
-                    ProgressView(value: min(max(window.used, 0), 1)).tint(color(window.severity))
-                    if !window.reset.isEmpty {
-                        Text(window.reset).font(.caption).foregroundStyle(.secondary)
-                    }
-                }
-            }
-            if let extra = quota.extra {
-                VStack(alignment: .leading) {
-                    LabeledContent("额外用量", value: extra.amount.isEmpty ? String(localized: "已开启") : extra.amount)
-                    if let used = extra.used { ProgressView(value: min(max(used, 0), 1)) }
-                }
-            }
-            let refresh = quota.refreshing ? String(localized: "正在刷新") : String(localized: "刷新")
-            Button(refresh, systemImage: "arrow.clockwise") {
-                model.perform("accounts.refresh", ["id": id, "force": true])
-            }
-            .disabled(quota.refreshing)
-        } header: {
-            HStack {
-                Text("订阅额度")
-                Spacer()
-                Text(quota.plan)
-            }
-        } footer: {
-            Text(quota.footnote)
-        }
-    }
-
-    private func color(_ severity: String) -> Color {
-        switch severity {
-        case "critical": .red
-        case "warning": .orange
-        default: .accentColor
-        }
-    }
-}

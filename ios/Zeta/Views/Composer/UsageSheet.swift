@@ -24,7 +24,7 @@ struct UsageSheet: View {
         NavigationStack {
             List {
                 if let quota = composer.quota {
-                    QuotaSection(quota: quota)
+                    QuotaSection(quota: quota) { model.perform("composer.quota", ["force": true]) }
                 }
                 contextSection
                 totalsSection
@@ -147,57 +147,3 @@ struct UsageSheet: View {
     }
 }
 
-/// 订阅额度一节：各窗口的已用比例和重置时间、超出套餐后的按量计费、说明和刷新。
-private struct QuotaSection: View {
-    @Environment(AppModel.self) private var model
-    let quota: QuotaInfo
-
-    var body: some View {
-        Section {
-            if quota.blocked {
-                Text(blockedText)
-                    .foregroundStyle(.red)
-            }
-            if !quota.unavailable {
-                ForEach(quota.windows, id: \.self) { line in
-                    VStack(alignment: .leading, spacing: 4) {
-                        LabeledContent(line.label, value: "\(line.percent)%")
-                        ProgressView(value: min(max(line.used, 0), 1)).tint(color(line.severity))
-                        if !line.reset.isEmpty {
-                            Text(line.reset).font(.caption).foregroundStyle(.secondary)
-                        }
-                    }
-                }
-            }
-            if let extra = quota.extra {
-                LabeledContent("超出套餐后按量计费", value: extra.amount.isEmpty ? String(localized: "已开启") : extra.amount)
-            }
-            if !quota.footnote.isEmpty {
-                Text(quota.footnote).font(.footnote).foregroundStyle(.secondary)
-            }
-            Button(quota.refreshing ? String(localized: "正在刷新") : String(localized: "刷新")) {
-                model.perform("composer.quota", ["force": true])
-            }
-                .disabled(quota.refreshing)
-        } header: {
-            HStack {
-                Text("订阅额度")
-                Spacer()
-                Text(quota.plan)
-            }
-        }
-    }
-
-    private var blockedText: String {
-        quota.blockedUntil.isEmpty
-            ? String(localized: "额度用完了") : String(localized: "额度用完了，\(quota.blockedUntil)恢复")
-    }
-
-    private func color(_ severity: Int) -> Color {
-        switch severity {
-        case 2: .red
-        case 1: .orange
-        default: .accentColor
-        }
-    }
-}

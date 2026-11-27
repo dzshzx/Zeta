@@ -21,7 +21,7 @@ struct ComposerState: Decodable, Sendable {
     let queued: [QueuedMessage]
     let steering: Bool
     let usage: UsageInfo
-    let quota: QuotaInfo?
+    let quota: QuotaView?
 
     enum CodingKeys: String, CodingKey {
         case text, rev, ready, uploading, attachments, problems, process, model, effort, mode, modes, queued, steering
@@ -127,36 +127,6 @@ struct UsageTurn: Decodable, Sendable, Identifiable {
         case cacheRead = "cache_read"
         case cacheWrite = "cache_write"
     }
-}
-
-struct QuotaInfo: Decodable, Sendable {
-    let plan: String
-    let unavailable: Bool
-    let blocked: Bool
-    let blockedUntil: String
-    let windows: [QuotaLine]
-    let extra: QuotaExtra?
-    let footnote: String
-    let refreshing: Bool
-
-    enum CodingKeys: String, CodingKey {
-        case plan, unavailable, blocked, windows, extra, footnote, refreshing
-        case blockedUntil = "blocked_until"
-    }
-}
-
-/// 一个额度窗口；severity 0 平常、1 注意、2 快满。
-struct QuotaLine: Decodable, Sendable, Hashable {
-    let label: String
-    let percent: Int
-    let used: Double
-    let severity: Int
-    let reset: String
-}
-
-struct QuotaExtra: Decodable, Sendable {
-    let amount: String
-    let used: Double?
 }
 
 /// composer.draft 答的：要提示的斜杠命令。
