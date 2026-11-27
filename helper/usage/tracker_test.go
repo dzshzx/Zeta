@@ -62,7 +62,7 @@ func near(t *testing.T, what string, got *float64, want, tolerance float64) {
 
 func TestContextIsTheLastRequestAndCompactionShrinksIt(t *testing.T) {
 	meter := New()
-	meter.ProcessStarted(true, 0)
+	meter.ProcessStarted(&Carried{}, 0)
 	observe(meter, start1)
 	eqPtr(t, "context", meter.Snapshot(nil).ContextTokens, 24356)
 	observe(meter, delta1, result1, delta2)
@@ -90,7 +90,7 @@ func TestContextIsTheLastRequestAndCompactionShrinksIt(t *testing.T) {
 
 func TestTurnsAreDeltasOfTheProcessTotals(t *testing.T) {
 	meter := New()
-	meter.ProcessStarted(true, 0)
+	meter.ProcessStarted(&Carried{}, 0)
 	observe(meter, start1, delta1, result1, delta2, result2, boundary, result3)
 	u := meter.Snapshot(nil)
 	if len(u.Turns) != 3 {
@@ -113,7 +113,7 @@ func TestResumedProcessCarriesOldTotalsSoFirstCostIsUnknown(t *testing.T) {
 	// --resume 之后 Claude Code 把上次进程的累计带了过来：0.2337 + 这一轮
 	resumed := `{"type":"result","subtype":"success","total_cost_usd":0.33235440000000005,"usage":{"input_tokens":2,"output_tokens":3,"cache_read_input_tokens":15102,"cache_creation_input_tokens":11945},"modelUsage":{"claude-opus-5-5":{"inputTokens":2166,"outputTokens":610,"cacheReadInputTokens":67852,"cacheCreationInputTokens":37240,"costUSD":0.33235440000000005,"contextWindow":1000000}}}`
 	meter := New()
-	meter.ProcessStarted(false, 0)
+	meter.ProcessStarted(nil, 0)
 	observe(meter, resumed)
 	turns := meter.Snapshot(nil).Turns
 	if len(turns) != 1 {
@@ -134,14 +134,14 @@ func TestResumedProcessCarriesOldTotalsSoFirstCostIsUnknown(t *testing.T) {
 
 func TestResumedProcessWithoutCarriedTotalsKeepsCost(t *testing.T) {
 	meter := New()
-	meter.ProcessStarted(false, 0)
+	meter.ProcessStarted(nil, 0)
 	observe(meter, result1)
 	near(t, "cost", meter.Snapshot(nil).Turns[0].CostUSD, 0.0933242, 1e-9)
 }
 
 func TestCountersThatStartOverDoNotGiveNegativeTurns(t *testing.T) {
 	meter := New()
-	meter.ProcessStarted(true, 0)
+	meter.ProcessStarted(&Carried{}, 0)
 	observe(meter, result1, result2, `{"type":"conversation_reset","new_conversation_id":"s2"}`)
 	if c := meter.Snapshot(nil).ContextTokens; c != nil {
 		t.Errorf("/clear 之后 context 应当没有，得到 %d", *c)
@@ -235,7 +235,7 @@ func TestHistoryRestoresContextAndTurns(t *testing.T) {
 
 	// 历史接在实时数据前面
 	live := New()
-	live.ProcessStarted(false, 0)
+	live.ProcessStarted(nil, 0)
 	observe(live, result1)
 	live.PrependHistory(history)
 	merged := live.Snapshot(nil)
@@ -288,7 +288,7 @@ func TestFixedRoundsHalfUpLikeJava(t *testing.T) {
 // 压缩点：Claude Code 报的不含百分比，按百分比压到更早；关着时没有压缩点。
 func TestCompactPointAndFractions(t *testing.T) {
 	meter := New()
-	meter.ProcessStarted(true, 50)
+	meter.ProcessStarted(&Carried{}, 50)
 	meter.ContextUsageAnswered([]byte(`{"response":{"totalTokens":100000,"maxTokens":400000,"isAutoCompactEnabled":true,"autoCompactThreshold":367000}}`))
 	u := meter.Snapshot(nil)
 	eqPtr(t, "compact at", u.CompactAt, 190_000)
@@ -312,7 +312,7 @@ func TestCompactPointAndFractions(t *testing.T) {
 	}
 	eqPtr(t, "auto compact", u.AutoCompact, false)
 	// 新进程的开关要等它自己报
-	meter.ProcessStarted(false, 50)
+	meter.ProcessStarted(nil, 50)
 	if meter.Snapshot(nil).AutoCompact != nil {
 		t.Error("新进程还没报开关")
 	}
@@ -408,7 +408,7 @@ func TestKnownWindowsAreKeptPerHost(t *testing.T) {
 // 推给客户端的 JSON：snake_case，算好的几项都在，没有的项不写。
 func TestUsageJSON(t *testing.T) {
 	meter := New()
-	meter.ProcessStarted(true, 0)
+	meter.ProcessStarted(&Carried{}, 0)
 	observe(meter, start1, delta1, result1)
 	data, err := json.Marshal(meter.Snapshot(nil))
 	if err != nil {

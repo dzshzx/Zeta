@@ -1,22 +1,27 @@
 package conv
 
 import (
+	"cmp"
 	"encoding/json"
 	"strconv"
 	"strings"
 
 	"github.com/dzshzx/Zeta/helper/locales"
 	"github.com/dzshzx/Zeta/helper/prompt"
+	"github.com/dzshzx/Zeta/helper/usage"
 )
 
 var errClosed = locales.Err("errConvClosed")
 
 // process 是对话背后接着的那个 Claude Code 进程：托管连接，和这条连接上发出、还在等应答的控制请求。
 type process struct {
-	link    Link
-	prefix  string // 请求号的开头：每条连接随机起头再递增，重新接上的进程的输出里可能还有上一条连接的请求的应答
-	seq     int
-	waiting map[string]func(controlResponse)
+	link Link
+	// startKey 是起进程时的托管标识；第一行输出到时 link.Key() 换了，说明托管脚本没起新进程、接上的是本包已在跑的那个，
+	// 起进程时定的用量基线就不算数（usage.Tracker.Joined）。接上已在跑的进程（attach）时为空，不用核
+	startKey string
+	prefix   string // 请求号的开头：每条连接随机起头再递增，重新接上的进程的输出里可能还有上一条连接的请求的应答
+	seq      int
+	waiting  map[string]func(controlResponse)
 }
 
 // controlResponse 是 control_response 里的 response 一项。
@@ -190,9 +195,31 @@ func (c *Conversation) ensureProcess(mode string) *process {
 		return nil
 	}
 	p.link = link
+	p.startKey = link.Key()
 	c.proc = p
-	c.processStarted(p, c.session == "", o.CompactPercent)
+	c.processStarted(p, c.carriedUsage(), o.CompactPercent)
 	return p
+}
+
+// carriedUsage 是要起的进程带着的累计用量（usage.Carried）：新对话从零起；续上会话、分支时是 --resume 的那份会话记录里
+// 最后一行 cost-state 记的，Claude Code 从它接着累计。找不到、读不了记录时不知道（nil）。
+func (c *Conversation) carriedUsage() *usage.Carried {
+	resumed := cmp.Or(c.session, c.forkSource) // 同 sessionArgs
+	if resumed == "" {
+		return &usage.Carried{}
+	}
+	if c.deps.SessionFile == nil {
+		return nil
+	}
+	file := c.deps.SessionFile(resumed)
+	if file == "" {
+		return nil
+	}
+	carried, err := usage.LastCostState(file)
+	if err != nil {
+		return nil
+	}
+	return &carried
 }
 
 // events 是交给托管连接的回调：都排进对话的 goroutine，只认还是这个对话的进程的。
@@ -204,11 +231,12 @@ func (c *Conversation) events(p *process) Events {
 }
 
 // processStarted：刚起或刚接上的进程，要模型清单、斜杠命令清单，问用量，顺便问订阅额度。控制请求按顺序处理，之后发的都排在它后面。
-func (c *Conversation) processStarted(p *process, fresh bool, compactPercent int) {
+// carried 是它带着的累计用量，不知道时为 nil。
+func (c *Conversation) processStarted(p *process, carried *usage.Carried, compactPercent int) {
 	c.sendNow = false
 	c.openDesk()
 	p.request(initializeRequest(), func(r controlResponse) { c.initialized(r) })
-	c.usage.ProcessStarted(fresh, compactPercent)
+	c.usage.ProcessStarted(carried, compactPercent)
 	c.queryUsage(p)
 	c.autoQueryQuota(p)
 	c.changed()
@@ -298,6 +326,7 @@ func (c *Conversation) closeProcess(end bool) {
 		return
 	}
 	c.proc = nil
+	c.lastProcKey = p.link.Key()
 	c.abortRewind(errClosed.Msg)
 	if end {
 		p.link.Stop()
@@ -336,6 +365,7 @@ func (c *Conversation) onExit(p *process, e Exit) {
 		return
 	}
 	c.proc = nil
+	c.lastProcKey = p.link.Key()
 	c.abortRewind(locales.M("rewindProcessExited"))
 	// 连接意外断开时进程可能还活着：照样留给看门狗按闲置超时收
 	p.link.Leave()

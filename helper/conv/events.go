@@ -63,6 +63,7 @@ func (c *Conversation) receive(p *process, line []byte) {
 	}
 	// 进程有了输出：交给它的消息已经送到了
 	c.unsent = nil
+	c.checkJoined(p)
 	now := c.deps.now()
 	if c.usage.Observe(line) {
 		c.changed()
@@ -489,4 +490,16 @@ func controlSuccess(requestID string, response any) []byte {
 	b, _ := json.Marshal(map[string]any{"type": "control_response", "response": map[string]any{
 		"subtype": "success", "request_id": requestID, "response": response}})
 	return b
+}
+
+// checkJoined：起进程后的第一行输出到了，托管标识换了的话，托管脚本没起新进程、接上的是本包已在跑的那个，
+// 起进程时读的用量基线不是它的：是这个对话上次接着的那个进程时照上次的基线，否则不知道。之后不用再看。
+func (c *Conversation) checkJoined(p *process) {
+	if p.startKey == "" {
+		return
+	}
+	if p.link.Key() != p.startKey {
+		c.usage.Joined(p.link.Key() == c.lastProcKey)
+	}
+	p.startKey = ""
 }

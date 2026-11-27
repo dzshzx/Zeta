@@ -295,7 +295,7 @@
   "composerCacheWrite": "Cache writes",
   "composerOutput": "Output",
   "composerCost": "Cost (at API prices)",
-  "composerCostEstimatedNote": "Amounts marked ≈ are estimated from token counts and API prices: the session log has no costs. For the first turn after resuming a session or reattaching to a background process, only the main conversation is counted, not subagents.",
+  "composerCostEstimatedNote": "Amounts marked ≈ are estimated from token counts and API prices: the session log has no costs. After reopening a conversation whose process is still running, only the main conversation is counted for the first turn.",
   "composerCostPartialNote": "Some turns used models missing from the price list and aren't counted in the cost.",
   "composerSkippedHistoryNote": "Earlier history isn't loaded and isn't counted.",
   "composerSentenceGap": " ",

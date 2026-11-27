@@ -81,8 +81,10 @@ type Conversation struct {
 	tasks              *tasks.Board
 	backgroundTasks    int
 
-	proc      *process
-	lastReply string // 最近一条回复的消息 id，手机工具据此换控件编号
+	proc *process
+	// lastProcKey 是上一个接着的进程的托管标识（放开或断开时记下）：再起进程时托管脚本接上的若正是它，用量基线照上次的
+	lastProcKey string
+	lastReply   string // 最近一条回复的消息 id，手机工具据此换控件编号
 	// openedSession 是打开时接着的会话号：接着已有会话时选默认模型要明说 default
 	openedSession string
 	sendNow       bool // 这个进程的 Claude Code 认 interrupt 的 send_now

@@ -38,6 +38,8 @@ import org.junit.Test
  *   换一个就照常（用户在 Zeta 的模型菜单里另选一个）。
  * - 终端里 `/model` 换的模型不恢复：记录里只有它打出来的那句话，接着时用最后一次回答的模型，一个回答都没有时用默认模型。所以 Zeta
  *   读出那句话，起进程时指定换成的模型（[com.dzshzx.zeta.core.Conversation.restoreModel]）。
+ * - 累计用量接着记录里最后一行 cost-state 算（helper/usage 的 Carried）：cost-state 是进程退出时写下的累计（含子代理）， `--resume` 和
+ *   `--fork-session` 起来后，result 的 modelUsage 从原会话记录的最后一行 cost-state 接着加。
  * - 没测到的：`[1m]` 变体接回后还在不在。用 API key 时 Claude Code 不提供 [1m] 选项，`--model sonnet[1m]` 的请求也不带 1M 的
  *   beta， 这里分不出来，要用订阅账号在真机上看。
  *
@@ -296,6 +298,49 @@ class ClaudeResumeContractTest {
         }
 
     private fun JsonObject.str(key: String) = (this[key] as? JsonPrimitive)?.contentOrNull
+
+    /** 会话 [session] 的记录里最后一行 cost-state 记的累计输入 token 数；没有这一行时是 0。 */
+    private fun lastCostStateInput(session: String): Long {
+        val record =
+            File(home, ".claude/projects").walkTopDown().first { it.name == "$session.jsonl" }
+        val state =
+            record.readLines().lastOrNull { it.contains("\"type\":\"cost-state\"") } ?: return 0
+        return inputTokens(json.parseToJsonElement(state).jsonObject["modelUsage"] as? JsonObject)
+    }
+
+    /** modelUsage 各模型的 inputTokens 之和。 */
+    private fun inputTokens(models: JsonObject?): Long =
+        models.orEmpty().values.sumOf {
+            (it.jsonObject["inputTokens"] as? JsonPrimitive)?.contentOrNull?.toLong() ?: 0L
+        }
+
+    /** 跑一轮、正常退出，返回会话号和这一轮 result 报的累计输入、这一轮自己的输入。 */
+    private fun turnUsage(vararg arguments: String): Triple<String, Long, Long> =
+        Claude(*arguments).use { claude ->
+            val result = claude.turn("hi")
+            val own =
+                ((result["usage"] as? JsonObject)?.get("input_tokens") as? JsonPrimitive)
+                    ?.contentOrNull
+                    ?.toLong() ?: 0L
+            Triple(
+                result.str("session_id")!!,
+                inputTokens(result["modelUsage"] as? JsonObject),
+                own,
+            )
+        }
+
+    @Test
+    fun resumedCumulativeUsageContinuesFromTheLastCostState() {
+        TestDeps.requireClaude()
+        val (session, first, _) = turnUsage()
+        assertEquals("进程退出时写下的累计", first, lastCostStateInput(session))
+        val (resumed, total, own) = turnUsage("--resume", session)
+        assertEquals(session, resumed)
+        assertEquals("续上后接着最后一行 cost-state 累计", first + own, total)
+        val (forked, forkTotal, forkOwn) = turnUsage("--resume", session, "--fork-session")
+        assertNotEquals(session, forked)
+        assertEquals("分支接着原会话的最后一行 cost-state 累计", lastCostStateInput(session) + forkOwn, forkTotal)
+    }
 
     @Test
     fun resumeKeepsTheSessionModelButNotItsEffort() {

@@ -16,7 +16,7 @@ data class TokenCounts(
 
 /**
  * 一轮（用户发一次、到 result 为止）的用量。[costUsd] 是按 API 标价折算的费用，算不出来时为 null；[costEstimated] 时它不是 Claude Code
- * 报的，是核心按 token 数和价目表估的：从会话记录恢复的含子代理，续上会话、接上后台进程后的第一轮不含。
+ * 报的，是核心按 token 数和价目表估的：从会话记录恢复的含子代理；重新打开对话、接上还在跑的进程后的第一轮只有主对话的。
  */
 @Immutable
 data class TurnUsage(

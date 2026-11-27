@@ -112,7 +112,7 @@ func (c *Conversation) attach(h *Hosted) {
 	p.link = link
 	c.proc = p
 	// 接上的进程是以前起的，不知道当时给的自动压缩百分比，按拿着它的客户端现在的设置算
-	c.processStarted(p, false, c.launchOptions().CompactPercent)
+	c.processStarted(p, nil, c.launchOptions().CompactPercent)
 	for _, line := range h.Pending {
 		c.receive(p, line)
 	}

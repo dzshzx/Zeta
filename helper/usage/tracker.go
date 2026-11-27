@@ -14,9 +14,10 @@ import "strconv"
 //   - 上下文占用：主对话最近一次请求的 usage 四项之和（提示词含缓存读写，加上输出）。这正是 Claude Code 判断自动压缩用的数，
 //     压缩前的 pre_tokens 与它一致。压缩后的 post_tokens 只算消息、不含系统提示和工具定义（实测压缩后下一次请求比它多两万多），
 //     所以压缩后先显示它，再用 get_context_usage 的估算（含这些固定开销）替换，下一次请求的实测数到了再以实测为准。
-//   - 每轮用量：result 行的 modelUsage 和 total_cost_usd 是这个进程启动以来的累计（含子代理和压缩请求），相邻两个 result 相减就是这一轮。
-//     全新会话的进程从零开始累计；用 --resume 续上旧会话时 Claude Code 会把上次进程的累计带过来，接上后台进程时也不知道之前读到哪，
-//     这两种情况第一轮的基线未知：token 改用 result.usage（只含这一轮），费用只在累计与这一轮完全对得上时才算。
+//   - 每轮用量：result 行的 modelUsage 和 total_cost_usd 是累计（含子代理和压缩请求），相邻两个 result 相减就是这一轮。
+//     全新会话的进程从零开始累计；--resume 续上（含 --fork-session 分支）时，Claude Code 从那份会话记录里最后一行 cost-state
+//     接着累计，起进程前读同一行就知道第一轮的基线（Carried、LastCostState）。接上已在跑的进程时不知道它之前累计到哪，
+//     这时第一轮的基线未知：token 改用 result.usage（只含主对话这一轮），费用只在累计与这一轮完全对得上时才算。
 //   - 会话记录里没有费用，从记录恢复的轮次按各条消息的模型和 token 数估（prices）；实时的一轮算不出来时也这样估。
 //     子代理的消息不在主记录里：zeta-helper history 在发起子代理的回答后面跟一行 subagent_usage（它和它又派的子代理各模型的
 //     token 数），算进那一轮。
@@ -35,6 +36,9 @@ type Tracker struct {
 	compactPercent    int
 	baseTokens        *Tokens
 	baseCost          *float64
+	// prevTokens、prevCost 是起这个进程之前的基线（上一个进程最后一个 result 的累计），见 Joined
+	prevTokens *Tokens
+	prevCost   *float64
 
 	// historyTurn 是从会话记录读到的、还没结束的一轮，按消息 id 记（一条消息按内容块拆成几行，每行都带同一份 usage），按第一次出现的先后排。
 	historyTurn  []historyMessage
@@ -67,17 +71,27 @@ func (t *Tracker) changed() bool {
 	return true
 }
 
-// ProcessStarted：起了一个新进程。fresh 表示全新会话（没带 --resume），它的累计从零开始。compactPercent 是给这个进程的
+// ProcessStarted：起了一个新进程。carried 是它起来时带着的累计（见 Carried），不知道时为 nil。compactPercent 是给这个进程的
 // 自动压缩百分比（CLAUDE_AUTOCOMPACT_PCT_OVERRIDE，0 是没给），Claude Code 报的压缩点不含它，算压缩点要用。
-func (t *Tracker) ProcessStarted(fresh bool, compactPercent int) {
+func (t *Tracker) ProcessStarted(carried *Carried, compactPercent int) {
+	t.prevTokens, t.prevCost = t.baseTokens, t.baseCost
 	t.baseTokens, t.baseCost = nil, nil
-	if fresh {
-		t.baseTokens, t.baseCost = &Tokens{}, ptr(0.0)
+	if carried != nil {
+		t.baseTokens, t.baseCost = ptr(carried.Tokens), ptr(carried.CostUSD)
 	}
 	t.compactPercent = compactPercent
 	// 新进程的开关和压缩点要等它自己报
 	t.autoCompact = nil
 	t.reportedThreshold = nil
+}
+
+// Joined：托管脚本没起新进程，接上的是已在跑的那个，起进程时给的基线不算数。same 表示它就是这个对话上次接着的那个进程
+// （放开连接后又回来）：它的累计接着上次最后一个 result，基线照上次的；不是时不知道它累计到哪，下一轮的基线算未知。
+func (t *Tracker) Joined(same bool) {
+	t.baseTokens, t.baseCost = nil, nil
+	if same {
+		t.baseTokens, t.baseCost = t.prevTokens, t.prevCost
+	}
 }
 
 // message 是 assistant 事件和 message_start 里的消息。
