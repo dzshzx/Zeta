@@ -15,3 +15,5 @@ CLAUDE.local.md
 windows/cmd/zeta/dist/
 # ios/scripts/build.sh 由 XcodeGen 照 ios/project.yml 生成的工程
 /ios/Zeta.xcodeproj/
+# windows/ 下 go build ./cmd/zeta 编出的本机程序
+/windows/zeta
