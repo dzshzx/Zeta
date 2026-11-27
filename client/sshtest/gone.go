@@ -20,8 +20,12 @@ func WaitGone(t *testing.T, pidFile string) {
 	if err != nil {
 		t.Fatal(err)
 	}
+	proc, err := os.FindProcess(pid)
+	if err != nil {
+		return
+	}
 	deadline := time.Now().Add(10 * time.Second)
-	for syscall.Kill(pid, 0) == nil {
+	for proc.Signal(syscall.Signal(0)) == nil {
 		if time.Now().After(deadline) {
 			t.Fatalf("远端进程 %d 超时后还在跑", pid)
 		}
