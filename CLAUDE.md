@@ -1,12 +1,12 @@
 # Zeta 项目约束
 
-Zeta（Ζ）是 Claude Code 的跨平台原生客户端，有 Android 版和 Windows 版，默认分支 `master`。判断一项功能属于哪里，按下面三组：
+Zeta（Ζ）是 Claude Code 的跨平台原生客户端，有 Android 版和 Windows 版，默认分支 `master`。功能按三组归属，加功能先定属于哪组：
 
-- 两端共有（Go 核心：主机上的 zeta-helper serve 与 `client/`，见 `docs/core.md`）：对话与会话列表、远程主机（SSH）、确认与提问、子代理与后台任务、账号额度与中转、Claude Code 配置页、诊断、和终端交接、多个客户端同时接着一个会话。跨平台的逻辑放核心，两端只画界面。
-- Android 版独有（`app/`，Kotlin、Compose，界面用 Miuix）：手机里自带的 Debian 环境与安装管理、手机操作工具与后台虚拟屏、语音与数字助理、定时任务与通知触发、超级岛与通知。包名 `com.dzshzx.zeta`（测试版 `com.dzshzx.zeta.dev`，见「构建与测试」）。它要取代 Eta 做手机上的主力 agent。
-- Windows 版独有（`windows/`，Go、mygo）：只经 SSH 直连远程主机，不带手机一侧的功能；鼠标与快捷键的交互、MSI 安装与应用内更新。见 `docs/desktop.md`。
+- 两端共有：和远程主机上的 Claude Code 有关的，如对话与会话列表、确认与提问、子代理与后台任务、账号额度与中转、Claude Code 配置页、诊断、和终端交接。逻辑放 Go 核心（主机上的 zeta-helper serve 与 `client/`，见 `docs/core.md`），两端只画界面。
+- Android 版独有（`app/`）：手机一侧的，如自带的 Debian 环境、手机操作工具与后台虚拟屏、语音与数字助理、定时任务与通知触发、超级岛；完整清单以 `docs/desktop.md` 开头桌面版不做的那串为准。
+- Windows 版独有（`windows/`）：桌面的交互、MSI 安装与应用内更新，见 `docs/desktop.md`。
 
-两端不追求功能对等：加功能先定它属于哪一组，平台独有的只改那一端。
+Android 版用 Kotlin、Compose，界面用 Miuix，包名 `com.dzshzx.zeta`（测试版 `com.dzshzx.zeta.dev`，见「构建与测试」），要取代 Eta 做手机上的主力 agent；Windows 版见「架构」的 `windows/` 一条。
 
 维护者本机的环境事实（设备的 ssh 别名、模拟器、参照源码的本机位置、账号与密钥条目）不进 Git，写在仓根的 `CLAUDE.local.md`，Claude Code 在主 checkout 里会自动加载它；在任务 worktree 里时去读主 checkout 的那一份（`git rev-parse --path-format=absolute --git-common-dir` 的上一级目录）。没有这个文件时，按下面「本机配置」配好自己的设备。
 

@@ -23,7 +23,7 @@ Zeta 是 [Claude Code](https://github.com/anthropics/claude-code) 的跨平台�
 
 ### Windows 版独有
 
-- **桌面窗口**：可拖宽、可收起的侧栏，右键菜单和多选，一套快捷键；只经 SSH 连远程主机，不带手机一侧的功能。安装与更新见下面「Windows 桌面版」。
+- **桌面窗口**：鼠标和快捷键的交互，见下面「Windows 桌面版」。
 
 ## 截图
 
