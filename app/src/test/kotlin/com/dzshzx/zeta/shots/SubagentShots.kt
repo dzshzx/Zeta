@@ -3,6 +3,8 @@ package com.dzshzx.zeta.shots
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
 import com.dzshzx.zeta.core.AnswerItem
+import com.dzshzx.zeta.core.BackgroundTask
+import com.dzshzx.zeta.core.TaskKind
 import com.dzshzx.zeta.core.ToolStatus
 import com.dzshzx.zeta.core.ToolStep
 import com.dzshzx.zeta.core.UserItem
@@ -12,7 +14,9 @@ import com.dzshzx.zeta.core.conv.SubagentMeta
 import com.dzshzx.zeta.core.conv.SubagentState
 import com.dzshzx.zeta.shots.Fixtures.showChat
 import com.dzshzx.zeta.ui.chat.ChatScreen
+import com.dzshzx.zeta.ui.chat.SubagentOwner
 import com.dzshzx.zeta.ui.chat.SubagentPage
+import com.dzshzx.zeta.ui.chat.SubagentTask
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.buildJsonObject
 import kotlinx.serialization.json.jsonObject
@@ -115,6 +119,31 @@ class SubagentShots : ShotTest() {
     fun running() {
         val log = log(SubagentState.Running)
         shoot("subagent-running") { SubagentPage(log, onBack = {}) }
+    }
+
+    /** 它在后台任务清单里、从后台任务面板进来：概要里另有用时、所属对话，在跑时最后是停止。 */
+    @Test
+    fun runningTask() {
+        val log = log(SubagentState.Running)
+        val task =
+            BackgroundTask(
+                "a2",
+                "local_agent",
+                TaskKind.Agent,
+                "审查面板排版",
+                null,
+                "general-purpose",
+                "toolu_A",
+                startedAt = System.currentTimeMillis() - 48_000,
+            )
+        shoot("subagent-running-task") {
+            SubagentPage(
+                log,
+                onBack = {},
+                task = SubagentTask(task, canStop = true, onStop = {}),
+                owner = SubagentOwner("给设置页加后台任务面板") {},
+            )
+        }
     }
 
     @Test

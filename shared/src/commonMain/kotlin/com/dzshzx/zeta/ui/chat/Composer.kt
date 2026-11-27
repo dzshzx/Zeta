@@ -42,7 +42,9 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
@@ -51,7 +53,6 @@ import androidx.compose.ui.draw.dropShadow
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.ImageBitmap
 import androidx.compose.ui.graphics.Shape
 import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.graphics.compositeOver
@@ -71,6 +72,7 @@ import com.dzshzx.zeta.core.AttachedPaths
 import com.dzshzx.zeta.core.Attachment
 import com.dzshzx.zeta.core.FileImage
 import com.dzshzx.zeta.core.FileUpload
+import com.dzshzx.zeta.core.InlineImage
 import com.dzshzx.zeta.core.SlashCommand
 import com.dzshzx.zeta.core.voice.SpeechPhase
 import com.dzshzx.zeta.core.voice.SpeechState
@@ -372,7 +374,7 @@ private fun SlashSuggestionRow(command: SlashCommand, onClick: () -> Unit) {
     }
 }
 
-/** 输入框上方一排待发的附件：文件（复制中、复制失败的注明）和图片缩略图（图片文件只画一张缩略图，复制中时淡一些），各带移除键，横向滚动。 */
+/** 输入框上方一排待发的附件：文件（复制中、复制失败的注明）和图片缩略图（图片文件只画一张缩略图，复制中时淡一些，点一下看大图），各带移除键，横向滚动。 */
 @Composable
 private fun ComposerAttachments(
     attachments: List<Attachment>,
@@ -414,7 +416,7 @@ private fun ComposerAttachments(
         }
         attachments.forEach { attachment ->
             RemovableThumbnail(onRemove = { onRemoveAttachment(attachment) }) {
-                CroppedImage(attachment.preview, Strings.composerImageAttachment())
+                AttachmentThumbnail(attachment, Strings.composerImageAttachment())
             }
         }
     }
@@ -431,25 +433,31 @@ private fun uploadLabel(file: FileUpload): String =
 /** 待发的图片文件：画内联那份的小图，没有（放回的、草稿里恢复的）从主机上取；还在复制时淡一些。 */
 @Composable
 private fun UploadThumbnail(file: FileUpload, onRemove: () -> Unit) {
-    val preview = file.inline?.preview
+    val inline = file.inline
     val path = file.path
     RemovableThumbnail(onRemove, Modifier.alpha(if (file.uploading) 0.5f else 1f)) {
         when {
-            preview != null -> CroppedImage(preview, file.name)
+            inline != null -> AttachmentThumbnail(inline, file.name)
             path != null -> ChatThumbnail(FileImage(AttachedPaths.path(path)), size = 64.dp)
         }
     }
 }
 
-/** 裁切填满缩略图块的一张小图。 */
+/** 裁切填满缩略图块的一张待发图片；点一下全屏看要发给模型的那一份。 */
 @Composable
-private fun CroppedImage(bitmap: ImageBitmap, description: String) =
+private fun AttachmentThumbnail(attachment: Attachment, description: String) {
+    var viewing by remember { mutableStateOf(false) }
     Image(
-        bitmap = bitmap,
+        bitmap = attachment.preview,
         contentDescription = description,
         contentScale = ContentScale.Crop,
-        modifier = Modifier.fillMaxSize(),
+        modifier = Modifier.fillMaxSize().clickable { viewing = true },
     )
+    if (viewing) {
+        val ref = remember(attachment) { InlineImage("draft:" + attachment.id, attachment.base64) }
+        ImageViewer(listOf(ref), 0) { viewing = false }
+    }
+}
 
 /** 待发图片的 64dp 缩略图 [content]，右上角是移除键。 */
 @Composable

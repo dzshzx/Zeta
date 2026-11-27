@@ -72,10 +72,23 @@ private fun listFooter(): String = Strings.tasksListFooter()
 
 private fun conversationsFooter(): String = Strings.tasksConversationsFooter()
 
-private fun Conversation.label(): String = title.ifBlank { Strings.tasksUntitled() }
+internal fun Conversation.label(): String = title.ifBlank { Strings.tasksUntitled() }
 
 /** 正在看哪个对话的哪个任务。 */
 private data class TaskRef(val conversation: String, val task: String)
+
+/** 面板上盖着的页：[viewing] 是任务详情，[steps] 是子代理查看页（对话的 key 和发起它的那一步 tool_use id）。 */
+private class OpenedTask {
+    var viewing by mutableStateOf<TaskRef?>(null)
+    var steps by mutableStateOf<TaskRef?>(null)
+
+    /** 点了对话 [conversation] 的 [task]：子代理直接进它的查看页；还不知道是哪一步发起的（task_started 没到）才看任务详情。 */
+    fun open(conversation: String, task: BackgroundTask) {
+        val use = task.toolUseId.takeIf { task.kind == TaskKind.Agent }
+        if (use != null) steps = TaskRef(conversation, use)
+        else viewing = TaskRef(conversation, task.id)
+    }
+}
 
 /**
  * 后台任务面板。[scope] 是对话的 key 时只看这个对话的（聊天页的后台任务条点进来）； 是 [AllConversations] 时看全部：Zeta
@@ -91,9 +104,7 @@ fun BackgroundTasksScreen(
     val live = hub.liveConversations
     val all = scope == AllConversations
     val shown = if (all) live else live.filter { it.key == scope }
-    var viewing by remember { mutableStateOf<TaskRef?>(null) }
-    // 子代理的步骤：对话的 key 和发起它的那一步（tool_use id）
-    var steps by remember { mutableStateOf<TaskRef?>(null) }
+    val opened = remember { OpenedTask() }
     val finished = shown.any { c -> c.tasks.list.any { !it.running } }
 
     MiuixPage(
@@ -121,24 +132,29 @@ fun BackgroundTasksScreen(
                     title = taskGroupTitle(c, all, current = c === hub.current),
                     footer = if (index == withTasks.lastIndex) listFooter() else null,
                 ) { task ->
-                    viewing = TaskRef(c.key, task.id)
+                    opened.open(c.key, task)
                 }
             }
         }
     }
 
-    SlideInPage(viewing, onBack = { viewing = null }) { ref ->
+    SlideInPage(opened.viewing, onBack = { opened.viewing = null }) { ref ->
         TaskPage(
             live = live,
             ref = ref,
-            onBack = { viewing = null },
+            onBack = { opened.viewing = null },
             onOpenConversation = onOpenConversation,
-            onOpenSteps = { conversation, use -> steps = TaskRef(conversation.key, use) },
         )
     }
 
-    SlideInPage(steps, onBack = { steps = null }) { ref ->
-        SubagentScreen(hub, ref.conversation, ref.task, onBack = { steps = null })
+    SlideInPage(opened.steps, onBack = { opened.steps = null }) { ref ->
+        SubagentScreen(
+            hub,
+            ref.conversation,
+            ref.task,
+            onBack = { opened.steps = null },
+            onOpenConversation = onOpenConversation,
+        )
     }
 }
 
@@ -185,7 +201,7 @@ private fun NoTasksGroup(gone: Boolean) {
 private fun taskGroupTitle(c: Conversation, all: Boolean, current: Boolean): String =
     if (all && current) Strings.tasksCurrentConversation(c.label()) else c.label()
 
-/** 一个对话的后台任务，点一个看详情。 */
+/** 一个对话的后台任务，点一个看详情（子代理是它的查看页）。 */
 @Composable
 private fun ConversationTasksGroup(
     c: Conversation,
@@ -207,7 +223,6 @@ private fun TaskPage(
     ref: TaskRef,
     onBack: () -> Unit,
     onOpenConversation: (String) -> Unit,
-    onOpenSteps: (Conversation, String) -> Unit,
 ) {
     val conversation = live.firstOrNull { it.key == ref.conversation }
     val task = conversation?.tasks?.list?.firstOrNull { it.id == ref.task }
@@ -227,7 +242,6 @@ private fun TaskPage(
         task,
         onBack = onBack,
         onOpenConversation = { onOpenConversation(conversation.openKey) },
-        onOpenSteps = { use -> onOpenSteps(conversation, use) },
     )
 }
 
@@ -253,24 +267,22 @@ private fun TaskRow(task: BackgroundTask, onClick: () -> Unit) {
     )
 }
 
-/** 详情里的“已运行”或“用时”。 */
+/** 详情里的“已运行”或“用时”（子代理查看页也用）。 */
 @Composable
-private fun ElapsedRow(task: BackgroundTask) {
+internal fun ElapsedRow(task: BackgroundTask) {
     ValueRow(
         if (task.running) Strings.tasksElapsedRunning() else Strings.tasksElapsedTook(),
         formatElapsed(task.elapsedMs(elapsedNow(task))),
     )
 }
 
-/** 一个任务：说明、状态、命令、输出（或子代理的进展和报告，点进去看它的步骤），运行中可以停掉。 */
+/** 一个任务：说明、状态、命令、输出，运行中可以停掉。子代理平常不进这页（面板里点了直接是它的查看页），进来时是进展和报告。 */
 @Composable
 private fun TaskDetail(
     conversation: Conversation,
     task: BackgroundTask,
     onBack: () -> Unit,
     onOpenConversation: () -> Unit,
-    /** 打开子代理查看页，参数是发起它的那一步（tool_use id）。 */
-    onOpenSteps: (String) -> Unit,
 ) {
     var confirmStop by remember { mutableStateOf(false) }
     // 详情开着时请核心推输出（变了才推，任务结束后核心读完最后一次就不再问），关了就停；子代理读不了输出，不看
@@ -300,7 +312,7 @@ private fun TaskDetail(
         },
     ) {
         item(key = "info") {
-            TaskInfoGroup(conversation, task, onOpenConversation, onOpenSteps) {
+            TaskInfoGroup(conversation, task, onOpenConversation) {
                 confirmStop = true
             }
         }
@@ -312,17 +324,16 @@ private fun TaskDetail(
 }
 
 /** 停止确认框里的说明：是哪个任务；子代理停下后 Claude 会接着处理。 */
-private fun stopSummary(task: BackgroundTask): String =
+internal fun stopSummary(task: BackgroundTask): String =
     TaskLabels.title(task) +
         if (task.kind == TaskKind.Agent) "\n" + Strings.tasksStopAgentNote() else ""
 
-/** 任务的概要：说明、状态、用时，子代理还有类型、工具调用、在做什么和它的步骤；所属对话。 运行中最后是停止：输出在下面一直变长，按钮放在最后会被挤着走，点不准，所以放在这组里。 */
+/** 任务的概要：说明、状态、用时，子代理还有类型、工具调用、在做什么；所属对话。 运行中最后是停止：输出在下面一直变长，按钮放在最后会被挤着走，点不准，所以放在这组里。 */
 @Composable
 private fun TaskInfoGroup(
     conversation: Conversation,
     task: BackgroundTask,
     onOpenConversation: () -> Unit,
-    onOpenSteps: (String) -> Unit,
     onStop: () -> Unit,
 ) {
     PreferenceGroup {
@@ -341,7 +352,7 @@ private fun TaskInfoGroup(
             )
         }
         item(key = "elapsed") { ElapsedRow(task) }
-        if (task.kind == TaskKind.Agent) agentItems(task, onOpenSteps)
+        if (task.kind == TaskKind.Agent) agentItems(task)
         item(key = "conversation") {
             ArrowPreference(
                 title = Strings.tasksConversation(),
@@ -373,8 +384,8 @@ internal fun taskStateColor(state: TaskState): Color =
         else -> Color.Unspecified
     }
 
-/** 子代理才有的几行：类型、工具调用次数、（运行中）在做什么，和进它的步骤。 */
-private fun PreferenceGroupScope.agentItems(task: BackgroundTask, onOpenSteps: (String) -> Unit) {
+/** 子代理才有的几行：类型、工具调用次数、（运行中）在做什么。 */
+private fun PreferenceGroupScope.agentItems(task: BackgroundTask) {
     task.agentType?.let { type ->
         item(key = "agent") { ValueRow(Strings.tasksAgentType(), type) }
     }
@@ -387,11 +398,6 @@ private fun PreferenceGroupScope.agentItems(task: BackgroundTask, onOpenSteps: (
                 BasicComponent(title = Strings.tasksProgress(), summary = progress)
             }
         }
-    task.toolUseId?.let { use ->
-        item(key = "steps") {
-            ArrowPreference(title = Strings.tasksViewSteps(), onClick = { onOpenSteps(use) })
-        }
-    }
 }
 
 /** 出错的原因、命令（子代理是交给它的指令）和结果（子代理是报告），有的才列。 */
@@ -446,7 +452,7 @@ private fun outputText(output: TaskOutput?, text: String?, processAlive: Boolean
 
 /** 一段可选中的文字：命令、输出、报告。 */
 @Composable
-private fun TextBlock(title: String, text: String, mono: Boolean = false) {
+internal fun TextBlock(title: String, text: String, mono: Boolean = false) {
     PreferenceGroup(title = title) {
         item {
             SelectionContainer {

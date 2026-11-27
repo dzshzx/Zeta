@@ -573,7 +573,6 @@
   "tasksToolUses": "Tool calls",
   "tasksToolUsesValue": "{count, plural, one {# call} other {# calls}}",
   "tasksProgress": "Doing",
-  "tasksViewSteps": "View its steps",
   "tasksStopTitle": "Stop this task?",
   "tasksOutput": "Output",
   "tasksOutputFailed": "Couldn't read it: {error}",

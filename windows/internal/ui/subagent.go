@@ -4,6 +4,7 @@ import (
 	"cmp"
 	"context"
 	"strings"
+	"time"
 
 	"github.com/dzshzx/Zeta/helper/sessionproto"
 	"github.com/dzshzx/Zeta/helper/tasks"
@@ -27,7 +28,7 @@ type subagentView struct {
 	promptOpen bool
 }
 
-// openSubagent 打开子代理页（聊天里点了发起子代理的那一步、任务详情里点了查看它的步骤）：开始看着它。
+// openSubagent 打开子代理页（聊天里点了发起子代理的那一步、后台任务列表里点了子代理）：开始看着它。
 func (a *App) openSubagent(p *chatPane, toolUseID string) {
 	v := &subagentView{toolUseID: toolUseID, list: chatview.New()}
 	v.list.LoadImage, v.list.LoadInlineImage, v.list.LoadMarkdownImage = p.list.LoadImage, p.list.LoadInlineImage, p.list.LoadMarkdownImage
@@ -97,7 +98,8 @@ func noStepsText(s chat.Subagent, failed string) string {
 	return locales.SubagentNoSteps()
 }
 
-// subagentPage 是子代理页：顶上是概要（说明、状态、类型、模型、工具调用）和交给它的指令，下面是它的步骤，
+// subagentPage 是子代理页：顶上是概要（说明、状态、类型、模型、工具调用；它在后台任务清单里时另有用时、所属对话和停止）
+// 和交给它的指令，下面是它的步骤，
 // 和聊天里的条目一样画，装在一张白色卡片里，卡片跟着步骤的多少长；运行中最后一行在转。整页一起滚动（同手机版）：
 // 概要和指令是聊天列表的头部（Header），还没有步骤时头部下面是说明卡片。
 func (a *App) subagentPage(c *ui.Context, p *chatPane, v *subagentView) {
@@ -110,10 +112,18 @@ func (a *App) subagentPage(c *ui.Context, p *chatPane, v *subagentView) {
 	}
 	v.list.Cwd, v.list.Home = p.list.Cwd, p.list.Home
 	widget.Header(c, locales.SubagentTitle(), func() { a.back(p) })
+	task, listed := agentTask(p.state, v.toolUseID)
+	if listed && task.Running() {
+		c.After(time.Second) // 已运行的时间每秒走一次
+	}
 	// 每一帧照这一版的 s 重设
 	l := v.list
 	l.Header = func(c *ui.Context) {
-		subagentHead(c, v, s)
+		var t *tasks.Task
+		if listed {
+			t = &task
+		}
+		a.subagentHead(c, p, v, s, t)
 		if len(l.Items()) == 0 {
 			noSteps(c, v, s)
 		}
@@ -125,17 +135,37 @@ func (a *App) subagentPage(c *ui.Context, p *chatPane, v *subagentView) {
 	l.View(c).Grow(1).MinHeight(0)
 }
 
-// subagentHead 是步骤上面的部分：概要、交给它的指令和「步骤」这个分组标题。
-func subagentHead(c *ui.Context, v *subagentView, s chat.Subagent) {
-	// 概要由核心给：记录旁的 meta 还没读到时它先用发起子代理的 Agent 调用的参数填上
+// agentTask 是这个对话的后台任务清单里，Agent 调用 toolUseID 发起的那个子代理。
+func agentTask(s chat.State, toolUseID string) (tasks.Task, bool) {
+	for _, t := range s.Tasks {
+		if t.Kind == tasks.KindAgent && t.ToolUseID == toolUseID {
+			return t, true
+		}
+	}
+	return tasks.Task{}, false
+}
+
+// subagentHead 是步骤上面的部分：概要、出错的原因、交给它的指令和「步骤」这个分组标题。task 是它在后台任务清单里的那一项，
+// 不在清单里时为 nil。
+func (a *App) subagentHead(c *ui.Context, p *chatPane, v *subagentView, s chat.Subagent, task *tasks.Task) {
+	// 概要由核心给：记录旁的 meta 还没读到时它先用发起子代理的 Agent 调用的参数填上；核心的第一份还没推到时用任务清单里的
 	var meta chat.SubagentMeta
 	if s.Meta != nil {
 		meta = *s.Meta
 	}
+	prompt := s.Prompt
+	if task != nil {
+		meta.Description = cmp.Or(meta.Description, task.Description)
+		meta.AgentType = cmp.Or(meta.AgentType, task.AgentType)
+		prompt = cmp.Or(prompt, task.Command)
+	}
 	meta.Description = cmp.Or(meta.Description, locales.SubagentTitle())
-	subagentSummary(c, s, meta)
-	if s.Prompt != "" {
-		promptBlock(c, v, s.Prompt)
+	a.subagentSummary(c, p, s, meta, task)
+	if task != nil && task.Error != "" {
+		textBlock(c, locales.TasksError(), task.Error, false)
+	}
+	if prompt != "" {
+		promptBlock(c, v, prompt)
 	}
 	title := locales.SubagentSteps()
 	if s.Skipped > 0 {
@@ -145,8 +175,8 @@ func subagentHead(c *ui.Context, v *subagentView, s chat.Subagent) {
 }
 
 // subagentSummary 是概要卡片：第一行说明和状态，第二行类型、模型、思考强度、工具调用次数（知道的才列）。手机版一项一行，
-// 桌面版宽，压成两行。
-func subagentSummary(c *ui.Context, s chat.Subagent, meta chat.SubagentMeta) {
+// 桌面版宽，压成两行。它在后台任务清单里（task 不为 nil）时下面另有用时、所属对话，运行中最后是停止。
+func (a *App) subagentSummary(c *ui.Context, p *chatPane, s chat.Subagent, meta chat.SubagentMeta, task *tasks.Task) {
 	k := widget.Of(c)
 	description := meta.Description
 	var facts []string
@@ -173,6 +203,10 @@ func subagentSummary(c *ui.Context, s chat.Subagent, meta chat.SubagentMeta) {
 			state, tone := subagentState(s)
 			ui.Text(c, state).FontSize(widget.SizeBodyM).TextColor(tone.color(k)).Shrink(0)
 		})
+		if task != nil {
+			a.elapsedRow(c, l, *task)
+			a.ownerAndStopRows(l, p, *task)
+		}
 	})
 }
 

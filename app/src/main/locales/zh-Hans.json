@@ -2348,10 +2348,6 @@
   "@tasksProgress": {
     "description": "子代理详情里一行的标题，下面是它正在做什么。"
   },
-  "tasksViewSteps": "查看它的步骤",
-  "@tasksViewSteps": {
-    "description": "子代理详情里的一行，点了看子代理的每一步。"
-  },
   "tasksError": "出错",
   "@tasksError": {
     "description": "任务详情里出错原因一段的标题。"

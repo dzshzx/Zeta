@@ -19,7 +19,7 @@ extension View {
 }
 
 /// 后台任务面板（同手机版 BackgroundTasksScreen、桌面版 alltasks.go）：上面是后台对话（点了切过去），
-/// 下面是聊天页这个对话的后台任务（点了看详情）。别的对话的任务要打开它才拿得到。
+/// 下面是聊天页这个对话的后台任务（点了看详情，子代理直接是子代理页）。别的对话的任务要打开它才拿得到。
 struct BackgroundTasksView: View {
     @Environment(AppModel.self) private var model
     @Environment(\.dismiss) private var dismiss
@@ -106,13 +106,21 @@ private struct TaskRows: View {
                 }
             }
             ForEach(tasks.filter(\.running) + tasks.filter { !$0.running }) { task in
-                NavigationLink(value: TaskPage.task(task.id)) {
+                NavigationLink(value: task.page) {
                     TaskRow(task: task)
                 }
             }
         } header: {
             Text("当前对话：\(title)")
         }
+    }
+}
+
+private extension TaskInfo {
+    /// 点了去哪一页：子代理直接是子代理页；还不知道是哪一步发起的（task_started 没到）才看任务详情。
+    var page: TaskPage {
+        if kind == "agent", let id = toolUseID, !id.isEmpty { return .subagent(id) }
+        return .task(id)
     }
 }
 
@@ -136,7 +144,7 @@ private struct TaskRow: View {
     }
 }
 
-/// 一个任务的详情：状态、命令或指令、输出（后台命令、监视器，看着时核心推来）、子代理的进展和报告；在跑时能停止。
+/// 一个任务的详情：状态、命令或指令、输出（后台命令、监视器，看着时核心推来）；在跑时能停止。子代理平常不进这页（列表里点了直接是子代理页）。
 struct TaskDetailView: View {
     @Environment(AppModel.self) private var model
     let taskID: String
@@ -201,7 +209,7 @@ struct TaskDetailView: View {
         }
     }
 
-    /// 头一节：状态、类型、已运行多久、工具调用、正在做的、看步骤。
+    /// 头一节：状态、类型、已运行多久、工具调用、正在做的。
     private func overview(_ task: TaskInfo) -> some View {
         Section {
             LabeledContent("状态") { Text(task.stateText) }
@@ -218,9 +226,6 @@ struct TaskDetailView: View {
             }
             if task.running, let progress = task.progress, !progress.isEmpty {
                 LabeledContent("正在做", value: progress)
-            }
-            if let id = task.toolUseID, !id.isEmpty {
-                NavigationLink("查看步骤", value: TaskPage.subagent(id))
             }
         } header: {
             Text(task.title)
@@ -259,25 +264,25 @@ struct TaskDetailView: View {
 }
 
 /// 子代理页（同手机版 SubagentScreen、桌面版 subagent.go）：概要、交给它的指令，下面是它的步骤，和聊天里的条目一样画。
+/// 它在后台任务清单里时，概要里另有已运行多久，在跑时能停止。
 struct SubagentView: View {
     @Environment(AppModel.self) private var model
     let toolUseID: String
 
     @State private var page: SubagentPage?
     @State private var failed = ""
+    @State private var stopAsked = false
+
+    /// 它在后台任务清单里的那一项；不在清单里时没有。
+    private var task: TaskInfo? {
+        model.state.chat?.tasks.first { $0.kind == "agent" && $0.toolUseID == toolUseID }
+    }
 
     var body: some View {
         List {
-            Section("概要") {
-                LabeledContent("状态", value: stateText)
-                if let meta = page?.meta {
-                    if !meta.description.isEmpty { LabeledContent("说明", value: meta.description) }
-                    if !meta.agentType.isEmpty { LabeledContent("类型", value: meta.agentType) }
-                    if !meta.model.isEmpty { LabeledContent("模型", value: meta.model) }
-                }
-                if let page, page.toolUses > 0 {
-                    LabeledContent("工具调用") { Text(page.toolUses, format: .number) }
-                }
+            overview
+            if let error = task?.error, !error.isEmpty {
+                Section("出错") { Text(error).foregroundStyle(.red).textSelection(.enabled) }
             }
             if let prompt = page?.prompt, !prompt.isEmpty {
                 Section("指令") {
@@ -302,6 +307,39 @@ struct SubagentView: View {
         .onAppear { model.perform("watch", ["kind": "subagent", "id": toolUseID, "on": true]) }
         .onDisappear { model.perform("watch", ["kind": "subagent", "id": toolUseID, "on": false]) }
         .task(id: model.revision) { await load() }
+        .confirmationDialog("停止这个任务？", isPresented: $stopAsked, titleVisibility: .visible) {
+            Button("停止", role: .destructive) {
+                if let task { model.perform("stoptask", ["task": task.id]) }
+            }
+        }
+    }
+
+    /// 概要一节：状态、已运行多久、说明、类型、模型、思考强度、工具调用（知道的才列），在跑时最后是停止。
+    private var overview: some View {
+        Section("概要") {
+            LabeledContent("状态", value: stateText)
+            if let task {
+                TimelineView(.periodic(from: .now, by: 1)) { context in
+                    LabeledContent("已运行") {
+                        Text(task.elapsed(now: context.date), format: TaskInfo.elapsedStyle)
+                    }
+                }
+            }
+            if let meta = page?.meta {
+                if !meta.description.isEmpty { LabeledContent("说明", value: meta.description) }
+                if !meta.agentType.isEmpty { LabeledContent("类型", value: meta.agentType) }
+                if !meta.model.isEmpty { LabeledContent("模型", value: meta.model) }
+                if let effort = meta.effort, !effort.isEmpty {
+                    LabeledContent("思考强度", value: ConfigLabels.effort(effort))
+                }
+            }
+            if let page, page.toolUses > 0 {
+                LabeledContent("工具调用") { Text(page.toolUses, format: .number) }
+            }
+            if let task, task.running, task.stopping != true {
+                Button("停止任务", role: .destructive) { stopAsked = true }
+            }
+        }
     }
 
     private var stateText: String {

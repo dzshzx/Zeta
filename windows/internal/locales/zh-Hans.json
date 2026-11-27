@@ -3127,10 +3127,6 @@
   "@tasksProgress": {
     "description": "子代理详情页里子代理正在做什么那一行。"
   },
-  "tasksViewSteps": "查看它的步骤",
-  "@tasksViewSteps": {
-    "description": "子代理详情页里进它的记录的一行。"
-  },
   "tasksStopTitle": "停止这个任务？",
   "@tasksStopTitle": {
     "description": "停止后台任务前确认框的标题。"

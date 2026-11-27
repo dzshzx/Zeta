@@ -417,7 +417,6 @@
   "tasksToolUses": "Tool calls",
   "tasksToolUsesCount": "{count}",
   "tasksProgress": "Working on",
-  "tasksViewSteps": "View its steps",
   "tasksError": "Error",
   "tasksAgentPrompt": "Instructions",
   "tasksCommand": "Command",

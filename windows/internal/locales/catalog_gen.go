@@ -8267,20 +8267,6 @@ func (msgs Messages) TasksProgress() string {
 	return Catalog.Format(msgs.locale, "tasksProgress", nil)
 }
 
-// TasksViewSteps says "查看它的步骤"
-// in the language the app shows.
-//
-// 子代理详情页里进它的记录的一行。
-func TasksViewSteps() string { return In(i18n.Locale()).TasksViewSteps() }
-
-// TasksViewSteps says "查看它的步骤"
-// in the language of msgs.
-//
-// 子代理详情页里进它的记录的一行。
-func (msgs Messages) TasksViewSteps() string {
-	return Catalog.Format(msgs.locale, "tasksViewSteps", nil)
-}
-
 // TasksStopTitle says "停止这个任务？"
 // in the language the app shows.
 //

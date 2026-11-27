@@ -14,6 +14,7 @@ import (
 )
 
 // 聊天窗格里点进去的几页：后台任务列表、一个任务的详情、子代理的记录（同手机版 BackgroundTasksScreen.kt、SubagentScreen.kt）。
+// 列表里点子代理直接是子代理页，任务详情页给后台命令和监视器用。
 // 它们盖住聊天窗格，返回键一层层退回去；跟着窗格走，换了对话就都关掉。
 
 // subpage 是盖着的一页：agent 是子代理页看着的子代理，task 是任务详情页，两样都没有时是任务列表。
@@ -169,13 +170,20 @@ func (a *App) taskListPage(c *ui.Context, p *chatPane) {
 }
 
 // taskRows 是一个对话的后台任务，一行一个，点一个看详情（这个对话的列表页和后台任务面板共用）；返回有没有在跑的。
+// 子代理点了直接进子代理页；还不知道是哪一步发起的（task_started 没到）才看任务详情。
 func (a *App) taskRows(c *ui.Context, l *widget.List, p *chatPane, list []tasks.Task) (running bool) {
 	k := widget.Of(c)
 	now := a.now().UnixMilli()
 	for _, t := range list {
 		running = running || t.Running()
 		row := widget.Row{Key: t.ID, Title: taskTitle(t), Summary: taskSummary(t, now), Arrow: true,
-			OnClick: func() { a.openTask(p, t) }}
+			OnClick: func() {
+				if t.Kind == tasks.KindAgent && t.ToolUseID != "" {
+					a.openSubagent(p, t.ToolUseID)
+					return
+				}
+				a.openTask(p, t)
+			}}
 		switch {
 		case t.State == tasks.StateFailed:
 			row.SummaryColor = k.Error
@@ -197,7 +205,7 @@ func findTask(s chat.State, id string) (tasks.Task, bool) {
 	return tasks.Task{}, false
 }
 
-// taskPage 是一个任务：说明、状态、用时（子代理还有类型、工具调用、在做什么和进它的记录）、所属对话、停止，
+// taskPage 是一个任务：说明、状态、用时（子代理还有类型、工具调用、在做什么）、所属对话、停止，
 // 下面是出错的原因、命令（子代理是交给它的指令）、结果（子代理是报告）和后台命令的输出。
 func (a *App) taskPage(c *ui.Context, p *chatPane, v *taskView) {
 	t, ok := findTask(p.state, v.id)
@@ -250,31 +258,42 @@ func (a *App) taskInfo(c *ui.Context, p *chatPane, t tasks.Task) {
 		l.Row(row)
 		state, tone := taskState(t.State, t.Stopping)
 		l.Row(widget.Row{Title: locales.TasksState(), End: func() { ui.Text(c, state).FontSize(widget.SizeBodyM).TextColor(tone.color(k)) }})
-		elapsed := locales.TasksElapsedDone()
-		if t.Running() {
-			elapsed = locales.TasksElapsedRunning()
-		}
-		l.Row(widget.Row{Title: elapsed, Value: tasks.FormatElapsedIn(c.Locale(), t.ElapsedMs(a.now().UnixMilli()))})
+		a.elapsedRow(c, l, t)
 		if t.Kind == tasks.KindAgent {
-			a.agentRows(l, p, t)
+			agentRows(l, t)
 		}
-		l.Row(widget.Row{Title: locales.TasksOwner(), Value: a.chatTitle(p), Arrow: true, OnClick: func() { a.closePages(p); a.page = pageHome }})
-		if t.Running() {
-			label := locales.TasksStop()
-			if t.Stopping {
-				label = locales.TasksStopping()
-			}
-			stop := widget.Row{Title: label, Danger: true}
-			if !t.Stopping && p.state.Process {
-				stop.OnClick = func() { p.pages.stop.open, p.pages.stop.task = true, t }
-			}
-			l.Row(stop)
-		}
+		a.ownerAndStopRows(l, p, t)
 	})
 }
 
-// agentRows 是子代理才有的几行：类型、工具调用次数、（运行中）在做什么，和进它的记录。
-func (a *App) agentRows(l *widget.List, p *chatPane, t tasks.Task) {
+// elapsedRow 是「已运行」或「用时」一行（任务详情页和子代理页共用）。
+func (a *App) elapsedRow(c *ui.Context, l *widget.List, t tasks.Task) {
+	elapsed := locales.TasksElapsedDone()
+	if t.Running() {
+		elapsed = locales.TasksElapsedRunning()
+	}
+	l.Row(widget.Row{Title: elapsed, Value: tasks.FormatElapsedIn(c.Locale(), t.ElapsedMs(a.now().UnixMilli()))})
+}
+
+// ownerAndStopRows 是所属对话（点了回到聊天）和运行中的停止两行（任务详情页和子代理页共用）。
+func (a *App) ownerAndStopRows(l *widget.List, p *chatPane, t tasks.Task) {
+	l.Row(widget.Row{Title: locales.TasksOwner(), Value: a.chatTitle(p), Arrow: true, OnClick: func() { a.closePages(p); a.page = pageHome }})
+	if !t.Running() {
+		return
+	}
+	label := locales.TasksStop()
+	if t.Stopping {
+		label = locales.TasksStopping()
+	}
+	stop := widget.Row{Title: label, Danger: true}
+	if !t.Stopping && p.state.Process {
+		stop.OnClick = func() { p.pages.stop.open, p.pages.stop.task = true, t }
+	}
+	l.Row(stop)
+}
+
+// agentRows 是子代理才有的几行：类型、工具调用次数、（运行中）在做什么。
+func agentRows(l *widget.List, t tasks.Task) {
 	if t.AgentType != "" {
 		l.Row(widget.Row{Title: locales.TasksAgentType(), Value: t.AgentType})
 	}
@@ -283,9 +302,6 @@ func (a *App) agentRows(l *widget.List, p *chatPane, t tasks.Task) {
 	}
 	if t.Running() && t.Progress != "" {
 		l.Row(widget.Row{Title: locales.TasksProgress(), Summary: t.Progress})
-	}
-	if t.ToolUseID != "" {
-		l.Row(widget.Row{Title: locales.TasksViewSteps(), Arrow: true, OnClick: func() { a.openSubagent(p, t.ToolUseID) }})
 	}
 }
 

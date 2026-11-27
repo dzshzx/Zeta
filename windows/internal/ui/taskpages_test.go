@@ -85,16 +85,16 @@ func TestBackgroundTasksPage(t *testing.T) {
 		t.Fatalf("离开后：%v", got)
 	}
 
-	// 子代理：类型、工具调用、交给它的指令和报告，没有输出，也不看输出
+	// 子代理：直接是子代理页（说明、类型、用时、交给它的指令），没有输出，也不看输出
 	f.click(t, "查找读配置的地方")
-	f.see(t, "子代理", "已完成", "Explore", "7 次", "交给它的指令", "找出所有直接读 config 文件的地方", "报告", "一共三处：config.go、main.go、server.go")
-	f.notSee(t, "输出")
+	f.see(t, "子代理", "子代理类型 Explore", "用时", "6 秒", "交给它的指令", "找出所有直接读 config 文件的地方")
+	f.notSee(t, "输出", "报告")
 	if got := f.sent("conv.task_output"); got != nil {
 		t.Fatalf("子代理也看输出：%v", got)
 	}
 	// 「所属对话」回到聊天
 	f.click(t, "所属对话")
-	f.notSee(t, "子代理类型")
+	f.notSee(t, "子代理类型 Explore")
 	f.see(t, "消息") // 回到了聊天；没有在跑的任务，状态行不显示
 }
 

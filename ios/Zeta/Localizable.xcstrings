@@ -4004,16 +4004,6 @@
         }
       }
     },
-    "查看步骤": {
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "View steps"
-          }
-        }
-      }
-    },
     "指令": {
       "localizations": {
         "en": {

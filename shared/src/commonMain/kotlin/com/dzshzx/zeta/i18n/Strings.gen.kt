@@ -2927,13 +2927,6 @@ object Strings {
     fun tasksProgress(): String = catalog.say("tasksProgress")
 
     /**
-     * 「查看它的步骤」
-     *
-     * 子代理详情里的一行，点了看子代理的每一步。
-     */
-    fun tasksViewSteps(): String = catalog.say("tasksViewSteps")
-
-    /**
      * 「出错」
      *
      * 任务详情里出错原因一段的标题。

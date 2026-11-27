@@ -25,9 +25,11 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.dzshzx.zeta.core.AnswerItem
+import com.dzshzx.zeta.core.BackgroundTask
 import com.dzshzx.zeta.core.ChatItem
 import com.dzshzx.zeta.core.ConversationHub
 import com.dzshzx.zeta.core.NoticeItem
+import com.dzshzx.zeta.core.TaskKind
 import com.dzshzx.zeta.core.TaskState
 import com.dzshzx.zeta.core.ThoughtItem
 import com.dzshzx.zeta.core.UserItem
@@ -38,22 +40,31 @@ import com.dzshzx.zeta.core.effortLabel
 import com.dzshzx.zeta.i18n.Strings
 import com.dzshzx.zeta.ui.components.SlideInPage
 import com.dzshzx.zeta.ui.components.miuix.CardListSegment
+import com.dzshzx.zeta.ui.components.miuix.ConfirmDialog
 import com.dzshzx.zeta.ui.components.miuix.FooterHint
 import com.dzshzx.zeta.ui.components.miuix.MiuixPage
 import com.dzshzx.zeta.ui.components.miuix.PreferenceGroup
+import com.dzshzx.zeta.ui.components.miuix.PreferenceValue
 import com.dzshzx.zeta.ui.components.whileStarted
 import com.dzshzx.zeta.ui.markdown.StreamingMarkdownStateCache
+import com.dzshzx.zeta.ui.settings.DangerRow
 import com.dzshzx.zeta.ui.settings.ValueRow
+import com.dzshzx.zeta.ui.tasks.ElapsedRow
 import com.dzshzx.zeta.ui.tasks.TaskLabels
+import com.dzshzx.zeta.ui.tasks.TextBlock
+import com.dzshzx.zeta.ui.tasks.label
+import com.dzshzx.zeta.ui.tasks.stopSummary
 import com.dzshzx.zeta.ui.tasks.taskStateColor
 import top.yukonga.miuix.kmp.basic.BasicComponent
 import top.yukonga.miuix.kmp.basic.SmallTitle
 import top.yukonga.miuix.kmp.basic.Text
+import top.yukonga.miuix.kmp.preference.ArrowPreference
 import top.yukonga.miuix.kmp.theme.MiuixTheme
 
 /**
  * 子代理查看页：聊天里点开发起子代理的那一步、后台任务面板里点子代理进来。[conversationKey] 是所在对话的 key， [toolUseId]
- * 是发起子代理的那一步。页面开着时核心增量读它的记录、推过来（conv.subagent）；它的步骤里又派了子代理时，可以接着点进去。
+ * 是发起子代理的那一步。页面开着时核心增量读它的记录、推过来（conv.subagent）；它的步骤里又派了子代理时，可以接着点进去。 它在后台任务清单里时，概要里另有用时和停止；给了
+ * [onOpenConversation]（从后台任务面板进来）时还有所属对话，点了切过去。
  */
 @Composable
 fun SubagentScreen(
@@ -61,6 +72,7 @@ fun SubagentScreen(
     conversationKey: String,
     toolUseId: String,
     onBack: () -> Unit,
+    onOpenConversation: ((String) -> Unit)? = null,
 ) {
     val conversation = hub.liveConversations.firstOrNull { it.key == conversationKey }
     if (conversation == null) {
@@ -78,6 +90,10 @@ fun SubagentScreen(
         onDispose { conversation.watchSubagent(toolUseId, false) }
     }
     var nested by remember { mutableStateOf<String?>(null) }
+    val task =
+        conversation.tasks.list.firstOrNull {
+            it.kind == TaskKind.Agent && it.toolUseId == toolUseId
+        }
     val home = hub.home(conversation.backend)
     val imagesOf =
         remember(conversation.cwd, home) {
@@ -96,17 +112,35 @@ fun SubagentScreen(
             onBack,
             imagesOf,
             onOpenSubagent = { nested = it },
+            task =
+                task?.let {
+                    SubagentTask(
+                        task = it,
+                        canStop = conversation.isProcessAlive,
+                        onStop = { conversation.stopTask(it.id) },
+                    )
+                },
+            owner =
+                onOpenConversation?.let { open ->
+                    SubagentOwner(conversation.label()) { open(conversation.openKey) }
+                },
         )
     }
     // 它自己又派的子代理：记录在同一个会话的目录里，照样看
     SlideInPage(nested, onBack = { nested = null }) {
-        SubagentScreen(hub, conversationKey, it, onBack = { nested = null })
+        SubagentScreen(hub, conversationKey, it, onBack = { nested = null }, onOpenConversation)
     }
 }
 
+/** 子代理在后台任务清单里的那一项：[canStop] 是对话的进程还在（停得了），[onStop] 停掉它。 */
+class SubagentTask(val task: BackgroundTask, val canStop: Boolean, val onStop: () -> Unit)
+
+/** 子代理所属的对话：名字，和点了切过去。 */
+class SubagentOwner(val label: String, val onOpen: () -> Unit)
+
 /**
  * 页面本身：概要、交给它的指令、它的步骤（和聊天里一样的条目），运行中最后一行在动。记录还没读到时，说明、类型和指令由核心先用发起它的 Agent 调用的参数填上（conv.subagent 的
- * meta、prompt）。
+ * meta、prompt）。[task] 是它在后台任务清单里的那一项（用时、停止、出错的原因），[owner] 是所属对话，没有就不列。
  */
 @Composable
 fun SubagentPage(
@@ -114,16 +148,42 @@ fun SubagentPage(
     onBack: () -> Unit,
     imagesOf: (String) -> AnswerImages = { AnswerImages(it, emptyList()) },
     onOpenSubagent: ((String) -> Unit)? = null,
+    task: SubagentTask? = null,
+    owner: SubagentOwner? = null,
 ) {
-    val prompt = log.prompt.ifEmpty { null }
+    var confirmStop by remember { mutableStateOf(false) }
+    // 核心的第一份还没推到时，指令先用任务清单里的那份
+    val prompt = log.prompt.ifEmpty { task?.task?.command }
     val listState = rememberLazyListState()
     val markdownCache = remember { StreamingMarkdownStateCache() }
     // 一开始停在概要上；拉到底以后跟着新步骤走，往上翻就不跟了
     rememberFollowBottom(listState, following = false)
     // 子代理还在跑时步骤随时变；界面看不见时这一页不跟着重组、测量
     val items = whileStarted { log.items }
-    MiuixPage(title = Strings.chatSubagent(), onBack = onBack, listState = listState) {
-        item(key = "info") { SubagentSummary(log) }
+    MiuixPage(
+        title = Strings.chatSubagent(),
+        onBack = onBack,
+        listState = listState,
+        dialogs = {
+            if (task != null)
+                ConfirmDialog(
+                    show = confirmStop,
+                    title = Strings.tasksStopConfirm(),
+                    summary = stopSummary(task.task),
+                    confirmText = Strings.tasksStop(),
+                    destructive = true,
+                    onConfirm = {
+                        confirmStop = false
+                        task.onStop()
+                    },
+                    onDismissRequest = { confirmStop = false },
+                )
+        },
+    ) {
+        item(key = "info") { SubagentSummary(log, task, owner) { confirmStop = true } }
+        task?.task?.error?.let { error ->
+            item(key = "error") { TextBlock(title = Strings.tasksError(), text = error) }
+        }
         prompt?.let { text -> item(key = "prompt") { PromptBlock(text) } }
         item(key = "steps-title") { SmallTitle(text = Strings.chatSteps()) }
         if (log.skipped > 0)
@@ -154,21 +214,31 @@ fun SubagentPage(
     }
 }
 
-/** 概要：说明、状态、子代理类型、模型、思考强度和工具调用次数（知道的才列）。 */
+/** 概要：说明、状态、用时、子代理类型、模型、思考强度、工具调用次数、所属对话（知道的才列），运行中最后是停止：步骤在下面一直变长，按钮放在最后会被挤着走，所以放在这组里。 */
 @Composable
-private fun SubagentSummary(log: ConvSubagent) {
+private fun SubagentSummary(
+    log: ConvSubagent,
+    task: SubagentTask?,
+    owner: SubagentOwner?,
+    onStop: () -> Unit,
+) {
     val meta = log.meta
+    val entry = task?.task
     PreferenceGroup {
         item(key = "title") {
             BasicComponent(
-                title = meta?.description?.takeIf { it.isNotBlank() } ?: Strings.chatSubagent(),
+                title =
+                    meta?.description?.takeIf { it.isNotBlank() }
+                        ?: entry?.description?.takeIf { it.isNotBlank() }
+                        ?: Strings.chatSubagent(),
             )
         }
         item(key = "state") {
             val (text, color) = stateLabel(log.state)
             ValueRow(Strings.chatStatus(), text, color = color)
         }
-        meta?.agentType?.let { value ->
+        entry?.let { item(key = "elapsed") { ElapsedRow(it) } }
+        (meta?.agentType ?: entry?.agentType)?.let { value ->
             item(key = "type") { ValueRow(Strings.chatSubagentType(), value) }
         }
         meta?.model?.let { value -> item(key = "model") { ValueRow(Strings.chatModel(), value) } }
@@ -179,6 +249,26 @@ private fun SubagentSummary(log: ConvSubagent) {
             item(key = "tools") {
                 ValueRow(Strings.chatToolCalls(), Strings.chatTimes(log.toolUses))
             }
+        owner?.let {
+            item(key = "conversation") {
+                ArrowPreference(
+                    title = Strings.tasksConversation(),
+                    endActions = { PreferenceValue(it.label) },
+                    onClick = it.onOpen,
+                )
+            }
+        }
+        if (entry?.running == true) {
+            item(key = "stop") {
+                DangerRow(
+                    title =
+                        if (entry.stopping) Strings.tasksStoppingEllipsis()
+                        else Strings.tasksStopThis(),
+                    enabled = !entry.stopping && task.canStop,
+                    onClick = onStop,
+                )
+            }
+        }
     }
 }
 

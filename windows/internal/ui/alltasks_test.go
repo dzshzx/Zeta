@@ -55,7 +55,7 @@ func TestAllTasksPanel(t *testing.T) {
 	f.click(t, "查找读配置的地方")
 	f.click(t, "所属对话")
 	f.see(t, "消息")
-	f.notSee(t, "后台对话 · 1", "子代理类型")
+	f.notSee(t, "后台对话 · 1", "子代理类型 Explore")
 
 	// 点一个后台对话：切过去，回到聊天
 	f.click(t, "后台任务")

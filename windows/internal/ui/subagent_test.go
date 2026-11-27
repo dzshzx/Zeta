@@ -84,8 +84,10 @@ func TestSubagentPageFromATask(t *testing.T) {
 	f.newChat(t)
 	f.push(`"busy":true,` + twoTasks)
 	f.click(t, "查看后台任务")
+	// 列表里点子代理直接是子代理页；核心的第一份还没推到时，说明、类型、指令先用任务清单里的，用时和所属对话也取自清单
 	f.click(t, "查找读配置的地方")
-	f.click(t, "查看它的步骤")
+	f.see(t, "查找读配置的地方", "子代理类型 Explore", "用时", "6 秒", "所属对话", "交给它的指令", "找出所有直接读 config 文件的地方")
+	f.notSee(t, "停止这个任务")
 	if got := f.sent("conv.subagent"); len(got) != 1 || !strings.Contains(got[0], `"tool_use_id":"toolu_a1","watch":true`) {
 		t.Fatalf("看：%v", got)
 	}
@@ -95,7 +97,25 @@ func TestSubagentPageFromATask(t *testing.T) {
 	f.tt.Frame()
 	f.see(t, "没有找到它的记录：Claude Code 还没写出来，或者会话已经删了")
 	f.click(t, "返回")
-	f.see(t, "查看它的步骤")
+	f.see(t, "子代理 · Explore · 已完成 · 用时 6 秒")
+}
+
+// 在跑的子代理：子代理页上有已运行和停止，停止要先确认。
+func TestSubagentPageStopsATask(t *testing.T) {
+	f := newChatFixture(t)
+	f.newChat(t)
+	f.push(`"busy":true,"process":true,"tasks":[
+{"id":"a1","type":"local_agent","kind":"agent","description":"查找读配置的地方","command":"找出所有直接读 config 文件的地方","agent_type":"Explore",
+ "tool_use_id":"toolu_a1","started_at":` + ms(now.Add(-65*time.Second)) + `,"state":"running","running":true,"readable":false}]`)
+	f.click(t, "查看后台任务")
+	f.click(t, "查找读配置的地方")
+	f.see(t, "已运行", "1 分 05 秒")
+	f.click(t, "停止这个任务")
+	f.see(t, "停止这个任务？")
+	f.clickButton(t, "停止", 0)
+	if got := f.sent("conv.stop_task"); len(got) != 1 || got[0] != `{"conv":"w1","task":"a1"}` {
+		t.Fatalf("停止：%v", got)
+	}
 }
 
 // 子代理页照推来的增量一段段改列表（不整份换，换掉的那几步以外的对比留着），两帧之间来了几段就套几段。

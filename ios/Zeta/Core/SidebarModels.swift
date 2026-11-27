@@ -139,9 +139,11 @@ struct SubagentMeta: Decodable, Sendable {
     let agentType: String
     let description: String
     let model: String
+    /// 思考强度（low、medium 这些），不知道时没有。
+    let effort: String?
 
     enum CodingKeys: String, CodingKey {
-        case description, model
+        case description, model, effort
         case agentType = "agent_type"
     }
 }
