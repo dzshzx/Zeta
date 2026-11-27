@@ -31,7 +31,7 @@ func readLicense(file string) string {
 	return string(data)
 }
 
-// licenses 读 assets 里的 index.tsv：一行一项，用在哪、模块、版本、文件名，以制表符分隔。
+// licenses 读 assets 里的 index.tsv：一行一项，用在哪（app、ios、host；ios 是 iOS 版链接的，这里不列）、模块、版本、文件名，以制表符分隔。
 func licenses() ([]License, error) {
 	data, err := assets.Read("licenses/index.tsv")
 	if err != nil {
@@ -40,6 +40,9 @@ func licenses() ([]License, error) {
 	var out []License
 	for i, line := range strings.Split(strings.TrimSpace(string(data)), "\n") {
 		f := strings.Split(line, "\t")
+		if len(f) == 4 && f[0] == "ios" {
+			continue
+		}
 		if len(f) != 4 || (f[0] != "app" && f[0] != "host") {
 			return nil, errors.New(locales.AboutLicensesBadLine(i+1, strconv.Quote(line)))
 		}

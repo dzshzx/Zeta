@@ -3,12 +3,19 @@ import SwiftUI
 @main
 struct ZetaApp: App {
     @State private var model = AppModel.shared
+    @Environment(\.scenePhase) private var phase
 
     var body: some Scene {
         WindowGroup {
             RootView()
                 .environment(model)
-                .onAppear { model.start() }
+                .onAppear {
+                    Notifier.shared.install()
+                    model.start()
+                }
+                .onChange(of: phase) { _, now in
+                    if now == .background { Notifier.shared.enteredBackground(busy: model.state.chat?.busy == true) }
+                }
         }
     }
 }
@@ -34,6 +41,17 @@ struct RootView: View {
                 }
             }
             .onChange(of: selection) { _, route in open(route) }
+            .onOpenURL { url in
+                // 点灵动岛或锁屏上的实时活动：打开那个会话
+                if let route = ZetaActivityAttributes.route(url) {
+                    Notifier.shared.opening = .session(backend: route.backend, id: route.id)
+                }
+            }
+            .onChange(of: Notifier.shared.opening) { _, route in
+                guard let route else { return }
+                Notifier.shared.opening = nil
+                selection = route
+            }
             .sheet(isPresented: $settingsShown) { SettingsView() }
             .alert("没有成功", isPresented: Binding { model.alert != nil } set: { if !$0 { model.alert = nil } }) {
                 Button("好") { model.alert = nil }

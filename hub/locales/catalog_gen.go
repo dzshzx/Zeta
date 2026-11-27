@@ -1368,3 +1368,187 @@ func MobileChatNotOpen() string { return In(i18n.Locale()).MobileChatNotOpen() }
 func (msgs Messages) MobileChatNotOpen() string {
 	return Catalog.Format(msgs.locale, "mobileChatNotOpen", nil)
 }
+
+// MobileAttachUnreadable says "读不了 {name}"
+// in the language the app shows.
+//
+// iOS 版输入栏：选的文件读不出来，没收进附件。
+func MobileAttachUnreadable(name string) string {
+	return In(i18n.Locale()).MobileAttachUnreadable(name)
+}
+
+// MobileAttachUnreadable says "读不了 {name}"
+// in the language of msgs.
+//
+// iOS 版输入栏：选的文件读不出来，没收进附件。
+func (msgs Messages) MobileAttachUnreadable(name string) string {
+	return Catalog.Format(msgs.locale, "mobileAttachUnreadable", map[string]any{"name": name})
+}
+
+// MobileAttachTooMany says "一次最多 {max} 个文件，后面 {dropped} 个没有加进来"
+// in the language the app shows.
+//
+// iOS 版输入栏：一次选的文件超过上限。
+func MobileAttachTooMany(max int, dropped int) string {
+	return In(i18n.Locale()).MobileAttachTooMany(max, dropped)
+}
+
+// MobileAttachTooMany says "一次最多 {max} 个文件，后面 {dropped} 个没有加进来"
+// in the language of msgs.
+//
+// iOS 版输入栏：一次选的文件超过上限。
+func (msgs Messages) MobileAttachTooMany(max int, dropped int) string {
+	return Catalog.Format(msgs.locale, "mobileAttachTooMany", map[string]any{"max": max, "dropped": dropped})
+}
+
+// MobilePromptExists says "常用指令里已经有这一条"
+// in the language the app shows.
+//
+// iOS
+// 版：把消息收藏为常用指令时，清单里已经有同样内容的。
+func MobilePromptExists() string { return In(i18n.Locale()).MobilePromptExists() }
+
+// MobilePromptExists says "常用指令里已经有这一条"
+// in the language of msgs.
+//
+// iOS
+// 版：把消息收藏为常用指令时，清单里已经有同样内容的。
+func (msgs Messages) MobilePromptExists() string {
+	return Catalog.Format(msgs.locale, "mobilePromptExists", nil)
+}
+
+// DiagBundleEnvLine says "{name}：{value}"
+// in the language the app shows.
+//
+// 诊断包里环境.txt 的一行：名字和值。
+func DiagBundleEnvLine(name string, value string) string {
+	return In(i18n.Locale()).DiagBundleEnvLine(name, value)
+}
+
+// DiagBundleEnvLine says "{name}：{value}"
+// in the language of msgs.
+//
+// 诊断包里环境.txt 的一行：名字和值。
+func (msgs Messages) DiagBundleEnvLine(name string, value string) string {
+	return Catalog.Format(msgs.locale, "diagBundleEnvLine", map[string]any{"name": name, "value": value})
+}
+
+// DiagBundleListFailed says "列日志：{error}"
+// in the language the app shows.
+//
+// 诊断包里一台设备的「读取失败.txt」的一行：列这台设备的日志清单失败。
+func DiagBundleListFailed(error string) string { return In(i18n.Locale()).DiagBundleListFailed(error) }
+
+// DiagBundleListFailed says "列日志：{error}"
+// in the language of msgs.
+//
+// 诊断包里一台设备的「读取失败.txt」的一行：列这台设备的日志清单失败。
+func (msgs Messages) DiagBundleListFailed(error string) string {
+	return Catalog.Format(msgs.locale, "diagBundleListFailed", map[string]any{"error": error})
+}
+
+// DiagBundleReadFailed says "{path}：{error}"
+// in the language the app shows.
+//
+// 诊断包里一台设备的「读取失败.txt」的一行：读一个日志文件失败。
+func DiagBundleReadFailed(path string, error string) string {
+	return In(i18n.Locale()).DiagBundleReadFailed(path, error)
+}
+
+// DiagBundleReadFailed says "{path}：{error}"
+// in the language of msgs.
+//
+// 诊断包里一台设备的「读取失败.txt」的一行：读一个日志文件失败。
+func (msgs Messages) DiagBundleReadFailed(path string, error string) string {
+	return Catalog.Format(msgs.locale, "diagBundleReadFailed", map[string]any{"path": path, "error": error})
+}
+
+// DiagBundleTruncated says "# 只取了最后 64 KB（整个文件 {size} 字节）"
+// in the language the app shows.
+//
+// 诊断包里截过的日志文件开头加的一行。
+func DiagBundleTruncated(size int) string { return In(i18n.Locale()).DiagBundleTruncated(size) }
+
+// DiagBundleTruncated says "# 只取了最后 64 KB（整个文件 {size} 字节）"
+// in the language of msgs.
+//
+// 诊断包里截过的日志文件开头加的一行。
+func (msgs Messages) DiagBundleTruncated(size int) string {
+	return Catalog.Format(msgs.locale, "diagBundleTruncated", map[string]any{"size": size})
+}
+
+// MobileDeviceGone says "这台设备已经删掉了"
+// in the language the app shows.
+//
+// iOS 版：设备页上操作的那台设备已经不在设置里了。
+func MobileDeviceGone() string { return In(i18n.Locale()).MobileDeviceGone() }
+
+// MobileDeviceGone says "这台设备已经删掉了"
+// in the language of msgs.
+//
+// iOS 版：设备页上操作的那台设备已经不在设置里了。
+func (msgs Messages) MobileDeviceGone() string {
+	return Catalog.Format(msgs.locale, "mobileDeviceGone", nil)
+}
+
+// MobileCwdNotAbsolute says "要写以 / 或 ~ 开头的目录"
+// in the language the app shows.
+//
+// iOS 版：设备页改默认工作目录时填的不是绝对路径。
+func MobileCwdNotAbsolute() string { return In(i18n.Locale()).MobileCwdNotAbsolute() }
+
+// MobileCwdNotAbsolute says "要写以 / 或 ~ 开头的目录"
+// in the language of msgs.
+//
+// iOS 版：设备页改默认工作目录时填的不是绝对路径。
+func (msgs Messages) MobileCwdNotAbsolute() string {
+	return Catalog.Format(msgs.locale, "mobileCwdNotAbsolute", nil)
+}
+
+// MobileAccountGone says "这个账号或中转已经不在列表里了"
+// in the language the app shows.
+//
+// iOS
+// 版：账号页上要切换、删除、编辑的账号或中转在读到的列表里找不到了。
+func MobileAccountGone() string { return In(i18n.Locale()).MobileAccountGone() }
+
+// MobileAccountGone says "这个账号或中转已经不在列表里了"
+// in the language of msgs.
+//
+// iOS
+// 版：账号页上要切换、删除、编辑的账号或中转在读到的列表里找不到了。
+func (msgs Messages) MobileAccountGone() string {
+	return Catalog.Format(msgs.locale, "mobileAccountGone", nil)
+}
+
+// MobileRelayDraftGone says "中转的编辑页已经关了"
+// in the language the app shows.
+//
+// iOS
+// 版：中转的编辑页关掉以后才到的操作（获取模型列表、保存）。
+func MobileRelayDraftGone() string { return In(i18n.Locale()).MobileRelayDraftGone() }
+
+// MobileRelayDraftGone says "中转的编辑页已经关了"
+// in the language of msgs.
+//
+// iOS
+// 版：中转的编辑页关掉以后才到的操作（获取模型列表、保存）。
+func (msgs Messages) MobileRelayDraftGone() string {
+	return Catalog.Format(msgs.locale, "mobileRelayDraftGone", nil)
+}
+
+// MobileLicensesUnreadable says "读不出许可证清单"
+// in the language the app shows.
+//
+// iOS
+// 版：关于页的开源许可清单格式不对，或要看的许可不在清单里。
+func MobileLicensesUnreadable() string { return In(i18n.Locale()).MobileLicensesUnreadable() }
+
+// MobileLicensesUnreadable says "读不出许可证清单"
+// in the language of msgs.
+//
+// iOS
+// 版：关于页的开源许可清单格式不对，或要看的许可不在清单里。
+func (msgs Messages) MobileLicensesUnreadable() string {
+	return Catalog.Format(msgs.locale, "mobileLicensesUnreadable", nil)
+}

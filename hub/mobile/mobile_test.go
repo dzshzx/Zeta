@@ -90,8 +90,13 @@ func TestProbeAddListOpen(t *testing.T) {
 	if len(st.Sessions) != 1 || st.Sessions[0].Title != "第一个" || st.Sessions[0].Place != "w" || st.Chat != nil {
 		t.Fatalf("会话 %+v，对话 %+v", st.Sessions, st.Chat)
 	}
-	if why := failure(c, "open", `{"backend":"`+id+`","id":"nope"}`); why != locales.MobileSessionGone() {
-		t.Errorf("点开不在列表里的：%q", why)
+	if why := failure(c, "open", `{"backend":"gone","id":"s1"}`); why != locales.MobileSessionGone() {
+		t.Errorf("点开没有的设备上的：%q", why)
+	}
+	// 列表里没有的（点通知打开另一台上的）只带设备和会话号去开
+	call[map[string]bool](t, c, "open", map[string]string{"backend": id, "id": "elsewhere"})
+	if st := call[State](t, c, "state", nil); st.Chat == nil || st.Chat.Session != "elsewhere" || st.Chat.Backend != id {
+		t.Fatalf("列表外的会话 %+v", st.Chat)
 	}
 	call[map[string]bool](t, c, "open", map[string]string{"backend": id, "id": "s1"})
 	st = call[State](t, c, "state", nil)
@@ -116,7 +121,7 @@ func TestBadCalls(t *testing.T) {
 	if why := failure(c, "state", "[1]"); !strings.Contains(why, "JSON object") {
 		t.Errorf("参数不是对象：%q", why)
 	}
-	if why := failure(c, "send", `{"text":"你好"}`); why != locales.MobileChatNotOpen() {
-		t.Errorf("没有对话时发消息：%q", why)
+	if why := failure(c, "interrupt", ""); why != locales.MobileChatNotOpen() {
+		t.Errorf("没有对话时停止：%q", why)
 	}
 }

@@ -1,0 +1,29 @@
+name: iOS CI
+
+# iOS 版的编译和模拟器上的测试（共用的步骤在 ios.yml）：推送改到 iOS 版要编的东西时跑，任务分支也跑；也能手动跑：
+#   gh workflow run ios-ci.yml --ref <分支>
+# 不截图、不打 ipa，那些在 ios-build.yml（手动）。
+on:
+  push:
+    paths:
+      - ios/**
+      - client/**
+      - hub/**
+      - helper/**
+      - tools/version.sh
+      - .github/workflows/ios.yml
+      - .github/workflows/ios-ci.yml
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ios-ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  test:
+    uses: ./.github/workflows/ios.yml
+    with:
+      steps: test

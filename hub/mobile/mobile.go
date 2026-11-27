@@ -21,13 +21,13 @@ import (
 
 	"github.com/dzshzx/Zeta/client/hostlink"
 	"github.com/dzshzx/Zeta/client/sshlink"
-	"github.com/dzshzx/Zeta/helper/coreapi"
 	"github.com/dzshzx/Zeta/helper/prompt"
 	"github.com/dzshzx/Zeta/hub"
 	"github.com/dzshzx/Zeta/hub/appversion"
 	"github.com/dzshzx/Zeta/hub/chat"
 	"github.com/dzshzx/Zeta/hub/host"
 	"github.com/dzshzx/Zeta/hub/locales"
+	"github.com/dzshzx/Zeta/hub/runlog"
 	"github.com/dzshzx/Zeta/hub/settings"
 	"golang.org/x/crypto/ssh"
 )
@@ -42,13 +42,17 @@ type Config struct {
 	Device string
 	// Changed 在状态有了变化时调，在核心的 goroutine 上；界面收到后自己挑时候调 Call("state")。
 	Changed func()
+	// Log 是 Zeta 自己的运行日志（入口打开，标准库 log 也接到它），设置里的诊断页看它；nil 时诊断页没有这一组。
+	Log *runlog.Log
 }
 
 // Core 见包的说明。
 type Core struct {
 	hub     *hub.Hub
 	changed func()
-	auth    *appAuth // Start 起的才有；测试里 New 建的没有，不调 key、importkey、resetkey
+	auth    *appAuth    // Start 起的才有；测试里 New 建的没有，不调 key、importkey、resetkey
+	dir     string      // 设置目录，诊断包带上它下面 diag/ 里的文件
+	log     *runlog.Log // Zeta 自己的运行日志，见 Config.Log
 
 	// 排给核心 goroutine 的事，按排进来的先后跑。不设上限：排的一方可能就是核心 goroutine 自己（中枢在主线程上也会 post），
 	// 有上限的通道满了会卡死。wake 有事可做时有一个信号。
@@ -60,8 +64,11 @@ type Core struct {
 	probes map[string]probed // 探测过、还没加的设备：凭据 → 探测结果
 
 	// 下面只在核心的 goroutine 上读写。
-	shown   *chat.Conversation // 上次 state 交给界面的对话：换了对话时条目整份重发
-	problem string             // 最近一次操作没成的原因，界面显示一次就清掉（state 的 failed）
+	shown    *chat.Conversation // 上次 state 交给界面的对话：换了对话时条目整份重发
+	problem  string             // 最近一次操作没成的原因，界面显示一次就清掉（state 的 failed）
+	sidebar  sidebar            // 侧栏的提醒和没成的操作（sessions.go）
+	composer *composer          // 输入栏（composer.go），comp 建
+	relay    *relayDraft        // 账号页上正在添加或编辑的中转（accounts.go）
 }
 
 // job 是排给核心 goroutine 的一件事；quiet 的（界面自己来取状态）跑完不算有变化，不然界面每取一次就又被叫来取一次。
@@ -177,6 +184,7 @@ func Start(c Config) (*Core, error) {
 	set.Device = c.Device
 	core := New(prefs, devices{set}, c.Changed)
 	core.auth = auth
+	core.dir, core.log = c.Dir, c.Log
 	core.Do(core.hub.Start)
 	return core, nil
 }
@@ -262,117 +270,109 @@ var ok = map[string]bool{"ok": true}
 var errUnknown = errors.New("unknown method")
 
 func (c *Core) call(method string, raw []byte) (any, error) {
-	var p params
-	if err := json.Unmarshal(raw, &p); err != nil {
-		return nil, fmt.Errorf("params are not a JSON object: %w", err)
+	if !json.Valid(raw) {
+		return nil, errors.New("params are not JSON")
 	}
-	switch method {
-	case "probe":
-		return c.probe(p.Target)
-	case "key":
-		return c.key("")
-	case "importkey":
+	return c.dispatch(method, raw)
+}
+
+// 聊天页和设备的方法（见 docs/ios.md「核心桥」）。别的领域在各自的文件里登记。
+type (
+	targetParams struct {
+		Target string `json:"target"`
+	}
+	tokenParams struct {
+		Token string `json:"token"`
+	}
+	idParams struct {
+		ID string `json:"id"`
+		On bool   `json:"on"`
+	}
+	openParams struct {
+		Backend string `json:"backend"`
+		ID      string `json:"id"`
+	}
+	textParams struct {
+		Text string `json:"text"`
+	}
+	answerParams struct {
+		RequestID string          `json:"request_id"`
+		Reply     json.RawMessage `json:"reply"`
+	}
+	keyParams struct {
+		Key        string `json:"key"`
+		Passphrase string `json:"passphrase"`
+	}
+)
+
+func init() {
+	blocking("probe", func(c *Core, p targetParams) (any, error) { return c.probe(p.Target) })
+	blocking("key", func(c *Core, _ none) (any, error) { return c.key("") })
+	blocking("importkey", func(c *Core, p keyParams) (any, error) {
 		signer, text, err := parseKey(p.Key, p.Passphrase)
 		if err != nil {
 			return nil, err
 		}
 		c.auth.set(signer)
 		return c.key(text)
-	case "resetkey":
+	})
+	blocking("resetkey", func(c *Core, _ none) (any, error) {
 		c.auth.set(nil)
 		return c.key("")
-	}
-	var result any
-	var err error
-	c.wait(func() { result, err = c.onLoop(method, p) }, method == "state")
-	return result, err
-}
-
-// params 是各方法的参数合在一起（各用各的几个）。
-type params struct {
-	Target     string          `json:"target"`
-	Token      string          `json:"token"`
-	ID         string          `json:"id"`
-	Backend    string          `json:"backend"`
-	Text       string          `json:"text"`
-	On         bool            `json:"on"`
-	RequestID  string          `json:"request_id"`
-	Reply      json.RawMessage `json:"reply"`
-	Key        string          `json:"key"`
-	Passphrase string          `json:"passphrase"`
-}
-
-func (c *Core) onLoop(method string, p params) (any, error) {
-	h := c.hub
-	switch method {
-	case "state":
-		return c.state(), nil
-	case "resync":
+	})
+	reading("state", func(c *Core, _ none) (any, error) { return c.state(), nil })
+	onLoop("resync", func(c *Core, _ none) (any, error) {
 		c.shown = nil // 下一次 state 整份交条目
 		return ok, nil
-	case "add":
-		return c.add(p.Token)
-	case "remove":
-		return ok, h.RemoveHost(p.ID)
-	case "connect":
-		return ok, h.SetConnected(p.ID, p.On)
-	case "list":
+	})
+	onLoop("add", func(c *Core, p tokenParams) (any, error) { return c.add(p.Token) })
+	onLoop("remove", func(c *Core, p idParams) (any, error) { return ok, c.hub.RemoveHost(p.ID) })
+	onLoop("connect", func(c *Core, p idParams) (any, error) { return ok, c.hub.SetConnected(p.ID, p.On) })
+	onLoop("list", func(c *Core, p idParams) (any, error) {
 		if p.ID == "" {
-			h.ListAll()
+			c.hub.ListAll()
 		} else {
-			h.ListOnly(p.ID)
+			c.hub.ListOnly(p.ID)
 		}
 		return ok, nil
-	case "refresh":
-		h.Refresh()
+	})
+	onLoop("refresh", func(c *Core, _ none) (any, error) {
+		c.hub.Refresh()
 		return ok, nil
-	case "open":
+	})
+	onLoop("open", func(c *Core, p openParams) (any, error) {
+		// 列表里有它时用列表里的那份（带记录文件、标题）；没有时（比如点通知打开另一台上的）只带设备和会话号，同桌面版 openListed
 		s, found := c.session(p.Backend, p.ID)
 		if !found {
-			return nil, locales.Err(locales.MobileSessionGone)
+			if _, known := c.hub.Host(p.Backend); !known || p.ID == "" {
+				return nil, locales.Err(locales.MobileSessionGone)
+			}
+			s = hostlink.Session{Backend: p.Backend, ID: p.ID}
 		}
-		h.OpenSession(s)
+		c.hub.OpenSession(s)
 		return ok, nil
-	case "new":
-		h.NewChatOn(p.Backend)
+	})
+	onLoop("new", func(c *Core, p openParams) (any, error) {
+		c.hub.NewChatOn(p.Backend)
 		return ok, nil
-	case "close":
-		h.CloseChat()
+	})
+	onLoop("close", func(c *Core, _ none) (any, error) {
+		c.hub.CloseChat()
 		return ok, nil
-	}
-	return c.chatCall(method, p)
-}
-
-// chatCall 是对聊天页里的对话做的事：在后台做，没成的原因放进 state 的 failed。
-func (c *Core) chatCall(method string, p params) (any, error) {
-	var do func(ctx context.Context, conv *chat.Conversation) error
-	switch method {
-	case "send":
-		if strings.TrimSpace(p.Text) == "" {
-			return ok, nil
-		}
-		do = func(ctx context.Context, conv *chat.Conversation) error {
-			return conv.Send(ctx, coreapi.Outgoing{Text: p.Text})
-		}
-	case "interrupt":
-		do = func(ctx context.Context, conv *chat.Conversation) error { return conv.Interrupt(ctx) }
-	case "answer":
+	})
+	inChat("interrupt", func(none) (func(ctx context.Context, conv *chat.Conversation) error, error) {
+		return func(ctx context.Context, conv *chat.Conversation) error { return conv.Interrupt(ctx) }, nil
+	})
+	inChat("answer", func(p answerParams) (func(ctx context.Context, conv *chat.Conversation) error, error) {
 		var r prompt.Reply
 		if err := json.Unmarshal(p.Reply, &r); err != nil {
 			return nil, fmt.Errorf("bad reply: %w", err)
 		}
-		do = func(ctx context.Context, conv *chat.Conversation) error { return conv.Answer(ctx, p.RequestID, r) }
-	case "earlier":
-		do = func(ctx context.Context, conv *chat.Conversation) error { return conv.LoadEarlier(ctx, false) }
-	default:
-		return nil, fmt.Errorf("%w: %s", errUnknown, method)
-	}
-	if c.hub.Chat() == nil || c.hub.Chat().Conv == nil {
-		return nil, locales.Err(locales.MobileChatNotOpen)
-	}
-	c.problem = ""
-	c.hub.RunChat(do, func(err error) { c.problem = locales.ErrorText(err) })
-	return ok, nil
+		return func(ctx context.Context, conv *chat.Conversation) error { return conv.Answer(ctx, p.RequestID, r) }, nil
+	})
+	inChat("earlier", func(none) (func(ctx context.Context, conv *chat.Conversation) error, error) {
+		return func(ctx context.Context, conv *chat.Conversation) error { return conv.LoadEarlier(ctx, false) }, nil
+	})
 }
 
 // session 找列着的会话。

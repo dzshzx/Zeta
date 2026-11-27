@@ -10,6 +10,8 @@ final class AppModel {
 
     private(set) var state = CoreState.empty
     private(set) var items: [Item] = []
+    /// 每取到一份新的 state 加一：看着后台任务输出、子代理的页据此重取（taskoutput、subagent），设置各页据此重读自己的那份（账号、设备清单）。
+    private(set) var revision = 0
     private(set) var publicKey = ""
     /// 登录用的是导入的私钥（不是 Zeta 自己生成的那把）。
     private(set) var keyImported = false
@@ -36,6 +38,7 @@ final class AppModel {
                 core = launched.core
                 useKey(launched.key)
                 alert = launched.problem
+                _ = try? launched.core.call("alerts", [:])
                 refresh()
             } catch {
                 startProblem = error.localizedDescription
@@ -87,6 +90,12 @@ final class AppModel {
             let next = try core.call("state", as: CoreState.self)
             apply(next.chat)
             state = next
+            revision &+= 1
+            Notifier.shared.observe(next)
+            LiveActivities.shared.observe(next) { self.deviceName($0) }
+            if !next.side.failed.isEmpty {
+                alert = next.side.failed
+            }
             if let failed = next.chat?.failed, !failed.isEmpty {
                 alert = failed
             }
@@ -125,10 +134,30 @@ final class AppModel {
         }
     }
 
+    /// 在主线程上调核心的方法 method（很快返回的）并解出结果；没成时抛出原因。
+    func callCore<T: Decodable>(_ method: String, _ params: [String: any Sendable] = [:], as type: T.Type) throws -> T {
+        guard let core else { throw Core.Failure(message: "core not started") }
+        return try core.call(method, params, as: type)
+    }
+
+    /// 在后台线程上调核心的方法 method 并等它的结果（会等网络的方法，比如 probe、core，都这样调）；没成时抛出原因。
+    func request<T: Decodable & Sendable>(
+        _ method: String, _ params: [String: any Sendable] = [:], as type: T.Type
+    ) async throws -> T {
+        guard let core else { throw Core.Failure(message: "core not started") }
+        return try await Task.detached { try core.call(method, params, as: type) }.value
+    }
+
+    /// 把设备 backend 的核心方法 method（只有 config.*、diag.*、system.*，见 docs/ios.md「核心桥」）转过去，结果解成 T。
+    func device<T: Decodable & Sendable>(
+        _ backend: String, _ method: String, _ params: [String: any Sendable] = [:], as type: T.Type
+    ) async throws -> T {
+        try await request("core", ["backend": backend, "method": method, "params": params], as: type)
+    }
+
     /// 探测地址 target（会等到连上、查完，最多约 45 秒），不在主线程上等。
     func probe(_ target: String) async throws -> Probed {
-        guard let core else { throw Core.Failure(message: "core not started") }
-        return try await Task.detached { try core.call("probe", ["target": target], as: Probed.self) }.value
+        try await request("probe", ["target": target], as: Probed.self)
     }
 
     /// 添加探测过的设备。
