@@ -58,11 +58,11 @@ func (p *Page) aboutSection(c *ui.Context) {
 			version = locales.AboutVersionDev(version)
 		}
 		l.Row(widget.Row{Title: locales.AboutVersion(), Value: version})
-		ref := sourceRef(p.Version.Name)
+		ref := appversion.SourceRef(p.Version.Name)
 		if ref == "" {
 			ref = "GitHub"
 		}
-		l.Row(widget.Row{Title: locales.AboutSource(), Value: ref, Arrow: true, OnClick: func() { c.OpenURL(sourceURL(p.Version.Name)) }})
+		l.Row(widget.Row{Title: locales.AboutSource(), Value: ref, Arrow: true, OnClick: func() { c.OpenURL(appversion.SourceURL(p.Version.Name)) }})
 		if !p.Updates.Enabled() {
 			return
 		}

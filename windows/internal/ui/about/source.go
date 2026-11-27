@@ -1,38 +1,8 @@
 package about
 
 import (
-	"regexp"
-
 	"github.com/dzshzx/Zeta/windows/internal/locales"
 )
-
-// repo 是 Zeta 的源码仓库（同手机版 ZetaInfo.REPO）。
-const repo = "https://github.com/dzshzx/Zeta"
-
-var (
-	releaseName = regexp.MustCompile(`^\d+\.\d+\.\d+$`)
-	devCommit   = regexp.MustCompile(`\+g([0-9a-f]{7,40})$`)
-)
-
-// sourceRef 是这个版本的源码在 GitHub 上的哪个 tag 或提交（同手机版 ZetaInfo.sourceRef）：正式版 0.7.6 是 tag v0.7.6，
-// 测试版 0.7.6-dev.3+gabc1234 是版本名里的提交号，认不出时是空。
-func sourceRef(versionName string) string {
-	if releaseName.MatchString(versionName) {
-		return "v" + versionName
-	}
-	if m := devCommit.FindStringSubmatch(versionName); m != nil {
-		return m[1]
-	}
-	return ""
-}
-
-// sourceURL 是这个版本的源码：sourceRef 那个 tag 或提交的目录，认不出时是仓库首页。
-func sourceURL(versionName string) string {
-	if ref := sourceRef(versionName); ref != "" {
-		return repo + "/tree/" + ref
-	}
-	return repo
-}
 
 // credit 是鸣谢里的一项：名字、它在桌面版里是什么（带许可证），都按界面当时的语言取；点了打开的主页。
 type credit struct {
