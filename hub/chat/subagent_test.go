@@ -131,3 +131,37 @@ func TestSubagentChangesSince(t *testing.T) {
 		t.Fatalf("刚好记着的：%d %v", len(got), ok)
 	}
 }
+
+// 核心的第一份还没推到时，说明、类型和交给它的任务用后台任务清单里的垫上；推来了以核心的为准，空着的几项照旧垫。
+func TestSubagentFilledFromItsTask(t *testing.T) {
+	_, client, conv, _ := opened(t)
+	client.Handle(line(`{"type":"conv.state","conv":"w1","tasks":[
+		{"id":"b1","type":"local_bash","kind":"command","description":"别的","command":"tail","tool_use_id":"toolu_1","started_at":1,"state":"running","running":true},
+		{"id":"a1","type":"local_agent","kind":"agent","description":"查找","command":"找出读配置的地方","agent_type":"Explore",
+		 "tool_use_id":"toolu_1","started_at":1,"state":"running","running":true}]}`))
+	if err := conv.Watch(context.Background(), SubagentTarget("toolu_1"), true); err != nil {
+		t.Fatal(err)
+	}
+	s, _ := conv.Subagent("toolu_1")
+	if s.Rev != 0 || s.Meta == nil || s.Meta.Description != "查找" || s.Meta.AgentType != "Explore" || s.Prompt != "找出读配置的地方" {
+		t.Fatalf("还没推来时：%+v %+v", s, s.Meta)
+	}
+	client.Handle(line(`{"type":"conv.subagent","conv":"w1","tool_use_id":"toolu_1","full":true,"items":[],
+		"meta":{"agent_id":"ag1","agent_type":"","description":"核心给的说明","model":"claude-haiku"},"prompt":"核心给的任务"}`))
+	s, _ = conv.Subagent("toolu_1")
+	if s.Meta.Description != "核心给的说明" || s.Meta.AgentType != "Explore" || s.Meta.Model != "claude-haiku" || s.Prompt != "核心给的任务" {
+		t.Fatalf("推来以后：%+v %+v", s, s.Meta)
+	}
+	// 垫的是另起的一份，记着的那份没被改
+	client.Handle(line(`{"type":"conv.state","conv":"w1","tasks":[]}`))
+	if s, _ = conv.Subagent("toolu_1"); s.Meta.AgentType != "" {
+		t.Fatalf("垫上的写进了记着的那份：%+v", s.Meta)
+	}
+	// 不在清单里的照旧是零值
+	if err := conv.Watch(context.Background(), SubagentTarget("toolu_2"), true); err != nil {
+		t.Fatal(err)
+	}
+	if s, _ = conv.Subagent("toolu_2"); s.Meta != nil || s.Prompt != "" {
+		t.Fatalf("不在清单里：%+v", s)
+	}
+}

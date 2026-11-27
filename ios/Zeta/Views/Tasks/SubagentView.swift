@@ -2,7 +2,7 @@ import SwiftUI
 
 /// 子代理页（同手机版 SubagentScreen、桌面版 subagent.go），样子照手机版：头一组是说明、状态、用时、子代理类型、模型、思考强度、
 /// 工具调用、所属对话（知道的才列），在跑时最后是停止；下面是出错的原因、交给它的指令（长的先露 5 行，点了展开）和它的步骤，
-/// 步骤和聊天里的条目一样画。用时、停止和出错的原因取自它在后台任务清单里的那一项；核心的第一份还没到时，说明、类型、指令也先用那一项的。
+/// 步骤和聊天里的条目一样画。用时、停止和出错的原因取自它在后台任务清单里的那一项；核心的第一份还没到时，说明、类型、指令由中枢先用那一项的垫上。
 struct SubagentView: View {
     @Environment(AppModel.self) private var model
     let toolUseID: String
@@ -20,19 +20,12 @@ struct SubagentView: View {
 
     private var title: String {
         if let text = page?.meta?.description, !text.isEmpty { return text }
-        if let text = task?.description, !text.isEmpty { return text }
         return String(localized: "子代理")
     }
 
-    private var agentType: String {
-        if let type = page?.meta?.agentType, !type.isEmpty { return type }
-        return task?.agentType ?? ""
-    }
+    private var agentType: String { page?.meta?.agentType ?? "" }
 
-    private var prompt: String {
-        if let text = page?.prompt, !text.isEmpty { return text }
-        return task?.command ?? ""
-    }
+    private var prompt: String { page?.prompt ?? "" }
 
     var body: some View {
         List {

@@ -1,11 +1,13 @@
 package chat
 
 import (
+	"cmp"
 	"context"
 	"encoding/json"
 	"log"
 
 	"github.com/dzshzx/Zeta/helper/coreapi"
+	"github.com/dzshzx/Zeta/helper/tasks"
 	"github.com/dzshzx/Zeta/hub/chat/items"
 )
 
@@ -63,13 +65,30 @@ type SubagentMeta struct {
 	Background *bool `json:"background"`
 }
 
-// Subagent 是看着的子代理（SubagentTarget）此刻的样子，还没推来时是零值；没在看着时 ok 为假。
+// Subagent 是看着的子代理（SubagentTarget）此刻的样子，还没推来时条目以外只有下面垫上的几项；没在看着时 ok 为假。
+// 说明、类型和交给它的任务空着时（核心的第一份还没推到）用后台任务清单里它那一项的垫上，查看页一打开就有概要。
 func (c *Conversation) Subagent(toolUseID string) (s Subagent, ok bool) {
 	c.mu.Lock()
 	defer c.mu.Unlock()
 	p, ok := watchedAs[Subagent](c, SubagentTarget(toolUseID))
 	if p != nil {
 		s = *p
+	}
+	for _, t := range c.state.Tasks {
+		if t.Kind != tasks.KindAgent || t.ToolUseID != toolUseID {
+			continue
+		}
+		var meta SubagentMeta // 另起一份，不改记着的那份
+		if s.Meta != nil {
+			meta = *s.Meta
+		}
+		meta.Description = cmp.Or(meta.Description, t.Description)
+		meta.AgentType = cmp.Or(meta.AgentType, t.AgentType)
+		if meta != (SubagentMeta{}) {
+			s.Meta = &meta
+		}
+		s.Prompt = cmp.Or(s.Prompt, t.Command)
+		break
 	}
 	return s, ok
 }

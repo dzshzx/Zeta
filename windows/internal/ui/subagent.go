@@ -148,17 +148,12 @@ func agentTask(s chat.State, toolUseID string) (tasks.Task, bool) {
 // subagentHead 是步骤上面的部分：概要、出错的原因、交给它的指令和「步骤」这个分组标题。task 是它在后台任务清单里的那一项，
 // 不在清单里时为 nil。
 func (a *App) subagentHead(c *ui.Context, p *chatPane, v *subagentView, s chat.Subagent, task *tasks.Task) {
-	// 概要由核心给：记录旁的 meta 还没读到时它先用发起子代理的 Agent 调用的参数填上；核心的第一份还没推到时用任务清单里的
+	// 概要由核心给：记录旁的 meta 还没读到时它先用发起子代理的 Agent 调用的参数填上；核心的第一份还没推到时中枢用任务清单里的垫上
 	var meta chat.SubagentMeta
 	if s.Meta != nil {
 		meta = *s.Meta
 	}
 	prompt := s.Prompt
-	if task != nil {
-		meta.Description = cmp.Or(meta.Description, task.Description)
-		meta.AgentType = cmp.Or(meta.AgentType, task.AgentType)
-		prompt = cmp.Or(prompt, task.Command)
-	}
 	meta.Description = cmp.Or(meta.Description, locales.SubagentTitle())
 	a.subagentSummary(c, p, s, meta, task)
 	if task != nil && task.Error != "" {

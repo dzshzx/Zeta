@@ -149,9 +149,12 @@ private struct Thumbnail: View {
         .clipShape(.rect(cornerRadius: 12))
         .contentShape(.rect)
         .onTapGesture {
-            guard let image = UIImage(contentsOfFile: item.thumb) else { return }
-            full = image
-            viewing = true
+            // 原图在后台解好再弹出，大照片不卡界面
+            Task {
+                guard let image = UIImage(contentsOfFile: item.thumb) else { return }
+                full = await image.byPreparingForDisplay() ?? image
+                viewing = true
+            }
         }
         .fullScreenCover(
             isPresented: $viewing, onDismiss: { full = nil },
