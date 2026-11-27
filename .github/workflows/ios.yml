@@ -2,17 +2,9 @@ name: iOS
 
 # iOS 版（ios/，见 docs/ios.md）：在 GitHub 托管的 macOS 上用最新的稳定版 Xcode 跑模拟器上的测试、打不签名的 ipa、
 # 在模拟器里截一张图。本机和本机 runner 都没有 macOS，所以这一份放在云端；签名由用户用自己的开发者账号做。
-# 推送改到 iOS 版的提交时跑（任务分支也跑，结果和 ipa 在这次运行的 artifacts 里），也能手动触发：
+# 只手动触发（结果和 ipa 在这次运行的 artifacts 里；在 master 上跑的另发预构建版本）：
 #   gh workflow run ios.yml --ref <分支>
 on:
-  push:
-    paths:
-      - ios/**
-      - client/**
-      - tools/version.sh
-      - hub/**
-      - helper/**
-      - .github/workflows/ios.yml
   workflow_dispatch:
 
 permissions:
@@ -134,7 +126,7 @@ jobs:
   # tag 不以 v 开头，版本号算法（tools/version.sh）和发版都不认它；标成预发布，不算最新版，应用内更新照旧。
   prerelease:
     needs: ios
-    if: github.event_name == 'push' && github.ref == 'refs/heads/master'
+    if: github.ref == 'refs/heads/master'
     runs-on: ubuntu-latest
     timeout-minutes: 10
     permissions:
