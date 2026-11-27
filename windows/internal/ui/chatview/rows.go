@@ -127,19 +127,19 @@ func copyButton(c *ui.Context, text string) {
 	}
 }
 
-// typingDots 是回答还没送来字时的三个跳动的点。
+// typingDots 是回答还没送来字时的三个跳动的点（6 的圆、间隔 4），一圈 1.2 秒分 24 步，只重画这三个点（widget.Step）。
 func typingDots(c *ui.Context) {
-	t := c.Theme()
-	row := ui.Row(c).Gap(4).Padding(8, 0).Label(locales.ChatAnswering())
-	phase := row.Loop("typing", 1200*time.Millisecond, ui.Linear)
-	row.Children(func() {
+	muted := c.Theme().TextMuted
+	ui.Box(c).Size(26, 6).Margin(8, 0).Label(locales.ChatAnswering()).Draw(func(p *ui.Painter, r ui.Rect) {
+		phase, next := widget.Step(p.Now(), 1200*time.Millisecond, 24)
 		for k := range 3 {
-			p := phase - float32(k)*0.15
-			if p < 0 {
-				p++
+			at := phase - float32(k)*0.15
+			if at < 0 {
+				at++
 			}
-			ui.Box(c.Key(k)).Size(6, 6).Radius(3).Background(t.TextMuted).Opacity(0.3 + 0.7*triangle(p))
+			p.FillPath(new(ui.Path).Circle(r.X+3+float32(k)*10, r.Y+3, 3), muted.Alpha(0.3+0.7*triangle(at)))
 		}
+		p.After(next)
 	})
 }
 

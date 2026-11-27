@@ -251,11 +251,14 @@ func chevron(c *ui.Context, progress float32) {
 	ui.Icon(c, iconChevron).FontSize(17).TextColor(c.Theme().TextMuted.Alpha(0.7)).Rotate(-90 + 90*progress).Shrink(0)
 }
 
-// pulsingText 是一行标题；active（还在进行）时轻微呼吸。
+// pulsingText 是一行标题；active（还在进行）时轻微呼吸：一圈 1.6 秒分 16 步。透明度变了要重建界面，所以步子比只重画的
+// 提示少（widget.Step）。
 func pulsingText(c *ui.Context, text string, active bool, color ui.Color) ui.Element {
 	e := ui.Text(c, text).FontSize(13.5).TextColor(color).SingleLine().Ellipsis("…").Shrink(1)
 	if active {
-		e.Opacity(0.45 + 0.55*triangle(e.Loop("pulse", 1600*time.Millisecond, ui.Linear)))
+		phase, next := widget.Step(c.Now(), 1600*time.Millisecond, 16)
+		e.Opacity(0.45 + 0.55*triangle(phase))
+		c.After(next)
 	}
 	return e
 }

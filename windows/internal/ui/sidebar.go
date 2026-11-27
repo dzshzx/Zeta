@@ -34,7 +34,6 @@ func (a *App) sidebar(c *ui.Context) {
 				ui.Row(c).FillWidth().Padding(2, 0, 0, 0).Children(func() { a.hostSwitcher(c) })
 			})
 		}
-		// 只建看得见的几行（ui.List）：流式回答时每来一批输出界面就重建一次，几百个会话全建一遍的话每次都要几毫秒。
 		// 焦点在会话列表上（点过、Tab 到某一行）时 Ctrl+A 全选眼前列着的；在输入框里时归输入框（sessionops.go）
 		rows := a.sideRows(c)
 		a.sideList.Key = func(i int) any { return rows[i].key }
@@ -128,8 +127,8 @@ func (a *App) sessionGroups(c *ui.Context, add addRow) {
 		if len(group.list) == 0 {
 			continue
 		}
-		title, isFirst := group.title, first
-		add("group:"+title, func() { a.groupTitle(c, title, isFirst) })
+		isFirst := first
+		add("group:"+group.title, func() { a.groupTitle(c, group.title, isFirst) })
 		for _, s := range group.list {
 			add(hub.Key(s), func() { a.sessionRow(c, s, "", movable) })
 		}
@@ -147,9 +146,10 @@ type sideRow struct {
 type addRow func(key string, build func())
 
 // sideRows 是会话列表这一帧要列的各行：搜索时是结果，看归档时是归档的，平时是几组会话。这里只记下每行怎么建，
-// 真正建的只有 ui.List 显示出来的那几行。
+// 真正建的只有 ui.List 显示出来的那几行。流式回答时界面每秒重建好几次，几百个会话全建一遍的话每次要几毫秒。
+// 这份切片每帧重用（App.rows）。
 func (a *App) sideRows(c *ui.Context) []sideRow {
-	var rows []sideRow
+	rows := a.rows[:0]
 	add := func(key string, build func()) { rows = append(rows, sideRow{key, build}) }
 	switch {
 	case a.hub.Searching():
@@ -159,6 +159,7 @@ func (a *App) sideRows(c *ui.Context) []sideRow {
 	default:
 		a.sessionGroups(c, add)
 	}
+	a.rows = rows
 	return rows
 }
 

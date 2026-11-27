@@ -9,8 +9,7 @@ import (
 	"github.com/egoist/mygo/ui"
 )
 
-// 侧栏的会话列表只建看得见的几行：流式回答时界面每秒重建好几次，几百个会话全建一遍每次要几毫秒。
-// 看不见的照样能全选、滚过去能看到。
+// 侧栏的会话列表只建看得见的几行（sideRows）；看不见的照样能全选、滚过去能看到。
 func TestSidebarBuildsOnlyRowsInView(t *testing.T) {
 	f := newChatFixture(t)
 	const n = 300

@@ -64,6 +64,7 @@ type App struct {
 	ops      sessionOps   // 侧栏的会话操作（sessionops.go）
 	order    sortState    // 侧栏的排序菜单和拖动（sidebarsort.go）
 	sideList ui.ListState // 侧栏的会话列表（sidebar.go 的 sideRows）
+	rows     []sideRow    // sideRows 每帧重用的切片
 	layout   layout       // 侧栏的宽度、收起（layout.go）
 	zoom     int          // 界面缩放的百分数（zoom.go）
 

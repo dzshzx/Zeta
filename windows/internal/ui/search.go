@@ -157,11 +157,10 @@ const (
 	markStroke = 1.4
 )
 
-// markSteps 是回答中的记号每秒走几步（同手机版 rememberIndicatorClock 的每秒 20 步）：按墙上时钟分步，侧栏里几个记号落在同一帧，
-// 窗口不跟着显示器的刷新率一直重画。
+// markSteps 是回答中的记号一圈（一秒）走几步，见 widget.Step。
 const markSteps = 20
 
-// drawMark 画状态记号（同 Compose 的 StatusMark）：同一个圆，在回答的缺口转着（一秒一圈，分 markSteps 步），其余的圆里各画一样东西——
+// drawMark 画状态记号（同 Compose 的 StatusMark）：同一个圆，在回答的缺口转着（一秒一圈，分 markSteps 步，只重画这个记号），其余的圆里各画一样东西——
 // 等确认是感叹号、后台任务是钟面的两根针、闲着是暂停的两竖；有新回答是实心的。
 func drawMark(p *ui.Painter, r ui.Rect, a hub.Activity, color ui.Color) {
 	cx, cy := r.X+r.W/2, r.Y+r.H/2
@@ -175,10 +174,8 @@ func drawMark(p *ui.Painter, r ui.Rect, a hub.Activity, color ui.Color) {
 		p.FillPath(new(ui.Path).Circle(cx, cy, radius+markStroke/2), color)
 	case hub.Answering:
 		ring(color.Alpha(0.25))
-		const turn = 1000 // 一圈的毫秒数
-		ms := int(p.Now().UnixMilli() % turn)
-		step := ms * markSteps / turn
-		start := float64(step)/markSteps*2*math.Pi - math.Pi/2
+		phase, next := widget.Step(p.Now(), time.Second, markSteps)
+		start := float64(phase)*2*math.Pi - math.Pi/2
 		arc := new(ui.Path)
 		const steps = 24
 		for i := 0; i <= steps; i++ {
@@ -191,7 +188,7 @@ func drawMark(p *ui.Painter, r ui.Rect, a hub.Activity, color ui.Color) {
 			}
 		}
 		p.StrokePath(arc, markStroke, color)
-		p.After(time.Duration((step+1)*turn/markSteps-ms) * time.Millisecond) // 下一步的整点再画（只重画这个记号，不重建界面）
+		p.After(next)
 	case hub.Waiting:
 		ring(color)
 		bar(0, -2.6, 0, 0.4)
