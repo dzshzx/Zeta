@@ -1,18 +1,18 @@
-name: iOS
+name: iOS（共用）
 
-# iOS 版（ios/，见 docs/ios.md）：在 GitHub 托管的 macOS 上用最新的稳定版 Xcode 跑模拟器上的测试、打不签名的 ipa、
-# 在模拟器里截一张图。本机和本机 runner 都没有 macOS，所以这一份放在云端；签名由用户用自己的开发者账号做。
-# 只手动触发（结果和 ipa 在这次运行的 artifacts 里；在 master 上跑的另发预构建版本）：
-#   gh workflow run ios.yml --ref <分支>
+# iOS 版（ios/，见 docs/ios.md）在 GitHub 托管的 macOS 上编：本机和本机 runner 都没有 macOS，所以这一份放在云端。
+# 这是 ios-ci.yml（推送时编并跑模拟器上的测试）和 ios-build.yml（手动：截图、打不签名的 ipa、在 master 上发预构建）共用的
+# 一段：编嵌进核心的东西、挑 Xcode、照 steps 跑 ios/scripts/build.sh。签名由用户用自己的开发者账号做。
 on:
-  workflow_dispatch:
+  workflow_call:
+    inputs:
+      steps:
+        description: 交给 ios/scripts/build.sh 的几样（test、simulator、ipa）
+        type: string
+        required: true
 
 permissions:
   contents: read
-
-concurrency:
-  group: ios-${{ github.ref }}
-  cancel-in-progress: true
 
 jobs:
   # 编进核心的 zeta-helper、claude-switch（linux 两种架构）、托管脚本和许可证全文：assets.sh 要 GNU 工具，在 Linux 上做
@@ -80,16 +80,20 @@ jobs:
       - name: 安装 XcodeGen
         run: brew install xcodegen
 
-      # 核心和工程只编、生成一次：模拟器上的测试，截图用它编出的 Debug 包，最后打不签名的 ipa（最后一行是它的路径）
-      - name: 测试并打包
+      # 核心和工程只编、生成一次，再按 steps 做：test 跑模拟器上的测试，simulator 编截图用的 Debug 包，ipa 打不签名的 ipa（最后一行是它的路径）
+      - name: 编译
         id: ipa
+        env:
+          STEPS: ${{ inputs.steps }}
         run: |
           set -euo pipefail
-          bash ios/scripts/build.sh test simulator ipa | tee "$RUNNER_TEMP/build.log"
+          read -ra steps <<<"$STEPS"
+          bash ios/scripts/build.sh "${steps[@]}" | tee "$RUNNER_TEMP/build.log"
           echo "path=$(tail -1 "$RUNNER_TEMP/build.log")" >> "$GITHUB_OUTPUT"
 
       # 起一台模拟器装上 Debug 包，打开后截图（简体中文、英文各一张），给看界面的人用
       - name: 模拟器截图
+        if: contains(inputs.steps, 'simulator')
         run: |
           set -euo pipefail
           udid=$(bash ios/scripts/simulator.sh)
@@ -106,6 +110,7 @@ jobs:
           done
 
       - name: 上传 ipa
+        if: contains(inputs.steps, 'ipa')
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: ipa
@@ -114,41 +119,9 @@ jobs:
           retention-days: 14
 
       - name: 上传截图
+        if: contains(inputs.steps, 'simulator')
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: screenshots
           path: ${{ runner.temp }}/shots
           retention-days: 14
-
-  # master 上的构建发成预发布版本 ios-dev-<提交号>，不用登录就能下载；全部 iOS 预构建：
-  #   https://github.com/dzshzx/Zeta/releases?q=ios-dev&expanded=true
-  # 仓库开着不可变发布：发布后不能再加文件、不能挪 tag，所以每次一个新版本，先建草稿传好 ipa 再发布。
-  # tag 不以 v 开头，版本号算法（tools/version.sh）和发版都不认它；标成预发布，不算最新版，应用内更新照旧。
-  prerelease:
-    needs: ios
-    if: github.ref == 'refs/heads/master'
-    runs-on: ubuntu-latest
-    timeout-minutes: 10
-    permissions:
-      contents: write
-    steps:
-      - name: 取 ipa
-        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
-        with:
-          name: ipa
-          path: ipa
-
-      - name: 发预发布版本
-        env:
-          GH_TOKEN: ${{ github.token }}
-          GH_REPO: ${{ github.repository }}
-          SHA: ${{ github.sha }}
-        run: |
-          set -euo pipefail
-          src=$(ls ipa/*.ipa)
-          name=$(basename "$src" .ipa)
-          tag=ios-dev-${SHA:0:7}
-          notes="iOS 测试版的预构建（${name#Zeta-}，提交 ${SHA:0:7}）。不签名，用自己的开发者账号重签后安装。说明见 docs/ios.md。"
-          gh release create "$tag" --draft --target "$SHA" --prerelease --latest=false --title "iOS 预构建 ${name#Zeta-}" --notes "$notes"
-          gh release upload "$tag" "$src"
-          gh release edit "$tag" --draft=false
