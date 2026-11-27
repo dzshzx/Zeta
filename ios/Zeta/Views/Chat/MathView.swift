@@ -14,9 +14,18 @@ struct MathList: Decodable, Sendable {
     let depth: Double
 }
 
+extension MathList {
+    /// 全没写 \color（都用正文的颜色）。
+    var plain: Bool { (items ?? []).allSatisfy { $0.defaultInk == true } }
+}
+
 struct MathItem: Decodable, Sendable {
-    /// 0 字、1 横线、2 实心矩形、3 路径（mathtex.Kind）。
-    let kind: Int
+    /// 同 mathtex.Kind。
+    enum Kind: Int, Decodable, Sendable {
+        case glyph, line, rect, path
+    }
+
+    let kind: Kind
     let left: Double
     let top: Double
     let font: String?
@@ -60,7 +69,7 @@ struct MathCommand: Decodable, Sendable {
 
 private struct MathFontData: Decodable, Sendable {
     let id: String
-    let data: String
+    let data: Data
 }
 
 /// 排好的公式和 KaTeX 字体记在这里，同一条公式只向核心要一次。
@@ -68,15 +77,22 @@ private struct MathFontData: Decodable, Sendable {
 final class MathStore {
     static let shared = MathStore()
 
+    /// 排好的一条：key 认它（Self.key），plain 是全没写 \color，画成模板图跟着前景色。
+    struct Formula {
+        let key: String
+        let list: MathList
+        let plain: Bool
+    }
+
     enum Entry {
-        case loading
-        case loaded(MathList)
+        case loaded(Formula)
         case failed
     }
 
     private(set) var entries: [String: Entry] = [:]
-    @ObservationIgnored private var fonts: [String: CGFont]?
-    @ObservationIgnored private var fontsTask: Task<Void, Never>?
+    /// KaTeX 字体：第一次要排公式时取一次（fontsTask），取到的放在 fontTable。
+    @ObservationIgnored private var fontsTask: Task<[String: CGFont], Never>?
+    @ObservationIgnored private var fontTable: [String: CGFont] = [:]
     @ObservationIgnored private var sources: [String: String] = [:]
     @ObservationIgnored private var images: [String: UIImage] = [:]
     @ObservationIgnored private var pending: Set<String> = []
@@ -96,33 +112,30 @@ final class MathStore {
     /// 向核心要排版；在画界面时调也行（改状态挪到下一轮）。
     func load(_ tex: String, display: Bool) {
         let key = Self.key(tex, display)
-        guard entries[key] == nil, !pending.contains(key) else { return }
-        pending.insert(key)
+        guard entries[key] == nil, pending.insert(key).inserted else { return }
         Task {
-            entries[key] = .loading
-            pending.remove(key)
-            await loadFonts()
-            do {
-                let list = try await AppModel.shared.request(
-                    "math", ["tex": tex, "display": display], as: MathList.self)
-                entries[key] = list.width > 0 ? .loaded(list) : .failed
-            } catch {
+            if fontsTask == nil { fontsTask = Task { await Self.fetchFonts() } }
+            fontTable = await fontsTask?.value ?? [:]
+            let list = try? await AppModel.shared.request("math", ["tex": tex, "display": display], as: MathList.self)
+            if let list, list.width > 0 {
+                entries[key] = .loaded(Formula(key: key, list: list, plain: list.plain))
+            } else {
                 entries[key] = .failed
             }
+            pending.remove(key)
         }
     }
 
-    /// 画好的图：size 是 1 em 的点数。全没写 \color 的画成模板图，跟着前景色；写了的照它，其余用这种深浅色下的正文色。
-    func image(_ list: MathList, key: String, size: CGFloat, scale: CGFloat, scheme: ColorScheme) -> UIImage {
-        let plain = (list.items ?? []).allSatisfy { $0.defaultInk == true }
-        let ink: UIColor? = plain
-            ? nil
-            : UIColor.label.resolvedColor(with: UITraitCollection(userInterfaceStyle: scheme == .dark ? .dark : .light))
-        let cacheKey = "\(key)|\(size)|\(scale)|\(ink?.description ?? "template")"
+    /// 画好的图：size 是 1 em 的点数。plain 的画成模板图，跟着前景色；写了 \color 的照它，其余用这种深浅色下的正文色。
+    func image(_ formula: Formula, size: CGFloat, scale: CGFloat, scheme: ColorScheme) -> UIImage {
+        let plain = formula.plain
+        let cacheKey = "\(formula.key)|\(size)|\(scale)|\(plain ? "template" : "\(scheme)")"
         if let done = images[cacheKey] { return done }
-        let drawn = MathRenderer(list: list, fonts: fonts ?? [:], size: size)
-            .image(scale: scale, ink: ink ?? .black)
-        let out = ink == nil ? drawn.withRenderingMode(.alwaysTemplate) : drawn
+        let ink = plain
+            ? UIColor.black
+            : UIColor.label.resolvedColor(with: UITraitCollection(userInterfaceStyle: scheme == .dark ? .dark : .light))
+        let drawn = MathRenderer(list: formula.list, fonts: fontTable, size: size).image(scale: scale, ink: ink)
+        let out = plain ? drawn.withRenderingMode(.alwaysTemplate) : drawn
         if images.count > 512 { images = [:] }
         images[cacheKey] = out
         return out
@@ -130,22 +143,15 @@ final class MathStore {
 
     static func key(_ tex: String, _ display: Bool) -> String { (display ? "D" : "T") + tex }
 
-    private func loadFonts() async {
-        if fonts != nil { return }
-        if fontsTask == nil {
-            fontsTask = Task {
-                let got = (try? await AppModel.shared.request("math.fonts", as: [MathFontData].self)) ?? []
-                var out: [String: CGFont] = [:]
-                for font in got {
-                    if let data = Data(base64Encoded: font.data), let provider = CGDataProvider(data: data as CFData),
-                        let graphics = CGFont(provider) {
-                        out[font.id] = graphics
-                    }
-                }
-                fonts = out
+    private static func fetchFonts() async -> [String: CGFont] {
+        let got = (try? await AppModel.shared.request("math.fonts", as: [MathFontData].self)) ?? []
+        var out: [String: CGFont] = [:]
+        for font in got {
+            if let provider = CGDataProvider(data: font.data as CFData), let graphics = CGFont(provider) {
+                out[font.id] = graphics
             }
         }
-        await fontsTask?.value
+        return out
     }
 }
 
@@ -179,23 +185,22 @@ private struct MathRenderer {
         let left = item.left * size
         let top = item.top * size
         switch item.kind {
-        case 0:
+        case .glyph:
             glyph(item, at: CGPoint(x: left, y: top), in: ctx)
-        case 1:
+        case .line:
             let thick = max((item.thickness ?? 0) * size, pixel)
             let width = (item.width ?? 0) * size
-            guard item.dashed == true else {
-                ctx.fill(CGRect(x: left, y: top - thick / 2, width: width, height: thick))
-                return
-            }
+            // 虚线同网页端：实、虚各 3 倍线宽；实线是一整段
+            let (dashLength, step) = item.dashed == true ? (3 * thick, 6 * thick) : (width, width)
             var dash: CGFloat = 0
-            while dash < width {  // 同网页端：实、虚各 3 倍线宽
-                ctx.fill(CGRect(x: left + dash, y: top - thick / 2, width: min(3 * thick, width - dash), height: thick))
-                dash += 6 * thick
+            while dash < width {
+                let piece = min(dashLength, width - dash)
+                ctx.fill(CGRect(x: left + dash, y: top - thick / 2, width: piece, height: thick))
+                dash += step
             }
-        case 2:
+        case .rect:
             ctx.fill(CGRect(x: left, y: top, width: (item.width ?? 0) * size, height: (item.height ?? 0) * size))
-        case 3:
+        case .path:
             ctx.addPath(path(item.commands ?? [], left: left, top: top))
             if item.fill == true {
                 ctx.fillPath()
@@ -203,8 +208,6 @@ private struct MathRenderer {
                 ctx.setLineWidth(pixel)
                 ctx.strokePath()
             }
-        default:
-            break
         }
     }
 
@@ -276,9 +279,8 @@ struct MathBlockView: View {
     var body: some View {
         let store = MathStore.shared
         Group {
-            if case .loaded(let list) = store.entry(tex, display: true) {
-                let image = store.image(
-                    list, key: MathStore.key(tex, true), size: MathSize.block, scale: scale, scheme: scheme)
+            if case .loaded(let formula) = store.entry(tex, display: true) {
+                let image = store.image(formula, size: MathSize.block, scale: scale, scheme: scheme)
                 ScrollView(.horizontal) {
                     Image(uiImage: image)
                         .accessibilityLabel(tex)
@@ -314,16 +316,9 @@ enum MathText {
             if char == "`" {
                 var run = 0
                 while pos + run < chars.count, chars[pos + run] == "`" { run += 1 }
-                let ticks = String(repeating: "`", count: run)
-                let rest = String(chars[(pos + run)...])
-                if let close = rest.range(of: ticks) {
-                    let body = rest[..<close.lowerBound]
-                    text += ticks + body + ticks
-                    pos += run + body.count + run
-                } else {
-                    text += ticks
-                    pos += run
-                }
+                let end = Self.ticksEnd(chars, from: pos + run, run: run) ?? pos + run
+                text += String(chars[pos..<end])
+                pos = end
             } else if char == "\\", pos + 1 < chars.count, chars[pos + 1] == "(" {
                 if let end = close(chars, from: pos + 2) {
                     if !text.isEmpty { out.append(.text(text)) }
@@ -347,6 +342,22 @@ enum MathText {
         return out
     }
 
+    /// 从 from 起找一串正好 run 个的反引号（行内代码的结尾），答它后面的位置；没有时 nil。
+    private static func ticksEnd(_ chars: [Character], from: Int, run: Int) -> Int? {
+        var pos = from
+        while pos < chars.count {
+            guard chars[pos] == "`" else {
+                pos += 1
+                continue
+            }
+            var count = 0
+            while pos + count < chars.count, chars[pos + count] == "`" { count += 1 }
+            if count == run { return pos + count }
+            pos += count
+        }
+        return nil
+    }
+
     private static func close(_ chars: [Character], from: Int) -> Int? {
         var pos = from
         while pos + 1 < chars.count {
@@ -360,10 +371,9 @@ enum MathText {
     @MainActor
     static func text(_ markdown: String, scale: CGFloat, scheme: ColorScheme) -> Text {
         let parts = segments(markdown)
-        guard parts.contains(where: { if case .math = $0 { true } else { false } }) else {
-            return Text(MarkdownBlock.inline(markdown))
-        }
+        if parts == [.text(markdown)] { return Text(MarkdownBlock.inline(markdown)) }
         let store = MathStore.shared
+        let size = MathSize.inline
         var out = Text(verbatim: "")
         for part in parts {
             let next: Text
@@ -371,11 +381,9 @@ enum MathText {
             case .text(let text):
                 next = Text(MarkdownBlock.inline(text))
             case .math(let tex):
-                if case .loaded(let list) = store.entry(tex, display: false) {
-                    let size = MathSize.inline
-                    let image = store.image(
-                        list, key: MathStore.key(tex, false), size: size, scale: scale, scheme: scheme)
-                    next = Text(Image(uiImage: image)).baselineOffset(-list.depth * size)
+                if case .loaded(let formula) = store.entry(tex, display: false) {
+                    let image = store.image(formula, size: size, scale: scale, scheme: scheme)
+                    next = Text(Image(uiImage: image)).baselineOffset(-formula.list.depth * size)
                 } else {
                     store.load(tex, display: false)
                     next = Text(verbatim: tex).font(.body.monospaced())

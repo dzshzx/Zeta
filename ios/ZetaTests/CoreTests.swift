@@ -43,8 +43,8 @@ struct CoreTests {
         let core = try core()
         let list = try core.call("math", ["tex": "\\frac{1}{2}", "display": true], as: MathList.self)
         #expect(list.width > 0 && list.height > 0)
-        #expect(list.items?.contains { $0.kind == 0 && $0.char != nil && $0.font != nil } == true)
-        #expect(list.items?.contains { $0.kind == 1 && ($0.thickness ?? 0) > 0 } == true)
+        #expect(list.items?.contains { $0.kind == .glyph && $0.char != nil && $0.font != nil } == true)
+        #expect(list.items?.contains { $0.kind == .line && ($0.thickness ?? 0) > 0 } == true)
         struct Font: Decodable { let id: String }
         #expect(try core.call("math.fonts", as: [Font].self).count == 20)
     }

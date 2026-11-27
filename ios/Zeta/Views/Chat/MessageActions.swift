@@ -195,13 +195,17 @@ struct RewriteSheet: View {
     /// 取回留下的图（实时收到的带着数据的就地用，别的经 image 取），再交给核心改写。
     private func send() async {
         sending = true
-        var pictures: [[String: String]] = []
-        for image in images {
-            var data = image.data
-            if data == nil {
-                data = try? await model.request("image", image.params, as: Picture.self).data
+        // 几张同时取，顺序照旧
+        let got = await withTaskGroup(of: (Int, String?).self) { group in
+            for (index, image) in images.enumerated() {
+                group.addTask { (index, try? await ImageStore.base64(image, model: model)) }
             }
-            if let data { pictures.append(["data": data, "original": image.original ?? ""]) }
+            var out = [String?](repeating: nil, count: images.count)
+            for await (index, data) in group { out[index] = data }
+            return out
+        }
+        let pictures: [[String: String]] = zip(images, got).compactMap { image, data in
+            data.map { ["data": $0, "original": image.original ?? ""] }
         }
         let lost = images.count - pictures.count
         // 去掉的图是附件文件的缩小图时，那个文件也不带

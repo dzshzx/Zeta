@@ -1,10 +1,6 @@
 package mobile
 
-import (
-	"encoding/base64"
-
-	"github.com/dzshzx/Zeta/hub/mathtex"
-)
+import "github.com/dzshzx/Zeta/hub/mathtex"
 
 // 公式：排版在 hub/mathtex（同桌面版、手机版的 RaTeX），Swift 照绘制清单用 KaTeX 字体画（ios/Zeta/Views/Chat/MathView.swift）。
 
@@ -13,10 +9,10 @@ type mathParams struct {
 	Display bool   `json:"display"`
 }
 
-// MathFont 是方法 math.fonts 的一项：KaTeX 字体的 FontId 和 TTF（base64）。
+// MathFont 是方法 math.fonts 的一项：KaTeX 字体的 FontId 和 TTF（JSON 里是 base64）。
 type MathFont struct {
 	ID   string `json:"id"`
-	Data string `json:"data"`
+	Data []byte `json:"data"`
 }
 
 func init() {
@@ -35,7 +31,7 @@ func init() {
 			if err != nil {
 				return nil, err
 			}
-			out = append(out, MathFont{ID: id, Data: base64.StdEncoding.EncodeToString(data)})
+			out = append(out, MathFont{ID: id, Data: data})
 		}
 		return out, nil
 	})

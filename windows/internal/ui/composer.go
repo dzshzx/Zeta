@@ -229,7 +229,7 @@ func (a *App) send(text string) bool {
 		return a.submitEdit(p, text)
 	}
 	if cmd := settingsCommand(p, text); cmd != "" {
-		return a.openChatDeviceSettings(p, cmd == permissionsCommand)
+		return a.openChatDeviceSettings(p, cmd == chat.PermissionsCommand)
 	}
 	m := coreapi.Message{Text: text, Images: p.att.pictures(), Files: p.att.entries()}
 	p.att.clear()

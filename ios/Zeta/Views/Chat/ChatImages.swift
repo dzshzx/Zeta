@@ -17,6 +17,12 @@ final class ImageStore {
 
     func entry(_ image: ChatImage) -> Entry? { entries[image.cacheKey] }
 
+    /// 一张图的原始数据（base64）：实时收到的带着数据就地用，别的经核心桥的 image 取。
+    static func base64(_ image: ChatImage, model: AppModel) async throws -> String {
+        if let data = image.data { return data }
+        return try await model.request("image", image.params, as: Picture.self).data
+    }
+
     func load(_ image: ChatImage, model: AppModel) {
         let key = image.cacheKey
         switch entries[key] {
@@ -30,8 +36,8 @@ final class ImageStore {
         entries[key] = .loading
         Task {
             do {
-                let got = try await model.request("image", image.params, as: Picture.self)
-                guard let data = Data(base64Encoded: got.data), let picture = UIImage(data: data) else {
+                let got = try await Self.base64(image, model: model)
+                guard let data = Data(base64Encoded: got), let picture = UIImage(data: data) else {
                     entries[key] = .failed(String(localized: "不是图片"))
                     return
                 }

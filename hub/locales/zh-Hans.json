@@ -655,13 +655,13 @@
   "@mobilePromptExists": {
     "description": "iOS 版：把消息收藏为常用指令时，清单里已经有同样内容的。"
   },
-  "mobileSlashConfig": "Claude Code 配置",
-  "@mobileSlashConfig": {
-    "description": "iOS 版：斜杠命令 /config 的说明，发出去是打开这台设备的 Claude Code 配置页。"
+  "chatSlashConfig": "Claude Code 配置",
+  "@chatSlashConfig": {
+    "description": "斜杠命令 /config 的说明（桌面版、iOS 版），单独发出是打开这台设备的 Claude Code 配置页。"
   },
-  "mobileSlashPermissions": "工具权限",
-  "@mobileSlashPermissions": {
-    "description": "iOS 版：斜杠命令 /permissions 的说明，发出去是打开工具权限页。"
+  "chatSlashPermissions": "工具权限",
+  "@chatSlashPermissions": {
+    "description": "斜杠命令 /permissions 的说明（桌面版、iOS 版），单独发出是打开工具权限页。"
   },
   "diagBundleEnvLine": "{name}：{value}",
   "@diagBundleEnvLine": {

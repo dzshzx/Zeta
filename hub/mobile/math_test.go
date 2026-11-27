@@ -1,7 +1,6 @@
 package mobile
 
 import (
-	"encoding/base64"
 	"testing"
 
 	"github.com/dzshzx/Zeta/hub/mathtex"
@@ -34,8 +33,7 @@ func TestMathFonts(t *testing.T) {
 		t.Fatalf("%d 种字体", len(fonts))
 	}
 	for _, f := range fonts {
-		data, err := base64.StdEncoding.DecodeString(f.Data)
-		if err != nil || len(data) < 4 || string(data[:4]) != "\x00\x01\x00\x00" {
+		if len(f.Data) < 4 || string(f.Data[:4]) != "\x00\x01\x00\x00" {
 			t.Errorf("%s 不是 TTF", f.ID)
 		}
 	}

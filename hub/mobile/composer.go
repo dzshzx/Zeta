@@ -608,35 +608,6 @@ type Sent struct {
 	Open string `json:"open,omitempty"`
 }
 
-// settingsCommands 是 Zeta 自己的两条斜杠命令（同桌面版 slash.go）：单独发出 /config 打开这台设备的 Claude Code 配置页，
-// /permissions 打开工具权限页，都不发给 Claude Code（composer.send 答 open）。
-var settingsCommands = []struct {
-	name  string
-	label func() string
-}{
-	{"config", locales.MobileSlashConfig},
-	{"permissions", locales.MobileSlashPermissions},
-}
-
-func localCommands() []chat.Command {
-	out := make([]chat.Command, 0, len(settingsCommands))
-	for _, c := range settingsCommands {
-		out = append(out, chat.Command{Name: c.name, Description: c.label()})
-	}
-	return out
-}
-
-// settingsCommand 是 text 单独是哪条设置命令，不是时为空。
-func settingsCommand(text string) string {
-	text = strings.TrimSpace(text)
-	for _, c := range settingsCommands {
-		if text == "/"+c.name {
-			return c.name
-		}
-	}
-	return ""
-}
-
 // SlashView 是输入框上方要提示的斜杠命令：没在打时 commands 为空。
 type SlashView struct {
 	Commands []chat.Command `json:"commands"`
@@ -659,7 +630,7 @@ func (m *composer) typed(text string, caret int) SlashView {
 		m.core.hub.RunChat(func(ctx context.Context, conv *chat.Conversation) error { return conv.Prepare(ctx) }, nil)
 	}
 	if typing {
-		out.Commands = append(out.Commands, chat.Suggest(s.Commands, slash.Prefix, localCommands()...)...)
+		out.Commands = append(out.Commands, chat.Suggest(s.Commands, slash.Prefix, chat.SettingsCommands()...)...)
 	}
 	return out
 }
@@ -1083,7 +1054,7 @@ func init() {
 	onLoop("composer.send", func(c *Core, p textParams) (any, error) {
 		m := c.comp()
 		ch := m.sync()
-		if cmd := settingsCommand(p.Text); cmd != "" && ch != nil && ch.Conv != nil {
+		if cmd := chat.SettingsCommand(p.Text); cmd != "" && ch != nil && ch.Conv != nil {
 			m.text = "" // 附件留着
 			return Sent{Sent: true, Open: cmd}, nil
 		}

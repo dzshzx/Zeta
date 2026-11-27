@@ -1417,36 +1417,36 @@ func (msgs Messages) MobilePromptExists() string {
 	return Catalog.Format(msgs.locale, "mobilePromptExists", nil)
 }
 
-// MobileSlashConfig says "Claude Code 配置"
+// ChatSlashConfig says "Claude Code 配置"
 // in the language the app shows.
 //
-// iOS 版：斜杠命令 /config
-// 的说明，发出去是打开这台设备的 Claude Code 配置页。
-func MobileSlashConfig() string { return In(i18n.Locale()).MobileSlashConfig() }
+// 斜杠命令 /config 的说明（桌面版、iOS
+// 版），单独发出是打开这台设备的 Claude Code 配置页。
+func ChatSlashConfig() string { return In(i18n.Locale()).ChatSlashConfig() }
 
-// MobileSlashConfig says "Claude Code 配置"
+// ChatSlashConfig says "Claude Code 配置"
 // in the language of msgs.
 //
-// iOS 版：斜杠命令 /config
-// 的说明，发出去是打开这台设备的 Claude Code 配置页。
-func (msgs Messages) MobileSlashConfig() string {
-	return Catalog.Format(msgs.locale, "mobileSlashConfig", nil)
+// 斜杠命令 /config 的说明（桌面版、iOS
+// 版），单独发出是打开这台设备的 Claude Code 配置页。
+func (msgs Messages) ChatSlashConfig() string {
+	return Catalog.Format(msgs.locale, "chatSlashConfig", nil)
 }
 
-// MobileSlashPermissions says "工具权限"
+// ChatSlashPermissions says "工具权限"
 // in the language the app shows.
 //
-// iOS 版：斜杠命令 /permissions
-// 的说明，发出去是打开工具权限页。
-func MobileSlashPermissions() string { return In(i18n.Locale()).MobileSlashPermissions() }
+// 斜杠命令 /permissions 的说明（桌面版、iOS
+// 版），单独发出是打开工具权限页。
+func ChatSlashPermissions() string { return In(i18n.Locale()).ChatSlashPermissions() }
 
-// MobileSlashPermissions says "工具权限"
+// ChatSlashPermissions says "工具权限"
 // in the language of msgs.
 //
-// iOS 版：斜杠命令 /permissions
-// 的说明，发出去是打开工具权限页。
-func (msgs Messages) MobileSlashPermissions() string {
-	return Catalog.Format(msgs.locale, "mobileSlashPermissions", nil)
+// 斜杠命令 /permissions 的说明（桌面版、iOS
+// 版），单独发出是打开工具权限页。
+func (msgs Messages) ChatSlashPermissions() string {
+	return Catalog.Format(msgs.locale, "chatSlashPermissions", nil)
 }
 
 // DiagBundleEnvLine says "{name}：{value}"

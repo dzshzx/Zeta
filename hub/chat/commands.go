@@ -5,6 +5,8 @@ import (
 	"strings"
 	"unicode"
 	"unicode/utf8"
+
+	"github.com/dzshzx/Zeta/hub/locales"
 )
 
 // Command 是 Claude Code 报的一个斜杠命令或技能（initialize 应答里 commands 的一项，键是它的驼峰写法）。
@@ -77,4 +79,28 @@ func Suggest(commands []Command, prefix string, local ...Command) []Command {
 		add(c)
 	}
 	return append(starts, contains...)
+}
+
+// Zeta 自己的两条斜杠命令（桌面版、iOS 版）：单独发出 /config 打开这台设备的 Claude Code 配置页，/permissions 打开工具权限页，
+// 都不发给 Claude Code。提示时跟在 Claude Code 的命令后面（Suggest 的 local）。
+const (
+	ConfigCommand      = "config"
+	PermissionsCommand = "permissions"
+)
+
+// SettingsCommands 是提示里列的那两条，说明按界面语言出。
+func SettingsCommands() []Command {
+	return []Command{
+		{Name: ConfigCommand, Description: locales.ChatSlashConfig()},
+		{Name: PermissionsCommand, Description: locales.ChatSlashPermissions()},
+	}
+}
+
+// SettingsCommand 是 text 单独是哪条设置命令（前后的空白不算），不是时为空。
+func SettingsCommand(text string) string {
+	switch text = strings.TrimSpace(text); text {
+	case "/" + ConfigCommand, "/" + PermissionsCommand:
+		return text[1:]
+	}
+	return ""
 }

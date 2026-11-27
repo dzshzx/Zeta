@@ -2,7 +2,6 @@ package ui
 
 import (
 	"context"
-	"strings"
 	"unicode/utf8"
 
 	"github.com/dzshzx/Zeta/hub/chat"
@@ -11,27 +10,12 @@ import (
 	"github.com/egoist/mygo/ui"
 )
 
-const permissionsCommand = "permissions"
-
-var settingsCommands = [...]struct {
-	name  string
-	label func() string
-}{
-	{"config", locales.ClaudecfgConfigTitle},
-	{permissionsCommand, locales.ClaudecfgPermissions},
-}
-
-// settingsCommand 只接管单独发送的裸命令；编辑旧消息时，文字仍是那条消息的内容。
+// settingsCommand 只接管单独发送的裸命令（chat.SettingsCommand）；编辑旧消息时，文字仍是那条消息的内容。
 func settingsCommand(p *chatPane, text string) string {
-	if p.acts.editing == nil {
-		text = strings.TrimSpace(text)
-		for _, cmd := range settingsCommands {
-			if text == "/"+cmd.name {
-				return cmd.name
-			}
-		}
+	if p.acts.editing != nil {
+		return ""
 	}
-	return ""
+	return chat.SettingsCommand(text)
 }
 
 // 斜杠命令（同 Composer.kt 的 SlashSuggestions）：光标前那个词是「/名字」（在开头或空白后面，见 chat.SlashAt）时，输入框上方列出
@@ -64,9 +48,7 @@ func (a *App) suggestions(p *chatPane, text string, caret int) (chat.Slash, []ch
 	}
 	var local []chat.Command
 	if p.acts.editing == nil {
-		for _, cmd := range settingsCommands {
-			local = append(local, chat.Command{Name: cmd.name, Description: cmd.label()})
-		}
+		local = chat.SettingsCommands()
 	}
 	return s, chat.Suggest(p.state.Commands, s.Prefix, local...)
 }
