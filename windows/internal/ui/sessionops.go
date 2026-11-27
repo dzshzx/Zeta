@@ -448,11 +448,12 @@ func (a *App) rename(s hostlink.Session) {
 
 // archive 归档或取消归档 s（右键菜单、Ctrl+Shift+A）。
 func (a *App) archive(s hostlink.Session) {
+	if !s.Archived && a.archiveAsking([]hostlink.Session{s}) {
+		return
+	}
 	failed := locales.SessionArchiveFailed()
 	if s.Archived {
 		failed = locales.SessionUnarchiveFailed()
-	} else if a.archiveAsking([]hostlink.Session{s}) {
-		return
 	}
 	a.hub.SetArchived([]hostlink.Session{s}, !s.Archived, a.failed(failed))
 }
