@@ -71,7 +71,7 @@ struct TaskInfo: Decodable, Sendable, Identifiable, Hashable {
     }
 
     /// 已运行时间的写法：1h 2m 3s。
-    static let elapsedStyle = Duration.UnitsFormatStyle(allowed: [.hours, .minutes, .seconds], width: .narrow)
+    static let elapsedStyle = Duration.UnitsFormatStyle(allowedUnits: [.hours, .minutes, .seconds], width: .narrow)
 
     var title: String { description.isEmpty ? (command ?? "") : description }
 
