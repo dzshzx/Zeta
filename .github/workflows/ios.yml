@@ -129,8 +129,9 @@ jobs:
           path: ${{ runner.temp }}/shots
           retention-days: 14
 
-  # master 上的构建发到固定的预发布版本 ios-dev：tag 挪到这次的提交，ipa 换成这次的，下载地址不变、不用登录：
-  #   https://github.com/dzshzx/Zeta/releases/download/ios-dev/Zeta-Dev.ipa
+  # master 上的构建发成预发布版本 ios-dev-<提交号>，不用登录就能下载；全部 iOS 预构建：
+  #   https://github.com/dzshzx/Zeta/releases?q=ios-dev&expanded=true
+  # 仓库开着不可变发布：发布后不能再加文件、不能挪 tag，所以每次一个新版本，先建草稿传好 ipa 再发布。
   # tag 不以 v 开头，版本号算法（windows/scripts/version.sh）和发版都不认它；标成预发布，不算最新版，应用内更新照旧。
   prerelease:
     needs: ios
@@ -139,9 +140,6 @@ jobs:
     timeout-minutes: 10
     permissions:
       contents: write
-    concurrency:
-      group: ios-prerelease
-      cancel-in-progress: false
     steps:
       - name: 取 ipa
         uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
@@ -149,7 +147,7 @@ jobs:
           name: ipa
           path: ipa
 
-      - name: 更新 ios-dev
+      - name: 发预发布版本
         env:
           GH_TOKEN: ${{ github.token }}
           GH_REPO: ${{ github.repository }}
@@ -158,12 +156,8 @@ jobs:
           set -euo pipefail
           src=$(ls ipa/*.ipa)
           name=$(basename "$src" .ipa)
-          cp "$src" Zeta-Dev.ipa
-          notes="iOS 测试版的预构建（${name#Zeta-}，提交 ${SHA:0:7}），master 上改到 iOS 版时自动更新。不签名，用自己的开发者账号重签后安装。说明见 docs/ios.md。"
-          if gh release view ios-dev >/dev/null 2>&1; then
-            gh api -X PATCH "repos/$GH_REPO/git/refs/tags/ios-dev" -f sha="$SHA" -F force=true >/dev/null
-            gh release edit ios-dev --prerelease --latest=false --notes "$notes"
-          else
-            gh release create ios-dev --target "$SHA" --prerelease --latest=false --title "iOS 预构建" --notes "$notes"
-          fi
-          gh release upload ios-dev Zeta-Dev.ipa --clobber
+          tag=ios-dev-${SHA:0:7}
+          notes="iOS 测试版的预构建（${name#Zeta-}，提交 ${SHA:0:7}）。不签名，用自己的开发者账号重签后安装。说明见 docs/ios.md。"
+          gh release create "$tag" --draft --target "$SHA" --prerelease --latest=false --title "iOS 预构建 ${name#Zeta-}" --notes "$notes"
+          gh release upload "$tag" "$src"
+          gh release edit "$tag" --draft=false
