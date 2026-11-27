@@ -143,8 +143,25 @@ private struct WorkView: View {
 private struct StepView: View {
     let step: Step
 
+    /// 发起子代理的那一步（Task 是 Agent 的旧名）：点了进子代理页，不在原地展开（同桌面版）。
+    private var isSubagent: Bool { step.name == "Agent" || step.name == "Task" }
+
     var body: some View {
-        if step.isThinking {
+        if isSubagent {
+            NavigationLink {
+                SubagentView(toolUseID: step.id)
+            } label: {
+                HStack(spacing: 6) {
+                    status
+                    Text(step.name).font(.footnote.bold())
+                    Text(step.summary)
+                        .font(.footnote)
+                        .foregroundStyle(.secondary)
+                        .lineLimit(1)
+                }
+            }
+            .accessibilityHint(Text("查看子代理的步骤"))
+        } else if step.isThinking {
             DisclosureGroup {
                 MarkdownView(text: step.text)
                     .font(.footnote)

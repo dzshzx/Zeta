@@ -5613,6 +5613,16 @@
           }
         }
       }
+    },
+    "查看子代理的步骤": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Shows the subagent’s steps"
+          }
+        }
+      }
     }
   }
 }
