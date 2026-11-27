@@ -18,17 +18,29 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.unit.IntOffset
+import androidx.compose.ui.unit.IntRect
+import androidx.compose.ui.unit.IntSize
+import androidx.compose.ui.unit.LayoutDirection
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.window.PopupPositionProvider
 import com.dzshzx.zeta.ui.components.fill8
 import com.dzshzx.zeta.ui.components.isDark
 import com.dzshzx.zeta.ui.components.miuix.AnchoredMenu
 import com.dzshzx.zeta.ui.components.miuix.MenuEntry
+import top.yukonga.miuix.kmp.basic.PlainTooltip
+import top.yukonga.miuix.kmp.basic.Text
 import top.yukonga.miuix.kmp.basic.TooltipAnchorPosition
 import top.yukonga.miuix.kmp.basic.TooltipBox
+import top.yukonga.miuix.kmp.basic.TooltipDefaults
+import top.yukonga.miuix.kmp.basic.rememberTooltipState
+import top.yukonga.miuix.kmp.glass.GlassPopupDefaults
 import top.yukonga.miuix.kmp.theme.LocalContentColor
 import top.yukonga.miuix.kmp.theme.MiuixTheme
 
@@ -59,12 +71,7 @@ fun BarButton(
     val content =
         if (enabled) colors.contentColor else MiuixTheme.colorScheme.disabledOnSecondaryVariant
     // 长按时 Miuix 的 TooltipBox 在按钮上方弹出说明，过一会儿自己收起，并吞掉松手那一下，不再算一次点击；按钮自己的长按只管震动
-    TooltipBox(
-        text = description,
-        modifier = modifier,
-        enabled = enabled,
-        positioning = TooltipAnchorPosition.Above,
-    ) {
+    BarTooltip(description, enabled, modifier) {
         Box(
             Modifier.size(BarButtonSize)
                 .clip(CircleShape)
@@ -129,3 +136,54 @@ fun barChipThemeColors(): BarChipColors =
         containerColor = MiuixTheme.colorScheme.tertiaryContainer,
         contentColor = MiuixTheme.colorScheme.primary,
     )
+
+/**
+ * 底栏按钮长按的说明，在按钮上方。Miuix 的 TooltipBox 只把说明收在窗口里，贴着屏幕边的按钮（底栏最左边的添加附件）说明就紧贴屏幕边；
+ * 这里再让出和菜单一样的安全距离（[GlassPopupDefaults.SafeMargin]）。
+ */
+@Composable
+private fun BarTooltip(
+    text: String,
+    enabled: Boolean,
+    modifier: Modifier,
+    content: @Composable () -> Unit,
+) {
+    val above = TooltipDefaults.rememberTooltipPositionProvider(TooltipAnchorPosition.Above)
+    val margin = with(LocalDensity.current) { GlassPopupDefaults.SafeMargin.roundToPx() }
+    val provider = remember(above, margin) { SafeMarginPosition(above, margin) }
+    TooltipBox(
+        positionProvider = provider,
+        tooltip = {
+            PlainTooltip {
+                Text(
+                    text = text,
+                    color = TooltipDefaults.plainTooltipContentColor,
+                    style = MiuixTheme.textStyles.body2,
+                    maxLines = 2,
+                    overflow = TextOverflow.Ellipsis,
+                )
+            }
+        },
+        state = rememberTooltipState(isPersistent = false),
+        modifier = modifier,
+        enableUserInput = enabled,
+        content = content,
+    )
+}
+
+/** 照 [base] 放，再把横向位置收进离窗口左右边各 [margin] 的范围里。 */
+class SafeMarginPosition(
+    private val base: PopupPositionProvider,
+    private val margin: Int,
+) : PopupPositionProvider {
+    override fun calculatePosition(
+        anchorBounds: IntRect,
+        windowSize: IntSize,
+        layoutDirection: LayoutDirection,
+        popupContentSize: IntSize,
+    ): IntOffset {
+        val p = base.calculatePosition(anchorBounds, windowSize, layoutDirection, popupContentSize)
+        val max = (windowSize.width - popupContentSize.width - margin).coerceAtLeast(margin)
+        return IntOffset(p.x.coerceIn(margin, max), p.y)
+    }
+}
