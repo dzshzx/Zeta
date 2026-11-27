@@ -24,7 +24,7 @@ struct CoreTests {
     @Test func refusalsThrow() throws {
         let core = try core()
         #expect(throws: Core.Failure.self) { try core.call("no-such-method") }
-        #expect(throws: Core.Failure.self) { try core.call("send", ["text": "你好"]) }
+        #expect(throws: Core.Failure.self) { try core.call("interrupt") }
     }
 
     @Test func markdownBlocks() {

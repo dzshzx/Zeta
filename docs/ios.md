@@ -47,7 +47,7 @@ Swift 经三个 C 函数调核心（`hub/cmd/zeta-ios`）：
 | `list` | `id` | 会话列表列哪台，空是全部设备 |
 | `refresh` | | 重新订阅列着的设备 |
 | `open`、`new`、`close` | `backend`、`id`；`backend` | 点开会话、新对话、关掉聊天页 |
-| `send`、`interrupt`、`earlier` | `text` | 对聊天页的对话发消息、停止、载入更早的 |
+| `interrupt`、`earlier` | | 对聊天页的对话停止、载入更早的（发消息经输入栏的 `composer.send`） |
 | `answer` | `request_id`、`reply` | 回应确认或提问，`reply` 是 `helper/prompt` 的 Reply |
 | `core` | `backend`、`method`、`params` | 把 `method` 转给设备 `backend` 的核心，结果原样交回（`AppModel.device`）；只转 `config.*`、`diag.*`、`system.*`（各方法见 `docs/core.md`），对话、会话列表、账号这些有中枢自己的状态，走中枢的方法；阻塞，最多 60 秒，要连 MCP 服务器或跑 claude update 的几个（`routes.go` 的 `slowMethods`）等 3 到 6 分钟 |
 | `claudecfg.local` | `backend` | 客户端本地存的这台的 `{autoCompact, compactPercent, compactPercents, autoTitle}`（`hub/claudecfg`，0 是 Claude Code 自己的压缩时机），和这台的默认工作目录 `cwd` |

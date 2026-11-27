@@ -20,7 +20,6 @@ import (
 
 	"github.com/dzshzx/Zeta/client/hostlink"
 	"github.com/dzshzx/Zeta/client/sshlink"
-	"github.com/dzshzx/Zeta/helper/coreapi"
 	"github.com/dzshzx/Zeta/helper/prompt"
 	"github.com/dzshzx/Zeta/hub"
 	"github.com/dzshzx/Zeta/hub/appversion"
@@ -59,9 +58,10 @@ type Core struct {
 	probes map[string]probed // 探测过、还没加的设备：凭据 → 探测结果
 
 	// 下面只在核心的 goroutine 上读写。
-	shown   *chat.Conversation // 上次 state 交给界面的对话：换了对话时条目整份重发
-	problem string             // 最近一次操作没成的原因，界面显示一次就清掉（state 的 failed）
-	sidebar sidebar            // 侧栏的提醒和没成的操作（sessions.go）
+	shown    *chat.Conversation // 上次 state 交给界面的对话：换了对话时条目整份重发
+	problem  string             // 最近一次操作没成的原因，界面显示一次就清掉（state 的 failed）
+	sidebar  sidebar            // 侧栏的提醒和没成的操作（sessions.go）
+	composer *composer          // 输入栏（composer.go），comp 建
 }
 
 // job 是排给核心 goroutine 的一件事；quiet 的（界面自己来取状态）跑完不算有变化，不然界面每取一次就又被叫来取一次。
@@ -333,14 +333,6 @@ func init() {
 	onLoop("close", func(c *Core, _ none) (any, error) {
 		c.hub.CloseChat()
 		return ok, nil
-	})
-	inChat("send", func(p textParams) (func(ctx context.Context, conv *chat.Conversation) error, error) {
-		if strings.TrimSpace(p.Text) == "" {
-			return nil, nil
-		}
-		return func(ctx context.Context, conv *chat.Conversation) error {
-			return conv.Send(ctx, coreapi.Outgoing{Text: p.Text})
-		}, nil
 	})
 	inChat("interrupt", func(none) (func(ctx context.Context, conv *chat.Conversation) error, error) {
 		return func(ctx context.Context, conv *chat.Conversation) error { return conv.Interrupt(ctx) }, nil

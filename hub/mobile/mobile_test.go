@@ -116,7 +116,7 @@ func TestBadCalls(t *testing.T) {
 	if why := failure(c, "state", "[1]"); !strings.Contains(why, "JSON object") {
 		t.Errorf("参数不是对象：%q", why)
 	}
-	if why := failure(c, "send", `{"text":"你好"}`); why != locales.MobileChatNotOpen() {
-		t.Errorf("没有对话时发消息：%q", why)
+	if why := failure(c, "interrupt", ""); why != locales.MobileChatNotOpen() {
+		t.Errorf("没有对话时停止：%q", why)
 	}
 }

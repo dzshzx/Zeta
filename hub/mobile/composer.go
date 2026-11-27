@@ -40,15 +40,12 @@ import (
 	"github.com/dzshzx/Zeta/hub/settings"
 )
 
-// composers 是各个核心的输入栏（只在那个核心的 goroutine 上读写里面的东西）。不放进 Core：别的领域也在改 mobile.go。
-var composers sync.Map // *Core → *composer
-
+// comp 是聊天页的输入栏，第一次用时建（核心 goroutine 上）。
 func (c *Core) comp() *composer {
-	if m, ok := composers.Load(c); ok {
-		return m.(*composer)
+	if c.composer == nil {
+		c.composer = &composer{core: c, models: map[string]*modelSource{}}
 	}
-	m, _ := composers.LoadOrStore(c, &composer{core: c, models: map[string]*modelSource{}})
-	return m.(*composer)
+	return c.composer
 }
 
 // composer 是聊天页输入栏的状态，跟着聊天页里的对话走：换了对话时把这一份收进草稿，换上那个对话的。

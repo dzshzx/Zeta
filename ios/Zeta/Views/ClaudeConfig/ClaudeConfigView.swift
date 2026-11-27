@@ -58,7 +58,7 @@ private struct DefaultsSection: View {
     var body: some View {
         Section {
             if let defaults = store.defaults {
-                ModelMenu(store: store, defaults: defaults)
+                DefaultModelMenu(store: store, defaults: defaults)
                 NavigationLink {
                     EffortView(store: store)
                 } label: {
@@ -136,7 +136,7 @@ private struct DefaultsSection: View {
 }
 
 /// 默认模型的菜单（同桌面版 modelChoice）：第一项是不设，接着是各系列最新的，旧版本收在「更多模型」里；设着的不在清单里时也列在上层。
-private struct ModelMenu: View {
+private struct DefaultModelMenu: View {
     let store: ClaudeConfigStore
     let defaults: ConfigDefaults
 
