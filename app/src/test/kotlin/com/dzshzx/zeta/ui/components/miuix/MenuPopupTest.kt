@@ -33,14 +33,14 @@ import top.yukonga.miuix.kmp.icon.extended.Sort
  */
 class MenuPopupTest : ShotTest() {
     /** 打开挂在 [width] 宽、屏幕中间的元素上的菜单，返回元素和菜单项的位置。 */
-    private fun openMenu(width: Dp): Pair<DpRect, DpRect> {
+    private fun openMenu(width: Dp, align: Alignment = Alignment.TopCenter): Pair<DpRect, DpRect> {
         var show by mutableStateOf(false)
         compose.mainClock.autoAdvance = false
         compose.setContent {
             ZetaTheme(windowBackdrop = false) {
                 Scaffold {
                     Box(Modifier.fillMaxSize()) {
-                        Box(Modifier.align(Alignment.TopCenter).padding(top = 200.dp)) {
+                        Box(Modifier.align(align).padding(top = 200.dp, start = 16.dp)) {
                             Box(Modifier.size(width = width, height = 36.dp).testTag("anchor"))
                             AnchoredMenu(
                                 show = show,
@@ -63,6 +63,17 @@ class MenuPopupTest : ShotTest() {
     fun centeredOnNarrowAnchor() {
         val (anchor, menu) = openMenu(120.dp)
         assertEquals((anchor.left + anchor.right).value / 2, (menu.left + menu.right).value / 2, 1f)
+    }
+
+    /** 贴着屏幕左边的胶囊（侧栏的设备胶囊）：居中会伸出屏幕，菜单收进来，左边离屏幕边一个安全距离。 */
+    @Test
+    fun clampedToSafeMarginNearLeftEdge() {
+        val (_, menu) = openMenu(110.dp, Alignment.TopStart)
+        assertEquals(
+            (GlassPopupDefaults.SafeMargin + GlassPopupDefaults.ItemPressInset).value,
+            menu.left.value,
+            1f,
+        )
     }
 
     @Test

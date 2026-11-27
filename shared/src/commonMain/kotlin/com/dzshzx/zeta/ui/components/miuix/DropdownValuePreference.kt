@@ -1,5 +1,6 @@
 package com.dzshzx.zeta.ui.components.miuix
 
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.padding
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
@@ -8,7 +9,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.layout.onPlaced
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
@@ -66,14 +67,37 @@ fun DropdownValuePreference(
     var expanded by remember { mutableStateOf(false) }
     // 菜单开着和收起动画放完之前，这一行保持按下的样子
     var holdDown by remember { mutableStateOf(false) }
-    val anchor = remember { MenuAnchor() }
     val nonEmpty = remember(entries) { entries.filter { it.items.isNotEmpty() } }
     val actualEnabled = enabled && nonEmpty.isNotEmpty()
     val actionColor =
         if (actualEnabled) MiuixTheme.colorScheme.onSurfaceVariantActions
         else MiuixTheme.colorScheme.disabledOnSecondaryVariant
+    Box(modifier) {
+        DropdownRow(title, summary, value, actionColor, actualEnabled, holdDown) {
+            expanded = !expanded
+            if (expanded) holdDown = true
+        }
+        GlassMenu(
+            show = expanded && actualEnabled,
+            entries = nonEmpty,
+            anchor = menuAnchorLayer(),
+            onDismiss = { expanded = false },
+            onDismissFinished = { holdDown = false },
+        )
+    }
+}
+
+@Composable
+private fun DropdownRow(
+    title: String,
+    summary: String?,
+    value: String?,
+    actionColor: Color,
+    enabled: Boolean,
+    holdDown: Boolean,
+    onClick: () -> Unit,
+) {
     BasicComponent(
-        modifier = modifier.onPlaced { anchor.coordinates = it },
         title = title,
         summary = summary,
         endActions = {
@@ -93,19 +117,9 @@ fun DropdownValuePreference(
             }
             DropdownArrowEndAction(actionColor = actionColor)
         },
-        onClick = {
-            expanded = !expanded
-            if (expanded) holdDown = true
-        },
+        onClick = onClick,
         role = Role.DropdownList,
         holdDownState = holdDown,
-        enabled = actualEnabled,
-    )
-    GlassMenu(
-        show = expanded && actualEnabled,
-        entries = nonEmpty,
-        anchorBounds = anchor::bounds,
-        onDismiss = { expanded = false },
-        onDismissFinished = { holdDown = false },
+        enabled = enabled,
     )
 }

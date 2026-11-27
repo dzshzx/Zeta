@@ -56,11 +56,8 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.focus.FocusRequester
-import androidx.compose.ui.geometry.Rect
 import androidx.compose.ui.input.nestedscroll.NestedScrollConnection
 import androidx.compose.ui.input.nestedscroll.nestedScroll
-import androidx.compose.ui.layout.onPlaced
-import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
@@ -92,13 +89,13 @@ import com.dzshzx.zeta.ui.components.miuix.ConfirmDialog
 import com.dzshzx.zeta.ui.components.miuix.GlassMenu
 import com.dzshzx.zeta.ui.components.miuix.IconActionButton
 import com.dzshzx.zeta.ui.components.miuix.LocalInGlassTopBar
-import com.dzshzx.zeta.ui.components.miuix.MenuAnchor
 import com.dzshzx.zeta.ui.components.miuix.MenuEntry
 import com.dzshzx.zeta.ui.components.miuix.MenuItem
 import com.dzshzx.zeta.ui.components.miuix.PageBlurHost
 import com.dzshzx.zeta.ui.components.miuix.TextInputDialog
 import com.dzshzx.zeta.ui.components.miuix.ZetaCorner
 import com.dzshzx.zeta.ui.components.miuix.ZetaIcons
+import com.dzshzx.zeta.ui.components.miuix.menuAnchorLayer
 import com.dzshzx.zeta.ui.components.miuix.pageBlurSource
 import com.dzshzx.zeta.ui.components.miuix.rememberPageBackdrop
 import com.dzshzx.zeta.ui.components.rememberRetained
@@ -1076,25 +1073,22 @@ private fun OverflowMenu(
     onFind: (() -> Unit)?,
 ) {
     var expanded by remember { mutableStateOf(false) }
-    val anchor = remember { MenuAnchor() }
-    val gap = with(LocalDensity.current) { OverflowMenuGap.toPx() }
-    Box(Modifier.onPlaced { anchor.coordinates = it }) {
+    Box {
         IconActionButton(
             icon = MiuixIcons.More,
             contentDescription = Strings.componentsMore(),
             holdDownState = expanded,
             onClick = { expanded = true },
         )
+        // 菜单放在按钮下边，不盖住顶栏的标题（Miuix 的玻璃菜单默认从按钮的顶边往下展开）
+        GlassMenu(
+            show = expanded,
+            entries = overflowEntries(onNewChat, onEnd, onOpenSettings, onFind),
+            anchor = menuAnchorLayer(),
+            onDismiss = { expanded = false },
+            gapBelow = OverflowMenuGap,
+        )
     }
-    // 菜单从按钮下边弹出，不盖住顶栏的标题（Miuix 的玻璃菜单默认从按钮的顶边往下展开）：锚换成按钮下边往下一点的一条线
-    GlassMenu(
-        show = expanded,
-        entries = overflowEntries(onNewChat, onEnd, onOpenSettings, onFind),
-        anchorBounds = {
-            anchor.bounds().let { Rect(it.left, it.bottom + gap, it.right, it.bottom + gap) }
-        },
-        onDismiss = { expanded = false },
-    )
 }
 
 /** 会话首页「更多」菜单和顶栏按钮之间的缝。 */

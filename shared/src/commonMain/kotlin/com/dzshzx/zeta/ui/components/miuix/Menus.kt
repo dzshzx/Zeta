@@ -35,11 +35,14 @@ import com.dzshzx.zeta.i18n.Strings
 import kotlinx.coroutines.delay
 import top.yukonga.miuix.kmp.basic.HorizontalDivider
 import top.yukonga.miuix.kmp.basic.IconButtonDefaults
-import top.yukonga.miuix.kmp.glass.GlassPopup
+import top.yukonga.miuix.kmp.glass.GlassPopupAnchor
 import top.yukonga.miuix.kmp.glass.GlassPopupDefaults
 import top.yukonga.miuix.kmp.glass.GlassPopupItem
 import top.yukonga.miuix.kmp.glass.GlassPopupSizing
 import top.yukonga.miuix.kmp.glass.GlassSecondaryPopup
+import top.yukonga.miuix.kmp.glass.GlassTransformPopup
+import top.yukonga.miuix.kmp.glass.glassPopupAnchor
+import top.yukonga.miuix.kmp.glass.rememberGlassPopupAnchor
 import top.yukonga.miuix.kmp.icon.MiuixIcons
 import top.yukonga.miuix.kmp.icon.extended.More
 import top.yukonga.miuix.kmp.layout.CascadingPopupDefaults
@@ -85,37 +88,53 @@ private fun BoxScope.anchoredMenu(
     onDismiss: () -> Unit,
     alignEnd: Boolean,
 ) {
-    val anchor = remember { MenuAnchor() }
-    Box(Modifier.matchParentSize().onPlaced { anchor.coordinates = it })
-    GlassMenu(show, entries, anchor::bounds, onDismiss, alignEnd = alignEnd)
+    val anchor = menuAnchorLayer()
+    GlassMenu(show, entries, anchor, onDismiss, alignEnd = alignEnd)
+}
+
+/**
+ * 叠在控件上的一层透明锚，交给 [GlassMenu]：菜单从这一层的中心、按它的大小长出来，收起时缩回去。不挂在控件本身上：Miuix 的锚在菜单开着时会把挂着它的元素藏起来，
+ * 控件要照样看得见（被菜单盖住）。
+ */
+@Composable
+internal fun BoxScope.menuAnchorLayer(): MenuAnchor {
+    val glass = rememberGlassPopupAnchor()
+    val anchor = remember(glass) { MenuAnchor(glass) }
+    Box(
+        Modifier.matchParentSize()
+            .onPlaced { anchor.coordinates = it }
+            .glassPopupAnchor(glass, MenuAnchorCorner),
+    )
+    return anchor
 }
 
 /** 锚的布局坐标。会话列表、聊天气泡每一行都挂着菜单，位置不写进 Compose 状态（滚动时每帧都会变，写进状态就每帧重组一遍），菜单打开时才算一次窗口坐标。 */
-internal class MenuAnchor {
+internal class MenuAnchor(val glass: GlassPopupAnchor? = null) {
     var coordinates: LayoutCoordinates? = null
 
     fun bounds(): Rect = coordinates?.takeIf { it.isAttached }?.boundsInWindow() ?: Rect.Zero
 }
 
 /**
- * 以 [anchorBounds]（打开时取一次的窗口坐标）为锚的玻璃菜单；锚是整个设置行、拿不到 BoxScope 时用，其余用
- * [AnchoredMenu]。没打开过时什么都不建；收起动画放完后调 [onDismissFinished]。
+ * 以 [anchor]（[menuAnchorLayer]）为锚的玻璃菜单；菜单和锚不在同一个 Box 里时用（设置行、会话首页的「更多」），其余用 [AnchoredMenu]。
+ * [gapBelow] 不为空时菜单放在锚下边再往下这么远，不盖住锚；为空时照 Miuix 从锚的顶边往下展开。没打开过时什么都不建；收起动画放完后调 [onDismissFinished]。
  */
 @Composable
 internal fun GlassMenu(
     show: Boolean,
     entries: List<MenuEntry>,
-    anchorBounds: () -> Rect,
+    anchor: MenuAnchor,
     onDismiss: () -> Unit,
     onDismissFinished: () -> Unit = {},
     alignEnd: Boolean = false,
+    gapBelow: Dp? = null,
 ) {
     val mounted = remember { mutableStateOf(show) }
     if (show) mounted.value = true
     if (!mounted.value) return
     val groups = remember(entries) { entries.filter { it.items.isNotEmpty() } }
     val finished by rememberUpdatedState(onDismissFinished)
-    MenuPopup(show, groups, mounted, remember(show) { anchorBounds() }, alignEnd, onDismiss) {
+    MenuPopup(show, groups, mounted, anchor, alignEnd, gapBelow, onDismiss) {
         finished()
     }
 }
@@ -126,8 +145,9 @@ private fun MenuPopup(
     show: Boolean,
     groups: List<MenuEntry>,
     mounted: MutableState<Boolean>,
-    anchorBounds: Rect,
+    anchor: MenuAnchor,
     alignEnd: Boolean,
+    gapBelow: Dp?,
     onDismiss: () -> Unit,
     onClosed: () -> Unit,
 ) {
@@ -164,6 +184,7 @@ private fun MenuPopup(
         // 宿主底下让出键盘的高度，键盘升起时菜单就往上弹，不被盖住（回归：tools/phone-tests/ime-menu.sh）。
         // 用 imePadding 不手算：设置类页面的最外层 Scaffold 已经让出过键盘（MiuixPage），这里只补还没让出的那部分
         val density = LocalDensity.current
+        val anchorBounds = remember(show) { anchor.bounds() }
         // 图标按钮（alignEnd）和比菜单还宽的锚（整行、整段内容）和它的右边对齐、向左展开，其余（胶囊、底栏按钮）和它水平居中；
         // 贴着屏幕边的由 Miuix 收回窗口里
         val alignment =
@@ -176,13 +197,17 @@ private fun MenuPopup(
         var entered by remember { mutableStateOf(false) }
         LaunchedEffect(Unit) { entered = true }
         Box(Modifier.fillMaxSize().imePadding()) {
-            GlassPopup(
+            // 用 GlassTransformPopup 不用 GlassPopup：GlassPopup 的弹出、收起以菜单停下后那个框的对齐边为起点，不看锚，菜单被收进屏幕里时
+            // 就从控件旁边长出来；这个从锚的中心、按锚的大小长到停下的位置，收起时缩回锚上。停下的位置两者一样
+            GlassTransformPopup(
                 show = show && entered,
                 onDismissRequest = onDismiss,
-                anchorBounds = anchorBounds,
+                anchor = checkNotNull(anchor.glass),
                 backdrop = backdrop,
+                anchorContent = {},
                 sizing = MenuSizing,
                 horizontalAlignment = alignment,
+                gap = gapBelow?.let { it + with(density) { anchorBounds.height.toDp() } } ?: 0.dp,
             ) {
                 MenuRows(groups, onPick = pick) { item, rowBounds ->
                     child = item
@@ -288,6 +313,9 @@ private fun MenuDivider() {
 private val MenuSizing = GlassPopupSizing(maxHeight = 600.dp)
 
 /** 收起动画的时长（照 Eta 的 GlassSpinnerPreference），放完才把弹层从 Scaffold 上撤下。 */
+/** 菜单收回锚上时的圆角。 */
+private val MenuAnchorCorner = 16.dp
+
 private const val MENU_EXIT_MILLIS = 420L
 
 /** 顶栏右边的“更多”：在玻璃顶栏里是玻璃圆钮，[entries] 每组之间有分隔线，点一项就收起。 */
