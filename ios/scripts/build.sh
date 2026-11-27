@@ -34,12 +34,14 @@ case $what in
     echo "$ipa"
     ;;
   test)
-    xcodebuild -project "$ios/Zeta.xcodeproj" -scheme Zeta -destination "platform=iOS Simulator,id=$(bash "$ios/scripts/simulator.sh")" \
+    sim=$(bash "$ios/scripts/simulator.sh")
+    xcodebuild -project "$ios/Zeta.xcodeproj" -scheme Zeta -destination "platform=iOS Simulator,id=$sim" \
       -derivedDataPath "$ios/build/derived" "${settings[@]}" test
     ;;
   simulator)
+    sim=$(bash "$ios/scripts/simulator.sh")
     xcodebuild -project "$ios/Zeta.xcodeproj" -scheme Zeta -configuration Debug -sdk iphonesimulator \
-      -destination "platform=iOS Simulator,id=$(bash "$ios/scripts/simulator.sh")" -derivedDataPath "$ios/build/derived" "${settings[@]}" build
+      -destination "platform=iOS Simulator,id=$sim" -derivedDataPath "$ios/build/derived" "${settings[@]}" build
     rm -rf "$ios/build/sim"
     mkdir -p "$ios/build/sim"
     cp -R "$ios/build/derived/Build/Products/Debug-iphonesimulator/Zeta.app" "$ios/build/sim/"

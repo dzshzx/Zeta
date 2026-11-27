@@ -7,6 +7,6 @@ if [[ -n ${ZETA_SIMULATOR:-} ]]; then
 fi
 udid=$(xcrun simctl list devices available -j |
   jq -r '[.devices | to_entries[] | select(.key | test("iOS")) | {runtime: .key, device: .value[] | select(.name | startswith("iPhone"))}]
-    | sort_by(.runtime | sub(".*iOS-"; "") | split("-") | map(tonumber)) | last | .device.udid // empty')
+    | sort_by(.runtime | [scan("iOS-([0-9]+)-([0-9]+)")[] | tonumber]) | last | .device.udid // empty')
 [[ -n $udid ]] || { echo "simulator.sh: 没有能用的 iPhone 模拟器" >&2; exit 1; }
 echo "$udid"
