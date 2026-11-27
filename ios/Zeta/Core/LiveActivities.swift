@@ -31,7 +31,8 @@ final class LiveActivities {
             if let activity = live[key] {
                 if activity.content.state != want.state {
                     let content = ActivityContent(state: want.state, staleDate: nil)
-                    Task { await activity.update(content) }
+                    let id = activity.id
+                    Task { await Self.update(id, content) }
                 }
             } else {
                 start(key, want)
@@ -45,8 +46,24 @@ final class LiveActivities {
             done.line = String(localized: "答完了")
             let content = ActivityContent(state: done, staleDate: nil)
             let until = Date.now.addingTimeInterval(Self.finishedFor)
-            Task { await activity.end(content, dismissalPolicy: .after(until)) }
+            let id = activity.id
+            Task { await Self.end(id, content, dismissalPolicy: .after(until)) }
         }
+    }
+
+    // Activity 不是 Sendable，不能从主线程带进异步的调用：只带编号过去，在那边按编号找出来再改。
+    private nonisolated static func find(_ id: String) -> Activity<ZetaActivityAttributes>? {
+        Activity<ZetaActivityAttributes>.activities.first { $0.id == id }
+    }
+
+    private nonisolated static func update(_ id: String, _ content: ActivityContent<Content>) async {
+        await find(id)?.update(content)
+    }
+
+    private nonisolated static func end(
+        _ id: String, _ content: ActivityContent<Content>?, dismissalPolicy: ActivityUIDismissalPolicy
+    ) async {
+        await find(id)?.end(content, dismissalPolicy: dismissalPolicy)
     }
 
     private func start(_ key: String, _ want: Wanted) {
@@ -64,7 +81,8 @@ final class LiveActivities {
         guard !cleared else { return }
         cleared = true
         for activity in Activity<ZetaActivityAttributes>.activities {
-            Task { await activity.end(nil, dismissalPolicy: .immediate) }
+            let id = activity.id
+            Task { await Self.end(id, nil, dismissalPolicy: .immediate) }
         }
     }
 
