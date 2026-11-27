@@ -82,7 +82,36 @@ sealed class RemoteShell(
     /** 在那边跑 [command]：[login] 时在登录 shell 里，否则只用 bash（[remoteCommand]）。 */
     protected abstract fun launch(command: String, login: Boolean): Process
 
+    /**
+     * 同 [LinuxShell.run]，只是命令在那边也限时（[limited]）：本机到点只结束得了本地的 ssh 或通道，那边的 sshd 不会因此结束不读输入的命令。 和 Go 的
+     * `client/sshlink.Limited` 是同一个写法；`shared/` 撤掉时随它一起删。
+     */
+    final override fun run(
+        command: String,
+        stdin: ByteArray?,
+        timeoutMs: Long,
+        plain: Boolean,
+    ): CommandResult =
+        LinuxEnv.capture(
+                launch(limited(command, timeoutMs), login = !plain),
+                stdin,
+                timeoutMs,
+                ::kill,
+            )
+            .also { DiagEvents.linuxRun(command, it) }
+
     companion object {
+        /**
+         * 把 [command] 包成在那边限时 [timeoutMs] 的一行：用 coreutils 的 timeout 到点结束整组进程（秒数向上取整再多给 1 秒，让本机先到点、
+         * 先报超时；再过 1 秒还在就 KILL）。那边没有 timeout 时照原样跑。里面用 bash，和 [remoteCommand] 交给那边的一样。
+         */
+        fun limited(command: String, timeoutMs: Long): String {
+            val secs = (timeoutMs + 999) / 1000 + 1
+            val q = LinuxEnv.quote(command)
+            return "if command -v timeout >/dev/null 2>&1; then exec timeout -k 1 $secs bash -c $q; " +
+                "else exec bash -c $q; fi"
+        }
+
         /** 连不上（网络、认证、主机密钥不对）或连接断了时的退出码，和 ssh 一样；远端命令的退出码原样带回。 */
         const val CONNECTION_FAILED = SshLinks.CONNECTION_FAILED
 
@@ -113,7 +142,8 @@ sealed class RemoteShell(
  * 经手机 Debian 连的远程主机：在 [local]（手机的 Debian）里用 OpenSSH 连到 [host]。 密钥、主机别名、跳板都用 Debian 里 ~/.ssh
  * 的配置，Zeta 自己不存密钥。连接经 ControlMaster 复用， 列会话、读历史这类短命令不用每次重新握手。
  *
- * 结束进程时结束的是本地的 ssh：连接一断，那边的命令读到输入结束就退出（zeta_host.sh 的 attach 是这样）， 托管出去的 Claude Code 进程不受影响。
+ * 结束进程时结束的是本地的 ssh：连接一断，读输入的命令读到输入结束就退出（zeta_host.sh 的 attach 是这样），不读输入的靠 [run] 在那边限时； 托管出去的 Claude
+ * Code 进程不受影响。
  */
 class DebianSshShell(
     private val local: LinuxShell,
