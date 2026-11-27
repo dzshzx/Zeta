@@ -55,13 +55,15 @@ struct SessionMenu: View {
     }
 }
 
-/// 导出 list：等核心交回 Markdown，存进临时目录，弹出分享面板。
+/// 导出 list：等核心交回 Markdown，存进临时目录的 export/（每次换掉上一次的），弹出分享面板。
 @MainActor
 func export(_ list: [SessionRow], into ops: Binding<SessionOps>, model: AppModel) {
     Task {
         do {
             let file = try await model.request("export", ["sessions": list.map(\.ref)], as: Exported.self)
+            // 只留这一次要分享的那份：上一次导出的（分享面板早已关上）先清掉
             let dir = FileManager.default.temporaryDirectory.appending(path: "export", directoryHint: .isDirectory)
+            try? FileManager.default.removeItem(at: dir)
             try FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
             let url = dir.appending(path: file.name)
             try Data(file.content.utf8).write(to: url, options: .atomic)
