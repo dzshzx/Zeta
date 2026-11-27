@@ -48,3 +48,22 @@ func TestRegisterTwicePanics(t *testing.T) {
 	}()
 	reading("state", func(*Core, none) (any, error) { return nil, nil })
 }
+
+// 慢的方法（连 MCP 服务器、跑 claude update）经 core 转发时也能用，结果原样交回。
+func TestCoreForwardsSlowMethods(t *testing.T) {
+	c, d := newCore(t)
+	id := addAnswering(t, c, d, func(call hubtest.Call) (json.RawMessage, error) {
+		if call.Method == "config.mcp.tools" {
+			return json.RawMessage(`[{"name":"` + call.Str("name") + `"}]`), nil
+		}
+		return nil, nil
+	})
+	got := call[[]map[string]string](t, c, "core", map[string]any{"backend": id, "method": "config.mcp.tools",
+		"params": map[string]string{"name": "gh"}})
+	if len(got) != 1 || got[0]["name"] != "gh" {
+		t.Fatalf("工具 %v", got)
+	}
+	if slowMethods["config.mcp.tools"] <= coreTimeout {
+		t.Fatal("连 MCP 服务器的方法该比一般的等得久")
+	}
+}

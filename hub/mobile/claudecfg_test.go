@@ -64,22 +64,3 @@ func TestClaudeModelChoices(t *testing.T) {
 	}
 }
 
-// claudecfg.slow 只转标「慢」的几个方法，结果原样交回。
-func TestClaudeSlowForward(t *testing.T) {
-	c, d := newCore(t)
-	id := addAnswering(t, c, d, func(call hubtest.Call) (json.RawMessage, error) {
-		if call.Method == "config.mcp.tools" {
-			return json.RawMessage(`[{"name":"` + call.Str("name") + `","description":""}]`), nil
-		}
-		return nil, nil
-	})
-	got := call[[]map[string]string](t, c, "claudecfg.slow", map[string]any{"backend": id, "method": "config.mcp.tools",
-		"params": map[string]string{"name": "gh", "scope": "user"}})
-	if len(got) != 1 || got[0]["name"] != "gh" {
-		t.Fatalf("工具 %v", got)
-	}
-	raw, _ := json.Marshal(map[string]any{"backend": id, "method": "config.memory.read"})
-	if out := string(c.Call("claudecfg.slow", raw)); !strings.Contains(out, `"error"`) {
-		t.Fatalf("不慢的方法也转了：%s", out)
-	}
-}

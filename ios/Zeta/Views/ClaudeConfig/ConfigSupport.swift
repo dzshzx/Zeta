@@ -1,7 +1,7 @@
 import SwiftUI
 
 /// 一台设备的 Claude Code 配置的请求：config.*、system.* 经核心桥 core 转给那台的核心，慢的（要跑 claude、连 MCP 服务器）
-/// 经 claudecfg.slow，等得更久。都在后台线程上等。
+/// 核心桥对它们等得更久。都在后台线程上等。
 @MainActor
 struct ConfigCalls {
     let model: AppModel
@@ -20,8 +20,7 @@ struct ConfigCalls {
     func slow<T: Decodable & Sendable>(
         _ method: String, _ params: [String: any Sendable] = [:], as type: T.Type
     ) async throws -> T {
-        try await model.request(
-            "claudecfg.slow", ["backend": backend, "method": method, "params": params], as: type)
+        try await get(method, params, as: type)
     }
 
     func hub<T: Decodable & Sendable>(

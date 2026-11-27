@@ -3,14 +3,10 @@ package mobile
 import (
 	"cmp"
 	"context"
-	"encoding/json"
 	"fmt"
-	"time"
 
-	"github.com/dzshzx/Zeta/hub"
 	"github.com/dzshzx/Zeta/hub/chat"
 	cfg "github.com/dzshzx/Zeta/hub/claudecfg"
-	"github.com/dzshzx/Zeta/hub/locales"
 )
 
 // 设置里一台设备的「Claude Code 配置」（同桌面版 windows/internal/ui/claudecfg）。那台主机上的配置（config.*、system.*）
@@ -53,24 +49,6 @@ type modelChoices struct {
 	Models []ModelChoice `json:"models"`
 }
 
-type slowParams struct {
-	Backend string         `json:"backend"`
-	Method  string         `json:"method"`
-	Params  map[string]any `json:"params"`
-}
-
-// slowMethods 是要跑 claude 或连 MCP 服务器的方法（docs/core.md 标「慢」的，和 claude update），和各自最多等多久
-// （同桌面版配置页的 3 分钟；claude update 核心自己最多 5 分钟）。
-var slowMethods = map[string]time.Duration{
-	"config.mcp.status":    3 * time.Minute,
-	"config.mcp.tools":     3 * time.Minute,
-	"config.mcp.addHttp":   3 * time.Minute,
-	"config.mcp.addStdio":  3 * time.Minute,
-	"config.mcp.remove":    3 * time.Minute,
-	"config.mcp.setToken":  3 * time.Minute,
-	"system.claude_update": 6 * time.Minute,
-}
-
 func (c *Core) claudeLocal(backend string) (claudeLocal, error) {
 	x, found := c.hub.Host(backend)
 	if !found {
@@ -104,48 +82,6 @@ func init() {
 		return c.claudeLocal(p.Backend)
 	})
 	blocking("claudecfg.models", func(c *Core, p backendParams) (any, error) { return c.modelChoices(p.Backend) })
-	blocking("claudecfg.slow", func(c *Core, p slowParams) (any, error) {
-		timeout, found := slowMethods[p.Method]
-		if !found {
-			return nil, fmt.Errorf("%w: %s", errUnknown, p.Method)
-		}
-		return c.forward(p.Backend, p.Method, p.Params, timeout)
-	})
-}
-
-// remote 是设备 backend 的核心请求和那几样（核心 goroutine 上取），连不上时出错。
-func (c *Core) remote(backend string) (*hub.Remote, error) {
-	var r *hub.Remote
-	var name string
-	c.Do(func() {
-		name = c.hub.Name(backend)
-		r = c.hub.Remote(backend)
-	})
-	if r == nil {
-		return nil, locales.Err(func() string { return locales.HubOffline(name) })
-	}
-	return r, nil
-}
-
-// forward 同 core，只是时限由调用方给。
-func (c *Core) forward(backend, method string, params map[string]any, timeout time.Duration) (any, error) {
-	r, err := c.remote(backend)
-	if err != nil {
-		return nil, err
-	}
-	ctx, cancel := context.WithTimeout(context.Background(), timeout)
-	defer cancel()
-	if params == nil {
-		params = map[string]any{}
-	}
-	raw, err := r.Core.Caller().Call(ctx, method, params)
-	if err != nil {
-		return nil, err
-	}
-	if len(raw) == 0 {
-		return json.RawMessage("null"), nil
-	}
-	return raw, nil
 }
 
 // modelChoices 照桌面版（models.go 的 choices、deviceModelChoices）：有生效中转时是中转报的具体 ID；没有时是 Claude Code 报的

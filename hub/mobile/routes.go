@@ -7,7 +7,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/dzshzx/Zeta/helper/coreapi"
+	"github.com/dzshzx/Zeta/hub"
 	"github.com/dzshzx/Zeta/hub/chat"
 	"github.com/dzshzx/Zeta/hub/locales"
 )
@@ -125,8 +125,19 @@ func (c *Core) runChat(do func(ctx context.Context, conv *chat.Conversation) err
 // 只放这几组：对话、会话列表、账号这些有中枢自己的状态，要经中枢的方法，不从这里绕过去。
 var forwarded = []string{"config.", "diag.", "system."}
 
-// coreTimeout 是转发一个请求最多等多久（同桌面版设置页的请求）。
+// coreTimeout 是转发一个请求最多等多久（同桌面版设置页的请求）；slowMethods 是要跑 claude 或连 MCP 服务器的
+// （docs/core.md 标「慢」的，和 claude update），各自等得更久（同桌面版配置页的 3 分钟；claude update 核心自己最多 5 分钟）。
 const coreTimeout = 60 * time.Second
+
+var slowMethods = map[string]time.Duration{
+	"config.mcp.status":    3 * time.Minute,
+	"config.mcp.tools":     3 * time.Minute,
+	"config.mcp.addHttp":   3 * time.Minute,
+	"config.mcp.addStdio":  3 * time.Minute,
+	"config.mcp.remove":    3 * time.Minute,
+	"config.mcp.setToken":  3 * time.Minute,
+	"system.claude_update": 6 * time.Minute,
+}
 
 type coreParams struct {
 	Backend string         `json:"backend"`
@@ -139,31 +150,47 @@ func init() {
 		if !forwardable(p.Method) {
 			return nil, fmt.Errorf("%w: %s", errUnknown, p.Method)
 		}
-		var r coreapi.Caller
-		var name string
-		c.Do(func() {
-			name = c.hub.Name(p.Backend)
-			if remote := c.hub.Remote(p.Backend); remote != nil {
-				r = remote.Core.Caller()
-			}
-		})
-		if r == nil {
-			return nil, locales.Err(func() string { return locales.HubOffline(name) })
+		timeout, slow := slowMethods[p.Method]
+		if !slow {
+			timeout = coreTimeout
 		}
-		ctx, cancel := context.WithTimeout(context.Background(), coreTimeout)
-		defer cancel()
-		if p.Params == nil {
-			p.Params = map[string]any{}
-		}
-		raw, err := r.Call(ctx, p.Method, p.Params)
-		if err != nil {
-			return nil, err
-		}
-		if len(raw) == 0 {
-			return json.RawMessage("null"), nil
-		}
-		return raw, nil
+		return c.forward(p.Backend, p.Method, p.Params, timeout)
 	})
+}
+
+// remote 是设备 backend 的核心请求和那几样（核心 goroutine 上取），连不上时出错。
+func (c *Core) remote(backend string) (*hub.Remote, error) {
+	var r *hub.Remote
+	var name string
+	c.Do(func() {
+		name = c.hub.Name(backend)
+		r = c.hub.Remote(backend)
+	})
+	if r == nil {
+		return nil, locales.Err(func() string { return locales.HubOffline(name) })
+	}
+	return r, nil
+}
+
+// forward 把 method 转给设备 backend 的核心，最多等 timeout，结果原样交回。
+func (c *Core) forward(backend, method string, params map[string]any, timeout time.Duration) (any, error) {
+	r, err := c.remote(backend)
+	if err != nil {
+		return nil, err
+	}
+	ctx, cancel := context.WithTimeout(context.Background(), timeout)
+	defer cancel()
+	if params == nil {
+		params = map[string]any{}
+	}
+	raw, err := r.Core.Caller().Call(ctx, method, params)
+	if err != nil {
+		return nil, err
+	}
+	if len(raw) == 0 {
+		return json.RawMessage("null"), nil
+	}
+	return raw, nil
 }
 
 func forwardable(method string) bool {
