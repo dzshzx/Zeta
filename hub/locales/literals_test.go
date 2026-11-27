@@ -12,29 +12,24 @@ import (
 // scanned 是要扫的目录（相对 hub/，含子目录；"." 是中枢的根包本身）。
 var scanned = []string{".", "chat", "accounts", "mobile", "cmd/zeta-ios"}
 
-const (
-	whyLog   = "写进日志（log 的输出接到运行日志），日志不翻译"
-	whyInner = "只进日志或只在程序有缺陷时出现的内部错误"
-)
-
 var literalExceptions = []literalcheck.Exception{
-	{"chat.go", "zeta: 关掉对话：%v", whyLog},
-	{"chat.go", "zeta: 重连后重新打开对话：%v", whyLog},
-	{"hub.go", "zeta: 设置没存上：%v", whyLog},
-	{"pins.go", "zeta: 置顶没迁到「%s」：%v", whyLog},
-	{"remote.go", "zeta: 换号前结束对话进程：%v", whyLog},
-	{"remote.go", "zeta: 对话的设置没改成：%v", whyLog},
-	{"chat/conv.go", "chat: %s 的 conv.state 解不开：%v", whyLog},
-	{"chat/conv.go", "chat: %s 的 conv.items 解不开：%v", whyLog},
-	{"chat/conv.go", "chat: %s：%v，重新打开", whyLog},
-	{"chat/conv.go", "chat: %s 重新打开失败：%v", whyLog},
-	{"chat/subagent.go", "chat: %s 的 conv.subagent 解不开：%v", whyLog},
-	{"chat/subagent.go", "chat: %s 的子代理 %s：%v，重新看", whyLog},
-	{"chat/taskoutput.go", "chat: %s 的 conv.task_output 解不开：%v", whyLog},
-	{"chat/watch.go", "chat: %s 重新看 %v 没成：%v", whyLog},
-	{"chat/items/items.go", "解码聊天条目：%w", whyInner + "（解不开的推送只记日志）"},
-	{"chat/items/items.go", "聊天条目的替换越界：从 %d 起去掉 %d 项，列表只有 %d 项", whyInner + "（对不上时记日志、整份重取）"},
-	{"accounts/host.go", "没有开着的 Claude Code 进程", whyInner + "（ErrNoProcess 由 Quota 认出来改读存着的数，不显示）"},
+	{"chat.go", "zeta: 关掉对话：%v", literalcheck.WhyLog},
+	{"chat.go", "zeta: 重连后重新打开对话：%v", literalcheck.WhyLog},
+	{"hub.go", "zeta: 设置没存上：%v", literalcheck.WhyLog},
+	{"pins.go", "zeta: 置顶没迁到「%s」：%v", literalcheck.WhyLog},
+	{"remote.go", "zeta: 换号前结束对话进程：%v", literalcheck.WhyLog},
+	{"remote.go", "zeta: 对话的设置没改成：%v", literalcheck.WhyLog},
+	{"chat/conv.go", "chat: %s 的 conv.state 解不开：%v", literalcheck.WhyLog},
+	{"chat/conv.go", "chat: %s 的 conv.items 解不开：%v", literalcheck.WhyLog},
+	{"chat/conv.go", "chat: %s：%v，重新打开", literalcheck.WhyLog},
+	{"chat/conv.go", "chat: %s 重新打开失败：%v", literalcheck.WhyLog},
+	{"chat/subagent.go", "chat: %s 的 conv.subagent 解不开：%v", literalcheck.WhyLog},
+	{"chat/subagent.go", "chat: %s 的子代理 %s：%v，重新看", literalcheck.WhyLog},
+	{"chat/taskoutput.go", "chat: %s 的 conv.task_output 解不开：%v", literalcheck.WhyLog},
+	{"chat/watch.go", "chat: %s 重新看 %v 没成：%v", literalcheck.WhyLog},
+	{"chat/items/items.go", "解码聊天条目：%w", literalcheck.WhyInner + "（解不开的推送只记日志）"},
+	{"chat/items/items.go", "聊天条目的替换越界：从 %d 起去掉 %d 项，列表只有 %d 项", literalcheck.WhyInner + "（对不上时记日志、整份重取）"},
+	{"accounts/host.go", "没有开着的 Claude Code 进程", literalcheck.WhyInner + "（ErrNoProcess 由 Quota 认出来改读存着的数，不显示）"},
 }
 
 func TestNoHanLiteralsOutsideTheCatalog(t *testing.T) {

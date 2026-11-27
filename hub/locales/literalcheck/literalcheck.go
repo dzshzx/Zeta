@@ -18,6 +18,12 @@ import (
 // 同一个文件里同样的字面量出现几次都算这一条。是别名，各测试的清单能照位置写三项（go vet 只要求具名类型写字段名）。
 type Exception = struct{ File, Literal, Why string }
 
+// 两边清单都用到的理由。
+const (
+	WhyLog   = "写进日志（log 的输出接到运行日志），日志不翻译"
+	WhyInner = "只进日志或只在程序有缺陷时出现的内部错误"
+)
+
 // Check 扫 root 下的 dirs（含子目录；"." 只扫 root 这一层，不进子目录）：不在 exceptions 里的含汉字字面量、对不上任何字面量的例外、没写理由的例外都算失败。
 func Check(t *testing.T, root string, dirs []string, exceptions []Exception) {
 	t.Helper()

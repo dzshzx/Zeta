@@ -10,7 +10,7 @@ import (
 )
 
 // build 是构建序号：helper/ 最后一次提交的时刻（Unix 秒），编的时候用 -ldflags "-X main.build=…" 写进来
-// （app/build.gradle.kts 的 GoProgramTask、windows/scripts/assets.sh），各端从同一个提交编出来的相同。
+// （app/build.gradle.kts 的 GoProgramTask、hub/scripts/assets.sh），各端从同一个提交编出来的相同。
 // 没写入（go build、测试）时为空，当 0：比谁都旧，不会让写了序号的核心交班。
 var build string
 
