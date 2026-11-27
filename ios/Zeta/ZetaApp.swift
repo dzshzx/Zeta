@@ -1,0 +1,61 @@
+import SwiftUI
+
+@main
+struct ZetaApp: App {
+    @State private var model = AppModel.shared
+
+    var body: some Scene {
+        WindowGroup {
+            RootView()
+                .environment(model)
+                .onAppear { model.start() }
+        }
+    }
+}
+
+/// 侧栏是会话列表，右边（iPhone 上推进来）是聊天页。选中的是会话的键，或新对话。
+struct RootView: View {
+    @Environment(AppModel.self) private var model
+    @State private var selection: Route?
+    @State private var settingsShown = false
+
+    var body: some View {
+        if let problem = model.startProblem {
+            ContentUnavailableView("Zeta 起不来", systemImage: "exclamationmark.triangle", description: Text(problem))
+        } else {
+            NavigationSplitView {
+                SessionListView(selection: $selection, settingsShown: $settingsShown)
+            } detail: {
+                if selection != nil, model.state.chat != nil {
+                    ChatView()
+                } else {
+                    ContentUnavailableView("选一个对话", systemImage: "bubble.left.and.text.bubble.right",
+                                           description: Text("或者开一个新对话"))
+                }
+            }
+            .onChange(of: selection) { _, route in open(route) }
+            .sheet(isPresented: $settingsShown) { SettingsView() }
+            .alert("没有成功", isPresented: Binding { model.alert != nil } set: { if !$0 { model.alert = nil } }) {
+                Button("好") { model.alert = nil }
+            } message: {
+                Text(model.alert ?? "")
+            }
+        }
+    }
+
+    private func open(_ route: Route?) {
+        switch route {
+        case .session(let backend, let id):
+            model.perform("open", ["backend": backend, "id": id])
+        case .new(let backend):
+            model.perform("new", ["backend": backend])
+        case nil:
+            model.perform("close")
+        }
+    }
+}
+
+enum Route: Hashable {
+    case session(backend: String, id: String)
+    case new(backend: String)
+}

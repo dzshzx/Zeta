@@ -1,0 +1,68 @@
+# XcodeGen 的工程描述：scripts/build.sh 每次照它生成 Zeta.xcodeproj（不进 Git）。
+name: Zeta
+options:
+  bundleIdPrefix: com.dzshzx
+  developmentLanguage: zh-Hans
+  deploymentTarget:
+    iOS: "27.0"
+settings:
+  base:
+    SWIFT_VERSION: "6.0"
+    SWIFT_STRICT_CONCURRENCY: complete
+    MARKETING_VERSION: "0.0.0"
+    CURRENT_PROJECT_VERSION: "1"
+    ZETA_DISPLAY_NAME: Zeta Dev
+    PRODUCT_BUNDLE_IDENTIFIER: com.dzshzx.zeta.dev
+    LOCALIZATION_PREFERS_STRING_CATALOGS: YES
+    SWIFT_EMIT_LOC_STRINGS: YES
+targets:
+  Zeta:
+    type: application
+    platform: iOS
+    sources:
+      - path: Zeta
+    dependencies:
+      - framework: build/ZetaCore.xcframework
+        embed: false
+      - sdk: Security.framework
+      - sdk: CoreFoundation.framework
+      - sdk: libresolv.tbd
+    info:
+      path: build/Info.plist
+      properties:
+        CFBundleDisplayName: $(ZETA_DISPLAY_NAME)
+        CFBundleShortVersionString: $(MARKETING_VERSION)
+        CFBundleVersion: $(CURRENT_PROJECT_VERSION)
+        CFBundleDevelopmentRegion: zh-Hans
+        CFBundleLocalizations: [zh-Hans, en]
+        UILaunchScreen: {}
+        UIApplicationSceneManifest:
+          UIApplicationSupportsMultipleScenes: false
+        UISupportedInterfaceOrientations: [UIInterfaceOrientationPortrait, UIInterfaceOrientationLandscapeLeft, UIInterfaceOrientationLandscapeRight]
+        UISupportedInterfaceOrientations~ipad: [UIInterfaceOrientationPortrait, UIInterfaceOrientationPortraitUpsideDown, UIInterfaceOrientationLandscapeLeft, UIInterfaceOrientationLandscapeRight]
+        NSLocalNetworkUsageDescription: Zeta 经 SSH 连局域网里的设备，在上面用 Claude Code。
+        ITSAppUsesNonExemptEncryption: false
+    settings:
+      base:
+        TARGETED_DEVICE_FAMILY: "1,2"
+        ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon
+        OTHER_LDFLAGS: [-lresolv]
+  ZetaTests:
+    type: bundle.unit-test
+    platform: iOS
+    sources:
+      - path: ZetaTests
+    dependencies:
+      - target: Zeta
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: com.dzshzx.zeta.tests
+        GENERATE_INFOPLIST_FILE: YES
+schemes:
+  Zeta:
+    build:
+      targets:
+        Zeta: all
+    test:
+      targets:
+        - ZetaTests

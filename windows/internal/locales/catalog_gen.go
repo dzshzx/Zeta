@@ -15768,3 +15768,59 @@ func AccountsRelayUrlNote() string { return In(i18n.Locale()).AccountsRelayUrlNo
 func (msgs Messages) AccountsRelayUrlNote() string {
 	return Catalog.Format(msgs.locale, "accountsRelayUrlNote", nil)
 }
+
+// MobileKeyRejected says "服务器不认 Zeta 的公钥：在设置里复制公钥，加进那台设备的 ~/.ssh/authorized_keys"
+// in the language the app shows.
+//
+// iOS 版：SSH 登录被拒时设备页和聊天页说的原因。
+func MobileKeyRejected() string { return In(i18n.Locale()).MobileKeyRejected() }
+
+// MobileKeyRejected says "服务器不认 Zeta 的公钥：在设置里复制公钥，加进那台设备的 ~/.ssh/authorized_keys"
+// in the language of msgs.
+//
+// iOS 版：SSH 登录被拒时设备页和聊天页说的原因。
+func (msgs Messages) MobileKeyRejected() string {
+	return Catalog.Format(msgs.locale, "mobileKeyRejected", nil)
+}
+
+// MobileSessionGone says "这个会话已经不在列表里了"
+// in the language the app shows.
+//
+// iOS 版：点开的会话在会话列表里找不到了。
+func MobileSessionGone() string { return In(i18n.Locale()).MobileSessionGone() }
+
+// MobileSessionGone says "这个会话已经不在列表里了"
+// in the language of msgs.
+//
+// iOS 版：点开的会话在会话列表里找不到了。
+func (msgs Messages) MobileSessionGone() string {
+	return Catalog.Format(msgs.locale, "mobileSessionGone", nil)
+}
+
+// MobileProbeFirst says "先检查连接，再添加设备"
+// in the language the app shows.
+//
+// iOS 版：添加设备时探测结果已过期或没探测过。
+func MobileProbeFirst() string { return In(i18n.Locale()).MobileProbeFirst() }
+
+// MobileProbeFirst says "先检查连接，再添加设备"
+// in the language of msgs.
+//
+// iOS 版：添加设备时探测结果已过期或没探测过。
+func (msgs Messages) MobileProbeFirst() string {
+	return Catalog.Format(msgs.locale, "mobileProbeFirst", nil)
+}
+
+// MobileChatNotOpen says "对话还没打开"
+// in the language the app shows.
+//
+// iOS 版：对话还在打开时就发消息、停止或回应确认。
+func MobileChatNotOpen() string { return In(i18n.Locale()).MobileChatNotOpen() }
+
+// MobileChatNotOpen says "对话还没打开"
+// in the language of msgs.
+//
+// iOS 版：对话还在打开时就发消息、停止或回应确认。
+func (msgs Messages) MobileChatNotOpen() string {
+	return Catalog.Format(msgs.locale, "mobileChatNotOpen", nil)
+}

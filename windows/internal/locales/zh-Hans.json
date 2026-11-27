@@ -6289,5 +6289,21 @@
   "accountsRelayUrlNote": "要是 Anthropic Messages 协议的接入点；OpenAI 协议的上游请经能翻译的中转接入。",
   "@accountsRelayUrlNote": {
     "description": "中转编辑页：地址输入框下面的说明。"
+  },
+  "mobileKeyRejected": "服务器不认 Zeta 的公钥：在设置里复制公钥，加进那台设备的 ~/.ssh/authorized_keys",
+  "@mobileKeyRejected": {
+    "description": "iOS 版：SSH 登录被拒时设备页和聊天页说的原因。"
+  },
+  "mobileSessionGone": "这个会话已经不在列表里了",
+  "@mobileSessionGone": {
+    "description": "iOS 版：点开的会话在会话列表里找不到了。"
+  },
+  "mobileProbeFirst": "先检查连接，再添加设备",
+  "@mobileProbeFirst": {
+    "description": "iOS 版：添加设备时探测结果已过期或没探测过。"
+  },
+  "mobileChatNotOpen": "对话还没打开",
+  "@mobileChatNotOpen": {
+    "description": "iOS 版：对话还在打开时就发消息、停止或回应确认。"
   }
 }

@@ -16,7 +16,7 @@ import (
 // 只能是下面例外清单里的。新加的给人看的话进文字表；确实不该翻译的（日志、交给 Claude 或主机的、文件名）加一条例外，写明理由。
 
 // scanned 是要扫的目录（相对 windows/，含子目录）。
-var scanned = []string{"internal/ui", "internal/hub", "internal/chat", "internal/accounts", "internal/update", "cmd/zeta"}
+var scanned = []string{"internal/ui", "internal/hub", "internal/chat", "internal/accounts", "internal/update", "internal/mobile", "cmd/zeta", "cmd/zeta-ios"}
 
 // literalException 是一处允许含汉字的字面量：文件（相对 windows/）、字面量的值（解开引号后的）和理由。
 // 同一个文件里同样的字面量出现几次都算这一条。
