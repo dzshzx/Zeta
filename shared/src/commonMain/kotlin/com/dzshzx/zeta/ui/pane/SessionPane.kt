@@ -164,7 +164,7 @@ fun SessionPane(
     val hub = LocalHub.current
     val focusManager = LocalFocusManager.current
     var deleting by remember { mutableStateOf<DeletePrompt?>(null) }
-    var ending by remember { mutableStateOf<EndPrompt?>(null) }
+    var confirming by remember { mutableStateOf<ConfirmPrompt?>(null) }
     var renaming by remember { mutableStateOf<SessionSummary?>(null) }
     var renameDraft by remember { mutableStateOf("") }
 
@@ -232,11 +232,10 @@ fun SessionPane(
             export = exporter.save,
             share = exporter.share,
             archive = { session ->
-                archivePrompt(listOf(session), !session.archived, hub::isActive)?.let {
-                    ending = it
-                } ?: onArchive(session, !session.archived)
+                askArchive(hub, listOf(session), !session.archived)?.let { confirming = it }
+                    ?: onArchive(session, !session.archived)
             },
-            end = { session -> ending = endPrompt(listOf(session), hub::isActive) },
+            end = { session -> confirming = askEnd(hub, listOf(session)) },
             delete = { session -> deleting = deletePrompt(session, hub::isActive) },
         )
     val todayStart = remember(sessions) { startOfToday() }
@@ -328,7 +327,7 @@ fun SessionPane(
                 archive = archive,
                 onArchive = {
                     val changing = chosen.filter { it.archived != archive }
-                    archivePrompt(changing, archive, hub::isActive)?.let { ending = it }
+                    askArchive(hub, changing, archive)?.let { confirming = it }
                         ?: run {
                             hub.sessionList.archive(changing, archive)
                             exitSelection()
@@ -338,7 +337,7 @@ fun SessionPane(
                 onEnd =
                     endable(chosen)
                         .takeIf { it.isNotEmpty() }
-                        ?.let { live -> { ending = endPrompt(live, hub::isActive) } },
+                        ?.let { live -> { confirming = askEnd(hub, live) } },
                 onDelete = {
                     askBatchDelete(chosen, hub) { removable ->
                         batchSkipped = chosen.size - removable.size
@@ -359,13 +358,10 @@ fun SessionPane(
             )
     }
 
-    EndDialog(
-        ending = ending,
-        onConfirm = { prompt ->
-            prompt.confirm(hub)
-            exitSelection() // 多选里结束的做完退出多选；不在多选时什么也不变
-        },
-        onDismiss = { ending = null },
+    ConfirmPromptDialog(
+        prompt = confirming,
+        onConfirmed = exitSelection, // 多选里结束、归档的做完退出多选；不在多选时什么也不变
+        onDismiss = { confirming = null },
     )
     DeleteDialogs(
         deleting = deleting,
@@ -980,22 +976,38 @@ private fun DeleteDialogs(
     )
 }
 
-/** 结束一个或几个对话的确认框（ConfirmDialog，同聊天页顶栏的结束对话）：标题和说明在打开时定下（[EndPrompt]）， 确认后交给 [onConfirm]。 */
+/** 侧栏里结束 [sessions]：先问（[endPrompt]），确认后结束（[ConversationHub.endSessions]）。 */
+private fun askEnd(hub: ConversationHub, sessions: List<SessionSummary>): ConfirmPrompt =
+    endPrompt(sessions, hub::isActive) { hub.endSessions(sessions) }
+
+/** 侧栏里归档 [sessions]：其中有还在运行的先问（[archivePrompt]），确认后结束它们再归档；不用问时是 null。 */
+private fun askArchive(
+    hub: ConversationHub,
+    sessions: List<SessionSummary>,
+    archive: Boolean,
+): ConfirmPrompt? =
+    archivePrompt(sessions, archive, hub::isActive) { running ->
+        hub.endSessions(running)
+        hub.sessionList.archive(sessions, true)
+    }
+
+/** 先问再做的确认框（ConfirmDialog，同聊天页顶栏的结束对话）：字在打开时定下（[ConfirmPrompt]），确认后做它的事，再调 [onConfirmed]。 */
 @Composable
-private fun EndDialog(
-    ending: EndPrompt?,
-    onConfirm: (EndPrompt) -> Unit,
+private fun ConfirmPromptDialog(
+    prompt: ConfirmPrompt?,
+    onConfirmed: () -> Unit,
     onDismiss: () -> Unit,
 ) {
-    val last = rememberRetained(ending)
+    val last = rememberRetained(prompt)
     ConfirmDialog(
-        show = ending != null,
+        show = prompt != null,
         title = last?.title,
         summary = last?.summary,
         confirmText = last?.confirmText.orEmpty(),
         destructive = true,
         onConfirm = {
-            ending?.let(onConfirm)
+            prompt?.action?.invoke()
+            onConfirmed()
             onDismiss()
         },
         onDismissRequest = onDismiss,

@@ -13,7 +13,6 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
-import com.dzshzx.zeta.core.ConversationHub
 import com.dzshzx.zeta.core.SessionSummary
 import com.dzshzx.zeta.i18n.Strings
 import com.dzshzx.zeta.ui.chat.endConfirmSummary
@@ -45,29 +44,23 @@ fun archiveAction(chosen: List<SessionSummary>): Boolean =
 /** 选中的会话里能结束的：还在运行的（[SessionSummary.live]），已经结束的跳过。 */
 fun endable(chosen: List<SessionSummary>): List<SessionSummary> = chosen.filter { it.live }
 
-/**
- * 结束 [sessions] 的确认框，打开那一刻定下标题和说明：一个时说它在别处运行（会停掉那边的进程）、还在进行还是闲着；几个时说
- * 其中有没有还在进行或在别处运行的。侧栏里结束一律先问：列表上看不出它在做什么，一点就停掉不合适。
- */
-data class EndPrompt(
-    val sessions: List<SessionSummary>,
+/** 先问再做的一件事：标题、说明和确认按钮上的字在打开时定下，确认后做 [action]。侧栏的结束、归档都用它。 */
+class ConfirmPrompt(
     val title: String,
     val summary: String,
-    /** 归档时的确认框（[archivePrompt]）：确认后结束 [sessions] 再归档这些；结束时为空。 */
-    val archive: List<SessionSummary> = emptyList(),
-) {
-    /** 确认按钮上的字：结束或归档。 */
-    val confirmText: String
-        get() = if (archive.isEmpty()) Strings.chatEnd() else Strings.sidebarArchive()
+    val confirmText: String,
+    val action: () -> Unit,
+)
 
-    /** 点了确认：结束 [sessions]（[ConversationHub.endSessions]），归档时再归档 [archive]。在主线程上调用。 */
-    fun confirm(hub: ConversationHub) {
-        hub.endSessions(sessions)
-        if (archive.isNotEmpty()) hub.sessionList.archive(archive, true)
-    }
-}
-
-fun endPrompt(sessions: List<SessionSummary>, isActive: (String) -> Boolean): EndPrompt {
+/**
+ * 结束 [sessions] 的确认框，确认后做 [onConfirm]。说明：一个时说它在别处运行（会停掉那边的进程）、还在进行还是闲着；几个时说
+ * 其中有没有还在进行或在别处运行的。侧栏里结束一律先问：列表上看不出它在做什么，一点就停掉不合适。
+ */
+fun endPrompt(
+    sessions: List<SessionSummary>,
+    isActive: (String) -> Boolean,
+    onConfirm: () -> Unit,
+): ConfirmPrompt {
     val busy = sessions.any { inProgress(it, isActive) }
     val one = sessions.singleOrNull()
     val summary =
@@ -77,24 +70,26 @@ fun endPrompt(sessions: List<SessionSummary>, isActive: (String) -> Boolean): En
             else -> Strings.sidebarEndManySummaryIdle()
         }
     val title = if (one != null) Strings.chatEndTitle() else Strings.sidebarEndMany(sessions.size)
-    return EndPrompt(sessions, title, summary)
+    return ConfirmPrompt(title, summary, Strings.chatEnd(), onConfirm)
 }
 
 /**
- * 归档（[archive] 为真）[sessions] 前要不要先问：其中有还在运行的（[endable]）时，同结束一样问，确认后结束它们再归档（说明同
- * [endPrompt]）；都已结束或是取消归档时是 null，直接做。
+ * 归档（[archive] 为真）[sessions] 前要不要先问：其中有还在运行的（[endable]）时，同结束一样问（说明同 [endPrompt]）， 确认后把还在运行的交给
+ * [onConfirm]（结束它们再归档）；都已结束或是取消归档时是 null，直接做。
  */
 fun archivePrompt(
     sessions: List<SessionSummary>,
     archive: Boolean,
     isActive: (String) -> Boolean,
-): EndPrompt? {
+    onConfirm: (running: List<SessionSummary>) -> Unit,
+): ConfirmPrompt? {
     val live = endable(sessions)
     if (!archive || live.isEmpty()) return null
     val title =
         if (sessions.size == 1) Strings.sidebarArchiveRunningTitle()
         else Strings.sidebarArchiveMany(sessions.size)
-    return endPrompt(live, isActive).copy(title = title, archive = sessions)
+    val summary = endPrompt(live, isActive) {}.summary
+    return ConfirmPrompt(title, summary, Strings.sidebarArchive()) { onConfirm(live) }
 }
 
 /** 正在进行：Zeta 里在跑、等确认、后台任务没完，或别处的 Claude Code 开着它。删除时跳过它，结束时确认框说会一并停掉。 */

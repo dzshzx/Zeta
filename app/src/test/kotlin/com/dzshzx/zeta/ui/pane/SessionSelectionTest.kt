@@ -98,20 +98,21 @@ class SessionSelectionTest {
     fun archiveAsksOnlyWhenSomethingIsStillRunning() {
         val ended = session("d").copy(live = false)
         val idle = { _: String -> false }
-        assertEquals(null, archivePrompt(listOf(ended), true, idle))
-        assertEquals(null, archivePrompt(listOf(a), false, idle))
+        val ends = mutableListOf<List<SessionSummary>>()
+        assertEquals(null, archivePrompt(listOf(ended), true, idle) { ends += it })
+        assertEquals(null, archivePrompt(listOf(a), false, idle) { ends += it })
 
-        val one = archivePrompt(listOf(a), true, idle)!!
-        assertEquals(listOf(a), one.sessions)
-        assertEquals(listOf(a), one.archive)
+        val one = archivePrompt(listOf(a), true, idle) { ends += it }!!
         assertEquals(Strings.sidebarArchiveRunningTitle(), one.title)
         assertEquals(Strings.chatEndSummaryIdle(), one.summary)
+        assertEquals(Strings.sidebarArchive(), one.confirmText)
 
-        // 几个里只结束还在运行的，但全部归档
-        val many = archivePrompt(listOf(a, ended), true, idle)!!
-        assertEquals(listOf(a), many.sessions)
-        assertEquals(listOf(a, ended), many.archive)
+        // 几个里只结束还在运行的
+        val many = archivePrompt(listOf(a, ended), true, idle) { ends += it }!!
         assertEquals(Strings.sidebarArchiveMany(2), many.title)
+        assertEquals(emptyList<List<SessionSummary>>(), ends) // 确认前什么也不做
+        many.action()
+        assertEquals(listOf(listOf(a)), ends)
     }
 
     @Test
@@ -121,27 +122,26 @@ class SessionSelectionTest {
         assertEquals(listOf(a, b), endable(listOf(a, ended, b)))
 
         val busy = setOf("b")::contains
+        fun text(sessions: List<SessionSummary>) =
+            endPrompt(sessions, busy) {}.let { Triple(it.title, it.summary, it.confirmText) }
         assertEquals(
-            EndPrompt(listOf(a), Strings.chatEndTitle(), Strings.chatEndSummaryIdle()),
-            endPrompt(listOf(a), busy),
+            Triple(Strings.chatEndTitle(), Strings.chatEndSummaryIdle(), Strings.chatEnd()),
+            text(listOf(a)),
         )
-        assertEquals(Strings.chatEndSummaryActive(), endPrompt(listOf(b), busy).summary)
+        assertEquals(Strings.chatEndSummaryActive(), text(listOf(b)).second)
         assertEquals(
             endConfirmSummary(external = true, occupant = null, busy = false),
-            endPrompt(listOf(elsewhere), busy).summary,
+            text(listOf(elsewhere)).second,
         )
         assertEquals(
-            EndPrompt(
-                listOf(a, b),
+            Triple(
                 Strings.sidebarEndMany(2),
                 Strings.sidebarEndManySummaryActive(),
+                Strings.chatEnd(),
             ),
-            endPrompt(listOf(a, b), busy),
+            text(listOf(a, b)),
         )
-        assertEquals(
-            Strings.sidebarEndManySummaryActive(),
-            endPrompt(listOf(a, elsewhere), busy).summary,
-        )
-        assertEquals(Strings.sidebarEndManySummaryIdle(), endPrompt(listOf(a, c), busy).summary)
+        assertEquals(Strings.sidebarEndManySummaryActive(), text(listOf(a, elsewhere)).second)
+        assertEquals(Strings.sidebarEndManySummaryIdle(), text(listOf(a, c)).second)
     }
 }

@@ -46,13 +46,11 @@ type sessionOps struct {
 		list []hostlink.Session
 		open bool
 	}
-	// ending 是结束对话的确认框（结束一律先问）；busy：其中有还在进行或在别处运行的，打开时定下（endStopsWork）。
-	// archive 不为空时是归档的确认框（archiveAsking）：确认后结束 list 再归档 archive。
-	ending struct {
-		list    []hostlink.Session
-		archive []hostlink.Session
-		busy    bool
-		open    bool
+	// confirming 是先问再做的确认框（结束、归档还在运行的）：字在打开时定下，确认后做 action（同手机版 ConfirmPrompt）。
+	confirming struct {
+		title, summary, button string
+		action                 func()
+		open                   bool
 	}
 }
 
@@ -330,22 +328,10 @@ func (a *App) sessionDialogs(c *ui.Context) {
 			a.clearSelection()
 		}
 	}
-	if e := &o.ending; e.open {
-		title, button := locales.SessionBatchEndTitle(len(e.list)), locales.SessionEndButton()
-		switch {
-		case len(e.archive) > 1:
-			title, button = locales.SessionBatchArchiveTitle(len(e.archive)), locales.SessionArchive()
-		case len(e.archive) == 1:
-			title, button = locales.SessionArchiveRunningTitle(), locales.SessionArchive()
-		case len(e.list) == 1:
-			title = locales.SessionEndTitle()
-		}
-		if widget.Alert(c, &e.open, title, endConfirmSummary(e.list, e.busy, a.occupantOf(e.list[0])),
-			widget.Action{Label: locales.CommonCancel()}, widget.Action{Label: button, Style: widget.Destructive}) == 1 {
-			h.End(e.list, a.failed(locales.SessionEndFailed()))
-			if len(e.archive) > 0 {
-				h.SetArchived(e.archive, true, a.failed(locales.SessionArchiveFailed()))
-			}
+	if p := &o.confirming; p.open {
+		if widget.Alert(c, &p.open, p.title, p.summary,
+			widget.Action{Label: locales.CommonCancel()}, widget.Action{Label: p.button, Style: widget.Destructive}) == 1 {
+			p.action()
 		}
 	}
 }
@@ -358,8 +344,13 @@ func runningOf(list []hostlink.Session) []hostlink.Session {
 // end 结束 list 里的对话（右键菜单的「结束对话」，同手机版的结束对话、终端里的 /exit）：一律先弹确认框（列表上看不出它在
 // 做什么，一点就停掉不合适）。说明在打开时定下：其中有还在进行（在回答、等确认、有后台任务）或在别处运行的，说会一并停掉。
 func (a *App) end(list []hostlink.Session) {
-	a.ops.ending.list, a.ops.ending.archive = list, nil
-	a.ops.ending.busy, a.ops.ending.open = slices.ContainsFunc(list, a.endStopsWork), true
+	title := locales.SessionBatchEndTitle(len(list))
+	if len(list) == 1 {
+		title = locales.SessionEndTitle()
+	}
+	a.confirm(title, a.endSummary(list), locales.SessionEndButton(), func() {
+		a.hub.End(list, a.failed(locales.SessionEndFailed()))
+	})
 }
 
 // archiveAsking：归档 list 时其中有还在运行的，同结束一样弹确认框（说明同 end），确认后结束它们再归档 list，答真；
@@ -369,9 +360,26 @@ func (a *App) archiveAsking(list []hostlink.Session) bool {
 	if len(running) == 0 {
 		return false
 	}
-	a.end(running)
-	a.ops.ending.archive = list
+	title := locales.SessionBatchArchiveTitle(len(list))
+	if len(list) == 1 {
+		title = locales.SessionArchiveRunningTitle()
+	}
+	a.confirm(title, a.endSummary(running), locales.SessionArchive(), func() {
+		a.hub.End(running, a.failed(locales.SessionEndFailed()))
+		a.hub.SetArchived(list, true, a.failed(locales.SessionArchiveFailed()))
+	})
 	return true
+}
+
+// confirm 打开先问再做的确认框，确认后做 action。
+func (a *App) confirm(title, summary, button string, action func()) {
+	p := &a.ops.confirming
+	p.title, p.summary, p.button, p.action, p.open = title, summary, button, action, true
+}
+
+// endSummary 是结束 list 的说明（endConfirmSummary）：其中有还在进行或在别处运行的，说会一并停掉。
+func (a *App) endSummary(list []hostlink.Session) string {
+	return endConfirmSummary(list, slices.ContainsFunc(list, a.endStopsWork), a.occupantOf(list[0]))
 }
 
 // endStopsWork：结束 s 会停掉正在做的事——它在别处运行（会停掉那边的进程），或还在进行。
