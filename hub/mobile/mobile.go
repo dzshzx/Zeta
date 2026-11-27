@@ -257,107 +257,103 @@ var ok = map[string]bool{"ok": true}
 var errUnknown = errors.New("unknown method")
 
 func (c *Core) call(method string, raw []byte) (any, error) {
-	var p params
-	if err := json.Unmarshal(raw, &p); err != nil {
-		return nil, fmt.Errorf("params are not a JSON object: %w", err)
+	if !json.Valid(raw) {
+		return nil, errors.New("params are not JSON")
 	}
-	switch method {
-	case "probe":
-		return c.probe(p.Target)
-	case "key", "importkey", "resetkey":
-		return c.keyCall(method, p)
-	}
-	var result any
-	var err error
-	c.wait(func() { result, err = c.onLoop(method, p) }, method == "state")
-	return result, err
+	return c.dispatch(method, raw)
 }
 
-// params 是各方法的参数合在一起（各用各的几个）。
-type params struct {
-	Target     string          `json:"target"`
-	Token      string          `json:"token"`
-	ID         string          `json:"id"`
-	Backend    string          `json:"backend"`
-	Text       string          `json:"text"`
-	On         bool            `json:"on"`
-	RequestID  string          `json:"request_id"`
-	Reply      json.RawMessage `json:"reply"`
-	Key        string          `json:"key"`
-	Passphrase string          `json:"passphrase"`
-}
+// 聊天页和设备的方法（见 docs/ios.md「核心桥」）。别的领域在各自的文件里登记。
+type (
+	targetParams struct {
+		Target string `json:"target"`
+	}
+	tokenParams struct {
+		Token string `json:"token"`
+	}
+	idParams struct {
+		ID string `json:"id"`
+		On bool   `json:"on"`
+	}
+	openParams struct {
+		Backend string `json:"backend"`
+		ID      string `json:"id"`
+	}
+	textParams struct {
+		Text string `json:"text"`
+	}
+	answerParams struct {
+		RequestID string          `json:"request_id"`
+		Reply     json.RawMessage `json:"reply"`
+	}
+	keyParams struct {
+		Key        string `json:"key"`
+		Passphrase string `json:"passphrase"`
+	}
+)
 
-func (c *Core) onLoop(method string, p params) (any, error) {
-	h := c.hub
-	switch method {
-	case "state":
-		return c.state(), nil
-	case "resync":
+func init() {
+	blocking("probe", func(c *Core, p targetParams) (any, error) { return c.probe(p.Target) })
+	for _, name := range []string{"key", "importkey", "resetkey"} {
+		blocking(name, func(c *Core, p keyParams) (any, error) { return c.keyCall(name, p) })
+	}
+	reading("state", func(c *Core, _ none) (any, error) { return c.state(), nil })
+	onLoop("resync", func(c *Core, _ none) (any, error) {
 		c.shown = nil // 下一次 state 整份交条目
 		return ok, nil
-	case "add":
-		return c.add(p.Token)
-	case "remove":
-		return ok, h.RemoveHost(p.ID)
-	case "connect":
-		return ok, h.SetConnected(p.ID, p.On)
-	case "list":
+	})
+	onLoop("add", func(c *Core, p tokenParams) (any, error) { return c.add(p.Token) })
+	onLoop("remove", func(c *Core, p idParams) (any, error) { return ok, c.hub.RemoveHost(p.ID) })
+	onLoop("connect", func(c *Core, p idParams) (any, error) { return ok, c.hub.SetConnected(p.ID, p.On) })
+	onLoop("list", func(c *Core, p idParams) (any, error) {
 		if p.ID == "" {
-			h.ListAll()
+			c.hub.ListAll()
 		} else {
-			h.ListOnly(p.ID)
+			c.hub.ListOnly(p.ID)
 		}
 		return ok, nil
-	case "refresh":
-		h.Refresh()
+	})
+	onLoop("refresh", func(c *Core, _ none) (any, error) {
+		c.hub.Refresh()
 		return ok, nil
-	case "open":
+	})
+	onLoop("open", func(c *Core, p openParams) (any, error) {
 		s, found := c.session(p.Backend, p.ID)
 		if !found {
 			return nil, locales.Err(locales.MobileSessionGone)
 		}
-		h.OpenSession(s)
+		c.hub.OpenSession(s)
 		return ok, nil
-	case "new":
-		h.NewChatOn(p.Backend)
+	})
+	onLoop("new", func(c *Core, p openParams) (any, error) {
+		c.hub.NewChatOn(p.Backend)
 		return ok, nil
-	case "close":
-		h.CloseChat()
+	})
+	onLoop("close", func(c *Core, _ none) (any, error) {
+		c.hub.CloseChat()
 		return ok, nil
-	}
-	return c.chatCall(method, p)
-}
-
-// chatCall 是对聊天页里的对话做的事：在后台做，没成的原因放进 state 的 failed。
-func (c *Core) chatCall(method string, p params) (any, error) {
-	var do func(ctx context.Context, conv *chat.Conversation) error
-	switch method {
-	case "send":
+	})
+	inChat("send", func(p textParams) (func(ctx context.Context, conv *chat.Conversation) error, error) {
 		if strings.TrimSpace(p.Text) == "" {
-			return ok, nil
+			return nil, nil
 		}
-		do = func(ctx context.Context, conv *chat.Conversation) error {
+		return func(ctx context.Context, conv *chat.Conversation) error {
 			return conv.Send(ctx, coreapi.Outgoing{Text: p.Text})
-		}
-	case "interrupt":
-		do = func(ctx context.Context, conv *chat.Conversation) error { return conv.Interrupt(ctx) }
-	case "answer":
+		}, nil
+	})
+	inChat("interrupt", func(none) (func(ctx context.Context, conv *chat.Conversation) error, error) {
+		return func(ctx context.Context, conv *chat.Conversation) error { return conv.Interrupt(ctx) }, nil
+	})
+	inChat("answer", func(p answerParams) (func(ctx context.Context, conv *chat.Conversation) error, error) {
 		var r prompt.Reply
 		if err := json.Unmarshal(p.Reply, &r); err != nil {
 			return nil, fmt.Errorf("bad reply: %w", err)
 		}
-		do = func(ctx context.Context, conv *chat.Conversation) error { return conv.Answer(ctx, p.RequestID, r) }
-	case "earlier":
-		do = func(ctx context.Context, conv *chat.Conversation) error { return conv.LoadEarlier(ctx, false) }
-	default:
-		return nil, fmt.Errorf("%w: %s", errUnknown, method)
-	}
-	if c.hub.Chat() == nil || c.hub.Chat().Conv == nil {
-		return nil, locales.Err(locales.MobileChatNotOpen)
-	}
-	c.problem = ""
-	c.hub.RunChat(do, func(err error) { c.problem = locales.ErrorText(err) })
-	return ok, nil
+		return func(ctx context.Context, conv *chat.Conversation) error { return conv.Answer(ctx, p.RequestID, r) }, nil
+	})
+	inChat("earlier", func(none) (func(ctx context.Context, conv *chat.Conversation) error, error) {
+		return func(ctx context.Context, conv *chat.Conversation) error { return conv.LoadEarlier(ctx, false) }, nil
+	})
 }
 
 // session 找列着的会话。
@@ -413,7 +409,7 @@ type Key struct {
 }
 
 // keyCall 读、换登录用的密钥。换了以后新起的连接用新的；已经连着的不断开。
-func (c *Core) keyCall(method string, p params) (Key, error) {
+func (c *Core) keyCall(method string, p keyParams) (Key, error) {
 	if c.auth == nil {
 		return Key{}, errors.New("no key")
 	}

@@ -107,10 +107,24 @@ final class AppModel {
         }
     }
 
+    /// 在后台线程上调核心的方法 method 并等它的结果（会等网络的方法，比如 probe、core，都这样调）；没成时抛出原因。
+    func request<T: Decodable & Sendable>(
+        _ method: String, _ params: [String: any Sendable] = [:], as type: T.Type
+    ) async throws -> T {
+        guard let core else { throw Core.Failure(message: "core not started") }
+        return try await Task.detached { try core.call(method, params, as: type) }.value
+    }
+
+    /// 把设备 backend 的核心方法 method（只有 config.*、diag.*、system.*，见 docs/ios.md「核心桥」）转过去，结果解成 T。
+    func device<T: Decodable & Sendable>(
+        _ backend: String, _ method: String, _ params: [String: any Sendable] = [:], as type: T.Type
+    ) async throws -> T {
+        try await request("core", ["backend": backend, "method": method, "params": params], as: type)
+    }
+
     /// 探测地址 target（会等到连上、查完，最多约 45 秒），不在主线程上等。
     func probe(_ target: String) async throws -> Probed {
-        guard let core else { throw Core.Failure(message: "core not started") }
-        return try await Task.detached { try core.call("probe", ["target": target], as: Probed.self) }.value
+        try await request("probe", ["target": target], as: Probed.self)
     }
 
     /// 添加探测过的设备。
