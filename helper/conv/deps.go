@@ -17,6 +17,8 @@ type Deps struct {
 	Attach func(key string, from int, ev Events) (Link, error)
 	// SessionFile 是会话号 session 的会话记录（几份时取最新的），没有时为空；可以是 nil
 	SessionFile func(session string) string
+	// HostOutput 是托管标识 key 的进程的输出日志（zeta_host.sh 的 out.jsonl）；可以是 nil
+	HostOutput func(key string) string
 	// History 跑 zeta-helper history 的参数，返回它的输出（第一行 zeta_history，之后一行一条消息）
 	History func(args ...string) ([]byte, error)
 	// Subagent 跑 zeta-helper subagent 的参数（子代理查看页增量读记录），返回它的输出（第一行 zeta_subagent，之后一行一个事件）
@@ -103,8 +105,17 @@ type Link interface {
 
 // Events 是托管连接交回的事件。
 type Events struct {
-	Line func(line []byte) // Claude Code 输出的一行
-	Exit func(Exit)        // 连接到此为止（只来一次）
+	Attached func(Attached)    // 托管脚本接上了：第一个事件，之后才有输出行
+	Line     func(line []byte) // Claude Code 输出的一行
+	Exit     func(Exit)        // 连接到此为止（只来一次）
+}
+
+// Attached 是托管脚本接上时报的（zeta_attached）：接上的托管标识、接下来第一行在输出日志里的行号（从 1 起），
+// 和是不是没起新进程、接上了本包已在跑这个会话的进程。
+type Attached struct {
+	Key    string
+	From   int
+	Joined bool
 }
 
 // Exit 是托管进程的结局：退出码、标准错误输出的最后一段，和会话去了别处的原因（released、held_elsewhere）。

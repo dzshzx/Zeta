@@ -1,11 +1,11 @@
 package main
 
 import (
-	"bytes"
 	"io"
 	"math"
-	"slices"
 	"strconv"
+
+	"github.com/dzshzx/Zeta/helper/lastline"
 )
 
 // 侧栏的几种排序要的时刻和位置（docs/core.md「会话」）：发起时间 created、最新回答时间 replied、手动排序的位置 rank。
@@ -15,9 +15,6 @@ import (
 type replyMark struct {
 	size, at int64
 }
-
-// replyChunk：结尾那段里没有回答时往回一次读这么多。
-const replyChunk = 1 << 20
 
 // isReply：这一行是主线上一轮回答完的那条 assistant 消息（stop_reason 不是 tool_use、pause_turn），返回它的时刻（毫秒）。
 // 工具结果、元数据、子代理的消息都不算。
@@ -47,34 +44,13 @@ func entryTime(o obj) int64 {
 
 // lastReplyIn 往回找 [lo, hi) 里最后一次回答完的时刻，没有时是 0。lo 要是一行的开头；hi 一般是一行的开头，不是时那半行不要。
 func lastReplyIn(f io.ReaderAt, lo, hi int64) (int64, error) {
-	var carry []byte // 上一块开头那半行：接在这一块后面
-	for end := hi; end > lo; {
-		start := max(lo, end-replyChunk)
-		buf := make([]byte, end-start, end-start+int64(len(carry)))
-		n, err := f.ReadAt(buf, start)
-		if err != nil && err != io.EOF {
-			return 0, err
-		}
-		data := append(buf[:n], carry...)
-		carry = nil
-		if start > lo {
-			// 第一个换行之前的可能是半行，留给前一块
-			i := bytes.IndexByte(data, '\n')
-			if i < 0 {
-				carry, end = data, start
-				continue
-			}
-			carry, data = slices.Clone(data[:i+1]), data[i+1:]
-		}
-		lines := bytes.SplitAfter(data, []byte("\n"))
-		for i := len(lines) - 1; i >= 0; i-- {
-			if at, ok := isReply(lines[i]); ok {
-				return at, nil
-			}
-		}
-		end = start
-	}
-	return 0, nil
+	var at int64
+	_, err := lastline.Find(f, lo, hi, func(line []byte) bool {
+		t, ok := isReply(line)
+		at = t
+		return ok
+	})
+	return at, err
 }
 
 // sessionOrder 是手动排序时各会话的位置：会话 id → rank，大的在上面。没拖过的不在里面，位置就是它的发起时间（summary.rank），

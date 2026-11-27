@@ -408,7 +408,7 @@
   "composerCompactAt": "Auto-compacts at {tokens}.",
   "composerCompactAtPercent": "Auto-compacts at {tokens} ({percent}% of the window).",
   "composerCompactions": "{count, plural, one {Compacted once.} other {Compacted # times.}}",
-  "usageCostEstimated": "Amounts marked ≈ are estimated from token counts at API prices: the session log has no costs. After reopening a conversation whose process is still running, only the main conversation is counted for the first turn.",
+  "usageCostEstimated": "Amounts marked ≈ are estimated from token counts at API prices: the session log has no costs.",
   "usageCostPartial": "Some turns used models that aren't in the price list, so their cost isn't counted.",
   "usageEarlierNotCounted": "Earlier history isn't loaded, so it isn't counted.",
   "usageNoteSeparator": " ",

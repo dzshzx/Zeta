@@ -2212,7 +2212,7 @@
       }
     }
   },
-  "usageCostEstimated": "带 ≈ 的是按 token 数和 API 标价估的：会话记录里没有费用。重新打开对话、接上还在跑的进程后，第一轮只算得出主对话的。",
+  "usageCostEstimated": "带 ≈ 的是按 token 数和 API 标价估的：会话记录里没有费用。",
   "@usageCostEstimated": {
     "description": "用量弹出框累计一节下面的说明：费用是估的。"
   },

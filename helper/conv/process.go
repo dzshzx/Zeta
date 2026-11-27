@@ -15,13 +15,10 @@ var errClosed = locales.Err("errConvClosed")
 
 // process 是对话背后接着的那个 Claude Code 进程：托管连接，和这条连接上发出、还在等应答的控制请求。
 type process struct {
-	link Link
-	// startKey 是起进程时的托管标识；第一行输出到时 link.Key() 换了，说明托管脚本没起新进程、接上的是本包已在跑的那个，
-	// 起进程时定的用量基线就不算数（usage.Tracker.Joined）。接上已在跑的进程（attach）时为空，不用核
-	startKey string
-	prefix   string // 请求号的开头：每条连接随机起头再递增，重新接上的进程的输出里可能还有上一条连接的请求的应答
-	seq      int
-	waiting  map[string]func(controlResponse)
+	link    Link
+	prefix  string // 请求号的开头：每条连接随机起头再递增，重新接上的进程的输出里可能还有上一条连接的请求的应答
+	seq     int
+	waiting map[string]func(controlResponse)
 }
 
 // controlResponse 是 control_response 里的 response 一项。
@@ -195,7 +192,6 @@ func (c *Conversation) ensureProcess(mode string) *process {
 		return nil
 	}
 	p.link = link
-	p.startKey = link.Key()
 	c.proc = p
 	c.processStarted(p, c.carriedUsage(), o.CompactPercent)
 	return p
@@ -225,8 +221,9 @@ func (c *Conversation) carriedUsage() *usage.Carried {
 // events 是交给托管连接的回调：都排进对话的 goroutine，只认还是这个对话的进程的。
 func (c *Conversation) events(p *process) Events {
 	return Events{
-		Line: func(line []byte) { c.do(func() { c.receive(p, line) }) },
-		Exit: func(e Exit) { c.do(func() { c.onExit(p, e) }) },
+		Attached: func(a Attached) { c.do(func() { c.attached(p, a) }) },
+		Line:     func(line []byte) { c.do(func() { c.receive(p, line) }) },
+		Exit:     func(e Exit) { c.do(func() { c.onExit(p, e) }) },
 	}
 }
 
@@ -326,7 +323,6 @@ func (c *Conversation) closeProcess(end bool) {
 		return
 	}
 	c.proc = nil
-	c.lastProcKey = p.link.Key()
 	c.abortRewind(errClosed.Msg)
 	if end {
 		p.link.Stop()
@@ -365,7 +361,6 @@ func (c *Conversation) onExit(p *process, e Exit) {
 		return
 	}
 	c.proc = nil
-	c.lastProcKey = p.link.Key()
 	c.abortRewind(locales.M("rewindProcessExited"))
 	// 连接意外断开时进程可能还活着：照样留给看门狗按闲置超时收
 	p.link.Leave()

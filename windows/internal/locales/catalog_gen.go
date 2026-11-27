@@ -5935,13 +5935,13 @@ func (msgs Messages) ComposerCompactions(count int) string {
 	return Catalog.Format(msgs.locale, "composerCompactions", map[string]any{"count": count})
 }
 
-// UsageCostEstimated says "带 ≈ 的是按 token 数和 API …"
+// UsageCostEstimated says "带 ≈ 的是按 token 数和 API 标价估的：会话记录里没有费用。"
 // in the language the app shows.
 //
 // 用量弹出框累计一节下面的说明：费用是估的。
 func UsageCostEstimated() string { return In(i18n.Locale()).UsageCostEstimated() }
 
-// UsageCostEstimated says "带 ≈ 的是按 token 数和 API …"
+// UsageCostEstimated says "带 ≈ 的是按 token 数和 API 标价估的：会话记录里没有费用。"
 // in the language of msgs.
 //
 // 用量弹出框累计一节下面的说明：费用是估的。

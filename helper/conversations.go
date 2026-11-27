@@ -36,6 +36,7 @@ func newConversations(e *env, quota *quotaWatch) *conversations {
 		Start:         startHost(e),
 		Attach:        attachHost(e),
 		SessionFile:   func(session string) string { return sessionFile(e, session) },
+		HostOutput:    func(key string) string { return joinPath(joinPath(e.hosts, key), "out.jsonl") },
 		Subagent:      func(args ...string) ([]byte, error) { return subagentOutput(e, args) },
 		History:       func(args ...string) ([]byte, error) { return historyOutput(e, args) },
 		DefaultMode:   (&defaultModeCache{path: e.claude + "/settings.json"}).get,

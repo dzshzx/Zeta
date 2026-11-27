@@ -63,7 +63,6 @@ func (c *Conversation) receive(p *process, line []byte) {
 	}
 	// 进程有了输出：交给它的消息已经送到了
 	c.unsent = nil
-	c.checkJoined(p)
 	now := c.deps.now()
 	if c.usage.Observe(line) {
 		c.changed()
@@ -492,14 +491,21 @@ func controlSuccess(requestID string, response any) []byte {
 	return b
 }
 
-// checkJoined：起进程后的第一行输出到了，托管标识换了的话，托管脚本没起新进程、接上的是本包已在跑的那个，
-// 起进程时读的用量基线不是它的：是这个对话上次接着的那个进程时照上次的基线，否则不知道。之后不用再看。
-func (c *Conversation) checkJoined(p *process) {
-	if p.startKey == "" {
+// attached：托管脚本接上了（连接上的第一个事件，输出行都在它后面）。接上的进程之前已有输出时（接上本包已在跑的进程、
+// 重新打开对话接回后台进程），用量基线是它输出日志里接上那一行之前最后一个 result 的累计；接上的是已在跑的进程、
+// 它却还一轮没跑完时，起进程前读的基线不是它的，算不知道。
+func (c *Conversation) attached(p *process, a Attached) {
+	if p != c.proc {
 		return
 	}
-	if p.link.Key() != p.startKey {
-		c.usage.Joined(p.link.Key() == c.lastProcKey)
+	if a.From > 1 && c.deps.HostOutput != nil {
+		carried, ok, err := usage.LastResultBefore(c.deps.HostOutput(a.Key), a.From)
+		if err == nil && ok {
+			c.usage.Rebase(&carried)
+			return
+		}
 	}
-	p.startKey = ""
+	if a.Joined {
+		c.usage.Rebase(nil)
+	}
 }

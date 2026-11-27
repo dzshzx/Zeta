@@ -49,6 +49,8 @@ func attachHost(*env) func(string, int, conv.Events) (conv.Link, error) {
 func pump(l *host.Link, ev conv.Events) {
 	for e := range l.Events() {
 		switch x := e.(type) {
+		case host.Attached:
+			ev.Attached(conv.Attached{Key: x.Key, From: x.From, Joined: x.Joined})
 		case host.Line:
 			ev.Line(x.Data)
 		case host.Exit:
