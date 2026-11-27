@@ -7,12 +7,12 @@ enum TaskPage: Hashable {
 }
 
 extension View {
-    /// 任务详情和子代理页的去处（放在任务页所在的 NavigationStack 里）。
-    func taskPages() -> some View {
+    /// 任务详情和子代理页的去处（放在任务页所在的 NavigationStack 里）。[close] 关掉任务面板、回到聊天（子代理页的「所属对话」）。
+    func taskPages(close: @escaping () -> Void) -> some View {
         navigationDestination(for: TaskPage.self) { page in
             switch page {
             case .task(let id): TaskDetailView(taskID: id)
-            case .subagent(let id): SubagentView(toolUseID: id)
+            case .subagent(let id): SubagentView(toolUseID: id, openChat: close)
             }
         }
     }
@@ -55,7 +55,7 @@ struct BackgroundTasksView: View {
         .toolbar {
             ToolbarItem(placement: .confirmationAction) { Button("完成") { dismiss() } }
         }
-        .taskPages()
+        .taskPages { dismiss() }
     }
 
     private func describe(_ chat: BackgroundChat) -> String {
@@ -88,7 +88,7 @@ struct ChatTasksView: View {
         .toolbar {
             ToolbarItem(placement: .confirmationAction) { Button("完成") { dismiss() } }
         }
-        .taskPages()
+        .taskPages { dismiss() }
     }
 }
 
@@ -256,119 +256,6 @@ struct TaskDetailView: View {
         guard task?.readable == true else { return }
         do {
             output = try await model.request("taskoutput", ["task": taskID], as: TaskOutput.self)
-            failed = ""
-        } catch {
-            failed = error.localizedDescription
-        }
-    }
-}
-
-/// 子代理页（同手机版 SubagentScreen、桌面版 subagent.go）：概要、交给它的指令，下面是它的步骤，和聊天里的条目一样画。
-/// 它在后台任务清单里时，概要里另有已运行多久，在跑时能停止。
-struct SubagentView: View {
-    @Environment(AppModel.self) private var model
-    let toolUseID: String
-
-    @State private var page: SubagentPage?
-    @State private var failed = ""
-    @State private var stopAsked = false
-
-    /// 它在后台任务清单里的那一项；不在清单里时没有。
-    private var task: TaskInfo? {
-        model.state.chat?.tasks.first { $0.kind == "agent" && $0.toolUseID == toolUseID }
-    }
-
-    var body: some View {
-        List {
-            overview
-            if let error = task?.error, !error.isEmpty {
-                Section("出错") { Text(error).foregroundStyle(.red).textSelection(.enabled) }
-            }
-            if let prompt = page?.prompt, !prompt.isEmpty {
-                Section("指令") {
-                    DisclosureGroup("交给它的指令") {
-                        Text(prompt).font(.callout).textSelection(.enabled)
-                    }
-                }
-            }
-            Section("步骤") {
-                if let page, !page.items.isEmpty {
-                    ForEach(page.items) { ItemView(item: $0) }
-                    if page.running {
-                        ProgressView().frame(maxWidth: .infinity)
-                    }
-                } else {
-                    Text(noSteps).foregroundStyle(.secondary)
-                }
-            }
-        }
-        .navigationTitle("子代理")
-        .navigationBarTitleDisplayMode(.inline)
-        .onAppear { model.perform("watch", ["kind": "subagent", "id": toolUseID, "on": true]) }
-        .onDisappear { model.perform("watch", ["kind": "subagent", "id": toolUseID, "on": false]) }
-        .task(id: model.revision) { await load() }
-        .confirmationDialog("停止这个任务？", isPresented: $stopAsked, titleVisibility: .visible) {
-            Button("停止", role: .destructive) {
-                if let task { model.perform("stoptask", ["task": task.id]) }
-            }
-        }
-    }
-
-    /// 概要一节：状态、已运行多久、说明、类型、模型、思考强度、工具调用（知道的才列），在跑时最后是停止。
-    private var overview: some View {
-        Section("概要") {
-            LabeledContent("状态", value: stateText)
-            if let task {
-                TimelineView(.periodic(from: .now, by: 1)) { context in
-                    LabeledContent("已运行") {
-                        Text(task.elapsed(now: context.date), format: TaskInfo.elapsedStyle)
-                    }
-                }
-            }
-            if let meta = page?.meta {
-                if !meta.description.isEmpty { LabeledContent("说明", value: meta.description) }
-                if !meta.agentType.isEmpty { LabeledContent("类型", value: meta.agentType) }
-                if !meta.model.isEmpty { LabeledContent("模型", value: meta.model) }
-                if let effort = meta.effort, !effort.isEmpty {
-                    LabeledContent("思考强度", value: ConfigLabels.effort(effort))
-                }
-            }
-            if let page, page.toolUses > 0 {
-                LabeledContent("工具调用") { Text(page.toolUses, format: .number) }
-            }
-            if let task, task.running, task.stopping != true {
-                Button("停止任务", role: .destructive) { stopAsked = true }
-            }
-        }
-    }
-
-    private var stateText: String {
-        switch page?.state ?? "" {
-        case "running": String(localized: "运行中")
-        case "completed": String(localized: "已完成")
-        case "failed": String(localized: "失败")
-        case "stopped": String(localized: "已停止")
-        case "missing": String(localized: "还没有记录")
-        case "read_failed": String(localized: "没读成")
-        case "loading", "": String(localized: "正在读取")
-        default: String(localized: "没有做完")
-        }
-    }
-
-    private var noSteps: String {
-        if !failed.isEmpty { return String(localized: "没看上：\(failed)") }
-        switch page?.state ?? "" {
-        case "missing": return String(localized: "它的记录文件还没有")
-        case "read_failed": return page?.failure ?? ""
-        case "loading", "": return String(localized: "正在读取")
-        default: return String(localized: "还没有步骤")
-        }
-    }
-
-    private func load() async {
-        do {
-            let next = try await model.request("subagent", ["tool_use_id": toolUseID], as: SubagentPage.self)
-            if next.rev != page?.rev || page == nil { page = next }
             failed = ""
         } catch {
             failed = error.localizedDescription

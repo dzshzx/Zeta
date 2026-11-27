@@ -68,7 +68,7 @@ Swift 经三个 C 函数调核心（`hub/cmd/zeta-ios`）：
 | `composer.complete` | `text`、`caret`、`name` | 选了斜杠命令：答 `{text, caret}`，只换掉光标处那个词 |
 | `composer.send` | `text` | 发输入框里的字和传好了的附件，答 `{sent, open}`；还有在传的、没东西可发时不发；没发出去时字和附件放回输入栏；单独是 `/config`、`/permissions` 时不发，`open` 是 `config` 或 `permissions`，界面打开那一页 |
 | `composer.attach` | `files`（`[{path}]`） | 收 App 临时目录里选好的文件：传到对话所在的设备上，图片另做缩小图；收不了的原因放进 `composer.problems` |
-| `composer.remove`、`composer.problems` | `id`；无 | 移除一个待发的附件（在传的取消）；清掉没收进来的原因 |
+| `composer.remove`、`composer.problems` | `id`；无 | 移除一个待发的附件（在传的取消；这份草稿自己传好的那份从设备上删掉）；清掉没收进来的原因 |
 | `composer.model`、`composer.effort`、`composer.mode` | `value`（省掉是回到默认） | 这个对话的模型、思考强度、权限模式 |
 | `composer.steer`、`composer.cancel`、`composer.compact` | 无；`uuid`、`recall` | 立即插话；撤回一条排队的（`recall` 时放回输入框）；压缩上下文 |
 | `composer.quota` | `force` | 让对话所在设备的订阅额度刷新（不够新才问，`force` 时一定问） |

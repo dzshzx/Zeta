@@ -540,6 +540,7 @@ private fun ConversationBody(
                 pathAttach = pathAttach,
                 onPickImages = pickers::pickImages,
                 onPickFiles = pickers::pickFiles,
+                onRemoveFile = sink::remove,
                 onOpenTasks = onOpenTasks,
                 composerFocus = composerFocus,
                 onOpenClaudeConfig = onOpenClaudeConfig,
@@ -793,6 +794,7 @@ private fun ConversationInput(
     pathAttach: PathAttach,
     onPickImages: () -> Unit,
     onPickFiles: () -> Unit,
+    onRemoveFile: (FileUpload) -> Unit,
     onOpenTasks: (String) -> Unit,
     composerFocus: FocusRequester,
     onOpenClaudeConfig: ((Conversation, ClaudeConfigCommand) -> Unit)?,
@@ -850,7 +852,7 @@ private fun ConversationInput(
             onEnterPath = pathAttach::openPath,
             onOpenPrompts = prompts::open,
             onRemoveAttachment = { attachments.remove(it) },
-            onRemoveFile = { uploads.remove(it) },
+            onRemoveFile = onRemoveFile,
             onSlashTyped = conversation::prepare,
             onSend = { text ->
                 sendDraft(text, hub, conversation, draft, actions, follow, openConfig)

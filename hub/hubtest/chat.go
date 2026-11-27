@@ -268,6 +268,36 @@ func (d *Devices) Upload(ctx context.Context, h sshlink.Host, u host.Upload, pro
 	return fmt.Sprintf("%s/.cache/zeta/files/%08d/%s", h.Home, len(d.uploaded), hostlink.CleanName(name)), nil
 }
 
+// RemoveUploaded 见 hub.Devices：不连设备，只把路径记进 Removed。
+func (d *Devices) RemoveUploaded(_ sshlink.Host, path string) {
+	d.mu.Lock()
+	defer d.mu.Unlock()
+	d.removed = append(d.removed, path)
+	if d.removedMore != nil {
+		d.removedMore.Broadcast()
+	}
+}
+
+// Removed 是叫删掉的已传附件的路径，按先后。
+func (d *Devices) Removed() []string {
+	d.mu.Lock()
+	defer d.mu.Unlock()
+	return slices.Clone(d.removed)
+}
+
+// WaitRemoved 等到叫删掉的已传附件有 n 个，返回它们的路径（删是在后台做的）。
+func (d *Devices) WaitRemoved(n int) []string {
+	d.mu.Lock()
+	defer d.mu.Unlock()
+	if d.removedMore == nil {
+		d.removedMore = sync.NewCond(&d.mu)
+	}
+	for len(d.removed) < n {
+		d.removedMore.Wait()
+	}
+	return slices.Clone(d.removed)
+}
+
 // Uploaded 是传上去的东西，按传的先后。
 func (d *Devices) Uploaded() []host.Upload {
 	d.mu.Lock()

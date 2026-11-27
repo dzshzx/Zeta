@@ -246,6 +246,14 @@ func (h *Hub) Uploader(backend string) func(ctx context.Context, u host.Upload, 
 	}
 }
 
+// UploadRemover 是删掉设备 backend 上已传附件的办法：传好了、还没发就从输入栏移除的（在后台 goroutine 上调用，
+// 见 Devices.RemoveUploaded）。
+func (h *Hub) UploadRemover(backend string) func(path string) {
+	x, _ := h.Host(backend)
+	devices := h.devices
+	return func(path string) { devices.RemoveUploaded(x, path) }
+}
+
 // PathChecker 是查设备 backend 上路径的办法（在后台 goroutine 上调用）。
 func (h *Hub) PathChecker(backend string) func(path string) (hostlink.PathKind, error) {
 	x, _ := h.Host(backend)

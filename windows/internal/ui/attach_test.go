@@ -16,6 +16,7 @@ import (
 	"github.com/dzshzx/Zeta/client/hostlink"
 	"github.com/dzshzx/Zeta/helper/coreapi"
 	"github.com/dzshzx/Zeta/hub/attach"
+	"github.com/egoist/mygo"
 	"github.com/egoist/mygo/transfer"
 	"github.com/egoist/mygo/ui"
 )
@@ -154,6 +155,45 @@ func TestAttachingImagesFilesAndFolders(t *testing.T) {
 	}
 	if at := f.app.pane.att; len(at.images)+len(at.files) != 0 {
 		t.Errorf("发完输入栏里还有附件：%+v", at)
+	}
+	// 发出去的附件消息里要用，设备上那份不删
+	if removed := f.devices.Removed(); len(removed) != 0 {
+		t.Errorf("发出去的附件被删了：%v", removed)
+	}
+}
+
+// 输入栏里待发的图片点一下看大图，看的是本机的原文件（保存下来的就是它）；传好了又移除的，设备上那份删掉。
+func TestDraftPictureOpensOriginalAndRemovalDeletesUpload(t *testing.T) {
+	f := newChatFixture(t)
+	f.newChat(t)
+	local := localFiles(t)
+	f.pickReturns(local["海边.png"])
+	f.attach(t, "图片")
+	pic := f.app.pane.att.files[0]
+	original, err := os.ReadFile(local["海边.png"])
+	if err != nil {
+		t.Fatal(err)
+	}
+	var got []byte
+	f.app.saveFile = func(_, name string, _ []mygo.FileFilter, data []byte) (string, error) {
+		got = data
+		return name, nil
+	}
+	f.click(t, pic.label())
+	waitFor(t, f, func() bool { return f.app.viewer != nil })
+	f.click(t, "保存")
+	waitFor(t, f, func() bool { return got != nil })
+	if !bytes.Equal(got, original) {
+		t.Fatalf("看的不是本机原文件：%d 字节，原文件 %d 字节", len(got), len(original))
+	}
+	f.tt.Key(0, ui.KeyEscape)
+	f.tt.Frame()
+	f.clickButton(t, "移除", 0)
+	if removed := f.devices.WaitRemoved(1); removed[0] != "/home/box/.cache/zeta/files/00000001/海边.png" {
+		t.Fatalf("删掉的 %v", removed)
+	}
+	if n := len(f.app.pane.att.files); n != 0 {
+		t.Fatalf("输入栏里还有 %d 个", n)
 	}
 }
 

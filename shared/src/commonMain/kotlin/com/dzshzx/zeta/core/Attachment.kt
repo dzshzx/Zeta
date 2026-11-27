@@ -56,6 +56,14 @@ object Attachments {
  * 自己去读。输入栏只画它的缩略图；没有时（草稿里恢复的）缩略图从主机上的 [path] 取，只发文件。
  */
 class FileUpload(val id: String, val name: String) {
+    /** 这份草稿自己选的、分享来的本机文件：输入栏点开看大图时读它（原图，不经主机）。放回的、草稿里恢复的没有。 */
+    var local: PickedFile? = null
+
+    /** 这次复制进主机的文件是这份草稿自己传的、还没随消息发出去：从输入栏移除时把主机上那份删掉（[Uploads.discard]）。放回的、草稿里恢复的 可能是发过的消息里的，不删。 */
+    var fresh = false
+
+    /** 用户从输入栏移除了它；还在复制的，复制完由复制的那边删掉主机上那份。 */
+    var removed = false
     var path by mutableStateOf<String?>(null)
     var inline by mutableStateOf<Attachment?>(null)
     var failed by mutableStateOf(false)
@@ -97,6 +105,23 @@ object Uploads {
         Copied(if (ok) target else null)
     }
         .getOrElse { Copied(null) }
+
+    /**
+     * 用户从输入栏移除了 [upload]：是这份草稿自己传的（[FileUpload.fresh]）就删掉主机上那次复制的目录（[copyFrom] 建的 `files/<8
+     * 位十六进制>`，路径对不上这个样子的不动）。还在复制的只记下，复制完再调一次。阻塞，别在主线程调用。
+     */
+    fun discard(shell: LinuxShell, upload: FileUpload) {
+        upload.removed = true
+        val path = upload.path ?: return
+        if (!upload.fresh) return
+        val directory = path.substringBeforeLast('/')
+        val root = "${AppVariant.current.cacheDir(shell.home)}/files/"
+        if (!directory.startsWith(root) || !UploadDirectory.matches(directory.removePrefix(root)))
+            return
+        runCatching { shell.run("rm -rf " + LinuxEnv.quote(directory), plain = true) }
+    }
+
+    private val UploadDirectory = Regex("[0-9a-f]{8}")
 
     /** 把 [source] 抄进 [sink]，超过 [limit] 字节就停下；返回是不是超了（超了的那一块不写）。 */
     private fun copyLimited(source: InputStream, sink: OutputStream, limit: Long): Boolean {

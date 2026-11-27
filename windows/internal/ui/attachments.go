@@ -3,6 +3,7 @@ package ui
 import (
 	"context"
 	"crypto/sha256"
+	"encoding/base64"
 	"encoding/hex"
 	"errors"
 	"os"
@@ -12,6 +13,7 @@ import (
 	"github.com/dzshzx/Zeta/client/hostlink"
 	"github.com/dzshzx/Zeta/helper/coreapi"
 	"github.com/dzshzx/Zeta/hub/attach"
+	"github.com/dzshzx/Zeta/hub/chat/items"
 	"github.com/dzshzx/Zeta/hub/host"
 	"github.com/dzshzx/Zeta/windows/internal/locales"
 	"github.com/dzshzx/Zeta/windows/internal/ui/widget"
@@ -60,6 +62,11 @@ type draftFile struct {
 	size   int64 // 不知道是 -1
 	folder bool
 	entry  string // 传好了的主机路径（/…）或引用（@…）
+	// uploaded 是这份草稿自己传到设备上的路径（撤回放回的、草稿里恢复的、输入的路径没有）：没发就移除时把那边的删掉。
+	uploaded string
+	// local、data 是这次选的本机原文件、粘贴来的原文：输入栏点开看大图时读它。放回的、草稿里恢复的没有。
+	local  string
+	data   []byte
 	failed string // 没传成的原因
 	sent   int64  // 已传的字节数
 	// encoding 时缩小图还在做（做好才能发）；shrunk 是做好的缩小图（随消息内联发，带着输入栏的缩略图）。
@@ -169,6 +176,45 @@ func (at *attachments) clear() { at.images, at.files = nil, nil }
 
 func (at *attachments) removeImage(id int) {
 	at.images = removeWhere(at.images, func(im *draftImage) bool { return im.id == id })
+}
+
+// removeFile 是用户点了附件上的移除：从输入栏拿掉（在传的取消），这份草稿自己传好的那份在后台从设备上删掉。
+func (a *App) removeFile(p *chatPane, id int) {
+	for _, f := range p.att.files {
+		if f.id == id && f.uploaded != "" {
+			remove, path := a.hub.UploadRemover(p.src.Backend), f.uploaded
+			a.run(func() { remove(path) })
+		}
+	}
+	p.att.removeFile(id)
+}
+
+// viewPicture 看输入栏里一张待发的图片文件：有本机原文件、粘贴来的原文时看原图（直接读本机，不经设备），读不了、没有时看缩小图。
+func (a *App) viewPicture(p *chatPane, f *draftFile) {
+	shrunk := f.shrunk
+	if shrunk == nil {
+		return
+	}
+	local, data := f.local, f.data
+	a.async(func() func() {
+		if local != "" {
+			data, _ = os.ReadFile(local)
+		}
+		return func() {
+			if len(data) == 0 {
+				a.viewDraftImage(p, shrunk)
+				return
+			}
+			a.openImages(p.list, []items.Image{{Kind: items.Inline, Key: "draft-original:" + shrunk.contentHash(),
+				Data: base64.StdEncoding.EncodeToString(data)}}, 0)
+		}
+	})
+}
+
+// viewDraftImage 看输入栏里一张内联图（放回的、草稿里存着的，或图片文件的缩小图）。
+func (a *App) viewDraftImage(p *chatPane, im *draftImage) {
+	a.openImages(p.list, []items.Image{{Kind: items.Inline, Key: "draft:" + im.contentHash(),
+		Data: base64.StdEncoding.EncodeToString(im.image.Data)}}, 0)
 }
 
 func (at *attachments) removeFile(id int) {
@@ -317,6 +363,9 @@ func (a *App) startUpload(p *chatPane, u host.Upload, f *draftFile) {
 	u.Limit = attach.MaxBytes
 	ctx, cancel := context.WithCancel(context.Background())
 	f.id, f.cancel = p.att.id(), cancel
+	if !u.Folder {
+		f.local, f.data = u.Local, u.Data
+	}
 	p.att.files = append(p.att.files, f)
 	upload := a.hub.Uploader(p.src.Backend)
 	a.run(func() {
@@ -343,9 +392,9 @@ func (a *App) uploaded(p *chatPane, f *draftFile, path string, err error) {
 	case err != nil:
 		f.failed = err.Error()
 	case f.folder:
-		f.entry = hostlink.Reference(path, true)
+		f.entry, f.uploaded = hostlink.Reference(path, true), path
 	default:
-		f.entry = path
+		f.entry, f.uploaded = path, path
 	}
 }
 

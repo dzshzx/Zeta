@@ -93,6 +93,33 @@ func TestUpload(t *testing.T) {
 	}
 }
 
+// 传好了又不要的：只删那一次上传的目录；不在上传目录里的路径不动。
+func TestRemoveUploaded(t *testing.T) {
+	b := newBox(t)
+	keep, err := b.shell.Upload(context.Background(), "keep.txt", strings.NewReader("keep"), 1<<20, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	gone, err := b.shell.Upload(context.Background(), "gone.txt", strings.NewReader("gone"), 1<<20, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	outside := filepath.Join(b.server.Home, "notes.txt")
+	if err := os.WriteFile(outside, []byte("mine"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	b.shell.RemoveUploaded(gone)
+	b.shell.RemoveUploaded(outside)
+	if _, err := os.Stat(filepath.Dir(gone)); !os.IsNotExist(err) {
+		t.Errorf("不要的那次上传的目录还在：%v", err)
+	}
+	for _, path := range []string{keep, outside} {
+		if _, err := os.Stat(path); err != nil {
+			t.Errorf("不该动 %s：%v", path, err)
+		}
+	}
+}
+
 func TestUploadTooLargeLeavesNothing(t *testing.T) {
 	b := newBox(t)
 	_, err := b.shell.Upload(context.Background(), "big.bin", bytes.NewReader(make([]byte, 300_000)), 100_000, nil)

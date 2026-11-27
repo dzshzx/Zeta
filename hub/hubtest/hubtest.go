@@ -61,8 +61,11 @@ type Devices struct {
 	bulks    []*ChatLink
 	checked  []string
 	uploaded []host.Upload
-	searched []string
-	sessions []string
+	removed  []string
+	// removedMore 在 removed 多了一项时叫醒 WaitRemoved（有人等时才有）。
+	removedMore *sync.Cond
+	searched    []string
+	sessions    []string
 }
 
 // Probe 是一次探测的结果。

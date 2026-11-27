@@ -96,7 +96,7 @@ struct SlashList: View {
     }
 }
 
-/// 输入框上方一排待发的附件：图片是缩略图，文件是小标签；正在传的带进度，没传成的标红；各带移除键。
+/// 输入框上方一排待发的附件：图片是缩略图（点一下看大图），文件是小标签；正在传的带进度，没传成的标红；各带移除键。
 struct AttachmentsRow: View {
     @Environment(AppModel.self) private var model
     let attachments: [Attachment]
@@ -127,8 +127,11 @@ struct AttachmentsRow: View {
     }
 }
 
+/// 待发图片的缩略图。点一下全屏看：读的是本机那个文件（这次选的是原图，撤回放回的、草稿里恢复的是缩小图），不经设备。
 private struct Thumbnail: View {
     let item: Attachment
+    @State private var full: UIImage?
+    @State private var viewing = false
 
     var body: some View {
         ZStack {
@@ -144,7 +147,17 @@ private struct Thumbnail: View {
         }
         .frame(width: 64, height: 64)
         .clipShape(.rect(cornerRadius: 12))
+        .contentShape(.rect)
+        .onTapGesture {
+            guard let image = UIImage(contentsOfFile: item.thumb) else { return }
+            full = image
+            viewing = true
+        }
+        .fullScreenCover(isPresented: $viewing) {
+            if let full { ImageViewer(image: full) }
+        }
         .accessibilityLabel(item.failed.isEmpty ? item.name : item.failed)
+        .accessibilityAddTraits(.isButton)
     }
 }
 

@@ -72,11 +72,13 @@ type composer struct {
 
 // upFile 是一个待发的文件：正在传、传好了（entry 是消息里带的主机路径）或没传成；图片另有缩小图（shrunk）。
 type upFile struct {
-	id       int
-	name     string
-	size     int64 // 不知道是 -1
-	local    string
-	entry    string
+	id    int
+	name  string
+	size  int64 // 不知道是 -1
+	local string
+	entry string
+	// uploaded 是这份草稿自己传到设备上的路径（撤回放回的、存盘恢复的没有）：没发就移除时把那边的删掉。
+	uploaded string
 	failed   string
 	sent     int64
 	encoding bool
@@ -175,13 +177,20 @@ func (m *composer) sync() *hub.Chat {
 	return ch
 }
 
+// remove 从输入栏拿掉一个待发的：在传的取消，这份草稿自己传好的那份在后台从设备上删掉。
 func (m *composer) remove(id int) {
 	m.images = slices.DeleteFunc(m.images, func(im *inlineImage) bool { return im.id == id })
 	m.files = slices.DeleteFunc(m.files, func(f *upFile) bool {
-		if f.id == id && f.cancel != nil {
+		if f.id != id {
+			return false
+		}
+		if f.cancel != nil {
 			f.cancel()
 		}
-		return f.id == id
+		if f.uploaded != "" {
+			go m.core.hub.UploadRemover(m.backend)(f.uploaded)
+		}
+		return true
 	})
 }
 
@@ -277,7 +286,7 @@ func (m *composer) uploaded(f *upFile, path string, err error) {
 	case err != nil:
 		f.failed = locales.ErrorText(err)
 	default:
-		f.entry = path
+		f.entry, f.uploaded = path, path
 	}
 }
 
@@ -879,6 +888,7 @@ type Composer struct {
 }
 
 // Attachment 是输入栏上方一个待发的：Picture 的画成缩略图（Thumb 是本机的图片文件，空是灰块），别的画成文件标签。
+// Thumb 是这次选的原文件，撤回放回的、存盘恢复的是缩小图；点开看大图读的也是它。
 type Attachment struct {
 	ID        int    `json:"id"`
 	Name      string `json:"name"`

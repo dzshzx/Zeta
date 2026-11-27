@@ -11,6 +11,7 @@ import (
 	"io/fs"
 	"os"
 	"path/filepath"
+	"regexp"
 	"strings"
 	"sync"
 	"time"
@@ -218,6 +219,17 @@ func (s Shell) uploadProblem(code int, stderr string) error {
 // removeUpload 删掉这次传了一半的目录（尽力而为，删不掉不报）。
 func (s Shell) removeUpload(id string) {
 	_, _ = s.Run("rm -rf "+uploadDir(id), nil, 20*time.Second, true)
+}
+
+// uploadedIn 认主机上一次上传的目录：…/.cache/<名字>/files/<8 位十六进制>/…。
+var uploadedIn = regexp.MustCompile(`/\.cache/[^/]+/files/([0-9a-f]{8})/`)
+
+// RemoveUploaded 删掉 Upload、UploadFolder 传上去的 path 所在的那次上传的目录：传好了、还没随消息发出去就从输入栏移除的附件。
+// path 不在上传目录里的什么也不做；尽力而为，删不掉不报。阻塞。
+func (s Shell) RemoveUploaded(path string) {
+	if m := uploadedIn.FindStringSubmatch(path); m != nil {
+		s.removeUpload(m[1])
+	}
 }
 
 // uploadedPath 读 UploadCommand 成功时那行 zeta_upload <路径>。

@@ -44,6 +44,7 @@ import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -72,7 +73,9 @@ import com.dzshzx.zeta.core.AttachedPaths
 import com.dzshzx.zeta.core.Attachment
 import com.dzshzx.zeta.core.FileImage
 import com.dzshzx.zeta.core.FileUpload
+import com.dzshzx.zeta.core.ImageRef
 import com.dzshzx.zeta.core.InlineImage
+import com.dzshzx.zeta.core.PickedFile
 import com.dzshzx.zeta.core.SlashCommand
 import com.dzshzx.zeta.core.voice.SpeechPhase
 import com.dzshzx.zeta.core.voice.SpeechState
@@ -93,8 +96,12 @@ import com.dzshzx.zeta.ui.components.miuix.ZetaIcons
 import com.dzshzx.zeta.ui.markdown.EditorialLineHeightStyle
 import com.dzshzx.zeta.ui.markdown.MarkdownTone
 import com.dzshzx.zeta.ui.markdown.rememberMarkdownStyle
+import java.util.Base64
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import top.yukonga.miuix.kmp.basic.HorizontalDivider
 import top.yukonga.miuix.kmp.basic.Icon
 import top.yukonga.miuix.kmp.basic.Text
@@ -437,26 +444,46 @@ private fun UploadThumbnail(file: FileUpload, onRemove: () -> Unit) {
     val path = file.path
     RemovableThumbnail(onRemove, Modifier.alpha(if (file.uploading) 0.5f else 1f)) {
         when {
-            inline != null -> AttachmentThumbnail(inline, file.name)
+            inline != null -> AttachmentThumbnail(inline, file.name, file.local)
             path != null -> ChatThumbnail(FileImage(AttachedPaths.path(path)), size = 64.dp)
         }
     }
 }
 
-/** 裁切填满缩略图块的一张待发图片；点一下全屏看要发给模型的那一份。 */
+/** 裁切填满缩略图块的一张待发图片；点一下全屏看：有本机原文件 [local]（这次选的、分享来的）时看原图，直接读本机、不经主机；没有、读不了时看要发给模型的那份缩小图。 */
 @Composable
-private fun AttachmentThumbnail(attachment: Attachment, description: String) {
-    var viewing by remember { mutableStateOf(false) }
+private fun AttachmentThumbnail(
+    attachment: Attachment,
+    description: String,
+    local: PickedFile? = null,
+) {
+    var viewing by remember { mutableStateOf<ImageRef?>(null) }
+    val scope = rememberCoroutineScope()
     Image(
         bitmap = attachment.preview,
         contentDescription = description,
         contentScale = ContentScale.Crop,
-        modifier = Modifier.fillMaxSize().clickable { viewing = true },
+        modifier =
+            Modifier.fillMaxSize().clickable {
+                scope.launch { viewing = draftImageRef(attachment, local) }
+            },
     )
-    if (viewing) {
-        val ref = remember(attachment) { InlineImage("draft:" + attachment.id, attachment.base64) }
-        ImageViewer(listOf(ref), 0) { viewing = false }
+    viewing?.let { ref -> ImageViewer(listOf(ref), 0) { viewing = null } }
+}
+
+/** 输入栏里看大图用的那张：本机原文件读得到就是它，否则是缩小图。 */
+private suspend fun draftImageRef(attachment: Attachment, local: PickedFile?): ImageRef {
+    val original = local?.let { file ->
+        withContext(Dispatchers.IO) {
+            runCatching { file.open()?.use { it.readBytes() } }.getOrNull()
+        }
     }
+    return if (original != null)
+        InlineImage(
+            "draft-original:" + attachment.id,
+            Base64.getEncoder().encodeToString(original),
+        )
+    else InlineImage("draft:" + attachment.id, attachment.base64)
 }
 
 /** 待发图片的 64dp 缩略图 [content]，右上角是移除键。 */

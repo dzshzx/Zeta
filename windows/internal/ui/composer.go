@@ -123,7 +123,7 @@ func (a *App) attachMenu(c *ui.Context) {
 }
 
 // composerAttachments 是输入框上方一排待发的附件（同 Composer.kt 的 ComposerAttachments）：文件（正在传的带进度，
-// 没传成的注明）和图片缩略图，各带移除键，放不下时横着滚。
+// 没传成的注明）和图片缩略图（点一下看大图），各带移除键，放不下时横着滚。
 func (a *App) composerAttachments(c *ui.Context, p *chatPane) {
 	at := &p.att
 	if len(at.files) == 0 && len(at.images) == 0 && at.loading == 0 {
@@ -132,15 +132,15 @@ func (a *App) composerAttachments(c *ui.Context, p *chatPane) {
 	ui.ScrollHorizontal(c.Key("attachments")).FillWidth().Children(func() {
 		ui.Row(c).Padding(2, 4, 6, 4).Gap(8).AlignItems(ui.Center).Children(func() {
 			for _, f := range at.files {
-				fc, remove := c.Key("file/"+strconv.Itoa(f.id)), func() { at.removeFile(f.id) }
+				fc, remove := c.Key("file/"+strconv.Itoa(f.id)), func() { a.removeFile(p, f.id) }
 				if f.picture() {
-					attachedPicture(fc, f, remove)
+					attachedPicture(fc, f, func() { a.viewPicture(p, f) }, remove)
 				} else {
 					attachedFile(fc, f, remove)
 				}
 			}
 			for _, im := range at.images {
-				attachedImage(c.Key("image/"+strconv.Itoa(im.id)), im, func() { at.removeImage(im.id) })
+				attachedImage(c.Key("image/"+strconv.Itoa(im.id)), im, func() { a.viewDraftImage(p, im) }, func() { at.removeImage(im.id) })
 			}
 			for i := range at.loading {
 				ui.Box(c.Key("loading/"+strconv.Itoa(i))).Size(64, 64).Radius(12).Background(widget.Of(c).Chip).Center().
@@ -174,13 +174,14 @@ func attachedFile(c *ui.Context, f *draftFile, remove func()) {
 	})
 }
 
-// attachedImage 是一张待发的内联图（旧消息、草稿里存着的）的缩略图，右上角是移除键。
-func attachedImage(c *ui.Context, im *draftImage, remove func()) {
-	thumbTile(c, im.thumb, locales.ComposerImageAttachment(), "", nil, remove)
+// attachedImage 是一张待发的内联图（旧消息、草稿里存着的）的缩略图，点了看大图（view），右上角是移除键。
+func attachedImage(c *ui.Context, im *draftImage, view, remove func()) {
+	thumbTile(c, im.thumb, locales.ComposerImageAttachment(), "", nil, view, remove)
 }
 
 // attachedPicture 是一张要传到设备上的图片：缩略图（缩小图还没做好时是灰块），正在传、正在做缩小图时上面转圈，没传成时标红、原因放在悬停提示里。
-func attachedPicture(c *ui.Context, f *draftFile, remove func()) {
+// 缩略图有了以后点一下看大图（view）。
+func attachedPicture(c *ui.Context, f *draftFile, view, remove func()) {
 	var overlay func()
 	switch {
 	case f.failed != "":
@@ -192,14 +193,18 @@ func attachedPicture(c *ui.Context, f *draftFile, remove func()) {
 	if f.shrunk != nil {
 		thumb = f.shrunk.thumb
 	}
-	thumbTile(c, thumb, f.label(), f.failed, overlay, remove)
+	thumbTile(c, thumb, f.label(), f.failed, overlay, view, remove)
 }
 
 // thumbTile 是输入栏里的一块缩略图（64，12 的圆角）：thumb 是 nil 时是灰块，overlay 不是 nil 时盖一层半透明画上它，右上角是移除键。
-func thumbTile(c *ui.Context, thumb *ui.Bitmap, label, tooltip string, overlay func(), remove func()) {
+// 有缩略图时点它看大图（view）。
+func thumbTile(c *ui.Context, thumb *ui.Bitmap, label, tooltip string, overlay func(), view, remove func()) {
 	k := widget.Of(c)
 	ui.Box(c).Size(64, 64).Shrink(0).Children(func() {
 		box := ui.Box(c).Size(64, 64).Radius(12).Clip().Background(k.Chip).Label(label)
+		if thumb != nil {
+			box.Cursor(ui.CursorPointer).Role(ui.RoleButton).OnClick(view)
+		}
 		if tooltip != "" {
 			box.Tooltip(tooltip)
 		}

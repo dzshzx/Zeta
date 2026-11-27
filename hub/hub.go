@@ -45,6 +45,8 @@ type Devices interface {
 	CheckDir(h sshlink.Host, path string) (string, error)
 	// Upload 把本机的文件、文件夹或一段内容传到设备 h 上，返回那边的路径（见 host.Devices.Upload）。阻塞。
 	Upload(ctx context.Context, h sshlink.Host, u host.Upload, progress func(int64)) (string, error)
+	// RemoveUploaded 删掉设备 h 上 Upload 传上去的 path 那一次的目录（见 host.Devices.RemoveUploaded）。阻塞。
+	RemoveUploaded(h sshlink.Host, path string)
 	// CheckPath 查设备 h 上的路径是什么。阻塞。
 	CheckPath(h sshlink.Host, path string) (hostlink.PathKind, error)
 	// ClaudeSwitch 是带到设备 h 上的 claude-switch（账号与额度用，见 host.Devices.ClaudeSwitch）。

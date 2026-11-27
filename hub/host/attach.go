@@ -41,6 +41,11 @@ func (d *Devices) Upload(ctx context.Context, h sshlink.Host, u Upload, progress
 	return shell.Upload(ctx, name, src, u.Limit, progress)
 }
 
+// RemoveUploaded 删掉设备 h 上 Upload 传上去的 path 那一次的目录（见 hostlink.Shell.RemoveUploaded）。阻塞。
+func (d *Devices) RemoveUploaded(h sshlink.Host, path string) {
+	hostlink.NewShell(d.Links, h, LinuxName).RemoveUploaded(path)
+}
+
 // CheckPath 查设备 h 上的路径 path（绝对路径）是文件、文件夹、没有还是读不了。阻塞。
 func (d *Devices) CheckPath(h sshlink.Host, path string) (hostlink.PathKind, error) {
 	return hostlink.NewShell(d.Links, h, LinuxName).CheckPath(path)

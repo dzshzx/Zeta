@@ -143,6 +143,8 @@ class IntakeSink(
                     return
                 }
         val upload = FileUpload(UUID.randomUUID().toString(), FileLimits.label(name, size))
+        upload.local = file
+        upload.fresh = true
         draft.uploads.add(upload)
         if (type?.startsWith("image/") == true || AttachedPaths.isImage(name)) {
             launch { upload.inline = withContext(Dispatchers.IO) { file.loadImage() } }
@@ -162,7 +164,11 @@ class IntakeSink(
                 Uploads.copyFrom(shell, name, FileLimits.MAX_BYTES, file::open)
             }
         when {
-            copied.path != null -> upload.path = copied.path
+            copied.path != null -> {
+                upload.path = copied.path
+                // 复制的时候被移除了：主机上这份没人要了
+                if (upload.removed) withContext(Dispatchers.IO) { Uploads.discard(shell, upload) }
+            }
             copied.tooLarge -> {
                 draft.uploads.remove(upload)
                 report(FileLimits.tooLargeReason(name, null), tooLarge = true)
@@ -186,11 +192,21 @@ class IntakeSink(
                 }
         val upload =
             FileUpload(UUID.randomUUID().toString(), FileLimits.label(name, bytes.size.toLong()))
+        upload.fresh = true
         draft.uploads.add(upload)
         scope.launch {
             val path = withContext(Dispatchers.IO) { Uploads.copyBytes(shell, name, bytes) }
             if (path != null) upload.path = path else upload.failed = true
+            if (upload.removed) withContext(Dispatchers.IO) { Uploads.discard(shell, upload) }
         }
+    }
+
+    /** 用户从输入栏移除了一个待发的文件：拿掉，这份草稿自己传到主机上的那份在后台删掉（[Uploads.discard]）。 */
+    fun remove(upload: FileUpload) {
+        draft.uploads.remove(upload)
+        upload.removed = true
+        val shell = hub.shell(backend) ?: return
+        scope.launch(Dispatchers.IO) { Uploads.discard(shell, upload) }
     }
 
     private fun screenshotName(): String =

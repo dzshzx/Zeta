@@ -123,6 +123,28 @@ func TestComposerDraftSurvivesRestart(t *testing.T) {
 	}
 }
 
+// 传好了、还没发就移除的附件：设备上那份删掉。
+func TestComposerRemoveDeletesUploaded(t *testing.T) {
+	x := openComposer(t, t.TempDir())
+	file := filepath.Join(t.TempDir(), "a.txt")
+	if err := os.WriteFile(file, []byte("hello"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	call[map[string]bool](t, x.c, "composer.attach", map[string]any{"files": []map[string]string{{"path": file}}})
+	until(t, x.c, x.changed, func() bool { return !x.c.comp().uploading() })
+	got := composerOf(t, x.c)
+	if len(got.Attachments) != 1 {
+		t.Fatalf("附件 %+v", got.Attachments)
+	}
+	call[map[string]bool](t, x.c, "composer.remove", map[string]int{"id": got.Attachments[0].ID})
+	if removed := x.d.WaitRemoved(1); len(removed) != 1 || !strings.HasSuffix(removed[0], "/a.txt") {
+		t.Fatalf("删掉的 %v", removed)
+	}
+	if left := composerOf(t, x.c).Attachments; len(left) != 0 {
+		t.Fatalf("输入栏里还有 %+v", left)
+	}
+}
+
 // 选的文件传到设备上，图片另有缩略图；发消息时带上传好的路径，之后输入栏空了。
 func TestComposerAttachAndSend(t *testing.T) {
 	x := openComposer(t, t.TempDir())

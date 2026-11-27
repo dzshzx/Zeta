@@ -3974,6 +3974,56 @@
         }
       }
     },
+    "用时": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Took"
+          }
+        }
+      }
+    },
+    "子代理类型": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Subagent type"
+          }
+        }
+      }
+    },
+    "所属对话": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Conversation"
+          }
+        }
+      }
+    },
+    "停止这个任务": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Stop this task"
+          }
+        }
+      }
+    },
+    "正在停止…": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Stopping…"
+          }
+        }
+      }
+    },
     "已运行": {
       "localizations": {
         "en": {
@@ -4100,16 +4150,6 @@
           "stringUnit": {
             "state": "translated",
             "value": "No output yet"
-          }
-        }
-      }
-    },
-    "概要": {
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Summary"
           }
         }
       }
