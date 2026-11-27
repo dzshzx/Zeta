@@ -152,11 +152,11 @@ func onRemote[P interface{ device() string }](name string, f func(c *Core, r *hu
 	})
 }
 
-func (p deviceParams) device() string  { return p.ID }
-func (p refreshParams) device() string { return p.ID }
-func (p accountParams) device() string { return p.ID }
-func (p codeParams) device() string    { return p.ID }
-func (p relayDraftParams) device() string   { return p.ID }
+func (p deviceParams) device() string     { return p.ID }
+func (p refreshParams) device() string    { return p.ID }
+func (p accountParams) device() string    { return p.ID }
+func (p codeParams) device() string       { return p.ID }
+func (p relayDraftParams) device() string { return p.ID }
 
 func init() {
 	reading("accounts", func(c *Core, p deviceParams) (any, error) {

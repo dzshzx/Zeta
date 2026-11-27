@@ -7,6 +7,7 @@
 package mobile
 
 import (
+	"bytes"
 	"context"
 	"crypto/ed25519"
 	"encoding/json"
@@ -49,7 +50,7 @@ type Config struct {
 type Core struct {
 	hub     *hub.Hub
 	changed func()
-	auth    *appAuth    // Start 起的才有；测试里 New 建的没有，答 key 这几个方法时说没有密钥
+	auth    *appAuth    // Start 起的才有；测试里 New 建的没有，不调 key、importkey、resetkey
 	dir     string      // 设置目录，诊断包带上它下面 diag/ 里的文件
 	log     *runlog.Log // Zeta 自己的运行日志，见 Config.Log
 
@@ -127,8 +128,12 @@ func (a *appAuth) Resolve(target, key string) (sshlink.Route, error) {
 }
 
 // Rejected 见 sshlink.Resolver。
-func (a *appAuth) Rejected(sshlink.Route) string {
-	if _, imported := a.signer(); imported {
+// 按这次连接用的那把说，不看现在在用哪把（中途换了钥匙时两者不同）。
+func (a *appAuth) Rejected(route sshlink.Route) string {
+	a.mu.Lock()
+	own := a.own
+	a.mu.Unlock()
+	if len(route.Signers) == 1 && !bytes.Equal(route.Signers[0].PublicKey().Marshal(), own.PublicKey().Marshal()) {
 		return locales.MobileImportedKeyRejected()
 	}
 	return locales.MobileKeyRejected()
@@ -144,14 +149,14 @@ func parseKey(text, passphrase string) (ssh.Signer, string, error) {
 		}
 		raw, err = ssh.ParseRawPrivateKeyWithPassphrase([]byte(text), []byte(passphrase))
 	}
-	if err != nil {
-		return nil, "", locales.Err(locales.MobileKeyUnreadable)
+	var signer ssh.Signer
+	var block *pem.Block
+	if err == nil {
+		signer, err = ssh.NewSignerFromKey(raw)
 	}
-	signer, err := ssh.NewSignerFromKey(raw)
-	if err != nil {
-		return nil, "", locales.Err(locales.MobileKeyUnreadable)
+	if err == nil {
+		block, err = ssh.MarshalPrivateKey(raw, "")
 	}
-	block, err := ssh.MarshalPrivateKey(raw, "")
 	if err != nil {
 		return nil, "", locales.Err(locales.MobileKeyUnreadable)
 	}
@@ -302,9 +307,19 @@ type (
 
 func init() {
 	blocking("probe", func(c *Core, p targetParams) (any, error) { return c.probe(p.Target) })
-	for _, name := range []string{"key", "importkey", "resetkey"} {
-		blocking(name, func(c *Core, p keyParams) (any, error) { return c.keyCall(name, p) })
-	}
+	blocking("key", func(c *Core, _ none) (any, error) { return c.key("") })
+	blocking("importkey", func(c *Core, p keyParams) (any, error) {
+		signer, text, err := parseKey(p.Key, p.Passphrase)
+		if err != nil {
+			return nil, err
+		}
+		c.auth.set(signer)
+		return c.key(text)
+	})
+	blocking("resetkey", func(c *Core, _ none) (any, error) {
+		c.auth.set(nil)
+		return c.key("")
+	})
 	reading("state", func(c *Core, _ none) (any, error) { return c.state(), nil })
 	onLoop("resync", func(c *Core, _ none) (any, error) {
 		c.shown = nil // 下一次 state 整份交条目
@@ -412,23 +427,8 @@ type Key struct {
 	PEM      string `json:"pem,omitempty"`
 }
 
-// keyCall 读、换登录用的密钥。换了以后新起的连接用新的；已经连着的不断开。
-func (c *Core) keyCall(method string, p keyParams) (Key, error) {
-	if c.auth == nil {
-		return Key{}, errors.New("no key")
-	}
-	var pemText string
-	switch method {
-	case "importkey":
-		signer, text, err := parseKey(p.Key, p.Passphrase)
-		if err != nil {
-			return Key{}, err
-		}
-		c.auth.set(signer)
-		pemText = text
-	case "resetkey":
-		c.auth.set(nil)
-	}
+// key 答在用的那把；pemText 是刚导入的私钥（importkey 才有）。换了钥匙以后新起的连接用新的，已经连着的不断开。
+func (c *Core) key(pemText string) (Key, error) {
 	public, imported := c.auth.public()
 	return Key{Public: public, Imported: imported, Version: appversion.Current().Name, PEM: pemText}, nil
 }

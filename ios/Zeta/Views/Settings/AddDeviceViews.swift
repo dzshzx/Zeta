@@ -86,6 +86,7 @@ struct ImportKeyView: View {
     @State private var passphrase = ""
     @State private var picking = false
     @State private var problem: String?
+    @State private var saving = false
 
     var body: some View {
         Form {
@@ -114,23 +115,28 @@ struct ImportKeyView: View {
                 }
             }
             Section {
-                Button("导入") { save() }
+                Button("导入") { Task { await save() } }
                     .buttonStyle(.glassProminent)
                     .frame(maxWidth: .infinity)
-                    .disabled(text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
+                    .disabled(saving || text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
             }
         }
         .navigationTitle("导入私钥")
-        .fileImporter(isPresented: $picking, allowedContentTypes: [.item]) { load($0) }
+        .fileImporter(isPresented: $picking, allowedContentTypes: [.item]) { result in Task { await load(result) } }
     }
 
-    private func load(_ result: Result<URL, any Error>) {
+    /// 私钥文件不过几 KB：大于 64 KB 的不读；读文件（可能要先从 iCloud 下载）放在后台线程上。
+    private func load(_ result: Result<URL, any Error>) async {
         do {
             let url = try result.get()
-            let scoped = url.startAccessingSecurityScopedResource()
-            defer { if scoped { url.stopAccessingSecurityScopedResource() } }
-            guard let read = String(bytes: try Data(contentsOf: url), encoding: .utf8) else {
-                problem = String(localized: "这个文件不是文本，不像私钥")
+            let read = try await Task.detached { () throws -> String? in
+                let scoped = url.startAccessingSecurityScopedResource()
+                defer { if scoped { url.stopAccessingSecurityScopedResource() } }
+                if let size = try url.resourceValues(forKeys: [.fileSizeKey]).fileSize, size > 64 << 10 { return nil }
+                return String(bytes: try Data(contentsOf: url), encoding: .utf8)
+            }.value
+            guard let read else {
+                problem = String(localized: "这个文件不像私钥")
                 return
             }
             text = read
@@ -140,9 +146,11 @@ struct ImportKeyView: View {
         }
     }
 
-    private func save() {
+    private func save() async {
+        saving = true
+        defer { saving = false }
         do {
-            try model.importKey(text, passphrase: passphrase)
+            try await model.importKey(text, passphrase: passphrase)
             dismiss()
         } catch {
             problem = error.localizedDescription

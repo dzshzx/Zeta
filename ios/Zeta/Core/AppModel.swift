@@ -34,11 +34,11 @@ final class AppModel {
         Task {
             defer { starting = false }
             do {
-                let core = try await Task.detached { try Self.launch(lang: lang, device: device) }.value
-                self.core = core
-                try useKey(core.call("key", as: KeyInfo.self))
-                restoreImportedKey(core)
-                _ = try? core.call("alerts", [:])
+                let launched = try await Task.detached { try Self.launch(lang: lang, device: device) }.value
+                core = launched.core
+                useKey(launched.key)
+                alert = launched.problem
+                _ = try? launched.core.call("alerts", [:])
                 refresh()
             } catch {
                 startProblem = error.localizedDescription
@@ -46,14 +46,32 @@ final class AppModel {
         }
     }
 
-    private nonisolated static func launch(lang: String, device: String) throws -> Core {
+    private struct Launched: Sendable {
+        let core: Core
+        let key: KeyInfo
+        /// 上次导入的私钥交不回核心的原因（不该发生），这时照用 Zeta 自己的密钥。
+        let problem: String?
+    }
+
+    /// 起核心，并把上次导入、存在钥匙串里的私钥交回去（都在后台线程上）。
+    private nonisolated static func launch(lang: String, device: String) throws -> Launched {
         let support = try FileManager.default.url(
             for: .applicationSupportDirectory, in: .userDomainMask, appropriateFor: nil, create: true)
         let dir = support.appending(path: "Zeta", directoryHint: .isDirectory)
         try FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
-        return try Core.start(dir: dir, seed: KeyStore.seed(), lang: lang, device: device) {
+        let core = try Core.start(dir: dir, seed: KeyStore.seed(), lang: lang, device: device) {
             Task { @MainActor in AppModel.shared.scheduleRefresh() }
         }
+        var problem: String?
+        do {
+            if let pem = try KeyStore.imported() {
+                let key = try core.call("importkey", ["key": pem], as: KeyInfo.self)
+                return Launched(core: core, key: key, problem: nil)
+            }
+        } catch {
+            problem = error.localizedDescription
+        }
+        return try Launched(core: core, key: core.call("key", as: KeyInfo.self), problem: problem)
     }
 
     func scheduleRefresh() {
@@ -148,10 +166,11 @@ final class AppModel {
         _ = try core.call("add", ["token": probed.token])
     }
 
-    private struct KeyInfo: Decodable {
+    private struct KeyInfo: Decodable, Sendable {
         let `public`: String
         let imported: Bool
         let version: String
+        /// 只有 importkey 答。
         let pem: String?
     }
 
@@ -161,21 +180,16 @@ final class AppModel {
         version = key.version
     }
 
-    /// 把上次导入、存在钥匙串里的私钥交给核心；交不进去时（不该发生）照用 Zeta 自己的密钥，并说一声。
-    private func restoreImportedKey(_ core: Core) {
-        do {
-            guard let pem = try KeyStore.imported() else { return }
-            try useKey(core.call("importkey", ["key": pem], as: KeyInfo.self))
-        } catch {
-            alert = error.localizedDescription
-        }
-    }
-
     /// 导入私钥 text（OpenSSH 或 PEM，有密码时给 passphrase）：核心认得出才换上并存进钥匙串，认不出时抛出原因。
-    func importKey(_ text: String, passphrase: String) throws {
+    /// 解密要算一阵（bcrypt），和写钥匙串一起放在后台线程上。
+    func importKey(_ text: String, passphrase: String) async throws {
         guard let core else { throw Core.Failure(message: "core not started") }
-        let key = try core.call("importkey", ["key": text, "passphrase": passphrase], as: KeyInfo.self)
-        try KeyStore.saveImported(key.pem ?? "")
+        let key = try await Task.detached {
+            let key = try core.call("importkey", ["key": text, "passphrase": passphrase], as: KeyInfo.self)
+            guard let pem = key.pem else { throw Core.Failure(message: "core returned no key") }
+            try KeyStore.saveImported(pem)
+            return key
+        }.value
         useKey(key)
     }
 

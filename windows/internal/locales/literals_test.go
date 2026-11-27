@@ -1,7 +1,6 @@
 package locales
 
 import (
-	"path/filepath"
 	"testing"
 
 	"github.com/dzshzx/Zeta/hub/locales/literalcheck"
@@ -14,26 +13,24 @@ import (
 var scanned = []string{"internal/ui", "internal/update", "cmd/zeta"}
 
 const (
-	whyLog     = "写进日志（log 的输出接到运行日志），日志不翻译"
 	whyRunlog  = "运行日志里的一行，日志不翻译"
-	whyInner   = "只进日志或只在程序有缺陷时出现的内部错误"
 	whyTestAid = "测试辅助包（uitest）里的失败信息，不进程序"
 )
 
 var literalExceptions = []literalcheck.Exception{
-	{"internal/ui/drafts.go", "zeta: 读草稿：%v", whyLog},
-	{"internal/ui/drafts.go", "zeta: 存草稿：%v", whyLog},
-	{"cmd/zeta/main.go", "zeta: 找不到放设置的目录：%v", whyLog},
-	{"cmd/zeta/tray.go", "zeta: 托盘图标起不来，关窗口就退出：%v", whyLog},
-	{"cmd/zeta/window.go", "zeta: 通知没发出去：%v", whyLog},
+	{"internal/ui/drafts.go", "zeta: 读草稿：%v", literalcheck.WhyLog},
+	{"internal/ui/drafts.go", "zeta: 存草稿：%v", literalcheck.WhyLog},
+	{"cmd/zeta/main.go", "zeta: 找不到放设置的目录：%v", literalcheck.WhyLog},
+	{"cmd/zeta/tray.go", "zeta: 托盘图标起不来，关窗口就退出：%v", literalcheck.WhyLog},
+	{"cmd/zeta/window.go", "zeta: 通知没发出去：%v", literalcheck.WhyLog},
 	{"cmd/zeta/main.go", " 启动", whyRunlog},
 	{"cmd/zeta/main.go", "起不来：", whyRunlog},
 	{"cmd/zeta/endsession.go", "系统要求结束（注销、关机或安装程序要换文件），退出", whyRunlog},
-	{"internal/ui/chatview/images.go", "没有取图片的办法", whyInner + "（调用方没给取这种图的函数）"},
-	{"internal/ui/chatview/images.go", "不认识的图片种类 %q", whyInner + "（条目里的图片种类只有那几种）"},
+	{"internal/ui/chatview/images.go", "没有取图片的办法", literalcheck.WhyInner + "（调用方没给取这种图的函数）"},
+	{"internal/ui/chatview/images.go", "不认识的图片种类 %q", literalcheck.WhyInner + "（条目里的图片种类只有那几种）"},
 	{"internal/ui/uitest/uitest.go", "%v 内没等到%s；界面上：%q", whyTestAid},
 }
 
 func TestNoHanLiteralsOutsideTheCatalog(t *testing.T) {
-	literalcheck.Check(t, filepath.Join("..", ".."), scanned, literalExceptions)
+	literalcheck.Check(t, "../..", scanned, literalExceptions)
 }

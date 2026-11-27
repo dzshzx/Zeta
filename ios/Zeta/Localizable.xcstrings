@@ -2,16 +2,6 @@
   "sourceLanguage": "zh-Hans",
   "version": "1.0",
   "strings": {
-    "把这一行加进设备上的 ~/.ssh/authorized_keys，Zeta 才能登录。私钥只在这台设备的钥匙串里。": {
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Add this line to ~/.ssh/authorized_keys on your device so Zeta can sign in. The private key stays in this device’s keychain."
-          }
-        }
-      }
-    },
     "版本": {
       "localizations": {
         "en": {
@@ -674,16 +664,6 @@
         }
       }
     },
-    "Zeta 用导入的私钥登录，上面是它的公钥。私钥只在这台设备的钥匙串里。": {
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Zeta signs in with the imported private key; its public key is shown above. The private key stays in this device’s keychain."
-          }
-        }
-      }
-    },
     "换回 Zeta 的密钥？": {
       "localizations": {
         "en": {
@@ -784,12 +764,42 @@
         }
       }
     },
-    "这个文件不是文本，不像私钥": {
+    "Zeta 用导入的私钥登录，上面是它的公钥。": {
       "localizations": {
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "This file isn’t text, so it can’t be a private key"
+            "value": "Zeta signs in with the imported private key; its public key is shown above."
+          }
+        }
+      }
+    },
+    "把这一行加进设备上的 ~/.ssh/authorized_keys，Zeta 才能登录。": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Add this line to ~/.ssh/authorized_keys on your device so Zeta can sign in."
+          }
+        }
+      }
+    },
+    "私钥只在这台设备的钥匙串里。": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "The private key stays in this device’s keychain."
+          }
+        }
+      }
+    },
+    "这个文件不像私钥": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "This file doesn’t look like a private key"
           }
         }
       }

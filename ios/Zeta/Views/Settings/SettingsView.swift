@@ -98,10 +98,11 @@ private struct KeySection: View {
         } header: {
             Text(model.keyImported ? "导入的私钥" : "Zeta 的公钥")
         } footer: {
-            if model.keyImported {
-                Text("Zeta 用导入的私钥登录，上面是它的公钥。私钥只在这台设备的钥匙串里。")
-            } else {
-                Text("把这一行加进设备上的 ~/.ssh/authorized_keys，Zeta 才能登录。私钥只在这台设备的钥匙串里。")
+            VStack(alignment: .leading) {
+                Text(model.keyImported
+                    ? "Zeta 用导入的私钥登录，上面是它的公钥。"
+                    : "把这一行加进设备上的 ~/.ssh/authorized_keys，Zeta 才能登录。")
+                Text("私钥只在这台设备的钥匙串里。")
             }
         }
         .confirmationDialog("换回 Zeta 的密钥？", isPresented: $resetting, titleVisibility: .visible) {

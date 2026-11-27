@@ -18,15 +18,10 @@ plugins {
     alias(libs.plugins.compose.multiplatform) apply false
 }
 
-// 版本号不手写，照 SemVer 和 setuptools-scm 的通行写法从 git 推出来（见 CLAUDE.md「发版与上线」），算法只在 tools/version.sh 一处，
-// 桌面版和 iOS 版也用它：
-// - commitCount（手机版的 versionCode）是 HEAD 的提交数：每合入一次自动加一；同一个提交编出的测试版和正式版相同，一对就知道是哪个提交。
-// - 发版时打的 tag（v0.7.1）上，versionLabel 就是 0.7.1（release.yml 构建前先在检出里打上这个 tag，见 docs/release.md）。
-// - 别的提交是下一个版本的预发布：0.7.2-dev.3+gabc1234 = 0.7.1 之后第 3 个提交、正往 0.7.2 走、提交号 abc1234。
-//   按 SemVer 它排在 0.7.1 之后、0.7.2 之前；+ 后面是构建元数据，不参与比大小。
-fun git(vararg args: String): String? {
+// 命令 args 的标准输出（去掉首尾空白）；退出码不为 0 或没有输出时是 null。
+fun run(vararg args: String): String? {
     val out = providers.exec {
-        commandLine("git", *args)
+        commandLine(*args)
         isIgnoreExitValue = true
     }
     return out.standardOutput.asText.get().trim().takeIf {
@@ -34,15 +29,13 @@ fun git(vararg args: String): String? {
     }
 }
 
-// tools/version.sh 打印「版本号 版本名 是否正式版」
+fun git(vararg args: String): String? = run("git", *args)
+
+// 版本号不手写，从 git 推出来（见 CLAUDE.md「发版与上线」）：算法和写法只在 tools/version.sh，它打印「版本号 版本名 是否正式版」。
+// commitCount 是手机版的 versionCode，versionLabel 是 versionName。
 val versionFields =
-    providers
-        .exec { commandLine("bash", rootDir.resolve("tools/version.sh").path) }
-        .standardOutput
-        .asText
-        .get()
-        .trim()
-        .split(" ")
+    run("bash", rootDir.resolve("tools/version.sh").path)?.split(" ")
+        ?: error("tools/version.sh 没算出版本号")
 val commitCount by extra(versionFields[0].toInt())
 val versionLabel by extra(versionFields[1])
 
