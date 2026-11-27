@@ -9,7 +9,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.test.hasText
+import androidx.compose.ui.test.hasContentDescription
 import androidx.compose.ui.test.isEnabled
 import androidx.compose.ui.test.junit4.AndroidComposeTestRule
 import androidx.compose.ui.test.onAllNodesWithContentDescription
@@ -135,7 +135,7 @@ class ImageGalleryShots : ShotTest() {
                 awaitMain(5_000) {
                     mainClock.advanceTimeByFrame()
                     onAllNodesWithContentDescription("返回").fetchSemanticsNodes().isEmpty() &&
-                        onAllNodesWithText("分享").fetchSemanticsNodes().isEmpty()
+                        onAllNodesWithContentDescription("分享").fetchSemanticsNodes().isEmpty()
                 }
             },
         ) {
@@ -162,7 +162,9 @@ class ImageGalleryShots : ShotTest() {
             mainClock.advanceTimeByFrame()
             onAllNodesWithContentDescription("返回").fetchSemanticsNodes().isNotEmpty() &&
                 listOf("保存到相册", "分享").all {
-                    onAllNodes(hasText(it) and isEnabled()).fetchSemanticsNodes().isNotEmpty()
+                    onAllNodes(hasContentDescription(it) and isEnabled())
+                        .fetchSemanticsNodes()
+                        .isNotEmpty()
                 }
         }
     }

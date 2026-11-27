@@ -2,10 +2,21 @@ package com.dzshzx.zeta.ui.components.miuix
 
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
+import androidx.compose.runtime.Stable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.runtime.staticCompositionLocalOf
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.drawWithContent
+import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.RectangleShape
+import androidx.compose.ui.layout.LayoutCoordinates
+import androidx.compose.ui.layout.onGloballyPositioned
 import top.yukonga.miuix.kmp.blur.Backdrop
+import top.yukonga.miuix.kmp.blur.BlendColorEntry
 import top.yukonga.miuix.kmp.blur.BlurDefaults
 import top.yukonga.miuix.kmp.blur.LayerBackdrop
 import top.yukonga.miuix.kmp.blur.ProgressiveBlur
@@ -36,18 +47,65 @@ fun PageBlurHost(backdrop: Backdrop?, content: @Composable () -> Unit) {
 }
 
 /**
- * 从屏幕底边往上渐渐淡掉的毛玻璃，和玻璃顶栏的渐进模糊对称，没有分明的边。铺在录制范围之外的栏后面（铺在里面会模糊到自己）；[backdrop] 取
- * [LocalPageBackdrop]，毛玻璃关掉时那里是 null，由调用方画替代。
+ * 底栏的毛玻璃，[rememberBottomBarGlass] 建：[page] 是页面的背景图，[buttons] 是连这条栏一起录下的画面，栏上的玻璃按钮拿它取样
+ * （和玻璃顶栏里的按钮一样，透出来的是压暗、模糊之后的画面，不是原图）。
+ */
+@Stable
+class BottomBarGlass internal constructor(internal val page: Backdrop) {
+    internal var coordinates by mutableStateOf<LayoutCoordinates?>(null)
+    lateinit var buttons: LayerBackdrop
+        internal set
+}
+
+/** 建一条底栏的毛玻璃；[page] 取 [LocalPageBackdrop]，毛玻璃关掉时那里是 null，由调用方画替代。 */
+@Composable
+fun rememberBottomBarGlass(page: Backdrop): BottomBarGlass {
+    val glass = remember(page) { BottomBarGlass(page) }
+    glass.buttons = rememberLayerBackdrop {
+        with(glass.page) {
+            drawBackdrop(this@rememberLayerBackdrop, glass.coordinates?.takeIf { it.isAttached })
+        }
+        drawContent()
+    }
+    return glass
+}
+
+/**
+ * 从屏幕底边往上渐渐淡掉的毛玻璃，没有分明的边，是玻璃顶栏那条渐进模糊倒过来：同样的模糊半径和曲线、同样掺两成底色、同样一层往中间淡掉的 压暗（顶栏的数值见 Miuix 的
+ * GlassTopAppBar）。铺在录制范围之外的栏后面（铺在里面会模糊到自己）。
  */
 @Composable
-fun Modifier.bottomBarGlass(backdrop: Backdrop): Modifier =
-    progressiveTextureBlur(
-        backdrop = backdrop,
-        shape = RectangleShape,
-        gradient = ProgressiveBlur.Bottom,
-        blurRadius = GlassTopAppBarDefaults.ProgressiveBlurRadius.value,
-        colors = BlurDefaults.blurColors(),
-    )
+fun Modifier.bottomBarGlass(glass: BottomBarGlass): Modifier {
+    val surface = MiuixTheme.colorScheme.surface
+    val blend = remember(surface) { listOf(BlendColorEntry(surface.copy(alpha = 0.2f))) }
+    val scrim =
+        remember(surface) {
+            Brush.verticalGradient(
+                0f to Color.Transparent,
+                0.1f to surface.copy(alpha = 0.05f),
+                0.25f to surface.copy(alpha = 0.16f),
+                0.5f to surface.copy(alpha = 0.32f),
+                0.75f to surface.copy(alpha = 0.44f),
+                1f to surface.copy(alpha = 0.50f),
+            )
+        }
+    return onGloballyPositioned { glass.coordinates = it }
+        .layerBackdrop(glass.buttons)
+        .progressiveTextureBlur(
+            backdrop = glass.page,
+            shape = RectangleShape,
+            gradient = BottomBarGradient,
+            blurRadius = GlassTopAppBarDefaults.ProgressiveBlurRadius.value,
+            colors = BlurDefaults.blurColors(blendColors = blend),
+        )
+        .drawWithContent {
+            drawContent()
+            drawRect(scrim)
+        }
+}
+
+/** 和玻璃顶栏同一条曲线，方向朝上。 */
+private val BottomBarGradient = ProgressiveBlur.Bottom.copy(curve = 0.25f)
 
 /**
  * 一页的毛玻璃：把页面录在窗口底色上的背景图，玻璃顶栏和页面上弹出的东西都用它；毛玻璃关掉或系统不支持运行时着色器时为 null。页面骨架这样接：

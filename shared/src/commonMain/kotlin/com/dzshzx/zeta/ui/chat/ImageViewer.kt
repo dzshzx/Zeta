@@ -18,20 +18,22 @@ import androidx.compose.foundation.gestures.transformable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.navigationBarsPadding
+import androidx.compose.foundation.layout.navigationBars
+import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.layout.widthIn
+import androidx.compose.foundation.layout.windowInsetsBottomHeight
 import androidx.compose.foundation.pager.HorizontalPager
 import androidx.compose.foundation.pager.PagerState
 import androidx.compose.foundation.pager.rememberPagerState
 import androidx.compose.foundation.shape.CircleShape
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.LaunchedEffect
@@ -63,6 +65,7 @@ import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.semantics.stateDescription
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
@@ -77,13 +80,16 @@ import com.dzshzx.zeta.ui.components.miuix.LocalPageBackdrop
 import com.dzshzx.zeta.ui.components.miuix.PageBlurHost
 import com.dzshzx.zeta.ui.components.miuix.bottomBarGlass
 import com.dzshzx.zeta.ui.components.miuix.pageBlurSource
+import com.dzshzx.zeta.ui.components.miuix.rememberBottomBarGlass
 import com.dzshzx.zeta.ui.components.miuix.rememberPageBackdrop
 import java.time.LocalDateTime
 import kotlin.math.abs
 import kotlinx.coroutines.flow.first
 import top.yukonga.miuix.kmp.basic.Icon
-import top.yukonga.miuix.kmp.basic.Text
+import top.yukonga.miuix.kmp.basic.TopAppBarDefaults
+import top.yukonga.miuix.kmp.glass.GlassFloatingToolbar
 import top.yukonga.miuix.kmp.glass.GlassTopAppBar
+import top.yukonga.miuix.kmp.glass.GlassTopAppBarDefaults
 import top.yukonga.miuix.kmp.icon.MiuixIcons
 import top.yukonga.miuix.kmp.icon.extended.Download
 import top.yukonga.miuix.kmp.icon.extended.Share
@@ -96,7 +102,7 @@ private const val BarFallbackAlpha = 0.7f
 
 /**
  * 全屏看图，照 ColorOS 相册的看图页：黑底铺满整屏，状态栏和导航栏透明、图标浅色。图片层录成毛玻璃的来源，上面盖两条栏：顶上是玻璃
- * 顶栏（返回钮，多张时标题是第几张），底部是保存到相册、分享两项，多张时上方是圆点页码；两条栏后面都是往图片中间渐渐淡掉的毛玻璃，
+ * 顶栏（返回钮，多张时标题是第几张），底部是装着保存到相册、分享两项的玻璃胶囊，多张时上方是圆点页码；两条栏后面都是往图片中间渐渐淡掉的毛玻璃，
  * 和聊天页顶栏一个样子，没有分明的边。点一下图两条栏一起淡出或淡入，打开时露着；双指缩放（能缩到比铺满屏幕小）、双击放大或还原、放大后拖动；左右滑换一张，放大时不翻页。不管外面是浅色还是深色，
  * 里面都用 Miuix 的深色配色。进出都淡入淡出，关掉时把停在第几张交给 [onDismiss]。
  */
@@ -213,7 +219,8 @@ private fun ViewerTopBar(title: String, onBack: () -> Unit) {
     ) {
         GlassTopAppBar(
             title = title,
-            isContentScrolled = backdrop != null,
+            // 毛玻璃关着时返回钮也显出底色（Miuix 只在内容滚离顶部时给按钮垫底）
+            isContentScrolled = true,
             expandable = false,
             progressiveBlur = backdrop != null,
             backdrop = backdrop,
@@ -231,31 +238,43 @@ private fun ViewerTopBar(title: String, onBack: () -> Unit) {
     }
 }
 
-/** 底栏：多张时上面是圆点页码，下面是保存到相册、分享两项。后面和顶栏对称：从屏幕底边往上渐渐淡掉的毛玻璃，毛玻璃关着时是渐变压暗。这张图的字节还拿不到时两项都置灰。 */
+/**
+ * 底栏：多张时上面是圆点页码，保存到相册、分享两个图标装在一个玻璃胶囊里（毛玻璃关着时胶囊是不透明底色），多张时圆点页码在它上方。后面和顶栏对称：从屏幕底边往上渐渐淡掉的毛玻璃，毛玻璃关着时是渐变压暗。这张图的字节还拿不到时两项都置灰。
+ */
 @Composable
 private fun ViewerBottomBar(pager: PagerState, ref: ImageRef, bytes: ByteArray?) {
     val exporter = ChatPlatform.current.rememberImageExporter()
     val export = remember(ref, bytes) { ImageExport.of(ref, bytes, LocalDateTime.now()) }
     val backdrop = LocalPageBackdrop.current
+    val glass = backdrop?.let { rememberBottomBarGlass(it) }
     Box(Modifier.fillMaxWidth()) {
+        // 渐变的毛玻璃：导航栏以上 [BottomBandHeight]，再铺到屏幕底边，和顶栏那条一样高（顶栏是状态栏加同样的高度）
         Box(
-            Modifier.matchParentSize()
+            Modifier.align(Alignment.BottomCenter)
+                .fillMaxWidth()
                 .then(
-                    if (backdrop != null) Modifier.bottomBarGlass(backdrop)
+                    if (glass != null) Modifier.bottomBarGlass(glass)
                     else Modifier.background(scrim(true)),
                 ),
-        )
-        Column(
-            Modifier.fillMaxWidth().padding(top = 40.dp),
-            horizontalAlignment = Alignment.CenterHorizontally,
         ) {
-            if (pager.pageCount > 1) {
-                PageDots(pager, Modifier.padding(bottom = 12.dp))
-            }
-            // 两项直接落在渐变的毛玻璃上，不垫胶囊
+            BarExtent(BottomBandHeight)
+        }
+        // 胶囊的位置由这一段定：导航栏以上 [BottomBarHeight] 再铺到屏幕底边，胶囊立在它的正中，不跟着渐变的高度走
+        BarExtent(BottomBarHeight)
+        // 两项装在一个玻璃胶囊里；和顶栏的返回圆钮一套：一样高、一样的材质和描边，透出来的也是压暗后的画面
+        GlassFloatingToolbar(
+            modifier = Modifier.align(Alignment.Center),
+            backdrop = glass?.buttons,
+            cornerRadius = BarPillHeight / 2,
+            outSidePadding = PaddingValues(0.dp),
+            material = GlassTopAppBarDefaults.buttonMaterial(),
+            fill = GlassTopAppBarDefaults.buttonFill(),
+            stroke = GlassTopAppBarDefaults.buttonStroke(),
+        ) {
             Row(
-                Modifier.navigationBarsPadding().padding(bottom = 8.dp),
-                horizontalArrangement = Arrangement.spacedBy(24.dp),
+                Modifier.height(BarPillHeight).padding(horizontal = 4.dp),
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                verticalAlignment = Alignment.CenterVertically,
             ) {
                 BarAction(MiuixIcons.Download, Strings.chatSaveToGallery(), export != null) {
                     export?.let(exporter::save)
@@ -265,23 +284,50 @@ private fun ViewerBottomBar(pager: PagerState, ref: ImageRef, bytes: ByteArray?)
                 }
             }
         }
+        if (pager.pageCount > 1) {
+            PageDots(
+                pager,
+                Modifier.align(Alignment.Center).offset(y = -(BarPillHeight / 2 + DotsAboveBar)),
+            )
+        }
     }
 }
 
-/** 底栏里的一项：图标在上、字在下，用不了时变淡。 */
+/** 导航栏以上 [height]、再铺到屏幕底边的一段空白，用来定高度。 */
+@Composable
+private fun BarExtent(height: Dp) {
+    Column {
+        Spacer(Modifier.height(height))
+        Spacer(Modifier.windowInsetsBottomHeight(WindowInsets.navigationBars))
+    }
+}
+
+/** 定胶囊位置的那一段在导航栏以上的高度：胶囊立在这一段（含导航栏）的正中。 */
+private val BottomBarHeight = 120.dp
+
+/** 底部渐变毛玻璃在导航栏以上的高度，和玻璃顶栏那条在状态栏以下的高度一样：小顶栏的高度加它往下淡出的那一截。 */
+private val BottomBandHeight =
+    TopAppBarDefaults.CollapsedHeight + GlassTopAppBarDefaults.BandOverhang
+
+/** 底栏胶囊的高度，比顶栏的返回圆钮（44dp）大一号：里面是两个要常点的操作。 */
+private val BarPillHeight = 52.dp
+
+/** 圆点页码的中线在胶囊上边以上多远。 */
+private val DotsAboveBar = 15.dp
+
+/** 底栏胶囊里的一项：只有图标，[label] 念给读屏；按下的底色是和胶囊同心的圆，用不了时变淡。 */
 @Composable
 private fun BarAction(icon: ImageVector, label: String, enabled: Boolean, onClick: () -> Unit) {
     val tint = MiuixTheme.colorScheme.onBackground.copy(alpha = if (enabled) 1f else 0.35f)
-    Column(
-        Modifier.widthIn(min = 88.dp)
-            .clip(RoundedCornerShape(16.dp))
-            .clickable(enabled = enabled, role = Role.Button, onClick = onClick)
-            .padding(horizontal = 12.dp, vertical = 8.dp),
-        horizontalAlignment = Alignment.CenterHorizontally,
+    Box(
+        Modifier.size(BarPillHeight - 8.dp)
+            .clip(CircleShape)
+            .clickable(enabled = enabled, role = Role.Button, onClick = onClick),
+        contentAlignment = Alignment.Center,
     ) {
-        Icon(icon, null, Modifier.size(24.dp), tint = tint)
-        Spacer(Modifier.height(4.dp))
-        Text(label, style = MiuixTheme.textStyles.footnote2, color = tint, maxLines = 1)
+        // 视觉居中：两个图标都是下面一个方框、上面伸出一根箭头，笔画的重心比外框的中线低，照外框居中看着往下坠，
+        // 所以往上提 1dp，让外框中线和笔画重心分居胶囊中线的上下两边
+        Icon(icon, label, Modifier.size(28.dp).offset(y = (-1).dp), tint = tint)
     }
 }
 
