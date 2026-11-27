@@ -54,11 +54,11 @@ func pemOf(t *testing.T, key any, passphrase string) string {
 
 func authorized(t *testing.T, key any) string {
 	t.Helper()
-	signer, err := ssh.NewSignerFromKey(key)
-	if err != nil {
-		t.Fatal(err)
-	}
-	return strings.TrimSpace(string(ssh.MarshalAuthorizedKey(signer.PublicKey())))
+	return authorizedLine(mustSigner(t, key))
+}
+
+func authorizedLine(s ssh.Signer) string {
+	return strings.TrimSpace(string(ssh.MarshalAuthorizedKey(s.PublicKey())))
 }
 
 func TestImportKey(t *testing.T) {
@@ -88,7 +88,7 @@ func TestImportKey(t *testing.T) {
 		t.Fatalf("导入后：%+v", got)
 	}
 	route, err := c.auth.Resolve("me@example.com", "")
-	if err != nil || len(route.Signers) != 1 || string(route.Signers[0].PublicKey().Marshal()) != string(mustSigner(t, private).PublicKey().Marshal()) {
+	if err != nil || len(route.Signers) != 1 || authorizedLine(route.Signers[0]) != got.Public {
 		t.Fatalf("登录该用导入的钥匙：%v", err)
 	}
 	if c.auth.Rejected(route) != locales.MobileImportedKeyRejected() {
@@ -102,7 +102,8 @@ func TestImportKey(t *testing.T) {
 	}
 
 	back := call[Key](t, c, "resetkey", nil)
-	if back.Imported || back.Public != own.Public || c.auth.Rejected(route) != locales.MobileKeyRejected() {
+	// route 是用导入那把登录的连接：换回以后它被拒时仍说导入的私钥。
+	if back.Imported || back.Public != own.Public || c.auth.Rejected(route) != locales.MobileImportedKeyRejected() {
 		t.Fatalf("换回自己的：%+v", back)
 	}
 }
@@ -145,4 +146,18 @@ func mustSigner(t *testing.T, key any) ssh.Signer {
 		t.Fatal(err)
 	}
 	return s
+}
+
+// 用 Zeta 自己那把登录的连接被拒时说 Zeta 的公钥，哪怕这时已经导入了别的。
+func TestRejectedFollowsRoute(t *testing.T) {
+	c := startCore(t)
+	route, err := c.auth.Resolve("me@example.com", "")
+	if err != nil {
+		t.Fatal(err)
+	}
+	_, private, _ := ed25519.GenerateKey(rand.Reader)
+	call[Key](t, c, "importkey", map[string]string{"key": pemOf(t, private, "")})
+	if c.auth.Rejected(route) != locales.MobileKeyRejected() {
+		t.Fatal("该按这次连接用的那把说")
+	}
 }
