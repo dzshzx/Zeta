@@ -14,8 +14,8 @@ import (
 	"github.com/dzshzx/Zeta/client/sshlink"
 )
 
-// Quote 给 shell 加单引号。
-func Quote(s string) string { return "'" + strings.ReplaceAll(s, "'", `'\''`) + "'" }
+// Quote 给 shell 加单引号（同 sshlink.Quote）。
+func Quote(s string) string { return sshlink.Quote(s) }
 
 // RemoteCommand 是交给那边用户 shell（bash、zsh、fish 都行）的一行：换成 bash 跑 command，带上 Zeta 的目录名和这台电脑的时区。
 // 命令一律在 C.UTF-8 下跑（输出要解析）；那边原来的 LANG 放进 ZETA_LANG，起 Claude Code 时用它（见 zeta_host.sh 的 host_lang）。
@@ -52,14 +52,10 @@ func (s Shell) StartPlain(command string) (*sshlink.Process, error) {
 	return s.Links.Start(s.Host, RemoteCommand(command, s.Name, s.TZ, false))
 }
 
-// Run 跑完 command 收齐输出：stdin 写进标准输入后关掉，到 timeout 还没结束就关掉通道、结果标成超时。plain 时经 StartPlain 起。
+// Run 跑完 command 收齐输出：stdin 写进标准输入后关掉，到 timeout 还没结束就关掉通道、结果标成超时（那边也限时，见 sshlink.Limited）。plain 时不起登录 shell（同 StartPlain）。
 // 连不上时返回错误（一句给人看的话）。
 func (s Shell) Run(command string, stdin []byte, timeout time.Duration, plain bool) (sshlink.Result, error) {
-	start := s.Start
-	if plain {
-		start = s.StartPlain
-	}
-	p, err := start(command)
+	p, err := s.Links.Start(s.Host, sshlink.Limited(RemoteCommand(command, s.Name, s.TZ, !plain), timeout))
 	if err != nil {
 		return sshlink.Result{}, err
 	}

@@ -327,3 +327,14 @@ func TestSessionsDecodeLive(t *testing.T) {
 		t.Errorf("%+v %v", u, err)
 	}
 }
+
+// 到点没跑完时那边的命令也结束，不留在设备上。
+func TestShellRunLimitsTheRemoteCommand(t *testing.T) {
+	b := newBox(t)
+	pidFile := filepath.Join(t.TempDir(), "pid")
+	r, err := b.shell.Run("echo $$ > "+Quote(pidFile)+"; exec sleep 30", nil, 200*time.Millisecond, true)
+	if err != nil || !r.TimedOut {
+		t.Errorf("run %v %+v", err, r)
+	}
+	sshtest.WaitGone(t, pidFile)
+}

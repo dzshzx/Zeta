@@ -123,7 +123,7 @@ func (l *Links) Probe(target, key, expected, command string, timeout time.Durati
 	if err != nil {
 		return seen, Result{}, Problem(Describe(err))
 	}
-	p, err := newProcess(session, command, func() {})
+	p, err := newProcess(session, Limited(command, timeout), func() {})
 	if err != nil {
 		return seen, Result{}, Problem(Describe(err))
 	}

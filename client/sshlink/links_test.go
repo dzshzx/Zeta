@@ -4,6 +4,7 @@ import (
 	"errors"
 	"io"
 	"net"
+	"path/filepath"
 	"strconv"
 	"strings"
 	"testing"
@@ -119,10 +120,12 @@ func TestProbeTrustsAnyKeyAndReportsIt(t *testing.T) {
 
 func TestProbeTimesOut(t *testing.T) {
 	_, auth, h := device(t)
-	_, r, err := NewLinks(auth, time.Minute).Probe(h.Target, "", "", "sleep 5", 200*time.Millisecond)
+	pidFile := filepath.Join(t.TempDir(), "pid")
+	_, r, err := NewLinks(auth, time.Minute).Probe(h.Target, "", "", "echo $$ > "+Quote(pidFile)+"; exec sleep 30", 200*time.Millisecond)
 	if err != nil || !r.TimedOut {
 		t.Errorf("probe %v %+v", err, r)
 	}
+	sshtest.WaitGone(t, pidFile)
 }
 
 func TestConnectionProblemsAreDescribed(t *testing.T) {

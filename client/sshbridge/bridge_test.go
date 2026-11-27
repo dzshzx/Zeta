@@ -402,9 +402,11 @@ func TestProbeReportsTheHostKey(t *testing.T) {
 		reply.Code != 3 || reply.Stdout != "hi zeta-test\n" || reply.Stderr != "oops\n" {
 		t.Errorf("probe %+v", reply)
 	}
-	if reply := a.probe(h.Target, "", "sleep 30", 200); !reply.TimedOut {
+	pidFile := filepath.Join(t.TempDir(), "pid")
+	if reply := a.probe(h.Target, "", "echo $$ > "+sshlink.Quote(pidFile)+"; exec sleep 30", 200); !reply.TimedOut {
 		t.Errorf("slow probe %+v", reply)
 	}
+	sshtest.WaitGone(t, pidFile)
 }
 
 func TestKeyProblemsAreExplained(t *testing.T) {
