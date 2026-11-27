@@ -1,6 +1,6 @@
 #!/bin/bash
 # 编 iOS 版的核心：windows/cmd/zeta-ios 按 c-archive 编成真机和模拟器两份静态库（都是 arm64），连同头文件和 module map 合成
-# ios/build/ZetaCore.xcframework，Swift 里 import ZetaCore。版本号、版本名同桌面版（windows/scripts/version.sh），经 -ldflags -X 写进
+# ios/build/ZetaCore.xcframework，Swift 里 import ZetaCore。版本号、版本名同桌面版（tools/version.sh），经 -ldflags -X 写进
 # internal/update：不是干净 X.Y.Z 的构建在主机上用 zeta-dev 包（同手机测试版）。
 # 要在装了 Xcode 的 macOS 上跑，先跑过 windows/scripts/assets.sh（编进核心的 zeta-helper 等）。
 set -euo pipefail
@@ -11,7 +11,7 @@ min=$(sed -n 's/^ *iOS: "\(.*\)"$/\1/p' "$root/ios/project.yml")
   echo "core.sh: project.yml 里没读出 deploymentTarget 的 iOS 版本" >&2
   exit 1
 }
-read -r code version release < <(bash "$root/windows/scripts/version.sh")
+read -r code version release < <(bash "$root/tools/version.sh")
 pkg=github.com/dzshzx/Zeta/windows/internal/update
 ldflags="-s -w -X $pkg.versionName=$version -X $pkg.versionCode=$code"
 rm -rf "$out/core" "$out/ZetaCore.xcframework"

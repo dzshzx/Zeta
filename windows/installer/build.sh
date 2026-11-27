@@ -1,6 +1,6 @@
 #!/bin/bash
 # 在 Linux 上打 Go 桌面版的 Windows 安装包：build.sh [输出目录]，输出 <输出目录>/Zeta-v<版本>.msi（默认 windows/build/），最后一行打印它的路径。
-# 1. 版本从 git 推出来（scripts/version.sh，算法同手机版）：
+# 1. 版本从 git 推出来（仓根的 tools/version.sh，各端共用）：
 #    经 -ldflags -X 写进 internal/update（mygo build 把 MYGO_LDFLAGS 加在自己的 -ldflags 后面），程序靠它显示版本、决定查不查更新。
 # 2. go tool mygo build 编 windows/amd64 的 exe（GUI 程序），不要 mygo 自己的 NSIS 安装包。
 #    版本名是干净的 X.Y.Z 时是正式版：照 windows/mygo.json 编出 Zeta.exe。别的是测试版（同 internal/update 的 Version.Release），
@@ -15,7 +15,7 @@ out=${1:-$windows/build}
 mkdir -p "$out"
 out=$(cd "$out" && pwd)
 
-read -r code version release < <(bash "$windows/scripts/version.sh")
+read -r code version release < <(bash "$windows/../tools/version.sh")
 
 project=$windows name=Zeta
 if [[ $release == 0 ]]; then

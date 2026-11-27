@@ -12,6 +12,7 @@ on:
       - windows/internal/**
       - windows/scripts/**
       - client/**
+      - tools/version.sh
       - helper/**
       - .github/workflows/ios.yml
   workflow_dispatch:
@@ -61,7 +62,7 @@ jobs:
       - name: 检出
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
-          fetch-depth: 0 # 版本号从 git 推出（windows/scripts/version.sh）
+          fetch-depth: 0 # 版本号从 git 推出（tools/version.sh）
           persist-credentials: false
 
       - name: 取嵌进核心的东西
@@ -132,7 +133,7 @@ jobs:
   # master 上的构建发成预发布版本 ios-dev-<提交号>，不用登录就能下载；全部 iOS 预构建：
   #   https://github.com/dzshzx/Zeta/releases?q=ios-dev&expanded=true
   # 仓库开着不可变发布：发布后不能再加文件、不能挪 tag，所以每次一个新版本，先建草稿传好 ipa 再发布。
-  # tag 不以 v 开头，版本号算法（windows/scripts/version.sh）和发版都不认它；标成预发布，不算最新版，应用内更新照旧。
+  # tag 不以 v 开头，版本号算法（tools/version.sh）和发版都不认它；标成预发布，不算最新版，应用内更新照旧。
   prerelease:
     needs: ios
     if: github.event_name == 'push' && github.ref == 'refs/heads/master'
