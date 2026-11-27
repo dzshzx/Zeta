@@ -1489,7 +1489,7 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Claude Code configuration"
+            "value": "Claude Code Settings"
           }
         }
       }
@@ -1649,7 +1649,7 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Default model"
+            "value": "Default Model"
           }
         }
       }
@@ -2699,7 +2699,7 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Save anyway"
+            "value": "Save Anyway"
           }
         }
       }
@@ -4369,7 +4369,7 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Plan Usage"
+            "value": "Subscription Usage"
           }
         }
       }
@@ -4389,7 +4389,7 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Usage limit reached, resets %@"
+            "value": "Usage limit reached; resets %@"
           }
         }
       }
@@ -5620,6 +5620,916 @@
           "stringUnit": {
             "state": "translated",
             "value": "Shows the subagent’s steps"
+          }
+        }
+      }
+    },
+    "把授权页给的整段码贴在这里，中间有一个 #。": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Paste the whole code from the authorization page here; it has a # in the middle."
+          }
+        }
+      }
+    },
+    "把运行日志、环境和各台设备上的日志打成一个 zip，token、密码这类值打码。": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Packs the run log, environment and the logs on each device into a zip, with tokens and passwords masked."
+          }
+        }
+      }
+    },
+    "编辑中转": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Edit Relay"
+          }
+        }
+      }
+    },
+    "不设": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "None"
+          }
+        }
+      }
+    },
+    "常规": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "General"
+          }
+        }
+      }
+    },
+    "从列表选": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Choose from List"
+          }
+        }
+      }
+    },
+    "打开后用要添加的账号登录并授权，页面会给出一段授权码。": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Sign in with the account to add and authorize; the page then shows an authorization code."
+          }
+        }
+      }
+    },
+    "打开「连接」后才能看账号和 Claude Code 配置。": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Turn on Connect to see accounts and the Claude Code settings."
+          }
+        }
+      }
+    },
+    "带到设备上的 zeta-helper、claude-switch 链接的": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Linked into zeta-helper and claude-switch on your devices"
+          }
+        }
+      }
+    },
+    "导出诊断包": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Export Diagnostics"
+          }
+        }
+      }
+    },
+    "地址（https://…）": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "URL (https://…)"
+          }
+        }
+      }
+    },
+    "登录过期了，要重新添加": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Sign-in expired; add it again"
+          }
+        }
+      }
+    },
+    "额外用量": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Extra Usage"
+          }
+        }
+      }
+    },
+    "复制网址": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Copy URL"
+          }
+        }
+      }
+    },
+    "各台设备上对话进程的错误输出和 Claude Code 的调试日志。「连接」关着的不列。": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Error output of conversation processes and Claude Code debug logs on each device. Devices with Connect off aren’t listed."
+          }
+        }
+      }
+    },
+    "关于": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "About"
+          }
+        }
+      }
+    },
+    "关着时，回答里的网络图片要点一下才加载。": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "When off, web images in replies load only after you tap them."
+          }
+        }
+      }
+    },
+    "和桌面版共用的文字表格式与取字（MIT）": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "String catalogs shared with the desktop app (MIT)"
+          }
+        }
+      }
+    },
+    "核对不了": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Can’t Check"
+          }
+        }
+      }
+    },
+    "获取模型列表": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Fetch Models"
+          }
+        }
+      }
+    },
+    "机型": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Model"
+          }
+        }
+      }
+    },
+    "记下在用的账号": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Save Current Account"
+          }
+        }
+      }
+    },
+    "结束的对话进程": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ended Conversation Processes"
+          }
+        }
+      }
+    },
+    "界面文字的多语言（BSD-3-Clause）": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Localized interface text (BSD-3-Clause)"
+          }
+        }
+      }
+    },
+    "界面语言": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Language"
+          }
+        }
+      }
+    },
+    "界面语言跟随系统，可以在系统设置里给 Zeta 单独选；外观跟随系统的浅色、深色。": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "The language follows the system; you can pick one for Zeta in Settings. Appearance follows the system’s light or dark mode."
+          }
+        }
+      }
+    },
+    "开源许可": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Open Source Licenses"
+          }
+        }
+      }
+    },
+    "类别": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Category"
+          }
+        }
+      }
+    },
+    "「连接」关着": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Connect is off"
+          }
+        }
+      }
+    },
+    "连接关着": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Connect off"
+          }
+        }
+      }
+    },
+    "连接开着": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Connect on"
+          }
+        }
+      }
+    },
+    "连设备用的 SSH（BSD-3-Clause）": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "SSH for connecting to devices (BSD-3-Clause)"
+          }
+        }
+      }
+    },
+    "留空就用设备自己的名字。": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Leave empty to use the device’s own name."
+          }
+        }
+      }
+    },
+    "没法到「%@」上看 %@ 能不能进去：%@。仍然保存吗？": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Couldn’t check whether %2$@ can be opened on “%1$@”: %3$@. Save anyway?"
+          }
+        }
+      }
+    },
+    "没有记录": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "No entries"
+          }
+        }
+      }
+    },
+    "没有日志": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "No logs"
+          }
+        }
+      }
+    },
+    "密钥": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Key"
+          }
+        }
+      }
+    },
+    "名称加好以后不能改。": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "The name can’t be changed after the relay is added."
+          }
+        }
+      }
+    },
+    "名字": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Name"
+          }
+        }
+      }
+    },
+    "鸣谢": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Acknowledgements"
+          }
+        }
+      }
+    },
+    "默认工作目录": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Default Folder"
+          }
+        }
+      }
+    },
+    "默认模型（可不填）": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Default model (optional)"
+          }
+        }
+      }
+    },
+    "切到中转后，这台设备上的 Claude Code 经它的地址和密钥访问模型，没有订阅额度。": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "With a relay, Claude Code on this device reaches models through its URL and key, without subscription usage."
+          }
+        }
+      }
+    },
+    "切换": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Switch"
+          }
+        }
+      }
+    },
+    "切换到中转「%@」？": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Switch to relay “%@”?"
+          }
+        }
+      }
+    },
+    "切换到「%@」？": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Switch to “%@”?"
+          }
+        }
+      }
+    },
+    "清空": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Clear"
+          }
+        }
+      }
+    },
+    "清空运行日志？": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Clear the run log?"
+          }
+        }
+      }
+    },
+    "全部": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "All"
+          }
+        }
+      }
+    },
+    "删除只删这台设备上存着的一份，那个账号在服务端仍是登录状态。": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Deleting only removes the copy stored on this device; the account stays signed in on the server."
+          }
+        }
+      }
+    },
+    "设备上的日志": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Device Logs"
+          }
+        }
+      }
+    },
+    "设备「%@」": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Device “%@”"
+          }
+        }
+      }
+    },
+    "授权码": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Authorization Code"
+          }
+        }
+      }
+    },
+    "授权网址": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Authorization URL"
+          }
+        }
+      }
+    },
+    "添加账号": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Add Account"
+          }
+        }
+      }
+    },
+    "添加中转": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Add Relay"
+          }
+        }
+      }
+    },
+    "系统": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "System"
+          }
+        }
+      }
+    },
+    "显示": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Show"
+          }
+        }
+      }
+    },
+    "已存着，空着不改": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Saved; leave empty to keep"
+          }
+        }
+      }
+    },
+    "已断开": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Disconnected"
+          }
+        }
+      }
+    },
+    "已用 %@": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%@ used"
+          }
+        }
+      }
+    },
+    "隐藏": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Hide"
+          }
+        }
+      }
+    },
+    "源码": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Source"
+          }
+        }
+      }
+    },
+    "运行日志": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Run Log"
+          }
+        }
+      }
+    },
+    "在跑的对话进程": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Running Conversation Processes"
+          }
+        }
+      }
+    },
+    "在这台设备上开新对话时用的目录。~ 是家目录 %@。": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "The folder new conversations on this device start in. ~ is the home folder %@."
+          }
+        }
+      }
+    },
+    "在 Safari 中打开": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Open in Safari"
+          }
+        }
+      }
+    },
+    "账号": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Accounts"
+          }
+        }
+      }
+    },
+    "账号与额度": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Accounts & Usage"
+          }
+        }
+      }
+    },
+    "这个中转的密钥不是 Zeta 存的，要在设备上的 claude-switch 配置里改。": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Zeta doesn’t store this relay’s key; change it in the claude-switch settings on the device."
+          }
+        }
+      }
+    },
+    "这台设备上的 Claude Code 改用这个中转的地址、密钥和默认模型；闲着的对话进程会先结束。": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Claude Code on this device will use this relay’s URL, key and default model; idle conversation processes end first."
+          }
+        }
+      }
+    },
+    "这台设备上闲着的对话进程会先结束，内容不丢，下次发消息时接上。": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Idle conversation processes on this device end first. Nothing is lost; they resume with your next message."
+          }
+        }
+      }
+    },
+    "诊断": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Diagnostics"
+          }
+        }
+      }
+    },
+    "正在到「%@」上核对……": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Checking on “%@”…"
+          }
+        }
+      }
+    },
+    "正在用这个中转：改了以后，新起的对话进程才用上。要删除先换到别的账号或中转。": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "This relay is in use: changes apply to newly started conversation processes. Switch to another account or relay before deleting it."
+          }
+        }
+      }
+    },
+    "只取了最后 64 KB": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Only the last 64 KB"
+          }
+        }
+      }
+    },
+    "至少": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "At Least"
+          }
+        }
+      }
+    },
+    "中转": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Relays"
+          }
+        }
+      }
+    },
+    "中转 %@": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Relay %@"
+          }
+        }
+      }
+    },
+    "自动加载网络图片": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Load Web Images Automatically"
+          }
+        }
+      }
+    },
+    "Anthropic 的编程 agent，Zeta 是它的客户端": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Anthropic’s coding agent; Zeta is a client for it"
+          }
+        }
+      }
+    },
+    "API 密钥": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "API key"
+          }
+        }
+      }
+    },
+    "Claude Code 调试日志": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Claude Code Debug Logs"
+          }
+        }
+      }
+    },
+    "Go 标准库与运行时 %@": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Go standard library and runtime %@"
+          }
+        }
+      }
+    },
+    "iOS 版链接的": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Linked into the iOS app"
+          }
+        }
+      }
+    },
+    "Zeta 按 GPL-3.0 授权。程序里还带着下面这些第三方组件，各自按它们的许可证分发。": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Zeta is licensed under GPL-3.0. It also includes the third-party components below, each distributed under its own license."
+          }
+        }
+      }
+    },
+    "Zeta 版本": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Zeta Version"
+          }
+        }
+      }
+    },
+    "Zeta 的参考来源，功能和交互照它设计（GPL-3.0）": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Zeta’s reference; features and interactions follow it (GPL-3.0)"
+          }
+        }
+      }
+    },
+    "Zeta 自己在这台设备上记的：连接、对话、出错。": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "What Zeta itself records on this device: connections, conversations, errors."
+          }
+        }
+      }
+    },
+    "Zeta iOS 版诊断包\n打包时刻：%@": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Zeta for iOS diagnostics\nPacked at: %@"
+          }
+        }
+      }
+    },
+    "Zeta（GPL-3.0）": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Zeta (GPL-3.0)"
           }
         }
       }

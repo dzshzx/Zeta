@@ -32,7 +32,6 @@ import (
 	"github.com/dzshzx/Zeta/helper/tasks"
 	"github.com/dzshzx/Zeta/helper/usage"
 	"github.com/dzshzx/Zeta/hub"
-	"github.com/dzshzx/Zeta/hub/accounts"
 	"github.com/dzshzx/Zeta/hub/attach"
 	"github.com/dzshzx/Zeta/hub/chat"
 	"github.com/dzshzx/Zeta/hub/host"
@@ -846,64 +845,6 @@ func usageView(u usage.Usage, earlier int, locale string) UsageView {
 	return out
 }
 
-// QuotaView 是用量弹框里的订阅额度一节（在用中转、还不知道时没有这一节，见 accounts.Quota.Shown）。
-type QuotaView struct {
-	Plan         string      `json:"plan"`
-	Unavailable  bool        `json:"unavailable"`
-	Blocked      bool        `json:"blocked"`
-	BlockedUntil string      `json:"blocked_until"`
-	Windows      []QuotaLine `json:"windows"`
-	Extra        *QuotaExtra `json:"extra"`
-	Footnote     string      `json:"footnote"`
-	Refreshing   bool        `json:"refreshing"`
-}
-
-// QuotaLine 是一个额度窗口：Severity 0 平常、1 注意、2 快满（coreapi.Severity）。
-type QuotaLine struct {
-	Label    string  `json:"label"`
-	Percent  int     `json:"percent"`
-	Used     float64 `json:"used"`
-	Severity int     `json:"severity"`
-	Reset    string  `json:"reset"`
-}
-
-// QuotaExtra 是超出套餐后的按量计费：Amount 是「已用 / 上限」，空是只知道开着。
-type QuotaExtra struct {
-	Amount string   `json:"amount"`
-	Used   *float64 `json:"used"`
-}
-
-func quotaView(q *accounts.Quota, locale string) *QuotaView {
-	if q == nil || !q.Shown() {
-		return nil
-	}
-	now := time.Now()
-	out := &QuotaView{Windows: []QuotaLine{}, Footnote: q.Footnote(now), Refreshing: q.Refreshing()}
-	s, ok := q.Snapshot()
-	if !ok {
-		return out
-	}
-	s = s.At(now)
-	out.Plan, out.Unavailable, out.Blocked = s.PlanLabel(), s.Unavailable, s.Blocked
-	if s.Blocked {
-		out.BlockedUntil = accounts.ResetText(s.BlockedUntil, now)
-	}
-	for _, w := range s.Windows {
-		out.Windows = append(out.Windows, QuotaLine{Label: w.LabelIn(locale), Percent: w.Percent(), Used: w.Used, Severity: int(w.Severity),
-			Reset: accounts.ResetText(w.ResetsAt, now)})
-	}
-	if e := s.Extra; e != nil && e.Enabled {
-		var amounts []string
-		for _, x := range []string{accounts.Money(e.UsedMin, e.Currency), accounts.Money(e.LimitMin, e.Currency)} {
-			if x != "" {
-				amounts = append(amounts, x)
-			}
-		}
-		out.Extra = &QuotaExtra{Amount: strings.Join(amounts, " / "), Used: e.Used}
-	}
-	return out
-}
-
 // ---- 交给界面的整份 ----
 
 // Composer 是 state 里 chat.composer：输入栏要画的。
@@ -1009,8 +950,9 @@ func (c *Core) fillComposer(out *Chat, locale string) {
 	for _, x := range chat.PermissionModes {
 		v.Modes = append(v.Modes, Choice{Value: x.Value, Name: x.Label()})
 	}
-	if r := c.hub.Remote(ch.Backend); r != nil {
-		v.Quota = quotaView(r.Quota, locale)
+	// 在用中转、还不知道时没有额度一节（accounts.Quota.Shown）
+	if r := c.hub.Remote(ch.Backend); r != nil && r.Quota.Shown() {
+		v.Quota = quotaView(r.Quota, time.Now())
 	}
 	out.Composer = v
 }

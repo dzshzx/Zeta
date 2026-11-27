@@ -10,7 +10,7 @@ final class AppModel {
 
     private(set) var state = CoreState.empty
     private(set) var items: [Item] = []
-    /// 每取到一份新的 state 加一：看着后台任务输出、子代理的页据此重取（taskoutput、subagent）。
+    /// 每取到一份新的 state 加一：看着后台任务输出、子代理的页据此重取（taskoutput、subagent），设置各页据此重读自己的那份（账号、设备清单）。
     private(set) var revision = 0
     private(set) var publicKey = ""
     /// 登录用的是导入的私钥（不是 Zeta 自己生成的那把）。

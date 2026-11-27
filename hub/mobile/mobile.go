@@ -26,6 +26,7 @@ import (
 	"github.com/dzshzx/Zeta/hub/chat"
 	"github.com/dzshzx/Zeta/hub/host"
 	"github.com/dzshzx/Zeta/hub/locales"
+	"github.com/dzshzx/Zeta/hub/runlog"
 	"github.com/dzshzx/Zeta/hub/settings"
 	"golang.org/x/crypto/ssh"
 )
@@ -40,13 +41,17 @@ type Config struct {
 	Device string
 	// Changed 在状态有了变化时调，在核心的 goroutine 上；界面收到后自己挑时候调 Call("state")。
 	Changed func()
+	// Log 是 Zeta 自己的运行日志（入口打开，标准库 log 也接到它），设置里的诊断页看它；nil 时诊断页没有这一组。
+	Log *runlog.Log
 }
 
 // Core 见包的说明。
 type Core struct {
 	hub     *hub.Hub
 	changed func()
-	auth    *appAuth // Start 起的才有；测试里 New 建的没有，答 key 这几个方法时说没有密钥
+	auth    *appAuth    // Start 起的才有；测试里 New 建的没有，答 key 这几个方法时说没有密钥
+	dir     string      // 设置目录，诊断包带上它下面 diag/ 里的文件
+	log     *runlog.Log // Zeta 自己的运行日志，见 Config.Log
 
 	// 排给核心 goroutine 的事，按排进来的先后跑。不设上限：排的一方可能就是核心 goroutine 自己（中枢在主线程上也会 post），
 	// 有上限的通道满了会卡死。wake 有事可做时有一个信号。
@@ -62,6 +67,7 @@ type Core struct {
 	problem  string             // 最近一次操作没成的原因，界面显示一次就清掉（state 的 failed）
 	sidebar  sidebar            // 侧栏的提醒和没成的操作（sessions.go）
 	composer *composer          // 输入栏（composer.go），comp 建
+	relay    *relayDraft        // 账号页上正在添加或编辑的中转（accounts.go）
 }
 
 // job 是排给核心 goroutine 的一件事；quiet 的（界面自己来取状态）跑完不算有变化，不然界面每取一次就又被叫来取一次。
@@ -173,6 +179,7 @@ func Start(c Config) (*Core, error) {
 	set.Device = c.Device
 	core := New(prefs, devices{set}, c.Changed)
 	core.auth = auth
+	core.dir, core.log = c.Dir, c.Log
 	core.Do(core.hub.Start)
 	return core, nil
 }

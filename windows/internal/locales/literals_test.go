@@ -17,7 +17,6 @@ const (
 	whyLog     = "写进日志（log 的输出接到运行日志），日志不翻译"
 	whyRunlog  = "运行日志里的一行，日志不翻译"
 	whyInner   = "只进日志或只在程序有缺陷时出现的内部错误"
-	whyBundle  = "诊断包里的文件名：维护者按固定的名字找，不随界面语言变"
 	whyTestAid = "测试辅助包（uitest）里的失败信息，不进程序"
 )
 
@@ -32,10 +31,6 @@ var literalExceptions = []literalcheck.Exception{
 	{"cmd/zeta/endsession.go", "系统要求结束（注销、关机或安装程序要换文件），退出", whyRunlog},
 	{"internal/ui/chatview/images.go", "没有取图片的办法", whyInner + "（调用方没给取这种图的函数）"},
 	{"internal/ui/chatview/images.go", "不认识的图片种类 %q", whyInner + "（条目里的图片种类只有那几种）"},
-	{"internal/ui/diag/export.go", "环境.txt", whyBundle},
-	{"internal/ui/diag/export.go", "/读取失败.txt", whyBundle},
-	{"internal/ui/diag/export.go", "本机/", whyBundle},
-	{"internal/ui/diag/export.go", "设备", whyBundle + "（设备名为空时的目录名）"},
 	{"internal/ui/uitest/uitest.go", "%v 内没等到%s；界面上：%q", whyTestAid},
 }
 

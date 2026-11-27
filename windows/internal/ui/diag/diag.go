@@ -10,20 +10,18 @@ import (
 	"time"
 
 	"github.com/dzshzx/Zeta/helper/coreapi"
+	"github.com/dzshzx/Zeta/hub/diagbundle"
 	"github.com/dzshzx/Zeta/hub/runlog"
 	"github.com/dzshzx/Zeta/windows/internal/locales"
 	"github.com/dzshzx/Zeta/windows/internal/ui/widget"
 	"github.com/egoist/mygo/ui"
 )
 
-// Device 是一台设备。Core 为 nil 时它的「连接」关着。
-type Device struct {
-	ID, Name string
-	Core     *coreapi.Client
-}
-
-// Line 是环境信息的一行：名字和值。
-type Line struct{ Name, Value string }
+// Device 是一台设备（Core 为 nil 时它的「连接」关着），Line 是环境信息的一行；诊断包由 hub/diagbundle 打。
+type (
+	Device = diagbundle.Device
+	Line   = diagbundle.Line
+)
 
 // Options 是诊断页要的东西。
 type Options struct {

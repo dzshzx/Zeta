@@ -39,7 +39,7 @@ mkdir -p "$out/ratex/fonts"
 tar -xzf "$tgz" -O package/pkg/ratex_wasm_bg.wasm >"$out/ratex/ratex.wasm"
 tar -xzf "$tgz" -C "$out/ratex/fonts" --strip-components=2 --wildcards 'package/fonts/KaTeX_*.ttf'
 
-# 第三方许可证全文，关于页列它们（windows/internal/ui/about）：Windows 程序链接的模块（按 windows/amd64 编的 windows/ 全部包）记作 app，
+# 第三方许可证全文，关于页列它们（windows/internal/ui/about、iOS 的 hub/mobile/diag.go）：Windows 程序链接的模块（按 windows/amd64 编的 windows/ 全部包）记作 app，
 # 带到主机上的 zeta-helper 和 claude-switch 链接的（按 linux 编的 helper/ 和它的 tool）记作 host，各取模块目录里的许可证文件（包所在目录里另有许可证的，那个包单列一项）；
 # 两边都静态链接 Go 标准库和运行时，取 GOROOT 的 LICENSE；Zeta 自己的是仓根 LICENSE（windows/ 经 replace 引用的 helper 模块也是 Zeta 自己的，不另列）。index.tsv 一行一项：用在哪、模块、版本、文件名。
 lic=$out/licenses
@@ -47,7 +47,7 @@ mkdir -p "$lic"
 cp "$root/LICENSE" "$lic/Zeta"
 go_version=$(cd "$root/windows" && go env GOVERSION)
 cp "$(cd "$root/windows" && go env GOROOT)/LICENSE" "$lic/Go"
-printf '%s\tGo\t%s\tGo\n' app "$go_version" host "$go_version" >"$lic/index.tsv"
+printf '%s\tGo\t%s\tGo\n' app "$go_version" ios "$go_version" host "$go_version" >"$lic/index.tsv"
 licenses() { # <用在哪> <模块目录> <GOOS> <包模式...>
   local where=$1 dir=$2 goos=$3
   shift 3
@@ -87,4 +87,6 @@ printf 'app\tgithub.com/erweixin/RaTeX（ratex-wasm）\t%s\tratex\n' "$ratex_ver
   cat "$root/app/src/main/assets/licenses/OFL-1.1.txt"
 } >"$lic/katex-fonts"
 printf 'app\tgithub.com/KaTeX/KaTeX（KaTeX 字体）\t随 RaTeX %s\tkatex-fonts\n' "$ratex_version" >>"$lic/index.tsv"
+# iOS 版链接的（按 ios 编的核心桥 hub/mobile 和它的入口用到的包）记作 ios，iOS 的关于页列 ios 和 host 两组
+licenses ios "$root/hub" ios ./mobile ./runlog
 licenses host "$root/helper" linux ./... tool
