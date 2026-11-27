@@ -41,6 +41,7 @@ targets:
         UISupportedInterfaceOrientations: [UIInterfaceOrientationPortrait, UIInterfaceOrientationLandscapeLeft, UIInterfaceOrientationLandscapeRight]
         UISupportedInterfaceOrientations~ipad: [UIInterfaceOrientationPortrait, UIInterfaceOrientationPortraitUpsideDown, UIInterfaceOrientationLandscapeLeft, UIInterfaceOrientationLandscapeRight]
         NSLocalNetworkUsageDescription: Zeta 经 SSH 连局域网里的设备，在上面用 Claude Code。
+        NSPhotoLibraryAddUsageDescription: 看大图时把图片保存到相册。
         ITSAppUsesNonExemptEncryption: false
     settings:
       base:

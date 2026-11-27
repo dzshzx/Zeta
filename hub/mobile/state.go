@@ -7,6 +7,7 @@ import (
 
 	"github.com/dzshzx/Zeta/client/hostlink"
 	"github.com/dzshzx/Zeta/helper/prompt"
+	"github.com/dzshzx/Zeta/helper/sessionproto"
 	"github.com/dzshzx/Zeta/hub"
 	"github.com/dzshzx/Zeta/hub/chat"
 	"github.com/dzshzx/Zeta/hub/chat/items"
@@ -70,6 +71,15 @@ type Chat struct {
 	Items       []chat.ItemsChange `json:"items"`
 	// Failed 是最近一次操作（发消息、停止、回应确认）没成的原因，交出去一次就清掉。
 	Failed string `json:"failed"`
+	// 下面是聊天页的操作要的（chat 块）：现在能不能改写、分支（CanRewind）、正在剪会话、正在载入更早的；
+	// 会话被别处占着时那边的样子（Occupant）、正在接管、上次没接管成的原因；回答里的网络图片是否不等点击就加载。
+	CanRewind      bool                    `json:"can_rewind"`
+	Rewinding      bool                    `json:"rewinding"`
+	EarlierLoading bool                    `json:"earlier_loading"`
+	Occupant       *sessionproto.Occupancy `json:"occupant"`
+	Handing        bool                    `json:"handing"`
+	HandoffProblem string                  `json:"handoff_problem"`
+	AutoImages     bool                    `json:"auto_images"`
 }
 
 func (c *Core) state() State {
@@ -105,6 +115,8 @@ func (c *Core) chatState(locale string) *Chat {
 	out := &Chat{Backend: ch.Backend, Session: ch.Session.ID, Title: hub.SessionLabel(ch.Session, locale), Device: h.Name(ch.Backend),
 		Cwd: ch.Session.Cwd, Opening: ch.Opening, Problem: cmp.Or(locales.ErrorText(ch.Problem), ch.CwdProblem),
 		LinkProblem: h.ChatLinkProblem(), Prompts: []prompt.Prompt{}, Items: []chat.ItemsChange{}, Failed: c.problem}
+	out.Handing, out.HandoffProblem = ch.Handoff.Handing, locales.ErrorText(ch.Handoff.Problem)
+	out.AutoImages = h.Settings().AutoLoadRemoteImages()
 	c.problem = ""
 	if ch.Conv == nil {
 		c.shown = nil
@@ -125,8 +137,9 @@ func (c *Core) chatState(locale string) *Chat {
 	out.Connected, out.Busy, out.Blocked, out.Earlier = u.Connected, s.Busy, s.Blocked, s.Earlier
 	out.Status = s.StatusIn(locale)
 	out.Model = s.ReportedModel
+	out.CanRewind, out.Rewinding, out.EarlierLoading, out.Occupant = s.CanRewind, s.Rewinding, s.EarlierLoading, s.Occupant
 	if s.Prompts != nil {
-		out.Prompts = s.Prompts
+		out.Prompts = promptsSaid(s.Prompts, locale)
 	}
 	for _, change := range u.Items {
 		change.Items = said(change.Items, locale)

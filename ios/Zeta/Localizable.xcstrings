@@ -162,16 +162,6 @@
         }
       }
     },
-    "会话正在别处运行，在那边退出后才能在这里接着": {
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "This session is running elsewhere. Exit it there to continue here."
-          }
-        }
-      }
-    },
     "或者开一个新对话": {
       "localizations": {
         "en": {
@@ -248,16 +238,6 @@
           "stringUnit": {
             "state": "translated",
             "value": "(no output)"
-          }
-        }
-      }
-    },
-    "批准": {
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Approve"
           }
         }
       }
@@ -502,16 +482,6 @@
         }
       }
     },
-    "这一种请在桌面版或手机版上处理。": {
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Handle this one in the desktop or Android app."
-          }
-        }
-      }
-    },
     "正在打开": {
       "localizations": {
         "en": {
@@ -578,48 +548,6 @@
           "stringUnit": {
             "state": "translated",
             "value": "Host Fingerprint"
-          }
-        }
-      }
-    },
-    "总是允许": {
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Always Allow"
-          }
-        }
-      }
-    },
-    "MCP 服务器在等你填写或打开网页": {
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "An MCP server is waiting for a form or a web page"
-          }
-        }
-      }
-    },
-    "%lld 步": {
-      "localizations": {
-        "en": {
-          "variations": {
-            "plural": {
-              "one": {
-                "stringUnit": {
-                  "state": "translated",
-                  "value": "%lld step"
-                }
-              },
-              "other": {
-                "stringUnit": {
-                  "state": "translated",
-                  "value": "%lld steps"
-                }
-              }
-            }
           }
         }
       }
@@ -790,6 +718,766 @@
           "stringUnit": {
             "state": "translated",
             "value": "This file isn’t text, so it can’t be a private key"
+          }
+        }
+      }
+    },
+    "把文件改回这条消息发出之前的样子。": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Restore files to how they were before this message was sent."
+          }
+        }
+      }
+    },
+    "保存到相册": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Save to Photos"
+          }
+        }
+      }
+    },
+    "备注（可选）": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Note (optional)"
+          }
+        }
+      }
+    },
+    "不是图片": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Not an image"
+          }
+        }
+      }
+    },
+    "参数太长，只显示了一部分": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "The input is too long; only part of it is shown"
+          }
+        }
+      }
+    },
+    "查不到要还原的文件：%@": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Couldn't check which files to restore: %@"
+          }
+        }
+      }
+    },
+    "从这里分支": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Branch from here"
+          }
+        }
+      }
+    },
+    "打开网页": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Open web page"
+          }
+        }
+      }
+    },
+    "等那边空闲": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Wait until it's idle"
+          }
+        }
+      }
+    },
+    "点按加载网络图片": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Tap to load web image"
+          }
+        }
+      }
+    },
+    "复制": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Copy"
+          }
+        }
+      }
+    },
+    "改动了 %lld 个文件，+%lld -%lld": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%lld files changed, +%lld -%lld"
+          }
+        }
+      }
+    },
+    "改动太长，这里只显示了一部分": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "The change is too long; only part of it is shown"
+          }
+        }
+      }
+    },
+    "改写": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Edit"
+          }
+        }
+      }
+    },
+    "改写消息": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Edit message"
+          }
+        }
+      }
+    },
+    "关闭": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Close"
+          }
+        }
+      }
+    },
+    "还有 %lld 个": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%lld more"
+          }
+        }
+      }
+    },
+    "还原": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Restore"
+          }
+        }
+      }
+    },
+    "还原代码？": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Restore code?"
+          }
+        }
+      }
+    },
+    "还原代码": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Restore code"
+          }
+        }
+      }
+    },
+    "回到底部": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Scroll to bottom"
+          }
+        }
+      }
+    },
+    "会还原的文件": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Files to restore"
+          }
+        }
+      }
+    },
+    "会话正在别处运行": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Session is running elsewhere"
+          }
+        }
+      }
+    },
+    "会话正在设备本机的%@里运行": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Session is running in %@ on the device itself"
+          }
+        }
+      }
+    },
+    "会话正在 %@ 的%@里运行": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Session is running in %2$@ on %1$@"
+          }
+        }
+      }
+    },
+    "会话正在%@里运行": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Session is running in %@"
+          }
+        }
+      }
+    },
+    "接管": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Take over"
+          }
+        }
+      }
+    },
+    "拒绝时可以告诉 Claude 换个做法": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "When denying, you can tell Claude what to do instead"
+          }
+        }
+      }
+    },
+    "看不出那边是否空闲。": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Can't tell whether it's idle."
+          }
+        }
+      }
+    },
+    "来自会话「%@」": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "From session “%@”"
+          }
+        }
+      }
+    },
+    "来自子代理：%@": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "From subagent: %@"
+          }
+        }
+      }
+    },
+    "没有找到": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "No matches"
+          }
+        }
+      }
+    },
+    "那边闲着。接管后那边的 Zeta 会放开这个会话，在这里接着。": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "It's idle. Taking over makes the other Zeta let go of the session so you continue here."
+          }
+        }
+      }
+    },
+    "那边闲着。接管后那边会像 /exit 那样退出，在这里接着。": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "It's idle. Taking over makes it exit like /exit so you continue here."
+          }
+        }
+      }
+    },
+    "那边在等确认。接管后那个确认作废。": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "It's waiting for a confirmation. Taking over cancels it."
+          }
+        }
+      }
+    },
+    "那边在等确认：%@。接管后那个确认作废。": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "It's waiting for a confirmation: %@. Taking over cancels it."
+          }
+        }
+      }
+    },
+    "那边在跑 shell 命令，跑完才能接管。": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "It's running a shell command; you can take over when it finishes."
+          }
+        }
+      }
+    },
+    "那边正在回答，等这一轮结束才能接管。": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "It's answering; you can take over when this turn ends."
+          }
+        }
+      }
+    },
+    "其他": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Other"
+          }
+        }
+      }
+    },
+    "取消": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Cancel"
+          }
+        }
+      }
+    },
+    "删除这一轮？": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Delete this turn?"
+          }
+        }
+      }
+    },
+    "删除这一轮": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Delete turn"
+          }
+        }
+      }
+    },
+    "上一个": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Previous"
+          }
+        }
+      }
+    },
+    "收藏为常用指令": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Save as saved prompt"
+          }
+        }
+      }
+    },
+    "思考了 %lld 秒": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Thought for %lld s"
+          }
+        }
+      }
+    },
+    "同时还原代码": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Also restore code"
+          }
+        }
+      }
+    },
+    "同时删除这一轮": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Also delete this turn"
+          }
+        }
+      }
+    },
+    "同时删除这一轮和之后的对话": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Also delete this turn and everything after it"
+          }
+        }
+      }
+    },
+    "图片": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Image"
+          }
+        }
+      }
+    },
+    "下一个": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Next"
+          }
+        }
+      }
+    },
+    "新文件": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "New file"
+          }
+        }
+      }
+    },
+    "已保存": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Saved"
+          }
+        }
+      }
+    },
+    "已复制": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Copied"
+          }
+        }
+      }
+    },
+    "已经收藏过这条": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Already saved"
+          }
+        }
+      }
+    },
+    "已收藏为常用指令": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Saved as a saved prompt"
+          }
+        }
+      }
+    },
+    "以后不再询问": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Don't ask again"
+          }
+        }
+      }
+    },
+    "在对话中查找": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Find in conversation"
+          }
+        }
+      }
+    },
+    "这条消息之后的回答和之后的 %lld 轮对话都会去掉，再照原样重新发送。": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "The answer to this message and the %lld turns after it will be removed, then the message is sent again as is."
+          }
+        }
+      }
+    },
+    "这条消息之后的回答会去掉，再照原样重新发送。": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "The answer to this message will be removed, then the message is sent again as is."
+          }
+        }
+      }
+    },
+    "这条消息之后没有可还原的文件改动。": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "No file changes to restore after this message."
+          }
+        }
+      }
+    },
+    "这一轮对话会删掉。": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "This turn will be deleted."
+          }
+        }
+      }
+    },
+    "这一轮和之后的 %lld 轮对话都会删掉。": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "This turn and the %lld turns after it will be deleted."
+          }
+        }
+      }
+    },
+    "正在查看那边的状态…": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Checking its status…"
+          }
+        }
+      }
+    },
+    "正在查这条消息之后改过的文件…": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Checking files changed after this message…"
+          }
+        }
+      }
+    },
+    "正在接管…": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Taking over…"
+          }
+        }
+      }
+    },
+    "终端": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Terminal"
+          }
+        }
+      }
+    },
+    "重新加载": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Reload"
+          }
+        }
+      }
+    },
+    "重新生成": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Regenerate"
+          }
+        }
+      }
+    },
+    "重新生成这一轮？": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Regenerate this turn?"
+          }
+        }
+      }
+    },
+    "逐项确认": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Confirm each change"
+          }
+        }
+      }
+    },
+    "自己写": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Write your own"
+          }
+        }
+      }
+    },
+    "Claude 桌面版": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Claude Desktop"
+          }
+        }
+      }
+    },
+    "%@ 请你打开网页": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%@ asks you to open a web page"
+          }
+        }
+      }
+    },
+    "%@ 请你填写": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%@ asks you to fill in a form"
+          }
+        }
+      }
+    },
+    "%lld 次工具调用": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%lld tool calls"
+          }
+        }
+      }
+    },
+    "Zeta 测试版": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Zeta Dev"
           }
         }
       }

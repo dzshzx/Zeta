@@ -58,11 +58,22 @@ struct ChatState: Decodable, Sendable {
     let prompts: [Prompt]
     let items: [ItemsChange]
     let failed: String
+    // 聊天页的操作要的（ChatModels.swift）；旧核心没有时为 nil
+    let canRewind: Bool?
+    let rewinding: Bool?
+    let earlierLoading: Bool?
+    let occupant: Occupancy?
+    let handing: Bool?
+    let handoffProblem: String?
+    let autoImages: Bool?
 
     enum CodingKeys: String, CodingKey {
         case backend, session, title, device, cwd, opening, problem, connected, busy, blocked, status, model, earlier
         case prompts, items, failed
         case linkProblem = "link_problem"
+        case canRewind = "can_rewind", earlierLoading = "earlier_loading", handoffProblem = "handoff_problem"
+        case autoImages = "auto_images"
+        case rewinding, occupant, handing
     }
 }
 
@@ -76,87 +87,6 @@ struct ItemsChange: Decodable, Sendable {
     enum CodingKeys: String, CodingKey {
         case full, remove, items
         case start = "at"
-    }
-}
-
-struct Item: Decodable, Sendable, Identifiable {
-    enum Kind: String, Decodable, Sendable {
-        case user, answer, notice, work, thought
-        case unknown
-
-        init(from decoder: any Decoder) throws {
-            self = Kind(rawValue: try decoder.singleValueContainer().decode(String.self)) ?? .unknown
-        }
-    }
-
-    let kind: Kind
-    let id: String
-    let text: String
-    let files: [String]?
-    let peer: String?
-    let streaming: Bool?
-    let error: Bool?
-    let steps: [Step]?
-}
-
-struct Step: Decodable, Sendable, Identifiable {
-    let kind: String
-    let id: String
-    let text: String
-    let running: Bool
-    let seconds: Int?
-    let name: String
-    let input: JSONValue?
-    let status: String
-    let result: String
-
-    var isThinking: Bool { kind == "thinking" }
-    var isRunning: Bool { isThinking ? running : status == "running" }
-    var failed: Bool { status == "failed" }
-
-    /// 工具调用给人看的一行：参数里最能说明它在做什么的那项。
-    var summary: String { input?.summary ?? "" }
-}
-
-struct Prompt: Decodable, Sendable, Identifiable {
-    let kind: String
-    let requestID: String
-    let toolName: String?
-    let input: JSONValue?
-    let questions: [Question]?
-    let suggestions: [JSONValue]?
-    let reason: String?
-    let agentLabel: String?
-    let isPlan: Bool?
-    let message: String?
-    let url: String?
-
-    var id: String { requestID }
-    var isPermission: Bool { kind == "permission" }
-
-    enum CodingKeys: String, CodingKey {
-        case kind, input, questions, suggestions, reason, message, url
-        case requestID = "request_id"
-        case toolName = "tool_name"
-        case agentLabel = "agent_label"
-        case isPlan = "is_plan"
-    }
-}
-
-struct Question: Decodable, Sendable, Hashable {
-    let question: String
-    let header: String
-    let options: [Option]
-    let multiSelect: Bool?
-
-    struct Option: Decodable, Sendable, Hashable {
-        let label: String
-        let description: String
-    }
-
-    enum CodingKeys: String, CodingKey {
-        case question, header, options
-        case multiSelect = "multi_select"
     }
 }
 
