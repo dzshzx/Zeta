@@ -3,10 +3,10 @@ package mobile
 import (
 	"cmp"
 	"slices"
-	"time"
 
 	"github.com/dzshzx/Zeta/client/hostlink"
 	"github.com/dzshzx/Zeta/helper/prompt"
+	"github.com/dzshzx/Zeta/helper/tasks"
 	"github.com/dzshzx/Zeta/hub"
 	"github.com/dzshzx/Zeta/hub/chat"
 	"github.com/dzshzx/Zeta/hub/chat/items"
@@ -25,6 +25,8 @@ type State struct {
 	Problem  string    `json:"problem"`
 	// Chat 是聊天页里的对话，没有时为 null。
 	Chat *Chat `json:"chat"`
+	// Side 是侧栏的其余部分（sessions.go）：排序、搜索、后台对话、提醒。
+	Side Side `json:"side"`
 }
 
 // Device 是一台设备。
@@ -48,6 +50,10 @@ type Session struct {
 	External bool   `json:"external"`
 	Ended    bool   `json:"ended"`
 	Archived bool   `json:"archived"`
+	// Activity、Tasks 是行尾的状态（hub.Status，见 sessions.go 的 activityName）；Snippet 是搜索时内容里命中处的片段。
+	Activity string `json:"activity"`
+	Tasks    int    `json:"tasks"`
+	Snippet  string `json:"snippet"`
 }
 
 // Chat 是聊天页的样子。Items 是上次 state 以后条目的变化：Full 时第一项是整份，界面依次套上（同桌面版的 Take）。
@@ -70,6 +76,11 @@ type Chat struct {
 	Items       []chat.ItemsChange `json:"items"`
 	// Failed 是最近一次操作（发消息、停止、回应确认）没成的原因，交出去一次就清掉。
 	Failed string `json:"failed"`
+	// Tasks、Todos、Process 同 conv.state；Finished 是上次 state 以后答完的各轮的结局（通知用，tasks.go）。
+	Tasks    []tasks.Task `json:"tasks"`
+	Todos    []Todo       `json:"todos"`
+	Process  bool         `json:"process"`
+	Finished []string     `json:"finished"`
 }
 
 func (c *Core) state() State {
@@ -87,10 +98,11 @@ func (c *Core) state() State {
 	if ch := h.Chat(); ch != nil {
 		current = ch.Session
 	}
-	for _, s := range h.Ordered(time.Now(), current) {
-		st.Sessions = append(st.Sessions, Session{Backend: s.Backend, ID: s.ID, Title: hub.SessionLabel(s, locale), Place: s.Place(),
-			Updated: s.Updated, Pinned: h.Pinned(s), External: s.External, Ended: s.Ended, Archived: s.Archived})
+	for _, s := range c.rows(current) {
+		st.Sessions = append(st.Sessions, c.decorate(Session{Backend: s.Backend, ID: s.ID, Title: hub.SessionLabel(s, locale), Place: s.Place(),
+			Updated: s.Updated, Pinned: h.Pinned(s), External: s.External, Ended: s.Ended, Archived: s.Archived}, s, current))
 	}
+	st.Side = c.side()
 	st.Chat = c.chatState(locale)
 	return st
 }
@@ -111,6 +123,7 @@ func (c *Core) chatState(locale string) *Chat {
 		return out
 	}
 	u := ch.Conv.Take()
+	c.chatExtras(out, u, locale)
 	if c.shown != ch.Conv {
 		c.shown = ch.Conv
 		u.Items = []chat.ItemsChange{{Full: true, Items: ch.Conv.Items()}}

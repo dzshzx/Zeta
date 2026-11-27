@@ -61,6 +61,7 @@ type Core struct {
 	// 下面只在核心的 goroutine 上读写。
 	shown   *chat.Conversation // 上次 state 交给界面的对话：换了对话时条目整份重发
 	problem string             // 最近一次操作没成的原因，界面显示一次就清掉（state 的 failed）
+	sidebar sidebar            // 侧栏的提醒和没成的操作（sessions.go）
 }
 
 // job 是排给核心 goroutine 的一件事；quiet 的（界面自己来取状态）跑完不算有变化，不然界面每取一次就又被叫来取一次。
