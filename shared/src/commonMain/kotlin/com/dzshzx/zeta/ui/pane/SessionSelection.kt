@@ -61,16 +61,20 @@ fun endPrompt(
     isActive: (String) -> Boolean,
     onConfirm: () -> Unit,
 ): ConfirmPrompt {
+    val title =
+        if (sessions.size == 1) Strings.chatEndTitle() else Strings.sidebarEndMany(sessions.size)
+    return ConfirmPrompt(title, endSummary(sessions, isActive), Strings.chatEnd(), onConfirm)
+}
+
+/** 结束 [sessions] 的说明（结束、归档还在运行的都用它；同桌面版的 endSummary）。 */
+private fun endSummary(sessions: List<SessionSummary>, isActive: (String) -> Boolean): String {
     val busy = sessions.any { inProgress(it, isActive) }
     val one = sessions.singleOrNull()
-    val summary =
-        when {
-            one != null -> endConfirmSummary(one.external, occupant = null, busy = busy)
-            busy -> Strings.sidebarEndManySummaryActive()
-            else -> Strings.sidebarEndManySummaryIdle()
-        }
-    val title = if (one != null) Strings.chatEndTitle() else Strings.sidebarEndMany(sessions.size)
-    return ConfirmPrompt(title, summary, Strings.chatEnd(), onConfirm)
+    return when {
+        one != null -> endConfirmSummary(one.external, occupant = null, busy = busy)
+        busy -> Strings.sidebarEndManySummaryActive()
+        else -> Strings.sidebarEndManySummaryIdle()
+    }
 }
 
 /**
@@ -88,8 +92,9 @@ fun archivePrompt(
     val title =
         if (sessions.size == 1) Strings.sidebarArchiveRunningTitle()
         else Strings.sidebarArchiveMany(sessions.size)
-    val summary = endPrompt(live, isActive) {}.summary
-    return ConfirmPrompt(title, summary, Strings.sidebarArchive()) { onConfirm(live) }
+    return ConfirmPrompt(title, endSummary(live, isActive), Strings.sidebarArchive()) {
+        onConfirm(live)
+    }
 }
 
 /** 正在进行：Zeta 里在跑、等确认、后台任务没完，或别处的 Claude Code 开着它。删除时跳过它，结束时确认框说会一并停掉。 */

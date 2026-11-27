@@ -333,6 +333,9 @@ func (a *App) sessionDialogs(c *ui.Context) {
 			widget.Action{Label: locales.CommonCancel()}, widget.Action{Label: p.button, Style: widget.Destructive}) == 1 {
 			p.action()
 		}
+		if !p.open {
+			p.action = nil // 关了就放掉它拿着的会话列表
+		}
 	}
 }
 
