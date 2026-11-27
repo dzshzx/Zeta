@@ -231,15 +231,6 @@ extension AppModel {
         try callCore(method, params, as: SavedPrompts.self)
     }
 
-    /// 消息上的「收藏为常用指令」（chat 块的消息操作调）：已经有同样内容的一条时不加，弹出原因。
-    func savePrompt(_ text: String) {
-        do {
-            try editPrompts("prompts.add", ["text": text, "dedupe": true])
-        } catch {
-            alert = error.localizedDescription
-        }
-    }
-
     /// 退到后台时马上把草稿写盘。
     func flushDrafts() {
         Task { _ = try? await request("composer.flush", as: [String: Bool].self) }

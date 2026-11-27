@@ -80,7 +80,6 @@ Swift 经三个 C 函数调核心（`hub/cmd/zeta-ios`）：
 | `handover` | | 把别处运行的会话接过来（`hub.HandOver`） |
 | `elicit` | `request_id`、`action`、`values` | 回应 MCP 表单或网址；表单不对时答 `{problems}`（键 → 原因），表单留着；阻塞 |
 | `image` | `kind`、`key`、`file`、`ref`、`url` | 取聊天里的一张图（`items.Image` 的取法，同桌面版的 ImageLoader 三种），答 `{data}`（base64）；阻塞 |
-| `savemessage` | `text` | 把消息收藏为常用指令：`{saved, exists, problem}` |
 
 `send`、`interrupt`、`answer`、`earlier`、`rewrite`、`regenerate`、`drop`、`restorecode`、`fork` 在后台做，没成的原因放在下一次 `state` 的 `chat.failed` 里。
 

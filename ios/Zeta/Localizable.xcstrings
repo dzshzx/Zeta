@@ -5394,16 +5394,6 @@
         }
       }
     },
-    "已经收藏过这条": {
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Already saved"
-          }
-        }
-      }
-    },
     "已收藏为常用指令": {
       "localizations": {
         "en": {

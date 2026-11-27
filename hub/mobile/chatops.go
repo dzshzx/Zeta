@@ -2,9 +2,7 @@ package mobile
 
 import (
 	"context"
-	"crypto/rand"
 	"encoding/base64"
-	"encoding/hex"
 	"errors"
 	"slices"
 	"time"
@@ -14,7 +12,6 @@ import (
 	"github.com/dzshzx/Zeta/hub/chat"
 	"github.com/dzshzx/Zeta/hub/chat/items"
 	"github.com/dzshzx/Zeta/hub/locales"
-	"github.com/dzshzx/Zeta/hub/settings"
 )
 
 // 聊天页的对话操作（同桌面版 msgactions.go、handoff.go、prompts.go 的 MCP 表单）和取图（hub/images.go）。
@@ -55,13 +52,6 @@ type Elicited struct {
 // Picture 是 image 的结果：图片的原始字节（base64）。
 type Picture struct {
 	Data string `json:"data"`
-}
-
-// SavedMessage 是 savemessage 的结果：Exists 是同样的内容存过了；Problem 是存不了的原因。
-type SavedMessage struct {
-	Saved   bool   `json:"saved"`
-	Exists  bool   `json:"exists"`
-	Problem string `json:"problem"`
 }
 
 // chatOpTimeout 是问核心一次（code_changes、elicit）最多等多久。
@@ -160,19 +150,6 @@ func init() {
 		}
 		return Picture{Data: base64.StdEncoding.EncodeToString(data)}, nil
 	})
-	onLoop("savemessage", func(c *Core, p textParams) (any, error) {
-		list := c.hub.Prompts()
-		if settings.HasSamePrompt(list, p.Text) {
-			return SavedMessage{Exists: true}, nil
-		}
-		if why := settings.PromptProblem(list, "", p.Text, ""); why != "" {
-			return SavedMessage{Problem: why}, nil
-		}
-		if err := c.hub.SetPrompts(settings.AddPrompt(list, newID(), "", p.Text)); err != nil {
-			return nil, err
-		}
-		return SavedMessage{Saved: true}, nil
-	})
 }
 
 // chatConv 是聊天页里打开成的对话（在调用方线程上取）。
@@ -201,12 +178,6 @@ func (c *Core) chatLoader(build func(backend string) any) (any, error) {
 		return nil, locales.Err(locales.MobileChatNotOpen)
 	}
 	return load, nil
-}
-
-func newID() string {
-	b := make([]byte, 16)
-	_, _ = rand.Read(b) // crypto/rand 的 Read 不会失败
-	return hex.EncodeToString(b)
 }
 
 // promptsSaid 把请求里核心按种类码写的字（「以后不再问」的说明、子代理的兜底叫法、通知的一句）换成界面语言说的。改的是副本。

@@ -170,19 +170,3 @@ func TestImage(t *testing.T) {
 		t.Fatalf("主机上的图 %q", data)
 	}
 }
-
-// savemessage 把消息存成常用指令，同样的不再存。
-func TestSaveMessage(t *testing.T) {
-	c, _ := newCore(t)
-	if got := call[SavedMessage](t, c, "savemessage", map[string]string{"text": "跑一遍测试"}); !got.Saved {
-		t.Fatalf("第一次 %+v", got)
-	}
-	if got := call[SavedMessage](t, c, "savemessage", map[string]string{"text": "跑一遍测试"}); !got.Exists {
-		t.Fatalf("第二次 %+v", got)
-	}
-	var n int
-	c.Do(func() { n = len(c.hub.Prompts()) })
-	if n != 1 {
-		t.Fatalf("存了 %d 条", n)
-	}
-}

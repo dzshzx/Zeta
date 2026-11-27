@@ -218,20 +218,12 @@ struct Elicited: Decodable, Sendable {
     let problems: [String: String]?
 }
 
-/// savemessage 的结果。
-struct SavedMessage: Decodable, Sendable {
-    let saved: Bool
-    let exists: Bool
-    let problem: String
-}
-
 extension AppModel {
-    /// 把自己发过的一条消息收藏为常用指令（核心桥的 savemessage，同桌面版的 saveMessage）。常用指令的管理在输入栏那边。
+    /// 把自己发过的一条消息收藏为常用指令（同桌面版的 saveMessage）：经输入栏的 prompts.add，同样的内容不再存，
+    /// 答的是 toast 里写的一句。常用指令的管理在输入栏那边。
     func saveAsPrompt(_ text: String) async -> String {
         do {
-            let result = try await request("savemessage", ["text": text], as: SavedMessage.self)
-            if result.exists { return String(localized: "已经收藏过这条") }
-            if !result.problem.isEmpty { return result.problem }
+            _ = try editPrompts("prompts.add", ["text": text, "dedupe": true])
             return String(localized: "已收藏为常用指令")
         } catch {
             return error.localizedDescription
