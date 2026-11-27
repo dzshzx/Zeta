@@ -26,7 +26,7 @@ func (a *App) searchField(c *ui.Context) {
 
 // searchResults 是搜索时的列表（同 Compose 的 searchItems）：「搜索结果」下面各个会话（带内容里命中的片段），
 // 内容还在搜或没搜全时末尾说一句；一个都没有时说正在搜或没有匹配的。
-func (a *App) searchResults(c *ui.Context) {
+func (a *App) searchResults(c *ui.Context, add addRow) {
 	h := a.hub
 	results := h.Results(a.currentSession(), a.now())
 	progress := h.SearchProgress()
@@ -35,15 +35,19 @@ func (a *App) searchResults(c *ui.Context) {
 		if progress == hub.SearchRunning {
 			text = locales.SearchSearching()
 		}
-		ui.Text(c, text).FontSize(widget.SizeBodyM).TextColor(widget.Of(c).Secondary).TextAlign(ui.Center).FillWidth().Padding(36, 24)
+		add("message", func() {
+			ui.Text(c, text).FontSize(widget.SizeBodyM).TextColor(widget.Of(c).Secondary).TextAlign(ui.Center).FillWidth().Padding(36, 24)
+		})
 		return
 	}
-	sectionTitle(c, locales.SearchResults(), true)
+	add("title", func() { sectionTitle(c, locales.SearchResults(), true) })
 	for _, s := range results {
-		a.sessionRow(c, s, h.Snippet(s), false)
+		add(hub.Key(s), func() { a.sessionRow(c, s, h.Snippet(s), false) })
 	}
 	if text := searchFooter(progress); text != "" {
-		ui.Text(c, text).FontSize(widget.SizeBodyXS).TextColor(widget.Of(c).Secondary).FillWidth().Padding(12, 32)
+		add("footer", func() {
+			ui.Text(c, text).FontSize(widget.SizeBodyXS).TextColor(widget.Of(c).Secondary).FillWidth().Padding(12, 32)
+		})
 	}
 }
 

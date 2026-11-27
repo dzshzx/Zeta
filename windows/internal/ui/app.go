@@ -55,16 +55,17 @@ type App struct {
 	// updateVersion 是窗口底部提示的新版本（自动查到的版本名），空是没有提示。
 	updateVersion string
 
-	notice *notice // 弹出的结果
-	add    adding
-	edit   editing
-	pane   *chatPane  // 聊天窗格，跟着中枢的对话
-	drafts *draftBook // 各对话没发的输入（drafts.go）
-	query  string     // 侧栏搜索框里的字（每帧交给中枢，见 searchField）
-	ops    sessionOps // 侧栏的会话操作（sessionops.go）
-	order  sortState  // 侧栏的排序菜单和拖动（sidebarsort.go）
-	layout layout     // 侧栏的宽度、收起（layout.go）
-	zoom   int        // 界面缩放的百分数（zoom.go）
+	notice   *notice // 弹出的结果
+	add      adding
+	edit     editing
+	pane     *chatPane    // 聊天窗格，跟着中枢的对话
+	drafts   *draftBook   // 各对话没发的输入（drafts.go）
+	query    string       // 侧栏搜索框里的字（每帧交给中枢，见 searchField）
+	ops      sessionOps   // 侧栏的会话操作（sessionops.go）
+	order    sortState    // 侧栏的排序菜单和拖动（sidebarsort.go）
+	sideList ui.ListState // 侧栏的会话列表（sidebar.go 的 sideRows）
+	layout   layout       // 侧栏的宽度、收起（layout.go）
+	zoom     int          // 界面缩放的百分数（zoom.go）
 
 	pick    picker     // 选本机的文件、文件夹（系统的对话框；测试里换掉）
 	path    pathAttach // 「输入路径」的对话框

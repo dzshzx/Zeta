@@ -34,19 +34,12 @@ func (a *App) sidebar(c *ui.Context) {
 				ui.Row(c).FillWidth().Padding(2, 0, 0, 0).Children(func() { a.hostSwitcher(c) })
 			})
 		}
+		// 只建看得见的几行（ui.List）：流式回答时每来一批输出界面就重建一次，几百个会话全建一遍的话每次都要几毫秒。
 		// 焦点在会话列表上（点过、Tab 到某一行）时 Ctrl+A 全选眼前列着的；在输入框里时归输入框（sessionops.go）
-		ui.Scroll(c.Key("sessions")).Grow(1).MinHeight(0).OnShortcut(ui.Cmd, ui.KeyA, a.selectAll).Children(func() {
-			ui.Column(c).Padding(0, 0, 12, 0).Children(func() {
-				switch {
-				case a.hub.Searching():
-					a.searchResults(c)
-				case a.ops.archived:
-					a.archivedGroup(c)
-				default:
-					a.sessionGroups(c)
-				}
-			})
-		})
+		rows := a.sideRows(c)
+		a.sideList.Key = func(i int) any { return rows[i].key }
+		ui.List(c.Key("sessions"), &a.sideList, len(rows), func(i int) { rows[i].build() }).
+			Grow(1).MinHeight(0).Padding(0, 0, 12, 0).OnShortcut(ui.Cmd, ui.KeyA, a.selectAll)
 		ui.Row(c).Padding(8, 10).Gap(4).Shrink(0).AlignItems(ui.Center).BorderWidth(1, 0, 0, 0).BorderColor(k.Divider).
 			Children(func() {
 				widget.NavItem(c, widget.IconSettings, locales.CommonSettings(), "Ctrl+,", false).OnClick(func() { a.open(pageSettings) }).Grow(1).
@@ -109,19 +102,19 @@ func (a *App) hostSwitcher(c *ui.Context) {
 
 // sessionGroups 是侧栏的会话：列不出来时说原因，没有时说一声；否则照所选的排序分几组（置顶、今天、更早，手动排序时是置顶和
 // 「对话」，见 hub.Groups）。正开着的会话一直在里面。手动排序时各行能拖动改位置（sidebarsort.go）。
-func (a *App) sessionGroups(c *ui.Context) {
+func (a *App) sessionGroups(c *ui.Context, add addRow) {
 	h := a.hub
 	if len(h.Hosts()) == 0 {
-		paneMessage(c, locales.SidebarNoDevices())
+		add("message", func() { paneMessage(c, locales.SidebarNoDevices()) })
 		return
 	}
 	if why := h.Problem(); why != "" {
-		paneMessage(c, why)
+		add("problem", func() { paneMessage(c, why) })
 	}
 	g := h.Groups(a.now(), a.currentSession())
 	if len(g.Pinned)+len(g.Today)+len(g.Earlier)+len(g.Chats) == 0 {
 		if h.Problem() == "" {
-			paneMessage(c, locales.SidebarNoChats())
+			add("message", func() { paneMessage(c, locales.SidebarNoChats()) })
 		}
 		return
 	}
@@ -135,12 +128,38 @@ func (a *App) sessionGroups(c *ui.Context) {
 		if len(group.list) == 0 {
 			continue
 		}
-		a.groupTitle(c, group.title, first)
+		title, isFirst := group.title, first
+		add("group:"+title, func() { a.groupTitle(c, title, isFirst) })
 		for _, s := range group.list {
-			a.sessionRow(c, s, "", movable)
+			add(hub.Key(s), func() { a.sessionRow(c, s, "", movable) })
 		}
 		first = false
 	}
+}
+
+// sideRow 是侧栏会话列表的一行：一个小标题、一个会话或一句提示。key 在这份列表里不重复，焦点、悬停跟着它走。
+type sideRow struct {
+	key   string
+	build func()
+}
+
+// addRow 往会话列表里加一行（sideRows）。
+type addRow func(key string, build func())
+
+// sideRows 是会话列表这一帧要列的各行：搜索时是结果，看归档时是归档的，平时是几组会话。这里只记下每行怎么建，
+// 真正建的只有 ui.List 显示出来的那几行。
+func (a *App) sideRows(c *ui.Context) []sideRow {
+	var rows []sideRow
+	add := func(key string, build func()) { rows = append(rows, sideRow{key, build}) }
+	switch {
+	case a.hub.Searching():
+		a.searchResults(c, add)
+	case a.ops.archived:
+		a.archivedGroup(c, add)
+	default:
+		a.sessionGroups(c, add)
+	}
+	return rows
 }
 
 // paneMessage 是侧栏里居中的一句灰字。

@@ -293,16 +293,16 @@ func (a *App) archiveToggle(c *ui.Context) {
 }
 
 // archivedGroup 是看归档时的列表：一组「已归档 · N」，照常按时间排。
-func (a *App) archivedGroup(c *ui.Context) {
+func (a *App) archivedGroup(c *ui.Context, add addRow) {
 	list := a.hub.Archived(a.now(), a.currentSession())
 	if len(list) == 0 {
 		a.ops.archived = false // 都取消归档了：回到全部对话
-		paneMessage(c, locales.SessionNoArchived())
+		add("message", func() { paneMessage(c, locales.SessionNoArchived()) })
 		return
 	}
-	sectionTitle(c, locales.SessionArchivedCount(len(list)), true)
+	add("title", func() { sectionTitle(c, locales.SessionArchivedCount(len(list)), true) })
 	for _, s := range list {
-		a.sessionRow(c, s, "", false)
+		add(hub.Key(s), func() { a.sessionRow(c, s, "", false) })
 	}
 }
 
