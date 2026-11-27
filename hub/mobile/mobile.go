@@ -319,9 +319,13 @@ func init() {
 		return ok, nil
 	})
 	onLoop("open", func(c *Core, p openParams) (any, error) {
+		// 列表里有它时用列表里的那份（带记录文件、标题）；没有时（比如点通知打开另一台上的）只带设备和会话号，同桌面版 openListed
 		s, found := c.session(p.Backend, p.ID)
 		if !found {
-			return nil, locales.Err(locales.MobileSessionGone)
+			if _, known := c.hub.Host(p.Backend); !known || p.ID == "" {
+				return nil, locales.Err(locales.MobileSessionGone)
+			}
+			s = hostlink.Session{Backend: p.Backend, ID: p.ID}
 		}
 		c.hub.OpenSession(s)
 		return ok, nil

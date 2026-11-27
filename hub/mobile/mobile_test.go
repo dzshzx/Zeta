@@ -90,8 +90,13 @@ func TestProbeAddListOpen(t *testing.T) {
 	if len(st.Sessions) != 1 || st.Sessions[0].Title != "第一个" || st.Sessions[0].Place != "w" || st.Chat != nil {
 		t.Fatalf("会话 %+v，对话 %+v", st.Sessions, st.Chat)
 	}
-	if why := failure(c, "open", `{"backend":"`+id+`","id":"nope"}`); why != locales.MobileSessionGone() {
-		t.Errorf("点开不在列表里的：%q", why)
+	if why := failure(c, "open", `{"backend":"gone","id":"s1"}`); why != locales.MobileSessionGone() {
+		t.Errorf("点开没有的设备上的：%q", why)
+	}
+	// 列表里没有的（点通知打开另一台上的）只带设备和会话号去开
+	call[map[string]bool](t, c, "open", map[string]string{"backend": id, "id": "elsewhere"})
+	if st := call[State](t, c, "state", nil); st.Chat == nil || st.Chat.Session != "elsewhere" || st.Chat.Backend != id {
+		t.Fatalf("列表外的会话 %+v", st.Chat)
 	}
 	call[map[string]bool](t, c, "open", map[string]string{"backend": id, "id": "s1"})
 	st = call[State](t, c, "state", nil)
