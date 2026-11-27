@@ -1368,3 +1368,51 @@ func MobileChatNotOpen() string { return In(i18n.Locale()).MobileChatNotOpen() }
 func (msgs Messages) MobileChatNotOpen() string {
 	return Catalog.Format(msgs.locale, "mobileChatNotOpen", nil)
 }
+
+// MobileAttachUnreadable says "读不了 {name}"
+// in the language the app shows.
+//
+// iOS 版输入栏：选的文件读不出来，没收进附件。
+func MobileAttachUnreadable(name string) string {
+	return In(i18n.Locale()).MobileAttachUnreadable(name)
+}
+
+// MobileAttachUnreadable says "读不了 {name}"
+// in the language of msgs.
+//
+// iOS 版输入栏：选的文件读不出来，没收进附件。
+func (msgs Messages) MobileAttachUnreadable(name string) string {
+	return Catalog.Format(msgs.locale, "mobileAttachUnreadable", map[string]any{"name": name})
+}
+
+// MobileAttachTooMany says "一次最多 {max} 个文件，后面 {dropped} 个没有加进来"
+// in the language the app shows.
+//
+// iOS 版输入栏：一次选的文件超过上限。
+func MobileAttachTooMany(max int, dropped int) string {
+	return In(i18n.Locale()).MobileAttachTooMany(max, dropped)
+}
+
+// MobileAttachTooMany says "一次最多 {max} 个文件，后面 {dropped} 个没有加进来"
+// in the language of msgs.
+//
+// iOS 版输入栏：一次选的文件超过上限。
+func (msgs Messages) MobileAttachTooMany(max int, dropped int) string {
+	return Catalog.Format(msgs.locale, "mobileAttachTooMany", map[string]any{"max": max, "dropped": dropped})
+}
+
+// MobilePromptExists says "常用指令里已经有这一条"
+// in the language the app shows.
+//
+// iOS
+// 版：把消息收藏为常用指令时，清单里已经有同样内容的。
+func MobilePromptExists() string { return In(i18n.Locale()).MobilePromptExists() }
+
+// MobilePromptExists says "常用指令里已经有这一条"
+// in the language of msgs.
+//
+// iOS
+// 版：把消息收藏为常用指令时，清单里已经有同样内容的。
+func (msgs Messages) MobilePromptExists() string {
+	return Catalog.Format(msgs.locale, "mobilePromptExists", nil)
+}

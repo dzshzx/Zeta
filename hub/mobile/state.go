@@ -70,6 +70,8 @@ type Chat struct {
 	Items       []chat.ItemsChange `json:"items"`
 	// Failed 是最近一次操作（发消息、停止、回应确认）没成的原因，交出去一次就清掉。
 	Failed string `json:"failed"`
+	// Composer 是输入栏（composer.go），对话还没打开成时为 null。
+	Composer *Composer `json:"composer"`
 }
 
 func (c *Core) state() State {
@@ -92,6 +94,7 @@ func (c *Core) state() State {
 			Updated: s.Updated, Pinned: h.Pinned(s), External: s.External, Ended: s.Ended, Archived: s.Archived})
 	}
 	st.Chat = c.chatState(locale)
+	c.fillComposer(st.Chat, locale)
 	return st
 }
 
