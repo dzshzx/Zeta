@@ -62,6 +62,7 @@ struct ChatView: View {
             if chat.blocked {
                 Banner(text: Text("会话正在别处运行，在那边退出后才能在这里接着"), icon: "terminal")
             }
+            ChatTaskBar(chat: chat)
             if let prompt = chat.prompts.first {
                 PromptCard(prompt: prompt)
                     .id(prompt.requestID)

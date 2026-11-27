@@ -50,8 +50,23 @@ Swift 经三个 C 函数调核心（`hub/cmd/zeta-ios`）：
 | `send`、`interrupt`、`earlier` | `text` | 对聊天页的对话发消息、停止、载入更早的 |
 | `answer` | `request_id`、`reply` | 回应确认或提问，`reply` 是 `helper/prompt` 的 Reply |
 | `core` | `backend`、`method`、`params` | 把 `method` 转给设备 `backend` 的核心，结果原样交回（`AppModel.device`）；只转 `config.*`、`diag.*`、`system.*`（各方法见 `docs/core.md`），对话、会话列表、账号这些有中枢自己的状态，走中枢的方法；阻塞，最多 60 秒 |
+| `pin`、`rename` | `backend`、`id`；`rename` 另有 `title` | 置顶或取消、改名（中枢的 TogglePin、Rename） |
+| `archive`、`delete`、`end` | `sessions`（`[{backend, id}]`），`archive` 另有 `archived` | 归档或取消、删除、结束 Claude Code 进程（Zeta 的经 `sessions.end`，别处运行的经 `sessions.end_elsewhere`）；没成的原因在下一次 `state` 的 `side.failed` |
+| `export` | `sessions` | `{name, content}`：导出成的 Markdown；阻塞，等各台答来 |
+| `search`、`sort` | `query`；`sort`（`replied`、`created`、`manual`） | 搜索框的字（在搜时 `sessions` 换成搜索结果，行上带 `snippet`）、排序 |
+| `canmove`、`move` | `backend`、`id`、`target`（`{backend, id}`）、`below` | 手动排序时能不能、把会话拖到 target 的上半或下半；答 `{ok}` |
+| `alerts` | | 开始收别的会话的提醒（`side.alerts`：`finished`、`waiting`、`settled`），起核心后调一次 |
+| `stoptask` | `task` | 停聊天页对话的一个后台任务（后台做） |
+| `watch` | `kind`（`output`、`subagent`）、`id`、`on` | 开始或停止看着后台命令的输出、子代理的记录（后台做） |
+| `taskoutput`、`subagent` | `task`；`tool_use_id` | 看着的输出（`{got, text, total_bytes, truncated, error}`，已去掉终端转义）、子代理（`chat.Subagent` 的字段，`items` 整份、`rev`） |
 
 `send`、`interrupt`、`answer`、`earlier` 在后台做，没成的原因放在下一次 `state` 的 `chat.failed` 里。
+
+## 会话列表、后台任务与通知
+
+- 会话列表（`Views/Sidebar/`）：行尾标核心报的忙闲（`state` 会话行的 `activity`、`tasks`：等你回应、在回答、后台任务在跑、有新回答），已结束的标题灰。右滑置顶，左滑归档、删除，长按有置顶、改名、归档、结束、导出、删除；删除、结束先确认。导出交回的 Markdown 存进临时目录，用系统分享面板交出去。顶栏「更多」里选排序、进多选（List 的 EditMode，底栏批量结束、归档、删除）、看已归档；手动排序时编辑状态下拖动行（`move`）。`.searchable` 的字交给 `search`。
+- 后台任务面板（`Views/Tasks/`）：会话列表顶上一行进，行尾是后台对话加当前对话在跑的任务的个数；上面是后台对话（`side.background`，点了切过去），下面是聊天页这个对话的后台任务，点进去看详情和子代理页。聊天页输入栏上方是任务清单条和后台任务条（`ChatTaskBar`）。详情页、子代理页打开时 `watch`，每次 `state` 变了重取 `taskoutput`、`subagent`，离开时停止看着。
+- 通知（`Core/Notifier.swift`，照桌面版）：App 不在前台，或在前台但聊天页开着的不是那个会话时（banner），聊天页的对话答完一轮（`chat.finished`）、来了确认或提问，别的会话照 `side.alerts` 答完一轮或开始等你时发一条；每个会话一个编号（`zeta-<设备>/<会话>`），后一条换掉前一条，点了打开那个会话；等你回应的那条在请求处理掉后撤掉。第一次要发时请求通知权限。每件事（开始在跑、等你、答完、不再等）也交给 `Notifier.onEvent`。退到后台时聊天页的对话在跑就申请一段后台时间（`beginBackgroundTask`），答完或系统收回时结束；系统给多久不由 App 定，之后 SSH 断开，回到前台再重连。
 
 ## 构建与测试
 

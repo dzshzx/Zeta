@@ -10,6 +10,8 @@ final class AppModel {
 
     private(set) var state = CoreState.empty
     private(set) var items: [Item] = []
+    /// 每取到一份新的 state 加一：看着后台任务输出、子代理的页据此重取（taskoutput、subagent）。
+    private(set) var revision = 0
     private(set) var publicKey = ""
     /// 登录用的是导入的私钥（不是 Zeta 自己生成的那把）。
     private(set) var keyImported = false
@@ -36,6 +38,7 @@ final class AppModel {
                 self.core = core
                 try useKey(core.call("key", as: KeyInfo.self))
                 restoreImportedKey(core)
+                _ = try? core.call("alerts", [:])
                 refresh()
             } catch {
                 startProblem = error.localizedDescription
@@ -69,6 +72,11 @@ final class AppModel {
             let next = try core.call("state", as: CoreState.self)
             apply(next.chat)
             state = next
+            revision &+= 1
+            Notifier.shared.observe(next)
+            if !next.side.failed.isEmpty {
+                alert = next.side.failed
+            }
             if let failed = next.chat?.failed, !failed.isEmpty {
                 alert = failed
             }

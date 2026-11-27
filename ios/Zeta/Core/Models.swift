@@ -11,6 +11,7 @@ struct CoreState: Decodable, Sendable {
     var sessions: [SessionRow] = []
     var problem = ""
     var chat: ChatState?
+    var side = Side()
 
     static let empty = CoreState()
 }
@@ -34,6 +35,9 @@ struct SessionRow: Decodable, Sendable, Hashable {
     let external: Bool
     let ended: Bool
     let archived: Bool
+    let activity: String
+    let tasks: Int
+    let snippet: String
 
     /// 在各台设备之间不重的键。
     var key: String { backend + "/" + id }
@@ -59,9 +63,15 @@ struct ChatState: Decodable, Sendable {
     let items: [ItemsChange]
     let failed: String
 
+    let tasks: [TaskInfo]
+    let todos: [Todo]
+    let process: Bool
+    let finished: [String]
+
     enum CodingKeys: String, CodingKey {
         case backend, session, title, device, cwd, opening, problem, connected, busy, blocked, status, model, earlier
         case prompts, items, failed
+        case tasks, todos, process, finished
         case linkProblem = "link_problem"
     }
 }
