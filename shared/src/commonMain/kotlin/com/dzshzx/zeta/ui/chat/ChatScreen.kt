@@ -471,15 +471,8 @@ private fun ConversationBody(
     val turns = remember(turnList) { TurnIndex(turnList) }
     val shown = actions.visible(items)
     val leading = if (conversation.earlier != null) 1 else 0
-    // 贴底跟随：发消息后跟到这条消息顶到上沿为止，点「回到底部」后一直跟，往上拖就停（见 FollowBottom）
-    val latestShown by rememberUpdatedState(shown)
-    val latestLeading by rememberUpdatedState(leading)
-    val follow =
-        rememberFollowBottom(listState) {
-            val at = latestShown.indexOfLast { it is UserItem }
-            if (at < 0) null else FollowAnchor(latestShown[at].id, at + latestLeading)
-        }
-    ScrollToEndOnKeyboard(listState)
+    // 贴底跟随：内容增长时自动滚到底；用户向上拖动后停止，回到底部或点按钮后恢复
+    val follow = rememberFollowBottom(listState)
     // 长对话先只载入最近的一段，往上翻到顶附近时再接上更早的；“更早的记录”那行是列表的第一项
     val earlierPaging = rememberEarlierPaging(conversation, listState, onLoad = follow::pause)
     // 列表到底后接着上拖调起输入法，输入法开着时下拖收起
@@ -921,7 +914,7 @@ private fun sendDraft(
             return
         }
     }
-    follow.followTurn()
+    follow.resume()
     val images = draft.outgoingImages()
     val files = draft.outgoingFiles()
     if (actions.editing == null) {
