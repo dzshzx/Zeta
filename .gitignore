@@ -13,3 +13,5 @@ CLAUDE.local.md
 /windows/internal/assets/gen/
 # go tool mygo build 在入口目录旁生成的
 windows/cmd/zeta/dist/
+# ios/scripts/build.sh 由 XcodeGen 照 ios/project.yml 生成的工程
+/ios/Zeta.xcodeproj/

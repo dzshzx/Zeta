@@ -1,0 +1,130 @@
+name: iOS
+
+# iOS 版（ios/，见 docs/ios.md）：在 GitHub 托管的 macOS 上用最新的稳定版 Xcode 跑模拟器上的测试、打不签名的 ipa、
+# 在模拟器里截一张图。本机和本机 runner 都没有 macOS，所以这一份放在云端；签名由用户用自己的开发者账号做。
+# 推送改到 iOS 版的提交时跑（任务分支也跑，结果和 ipa 在这次运行的 artifacts 里），也能手动触发：
+#   gh workflow run ios.yml --ref <分支>
+on:
+  push:
+    paths:
+      - ios/**
+      - windows/cmd/zeta-ios/**
+      - windows/internal/**
+      - windows/scripts/**
+      - client/**
+      - helper/**
+      - .github/workflows/ios.yml
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ios-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  # 编进核心的 zeta-helper、claude-switch（linux 两种架构）、托管脚本和许可证全文：assets.sh 要 GNU 工具，在 Linux 上做
+  assets:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: 检出
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0 # zeta-helper 的构建序号取 helper/ 最后一次提交的时刻
+          persist-credentials: false
+
+      - name: 安装 Go
+        uses: actions/setup-go@d8cbb8045d7f43706b9177cceb36c1f91a6644d5 # v7.1.0
+        with:
+          go-version-file: windows/go.mod
+          cache: false
+
+      - name: 放好嵌进核心的东西
+        run: bash windows/scripts/assets.sh
+
+      - name: 上传
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: assets
+          path: windows/internal/assets/gen
+          if-no-files-found: error
+          retention-days: 1
+
+  ios:
+    needs: assets
+    # xcode-27 镜像带 Xcode 27 和 iOS 27 的 SDK（macos-latest 那份只有 Xcode 26）
+    runs-on: xcode-27
+    timeout-minutes: 60
+    steps:
+      - name: 检出
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0 # 版本号从 git 推出（windows/scripts/version.sh）
+          persist-credentials: false
+
+      - name: 取嵌进核心的东西
+        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          name: assets
+          path: windows/internal/assets/gen
+
+      - name: 安装 Go
+        uses: actions/setup-go@d8cbb8045d7f43706b9177cceb36c1f91a6644d5 # v7.1.0
+        with:
+          go-version-file: windows/go.mod
+          cache: false
+
+      # 镜像里装着几个 Xcode（/Applications/Xcode_<版本>.app），挑版本最高的正式版：名字里只有数字和点，beta、RC 名字里带字母
+      - name: 选最新的稳定版 Xcode
+        run: |
+          set -euo pipefail
+          xcode=$(ls -d /Applications/Xcode_*.app | grep -E '/Xcode_[0-9]+(\.[0-9]+)*\.app$' | sort -V | tail -1)
+          sudo xcode-select -s "$xcode"
+          xcodebuild -version
+          major=$(xcodebuild -version | sed -n 's/^Xcode \([0-9]*\).*/\1/p')
+          [ "$major" -ge 27 ] || { echo "::error::最新的 Xcode 是 $major，要 27 以上（iOS 27 SDK）"; exit 1; }
+
+      - name: 安装 XcodeGen
+        run: brew install xcodegen
+
+      - name: 模拟器上的测试
+        run: bash ios/scripts/build.sh test
+
+      - name: 打不签名的 ipa
+        id: ipa
+        run: echo "path=$(bash ios/scripts/build.sh ipa | tail -1)" >> "$GITHUB_OUTPUT"
+
+      # 起一台模拟器装上 Debug 包，打开后截图（简体中文、英文各一张），给看界面的人用
+      - name: 模拟器截图
+        run: |
+          set -euo pipefail
+          bash ios/scripts/build.sh simulator
+          udid=$(bash ios/scripts/simulator.sh)
+          bundle=$(cat ios/build/sim/bundle)
+          xcrun simctl boot "$udid" || true
+          xcrun simctl bootstatus "$udid" -b
+          xcrun simctl install "$udid" ios/build/sim/Zeta.app
+          mkdir -p "$RUNNER_TEMP/shots"
+          for lang in zh-Hans en; do
+            xcrun simctl terminate "$udid" "$bundle" || true
+            xcrun simctl launch "$udid" "$bundle" -AppleLanguages "($lang)"
+            sleep 6 # 等首屏画出来（只是截图给人看，不是测试）
+            xcrun simctl io "$udid" screenshot --display=1 "$RUNNER_TEMP/shots/$lang.png" # 有的模拟器带两块屏，1 是主屏
+          done
+
+      - name: 上传 ipa
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: ipa
+          path: ${{ steps.ipa.outputs.path }}
+          if-no-files-found: error
+          retention-days: 14
+
+      - name: 上传截图
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: screenshots
+          path: ${{ runner.temp }}/shots
+          retention-days: 14

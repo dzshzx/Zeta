@@ -39,7 +39,7 @@ gradle_blind() {
     .github/* | .gitignore | .gitleaks-test-values.toml) ;;
     tools/phone-tests/* | tools/emu | tools/phone-lock | tools/phone-run | tools/install.sh | tools/config.sh) ;;
     tools/shots | tools/vd | tools/vdisplay/* | tools/release/*) ;;
-    windows/*) ;;
+    windows/* | ios/*) ;;
     *) return 1 ;;
   esac
 }

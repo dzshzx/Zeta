@@ -1095,5 +1095,9 @@
   "accountsRelayRemoveFailed": "Not deleted: {error}",
   "accountsRelayRemoveTitle": "Delete relay {name}?",
   "accountsRelayRemoveMessage": "Deletes this relay's settings on this device and the key file Zeta saved for it.",
-  "accountsRelayUrlNote": "Must be an Anthropic Messages endpoint; upstreams that speak the OpenAI protocol need a relay that translates."
+  "accountsRelayUrlNote": "Must be an Anthropic Messages endpoint; upstreams that speak the OpenAI protocol need a relay that translates.",
+  "mobileKeyRejected": "The server rejected Zeta’s public key. Copy it in Settings and add it to ~/.ssh/authorized_keys on that device.",
+  "mobileSessionGone": "This conversation is no longer in the list",
+  "mobileProbeFirst": "Check the connection before adding the device",
+  "mobileChatNotOpen": "The conversation isn’t open yet"
 }
