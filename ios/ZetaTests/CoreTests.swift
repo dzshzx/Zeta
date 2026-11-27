@@ -28,8 +28,11 @@ struct CoreTests {
     }
 
     @Test func markdownBlocks() {
-        let blocks = MarkdownText.blocks("看这里：\n```go\nfmt.Println(1)\n```\n完了")
-        #expect(blocks.count == 3)
-        if case .code(let code) = blocks[1] { #expect(code == "fmt.Println(1)") } else { Issue.record("第二块不是代码") }
+        let blocks = MarkdownBlock.parse("# 标题\n看这里：\n```go\nfmt.Println(1)\n```\n- [x] 做完\n\n| a | b |\n|---|---|\n| 1 | 2 |\n\n---\n$$x^2$$")
+        #expect(blocks == [
+            .heading(1, "标题"), .paragraph("看这里："), .code(language: "go", text: "fmt.Println(1)"),
+            .list([.init(depth: 0, number: nil, checked: true, text: "做完")]),
+            .table(header: ["a", "b"], rows: [["1", "2"]]), .rule, .math("x^2"),
+        ])
     }
 }
