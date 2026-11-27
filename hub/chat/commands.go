@@ -53,9 +53,14 @@ func isNameChar(c rune) bool {
 }
 
 // Complete 是选了命令 name 以后输入框里的字和光标：那一段换成「/name」，后面接着空白时用它、不然补一个空格，光标放在空格后面接着打参数。
+// / 后面的字正好以 name 开头时整个名字一起换掉：名字里有命令名字符以外的字（中文名）、光标停在名字中间时不留下后半截。
 func (s Slash) Complete(text, name string) (string, int) {
 	r := []rune(text)
-	rest := r[s.End:]
+	end := s.End
+	if strings.HasPrefix(string(r[s.Start+1:]), name) {
+		end = max(end, s.Start+1+utf8.RuneCountInString(name))
+	}
+	rest := r[end:]
 	ins := "/" + name
 	if len(rest) == 0 || !unicode.IsSpace(rest[0]) {
 		ins += " "

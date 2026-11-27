@@ -52,6 +52,10 @@ class SlashTokenTest {
                 Triple("/simplify|已有的话，没有空格", "simplify", "/simplify |已有的话，没有空格"),
                 Triple("/sim|已有的话 还有", "simplify", "/simplify |已有的话 还有"),
                 Triple("前面 /si|mp已有的话", "simplify", "前面 /simplify |已有的话"),
+                Triple("/周|报", "周报", "/周报 |"),
+                Triple("/周|报后面的话", "周报", "/周报 |后面的话"),
+                Triple("/周|报 后面", "周报", "/周报 |后面"),
+                Triple("/周|末的事", "周报", "/周报 |末的事"),
             )
         for ((typed, name, want) in cases) {
             val caret = typed.indexOf('|')

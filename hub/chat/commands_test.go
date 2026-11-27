@@ -40,6 +40,10 @@ func TestSlashComplete(t *testing.T) {
 		{"/simplify|已有的话，没有空格", "simplify", "/simplify |已有的话，没有空格"},
 		{"/sim|已有的话 还有", "simplify", "/simplify |已有的话 还有"},
 		{"前面 /si|mp已有的话", "simplify", "前面 /simplify |已有的话"},
+		{"/周|报", "周报", "/周报 |"},
+		{"/周|报后面的话", "周报", "/周报 |后面的话"},
+		{"/周|报 后面", "周报", "/周报 |后面"},
+		{"/周|末的事", "周报", "/周报 |末的事"},
 	} {
 		caret := len([]rune(c.text[:strings.Index(c.text, "|")]))
 		text := strings.Replace(c.text, "|", "", 1)

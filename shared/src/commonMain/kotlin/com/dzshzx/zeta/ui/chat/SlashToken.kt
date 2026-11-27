@@ -8,9 +8,13 @@ package com.dzshzx.zeta.ui.chat
  * 到光标后面连着的命令名字符（[isNameChar]）为止。紧跟在后面的别的字（中文句子里没有空格）不算进去，留在原处。
  */
 data class SlashToken(val prefix: String, val start: Int, val end: Int) {
-    /** 选了命令 [name] 以后输入框里的字和光标：那一段换成“/name”，后面接着空白时用它、不然补一个空格，光标放在空格后面接着打参数。 */
+    /**
+     * 选了命令 [name] 以后输入框里的字和光标：那一段换成“/name”，后面接着空白时用它、不然补一个空格，光标放在空格后面接着打参数。 / 后面的字正好以 [name]
+     * 开头时整个名字一起换掉：名字里有命令名字符以外的字（中文名）、光标停在名字中间时不留下后半截。
+     */
     fun complete(text: String, name: String): Pair<String, Int> {
-        val rest = text.substring(end)
+        val named = if (text.startsWith(name, start + 1)) start + 1 + name.length else end
+        val rest = text.substring(maxOf(end, named))
         val spaced = rest.firstOrNull()?.isWhitespace() == true
         val inserted = if (spaced) "/$name" else "/$name "
         val caret = start + inserted.length + if (spaced) 1 else 0
