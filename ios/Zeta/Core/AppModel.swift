@@ -74,6 +74,7 @@ final class AppModel {
             state = next
             revision &+= 1
             Notifier.shared.observe(next)
+            LiveActivities.shared.observe(next) { self.deviceName($0) }
             if !next.side.failed.isEmpty {
                 alert = next.side.failed
             }

@@ -18,7 +18,7 @@ else
   bundle=com.dzshzx.zeta.dev name="Zeta Dev" icon=AppIconDev
 fi
 (cd "$ios" && xcodegen generate --quiet)
-settings=(PRODUCT_BUNDLE_IDENTIFIER="$bundle" ASSETCATALOG_COMPILER_APPICON_NAME="$icon" ZETA_DISPLAY_NAME="$name" MARKETING_VERSION="$short" CURRENT_PROJECT_VERSION="$code")
+settings=(ZETA_BUNDLE_ID="$bundle" ASSETCATALOG_COMPILER_APPICON_NAME="$icon" ZETA_DISPLAY_NAME="$name" MARKETING_VERSION="$short" CURRENT_PROJECT_VERSION="$code")
 xcodebuild -version
 tested=0
 for what in "${@:-ipa}"; do

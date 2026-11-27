@@ -41,6 +41,12 @@ struct RootView: View {
                 }
             }
             .onChange(of: selection) { _, route in open(route) }
+            .onOpenURL { url in
+                // 点灵动岛或锁屏上的实时活动：打开那个会话
+                if let route = ZetaActivityAttributes.route(url) {
+                    Notifier.shared.opening = .session(backend: route.backend, id: route.id)
+                }
+            }
             .onChange(of: Notifier.shared.opening) { _, route in
                 guard let route else { return }
                 Notifier.shared.opening = nil

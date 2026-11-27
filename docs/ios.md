@@ -13,7 +13,9 @@ ios/project.yml           XcodeGen 的工程描述，构建时生成 Zeta.xcodep
 ios/scripts/core.sh       把核心编成真机、模拟器两份静态库，合成 ios/build/ZetaCore.xcframework
 ios/scripts/build.sh      编核心、生成工程、交给 xcodebuild：ipa（不签名）、test（模拟器上的测试）、simulator（截图用）
 ios/Zeta/Core/            Swift 一侧：Core（C 接口）、Models（JSON 的类型）、AppModel（界面读的状态）、KeyStore（钥匙串里的密钥）
-ios/Zeta/Views/           SwiftUI 界面：会话列表、聊天页、条目、确认卡、设置
+ios/Zeta/Views/           SwiftUI 界面：会话列表与后台任务（Sidebar、Tasks）、聊天页（Chat）、输入栏（Composer）、设置（Settings）、Claude Code 配置（ClaudeConfig）
+ios/ZetaActivity/         扩展：画灵动岛和锁屏上的实时活动（WidgetKit）
+ios/Shared/               App 和扩展共用的：实时活动的定义 ZetaActivityAttributes
 ios/ZetaTests/            模拟器上的冒烟测试：静态库链进来了、C 接口和 JSON 两头对得上
 ```
 
@@ -111,6 +113,14 @@ Swift 经三个 C 函数调核心（`hub/cmd/zeta-ios`）：
 - 排队：回答中发的消息进核心的队列，输入栏上方列出，点正文撤回到输入框，删除键撤回不要，「立即插话」把排队的送进这一轮。
 - 常用指令：「+」菜单里列出，点了填进输入框（空着就换上，有字插在光标处），「管理常用指令」里新建、编辑、删除、排序。消息上的「收藏为常用指令」调 `AppModel.savePrompt`（已有同样内容的不加）。
 - 用量：输入栏上的圆环是上下文用了多少（按程度变色），点开是订阅额度（在用中转时没有这一节）、上下文、本对话累计、各轮明细和「压缩上下文」。
+
+## 灵动岛与实时活动
+
+每个在回答或等你回应的对话在灵动岛和锁屏上有一个实时活动（ActivityKit 的 Live Activity，同手机版超级岛的「每个对话一条」）：在回答时写核心给的那句、按这一轮开始的时刻走秒，等你回应时写等的是什么，不再在跑时改成「答完了」、8 秒后收起；点它打开那个会话（网址的 scheme 是 App 的包名，正式版和测试版各开各的）。聊天页开着的对话照它自己的状态，别的会话照会话列表报的忙闲；还没有会话号的新对话不显示。
+
+- 定义在 `ios/Shared/ZetaActivity.swift`（App 和扩展都编它），App 一侧每份新的 state 对一遍（`ios/Zeta/Core/LiveActivities.swift`：该有的建上或更新，不该有的结束），画法在扩展 `ios/ZetaActivity/`。显示的字由 App 按界面语言出好交给扩展，扩展里没有文字表。
+- 只由 App 更新，没有推送服务（APNs）：App 退到后台、SSH 断开后活动停在最后的样子，回到前台再对上。启动时先收掉上次运行没来得及收的活动。
+- 扩展的包名是 App 的加 `.activity`：`scripts/build.sh` 经 `ZETA_BUNDLE_ID` 定 App 的包名，不在命令行上直接改 `PRODUCT_BUNDLE_IDENTIFIER`（那样扩展也会被改成同一个，嵌不进 App）。
 
 ## 构建与测试
 

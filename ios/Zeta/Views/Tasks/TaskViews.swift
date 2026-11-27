@@ -126,7 +126,8 @@ private struct TaskRow: View {
             VStack(alignment: .leading, spacing: 2) {
                 Text(task.title).lineLimit(2)
                 TimelineView(.periodic(from: .now, by: 1)) { context in
-                    Text("\(Text(task.stateText)) · \(Text(task.elapsed(now: context.date), format: TaskInfo.elapsedStyle))")
+                    let elapsed = Text(task.elapsed(now: context.date), format: TaskInfo.elapsedStyle)
+                    Text("\(Text(task.stateText)) · \(elapsed)")
                         .font(.caption)
                         .foregroundStyle(task.state == "failed" ? .red : .secondary)
                 }
@@ -175,28 +176,7 @@ struct TaskDetailView: View {
 
     private func form(_ task: TaskInfo) -> some View {
         Form {
-            Section {
-                LabeledContent("状态") { Text(task.stateText) }
-                if let type = task.agentType, !type.isEmpty {
-                    LabeledContent("类型", value: type)
-                }
-                TimelineView(.periodic(from: .now, by: 1)) { context in
-                    LabeledContent("已运行") {
-                        Text(task.elapsed(now: context.date), format: TaskInfo.elapsedStyle)
-                    }
-                }
-                if let uses = task.toolUses {
-                    LabeledContent("工具调用") { Text(uses, format: .number) }
-                }
-                if task.running, let progress = task.progress, !progress.isEmpty {
-                    LabeledContent("正在做", value: progress)
-                }
-                if let id = task.toolUseID, !id.isEmpty {
-                    NavigationLink("查看步骤", value: TaskPage.subagent(id))
-                }
-            } header: {
-                Text(task.title)
-            }
+            overview(task)
             if let command = task.command, !command.isEmpty {
                 Section(task.kind == "agent" ? LocalizedStringKey("指令") : LocalizedStringKey("命令")) {
                     Text(command).font(.callout.monospaced()).textSelection(.enabled)
@@ -218,6 +198,32 @@ struct TaskDetailView: View {
                     Button("停止任务", role: .destructive) { stopAsked = true }
                 }
             }
+        }
+    }
+
+    /// 头一节：状态、类型、已运行多久、工具调用、正在做的、看步骤。
+    private func overview(_ task: TaskInfo) -> some View {
+        Section {
+            LabeledContent("状态") { Text(task.stateText) }
+            if let type = task.agentType, !type.isEmpty {
+                LabeledContent("类型", value: type)
+            }
+            TimelineView(.periodic(from: .now, by: 1)) { context in
+                LabeledContent("已运行") {
+                    Text(task.elapsed(now: context.date), format: TaskInfo.elapsedStyle)
+                }
+            }
+            if let uses = task.toolUses {
+                LabeledContent("工具调用") { Text(uses, format: .number) }
+            }
+            if task.running, let progress = task.progress, !progress.isEmpty {
+                LabeledContent("正在做", value: progress)
+            }
+            if let id = task.toolUseID, !id.isEmpty {
+                NavigationLink("查看步骤", value: TaskPage.subagent(id))
+            }
+        } header: {
+            Text(task.title)
         }
     }
 
