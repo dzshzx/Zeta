@@ -58,10 +58,11 @@ struct ChatState: Decodable, Sendable {
     let prompts: [Prompt]
     let items: [ItemsChange]
     let failed: String
+    let composer: ComposerState?
 
     enum CodingKeys: String, CodingKey {
         case backend, session, title, device, cwd, opening, problem, connected, busy, blocked, status, model, earlier
-        case prompts, items, failed
+        case prompts, items, failed, composer
         case linkProblem = "link_problem"
     }
 }

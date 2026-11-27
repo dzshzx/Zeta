@@ -50,8 +50,31 @@ Swift 经三个 C 函数调核心（`hub/cmd/zeta-ios`）：
 | `send`、`interrupt`、`earlier` | `text` | 对聊天页的对话发消息、停止、载入更早的 |
 | `answer` | `request_id`、`reply` | 回应确认或提问，`reply` 是 `helper/prompt` 的 Reply |
 | `core` | `backend`、`method`、`params` | 把 `method` 转给设备 `backend` 的核心，结果原样交回（`AppModel.device`）；只转 `config.*`、`diag.*`、`system.*`（各方法见 `docs/core.md`），对话、会话列表、账号这些有中枢自己的状态，走中枢的方法；阻塞，最多 60 秒 |
+| `composer.draft` | `text`、`caret` | 输入框里的字和光标（UTF-16）交给核心存草稿；答 `{commands}`：光标前在打斜杠命令时要提示的（开始打 / 而对话没起进程时先让核心起好）；不算变化 |
+| `composer.complete` | `text`、`caret`、`name` | 选了斜杠命令：答 `{text, caret}`，只换掉光标处那个词 |
+| `composer.send` | `text` | 发输入框里的字和传好了的附件，答 `{sent}`；还有在传的、没东西可发时不发；没发出去时字和附件放回输入栏 |
+| `composer.attach` | `files`（`[{path}]`） | 收 App 临时目录里选好的文件：传到对话所在的设备上，图片另做缩小图；收不了的原因放进 `composer.problems` |
+| `composer.remove`、`composer.problems` | `id`；无 | 移除一个待发的附件（在传的取消）；清掉没收进来的原因 |
+| `composer.model`、`composer.effort`、`composer.mode` | `value`（省掉是回到默认） | 这个对话的模型、思考强度、权限模式 |
+| `composer.steer`、`composer.cancel`、`composer.compact` | 无；`uuid`、`recall` | 立即插话；撤回一条排队的（`recall` 时放回输入框）；压缩上下文 |
+| `composer.quota` | `force` | 让对话所在设备的订阅额度刷新（不够新才问，`force` 时一定问） |
+| `composer.flush` | | 马上把草稿写盘（退到后台时）；阻塞 |
+| `prompts`、`prompts.add`、`prompts.update`、`prompts.remove`、`prompts.move` | `id`、`name`、`text`、`delta`、`dedupe` | 常用指令：答 `{list, full}`；`dedupe` 时已有同样内容的不加、答出错 |
 
 `send`、`interrupt`、`answer`、`earlier` 在后台做，没成的原因放在下一次 `state` 的 `chat.failed` 里。
+
+## 输入栏
+
+规矩照桌面版的输入栏（`docs/desktop.md`「功能」），界面在 `ios/Zeta/Views/Composer/`，交互照手机版。`state` 的 `chat.composer`（`hub/mobile/composer.go` 的 `Composer`）是输入栏要画的整份，对话还没打开成时没有。
+
+- 输入框里的字归 Swift 管，每改一次经 `composer.draft` 交给核心；核心改了字（撤回的消息放回来、没发出去放回来、换了对话恢复草稿）时 `rev` 加一，界面见 `rev` 变了才换上 `text`。光标都按 UTF-16 算。
+- 草稿按会话号存（还没开始的新对话共用一份，拿到会话号时挪过去），存在设置目录的 `zeta_drafts.json`，格式和上限见 `client/drafts`，和桌面版、手机版一样；停下约一秒存一次，换对话、退到后台时马上存。
+- 附件：相册里选图（PhotosPicker）、选文件（fileImporter），Swift 写进 App 临时目录（每个一个单独的目录，文件名就是传上去的名字；相册的 HEIC 等核心解不开的先转成 JPEG），把路径交给 `composer.attach`；传到设备、缩小图、大小上限都照 `hub/attach`。PhotosPicker 在 App 之外的进程里选，不要相册权限。没有拍照。
+- 模型菜单照桌面版：在用中转时只列中转报的，否则是 Claude Code 报的清单分两层（`chat.SplitModels`，旧版本收进「更多模型」），还没报时是常用的别名。
+- 斜杠命令：光标前的词以 / 开头（句中也算）时在输入栏上方提示，选了只换掉那个词；没有桌面版的 `/config`、`/permissions` 两条设置命令。
+- 排队：回答中发的消息进核心的队列，输入栏上方列出，点正文撤回到输入框，删除键撤回不要，「立即插话」把排队的送进这一轮。
+- 常用指令：「+」菜单里列出，点了填进输入框（空着就换上，有字插在光标处），「管理常用指令」里新建、编辑、删除、排序。消息上的「收藏为常用指令」调 `AppModel.savePrompt`（已有同样内容的不加）。
+- 用量：输入栏上的圆环是上下文用了多少（按程度变色），点开是订阅额度（在用中转时没有这一节）、上下文、本对话累计、各轮明细和「压缩上下文」。
 
 ## 构建与测试
 

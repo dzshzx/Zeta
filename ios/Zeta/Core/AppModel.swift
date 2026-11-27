@@ -107,6 +107,12 @@ final class AppModel {
         }
     }
 
+    /// 在主线程上调核心的方法 method（很快返回的）并解出结果；没成时抛出原因。
+    func callCore<T: Decodable>(_ method: String, _ params: [String: any Sendable] = [:], as type: T.Type) throws -> T {
+        guard let core else { throw Core.Failure(message: "core not started") }
+        return try core.call(method, params, as: type)
+    }
+
     /// 在后台线程上调核心的方法 method 并等它的结果（会等网络的方法，比如 probe、core，都这样调）；没成时抛出原因。
     func request<T: Decodable & Sendable>(
         _ method: String, _ params: [String: any Sendable] = [:], as type: T.Type
