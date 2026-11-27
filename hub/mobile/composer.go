@@ -1194,3 +1194,23 @@ func newPromptID() string {
 	_, _ = rand.Read(b) // crypto/rand 的 Read 不会失败
 	return hex.EncodeToString(b)
 }
+
+// rowDraft 是会话列表一行要标的草稿（同桌面版 rowDraft）：会话 id 存着没发出的草稿、又不是输入栏正跟着的那个时，答侧栏的一行预览。
+func (m *composer) rowDraft(id string) (string, bool) {
+	b := m.drafts()
+	if id == "" || id == b.key {
+		return "", false
+	}
+	r, ok := b.records[id]
+	if !ok {
+		return "", false
+	}
+	// 存盘的没写 Label 时按 Entry 取名（同恢复草稿时）；复制一份，不改存着的那份
+	r.Files = slices.Clone(r.Files)
+	for i, f := range r.Files {
+		if f.Label == "" {
+			r.Files[i].Label = attach.EntryName(f.Entry)
+		}
+	}
+	return drafts.Preview(r), true
+}

@@ -9,6 +9,7 @@ import (
 	"sync"
 	"testing"
 
+	"github.com/dzshzx/Zeta/client/drafts"
 	"github.com/dzshzx/Zeta/hub/hubtest"
 	"github.com/dzshzx/Zeta/hub/settings"
 )
@@ -240,5 +241,27 @@ func TestPrompts(t *testing.T) {
 	got = call[Prompts](t, c, "prompts.remove", map[string]any{"id": got.List[1].ID})
 	if len(got.List) != 1 || !slices.ContainsFunc(got.List, func(p Prompt) bool { return p.Text == "第一条" }) {
 		t.Fatalf("删了以后 %+v", got.List)
+	}
+}
+
+// 会话行上的草稿：存着草稿的会话答一行预览；输入栏正跟着的那个、没存草稿的不标。
+func TestRowDraft(t *testing.T) {
+	x := openComposer(t, t.TempDir())
+	x.c.Do(func() {
+		b := x.c.comp().drafts()
+		b.records["s1"] = drafts.Draft{Key: "s1", Text: "改一下标题"}
+		b.records["s2"] = drafts.Draft{Key: "s2", Text: "正在写的"}
+		b.key = "s2"
+	})
+	var got1, got2, got3 bool
+	var preview string
+	x.c.Do(func() {
+		m := x.c.comp()
+		preview, got1 = m.rowDraft("s1")
+		_, got2 = m.rowDraft("s2")
+		_, got3 = m.rowDraft("s3")
+	})
+	if !got1 || !strings.Contains(preview, "改一下标题") || got2 || got3 {
+		t.Fatalf("s1 %v %q，s2 %v，s3 %v", got1, preview, got2, got3)
 	}
 }

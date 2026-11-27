@@ -305,6 +305,13 @@ struct SessionRowView: View {
                         .foregroundStyle(.secondary)
                         .lineLimit(2)
                 }
+                if !row.draft.isEmpty {
+                    Label(row.draft, systemImage: "pencil")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                        .lineLimit(1)
+                        .accessibilityLabel(Text("草稿：\(row.draft)"))
+                }
                 HStack(spacing: 4) {
                     if showDevice {
                         Text(model.deviceName(row.backend))

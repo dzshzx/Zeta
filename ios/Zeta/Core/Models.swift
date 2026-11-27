@@ -38,6 +38,8 @@ struct SessionRow: Decodable, Sendable, Hashable {
     let activity: String
     let tasks: Int
     let snippet: String
+    /// 存着的没发出的草稿的一行预览，没有时为空。
+    var draft: String = ""
 
     /// 在各台设备之间不重的键。
     var key: String { backend + "/" + id }

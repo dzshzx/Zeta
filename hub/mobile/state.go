@@ -55,6 +55,8 @@ type Session struct {
 	Activity string `json:"activity"`
 	Tasks    int    `json:"tasks"`
 	Snippet  string `json:"snippet"`
+	// Draft 是这个会话存着的没发出的草稿的一行预览（输入栏正跟着的那个不算），没有时为空。
+	Draft string `json:"draft"`
 }
 
 // Chat 是聊天页的样子。Items 是上次 state 以后条目的变化：Full 时第一项是整份，界面依次套上（同桌面版的 Take）。

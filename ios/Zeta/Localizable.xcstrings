@@ -5603,6 +5603,16 @@
           }
         }
       }
+    },
+    "草稿：%@": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Draft: %@"
+          }
+        }
+      }
     }
   }
 }

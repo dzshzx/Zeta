@@ -81,6 +81,7 @@ func (c *Core) decorate(row Session, s, current hostlink.Session) Session {
 		status.Activity = hub.Answering
 	}
 	row.Activity, row.Tasks, row.Snippet = activityNames[status.Activity], status.Tasks, c.hub.Snippet(s)
+	row.Draft, _ = c.comp().rowDraft(s.ID)
 	return row
 }
 
