@@ -2,6 +2,7 @@ package mobile
 
 import (
 	"encoding/json"
+	"strconv"
 	"sync"
 	"testing"
 
@@ -121,12 +122,21 @@ func TestDeviceHint(t *testing.T) {
 				defer mu.Unlock()
 				return quotaAnswer(relay), nil
 			}
+			if call.Method == "accounts.list" { // 和 quota.get 说的一致：读到账号时也告诉额度在用的是不是中转
+				mu.Lock()
+				defer mu.Unlock()
+				return json.RawMessage(`{"accounts":[],"relays":[{"name":"r1","current":` + strconv.FormatBool(relay != "") + `}]}`), nil
+			}
 			return json.RawMessage(`{}`), nil
 		})
 	}
 	id := addDevice(t, c)
 	call[map[string]bool](t, c, "settings.open", nil)
-	until(t, c, changed, func() bool { r := c.hub.Remote(id); return r != nil && r.Quota.Relay() == "r1" })
+	until(t, c, changed, func() bool { // 账号和额度都读完：晚到的那份会改额度认的中转
+		r := c.hub.Remote(id)
+		_, loaded := r.Accounts.State()
+		return loaded && !r.Quota.Refreshing() && r.Quota.Relay() == "r1"
+	})
 	if h := device(t, c, id); h.Relay != "r1" || h.Used != -1 {
 		t.Fatalf("在用中转 %+v", h)
 	}

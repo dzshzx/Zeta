@@ -110,7 +110,11 @@ func TestAccountsSwitch(t *testing.T) {
 func TestAccountsLogin(t *testing.T) {
 	c, id, changed, f := accountsCore(t)
 	call[map[string]bool](t, c, "accounts.login", map[string]string{"id": id})
-	until(t, c, changed, func() bool { _, ok := c.hub.Remote(id).Accounts.Login(); return ok })
+	until(t, c, changed, func() bool { // 起登录这件事做完（working 清掉）才收授权码
+		a := c.hub.Remote(id).Accounts
+		_, ok := a.Login()
+		return ok && a.Working() == ""
+	})
 	v := call[Accounts](t, c, "accounts", map[string]string{"id": id})
 	if v.Login == nil || v.Login.URL != "https://claude.ai/oauth/authorize?x=1" {
 		t.Fatalf("登录 %+v", v.Login)
