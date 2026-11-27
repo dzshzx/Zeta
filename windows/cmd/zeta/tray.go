@@ -4,8 +4,8 @@ import (
 	_ "embed"
 	"log"
 
+	"github.com/dzshzx/Zeta/hub/appversion"
 	"github.com/dzshzx/Zeta/windows/internal/locales"
-	"github.com/dzshzx/Zeta/windows/internal/update"
 	"github.com/egoist/mygo"
 )
 
@@ -24,7 +24,7 @@ var (
 type background struct {
 	win *mygo.Window
 	// version 定托盘的图标和提示文字：测试版是橙色图标、Zeta Dev，和同时开着的正式版分得清。
-	version update.Version
+	version appversion.Version
 	// tray 是起好的托盘图标；起不来时为 nil。
 	tray *mygo.Tray
 	// quitting：正在退出（托盘的退出、更新前的退出、关机注销都先经 mygo 的 OnBeforeQuit），这时关窗口就是关。
@@ -71,7 +71,7 @@ func (b *background) show() {
 
 // trayOptions 是托盘图标的样子。ID 两个版本都是 zeta：Windows 按 exe 的路径和这个号记用户把图标放在任务栏上还是收起来，
 // 测试版装在另一个目录，不会和正式版的混在一起；正式版的 ID 改了会丢掉用户的这个选择。
-func trayOptions(v update.Version) mygo.TrayOptions {
+func trayOptions(v appversion.Version) mygo.TrayOptions {
 	icon := trayIcon
 	if !v.Release() {
 		icon = trayDevIcon

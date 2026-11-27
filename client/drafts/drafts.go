@@ -1,6 +1,6 @@
 // Package drafts 是输入草稿的规矩（同 shared 的 core/ComposerDrafts.kt、DraftRecords）：每个对话没发出的字和附件一份，
 // 存盘的上限、超出时丢哪些，和存盘的 JSON 格式。和平台无关，只管数据；放在哪、图片文件怎么存由各端自己做
-// （桌面版在 windows/internal/settings）。格式和 Kotlin 版一样，两边存的互相读得出来。
+// （桌面版在 hub/settings）。格式和 Kotlin 版一样，两边存的互相读得出来。
 package drafts
 
 import (

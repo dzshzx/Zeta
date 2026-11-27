@@ -6,7 +6,7 @@ import (
 	"testing"
 
 	"github.com/dzshzx/Zeta/helper/coreapi"
-	"github.com/dzshzx/Zeta/windows/internal/chat"
+	"github.com/dzshzx/Zeta/hub/chat"
 )
 
 // bgScenario 是假 Claude 的剧本：一轮里用 Bash 起一个后台命令（同真 Claude Code 的 background_tasks_changed、task_started），

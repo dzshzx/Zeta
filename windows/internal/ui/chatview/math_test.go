@@ -4,7 +4,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/dzshzx/Zeta/windows/internal/chat/items"
+	"github.com/dzshzx/Zeta/hub/chat/items"
 )
 
 // mathAnswer 是一段带公式的回答：行内的、块的（$$ 和 \[ 两种）、矩阵、排不出的、金额。

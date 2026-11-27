@@ -17,7 +17,7 @@ const testName = "zeta-test"
 // helperSource 是仓里的 helper/，经 client/testdata 里的符号链接找：这样 go test 的缓存认得它（见 testinput）。
 var helperSource = filepath.Join("..", "testdata", "helper")
 
-// helperBinaries 是测试前从仓里的 helper/ 编出的 zeta-helper（linux 的 arm64、amd64 两份，编法同 windows/scripts/assets.sh），
+// helperBinaries 是测试前从仓里的 helper/ 编出的 zeta-helper（linux 的 arm64、amd64 两份，编法同 hub/scripts/assets.sh），
 // 装程序、订阅会话列表、serve 重连的测试在 sshtest 的设备上真跑它。
 var helperBinaries map[string][]byte
 

@@ -13,7 +13,7 @@ import (
 	"time"
 
 	"github.com/dzshzx/Zeta/helper/redact"
-	"github.com/dzshzx/Zeta/windows/internal/runlog"
+	"github.com/dzshzx/Zeta/hub/runlog"
 	"github.com/egoist/mygo"
 	"github.com/egoist/mygo/ui"
 )

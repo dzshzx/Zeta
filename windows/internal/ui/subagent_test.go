@@ -8,7 +8,7 @@ import (
 	"time"
 
 	"github.com/dzshzx/Zeta/helper/tasks"
-	"github.com/dzshzx/Zeta/windows/internal/chat"
+	"github.com/dzshzx/Zeta/hub/chat"
 )
 
 // agentItems 是聊天里派了一个子代理的一轮。

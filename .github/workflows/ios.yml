@@ -8,11 +8,9 @@ on:
   push:
     paths:
       - ios/**
-      - windows/cmd/zeta-ios/**
-      - windows/internal/**
-      - windows/scripts/**
       - client/**
       - tools/version.sh
+      - hub/**
       - helper/**
       - .github/workflows/ios.yml
   workflow_dispatch:
@@ -39,17 +37,17 @@ jobs:
       - name: 安装 Go
         uses: actions/setup-go@d8cbb8045d7f43706b9177cceb36c1f91a6644d5 # v7.1.0
         with:
-          go-version-file: windows/go.mod
+          go-version-file: hub/go.mod
           cache: false
 
       - name: 放好嵌进核心的东西
-        run: bash windows/scripts/assets.sh
+        run: bash hub/scripts/assets.sh
 
       - name: 上传
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: assets
-          path: windows/internal/assets/gen
+          path: hub/assets/gen
           if-no-files-found: error
           retention-days: 1
 
@@ -69,12 +67,12 @@ jobs:
         uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
         with:
           name: assets
-          path: windows/internal/assets/gen
+          path: hub/assets/gen
 
       - name: 安装 Go
         uses: actions/setup-go@d8cbb8045d7f43706b9177cceb36c1f91a6644d5 # v7.1.0
         with:
-          go-version-file: windows/go.mod
+          go-version-file: hub/go.mod
           cache: false
 
       # 镜像里装着几个 Xcode（/Applications/Xcode_<版本>.app），挑版本最高的正式版：名字里只有数字和点，beta、RC 名字里带字母

@@ -5,11 +5,11 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/dzshzx/Zeta/windows/internal/assets"
+	"github.com/dzshzx/Zeta/hub/assets"
 	"github.com/dzshzx/Zeta/windows/internal/locales"
 )
 
-// License 是一项开源许可：程序里带着的一个模块，或 Go 标准库。全文由 windows/scripts/assets.sh 从模块目录里取，编进程序。
+// License 是一项开源许可：程序里带着的一个模块，或 Go 标准库。全文由 hub/scripts/assets.sh 从模块目录里取，编进程序。
 type License struct {
 	Where   string // app：Windows 程序链接的；host：带到主机上的 zeta-helper、claude-switch 链接的
 	Module  string // 模块路径，Go 标准库是 "Go"

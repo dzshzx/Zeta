@@ -8,6 +8,10 @@ import (
 	"sync"
 	"testing"
 	"time"
+
+	"github.com/dzshzx/Zeta/hub/appversion"
+
+	"github.com/dzshzx/Zeta/hub/settings"
 )
 
 // prefs 是测试里的设置。
@@ -88,7 +92,7 @@ var noon = time.Date(2026, 11, 22, 12, 0, 0, 0, time.Local)
 func newFixture(t *testing.T, m *Manifest) *fixture {
 	f := &fixture{src: &source{manifest: m, body: msiBody}, prefs: &prefs{auto: true}}
 	f.Updater = &Updater{
-		Version: Version{Code: 800, Name: "0.7.5"},
+		Version: appversion.Version{Code: 800, Name: "0.7.5"},
 		Dir:     filepath.Join(t.TempDir(), "update"),
 		Source:  f.src,
 		Prefs:   f.prefs,
@@ -143,7 +147,7 @@ func TestStartRespectsSettingAndVersion(t *testing.T) {
 	}
 
 	dev := newFixture(t, newManifest(812))
-	dev.Version = Version{Code: 815, Name: "0.7.7-dev.3+gabc1234"}
+	dev.Version = appversion.Version{Code: 815, Name: "0.7.7-dev.3+gabc1234"}
 	dev.do(dev.Start)
 	dev.do(dev.Check)
 	if st := dev.Status(); st.Phase != Idle || dev.Enabled() || !dev.prefs.checkedAt.IsZero() {
@@ -272,9 +276,9 @@ func TestDownloadDir(t *testing.T) {
 	}
 	// Windows 上在 %LOCALAPPDATA% 下：正式版的路径不变，测试版另一个目录
 	local := `C:\Users\u\AppData\Local`
-	release, dev := Version{812, "0.7.6"}, Version{815, "0.7.7-dev.3+gabc1234"}
+	release, dev := appversion.Version{Code: 812, Name: "0.7.6"}, appversion.Version{Code: 815, Name: "0.7.7-dev.3+gabc1234"}
 	for _, tc := range []struct {
-		v    Version
+		v    appversion.Version
 		want string
 	}{
 		{release, filepath.Join(local, "Zeta", "update")},
@@ -288,3 +292,6 @@ func TestDownloadDir(t *testing.T) {
 		t.Errorf("without LOCALAPPDATA: %q", got)
 	}
 }
+
+// 桌面版的设置要能交给 Updater 存更新用到的三项。
+var _ Prefs = (*settings.Settings)(nil)

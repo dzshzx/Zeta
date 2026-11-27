@@ -6,7 +6,7 @@ import (
 	"unicode"
 	"unicode/utf8"
 
-	"github.com/dzshzx/Zeta/windows/internal/chat/items"
+	"github.com/dzshzx/Zeta/hub/chat/items"
 	"github.com/dzshzx/Zeta/windows/internal/ui/widget"
 	"github.com/egoist/mygo/ui"
 	"github.com/egoist/mygo/ui/markdown/parser"

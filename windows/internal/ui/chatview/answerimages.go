@@ -7,8 +7,8 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/dzshzx/Zeta/windows/internal/attach"
-	"github.com/dzshzx/Zeta/windows/internal/chat/items"
+	"github.com/dzshzx/Zeta/hub/attach"
+	"github.com/dzshzx/Zeta/hub/chat/items"
 )
 
 // 回答里用 Markdown 引用的图（同手机版 ChatImage.kt 的 answerImages）：`![说明](/路径)`、网址、内嵌的 data: 从正文里取出来，

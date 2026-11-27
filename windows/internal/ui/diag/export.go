@@ -15,8 +15,8 @@ import (
 
 	"github.com/dzshzx/Zeta/helper/coreapi"
 	"github.com/dzshzx/Zeta/helper/redact"
+	"github.com/dzshzx/Zeta/hub/runlog"
 	"github.com/dzshzx/Zeta/windows/internal/locales"
-	"github.com/dzshzx/Zeta/windows/internal/runlog"
 	"github.com/dzshzx/Zeta/windows/internal/ui/widget"
 	"github.com/egoist/mygo/ui"
 )

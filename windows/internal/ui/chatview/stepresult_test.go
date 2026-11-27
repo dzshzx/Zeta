@@ -4,7 +4,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/dzshzx/Zeta/windows/internal/chat/items"
+	"github.com/dzshzx/Zeta/hub/chat/items"
 )
 
 // 核心自己写的工具结果（已中断、! 命令的退出码）按界面语言出字；工具的原文照原样。

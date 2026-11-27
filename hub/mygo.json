@@ -1,0 +1,4 @@
+{
+  "name": "zeta-client",
+  "i18n": { "dir": "locales", "source": "zh-Hans" }
+}

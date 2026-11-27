@@ -1,7 +1,7 @@
 import Foundation
 import ZetaCore
 
-/// 核心（Go，windows/internal/mobile）的 Swift 一侧：起核心、按方法名调用。协议见 docs/ios.md「核心桥」。
+/// 核心（Go，hub/mobile）的 Swift 一侧：起核心、按方法名调用。协议见 docs/ios.md「核心桥」。
 /// 核心在进程里只有一份，状态都在 Go 那边，这里没有存东西，所以能在任意线程上用。
 struct Core: Sendable {
     struct Failure: LocalizedError {

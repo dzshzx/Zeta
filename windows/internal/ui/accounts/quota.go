@@ -1,7 +1,7 @@
 package accounts
 
 import (
-	acct "github.com/dzshzx/Zeta/windows/internal/accounts"
+	acct "github.com/dzshzx/Zeta/hub/accounts"
 	"github.com/dzshzx/Zeta/windows/internal/locales"
 	"github.com/dzshzx/Zeta/windows/internal/ui/widget"
 	"github.com/egoist/mygo/ui"

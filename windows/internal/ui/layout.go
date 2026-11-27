@@ -2,9 +2,9 @@ package ui
 
 import (
 	"github.com/dzshzx/Zeta/client/hostlink"
-	"github.com/dzshzx/Zeta/windows/internal/hub"
+	"github.com/dzshzx/Zeta/hub"
+	"github.com/dzshzx/Zeta/hub/settings"
 	"github.com/dzshzx/Zeta/windows/internal/locales"
-	"github.com/dzshzx/Zeta/windows/internal/settings"
 	"github.com/dzshzx/Zeta/windows/internal/ui/widget"
 	"github.com/egoist/mygo/ui"
 )

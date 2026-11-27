@@ -4,7 +4,7 @@ import (
 	"math"
 	"testing"
 
-	"github.com/dzshzx/Zeta/windows/internal/hub"
+	"github.com/dzshzx/Zeta/hub"
 	"github.com/egoist/mygo/ui"
 )
 

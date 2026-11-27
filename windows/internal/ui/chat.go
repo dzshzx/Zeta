@@ -8,10 +8,12 @@ import (
 	"strings"
 	"time"
 
+	clientlocales "github.com/dzshzx/Zeta/hub/locales"
+
 	"github.com/dzshzx/Zeta/helper/coreapi"
-	"github.com/dzshzx/Zeta/windows/internal/chat"
-	"github.com/dzshzx/Zeta/windows/internal/chat/items"
-	"github.com/dzshzx/Zeta/windows/internal/hub"
+	"github.com/dzshzx/Zeta/hub"
+	"github.com/dzshzx/Zeta/hub/chat"
+	"github.com/dzshzx/Zeta/hub/chat/items"
 	"github.com/dzshzx/Zeta/windows/internal/locales"
 	"github.com/dzshzx/Zeta/windows/internal/ui/chatview"
 	"github.com/dzshzx/Zeta/windows/internal/ui/widget"
@@ -33,7 +35,7 @@ type chatPane struct {
 	draft string
 	// marks 是输入框里 Markdown 的显示样式，按 draft 缓存（composermd.go）。
 	marks draftMarks
-	// failed 是上次操作没成的原因（显示时用 locales.ErrorText 说），下次操作成了或换了对话时清掉。
+	// failed 是上次操作没成的原因（显示时用 clientlocales.ErrorText 说），下次操作成了或换了对话时清掉。
 	failed error
 	// taking：正在取撤回放回输入框的那条；took 是取过的最后一条（uuid）。
 	taking bool
@@ -123,7 +125,7 @@ func (a *App) syncChat() {
 	}
 	a.syncMessageActions(p)
 	p.list.Earlier = chatview.Earlier{Skipped: u.State.Earlier, Loading: p.earlier.asked || u.State.EarlierLoading,
-		Failed: locales.ErrorText(p.earlier.failed), Retry: !p.earlier.stale}
+		Failed: clientlocales.ErrorText(p.earlier.failed), Retry: !p.earlier.stale}
 	a.paneAlerts(p, u.Turns)
 	// 同一条只取一次：取走以后核心推来 recalled 为空之前，这一条还挂在状态里
 	if r := u.State.Recalled; r != nil && !p.taking && r.UUID != p.took {
@@ -171,7 +173,7 @@ func (a *App) chatTitle(p *chatPane) string {
 	case strings.TrimSpace(hub.SessionLabel(p.src.Session, i18n.Locale())) != "":
 		return hub.SessionLabel(p.src.Session, i18n.Locale())
 	}
-	return locales.ChatNewTitle()
+	return clientlocales.ChatNewTitle()
 }
 
 // disconnected 是对话所在的设备「连接」关着时聊天窗格中间的说明，点「连接」马上连回去、接着看这个对话。
@@ -217,7 +219,7 @@ func (a *App) chatPage(c *ui.Context) {
 				})
 			case p.src.Conv == nil:
 				ui.Column(c).Grow(1).Center().Padding(32).Margin(headerHeight, 0, 0, 0).Children(func() {
-					ui.Text(c, locales.ErrorText(p.src.Problem)).FontSize(widget.SizeBodyM).TextColor(k.Secondary).MaxWidth(520).TextAlign(ui.Center)
+					ui.Text(c, clientlocales.ErrorText(p.src.Problem)).FontSize(widget.SizeBodyM).TextColor(k.Secondary).MaxWidth(520).TextAlign(ui.Center)
 					a.newChatHost(c, p) // 新对话：也能换到别的设备上开（emptychat.go）
 				})
 			case emptyChat(p):
@@ -357,7 +359,7 @@ func (a *App) chatNotices(c *ui.Context, p *chatPane) {
 		widget.Notice(c, locales.ChatReconnecting(why), widget.Caution)
 	}
 	if p.failed != nil {
-		widget.Notice(c, locales.ErrorText(p.failed), widget.Failure)
+		widget.Notice(c, clientlocales.ErrorText(p.failed), widget.Failure)
 	}
 }
 
@@ -513,7 +515,7 @@ func (a *App) loadEarlier(p *chatPane, rest bool) bool {
 		return func() {
 			p.earlier.asked = false
 			if err != nil {
-				p.earlier.failed = locales.Wrap(err, locales.ChatEarlierFailed)
+				p.earlier.failed = clientlocales.Wrap(err, locales.ChatEarlierFailed)
 				p.earlier.stale = chat.IsEarlierStale(err)
 			}
 		}

@@ -5,10 +5,10 @@ package ui
 import (
 	"time"
 
-	"github.com/dzshzx/Zeta/windows/internal/chat/items"
-	"github.com/dzshzx/Zeta/windows/internal/hub"
+	"github.com/dzshzx/Zeta/hub"
+	"github.com/dzshzx/Zeta/hub/chat/items"
+	"github.com/dzshzx/Zeta/hub/runlog"
 	"github.com/dzshzx/Zeta/windows/internal/locales"
-	"github.com/dzshzx/Zeta/windows/internal/runlog"
 	"github.com/dzshzx/Zeta/windows/internal/ui/about"
 	uiacct "github.com/dzshzx/Zeta/windows/internal/ui/accounts"
 	"github.com/dzshzx/Zeta/windows/internal/ui/chatview"

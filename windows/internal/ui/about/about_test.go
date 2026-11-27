@@ -8,6 +8,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/dzshzx/Zeta/hub/appversion"
 	"github.com/dzshzx/Zeta/windows/internal/update"
 	"github.com/egoist/mygo/ui"
 )
@@ -34,7 +35,7 @@ func (p *prefs) SetUpdateCheckedAt(time.Time) {}
 func (p *prefs) UpdateNotified() int          { return 0 }
 func (p *prefs) SetUpdateNotified(int)        {}
 
-var release = update.Version{Code: 800, Name: "0.7.5"}
+var release = appversion.Version{Code: 800, Name: "0.7.5"}
 
 func manifest() *update.Manifest {
 	return &update.Manifest{
@@ -44,7 +45,7 @@ func manifest() *update.Manifest {
 	}
 }
 
-func newPage(v update.Version, st update.Status) (*Page, *updates, *prefs, *ui.Tester) {
+func newPage(v appversion.Version, st update.Status) (*Page, *updates, *prefs, *ui.Tester) {
 	u := &updates{enabled: v.Release(), status: st}
 	pr := &prefs{auto: true}
 	p := &Page{Version: v, Updates: u, Prefs: pr}
@@ -53,7 +54,7 @@ func newPage(v update.Version, st update.Status) (*Page, *updates, *prefs, *ui.T
 }
 
 func TestDevelopmentBuild(t *testing.T) {
-	_, _, _, tt := newPage(update.Version{Code: 815, Name: "0.7.7-dev.3+gabc1234"}, update.Status{})
+	_, _, _, tt := newPage(appversion.Version{Code: 815, Name: "0.7.7-dev.3+gabc1234"}, update.Status{})
 	for _, s := range []string{"版本", "0.7.7-dev.3+gabc1234", "开发版"} {
 		if !tt.HasText(s) {
 			t.Errorf("no %q in %q", s, tt.Texts())
@@ -188,12 +189,12 @@ func TestLicensesCoverLinkedModules(t *testing.T) {
 	}
 	for _, m := range linked(t, "../../..", "windows", "./...") {
 		if !have["app "+m] {
-			t.Errorf("the Windows program links %s, missing from the licenses; run windows/scripts/assets.sh", m)
+			t.Errorf("the Windows program links %s, missing from the licenses; run hub/scripts/assets.sh", m)
 		}
 	}
 	for _, m := range linked(t, "../../../../helper", "linux", "./...", "tool") {
 		if !have["host "+m] {
-			t.Errorf("the host programs link %s, missing from the licenses; run windows/scripts/assets.sh", m)
+			t.Errorf("the host programs link %s, missing from the licenses; run hub/scripts/assets.sh", m)
 		}
 	}
 	if !have["app Go "+goVersion(t)] || !have["host Go "+goVersion(t)] {
@@ -223,7 +224,7 @@ func TestPackageLicenses(t *testing.T) {
 		}
 		for _, pattern := range []string{"LICENSE*", "LICENCE*", "COPYING*"} {
 			if matches, _ := filepath.Glob(filepath.Join(f[2], pattern)); len(matches) > 0 && !have["app "+f[0]+" "+f[1]] {
-				t.Errorf("%s has its own licence %q, missing from the licenses; run windows/scripts/assets.sh", f[0], matches)
+				t.Errorf("%s has its own licence %q, missing from the licenses; run hub/scripts/assets.sh", f[0], matches)
 			}
 		}
 	}

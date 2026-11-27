@@ -9,12 +9,14 @@ import (
 
 	"github.com/dzshzx/Zeta/client/hostlink"
 	"github.com/dzshzx/Zeta/client/sshlink"
-	"github.com/dzshzx/Zeta/windows/internal/host"
-	"github.com/dzshzx/Zeta/windows/internal/hub"
+	"github.com/dzshzx/Zeta/hub"
+	"github.com/dzshzx/Zeta/hub/host"
+
 	// 界面的文字表：注册后 mygo 的语言就是简体中文（源语言）和英文，它自带的文字（菜单、输入框菜单）跟着用同一种
+	"github.com/dzshzx/Zeta/hub/appversion"
+	"github.com/dzshzx/Zeta/hub/runlog"
+	"github.com/dzshzx/Zeta/hub/settings"
 	_ "github.com/dzshzx/Zeta/windows/internal/locales"
-	"github.com/dzshzx/Zeta/windows/internal/runlog"
-	"github.com/dzshzx/Zeta/windows/internal/settings"
 	zui "github.com/dzshzx/Zeta/windows/internal/ui"
 	"github.com/dzshzx/Zeta/windows/internal/ui/about"
 	"github.com/dzshzx/Zeta/windows/internal/ui/widget"
@@ -42,7 +44,7 @@ func main() {
 	log.SetFlags(0)
 	log.SetOutput(runLog)
 	keepCrashes(diagDir)
-	version := update.Current()
+	version := appversion.Current()
 	runLog.Add(runlog.Info, runlog.App, "Zeta "+version.Name+" 启动")
 	fatal := func(err error) {
 		runLog.Add(runlog.Error, runlog.App, "起不来："+err.Error())

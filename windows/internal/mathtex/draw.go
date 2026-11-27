@@ -4,7 +4,7 @@ import (
 	"math"
 	"sync"
 
-	"github.com/dzshzx/Zeta/windows/internal/assets"
+	"github.com/dzshzx/Zeta/hub/assets"
 	"github.com/egoist/mygo/ui"
 )
 

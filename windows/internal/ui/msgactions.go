@@ -6,11 +6,13 @@ import (
 	"strings"
 	"sync"
 
+	clientlocales "github.com/dzshzx/Zeta/hub/locales"
+
 	"github.com/dzshzx/Zeta/helper/coreapi"
-	"github.com/dzshzx/Zeta/windows/internal/chat"
-	"github.com/dzshzx/Zeta/windows/internal/chat/items"
+	"github.com/dzshzx/Zeta/hub/chat"
+	"github.com/dzshzx/Zeta/hub/chat/items"
+	"github.com/dzshzx/Zeta/hub/settings"
 	"github.com/dzshzx/Zeta/windows/internal/locales"
-	"github.com/dzshzx/Zeta/windows/internal/settings"
 	"github.com/dzshzx/Zeta/windows/internal/ui/chatview"
 	"github.com/dzshzx/Zeta/windows/internal/ui/widget"
 	"github.com/egoist/mygo/ui"
@@ -221,7 +223,7 @@ func (a *App) beginEdit(p *chatPane, user items.Item, later int) {
 			}
 			p.putBack(coreapi.Message{Images: images})
 			if lost > 0 {
-				p.failed = locales.Err(locales.MessageImagesLost)
+				p.failed = clientlocales.Err(locales.MessageImagesLost)
 			}
 		}
 	})
@@ -247,7 +249,7 @@ func (p *chatPane) cancelEdit() {
 // 不发，返回 false，字留在输入栏。
 func (a *App) submitEdit(p *chatPane, text string) bool {
 	if !p.connected || !p.state.CanRewind {
-		p.failed = locales.Err(locales.MessageWaitRound)
+		p.failed = clientlocales.Err(locales.MessageWaitRound)
 		return false
 	}
 	target := p.acts.editing.user.ID
@@ -259,7 +261,7 @@ func (a *App) submitEdit(p *chatPane, text string) bool {
 	a.hub.RunChat(func(ctx context.Context, conv *chat.Conversation) error {
 		return conv.Rewrite(ctx, target, coreapi.Outgoing{Text: m.Text, Images: m.Images, Files: m.Files})
 	}, func(err error) {
-		p.failed = locales.Wrap(err, locales.CommonSendFailed)
+		p.failed = clientlocales.Wrap(err, locales.CommonSendFailed)
 		p.putBack(m)
 	})
 	return true

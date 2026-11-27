@@ -6,7 +6,7 @@
 #   test       在 iOS 模拟器上跑 ZetaTests（核心桥的冒烟测试）；模拟器见 simulator.sh。
 #   simulator  模拟器的 Debug 构建，产物在 ios/build/sim/，给 CI 截图用；前面跑过 test 时直接用它编出来的。
 # 版本名是干净的 X.Y.Z 时是正式版（Zeta，com.dzshzx.zeta），别的是测试版（Zeta Dev，com.dzshzx.zeta.dev），两个能同时装着，同桌面版和手机版的做法。
-# 要在装了 Xcode 和 XcodeGen（brew install xcodegen）的 macOS 上跑，先跑过 windows/scripts/assets.sh。
+# 要在装了 Xcode 和 XcodeGen（brew install xcodegen）的 macOS 上跑，先跑过 hub/scripts/assets.sh。
 set -euo pipefail
 ios=$(cd "$(dirname "$0")/.." && pwd)
 bash "$ios/scripts/core.sh"

@@ -16,9 +16,8 @@ class AppVariant(val packageName: String) {
 
     /**
      * Linux 里 Zeta 自己的目录名：`~/.cache/<它>`（后台对话 hosts、附件 files）和 `~/.config/<它>`（归档）。 正式版是
-     * `zeta`（沿用一直以来的位置，升级后照样接得回原来的后台对话），测试版是 `zeta-dev`。Windows
-     * 桌面版的正式版、测试版分别用这两个（windows/internal/host 的 LinuxName）：在同一台远程主机上和手机的同版算同一个包，
-     * 可以同时接着同一个托管进程，电脑、手机一起用一个会话（见 zeta_host.sh 开头）。
+     * `zeta`（沿用一直以来的位置，升级后照样接得回原来的后台对话），测试版是 `zeta-dev`。Windows 桌面版的正式版、测试版分别用这两个（hub/host 的
+     * LinuxName）：在同一台远程主机上和手机的同版算同一个包， 可以同时接着同一个托管进程，电脑、手机一起用一个会话（见 zeta_host.sh 开头）。
      */
     val linuxName: String
         get() =

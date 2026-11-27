@@ -11,7 +11,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/dzshzx/Zeta/windows/internal/chat/items"
+	"github.com/dzshzx/Zeta/hub/chat/items"
 	"github.com/dzshzx/Zeta/windows/internal/ui/widget"
 	"github.com/egoist/mygo/transfer"
 	"github.com/egoist/mygo/ui"

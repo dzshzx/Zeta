@@ -10,7 +10,7 @@ import (
 	"strings"
 
 	"github.com/dzshzx/Zeta/helper/prompt"
-	"github.com/dzshzx/Zeta/windows/internal/chat"
+	"github.com/dzshzx/Zeta/hub/chat"
 	"github.com/dzshzx/Zeta/windows/internal/locales"
 	"github.com/dzshzx/Zeta/windows/internal/ui/chatview"
 	"github.com/dzshzx/Zeta/windows/internal/ui/widget"

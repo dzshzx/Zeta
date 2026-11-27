@@ -3,7 +3,7 @@ import Testing
 @testable import Zeta
 
 /// 核心桥的冒烟测试：在模拟器上真起 Go 核心（测试跑在 App 进程里，App 已经起过，再起一次直接可用），
-/// 核对静态库链进来了、C 接口和 JSON 的两头对得上。核心的行为由 Go 的测试管（windows/internal/mobile）。
+/// 核对静态库链进来了、C 接口和 JSON 的两头对得上。核心的行为由 Go 的测试管（hub/mobile）。
 @MainActor
 struct CoreTests {
     private func core() throws -> Core {

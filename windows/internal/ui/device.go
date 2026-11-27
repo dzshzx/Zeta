@@ -5,9 +5,11 @@ import (
 	"path"
 	"strings"
 
+	clientlocales "github.com/dzshzx/Zeta/hub/locales"
+
 	"github.com/dzshzx/Zeta/client/sshlink"
-	"github.com/dzshzx/Zeta/windows/internal/host"
-	"github.com/dzshzx/Zeta/windows/internal/hub"
+	"github.com/dzshzx/Zeta/hub"
+	"github.com/dzshzx/Zeta/hub/host"
 	"github.com/dzshzx/Zeta/windows/internal/locales"
 	"github.com/dzshzx/Zeta/windows/internal/ui/widget"
 	"github.com/egoist/mygo/ui"
@@ -90,7 +92,7 @@ func (a *App) devicePage(c *ui.Context) {
 	widget.Body(c, "device", func() {
 		a.connectionSection(c, x)
 		a.accountsEntry(c, x)
-		widget.Group(c, "", locales.Now(a.edit.check), func(l *widget.List) {
+		widget.Group(c, "", clientlocales.Now(a.edit.check), func(l *widget.List) {
 			title := locales.DeviceCheck()
 			if a.edit.checking {
 				title = locales.CommonConnecting()

@@ -6,9 +6,11 @@ import (
 	"strconv"
 	"strings"
 
+	clientlocales "github.com/dzshzx/Zeta/hub/locales"
+
 	"github.com/dzshzx/Zeta/helper/coreapi"
 	"github.com/dzshzx/Zeta/helper/usage"
-	"github.com/dzshzx/Zeta/windows/internal/chat"
+	"github.com/dzshzx/Zeta/hub/chat"
 	"github.com/dzshzx/Zeta/windows/internal/locales"
 	uiacct "github.com/dzshzx/Zeta/windows/internal/ui/accounts"
 	"github.com/dzshzx/Zeta/windows/internal/ui/widget"
@@ -236,7 +238,7 @@ func (a *App) send(text string) bool {
 	a.hub.RunChat(func(ctx context.Context, conv *chat.Conversation) error {
 		return conv.Send(ctx, coreapi.Outgoing{Text: m.Text, Images: m.Images, Files: m.Files})
 	}, func(err error) {
-		p.failed = locales.Wrap(err, locales.CommonSendFailed)
+		p.failed = clientlocales.Wrap(err, locales.CommonSendFailed)
 		p.putBack(m)
 	})
 	return true

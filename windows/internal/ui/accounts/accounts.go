@@ -1,4 +1,4 @@
-// Package accounts 是设置里一台主机的「账号与额度」页，和聊天页用量弹出框里的额度明细。只画，状态在 internal/accounts。
+// Package accounts 是设置里一台主机的「账号与额度」页，和聊天页用量弹出框里的额度明细。只画，状态在 hub/accounts。
 // 页面画在设置窗口给它的位置里，不管窗口、标题和滚动。
 package accounts
 
@@ -8,7 +8,7 @@ import (
 	"time"
 
 	"github.com/dzshzx/Zeta/helper/coreapi"
-	acct "github.com/dzshzx/Zeta/windows/internal/accounts"
+	acct "github.com/dzshzx/Zeta/hub/accounts"
 	"github.com/dzshzx/Zeta/windows/internal/locales"
 	"github.com/dzshzx/Zeta/windows/internal/ui/widget"
 	"github.com/egoist/mygo/ui"

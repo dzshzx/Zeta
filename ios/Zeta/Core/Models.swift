@@ -1,6 +1,6 @@
 import Foundation
 
-// 核心交来的 JSON（windows/internal/mobile 的 State、chat/items、helper/prompt）。不用 convertFromSnakeCase：
+// 核心交来的 JSON（hub/mobile 的 State、chat/items、helper/prompt）。不用 convertFromSnakeCase：
 // 它连工具参数这类字典里的键也改写，带下划线的字段各自写 CodingKeys。
 
 /// 方法 state 的结果。

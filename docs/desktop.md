@@ -5,14 +5,14 @@
 ## 和手机版的约定
 
 - 只连远程主机，用 Zeta 自带的 SSH 直连（`golang.org/x/crypto/ssh`）。认证照这台电脑的 OpenSSH 配置：地址可以是 `~/.ssh/config` 里的别名，交给 `ssh -G` 算出主机、用户、端口和私钥；每台设备能另选 `~/.ssh` 里一把私钥（旁边有 `.pub` 的）。带口令的私钥、ProxyJump、ProxyCommand 不支持，遇到明说。主机指纹在加设备时记下，之后只认它。x/crypto/ssh 没有 zlib 压缩，连接不压缩。
-- 设置存在 `%APPDATA%\Zeta`（测试版是 `%APPDATA%\Zeta Dev`，见下面「测试版」）下的 JSON 文件（设置 `zeta.json`，输入草稿 `zeta_drafts.json`）：每项 `{"t":类型,"v":值}`，类型是 `s`、`i`、`l`、`f`、`b`、`set`（字符串、32 位和 64 位整数、小数、真假、字符串数组），认不得的项原样留着；键和取值同手机版的设置（`shared/…/core/Settings.kt`），格式写在 `internal/settings` 的包注释里。
+- 设置存在 `%APPDATA%\Zeta`（测试版是 `%APPDATA%\Zeta Dev`，见下面「测试版」）下的 JSON 文件（设置 `zeta.json`，输入草稿 `zeta_drafts.json`）：每项 `{"t":类型,"v":值}`，类型是 `s`、`i`、`l`、`f`、`b`、`set`（字符串、32 位和 64 位整数、小数、真假、字符串数组），认不得的项原样留着；键和取值同手机版的设置（`shared/…/core/Settings.kt`），格式写在 `hub/settings` 的包注释里。
 - 安装包是 MSI，在 Linux 上用 wixl 打（`installer/build.sh`，release.yml 的 desktop 任务跑它）：只装一个 `Zeta.exe`，按用户装，默认在 `%LOCALAPPDATA%\Programs\Zeta`。双击 MSI 是安装向导：欢迎、安装位置（能改、能浏览）、确认、进度、完成（勾着「启动」），已装时是修复和卸载；界面取 wixl 自带的 WixUI，选位置的两页自己写在 `installer/ZetaUI.wxs`，wixl 漏排的 Tab 顺序由 `msi.sh` 补上，界面是英文（MSI 里只用 ASCII）。选的位置记在 HKCU 的产品键下（`InstallDir`），装下一版时读回来，升级和应用内更新照旧装在那里；静默安装（`msiexec /qn`、`/passive`，应用内更新和 UniGetUI 这类工具用）不弹界面，位置可用 `INSTALLDIR=<目录>` 指定。装的时候 Zeta 开着，安装程序请它关掉，Zeta 跑完退出流程后自己结束进程（`cmd/zeta/endsession.go`）；正式版的 `UpgradeCode` 各版本共用、不能改，带 `REINSTALLMODE=amus`，所以装新版直接替换旧版（`installer/installer_test.go` 钉着）。随正式版一起发，`update.json` 的 `msi`、`msiUrl`、`msiSize`、`msiSha256` 四项给它的自动更新读，手机不读。自动更新的做法（谁查、下载核对、PowerShell 脚本怎么起）见 `docs/release.md`「应用内更新」的桌面版一节。
 - 测试版：同手机测试版（`com.dzshzx.zeta.dev`）的做法，版本名不是干净 X.Y.Z 的构建（任务分支、master 上没发版的提交）是和正式版并存的另一个应用「Zeta Dev」，橙色图标，装它不替换、不碰正式版。程序里是不是测试版只看 `update.Version.Release`，名字取 `Version.AppName`；MSI 的身份写在 `installer/Zeta.wxs` 开头，exe 的身份由 `installer/build.sh` 定（做法见它开头）。各项分开如下，正式版的都不变：
   - MSI：自己的 `UpgradeCode`（测试版之间互相替换），装到 `%LOCALAPPDATA%\Programs\Zeta Dev\Zeta Dev.exe`，开始菜单快捷方式「Zeta Dev」，注册表键 `HKCU\Software\dzshzx\Zeta Dev`。
   - exe 的版本资源：名字 Zeta Dev、identifier `com.dzshzx.zeta.desktop.dev`（同 mygo dev 给开发版的身份）。mygo 在 Windows 上从这里读名字和 identifier，单实例锁（两个能同时开着）、mygo 自己存窗口位置和所选语言的目录 `%APPDATA%\Zeta Dev` 都按它们分开；通知、任务栏分组跟着 exe 的路径，本来就分开。
   - Zeta 自己：设置目录 `%APPDATA%\Zeta Dev`（第一次打开是空的，设备要重新加，或者把正式版的 `zeta.json` 拷过去），更新下载目录 `%LOCALAPPDATA%\Zeta Dev\update`（测试版不查更新），窗口标题、托盘的提示文字是 Zeta Dev、托盘图标橙色。
   - 在主机上是 `zeta-dev` 包，见下一条。
-- 在主机上和手机版用同一个包：正式版是 `zeta`，和手机正式版同包；测试版（不是干净 X.Y.Z 的构建）是 `zeta-dev`，和手机测试版同包（见 `AppVariant.linuxName`、`internal/host` 的 `LinuxName`）。同一个包在一台主机上只有一份 zeta-helper 和一个核心，同一个会话可以电脑和手机同时接着、看到的是同一份状态。托管脚本 `zeta_host.sh`、zeta-helper、claude-switch 都是手机版那几份（构建时编进程序），按内容哈希装到主机上，和手机版装的是同一份。
+- 在主机上和手机版用同一个包：正式版是 `zeta`，和手机正式版同包；测试版（不是干净 X.Y.Z 的构建）是 `zeta-dev`，和手机测试版同包（见 `AppVariant.linuxName`、`hub/host` 的 `LinuxName`）。同一个包在一台主机上只有一份 zeta-helper 和一个核心，同一个会话可以电脑和手机同时接着、看到的是同一份状态。托管脚本 `zeta_host.sh`、zeta-helper、claude-switch 都是手机版那几份（构建时编进程序），按内容哈希装到主机上，和手机版装的是同一份。
 - 和 Claude Code 说话（起进程的参数、stream-json 输入、控制请求、确认的应答格式）由 serve 做，桌面版不直接碰 stream-json。
 
 ## 结构
@@ -24,18 +24,24 @@ client/               客户端共用、和界面无关的 Go 代码（仓根的
                       附件的上传（~/.cache/<ZETA_NAME>/files/<随机>/，同 Kotlin 的 Uploads）与路径核对
   drafts/             输入草稿的规矩：上限、超出时丢哪些、存盘的 JSON 格式、侧栏的一行预览（同 Kotlin 的 DraftRecords；存在哪由各端自己定）
   sshtest/            测试用：x/crypto/ssh 服务器，命令在临时家目录里真跑 bash
+hub/                  客户端共用的中枢（仓根的模块，桌面版和 iOS 版的核心；windows/go.mod 用 replace 指向 ../hub）。根包 hub 是中枢本身：
+                      当前对话与后台对话、会话列表与置顶、设备清单与切换、账号；碰设备经接口 Devices（真的是 host.Devices）
+  settings/           设置文件、各项设置（含常用指令）、草稿的存盘
+  runlog/             Zeta 自己的运行日志：设置目录 diag 下有上限、会轮转的 zeta.log，标准库 log 的输出接到这里，记之前打码
+  attach/             输入栏收附件的规矩：图片另做的缩小图（长边 1568 的 JPEG，原文件照常传上去）、文件大小上限与说明
+  host/               碰设备的几样：中枢用的 Devices（会话列表的订阅、对话连接、取图和导出另用的连接、查目录、传附件、查路径）、加设备时的探测、
+                      Zeta 在主机上的目录名 LinuxName、从 assets 取编进程序的 zeta-helper（LoadProgram）
+  claudecfg/          客户端本地存的每台设备设置（自动压缩、自动标题）
+  accounts/           账号与额度页背后的状态：换号、记下、添加账号（登录）、中转（切换、添加、修改、删除、拉模型列表）、额度的刷新与显不显示
+  chat/               对话：接 serve 的对话协议，把它推来的条目、确认与提问、用量、后台任务、子代理整理成界面要的状态
+  hubtest/            测试用：不连 SSH 的假设备和假 serve（对话的推送用 recorded/ 里从真 serve 和核心录的消息），中枢和界面的测试用
+  locales/            中枢说的话（出错、提示）的文字表，界面的在 windows/internal/locales（见 docs/i18n.md）
+  appversion/         程序的版本（构建时经 -ldflags -X 写进来）与正式版、测试版的判断
+  assets/             编进程序、带到主机上的 zeta-helper、claude-switch、托管脚本、RaTeX 和许可全文（scripts/assets.sh 放进 gen/）
+  mobile/、cmd/zeta-ios/  iOS 版的核心桥，见 docs/ios.md
 windows/
   cmd/zeta/           入口
-  internal/settings/  设置文件、各项设置（含常用指令）、草稿的存盘
-  internal/runlog/    Zeta 自己的运行日志：设置目录 diag 下有上限、会轮转的 zeta.log，标准库 log 的输出接到这里，记之前打码
-  internal/attach/    输入栏收附件的规矩：图片另做的缩小图（长边 1568 的 JPEG，原文件照常传上去）、文件大小上限与说明
-  internal/host/      桌面版碰设备的几样：中枢用的 Devices（会话列表的订阅、对话连接、取图和导出另用的连接、查目录、传附件、查路径）、加设备时的探测、
-                      Zeta 在主机上的目录名 LinuxName、从 assets 取编进程序的 zeta-helper（LoadProgram）
-  internal/claudecfg/ 客户端本地存的每台设备设置（自动压缩、自动标题）
-  internal/accounts/  账号与额度页背后的状态：换号、记下、添加账号（登录）、中转（切换、添加、修改、删除、拉模型列表）、额度的刷新与显不显示
-  internal/chat/      对话：接 serve 的对话协议，把它推来的条目、确认与提问、用量、后台任务、子代理整理成界面要的状态
-  internal/hub/       中枢：当前对话与后台对话、会话列表与置顶、设备清单与切换、账号；碰设备经接口 Devices（真的是 host.Devices）
-  internal/hubtest/   测试用：不连 SSH 的假设备和假 serve（对话的推送用 recorded/ 里从真 serve 和核心录的消息），中枢和界面的测试用
+  internal/update/    应用内更新：取清单、下载、装 MSI
   internal/ui/        mygo 界面：窗口、侧栏、聊天、输入栏、各种确认、设置各页（Claude Code 配置、账号与额度、诊断这几页只调核心的 config.*、accounts.*、quota.*、diag.*；诊断页在 ui/diag）
   internal/ui/widget/ 配色、字号、图标和共用组件（照 ChatGPT 客户端的样子，见「界面」）
   internal/mathtex/   排 LaTeX 公式：手机版同一个 RaTeX 的 wasm（npm 包 ratex-wasm，版本同 libs.versions.toml 的 ratex，assets.sh 下载并按 sha256 核对），
@@ -43,7 +49,7 @@ windows/
   installer/          MSI（wixl）
 ```
 
-主机无关、手机版也要用的逻辑放 helper 模块，由 serve 提供（`helper/transcript`、Claude Code 配置 `helper/claudecfg`、账号与额度 `helper/accounts`）。调核心的请求一律经 `helper/coreapi`（每个方法一个带类型的函数），桌面版不自己拼方法名、参数和结果类型。客户端一侧和界面无关的（SSH 直连、在主机上装程序和跑命令、到 serve 的连接）放 `client/`：Windows 链接它，Android 以后经随 APK 带的 Go 程序用它直连远程主机（见 `docs/core.md`）；只有桌面版要的（设置、界面、编进程序的 assets、目录名）放 `windows/`。Go 代码按 Go 的习惯写（事件解码成结构体、错误照常返回），不照搬 Kotlin 版的结构和写法。serve 推来的确认、后台任务、用量直接解成 helper 里的类型（`helper/prompt`、`helper/tasks`、`helper/usage`，`windows/go.mod` 用 replace 指向 `../helper`），两边一起编、一起发，格式不会对不上；对话条目只依赖它的 JSON 格式（`internal/chat/items`）。逻辑层只出数据，界面层只画（同 power-meter 的做法）：后台 goroutine 改了状态，经窗口的 Update 在主线程上生效、重画。
+主机无关、手机版也要用的逻辑放 helper 模块，由 serve 提供（`helper/transcript`、Claude Code 配置 `helper/claudecfg`、账号与额度 `helper/accounts`）。调核心的请求一律经 `helper/coreapi`（每个方法一个带类型的函数），桌面版不自己拼方法名、参数和结果类型。客户端一侧和界面无关的（SSH 直连、在主机上装程序和跑命令、到 serve 的连接）放 `client/`：Windows 链接它，Android 以后经随 APK 带的 Go 程序用它直连远程主机（见 `docs/core.md`）；中枢和它要的设置、编进程序的 assets、目录名放 `hub/`，桌面版和 iOS 版都链接它；只有桌面版要的（mygo 界面、应用内更新、MSI）放 `windows/`。Go 代码按 Go 的习惯写（事件解码成结构体、错误照常返回），不照搬 Kotlin 版的结构和写法。serve 推来的确认、后台任务、用量直接解成 helper 里的类型（`helper/prompt`、`helper/tasks`、`helper/usage`，`windows/go.mod` 用 replace 指向 `../helper`），两边一起编、一起发，格式不会对不上；对话条目只依赖它的 JSON 格式（`hub/chat/items`）。逻辑层只出数据，界面层只画（同 power-meter 的做法）：后台 goroutine 改了状态，经窗口的 Update 在主线程上生效、重画。
 
 ## 界面
 
@@ -53,7 +59,7 @@ windows/
 - 后台与托盘（`cmd/zeta/tray.go`）：点窗口的关闭不退出，窗口藏起来、托盘（通知区）里留一个 Zeta 图标，对话和会话列表的连接、系统通知照旧；左键点托盘图标、点通知、再从开始菜单打开 Zeta 都把窗口叫回来（只跑一个实例：mygo 的 `RequestSingleInstanceLock`，后来的把命令行交给先起的就退出），托盘右键菜单是「打开 Zeta」和「退出 Zeta」，退出才真退出。退出、装更新前的退出和关机注销都先经 mygo 的 `OnBeforeQuit`，之后关窗口就是关。托盘起不来时关窗口照旧退出。
 - 窗口：左边侧栏能拖宽（`ui.Split`，宽度存在设置里）、Ctrl+B 收起；侧栏顶上依次是新对话、后台任务、搜索、设备切换，底下是设置。窗口的位置和大小由 mygo 的 `StateKey` 记住。
 - 会话行一行标题：标题用次要色，开着的、选中的用正文色，已结束的用三级色；行尾只放小图标（别处运行、草稿、置顶、状态记号，读屏读它们的字），列着全部设备时加设备名。鼠标停一会儿右边出悬停卡片：标题和多久以前动过、目录、设备、别处运行或已结束、草稿开头。右键或行尾的「…」是会话操作。多选照资源管理器：Ctrl、Shift+点击，焦点在侧栏列表上时 Ctrl+A 全选列着的（搜索时是搜索结果，换掉原来选的；输入框里的 Ctrl+A 归输入框），多选时右键菜单最上面也有「全选」，在选中的行上右键是批量操作，Delete 删除、Esc 取消。
-- 会话列表的排序（`internal/hub/order.go`、`internal/ui/sidebarsort.go`）有三种：最新回答（默认）、发起时间、手动排序，用的是核心列表项的 `replied`、`created`、`rank`（见 `docs/core.md`「会话」），不看记录的修改时间 `updated`（悬停卡片的「多久以前动过」仍是它）。选哪种是每台电脑自己的设置（`desktopSessionSort`）。入口是第一个分组标题那一行右边的排序按钮（上下两个箭头，读屏读「排序」），只在鼠标停在侧栏上或菜单开着时显示（照 ChatGPT 客户端列表标题行的操作按钮），点开菜单列三种，当前那项打勾。最新回答、发起时间分「置顶 / 今天 / 更早」，分组和组内先后都按所选的那个时间；手动排序是置顶一组在上、下面一整组「对话」，都按 `rank` 从大到小。几种都是相同时按设备编号/会话号定先后；搜索结果、归档、多选的批量操作也照所选的排序（置顶的不提前）。开着的会话列表里还没有时，三个值都算作现在，在最上面。手动排序时鼠标左键按住一行拖动改位置（移动几个像素才算拖，只按下松开照旧是打开；mygo 的 `Drag`、`Drop`，Esc 放弃）：拖到哪一行的上半、下半，那行的上沿、下沿显示一条横线，松手落下；只能在同一组里拖（置顶组内、其余组内），落到别组或原处不动；搜索结果、归档里的行和多选进行中不能拖。落下时新位置取上下两行 `rank` 的中点，拖到组的最上面、最下面取挨着那行加、减 1000；中点等于邻居（浮点数没有余地）时，从落点往下挨着的几行一起均匀重排。界面先改，各行的新位置经各自那台核心的 `sessions.order` 记下，没记下的改回原处并弹框说原因。
+- 会话列表的排序（`hub/order.go`、`internal/ui/sidebarsort.go`）有三种：最新回答（默认）、发起时间、手动排序，用的是核心列表项的 `replied`、`created`、`rank`（见 `docs/core.md`「会话」），不看记录的修改时间 `updated`（悬停卡片的「多久以前动过」仍是它）。选哪种是每台电脑自己的设置（`desktopSessionSort`）。入口是第一个分组标题那一行右边的排序按钮（上下两个箭头，读屏读「排序」），只在鼠标停在侧栏上或菜单开着时显示（照 ChatGPT 客户端列表标题行的操作按钮），点开菜单列三种，当前那项打勾。最新回答、发起时间分「置顶 / 今天 / 更早」，分组和组内先后都按所选的那个时间；手动排序是置顶一组在上、下面一整组「对话」，都按 `rank` 从大到小。几种都是相同时按设备编号/会话号定先后；搜索结果、归档、多选的批量操作也照所选的排序（置顶的不提前）。开着的会话列表里还没有时，三个值都算作现在，在最上面。手动排序时鼠标左键按住一行拖动改位置（移动几个像素才算拖，只按下松开照旧是打开；mygo 的 `Drag`、`Drop`，Esc 放弃）：拖到哪一行的上半、下半，那行的上沿、下沿显示一条横线，松手落下；只能在同一组里拖（置顶组内、其余组内），落到别组或原处不动；搜索结果、归档里的行和多选进行中不能拖。落下时新位置取上下两行 `rank` 的中点，拖到组的最上面、最下面取挨着那行加、减 1000；中点等于邻居（浮点数没有余地）时，从落点往下挨着的几行一起均匀重排。界面先改，各行的新位置经各自那台核心的 `sessions.order` 记下，没记下的改回原处并弹框说原因。
 - 设置不是一层层的页：进设置后侧栏换成分类（常规、各台设备、添加设备、诊断、关于；设备行右边写这台账号最要紧的额度用了多少，在用中转时写「中转 名字」，「连接」关着时写已断开），顶上「返回应用」，Esc 也回去（诊断页点开日志、账号页里按 Esc 先回上一层，这时「返回应用」旁边不标 Esc）；右边的页不带返回键，设备页里点进去的页（Claude Code 配置各页、账号与额度）除外，返回回到设备页。账号按设备分，所以账号与额度是设备页里的一页，不在侧栏单列（同手机版主机页里的「账号」）。
 - 等你回应的确认、提问是输入栏位置上的卡片（`widget.Panel`），不遮住对话；Enter 点推荐的按钮，Esc 点另一个。只有要先答完才能往下的小事（重命名、删除确认、常用指令）用居中的对话框：标题左对齐，按钮靠右、主按钮在最右并带焦点。
 - 输入栏底下是写着当前值的文字胶囊（权限模式、模型、思考强度），不是只有图标的圆钮；上下文圆环左边是那台主机的负载「CPU 45%」（对话有了消息后每 5 秒问一次 system.cpu，忙时变色）；新对话还没发消息时，顶栏第二行（设备 · 工作目录）能点，换个目录重开；查找栏浮在对话区右上角，输入栏不动。
@@ -69,10 +75,10 @@ windows/
 - 对话进行：起进程与接着旧会话、发消息、流式显示（输入栏上方的等待行转圈写核心给的一句，一轮里 15 秒没有新动静时后面写「已等待 N 秒」，每秒走；只看核心推来的 `last_activity` 变没变、从变的那一刻按界面时钟算，不和主机的钟相减；等你回应的卡片开着时不写）、停止、排队与插话、权限模式、模型与思考强度、各种确认与提问（后台子代理要的确认写「来自子代理：说明」，说明是核心按发起它的 Agent 调用填的 `agent_label`）、用量与额度（输入栏的上下文圆环点开：订阅额度（在用中转时没有这一节）、上下文、本对话累计、各轮明细，同手机版的用量弹框；上下文一节的进度条和圆环一样按程度变色，快满了红、该注意了黄，下面按程度说现在怎样（快满了马上会自动压缩、自动压缩关着时请手动压缩、数是 Claude Code 的估算还是按上一轮实测），再是自动压缩点和它占窗口的比例、压缩过几次、「模型 · 思考强度」）、闲置放手、断线重连、和别的客户端同时接着；起进程前去设备上核对默认工作目录能不能进；窗口不在前台时发系统通知（`internal/ui/notify.go`）：开着的对话答完一轮或来了确认、提问（每个请求一次），别的会话照各台核心报的忙闲，答完一轮或开始等你回应时发，每个会话一个通知、后一条换掉前一条，点通知回到窗口并打开那个会话；等你回应的那条在请求处理掉后撤掉（这边或别处答了、被撤回、对话结束；别的会话看核心报的不再等或放手了）。通知上没有手机版那样的「允许」「拒绝」、选项按钮：mygo 在 Windows 上发的是通知区气泡（`Shell_NotifyIcon`），系统显示成不带按钮的 toast，它的 `NotificationOptions` 也没有按钮这一项，要回应就点通知回到窗口、在确认卡片上答。
 - 对话的其余操作：改写、重新生成、删除一轮、分支、还原代码；常用指令（附件菜单里的列表，自己发过的消息右键「收藏为常用指令」直接存进去，存过的不重复存，结果用 toast 说一声）；草稿（侧栏里有没发出的草稿的会话行尾是一支笔的图标，读屏读「草稿」，悬停卡片里是草稿的开头）、斜杠命令（光标前那个词以 / 开头、在开头或空白后面就提示，句中也算，同 Claude Code 终端界面；选了只换掉那个词；开始打 / 时对话还没接着 Claude Code 进程，就经核心的 conv.prepare 先起好，起好后列的是 Claude Code 这次报的命令，模型菜单也换成它报的模型，一个词只问一次）、对话内查找、任务清单、后台任务页、子代理页、别处运行的接管、tmux 窗口；侧栏的置顶、改名、归档、结束对话（还在运行的，多选时一起结束；一律先问，同手机版侧栏的长按菜单和多选，Zeta 自己的经 sessions.end，别处运行的经 sessions.end_elsewhere，输入 /exit 也结束）、删除、导出、多选（都是核心的 sessions.* 方法）。
 - 后台任务面板（侧栏的「后台任务」，同手机版侧栏入口进的 `BackgroundTasksScreen`）：占右边主区域，上面是「后台对话」，下面是当前对话的后台任务；点任务看详情（就是聊天窗格的任务页、子代理页，返回回到面板），点对话切过去。桌面版只拿着眼前这一个对话，所以后台对话是侧栏列着的设备上核心报（`conv.activity`）在回答、等确认或有后台任务的别的会话（`hub.BackgroundChats`，手机上开着的也算，闲着的不列），后台对话自己的任务要切过去才看得到，那一行写着它的状态。入口行尾的个数是面板里在跑的行（后台对话加当前对话在跑的任务），悬停提示照手机版分开说；不留「清除已结束」，同任务页。
-- 设置：常规（外观、半透明（键 `desktopTranslucent`，默认开：看大图的遮罩和聊天顶栏这些毛玻璃透出底下模糊的界面，关着时是不透明的底色；不跟随 Windows 的透明效果，缘由见 `widget.Frost`）、界面语言（跟随系统，或简体中文、English；mygo 记着，下次启动照旧，换了以后开着的连接把新语言报给核心）、界面缩放，对话一组的「自动加载网络图片」，快捷键一览）、设备（含账号与额度）、诊断、关于；各设备页（连接，最上面是「连接」开关：关掉时断开这台的会话列表订阅、serve 连接和 SSH 连接、不再自动重连，聊天窗格里那台的对话放手、说已断开并给「连接」，打开时按会话号重新打开，同手机版的 `hub.setConnected`，中枢里是 `hub.SetConnected`；新对话默认（默认模型和聊天菜单跟随那台设备当前的来源（见 `docs/core.md` 的 `config.models.read`）。账号用 Claude Code 的 initialize 清单；没有现成的清单时，可用 `conv.prepare` 起一个不发消息的对话，拿到清单后结束，不留会话记录；要的时候和要不到时列 opus、sonnet、haiku、fable 四个别名；旧版本收在最后一项「更多模型」的二级菜单里，分法同手机版的 modelMenu（`chat.SplitModels`），输入栏的模型菜单也这样分）、自动压缩、自动标题、闲置超时，那台主机上 Claude Code 的版本和「更新」（system.claude、system.claude_update）；设备的主机名每次连上时从 serve 的招呼里取）、Claude Code 配置各页（记忆、CLAUDE.md 的编辑页右上「预览 / 编辑」切换：有内容的打开时先预览，照聊天里回答的样子排（同一个 Markdown 组件 `chatview.Document`，去掉开头的 --- 前言块），空的直接编辑）、账号与额度（设备页「连接」一组下面一行进去，行右边同设置侧栏那台的提示，「连接」关着时点不进去；返回键和 Esc 回到设备页；逻辑在主机的 serve 里，客户端只画，请求走那台给对话用的 serve 连接：订阅额度、账号，和「中转」一组：每行名字和地址，在用的写「当前」，点一行确认后换过去（同换号，先收掉闲着的对话进程，别处的 Claude Code 挡着时说原因），行尾「编辑」，最后一行「添加中转」；添加、编辑占整页（标题换成「添加中转」「编辑中转 名字」，Esc 或「取消」回到账号页）：名称（加好后不能改）、地址（要是 Anthropic Messages 的接入点，OpenAI 协议的上游经能翻译的中转接入；没有协议或鉴权方式可选）、密钥（遮着、能显示，编辑时留空是不改；核心报 `keyEditable` 为假的灰着并说明）、默认模型（手填，或「获取模型列表」后点一项选上，可以不选；拉不到时写核心给的原因），删除先确认、在用的不能删；在用中转时桌面版不显示任何订阅额度：账号页没有额度一组，用量弹出框没有额度一节，设置侧栏那台和设备页那一行写「中转 名字」而不是已用百分比；显不显示只看核心 `quota.get` 和 `accounts.list` 报的在用中转（`accounts.Quota.Shown`），还不知道时也不显示）；诊断（同手机版的诊断页：最上面是 Zeta 自己的运行日志（`internal/runlog`：入口把标准库 log 接过去，各处 `log.Printf` 按开头的 `zeta:`、`chat:`、`host:` 分成应用、对话、设备三类记成警告，启动记一条信息、起不来记出错；带时间、轻重、类别，记之前打码，写进设置目录 `diag` 下的 `zeta.log`，满 512 KB 换名成 `zeta.log.1`，内存里留最近 1000 条），点进去按类别、轻重筛，能清空，Esc 先回到清单；下面「环境」列版本、系统、Windows 版本、界面缩放、各台设备怎么连，和诊断包的环境.txt 是同一份；再下面看的是各台远程设备：在跑的和最近结束的对话进程的错误输出、Claude Code 的调试日志，点开看最后 64 KB，能复制、刷新，Esc 先回到清单；「导出诊断包」把这些、环境和这台电脑上 `diag` 下的文件（运行日志整份，崩溃时的调用栈 `crash.log`、安装记录各取最后 64 KB）打成 zip，token、密码这类值先打码；读日志经核心的 `diag.*`，见 `docs/core.md`「诊断」）；关于（版本、这个版本的源码在 GitHub 上的 tag 或提交、鸣谢、开源许可；鸣谢只列桌面版用到的：Eta、Claude Code、mygo、x/crypto、x/image、wazero，图标取自的 COUI 2，排公式的 RaTeX 和 KaTeX 字体，Go 依赖和 `go.mod` 对不上时 `about` 的测试失败）与自动更新（启动时检查，有新版本时窗口底部提示）。
+- 设置：常规（外观、半透明（键 `desktopTranslucent`，默认开：看大图的遮罩和聊天顶栏这些毛玻璃透出底下模糊的界面，关着时是不透明的底色；不跟随 Windows 的透明效果，缘由见 `widget.Frost`）、界面语言（跟随系统，或简体中文、English；mygo 记着，下次启动照旧，换了以后开着的连接把新语言报给核心）、界面缩放，对话一组的「自动加载网络图片」，快捷键一览）、设备（含账号与额度）、诊断、关于；各设备页（连接，最上面是「连接」开关：关掉时断开这台的会话列表订阅、serve 连接和 SSH 连接、不再自动重连，聊天窗格里那台的对话放手、说已断开并给「连接」，打开时按会话号重新打开，同手机版的 `hub.setConnected`，中枢里是 `hub.SetConnected`；新对话默认（默认模型和聊天菜单跟随那台设备当前的来源（见 `docs/core.md` 的 `config.models.read`）。账号用 Claude Code 的 initialize 清单；没有现成的清单时，可用 `conv.prepare` 起一个不发消息的对话，拿到清单后结束，不留会话记录；要的时候和要不到时列 opus、sonnet、haiku、fable 四个别名；旧版本收在最后一项「更多模型」的二级菜单里，分法同手机版的 modelMenu（`chat.SplitModels`），输入栏的模型菜单也这样分）、自动压缩、自动标题、闲置超时，那台主机上 Claude Code 的版本和「更新」（system.claude、system.claude_update）；设备的主机名每次连上时从 serve 的招呼里取）、Claude Code 配置各页（记忆、CLAUDE.md 的编辑页右上「预览 / 编辑」切换：有内容的打开时先预览，照聊天里回答的样子排（同一个 Markdown 组件 `chatview.Document`，去掉开头的 --- 前言块），空的直接编辑）、账号与额度（设备页「连接」一组下面一行进去，行右边同设置侧栏那台的提示，「连接」关着时点不进去；返回键和 Esc 回到设备页；逻辑在主机的 serve 里，客户端只画，请求走那台给对话用的 serve 连接：订阅额度、账号，和「中转」一组：每行名字和地址，在用的写「当前」，点一行确认后换过去（同换号，先收掉闲着的对话进程，别处的 Claude Code 挡着时说原因），行尾「编辑」，最后一行「添加中转」；添加、编辑占整页（标题换成「添加中转」「编辑中转 名字」，Esc 或「取消」回到账号页）：名称（加好后不能改）、地址（要是 Anthropic Messages 的接入点，OpenAI 协议的上游经能翻译的中转接入；没有协议或鉴权方式可选）、密钥（遮着、能显示，编辑时留空是不改；核心报 `keyEditable` 为假的灰着并说明）、默认模型（手填，或「获取模型列表」后点一项选上，可以不选；拉不到时写核心给的原因），删除先确认、在用的不能删；在用中转时桌面版不显示任何订阅额度：账号页没有额度一组，用量弹出框没有额度一节，设置侧栏那台和设备页那一行写「中转 名字」而不是已用百分比；显不显示只看核心 `quota.get` 和 `accounts.list` 报的在用中转（`accounts.Quota.Shown`），还不知道时也不显示）；诊断（同手机版的诊断页：最上面是 Zeta 自己的运行日志（`hub/runlog`：入口把标准库 log 接过去，各处 `log.Printf` 按开头的 `zeta:`、`chat:`、`host:` 分成应用、对话、设备三类记成警告，启动记一条信息、起不来记出错；带时间、轻重、类别，记之前打码，写进设置目录 `diag` 下的 `zeta.log`，满 512 KB 换名成 `zeta.log.1`，内存里留最近 1000 条），点进去按类别、轻重筛，能清空，Esc 先回到清单；下面「环境」列版本、系统、Windows 版本、界面缩放、各台设备怎么连，和诊断包的环境.txt 是同一份；再下面看的是各台远程设备：在跑的和最近结束的对话进程的错误输出、Claude Code 的调试日志，点开看最后 64 KB，能复制、刷新，Esc 先回到清单；「导出诊断包」把这些、环境和这台电脑上 `diag` 下的文件（运行日志整份，崩溃时的调用栈 `crash.log`、安装记录各取最后 64 KB）打成 zip，token、密码这类值先打码；读日志经核心的 `diag.*`，见 `docs/core.md`「诊断」）；关于（版本、这个版本的源码在 GitHub 上的 tag 或提交、鸣谢、开源许可；鸣谢只列桌面版用到的：Eta、Claude Code、mygo、x/crypto、x/image、wazero，图标取自的 COUI 2，排公式的 RaTeX 和 KaTeX 字体，Go 依赖和 `go.mod` 对不上时 `about` 的测试失败）与自动更新（启动时检查，有新版本时窗口底部提示）。
 
 ## 测试
 
-- 逻辑层是普通的 Go 测试；SSH 对着测试里起的 x/crypto/ssh 服务器，命令在临时 HOME 里真跑 bash、zeta-helper 和托管脚本，对话用 serve 加 `tools/fake-claude`（`internal/hub` 的 `TestConversationThroughCore`，设 `ZETA_RECORD_DIR` 时顺带重录 `hubtest/recorded`）。
-- 界面用 mygo 的无窗口测试（`ui.NewTester`）配 `internal/hubtest` 的假设备，按文字找控件、点、输入、拨时钟，断言状态和布局；不做像素比对。要看样子时设 `ZETA_PREVIEW_DIR`，`internal/ui` 的 `TestPreviews` 把各场景画成 PNG 人工看（同 power-meter）。
+- 逻辑层是普通的 Go 测试；SSH 对着测试里起的 x/crypto/ssh 服务器，命令在临时 HOME 里真跑 bash、zeta-helper 和托管脚本，对话用 serve 加 `tools/fake-claude`（`hub` 的 `TestConversationThroughCore`，设 `ZETA_RECORD_DIR` 时顺带重录 `hub/hubtest/recorded`）。
+- 界面用 mygo 的无窗口测试（`ui.NewTester`）配 `hub/hubtest` 的假设备，按文字找控件、点、输入、拨时钟，断言状态和布局；不做像素比对。要看样子时设 `ZETA_PREVIEW_DIR`，`internal/ui` 的 `TestPreviews` 把各场景画成 PNG 人工看（同 power-meter）。
 - 门禁在 Linux 上跑全部测试；真窗口在本机的 Windows 上装测试版的 MSI 看：任务分支上 `installer/build.sh` 打出的就是测试版（「Zeta Dev」，见上面「测试版」），和用户在用的正式版并存，装、开、关、卸都不碰正式版。卸掉测试版用同一个 MSI 的 `msiexec /x <msi> /qn`，或在「设置 → 应用」里卸「Zeta Dev」。

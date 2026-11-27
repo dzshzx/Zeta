@@ -3,6 +3,8 @@ package ui
 import (
 	"unicode"
 
+	clientlocales "github.com/dzshzx/Zeta/hub/locales"
+
 	"github.com/dzshzx/Zeta/helper/sessionproto"
 	"github.com/dzshzx/Zeta/windows/internal/locales"
 	"github.com/dzshzx/Zeta/windows/internal/ui/widget"
@@ -137,7 +139,7 @@ func deref(p *string) string {
 // 闲着时一键接过来。接过来、或那边自己退出以后核心解开 blocked，卡片收起。
 func (a *App) handoffCard(c *ui.Context, p *chatPane) {
 	ho := p.src.Handoff
-	title, summary, button, enabled := handoffText(p.state.Occupant, ho.Handing, locales.ErrorText(ho.Problem))
+	title, summary, button, enabled := handoffText(p.state.Occupant, ho.Handing, clientlocales.ErrorText(ho.Problem))
 	k := widget.Of(c)
 	panel(c, func() {
 		ui.Column(c).Padding(8, 16, 8, 16).Gap(4).Children(func() {

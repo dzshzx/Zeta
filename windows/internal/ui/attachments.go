@@ -11,8 +11,8 @@ import (
 
 	"github.com/dzshzx/Zeta/client/hostlink"
 	"github.com/dzshzx/Zeta/helper/coreapi"
-	"github.com/dzshzx/Zeta/windows/internal/attach"
-	"github.com/dzshzx/Zeta/windows/internal/host"
+	"github.com/dzshzx/Zeta/hub/attach"
+	"github.com/dzshzx/Zeta/hub/host"
 	"github.com/dzshzx/Zeta/windows/internal/locales"
 	"github.com/dzshzx/Zeta/windows/internal/ui/widget"
 	"github.com/egoist/mygo"

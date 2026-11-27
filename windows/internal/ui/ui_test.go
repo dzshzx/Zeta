@@ -10,10 +10,10 @@ import (
 
 	"github.com/dzshzx/Zeta/client/hostlink"
 	"github.com/dzshzx/Zeta/client/sshlink"
-	"github.com/dzshzx/Zeta/windows/internal/hub"
-	"github.com/dzshzx/Zeta/windows/internal/hubtest"
+	"github.com/dzshzx/Zeta/hub"
+	"github.com/dzshzx/Zeta/hub/hubtest"
+	"github.com/dzshzx/Zeta/hub/settings"
 	"github.com/dzshzx/Zeta/windows/internal/locales"
-	"github.com/dzshzx/Zeta/windows/internal/settings"
 	"github.com/egoist/mygo/i18n"
 	"github.com/egoist/mygo/ui"
 )

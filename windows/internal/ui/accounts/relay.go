@@ -2,7 +2,7 @@ package accounts
 
 import (
 	"github.com/dzshzx/Zeta/helper/coreapi"
-	acct "github.com/dzshzx/Zeta/windows/internal/accounts"
+	acct "github.com/dzshzx/Zeta/hub/accounts"
 	"github.com/dzshzx/Zeta/windows/internal/locales"
 	"github.com/dzshzx/Zeta/windows/internal/ui/widget"
 	"github.com/egoist/mygo/ui"
@@ -11,7 +11,7 @@ import (
 // 中转：账号页的「中转」一组（点一行换过去，行尾「编辑」），和添加、编辑中转的编辑页。编辑页占整页（换掉账号页的几组，
 // 标题由 Title 给设置页），不用居中对话框：字段多（名称、地址、密钥、默认模型），模型列表可能有几十上百项，
 // 对话框放不下；照设置的规矩不带返回键，底下「取消」或 Esc（Back）回到账号页。逻辑（草稿、拉模型列表、保存删除）在
-// internal/accounts 的 relays.go。
+// hub/accounts 的 relays.go。
 
 const (
 	// filterFrom：模型多于这么多个时列表上面给筛选框。

@@ -3,7 +3,7 @@ package ui
 import (
 	"testing"
 
-	"github.com/dzshzx/Zeta/windows/internal/host"
+	"github.com/dzshzx/Zeta/hub/host"
 )
 
 // 没记主机名的设备：连上时 serve 的招呼里带着主机名，记下来，侧栏、设备页的名字跟着换。

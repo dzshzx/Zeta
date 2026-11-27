@@ -8,8 +8,8 @@ import (
 
 	"github.com/dzshzx/Zeta/client/sshlink"
 	"github.com/dzshzx/Zeta/helper/coreapi"
-	"github.com/dzshzx/Zeta/windows/internal/chat"
-	"github.com/dzshzx/Zeta/windows/internal/hub"
+	"github.com/dzshzx/Zeta/hub"
+	"github.com/dzshzx/Zeta/hub/chat"
 	"github.com/dzshzx/Zeta/windows/internal/ui/claudecfg"
 )
 

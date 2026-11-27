@@ -3,7 +3,7 @@ package com.dzshzx.zeta.ui.chat
 import org.junit.Assert.assertEquals
 import org.junit.Test
 
-/** 用例同 windows/internal/chat 的 TestSlashAt、TestSlashComplete；| 是光标。 */
+/** 用例同 hub/chat 的 TestSlashAt、TestSlashComplete；| 是光标。 */
 class SlashTokenTest {
     private fun at(typed: String): String {
         val caret = typed.indexOf('|')

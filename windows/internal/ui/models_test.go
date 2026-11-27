@@ -11,8 +11,8 @@ import (
 	"time"
 
 	"github.com/dzshzx/Zeta/helper/coreapi"
-	"github.com/dzshzx/Zeta/windows/internal/accounts"
-	"github.com/dzshzx/Zeta/windows/internal/hubtest"
+	"github.com/dzshzx/Zeta/hub/accounts"
+	"github.com/dzshzx/Zeta/hub/hubtest"
 )
 
 // reportedModels 是假核心在 conv.prepare 后推来的模型清单（Claude Code 2.1.329 报的样子，同 chat 包测试里的）。

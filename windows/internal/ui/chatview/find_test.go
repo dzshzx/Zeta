@@ -3,7 +3,7 @@ package chatview
 import (
 	"testing"
 
-	"github.com/dzshzx/Zeta/windows/internal/chat/items"
+	"github.com/dzshzx/Zeta/hub/chat/items"
 	"github.com/egoist/mygo/ui"
 )
 

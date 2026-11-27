@@ -368,130 +368,6 @@
       }
     }
   },
-  "hostNoResponse": "「{host}」没有响应（超时）",
-  "@hostNoResponse": {
-    "description": "查对话的工作目录时那台设备没回话。",
-    "placeholders": {
-      "host": {
-        "type": "String",
-        "example": "devbox"
-      }
-    }
-  },
-  "hostDirMissing": "「{host}」上没有 {path} 这个目录",
-  "@hostDirMissing": {
-    "description": "聊天窗格里的提示：对话的工作目录在那台设备上不存在。",
-    "placeholders": {
-      "host": {
-        "type": "String",
-        "example": "devbox"
-      },
-      "path": {
-        "type": "String",
-        "example": "/home/me/proj"
-      }
-    }
-  },
-  "hostDirIsFile": "{path} 是文件，不是目录",
-  "@hostDirIsFile": {
-    "description": "聊天窗格里的提示：对话的工作目录是个文件。",
-    "placeholders": {
-      "path": {
-        "type": "String",
-        "example": "/home/me/proj"
-      }
-    }
-  },
-  "hostDirDenied": "「{host}」上的 {path} 没有权限进去",
-  "@hostDirDenied": {
-    "description": "聊天窗格里的提示：对话的工作目录进不去。",
-    "placeholders": {
-      "host": {
-        "type": "String",
-        "example": "devbox"
-      },
-      "path": {
-        "type": "String",
-        "example": "/home/me/proj"
-      }
-    }
-  },
-  "hostProbeTimeout": "连接超时",
-  "@hostProbeTimeout": {
-    "description": "添加设备、检查连接时的结果：连接超时。"
-  },
-  "hostProbeNotConnected": "没有连上",
-  "@hostProbeNotConnected": {
-    "description": "添加设备、检查连接时的结果：没连上，SSH 也没说原因。"
-  },
-  "hostProbeNoClaude": "那台设备上找不到 claude（登录 shell 的 PATH 里和 ~/.local/bin 都没有）",
-  "@hostProbeNoClaude": {
-    "description": "添加设备、检查连接时的结果：那边没装 Claude Code。"
-  },
-  "hostProbeUnknownSystem": "未知的系统",
-  "@hostProbeUnknownSystem": {
-    "description": "添加设备时查不到系统，填进 hostProbeUnsupported 的 system。"
-  },
-  "hostProbeUnsupported": "Zeta 读会话记录的程序只能在 arm64、x86-64 的 Linux 上跑，这台是 {system}",
-  "@hostProbeUnsupported": {
-    "description": "添加设备、检查连接时的结果：那台的系统或 CPU 不支持。",
-    "placeholders": {
-      "system": {
-        "type": "String",
-        "example": "Darwin arm64"
-      }
-    }
-  },
-  "hostProgramMissing": "桌面版里没有带这个程序",
-  "@hostProgramMissing": {
-    "description": "往设备上装 claude-switch 时桌面版里没带它（账号与额度页的报错）。"
-  },
-  "hostProgramNotInstalled": "{program} 没装上",
-  "@hostProgramNotInstalled": {
-    "description": "往设备上装程序失败、那边没说原因时（账号与额度页的报错）。",
-    "placeholders": {
-      "program": {
-        "type": "String",
-        "example": "claude-switch"
-      }
-    }
-  },
-  "attachNotImage": "不是能读的图片",
-  "@attachNotImage": {
-    "description": "附图片时文件解不开的原因。"
-  },
-  "attachTooLargeSized": "「{name}」有 {size}，超过 {limit} 的上限，没有传上去",
-  "@attachTooLargeSized": {
-    "description": "输入栏里没收某个附件的原因：文件太大。",
-    "placeholders": {
-      "name": {
-        "type": "String",
-        "example": "video.mp4"
-      },
-      "size": {
-        "type": "String",
-        "example": "120 MB"
-      },
-      "limit": {
-        "type": "String",
-        "example": "100 MB"
-      }
-    }
-  },
-  "attachTooLarge": "「{name}」超过 {limit} 的上限，没有传上去",
-  "@attachTooLarge": {
-    "description": "输入栏里没收某个附件的原因：传到一半发现超过上限。",
-    "placeholders": {
-      "name": {
-        "type": "String",
-        "example": "video.mp4"
-      },
-      "limit": {
-        "type": "String",
-        "example": "100 MB"
-      }
-    }
-  },
   "claudecfgOK": "知道了",
   "@claudecfgOK": {
     "description": "设备页、Claude Code 配置各页弹出提示框的确认按钮。"
@@ -631,22 +507,6 @@
   "claudecfgEffortMax": "最高",
   "@claudecfgEffortMax": {
     "description": "思考强度的一档。"
-  },
-  "claudecfgModeDefault": "逐项确认",
-  "@claudecfgModeDefault": {
-    "description": "权限模式：每次改动和命令都问（Claude Code 的 default）。"
-  },
-  "claudecfgModeAcceptEdits": "自动接受编辑",
-  "@claudecfgModeAcceptEdits": {
-    "description": "权限模式：Claude Code 的 acceptEdits。"
-  },
-  "claudecfgModePlan": "计划模式",
-  "@claudecfgModePlan": {
-    "description": "权限模式：Claude Code 的 plan。"
-  },
-  "claudecfgModeAuto": "自动判断",
-  "@claudecfgModeAuto": {
-    "description": "权限模式：Claude Code 的 auto。"
   },
   "claudecfgBehaviorAllow": "允许",
   "@claudecfgBehaviorAllow": {
@@ -2052,10 +1912,6 @@
   "@composerImageAttachment": {
     "description": "输入栏里待发图片缩略图的读屏名字。"
   },
-  "composerModeBypass": "完全放行",
-  "@composerModeBypass": {
-    "description": "权限模式的一项：所有操作都不问（Claude Code 的 bypassPermissions）。"
-  },
   "composerModeUnset": "默认权限",
   "@composerModeUnset": {
     "description": "权限模式按钮上的字：这个对话没选过、进程也还没报时。"
@@ -2267,10 +2123,6 @@
         "type": "String"
       }
     }
-  },
-  "chatNewTitle": "新对话",
-  "@chatNewTitle": {
-    "description": "还没有标题的对话在顶栏的标题。"
   },
   "chatDisconnectedTitle": "「{name}」已断开",
   "@chatDisconnectedTitle": {
@@ -3483,28 +3335,6 @@
       }
     }
   },
-  "hubSessionActive": "对话正在进行，结束后再删",
-  "@hubSessionActive": {
-    "description": "删除对话时核心答它正在进行：弹框里的原因。"
-  },
-  "hubSessionSomeFailed": "{count, plural, other {# 个没成功：{reason}}}",
-  "@hubSessionSomeFailed": {
-    "description": "对几个对话一起操作（归档、删除、结束……）有没成的时弹框里的原因；reason 是第一个没成的原因。",
-    "placeholders": {
-      "count": {
-        "type": "int",
-        "example": "1"
-      },
-      "reason": {
-        "type": "String",
-        "example": "对话正在进行，结束后再删"
-      }
-    }
-  },
-  "hubSessionNothingExported": "没有导出任何对话",
-  "@hubSessionNothingExported": {
-    "description": "导出对话时一个都没导出来：弹框里的原因。"
-  },
   "settingsUnofficial": "Claude 是 Anthropic 的商标。Zeta 不是 Anthropic 的产品，与 Anthropic 没有关联。",
   "@settingsUnofficial": {
     "description": "设置「关于」页最下面的一段说明。"
@@ -4147,88 +3977,6 @@
       }
     }
   },
-  "hubOffline": "「{device}」已断开",
-  "@hubOffline": {
-    "description": "「连接」关着的设备上要连设备的操作得到的错误（查路径、开对话等处显示）。",
-    "placeholders": {
-      "device": {
-        "type": "String",
-        "example": "box"
-      }
-    }
-  },
-  "hubDeletedDevice": "已删除的设备",
-  "@hubDeletedDevice": {
-    "description": "设备已经删掉时界面上代替它名字的说法。"
-  },
-  "hubListFailed": "没读到会话列表：{reason}",
-  "@hubListFailed": {
-    "description": "侧栏会话列表的问题那一行：读不到这台的会话列表，后面是原因。",
-    "placeholders": {
-      "reason": {
-        "type": "String",
-        "example": "连不上「lab」：网络不通"
-      }
-    }
-  },
-  "hubProblemOnDevice": "{device}：{problem}",
-  "@hubProblemOnDevice": {
-    "description": "侧栏列着几台设备时，问题那一行前面注明是哪台。",
-    "placeholders": {
-      "device": {
-        "type": "String",
-        "example": "lab"
-      },
-      "problem": {
-        "type": "String",
-        "example": "没读到会话列表：网络不通"
-      }
-    }
-  },
-  "hubOpenFailed": "打不开这个对话：{error}",
-  "@hubOpenFailed": {
-    "description": "聊天窗格里的问题：打开对话失败，后面是原因。",
-    "placeholders": {
-      "error": {
-        "type": "String",
-        "example": "「box」已断开"
-      }
-    }
-  },
-  "hubImageMissing": "没取到图片",
-  "@hubImageMissing": {
-    "description": "聊天里的图片没取到时的原因（核心给了空的）。"
-  },
-  "hubImageStatus": "下载图片：{status}",
-  "@hubImageStatus": {
-    "description": "聊天里的网络图片下载失败的原因，后面是 HTTP 状态。",
-    "placeholders": {
-      "status": {
-        "type": "String",
-        "example": "404 Not Found"
-      }
-    }
-  },
-  "hubImageTooLarge": "图片太大（超过 12 MB）",
-  "@hubImageTooLarge": {
-    "description": "聊天里的网络图片太大不下载时的原因。"
-  },
-  "promptCheckEmpty": "内容不能为空",
-  "@promptCheckEmpty": {
-    "description": "新建或编辑常用指令时的问题。"
-  },
-  "promptCheckTooLong": "内容太长了（最多 20000 个字）",
-  "@promptCheckTooLong": {
-    "description": "新建或编辑常用指令时的问题。"
-  },
-  "promptCheckNameTooLong": "名字太长了（最多 40 个字）",
-  "@promptCheckNameTooLong": {
-    "description": "新建或编辑常用指令时的问题。"
-  },
-  "promptCheckFull": "最多存 100 条，先删掉一些",
-  "@promptCheckFull": {
-    "description": "新建常用指令时已经存满了。"
-  },
   "promptFromSubagent": "来自子代理：{name}",
   "@promptFromSubagent": {
     "description": "工具确认卡的说明里一行：这次操作是哪个子代理要做的。",
@@ -4661,20 +4409,6 @@
   "@handoffEffectOther": {
     "description": "接管的后果：占着的是终端等。"
   },
-  "handoffFailed": "接管失败：{error}",
-  "@handoffFailed": {
-    "description": "别处运行卡片的说明：接管没成。",
-    "placeholders": {
-      "error": {
-        "type": "String",
-        "example": "连不上"
-      }
-    }
-  },
-  "handoffStuck": "对方的 Claude Code 没有退出，可以在终端里结束它后再试。",
-  "@handoffStuck": {
-    "description": "别处运行卡片的说明：那边的 Claude Code 卡住没退出。"
-  },
   "subagentStateReadFailed": "读取失败",
   "@subagentStateReadFailed": {
     "description": "子代理页概要右边的状态。"
@@ -4836,62 +4570,6 @@
   "savedPromptsSaveFailed": "常用指令没存上",
   "@savedPromptsSaveFailed": {
     "description": "存常用指令失败时弹框的标题，下面是原因。"
-  },
-  "chatFormInvalid": "表单有几项不对：{problems}",
-  "@chatFormInvalid": {
-    "description": "MCP 表单交上去核心说有几项不对时的错误（通常写在各项下面，这句只在别处显示）。",
-    "placeholders": {
-      "problems": {
-        "type": "String",
-        "example": "name：不能为空"
-      }
-    }
-  },
-  "chatFormProblem": "{field}：{problem}",
-  "@chatFormProblem": {
-    "description": "chatFormInvalid 里的一项。",
-    "placeholders": {
-      "field": {
-        "type": "String",
-        "example": "name"
-      },
-      "problem": {
-        "type": "String",
-        "example": "不能为空"
-      }
-    }
-  },
-  "chatFormProblemSeparator": "；",
-  "@chatFormProblemSeparator": {
-    "description": "chatFormInvalid 里各项之间的分隔。"
-  },
-  "chatNotConnected": "和主机的连接断了，正在重连",
-  "@chatNotConnected": {
-    "description": "对话没连上时操作（发消息、回应确认）给出的错误。"
-  },
-  "runlogLevelInfo": "信息",
-  "@runlogLevelInfo": {
-    "description": "诊断页运行日志里一条记录的轻重：普通信息。"
-  },
-  "runlogLevelWarn": "警告",
-  "@runlogLevelWarn": {
-    "description": "诊断页运行日志里一条记录的轻重：警告。"
-  },
-  "runlogLevelError": "出错",
-  "@runlogLevelError": {
-    "description": "诊断页运行日志里一条记录的轻重：出错。"
-  },
-  "runlogTopicApp": "应用",
-  "@runlogTopicApp": {
-    "description": "运行日志的类别：Zeta 程序本身（启动、设置、草稿、更新）。诊断页的类别下拉和每条记录上显示。"
-  },
-  "runlogTopicChat": "对话",
-  "@runlogTopicChat": {
-    "description": "运行日志的类别：对话的推送、重连。"
-  },
-  "runlogTopicDevice": "设备",
-  "@runlogTopicDevice": {
-    "description": "运行日志的类别：和设备的连接、会话列表。"
   },
   "diagTitle": "诊断",
   "@diagTitle": {
@@ -5838,238 +5516,6 @@
   "@accountsSignIn": {
     "description": "账号页添加账号：交上授权码的按钮。"
   },
-  "accountsOwnBusy": "这里还有对话在进行",
-  "@accountsOwnBusy": {
-    "description": "账号页的出错：本窗口在这台设备上还有对话在进行，不能动登录状态。"
-  },
-  "accountsInstallFailed": "装不上 claude-switch：{error}",
-  "@accountsInstallFailed": {
-    "description": "账号页的出错：往设备上装换号程序没成，后面是原因。",
-    "placeholders": {
-      "error": {
-        "type": "String"
-      }
-    }
-  },
-  "accountsReadFailed": "读不了账号：{error}",
-  "@accountsReadFailed": {
-    "description": "账号页的出错：没读到这台设备上的账号，后面是原因。",
-    "placeholders": {
-      "error": {
-        "type": "String"
-      }
-    }
-  },
-  "accountsSwitching": "正在切换到 {name}",
-  "@accountsSwitching": {
-    "description": "账号页：正在换成这个账号。",
-    "placeholders": {
-      "name": {
-        "type": "String"
-      }
-    }
-  },
-  "accountsSaving": "正在记下",
-  "@accountsSaving": {
-    "description": "账号页：正在记下在用的登录。"
-  },
-  "accountsBusy": "上一件事还没做完",
-  "@accountsBusy": {
-    "description": "账号页的出错：上一次切换、记下、移除还在做。"
-  },
-  "accountsRemoving": "正在移除 {name}",
-  "@accountsRemoving": {
-    "description": "账号页：正在移除这个账号。",
-    "placeholders": {
-      "name": {
-        "type": "String"
-      }
-    }
-  },
-  "accountsRemoveFailed": "没有移除：{error}",
-  "@accountsRemoveFailed": {
-    "description": "账号页的出错：账号没移除，后面是原因。",
-    "placeholders": {
-      "error": {
-        "type": "String"
-      }
-    }
-  },
-  "accountsCodeIncomplete": "授权码不完整：要连中间的 # 和它后面的部分一起复制",
-  "@accountsCodeIncomplete": {
-    "description": "账号页添加账号：贴的授权码少了 # 和后半段。"
-  },
-  "accountsPreparingLogin": "正在准备登录",
-  "@accountsPreparingLogin": {
-    "description": "账号页：点了添加账号，正在设备上起登录命令。"
-  },
-  "accountsLoggingIn": "正在登录",
-  "@accountsLoggingIn": {
-    "description": "账号页：交上授权码，正在登录。"
-  },
-  "accountsLoginFailed": "没有登录成功：{error}",
-  "@accountsLoginFailed": {
-    "description": "账号页的出错：登录没成，后面是原因。",
-    "placeholders": {
-      "error": {
-        "type": "String"
-      }
-    }
-  },
-  "accountsQuotaTimedOut": "等了太久没有结果",
-  "@accountsQuotaTimedOut": {
-    "description": "额度没取到的原因：问 Claude Code 等太久了。"
-  },
-  "accountsQuotaFailed": "没取到最新的额度：{error}",
-  "@accountsQuotaFailed": {
-    "description": "额度说明后面：这次没取到最新的额度，后面是原因。",
-    "placeholders": {
-      "error": {
-        "type": "String"
-      }
-    }
-  },
-  "accountsQuotaStale": "没取到最新的额度，显示的是{age}的数",
-  "@accountsQuotaStale": {
-    "description": "额度说明后面：Claude Code 这次没取到服务器的数，显示的是多久以前的。",
-    "placeholders": {
-      "age": {
-        "type": "String"
-      }
-    }
-  },
-  "accountsQuotaFetching": "正在取额度",
-  "@accountsQuotaFetching": {
-    "description": "额度说明：还没有数，正在取。"
-  },
-  "accountsQuotaNoData": "还没有额度数据",
-  "@accountsQuotaNoData": {
-    "description": "额度说明：还没有数。"
-  },
-  "accountsQuotaUnavailable": "这种登录方式没有订阅额度",
-  "@accountsQuotaUnavailable": {
-    "description": "额度说明：用 API key 等方式登录的没有订阅额度。"
-  },
-  "accountsQuotaNotYet": "Claude Code 还没拿到这个账号的额度",
-  "@accountsQuotaNotYet": {
-    "description": "额度说明：Claude Code 还没给出额度窗口。"
-  },
-  "accountsQuotaUpdated": "{age}更新",
-  "@accountsQuotaUpdated": {
-    "description": "额度说明：多久以前的数。",
-    "placeholders": {
-      "age": {
-        "type": "String"
-      }
-    }
-  },
-  "accountsQuotaUpdatedRefreshing": "{age}更新，正在刷新",
-  "@accountsQuotaUpdatedRefreshing": {
-    "description": "额度说明：多久以前的数，正在取新的。",
-    "placeholders": {
-      "age": {
-        "type": "String"
-      }
-    }
-  },
-  "accountsQuotaNoteProblem": "{note}。{problem}",
-  "@accountsQuotaNoteProblem": {
-    "description": "额度说明后面接上一次没取到的原因。",
-    "placeholders": {
-      "note": {
-        "type": "String"
-      },
-      "problem": {
-        "type": "String"
-      }
-    }
-  },
-  "accountsResetDone": "已重置",
-  "@accountsResetDone": {
-    "description": "额度窗口：重置的时刻已经过了。"
-  },
-  "accountsResetInMinutes": "{minutes} 分钟后重置",
-  "@accountsResetInMinutes": {
-    "description": "额度窗口：多少分钟后重置。",
-    "placeholders": {
-      "minutes": {
-        "type": "int"
-      }
-    }
-  },
-  "accountsResetInHours": "{hours} 小时后重置",
-  "@accountsResetInHours": {
-    "description": "额度窗口：多少小时后重置（整点）。",
-    "placeholders": {
-      "hours": {
-        "type": "int"
-      }
-    }
-  },
-  "accountsResetInHoursMinutes": "{hours} 小时 {minutes} 分钟后重置",
-  "@accountsResetInHoursMinutes": {
-    "description": "额度窗口：多少小时多少分钟后重置。",
-    "placeholders": {
-      "hours": {
-        "type": "int"
-      },
-      "minutes": {
-        "type": "int"
-      }
-    }
-  },
-  "accountsResetAt": "{time, date, ::EEE} {time, date, ::HHmm} 重置",
-  "@accountsResetAt": {
-    "description": "额度窗口：一天以后重置的，写星期几和时刻。",
-    "placeholders": {
-      "time": {
-        "type": "DateTime"
-      }
-    }
-  },
-  "accountsResetAtFar": "{time, date, ::EEE} {time, date, ::HHmm} 重置（{days} 天后）",
-  "@accountsResetAtFar": {
-    "description": "额度窗口：一周以后才重置的，写星期几、时刻和几天后。",
-    "placeholders": {
-      "time": {
-        "type": "DateTime"
-      },
-      "days": {
-        "type": "int"
-      }
-    }
-  },
-  "accountsAgeJustNow": "刚刚",
-  "@accountsAgeJustNow": {
-    "description": "额度是多久以前的数：不到一分钟。"
-  },
-  "accountsAgeMinutes": "{minutes} 分钟前",
-  "@accountsAgeMinutes": {
-    "description": "额度是多久以前的数：几分钟前。",
-    "placeholders": {
-      "minutes": {
-        "type": "int"
-      }
-    }
-  },
-  "accountsAgeHours": "{hours} 小时前",
-  "@accountsAgeHours": {
-    "description": "额度是多久以前的数：几小时前。",
-    "placeholders": {
-      "hours": {
-        "type": "int"
-      }
-    }
-  },
-  "accountsAgeDays": "{days} 天前",
-  "@accountsAgeDays": {
-    "description": "额度是多久以前的数：几天前。",
-    "placeholders": {
-      "days": {
-        "type": "int"
-      }
-    }
-  },
   "aboutLicenseGoStdlib": "Go 标准库与运行时 {version}",
   "@aboutLicenseGoStdlib": {
     "description": "关于页开源许可列表里 Go 标准库那一项，后面是 Go 的版本。",
@@ -6194,15 +5640,6 @@
   "@accountsRelayFetching": {
     "description": "中转编辑页：正在向中转要模型列表。"
   },
-  "accountsRelayModelsFailed": "没取到模型列表：{error}",
-  "@accountsRelayModelsFailed": {
-    "description": "中转编辑页：获取模型列表没成，后面是原因。",
-    "placeholders": {
-      "error": {
-        "type": "String"
-      }
-    }
-  },
   "accountsRelayModelsEmpty": "这个中转没有报模型",
   "@accountsRelayModelsEmpty": {
     "description": "中转编辑页：模型列表取到了但是空的。"
@@ -6237,42 +5674,6 @@
   "@accountsRelayCurrentNote": {
     "description": "中转编辑页：编辑的是在用的中转时下面的说明。"
   },
-  "accountsRelaySaving": "正在保存 {name}",
-  "@accountsRelaySaving": {
-    "description": "中转编辑页：正在保存这个中转。",
-    "placeholders": {
-      "name": {
-        "type": "String"
-      }
-    }
-  },
-  "accountsRelaySaveFailed": "没有保存：{error}",
-  "@accountsRelaySaveFailed": {
-    "description": "中转编辑页：保存没成，后面是原因。",
-    "placeholders": {
-      "error": {
-        "type": "String"
-      }
-    }
-  },
-  "accountsRelayRemoving": "正在删除 {name}",
-  "@accountsRelayRemoving": {
-    "description": "中转编辑页：正在删除这个中转。",
-    "placeholders": {
-      "name": {
-        "type": "String"
-      }
-    }
-  },
-  "accountsRelayRemoveFailed": "没有删除：{error}",
-  "@accountsRelayRemoveFailed": {
-    "description": "中转编辑页：删除没成，后面是原因。",
-    "placeholders": {
-      "error": {
-        "type": "String"
-      }
-    }
-  },
   "accountsRelayRemoveTitle": "删除中转 {name}？",
   "@accountsRelayRemoveTitle": {
     "description": "删除中转的确认对话框标题。",
@@ -6289,21 +5690,5 @@
   "accountsRelayUrlNote": "要是 Anthropic Messages 协议的接入点；OpenAI 协议的上游请经能翻译的中转接入。",
   "@accountsRelayUrlNote": {
     "description": "中转编辑页：地址输入框下面的说明。"
-  },
-  "mobileKeyRejected": "服务器不认 Zeta 的公钥：在设置里复制公钥，加进那台设备的 ~/.ssh/authorized_keys",
-  "@mobileKeyRejected": {
-    "description": "iOS 版：SSH 登录被拒时设备页和聊天页说的原因。"
-  },
-  "mobileSessionGone": "这个会话已经不在列表里了",
-  "@mobileSessionGone": {
-    "description": "iOS 版：点开的会话在会话列表里找不到了。"
-  },
-  "mobileProbeFirst": "先检查连接，再添加设备",
-  "@mobileProbeFirst": {
-    "description": "iOS 版：添加设备时探测结果已过期或没探测过。"
-  },
-  "mobileChatNotOpen": "对话还没打开",
-  "@mobileChatNotOpen": {
-    "description": "iOS 版：对话还在打开时就发消息、停止或回应确认。"
   }
 }

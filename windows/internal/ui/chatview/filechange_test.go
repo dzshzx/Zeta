@@ -5,7 +5,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/dzshzx/Zeta/windows/internal/chat/items"
+	"github.com/dzshzx/Zeta/hub/chat/items"
 )
 
 func step(t *testing.T, js string) items.Step {

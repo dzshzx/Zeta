@@ -7,8 +7,8 @@ import (
 	"testing"
 
 	"github.com/dzshzx/Zeta/helper/coreapi"
-	cfg "github.com/dzshzx/Zeta/windows/internal/claudecfg"
-	"github.com/dzshzx/Zeta/windows/internal/claudecfg/cfgtest"
+	cfg "github.com/dzshzx/Zeta/hub/claudecfg"
+	"github.com/dzshzx/Zeta/hub/claudecfg/cfgtest"
 	"github.com/dzshzx/Zeta/windows/internal/locales"
 	"github.com/egoist/mygo/ui"
 )

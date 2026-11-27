@@ -7,9 +7,10 @@ import (
 
 	"github.com/dzshzx/Zeta/client/sshlink"
 	"github.com/dzshzx/Zeta/helper/coreapi"
-	acct "github.com/dzshzx/Zeta/windows/internal/accounts"
-	cfg "github.com/dzshzx/Zeta/windows/internal/claudecfg"
-	"github.com/dzshzx/Zeta/windows/internal/hub"
+	"github.com/dzshzx/Zeta/hub"
+	acct "github.com/dzshzx/Zeta/hub/accounts"
+	"github.com/dzshzx/Zeta/hub/appversion"
+	cfg "github.com/dzshzx/Zeta/hub/claudecfg"
 	"github.com/dzshzx/Zeta/windows/internal/locales"
 	"github.com/dzshzx/Zeta/windows/internal/ui/about"
 	uiacct "github.com/dzshzx/Zeta/windows/internal/ui/accounts"
@@ -339,7 +340,7 @@ func (a *App) startDeviceConfig(x sshlink.Host) {
 
 // defaultAbout 是没给关于页时用的：本程序的版本，不查更新（测试里；窗口由入口换成接了自动更新的）。
 func defaultAbout(h *hub.Hub) *about.Page {
-	v := update.Current()
+	v := appversion.Current()
 	return &about.Page{Version: v, Updates: &update.Updater{Version: v, Prefs: h.Settings()}, Prefs: h.Settings()}
 }
 

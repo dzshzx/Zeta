@@ -7,8 +7,8 @@ import (
 
 	"github.com/dzshzx/Zeta/helper/sessionproto"
 	"github.com/dzshzx/Zeta/helper/tasks"
-	"github.com/dzshzx/Zeta/windows/internal/chat"
-	"github.com/dzshzx/Zeta/windows/internal/chat/items"
+	"github.com/dzshzx/Zeta/hub/chat"
+	"github.com/dzshzx/Zeta/hub/chat/items"
 	"github.com/dzshzx/Zeta/windows/internal/locales"
 	"github.com/dzshzx/Zeta/windows/internal/ui/chatview"
 	"github.com/dzshzx/Zeta/windows/internal/ui/widget"

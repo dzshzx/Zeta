@@ -9,8 +9,8 @@ local.properties
 CLAUDE.local.md
 # 在 helper/ 里 go build 编出的程序（Gradle 的 zetaHelper 编到 build/ 下，不用它）
 /helper/helper
-# windows/scripts/assets.sh 放进去、桌面版编进程序的东西
-/windows/internal/assets/gen/
+# hub/scripts/assets.sh 放进去、桌面版编进程序的东西
+/hub/assets/gen/
 # go tool mygo build 在入口目录旁生成的
 windows/cmd/zeta/dist/
 # ios/scripts/build.sh 由 XcodeGen 照 ios/project.yml 生成的工程

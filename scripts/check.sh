@@ -1,8 +1,8 @@
 #!/usr/bin/env bash
 # Zeta 的门禁，也是 wt land 合入前跑的检查。工作站和手机 Debian 里都能跑：bash scripts/check.sh
 # 核对仓里没有 Python；Kotlin 按 ktfmt 排版、函数认知复杂度不超过上限、文件不超过行数上限
-# （scripts/format.sh）；检查五个 Go 模块，helper/ 的 zeta-helper、tools/release 的发版工具、tools/vdisplay 的虚拟屏驱动 tools/vd、
-# client/ 的客户端共用代码和 windows/ 的 Go 桌面版（版本、格式、
+# （scripts/format.sh）；检查六个 Go 模块，helper/ 的 zeta-helper、tools/release 的发版工具、tools/vdisplay 的虚拟屏驱动 tools/vd、
+# client/、hub/ 的客户端共用代码和 windows/ 的 Go 桌面版（版本、格式、
 # vet、staticcheck、测试、认知复杂度、第三方模块只许各自清单里的，helper/go.mod 按 tool 编进 APK 的程序另有一份清单）；
 # 再构建 debug 包（Kotlin 编译、资源、dex，含编 zeta-helper 和 claude-switch），跑单元测试；跑完后已跟踪文件须与开始时一致。
 # 合入时（wt land）单元测试不跑截图测试（shots 包里类名以 Shots 结尾的，依据见 app/build.gradle.kts 的测试任务）。
@@ -39,7 +39,7 @@ gradle_blind() {
     .github/* | .gitignore | .gitleaks-test-values.toml) ;;
     tools/phone-tests/* | tools/emu | tools/phone-lock | tools/phone-run | tools/install.sh | tools/config.sh) ;;
     tools/shots | tools/vd | tools/vdisplay/* | tools/release/*) ;;
-    windows/* | ios/*) ;;
+    windows/* | ios/* | hub/*) ;;
     *) return 1 ;;
   esac
 }
@@ -104,10 +104,12 @@ check_go_module helper
 (cd helper && gate_go_deps go-tools-allowlist.txt tool)
 check_go_module tools/release
 check_go_module tools/vdisplay
-# 客户端共用的 SSH 与主机连接，桌面版链接它（windows/go.mod 的 replace），所以排在桌面版前面；手机和 Linux 主机上的 zeta-ssh 也用它
+# 客户端共用的 SSH 与主机连接，中枢和桌面版链接它（go.mod 的 replace），所以排在前面；手机和 Linux 主机上的 zeta-ssh 也用它
 check_go_module client linux windows
-# 桌面版：先放好它要嵌进程序的 zeta-helper、claude-switch 和脚本（见 windows/scripts/assets.sh）
-windows/scripts/assets.sh
+# 先放好中枢要嵌进程序的 zeta-helper、claude-switch 和脚本（见 hub/scripts/assets.sh），桌面版和 iOS 版都带它们
+hub/scripts/assets.sh
+# 客户端共用的中枢（桌面版和 iOS 版的核心），桌面版链接它
+check_go_module hub linux windows
 check_go_module windows windows
 
 # 文字表（docs/i18n.md）：mygo 的核对只把解析不了、占位对不上算错，英文缺了某句只警告、界面显示中文，这里警告也算失败；
@@ -126,6 +128,7 @@ check_catalogs() {
   fi
 }
 check_catalogs windows go
+check_catalogs hub go
 check_catalogs helper go
 check_catalogs app
 # 手机版的 Kotlin 取字代码（核心的和手机版自己的文字表各一份，生成到 shared 的 com.dzshzx.zeta.i18n）

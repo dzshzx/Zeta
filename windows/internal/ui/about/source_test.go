@@ -6,6 +6,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/dzshzx/Zeta/hub/appversion"
 	"github.com/dzshzx/Zeta/windows/internal/update"
 )
 
@@ -28,7 +29,7 @@ func TestSourceRef(t *testing.T) {
 
 // 点「源码」用浏览器打开这个版本的源码；点鸣谢里的一项打开它的主页。
 func TestSourceAndCreditsOpenLinks(t *testing.T) {
-	_, _, _, tt := newPage(update.Version{Code: 815, Name: "0.7.7-dev.3+gabc1234"}, update.Status{})
+	_, _, _, tt := newPage(appversion.Version{Code: 815, Name: "0.7.7-dev.3+gabc1234"}, update.Status{})
 	for _, s := range []string{"源码", "abc1234", "鸣谢", "Eta", "mygo", "Go x/crypto"} {
 		if !tt.HasText(s) {
 			t.Errorf("no %q in %q", s, tt.Texts())
@@ -46,14 +47,22 @@ func TestSourceAndCreditsOpenLinks(t *testing.T) {
 	}
 }
 
-// 鸣谢里的 Go 依赖就是 windows/go.mod 直接依赖的第三方模块（仓里经 replace 的 client、helper 除外）：
+// 鸣谢里的 Go 依赖就是 windows/go.mod 和它经 replace 链接的 hub/go.mod、client/go.mod 直接依赖的第三方模块（仓里的 hub、client、helper 除外）：
 // 加了、去掉一个直接依赖而鸣谢没跟着改，这里失败。COUI 2 那一项靠图标还照搬着 coui-icons，图标换掉时也失败。
 func TestCreditsMatchGoMod(t *testing.T) {
-	data, err := os.ReadFile("../../../go.mod")
-	if err != nil {
-		t.Fatal(err)
+	var direct []string
+	// hub/、client/ 的 go.mod 经 windows/testdata 里指过去的符号链接读：模块目录外的路径 go test 的缓存不认
+	for _, path := range []string{"../../../go.mod", "../../../testdata/hub/go.mod", "../../../testdata/client/go.mod"} {
+		data, err := os.ReadFile(path)
+		if err != nil {
+			t.Fatal(err)
+		}
+		for _, m := range directRequires(string(data)) {
+			if !slices.Contains(direct, m) {
+				direct = append(direct, m)
+			}
+		}
 	}
-	direct := directRequires(string(data))
 	if len(direct) == 0 {
 		t.Fatal("go.mod 里没读出直接依赖")
 	}

@@ -12,7 +12,7 @@ import (
 
 	"github.com/dzshzx/Zeta/client/hostlink"
 	"github.com/dzshzx/Zeta/helper/sessionproto"
-	"github.com/dzshzx/Zeta/windows/internal/hubtest"
+	"github.com/dzshzx/Zeta/hub/hubtest"
 	"github.com/egoist/mygo"
 	"github.com/egoist/mygo/i18n"
 	"github.com/egoist/mygo/ui"

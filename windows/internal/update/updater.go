@@ -9,6 +9,8 @@ import (
 	"sync"
 	"time"
 
+	"github.com/dzshzx/Zeta/hub/appversion"
+
 	"github.com/dzshzx/Zeta/windows/internal/locales"
 )
 
@@ -68,7 +70,7 @@ type Source interface {
 // 方法都可以在界面线程上调，活在后台 goroutine 里做；状态一变就调 Changed（在后台 goroutine 上），界面经窗口的 Update 重画。
 // 字段在第一次调方法之前填好，之后不改。
 type Updater struct {
-	Version Version
+	Version appversion.Version
 	Dir     string                 // 下载目录，见 DownloadDir
 	Source  Source                 // 取清单、下载
 	Install func(msi string) error // 起安装程序，见 Installer
@@ -89,10 +91,10 @@ type Updater struct {
 // DownloadDir 是下载安装包的目录：Windows 上放在 %LOCALAPPDATA%\<应用名>\update（不进漫游的 %APPDATA%；应用名见 Version.AppName，
 // 测试版不查更新，分开只为不碰正式版的目录），别处在设置目录下。
 func DownloadDir(settingsDir string) string {
-	return downloadDir(runtime.GOOS, os.Getenv("LOCALAPPDATA"), settingsDir, Current())
+	return downloadDir(runtime.GOOS, os.Getenv("LOCALAPPDATA"), settingsDir, appversion.Current())
 }
 
-func downloadDir(goos, localAppData, settingsDir string, v Version) string {
+func downloadDir(goos, localAppData, settingsDir string, v appversion.Version) string {
 	if goos == "windows" && localAppData != "" {
 		return filepath.Join(localAppData, v.AppName(), "update")
 	}

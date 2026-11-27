@@ -5,7 +5,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/dzshzx/Zeta/windows/internal/chat/items"
+	"github.com/dzshzx/Zeta/hub/chat/items"
 )
 
 // peerItems 是预览用的：别的会话发来的一短一长两条，夹着用户消息和回答。

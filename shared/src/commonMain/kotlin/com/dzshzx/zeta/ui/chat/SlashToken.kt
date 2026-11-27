@@ -1,7 +1,7 @@
 package com.dzshzx.zeta.ui.chat
 
 /**
- * 输入框里光标前正在打的斜杠命令（同 windows/internal/chat 的 Slash）。
+ * 输入框里光标前正在打的斜杠命令（同 hub/chat 的 Slash）。
  *
  * 照 Claude Code 终端界面（2.1.330 上实测）：光标前那个词以 / 开头、在开头或空白后面就提示，句中空一格再打 / 也算；紧挨着别的字
  * （「hello/co」「你好，/co」）或光标前已经打了空白时不提示。[prefix] 是 / 到光标的命令名前缀（小写），[start]、[end] 是那个词的 范围，[end]

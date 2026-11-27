@@ -173,7 +173,7 @@ jobs:
       - name: 打 MSI
         run: |
           set -euo pipefail
-          windows/scripts/assets.sh
+          hub/scripts/assets.sh
           windows/installer/build.sh "$RUNNER_TEMP/msi"
 
       - name: 上传安装包

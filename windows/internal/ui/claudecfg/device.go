@@ -6,8 +6,8 @@ import (
 	"strings"
 
 	"github.com/dzshzx/Zeta/helper/coreapi"
-	"github.com/dzshzx/Zeta/windows/internal/chat"
-	cfg "github.com/dzshzx/Zeta/windows/internal/claudecfg"
+	"github.com/dzshzx/Zeta/hub/chat"
+	cfg "github.com/dzshzx/Zeta/hub/claudecfg"
 	"github.com/dzshzx/Zeta/windows/internal/locales"
 	"github.com/dzshzx/Zeta/windows/internal/ui/widget"
 	"github.com/egoist/mygo/ui"

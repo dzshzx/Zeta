@@ -8,7 +8,7 @@ import (
 	"time"
 
 	"github.com/dzshzx/Zeta/helper/coreapi"
-	cfg "github.com/dzshzx/Zeta/windows/internal/claudecfg"
+	cfg "github.com/dzshzx/Zeta/hub/claudecfg"
 	"github.com/dzshzx/Zeta/windows/internal/locales"
 	"github.com/dzshzx/Zeta/windows/internal/ui/widget"
 	"github.com/egoist/mygo/ui"

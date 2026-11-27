@@ -3,8 +3,8 @@ package diag
 import (
 	"time"
 
+	"github.com/dzshzx/Zeta/hub/runlog"
 	"github.com/dzshzx/Zeta/windows/internal/locales"
-	"github.com/dzshzx/Zeta/windows/internal/runlog"
 	"github.com/dzshzx/Zeta/windows/internal/ui/widget"
 	"github.com/egoist/mygo/ui"
 )

@@ -15,7 +15,7 @@ import (
 	"time"
 
 	"github.com/dzshzx/Zeta/helper/coreapi"
-	acct "github.com/dzshzx/Zeta/windows/internal/accounts"
+	acct "github.com/dzshzx/Zeta/hub/accounts"
 	"github.com/dzshzx/Zeta/windows/internal/ui/uitest"
 	"github.com/egoist/mygo/ui"
 )

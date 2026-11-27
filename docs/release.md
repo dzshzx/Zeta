@@ -250,7 +250,7 @@ android "am start --display $DISPLAY_ID -n $PKG/com.dzshzx.zeta.ui.MainActivity 
 
 ### 桌面版
 
-代码在 `windows/internal/update`：版本 `version.go`，取清单和下载 `fetch.go`、`manifest.go`，状态和流程 `updater.go`，
+代码在 `windows/internal/update`（版本在 `hub/appversion`）：取清单和下载 `fetch.go`、`manifest.go`，状态和流程 `updater.go`，
 装 MSI 的脚本 `install.go`；界面是设置里的「关于」（`windows/internal/ui/about`）。
 
 - **谁查**：`windows/installer/build.sh` 构建时经 `-ldflags -X` 把 versionCode（提交数）和版本名写进程序。版本名是

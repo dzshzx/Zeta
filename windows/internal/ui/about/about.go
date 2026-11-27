@@ -4,6 +4,7 @@ package about
 import (
 	"fmt"
 
+	"github.com/dzshzx/Zeta/hub/appversion"
 	"github.com/dzshzx/Zeta/windows/internal/locales"
 	"github.com/dzshzx/Zeta/windows/internal/ui/widget"
 	"github.com/dzshzx/Zeta/windows/internal/update"
@@ -23,7 +24,7 @@ type Updates interface {
 // Page 是「关于」页，调用方嵌进设置窗口，每帧调 View：它只画一列内容，不带滚动，放进设置页的滚动区。
 // Updates 的状态是后台 goroutine 改的，变了要重画（Updater.Changed 里调窗口的 Update）。字段在第一次 View 之前填好。
 type Page struct {
-	Version update.Version
+	Version appversion.Version
 	Updates Updates
 	Prefs   update.Prefs // 「自动检查更新」开关读写的设置
 

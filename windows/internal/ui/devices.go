@@ -2,7 +2,7 @@ package ui
 
 import (
 	"github.com/dzshzx/Zeta/client/sshlink"
-	"github.com/dzshzx/Zeta/windows/internal/host"
+	"github.com/dzshzx/Zeta/hub/host"
 	"github.com/dzshzx/Zeta/windows/internal/locales"
 	"github.com/dzshzx/Zeta/windows/internal/ui/widget"
 	"github.com/egoist/mygo/ui"

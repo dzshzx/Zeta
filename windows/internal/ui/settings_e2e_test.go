@@ -13,9 +13,9 @@ import (
 	"github.com/dzshzx/Zeta/client/hostlink"
 	"github.com/dzshzx/Zeta/client/sshlink"
 	"github.com/dzshzx/Zeta/client/sshtest"
-	"github.com/dzshzx/Zeta/windows/internal/host"
-	"github.com/dzshzx/Zeta/windows/internal/hub"
-	"github.com/dzshzx/Zeta/windows/internal/settings"
+	"github.com/dzshzx/Zeta/hub"
+	"github.com/dzshzx/Zeta/hub/host"
+	"github.com/dzshzx/Zeta/hub/settings"
 	"github.com/dzshzx/Zeta/windows/internal/ui/uitest"
 	"github.com/egoist/mygo/ui"
 )

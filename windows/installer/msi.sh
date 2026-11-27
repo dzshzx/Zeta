@@ -1,6 +1,6 @@
 #!/bin/bash
 # 把编好的 exe 打成 MSI：msi.sh <exe> <版本> <输出的 .msi>。平时经 build.sh 调用；installer_test.go 拿一个假的 exe 调它，核对打出来的表。
-# 版本名是干净的 X.Y.Z 时打正式版 Zeta，别的（0.7.2-dev.3+gabc1234）打和它并存的测试版 Zeta Dev（同 internal/update 的
+# 版本名是干净的 X.Y.Z 时打正式版 Zeta，别的（0.7.2-dev.3+gabc1234）打和它并存的测试版 Zeta Dev（同 hub/appversion 的
 # Version.Release；两个版本的身份写在 Zeta.wxs 开头）。
 # 要 wixl，和 msitools 包里的 msibuild（改 Tab 顺序）、msiinfo（测试读 MSI）：Debian/Ubuntu 上 apt install wixl msitools。
 set -euo pipefail

@@ -11,11 +11,12 @@ import (
 	"testing"
 	"time"
 
-	"github.com/dzshzx/Zeta/windows/internal/claudecfg/cfgtest"
-	"github.com/dzshzx/Zeta/windows/internal/hub"
-	"github.com/dzshzx/Zeta/windows/internal/hubtest"
+	"github.com/dzshzx/Zeta/hub"
+	"github.com/dzshzx/Zeta/hub/appversion"
+	"github.com/dzshzx/Zeta/hub/claudecfg/cfgtest"
+	"github.com/dzshzx/Zeta/hub/hubtest"
+	"github.com/dzshzx/Zeta/hub/settings"
 	"github.com/dzshzx/Zeta/windows/internal/locales"
-	"github.com/dzshzx/Zeta/windows/internal/settings"
 	"github.com/dzshzx/Zeta/windows/internal/ui/about"
 	"github.com/dzshzx/Zeta/windows/internal/ui/uitest"
 	"github.com/dzshzx/Zeta/windows/internal/update"
@@ -60,7 +61,7 @@ func newSettingsFixture(t *testing.T) *settingsFixture {
 	h := hub.New(s, d, run, post)
 	app := New(h, run, post)
 	app.now = func() time.Time { return now }
-	app.About = &about.Page{Version: update.Version{Code: 80, Name: "0.8.0"}, Updates: f.updates, Prefs: s}
+	app.About = &about.Page{Version: appversion.Version{Code: 80, Name: "0.8.0"}, Updates: f.updates, Prefs: s}
 	h.Start()
 	f.fixture = &fixture{devices: d, hub: h, app: app, tt: ui.NewTester(app.View, 1280, 860)}
 	return f

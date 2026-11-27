@@ -4,7 +4,7 @@ import (
 	"strings"
 
 	"github.com/dzshzx/Zeta/helper/tasks"
-	"github.com/dzshzx/Zeta/windows/internal/attach"
+	"github.com/dzshzx/Zeta/hub/attach"
 	"github.com/dzshzx/Zeta/windows/internal/locales"
 	"github.com/dzshzx/Zeta/windows/internal/ui/widget"
 	"github.com/egoist/mygo/i18n"

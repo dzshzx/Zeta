@@ -1,6 +1,6 @@
 import SwiftUI
 
-/// 聊天列表的一项（种类见 windows/internal/chat/items）。
+/// 聊天列表的一项（种类见 hub/chat/items）。
 struct ItemView: View {
     let item: Item
 

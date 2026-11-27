@@ -1,4 +1,4 @@
-// Package diag 是设置里的「诊断」：这台电脑上 Zeta 自己的运行日志（internal/runlog，能筛、能清空）和环境，各台设备上
+// Package diag 是设置里的「诊断」：这台电脑上 Zeta 自己的运行日志（hub/runlog，能筛、能清空）和环境，各台设备上
 // Claude Code 那边的日志（核心的 diag.*，见 docs/core.md「诊断」，点开看尾部）；「导出诊断包」把这些和这台电脑上 Zeta 的
 // 诊断目录打成一个 zip，token、密码这类值先打码。同手机版设置里的诊断页，只是 Claude Code 的日志看的是远程设备。
 package diag
@@ -10,8 +10,8 @@ import (
 	"time"
 
 	"github.com/dzshzx/Zeta/helper/coreapi"
+	"github.com/dzshzx/Zeta/hub/runlog"
 	"github.com/dzshzx/Zeta/windows/internal/locales"
-	"github.com/dzshzx/Zeta/windows/internal/runlog"
 	"github.com/dzshzx/Zeta/windows/internal/ui/widget"
 	"github.com/egoist/mygo/ui"
 )

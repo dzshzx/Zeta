@@ -1,7 +1,8 @@
 package accounts
 
 import (
-	acct "github.com/dzshzx/Zeta/windows/internal/accounts"
+	acct "github.com/dzshzx/Zeta/hub/accounts"
+	clientlocales "github.com/dzshzx/Zeta/hub/locales"
 	"github.com/dzshzx/Zeta/windows/internal/locales"
 	"github.com/dzshzx/Zeta/windows/internal/ui/widget"
 	"github.com/egoist/mygo/ui"
@@ -23,7 +24,7 @@ func (p *Page) login(c *ui.Context, l acct.Login) {
 					svc.SubmitCode(p.code)
 				}
 				if l.Notice != nil {
-					widget.Notice(c, locales.ErrorText(l.Notice), widget.Failure)
+					widget.Notice(c, clientlocales.ErrorText(l.Notice), widget.Failure)
 				}
 				ui.Row(c).Gap(8).Justify(ui.End).Children(func() {
 					widget.SmallButton(c, locales.CommonCancel()).Disabled(!idle).OnClick(svc.CancelLogin)
