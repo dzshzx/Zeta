@@ -71,9 +71,6 @@ var slowMethods = map[string]time.Duration{
 	"system.claude_update": 6 * time.Minute,
 }
 
-// modelsTimeout 是要模型清单最多等多久（同桌面版）。
-const modelsTimeout = time.Minute
-
 func (c *Core) claudeLocal(backend string) (claudeLocal, error) {
 	x, found := c.hub.Host(backend)
 	if !found {

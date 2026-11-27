@@ -90,5 +90,8 @@
   "mobileKeyRejected": "The server rejected Zeta’s public key. Copy it in Settings and add it to ~/.ssh/authorized_keys on that device.",
   "mobileSessionGone": "This conversation is no longer in the list",
   "mobileProbeFirst": "Check the connection before adding the device",
-  "mobileChatNotOpen": "The conversation isn’t open yet"
+  "mobileChatNotOpen": "The conversation isn’t open yet",
+  "mobileAttachUnreadable": "Couldn’t read {name}",
+  "mobileAttachTooMany": "Up to {max} files at a time; the last {dropped} weren’t added",
+  "mobilePromptExists": "This prompt is already saved"
 }

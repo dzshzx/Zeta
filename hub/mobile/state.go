@@ -81,6 +81,8 @@ type Chat struct {
 	Todos    []Todo       `json:"todos"`
 	Process  bool         `json:"process"`
 	Finished []string     `json:"finished"`
+	// Composer 是输入栏（composer.go），对话还没打开成时为 null。
+	Composer *Composer `json:"composer"`
 }
 
 func (c *Core) state() State {
@@ -104,6 +106,7 @@ func (c *Core) state() State {
 	}
 	st.Side = c.side()
 	st.Chat = c.chatState(locale)
+	c.fillComposer(st.Chat, locale)
 	return st
 }
 

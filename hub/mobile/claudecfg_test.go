@@ -9,21 +9,20 @@ import (
 )
 
 // addDevice 加一台假设备，核心的请求交给 answer。
-func addDevice(t *testing.T, c *Core, d *hubtest.Devices, answer func(hubtest.Call) (json.RawMessage, error)) string {
+// addAnswering 加一台设备，它的核心照 answer 应答。
+func addAnswering(t *testing.T, c *Core, d *hubtest.Devices, answer func(hubtest.Call) (json.RawMessage, error)) string {
 	t.Helper()
 	d.OnChat = func(l *hubtest.ChatLink) {
 		l.Connect()
 		l.OnCall(answer)
 	}
-	p := call[Probed](t, c, "probe", map[string]string{"target": "me@box"})
-	call[map[string]bool](t, c, "add", map[string]string{"token": p.Token})
-	return call[State](t, c, "state", nil).Devices[0].ID
+	return addDevice(t, c, d)
 }
 
 // 自动压缩、压缩时机、自动标题存在客户端本地，各台各设；没设过时是默认值，改了读回来是新的。
 func TestClaudeLocalSettings(t *testing.T) {
 	c, d := newCore(t)
-	id := addDevice(t, c, d, func(hubtest.Call) (json.RawMessage, error) { return nil, nil })
+	id := addAnswering(t, c, d, func(hubtest.Call) (json.RawMessage, error) { return nil, nil })
 	got := call[claudeLocal](t, c, "claudecfg.local", map[string]string{"backend": id})
 	if !got.AutoCompact || !got.AutoTitle || got.CompactPercent != 0 || len(got.CompactPercents) == 0 || got.Cwd == "" {
 		t.Fatalf("默认 %+v", got)
@@ -45,7 +44,7 @@ func TestClaudeLocalSettings(t *testing.T) {
 func TestClaudeModelChoices(t *testing.T) {
 	c, d := newCore(t)
 	relay := true
-	id := addDevice(t, c, d, func(call hubtest.Call) (json.RawMessage, error) {
+	id := addAnswering(t, c, d, func(call hubtest.Call) (json.RawMessage, error) {
 		if call.Method == "config.models.read" && relay {
 			return json.RawMessage(`{"relay":"r","model":"m1","models":[{"id":"m1","displayName":"M One"}]}`), nil
 		}
@@ -68,7 +67,7 @@ func TestClaudeModelChoices(t *testing.T) {
 // claudecfg.slow 只转标「慢」的几个方法，结果原样交回。
 func TestClaudeSlowForward(t *testing.T) {
 	c, d := newCore(t)
-	id := addDevice(t, c, d, func(call hubtest.Call) (json.RawMessage, error) {
+	id := addAnswering(t, c, d, func(call hubtest.Call) (json.RawMessage, error) {
 		if call.Method == "config.mcp.tools" {
 			return json.RawMessage(`[{"name":"` + call.Str("name") + `","description":""}]`), nil
 		}

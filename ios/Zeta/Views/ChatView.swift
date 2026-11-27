@@ -67,46 +67,10 @@ struct ChatView: View {
                 PromptCard(prompt: prompt)
                     .id(prompt.requestID)
             }
-            Composer(busy: chat.busy, enabled: chat.connected && !chat.blocked)
+            ComposerView(chat: chat)
         }
         .padding(.horizontal)
         .padding(.bottom, 8)
-    }
-}
-
-/// 输入栏：多行输入框和一个圆钮（有字时发送；回答中、没字时停止）。
-private struct Composer: View {
-    @Environment(AppModel.self) private var model
-    @State private var draft = ""
-    let busy: Bool
-    let enabled: Bool
-
-    private var empty: Bool { draft.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty }
-    /// 回答中、没字时圆钮是停止。
-    private var stopping: Bool { busy && empty }
-
-    var body: some View {
-        HStack(alignment: .bottom, spacing: 8) {
-            TextField("发消息", text: $draft, axis: .vertical)
-                .lineLimit(1...8)
-                .padding(.vertical, 10)
-                .padding(.leading, 16)
-            Button(stopping ? "停止" : "发送", systemImage: stopping ? "stop.fill" : "arrow.up") {
-                if stopping {
-                    model.perform("interrupt")
-                } else {
-                    model.perform("send", ["text": draft])
-                    draft = ""
-                }
-            }
-            .labelStyle(.iconOnly)
-            .buttonStyle(.glassProminent)
-            .buttonBorderShape(.circle)
-            .controlSize(.large)
-            .disabled(!stopping && (empty || !enabled))
-        }
-        .padding(4)
-        .glassEffect(.regular.interactive(), in: .rect(cornerRadius: 26))
     }
 }
 

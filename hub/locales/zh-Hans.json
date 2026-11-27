@@ -626,5 +626,33 @@
   "mobileChatNotOpen": "对话还没打开",
   "@mobileChatNotOpen": {
     "description": "iOS 版：对话还在打开时就发消息、停止或回应确认。"
+  },
+  "mobileAttachUnreadable": "读不了 {name}",
+  "@mobileAttachUnreadable": {
+    "description": "iOS 版输入栏：选的文件读不出来，没收进附件。",
+    "placeholders": {
+      "name": {
+        "type": "String",
+        "example": "a.txt"
+      }
+    }
+  },
+  "mobileAttachTooMany": "一次最多 {max} 个文件，后面 {dropped} 个没有加进来",
+  "@mobileAttachTooMany": {
+    "description": "iOS 版输入栏：一次选的文件超过上限。",
+    "placeholders": {
+      "max": {
+        "type": "int",
+        "example": "20"
+      },
+      "dropped": {
+        "type": "int",
+        "example": "3"
+      }
+    }
+  },
+  "mobilePromptExists": "常用指令里已经有这一条",
+  "@mobilePromptExists": {
+    "description": "iOS 版：把消息收藏为常用指令时，清单里已经有同样内容的。"
   }
 }
