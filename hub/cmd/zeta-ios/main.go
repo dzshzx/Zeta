@@ -42,8 +42,9 @@ func ZetaStart(dir *C.char, seed unsafe.Pointer, seedLen C.int, lang, device *C.
 	language := cmp.Or(C.GoString(lang), "zh-Hans")
 	i18n.SetLocaleFunc(func() string { return language })
 	log.SetFlags(0)
-	log.SetOutput(runlog.Open(filepath.Join(d, "diag"), nil))
-	c, err := mobile.Start(mobile.Config{Dir: d, Seed: C.GoBytes(seed, seedLen), Device: C.GoString(device),
+	runLog := runlog.Open(filepath.Join(d, "diag"), nil)
+	log.SetOutput(runLog)
+	c, err := mobile.Start(mobile.Config{Dir: d, Seed: C.GoBytes(seed, seedLen), Device: C.GoString(device), Log: runLog,
 		Changed: func() { C.zeta_changed(changed) }})
 	if err != nil {
 		return C.CString(err.Error())

@@ -94,5 +94,10 @@
   "diagBundleEnvLine": "{name}: {value}",
   "diagBundleListFailed": "Listing logs: {error}",
   "diagBundleReadFailed": "{path}: {error}",
-  "diagBundleTruncated": "# Only the last 64 KB (the whole file is {size, plural, one {# byte} other {# bytes}})"
+  "diagBundleTruncated": "# Only the last 64 KB (the whole file is {size, plural, one {# byte} other {# bytes}})",
+  "mobileDeviceGone": "This device has been removed",
+  "mobileCwdNotAbsolute": "Enter a folder starting with / or ~",
+  "mobileAccountGone": "This account or relay is no longer in the list",
+  "mobileRelayDraftGone": "The relay editor has been closed",
+  "mobileLicensesUnreadable": "Can’t read the license list"
 }

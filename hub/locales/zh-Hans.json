@@ -674,5 +674,25 @@
         "example": "1048576"
       }
     }
+  },
+  "mobileDeviceGone": "这台设备已经删掉了",
+  "@mobileDeviceGone": {
+    "description": "iOS 版：设备页上操作的那台设备已经不在设置里了。"
+  },
+  "mobileCwdNotAbsolute": "要写以 / 或 ~ 开头的目录",
+  "@mobileCwdNotAbsolute": {
+    "description": "iOS 版：设备页改默认工作目录时填的不是绝对路径。"
+  },
+  "mobileAccountGone": "这个账号或中转已经不在列表里了",
+  "@mobileAccountGone": {
+    "description": "iOS 版：账号页上要切换、删除、编辑的账号或中转在读到的列表里找不到了。"
+  },
+  "mobileRelayDraftGone": "中转的编辑页已经关了",
+  "@mobileRelayDraftGone": {
+    "description": "iOS 版：中转的编辑页关掉以后才到的操作（获取模型列表、保存）。"
+  },
+  "mobileLicensesUnreadable": "读不出许可证清单",
+  "@mobileLicensesUnreadable": {
+    "description": "iOS 版：关于页的开源许可清单格式不对，或要看的许可不在清单里。"
   }
 }

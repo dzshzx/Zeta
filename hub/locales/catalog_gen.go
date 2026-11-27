@@ -1428,3 +1428,79 @@ func DiagBundleTruncated(size int) string { return In(i18n.Locale()).DiagBundleT
 func (msgs Messages) DiagBundleTruncated(size int) string {
 	return Catalog.Format(msgs.locale, "diagBundleTruncated", map[string]any{"size": size})
 }
+
+// MobileDeviceGone says "这台设备已经删掉了"
+// in the language the app shows.
+//
+// iOS 版：设备页上操作的那台设备已经不在设置里了。
+func MobileDeviceGone() string { return In(i18n.Locale()).MobileDeviceGone() }
+
+// MobileDeviceGone says "这台设备已经删掉了"
+// in the language of msgs.
+//
+// iOS 版：设备页上操作的那台设备已经不在设置里了。
+func (msgs Messages) MobileDeviceGone() string {
+	return Catalog.Format(msgs.locale, "mobileDeviceGone", nil)
+}
+
+// MobileCwdNotAbsolute says "要写以 / 或 ~ 开头的目录"
+// in the language the app shows.
+//
+// iOS 版：设备页改默认工作目录时填的不是绝对路径。
+func MobileCwdNotAbsolute() string { return In(i18n.Locale()).MobileCwdNotAbsolute() }
+
+// MobileCwdNotAbsolute says "要写以 / 或 ~ 开头的目录"
+// in the language of msgs.
+//
+// iOS 版：设备页改默认工作目录时填的不是绝对路径。
+func (msgs Messages) MobileCwdNotAbsolute() string {
+	return Catalog.Format(msgs.locale, "mobileCwdNotAbsolute", nil)
+}
+
+// MobileAccountGone says "这个账号或中转已经不在列表里了"
+// in the language the app shows.
+//
+// iOS
+// 版：账号页上要切换、删除、编辑的账号或中转在读到的列表里找不到了。
+func MobileAccountGone() string { return In(i18n.Locale()).MobileAccountGone() }
+
+// MobileAccountGone says "这个账号或中转已经不在列表里了"
+// in the language of msgs.
+//
+// iOS
+// 版：账号页上要切换、删除、编辑的账号或中转在读到的列表里找不到了。
+func (msgs Messages) MobileAccountGone() string {
+	return Catalog.Format(msgs.locale, "mobileAccountGone", nil)
+}
+
+// MobileRelayDraftGone says "中转的编辑页已经关了"
+// in the language the app shows.
+//
+// iOS
+// 版：中转的编辑页关掉以后才到的操作（获取模型列表、保存）。
+func MobileRelayDraftGone() string { return In(i18n.Locale()).MobileRelayDraftGone() }
+
+// MobileRelayDraftGone says "中转的编辑页已经关了"
+// in the language of msgs.
+//
+// iOS
+// 版：中转的编辑页关掉以后才到的操作（获取模型列表、保存）。
+func (msgs Messages) MobileRelayDraftGone() string {
+	return Catalog.Format(msgs.locale, "mobileRelayDraftGone", nil)
+}
+
+// MobileLicensesUnreadable says "读不出许可证清单"
+// in the language the app shows.
+//
+// iOS
+// 版：关于页的开源许可清单格式不对，或要看的许可不在清单里。
+func MobileLicensesUnreadable() string { return In(i18n.Locale()).MobileLicensesUnreadable() }
+
+// MobileLicensesUnreadable says "读不出许可证清单"
+// in the language of msgs.
+//
+// iOS
+// 版：关于页的开源许可清单格式不对，或要看的许可不在清单里。
+func (msgs Messages) MobileLicensesUnreadable() string {
+	return Catalog.Format(msgs.locale, "mobileLicensesUnreadable", nil)
+}
