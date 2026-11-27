@@ -1,6 +1,6 @@
 # iOS 版
 
-`ios/` 是 iPhone 和 iPad 上的 Zeta：只做连远程主机的那部分，经 Zeta 自带的 SSH 直连 Linux 设备，在上面用 Claude Code。手机一侧的功能（Debian 环境、手机工具、悬浮层、数字助理、定时任务、通知触发）都不做。界面用 iOS 27 SDK 自带的 SwiftUI 组件，最低系统 iOS 27。
+`ios/` 是 iPhone 和 iPad 上的 Zeta：经 Zeta 自带的 SSH 直连 Linux 设备，在上面用 Claude Code。和远程主机有关的功能同手机版（会话管理、对话与各种确认、输入栏、后台任务与子代理、账号与额度和中转、Claude Code 配置、诊断、通知；手机版的超级岛在这里是灵动岛），差别见最后「现在没有的」；依赖手机本机环境的（Debian 环境、手机工具、悬浮层、语音与数字助理、定时任务、通知触发、存储与备份）不做。界面用 iOS 27 SDK 自带的 SwiftUI 组件，最低系统 iOS 27。
 
 ## 结构
 
@@ -149,6 +149,10 @@ Swift 经三个 C 函数调核心（`hub/cmd/zeta-ios`）：
 - 关于：版本、源码、鸣谢（只列 iOS 版用到的）、开源许可（`hub/assets` 里的全文：Zeta 自己的、App 链接的 `ios` 一组、带到设备上的 `host` 一组）。
 - 常规：「自动加载网络图片」（`autoLoadRemoteImages`，存进 `hub/settings`）；界面语言跟随系统，一行跳到系统设置里本 App 的语言；外观跟随系统。
 
+## Claude Code 配置
+
+设备页上「Claude Code 配置」一行进去（`ClaudeConfigView(backend:)`，`ios/Zeta/Views/ClaudeConfig/`），行为同桌面版 `windows/internal/ui/claudecfg/`：新对话默认（默认模型、默认思考强度、默认权限模式、上下文窗口）、Claude 一组（自动压缩、压缩时机、自动标题、闲置超时、那台的 Claude Code 版本和「更新」）、记忆与 CLAUDE.md、Skills、MCP 服务器、Subagent、工具权限。那台主机上的配置经 `core` 转给核心的 `config.*`、`system.*`，解析、校验和改写都在核心，Swift 只按 `helper/coreapi/config.go` 的结果画；工具权限每行的状态、一键开关会加删的规则也由核心算好。只有自动压缩、压缩时机、自动标题存在这台手机上（`claudecfg.local`）。记忆页的文件有内容时打开先预览，能切到编辑；预览照聊天里回答的样子排（`MarkdownView`，去掉开头的 --- 前言块）。Skill 从「文件」里选 ZIP 导入，最大 45 MB。
+
 ## 构建与测试
 
 本机和本机 runner 都没有 macOS，iOS 版只在 GitHub 托管的 macOS 上编（`.github/workflows/ios.yml`，`xcode-27` 镜像，挑其中版本最高的正式版 Xcode）：推送改到它的提交时跑，任务分支也跑；`gh workflow run ios.yml --ref <分支>` 手动跑。一次运行：Linux 上跑 `hub/scripts/assets.sh`，macOS 上 `build.sh test simulator ipa`（核心和工程只编、生成一次）跑模拟器上的测试、打不签名的 ipa，再在模拟器里截简体中文和英文两张首屏图；ipa 和截图在这次运行的 artifacts 里。master 上的构建另外发成预发布版本 `ios-dev-<提交号>`（不用登录就能下载，全部预构建见 `https://github.com/dzshzx/Zeta/releases?q=ios-dev&expanded=true`），tag 不以 v 开头、标成预发布，不影响版本号和应用内更新。
@@ -157,10 +161,12 @@ Swift 经三个 C 函数调核心（`hub/cmd/zeta-ios`）：
 - Swift 在本机只过 SwiftLint 和圈复杂度（`scripts/format.sh --lint`，合入门禁里跑）；编译、模拟器测试只在 CI 上。
 - ipa 不签名：用自己的开发者账号重签后装到设备上。
 
-## Claude Code 配置
-
-设备页上「Claude Code 配置」一行进去（`ClaudeConfigView(backend:)`，`ios/Zeta/Views/ClaudeConfig/`），行为同桌面版 `windows/internal/ui/claudecfg/`：新对话默认（默认模型、默认思考强度、默认权限模式、上下文窗口）、Claude 一组（自动压缩、压缩时机、自动标题、闲置超时、那台的 Claude Code 版本和「更新」）、记忆与 CLAUDE.md、Skills、MCP 服务器、Subagent、工具权限。那台主机上的配置经 `core` 转给核心的 `config.*`、`system.*`，解析、校验和改写都在核心，Swift 只按 `helper/coreapi/config.go` 的结果画；工具权限每行的状态、一键开关会加删的规则也由核心算好。只有自动压缩、压缩时机、自动标题存在这台手机上（`claudecfg.local`）。记忆页的文件有内容时打开先预览，能切到编辑；预览照聊天里回答的样子排（`MarkdownView`，去掉开头的 --- 前言块）。Skill 从「文件」里选 ZIP 导入，最大 45 MB。
-
 ## 现在没有的
 
-账号与额度、Claude Code 配置、附件和图片、模型和权限模式的选择、子代理和后台任务页、会话的重命名、删除、置顶、搜索、MCP 的表单和网址确认、通知；Markdown 只排行内样式和代码块。iOS 退到后台后 SSH 连接会断，回到前台时中枢照常重连。
+和手机版比，下面这些没做或不一样：
+
+- 公式按原文等宽显示，没有排版（手机版和桌面版用 RaTeX）。
+- 输入栏不能拍照（能从相册和「文件」里选）；斜杠命令里没有 `/config`、`/permissions` 这两条跳设置页的。
+- 改写一条消息时只带回文字和文件路径，原消息里的图不带回去。
+- 通知上没有「允许」「拒绝」这类按钮，要回应就点通知回到 App（同桌面版）。
+- iOS 退到后台后 SSH 连接很快会断：通知和灵动岛只在退到后台后系统给的那一小段后台时间里更新（时长由系统定），之后停在最后的样子，回到前台时中枢照常重连、再对上。要在后台一直更新得有推送服务，Zeta 没有。
