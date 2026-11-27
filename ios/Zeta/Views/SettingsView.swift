@@ -1,10 +1,12 @@
 import SwiftUI
 import UIKit
+import UniformTypeIdentifiers
 
-/// 设置：本机公钥、设备（添加、连接开关、删除）、版本。
+/// 设置：登录用的公钥（导入私钥、换回 Zeta 自己的）、设备（添加、连接开关、删除）、版本。
 struct SettingsView: View {
     @Environment(AppModel.self) private var model
     @Environment(\.dismiss) private var dismiss
+    @State private var resetting = false
 
     var body: some View {
         NavigationStack {
@@ -15,10 +17,24 @@ struct SettingsView: View {
                         .textSelection(.enabled)
                     Button("复制公钥", systemImage: "doc.on.doc") { UIPasteboard.general.string = model.publicKey }
                     ShareLink(item: model.publicKey) { Label("分享公钥", systemImage: "square.and.arrow.up") }
+                    NavigationLink {
+                        ImportKeyView()
+                    } label: {
+                        Label("导入私钥", systemImage: "key")
+                    }
+                    if model.keyImported {
+                        Button("换回 Zeta 的密钥", systemImage: "arrow.uturn.backward", role: .destructive) {
+                            resetting = true
+                        }
+                    }
                 } header: {
-                    Text("Zeta 的公钥")
+                    Text(model.keyImported ? "导入的私钥" : "Zeta 的公钥")
                 } footer: {
-                    Text("把这一行加进设备上的 ~/.ssh/authorized_keys，Zeta 才能登录。私钥只在这台设备的钥匙串里。")
+                    if model.keyImported {
+                        Text("Zeta 用导入的私钥登录，上面是它的公钥。私钥只在这台设备的钥匙串里。")
+                    } else {
+                        Text("把这一行加进设备上的 ~/.ssh/authorized_keys，Zeta 才能登录。私钥只在这台设备的钥匙串里。")
+                    }
                 }
                 Section("设备") {
                     ForEach(model.state.devices) { device in
@@ -42,6 +58,11 @@ struct SettingsView: View {
             .navigationTitle("设置")
             .navigationBarTitleDisplayMode(.inline)
             .navigationDestination(for: Device.self) { DeviceView(id: $0.id) }
+            .confirmationDialog("换回 Zeta 的密钥？", isPresented: $resetting, titleVisibility: .visible) {
+                Button("换回", role: .destructive) { model.resetKey() }
+            } message: {
+                Text("导入的私钥从这台设备上删掉，之后用 Zeta 自己的密钥登录。")
+            }
             .toolbar {
                 ToolbarItem(placement: .topBarTrailing) {
                     Button(role: .close) { dismiss() }
@@ -160,6 +181,78 @@ private struct AddDeviceView: View {
     private func add(_ found: Probed) {
         do {
             try model.add(found)
+            dismiss()
+        } catch {
+            problem = error.localizedDescription
+        }
+    }
+}
+
+/// 导入私钥：从文件选取或粘贴，有密码时填上。核心认得出才换上，之后新的连接用它登录。
+private struct ImportKeyView: View {
+    @Environment(AppModel.self) private var model
+    @Environment(\.dismiss) private var dismiss
+    @State private var text = ""
+    @State private var passphrase = ""
+    @State private var picking = false
+    @State private var problem: String?
+
+    var body: some View {
+        Form {
+            Section {
+                TextEditor(text: $text)
+                    .font(.caption.monospaced())
+                    .frame(minHeight: 160)
+                    .textInputAutocapitalization(.never)
+                    .autocorrectionDisabled()
+                Button("从文件选取", systemImage: "folder") { picking = true }
+            } header: {
+                Text("私钥")
+            } footer: {
+                Text("粘贴或选取 OpenSSH、PEM 格式的私钥文件（如 ~/.ssh/id_ed25519），不是 .pub 公钥。")
+            }
+            Section {
+                SecureField("没有密码就留空", text: $passphrase)
+            } header: {
+                Text("密码")
+            } footer: {
+                Text("导入后私钥去掉密码存进这台设备的钥匙串，以后不再问。")
+            }
+            if let problem {
+                Section {
+                    Label(problem, systemImage: "exclamationmark.triangle").foregroundStyle(.red)
+                }
+            }
+            Section {
+                Button("导入") { save() }
+                    .buttonStyle(.glassProminent)
+                    .frame(maxWidth: .infinity)
+                    .disabled(text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
+            }
+        }
+        .navigationTitle("导入私钥")
+        .fileImporter(isPresented: $picking, allowedContentTypes: [.item]) { load($0) }
+    }
+
+    private func load(_ result: Result<URL, any Error>) {
+        do {
+            let url = try result.get()
+            let scoped = url.startAccessingSecurityScopedResource()
+            defer { if scoped { url.stopAccessingSecurityScopedResource() } }
+            guard let read = String(bytes: try Data(contentsOf: url), encoding: .utf8) else {
+                problem = String(localized: "这个文件不是文本，不像私钥")
+                return
+            }
+            text = read
+            problem = nil
+        } catch {
+            problem = error.localizedDescription
+        }
+    }
+
+    private func save() {
+        do {
+            try model.importKey(text, passphrase: passphrase)
             dismiss()
         } catch {
             problem = error.localizedDescription

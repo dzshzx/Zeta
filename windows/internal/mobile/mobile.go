@@ -1,4 +1,4 @@
-// Package mobile 是 iOS 版的核心：把桌面版的中枢（internal/hub）原样跑在手机上，只换掉认证（Zeta 自己的一把 Ed25519 密钥，
+// Package mobile 是 iOS 版的核心：把桌面版的中枢（internal/hub）原样跑在手机上，只换掉认证（Zeta 自己的一把 Ed25519 密钥或用户导入的私钥，
 // 不读 ~/.ssh），对 Swift 界面只露两样：一个按方法名调用、参数和结果都是 JSON 的 Call，和一个「有变化了」的回调。
 // cgo 的导出在 cmd/zeta-ios，协议写在 docs/ios.md「核心桥」。
 //
@@ -10,6 +10,7 @@ import (
 	"context"
 	"crypto/ed25519"
 	"encoding/json"
+	"encoding/pem"
 	"errors"
 	"fmt"
 	"log"
@@ -46,7 +47,7 @@ type Config struct {
 type Core struct {
 	hub     *hub.Hub
 	changed func()
-	public  string
+	auth    *appAuth // Start 起的才有；测试里 New 建的没有，答 key 这几个方法时说没有密钥
 
 	// 排给核心 goroutine 的事，按排进来的先后跑。不设上限：排的一方可能就是核心 goroutine 自己（中枢在主线程上也会 post），
 	// 有上限的通道满了会卡死。wake 有事可做时有一个信号。
@@ -79,10 +80,76 @@ type devices struct{ *host.Devices }
 func (devices) ConfigHosts() ([]string, error) { return nil, nil }
 func (devices) Keys() []string                 { return nil }
 
-// appAuth 用 Zeta 自己的密钥登录，地址要写明用户。
-type appAuth struct{ sshlink.KeyAuth }
+// appAuth 用 Zeta 的密钥登录，地址要写明用户：导入了私钥时用导入的，否则用 Zeta 自己生成的那把。
+// 换了以后新起的连接用新的，已经连着的不受影响。
+type appAuth struct {
+	mu       sync.Mutex
+	own      ssh.Signer
+	imported ssh.Signer
+}
 
-func (appAuth) Rejected(sshlink.Route) string { return locales.MobileKeyRejected() }
+func (a *appAuth) signer() (ssh.Signer, bool) {
+	a.mu.Lock()
+	defer a.mu.Unlock()
+	if a.imported != nil {
+		return a.imported, true
+	}
+	return a.own, false
+}
+
+func (a *appAuth) set(imported ssh.Signer) {
+	a.mu.Lock()
+	a.imported = imported
+	a.mu.Unlock()
+}
+
+// public 是在用的那把的公钥（authorized_keys 的一行），和在用的是不是导入的。
+func (a *appAuth) public() (string, bool) {
+	s, imported := a.signer()
+	line := strings.TrimSpace(string(ssh.MarshalAuthorizedKey(s.PublicKey())))
+	if !imported {
+		line += " zeta-ios"
+	}
+	return line, imported
+}
+
+// Resolve 见 sshlink.Resolver。
+func (a *appAuth) Resolve(target, key string) (sshlink.Route, error) {
+	s, _ := a.signer()
+	return sshlink.KeyAuth{Signer: s}.Resolve(target, key)
+}
+
+// Rejected 见 sshlink.Resolver。
+func (a *appAuth) Rejected(sshlink.Route) string {
+	if _, imported := a.signer(); imported {
+		return locales.MobileImportedKeyRejected()
+	}
+	return locales.MobileKeyRejected()
+}
+
+// parseKey 读导入的私钥（OpenSSH 或 PEM 格式，可以有密码），答签名用的和去掉密码后的 OpenSSH 格式（界面存进钥匙串，
+// 以后起核心时原样交回来，不用再问密码）。
+func parseKey(text, passphrase string) (ssh.Signer, string, error) {
+	raw, err := ssh.ParseRawPrivateKey([]byte(text))
+	if _, missing := err.(*ssh.PassphraseMissingError); missing {
+		if passphrase == "" {
+			return nil, "", locales.Err(locales.MobileKeyNeedsPassphrase)
+		}
+		raw, err = ssh.ParseRawPrivateKeyWithPassphrase([]byte(text), []byte(passphrase))
+	}
+	if err != nil {
+		return nil, "", locales.Err(locales.MobileKeyUnreadable)
+	}
+	signer, err := ssh.NewSignerFromKey(raw)
+	if err != nil {
+		return nil, "", locales.Err(locales.MobileKeyUnreadable)
+	}
+	block, err := ssh.MarshalPrivateKey(raw, "")
+	if err != nil {
+		return nil, "", locales.Err(locales.MobileKeyUnreadable)
+	}
+	return signer, string(pem.EncodeToMemory(block)), nil
+}
 
 // Start 起核心：读设置、取编进来的 zeta-helper 和 claude-switch，订阅列着的设备的会话列表。
 func Start(c Config) (*Core, error) {
@@ -97,13 +164,14 @@ func Start(c Config) (*Core, error) {
 	if err != nil {
 		log.Printf("zeta: %v", err)
 	}
-	set, err := host.NewDevices(appAuth{sshlink.KeyAuth{Signer: signer}})
+	auth := &appAuth{own: signer}
+	set, err := host.NewDevices(auth)
 	if err != nil {
 		return nil, err
 	}
 	set.Device = c.Device
 	core := New(prefs, devices{set}, c.Changed)
-	core.public = strings.TrimSpace(string(ssh.MarshalAuthorizedKey(signer.PublicKey()))) + " zeta-ios"
+	core.auth = auth
 	core.Do(core.hub.Start)
 	return core, nil
 }
@@ -196,8 +264,8 @@ func (c *Core) call(method string, raw []byte) (any, error) {
 	switch method {
 	case "probe":
 		return c.probe(p.Target)
-	case "key":
-		return map[string]string{"public": c.public, "version": update.Current().Name}, nil
+	case "key", "importkey", "resetkey":
+		return c.keyCall(method, p)
 	}
 	var result any
 	var err error
@@ -207,14 +275,16 @@ func (c *Core) call(method string, raw []byte) (any, error) {
 
 // params 是各方法的参数合在一起（各用各的几个）。
 type params struct {
-	Target    string          `json:"target"`
-	Token     string          `json:"token"`
-	ID        string          `json:"id"`
-	Backend   string          `json:"backend"`
-	Text      string          `json:"text"`
-	On        bool            `json:"on"`
-	RequestID string          `json:"request_id"`
-	Reply     json.RawMessage `json:"reply"`
+	Target     string          `json:"target"`
+	Token      string          `json:"token"`
+	ID         string          `json:"id"`
+	Backend    string          `json:"backend"`
+	Text       string          `json:"text"`
+	On         bool            `json:"on"`
+	RequestID  string          `json:"request_id"`
+	Reply      json.RawMessage `json:"reply"`
+	Key        string          `json:"key"`
+	Passphrase string          `json:"passphrase"`
 }
 
 func (c *Core) onLoop(method string, p params) (any, error) {
@@ -331,4 +401,34 @@ func (c *Core) add(token string) (any, error) {
 	}
 	_, err := c.hub.AddHost(p.target, "", p.found)
 	return ok, err
+}
+
+// Key 是 key、importkey、resetkey 答的：在用的那把的公钥、是不是导入的、版本名；importkey 另答去掉密码的私钥 PEM，
+// 界面存进钥匙串，下次起核心后用 importkey 原样交回来。
+type Key struct {
+	Public   string `json:"public"`
+	Imported bool   `json:"imported"`
+	Version  string `json:"version"`
+	PEM      string `json:"pem,omitempty"`
+}
+
+// keyCall 读、换登录用的密钥。换了以后新起的连接用新的；已经连着的不断开。
+func (c *Core) keyCall(method string, p params) (Key, error) {
+	if c.auth == nil {
+		return Key{}, errors.New("no key")
+	}
+	var pemText string
+	switch method {
+	case "importkey":
+		signer, text, err := parseKey(p.Key, p.Passphrase)
+		if err != nil {
+			return Key{}, err
+		}
+		c.auth.set(signer)
+		pemText = text
+	case "resetkey":
+		c.auth.set(nil)
+	}
+	public, imported := c.auth.public()
+	return Key{Public: public, Imported: imported, Version: update.Current().Name, PEM: pemText}, nil
 }
