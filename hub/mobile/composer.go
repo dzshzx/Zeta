@@ -680,18 +680,25 @@ func (m *composer) source(backend string, r *hub.Remote) *modelSource {
 
 // choices 同桌面版：中转只有它报的具体 ID；Claude Code 是它报的清单分好的两层，还没报时是常用的别名。
 func (s *modelSource) choices() (latest, older []chat.ModelOption) {
-	switch {
-	case !s.ready:
+	if !s.ready {
 		return nil, nil
-	case s.catalog.Relay != "":
-		for _, x := range s.catalog.Models {
+	}
+	return modelOptions(s.catalog, s.harness)
+}
+
+// modelOptions 是可选的模型（输入栏和设置的默认模型共用，同桌面版 modelSource.choices）：有生效中转时只有它报的具体 ID
+// （对应的完整 ID 就是它自己）；没有时是 Claude Code 报的清单 harness 分好的两层，还没报时是常用的别名。
+func modelOptions(catalog coreapi.ModelCatalog, harness []chat.ModelOption) (latest, older []chat.ModelOption) {
+	switch {
+	case catalog.Relay != "":
+		for _, x := range catalog.Models {
 			latest = append(latest, chat.ModelOption{Value: x.ID, DisplayName: x.DisplayName, ResolvedModel: x.ID})
 		}
 		return latest, nil
-	case len(s.harness) == 0:
+	case len(harness) == 0:
 		return chat.FallbackModels, nil
 	}
-	return chat.SplitModels(s.harness)
+	return chat.SplitModels(harness)
 }
 
 // Choice 是菜单里的一项。

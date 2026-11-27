@@ -115,8 +115,8 @@ func (c *Core) modelChoices(backend string) (modelChoices, error) {
 	}
 	if catalog.Relay != "" {
 		out := modelChoices{Source: "relay", Models: []ModelChoice{}}
-		for _, m := range catalog.Models {
-			o := chat.ModelOption{Value: m.ID, DisplayName: m.DisplayName, ResolvedModel: m.ID}
+		latest, _ := modelOptions(catalog, nil)
+		for _, o := range latest {
 			out.Models = append(out.Models, ModelChoice{Value: o.Value, Label: o.Name(), ID: o.FullID()})
 		}
 		return out, nil
@@ -126,10 +126,7 @@ func (c *Core) modelChoices(backend string) (modelChoices, error) {
 			reported = list
 		}
 	}
-	latest, older := chat.FallbackModels, []chat.ModelOption(nil)
-	if len(reported) > 0 {
-		latest, older = chat.SplitModels(reported)
-	}
+	latest, older := modelOptions(catalog, reported)
 	return modelChoices{Source: "harness", Models: harnessChoices(latest, older)}, nil
 }
 
