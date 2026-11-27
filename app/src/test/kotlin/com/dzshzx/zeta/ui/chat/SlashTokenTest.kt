@@ -31,6 +31,9 @@ class SlashTokenTest {
                 "hello /copy x|" to "-",
                 "hello |" to "-",
                 "/compact| foo" to "compact 0-8",
+                "/sim|已有的话 还有" to "sim 0-4",
+                "/si|mp已有的话" to "si 0-5",
+                "/a|b:c-d_e.f，后面" to "a 0-11",
             )
         for ((typed, want) in cases) assertEquals(typed, want, at(typed))
         assertEquals(null, SlashToken.at("/x", 3))
@@ -46,6 +49,9 @@ class SlashTokenTest {
                 Triple("hello /c|o world", "copy", "hello /copy |world"),
                 Triple("你好 /c|x", "clear", "你好 /clear |"),
                 Triple("/co|\n下一行", "copy", "/copy\n|下一行"),
+                Triple("/simplify|已有的话，没有空格", "simplify", "/simplify |已有的话，没有空格"),
+                Triple("/sim|已有的话 还有", "simplify", "/simplify |已有的话 还有"),
+                Triple("前面 /si|mp已有的话", "simplify", "前面 /simplify |已有的话"),
             )
         for ((typed, name, want) in cases) {
             val caret = typed.indexOf('|')

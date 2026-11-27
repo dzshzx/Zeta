@@ -12,7 +12,7 @@ func TestSlashAt(t *testing.T) {
 		"/|": " 0-1", "/Com|": "com 0-4", "/compact x|": "-", "x/|": "-", "|": "-", "/a\nb|": "-",
 		"hello /co|": "co 6-9", "你好 /co|": "co 3-6", "你好，/co|": "-", "hello/co|": "-",
 		"hello /co| world": "co 6-9", "hello /c|o world": "c 6-9", "a\n/c|": "c 2-4", "hello /copy x|": "-", "hello |": "-",
-		"/compact| foo": "compact 0-8",
+		"/compact| foo": "compact 0-8", "/sim|已有的话 还有": "sim 0-4", "/si|mp已有的话": "si 0-5", "/a|b:c-d_e.f，后面": "a 0-11",
 	} {
 		caret := len([]rune(typed[:strings.Index(typed, "|")]))
 		text := strings.Replace(typed, "|", "", 1)
@@ -37,6 +37,9 @@ func TestSlashComplete(t *testing.T) {
 		{"hello /c|o world", "copy", "hello /copy |world"},
 		{"你好 /c|x", "clear", "你好 /clear |"},
 		{"/co|\n下一行", "copy", "/copy\n|下一行"},
+		{"/simplify|已有的话，没有空格", "simplify", "/simplify |已有的话，没有空格"},
+		{"/sim|已有的话 还有", "simplify", "/simplify |已有的话 还有"},
+		{"前面 /si|mp已有的话", "simplify", "前面 /simplify |已有的话"},
 	} {
 		caret := len([]rune(c.text[:strings.Index(c.text, "|")]))
 		text := strings.Replace(c.text, "|", "", 1)
