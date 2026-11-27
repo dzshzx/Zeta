@@ -21,7 +21,7 @@ build() { # <目录名> <SDK> <clang 的 -target>
   sdk=$(xcrun --sdk "$2" --show-sdk-path)
   mkdir -p "$dir/include"
   (
-    cd "$root/client"
+    cd "$root/hub"
     CC=$(xcrun --sdk "$2" -f clang)
     export CC CGO_ENABLED=1 GOOS=ios GOARCH=arm64
     export CGO_CFLAGS="-isysroot $sdk -target $3" CGO_LDFLAGS="-isysroot $sdk -target $3"
