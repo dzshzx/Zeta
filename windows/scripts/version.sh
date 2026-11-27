@@ -1,6 +1,6 @@
 #!/bin/bash
-# 打印这个提交的版本号和版本名，用空格隔开（桌面版 installer/build.sh、iOS 版 ios/scripts/build.sh 用）。算法同根目录 build.gradle.kts 的
-# commitCount、versionLabel（手机版用的那个）：版本号是 HEAD 的提交数，发版 tag 上版本名是干净的 X.Y.Z，别的提交是 X.Y.(Z+1)-dev.N+g<提交号>。
+# 打印这个提交的版本号、版本名和是不是正式版（1 或 0），用空格隔开（桌面版 installer/build.sh、iOS 版 ios/scripts/build.sh 用）。算法同根目录 build.gradle.kts 的
+# commitCount、versionLabel（手机版用的那个）：版本号是 HEAD 的提交数，发版 tag 上版本名是干净的 X.Y.Z，别的提交是 X.Y.(Z+1)-dev.N+g<提交号>。正式版就是版本名为干净的 X.Y.Z（同 internal/update 的 Version.Release）。
 set -euo pipefail
 dir=$(cd "$(dirname "$0")" && pwd)
 code=$(git -C "$dir" rev-list --count HEAD)
@@ -16,4 +16,6 @@ if [[ $described =~ ^v([0-9]+)\.([0-9]+)\.([0-9]+)-([0-9]+)-g[0-9a-f]+$ ]]; then
 else
   version=0.7.0-dev.$code+g$hash
 fi
-echo "$code $version"
+release=0
+[[ $version =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]] && release=1
+echo "$code $version $release"

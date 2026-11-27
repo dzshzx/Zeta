@@ -89,18 +89,18 @@ jobs:
       - name: 安装 XcodeGen
         run: brew install xcodegen
 
-      - name: 模拟器上的测试
-        run: bash ios/scripts/build.sh test
-
-      - name: 打不签名的 ipa
+      # 核心和工程只编、生成一次：模拟器上的测试，截图用它编出的 Debug 包，最后打不签名的 ipa（最后一行是它的路径）
+      - name: 测试并打包
         id: ipa
-        run: echo "path=$(bash ios/scripts/build.sh ipa | tail -1)" >> "$GITHUB_OUTPUT"
+        run: |
+          set -euo pipefail
+          bash ios/scripts/build.sh test simulator ipa | tee "$RUNNER_TEMP/build.log"
+          echo "path=$(tail -1 "$RUNNER_TEMP/build.log")" >> "$GITHUB_OUTPUT"
 
       # 起一台模拟器装上 Debug 包，打开后截图（简体中文、英文各一张），给看界面的人用
       - name: 模拟器截图
         run: |
           set -euo pipefail
-          bash ios/scripts/build.sh simulator
           udid=$(bash ios/scripts/simulator.sh)
           bundle=$(cat ios/build/sim/bundle)
           xcrun simctl boot "$udid" || true

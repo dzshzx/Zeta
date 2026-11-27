@@ -7,8 +7,11 @@ set -euo pipefail
 root=$(cd "$(dirname "$0")/../.." && pwd)
 out=$root/ios/build
 min=$(sed -n 's/^ *iOS: "\(.*\)"$/\1/p' "$root/ios/project.yml")
-[[ -n $min ]] || { echo "core.sh: project.yml 里没读出 deploymentTarget 的 iOS 版本" >&2; exit 1; }
-read -r code version < <(bash "$root/windows/scripts/version.sh")
+[[ -n $min ]] || {
+  echo "core.sh: project.yml 里没读出 deploymentTarget 的 iOS 版本" >&2
+  exit 1
+}
+read -r code version release < <(bash "$root/windows/scripts/version.sh")
 pkg=github.com/dzshzx/Zeta/windows/internal/update
 ldflags="-s -w -X $pkg.versionName=$version -X $pkg.versionCode=$code"
 rm -rf "$out/core" "$out/ZetaCore.xcframework"
@@ -27,10 +30,13 @@ build() { # <目录名> <SDK> <clang 的 -target>
   mv "$dir/libzeta.h" "$dir/include/"
   printf 'module ZetaCore {\n  header "libzeta.h"\n  export *\n}\n' >"$dir/include/module.modulemap"
 }
-build device iphoneos "arm64-apple-ios$min"
+# 两份互不相干，同时编
+build device iphoneos "arm64-apple-ios$min" &
+device=$!
 build simulator iphonesimulator "arm64-apple-ios$min-simulator"
+wait "$device"
 xcodebuild -create-xcframework \
   -library "$out/core/device/libzeta.a" -headers "$out/core/device/include" \
   -library "$out/core/simulator/libzeta.a" -headers "$out/core/simulator/include" \
   -output "$out/ZetaCore.xcframework"
-echo "$code $version" >"$out/version"
+echo "$code $version $release" >"$out/version"

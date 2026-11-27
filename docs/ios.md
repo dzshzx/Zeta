@@ -30,19 +30,19 @@ ios/ZetaTests/            模拟器上的冒烟测试：静态库链进来了、
 
 Swift 经三个 C 函数调核心（`windows/cmd/zeta-ios`）：
 
-- `ZetaStart(dir, seed, seedLen, lang, device, changed)`：起核心，成功返回 NULL，否则是原因。`changed` 在状态有变化时调（在 Go 的线程上），Swift 攒 50 毫秒取一次 `state`。
+- `ZetaStart(dir, seed, seedLen, lang, device, changed)`：起核心，成功返回 NULL，否则是原因。`changed` 在状态有变化时调（在 Go 的线程上），Swift 攒 50 毫秒取一次 `state`。界面语言在这里设一次（进程里全局的）。
 - `ZetaCall(method, params, n)`：参数和结果都是 JSON；出错时结果是 `{"error": "原因"}`。
 - `ZetaFree(p)`：释放上面两个返回的字符串。
 
-中枢的方法都在核心自己的一个 goroutine 上跑（同桌面版的界面线程），`ZetaCall` 排进去等它跑完，所以很快返回；只有 `probe` 在调用方的线程上等。方法：
+中枢的方法都在核心自己的一个 goroutine 上跑（同桌面版的界面线程），`ZetaCall` 排进去等它跑完，所以很快返回；只有 `probe` 在调用方的线程上等。每批跑完通知一次界面，只有 `state` 这样的读取不算变化，不然界面取一次又被叫来取一次。方法：
 
 | 方法 | 参数 | 结果 |
 |---|---|---|
 | `key` | | `{public, version}`：authorized_keys 格式的公钥、版本名 |
 | `state` | | 界面要画的全部（`mobile.State`）：设备、会话列表、聊天页；聊天页的 `items` 是上次 `state` 以后条目的变化（同桌面版的 `Take`），换了对话时第一项是整份 |
-| `items` | | 聊天页对话此刻的整份条目（套变化对不上时整份重来） |
+| `resync` | | 下一次 `state` 整份交聊天页的条目（界面套变化对不上时） |
 | `probe` | `target` | 连一次查到的：`{token, summary, hostname, fingerprint}`；阻塞，最多约 45 秒 |
-| `add` | `token` | 添加探测过的设备，`{id}` |
+| `add` | `token` | 添加探测过的设备 |
 | `remove`、`connect` | `id`（`connect` 另有 `on`） | 删设备；设备页的「连接」开关 |
 | `list` | `id` | 会话列表列哪台，空是全部设备 |
 | `refresh` | | 重新订阅列着的设备 |
@@ -54,7 +54,7 @@ Swift 经三个 C 函数调核心（`windows/cmd/zeta-ios`）：
 
 ## 构建与测试
 
-本机和本机 runner 都没有 macOS，iOS 版只在 GitHub 托管的 macOS 上编（`.github/workflows/ios.yml`，`xcode-27` 镜像，挑其中版本最高的正式版 Xcode）：推送改到它的提交时跑，任务分支也跑；`gh workflow run ios.yml --ref <分支>` 手动跑。一次运行：Linux 上跑 `windows/scripts/assets.sh`，macOS 上跑模拟器上的测试、打不签名的 ipa、在模拟器里截简体中文和英文两张首屏图；ipa 和截图在这次运行的 artifacts 里。master 上的构建另外发成预发布版本 `ios-dev-<提交号>`（不用登录就能下载，全部预构建见 `https://github.com/dzshzx/Zeta/releases?q=ios-dev&expanded=true`），tag 不以 v 开头、标成预发布，不影响版本号和应用内更新。
+本机和本机 runner 都没有 macOS，iOS 版只在 GitHub 托管的 macOS 上编（`.github/workflows/ios.yml`，`xcode-27` 镜像，挑其中版本最高的正式版 Xcode）：推送改到它的提交时跑，任务分支也跑；`gh workflow run ios.yml --ref <分支>` 手动跑。一次运行：Linux 上跑 `windows/scripts/assets.sh`，macOS 上 `build.sh test simulator ipa`（核心和工程只编、生成一次）跑模拟器上的测试、打不签名的 ipa，再在模拟器里截简体中文和英文两张首屏图；ipa 和截图在这次运行的 artifacts 里。master 上的构建另外发成预发布版本 `ios-dev-<提交号>`（不用登录就能下载，全部预构建见 `https://github.com/dzshzx/Zeta/releases?q=ios-dev&expanded=true`），tag 不以 v 开头、标成预发布，不影响版本号和应用内更新。
 
 - Go 一侧的改动照常在本机测：`cd windows && go test ./internal/mobile`（先跑过 `scripts/assets.sh`），合入门禁也跑它。
 - Swift 在本机只过 SwiftLint 和圈复杂度（`scripts/format.sh --lint`，合入门禁里跑）；编译、模拟器测试只在 CI 上。

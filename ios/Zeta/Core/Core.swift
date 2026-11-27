@@ -50,17 +50,21 @@ struct Core: Sendable {
         guard let answer else { throw Failure(message: "core returned nothing for \(method)") }
         defer { ZetaFree(answer) }
         let data = Data(bytes: answer, count: strlen(answer))
-        if let failed = try? JSONDecoder().decode(Refusal.self, from: data), let message = failed.error {
-            throw Failure(message: message)
+        // 出错的回答只有 {"error": …} 一项，按开头认，不把每个回答都多解一遍
+        if data.starts(with: Self.refusalPrefix), let failed = try? Self.decoder.decode(Refusal.self, from: data) {
+            throw Failure(message: failed.error)
         }
         return data
     }
 
     func call<T: Decodable>(_ method: String, _ params: [String: any Sendable] = [:], as type: T.Type) throws -> T {
-        try JSONDecoder().decode(type, from: call(method, params))
+        try Self.decoder.decode(type, from: call(method, params))
     }
 
+    private static let decoder = JSONDecoder()
+    private static let refusalPrefix = Data(#"{"error":"#.utf8)
+
     private struct Refusal: Decodable {
-        let error: String?
+        let error: String
     }
 }

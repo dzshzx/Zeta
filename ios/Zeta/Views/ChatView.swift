@@ -57,14 +57,10 @@ struct ChatView: View {
     private func bottomBar(_ chat: ChatState) -> some View {
         VStack(spacing: 10) {
             if !chat.linkProblem.isEmpty {
-                Label(chat.linkProblem, systemImage: "wifi.exclamationmark")
-                    .font(.footnote)
-                    .foregroundStyle(.secondary)
+                Banner(text: Text(chat.linkProblem), icon: "wifi.exclamationmark")
             }
             if chat.blocked {
-                Label("会话正在别处运行，在那边退出后才能在这里接着", systemImage: "terminal")
-                    .font(.footnote)
-                    .foregroundStyle(.secondary)
+                Banner(text: Text("会话正在别处运行，在那边退出后才能在这里接着"), icon: "terminal")
             }
             if let prompt = chat.prompts.first {
                 PromptCard(prompt: prompt)
@@ -81,38 +77,46 @@ struct ChatView: View {
 private struct Composer: View {
     @Environment(AppModel.self) private var model
     @State private var draft = ""
-    @FocusState private var focused: Bool
     let busy: Bool
     let enabled: Bool
 
     private var empty: Bool { draft.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty }
+    /// 回答中、没字时圆钮是停止。
+    private var stopping: Bool { busy && empty }
 
     var body: some View {
         HStack(alignment: .bottom, spacing: 8) {
             TextField("发消息", text: $draft, axis: .vertical)
                 .lineLimit(1...8)
-                .focused($focused)
                 .padding(.vertical, 10)
                 .padding(.leading, 16)
-            if busy && empty {
-                Button("停止", systemImage: "stop.fill") { model.perform("interrupt") }
-                    .labelStyle(.iconOnly)
-                    .buttonStyle(.glassProminent)
-                    .buttonBorderShape(.circle)
-                    .controlSize(.large)
-            } else {
-                Button("发送", systemImage: "arrow.up") {
+            Button(stopping ? "停止" : "发送", systemImage: stopping ? "stop.fill" : "arrow.up") {
+                if stopping {
+                    model.perform("interrupt")
+                } else {
                     model.perform("send", ["text": draft])
                     draft = ""
                 }
-                .labelStyle(.iconOnly)
-                .buttonStyle(.glassProminent)
-                .buttonBorderShape(.circle)
-                .controlSize(.large)
-                .disabled(empty || !enabled)
             }
+            .labelStyle(.iconOnly)
+            .buttonStyle(.glassProminent)
+            .buttonBorderShape(.circle)
+            .controlSize(.large)
+            .disabled(!stopping && (empty || !enabled))
         }
         .padding(4)
         .glassEffect(.regular.interactive(), in: .rect(cornerRadius: 26))
+    }
+}
+
+/// 一行灰色的小字提示，带图标（连接的问题、别处运行、会话列表读不成）。
+struct Banner: View {
+    let text: Text
+    let icon: String
+
+    var body: some View {
+        Label { text } icon: { Image(systemName: icon) }
+            .font(.footnote)
+            .foregroundStyle(.secondary)
     }
 }

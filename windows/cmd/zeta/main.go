@@ -6,7 +6,6 @@ import (
 	"os"
 	"path/filepath"
 	"runtime/debug"
-	"time"
 
 	"github.com/dzshzx/Zeta/client/hostlink"
 	"github.com/dzshzx/Zeta/client/sshlink"
@@ -53,16 +52,12 @@ func main() {
 	if err != nil {
 		log.Printf("zeta: %v", err)
 	}
-	helper, err := host.LoadProgram(hostlink.ZetaHelper)
-	if err != nil {
-		fatal(err)
-	}
-	switcher, err := host.LoadProgram(hostlink.ClaudeSwitch)
-	if err != nil {
-		fatal(err)
-	}
 	config := sshlink.NewOpenSSH()
-	devices := &host.Devices{Links: sshlink.NewLinks(config, time.Minute), Config: config, Helper: helper, Switch: switcher}
+	devices, err := host.NewDevices(config)
+	if err != nil {
+		fatal(err)
+	}
+	devices.Config, devices.Device = config, host.ThisDevice()
 
 	// 后台 goroutine 的结果经窗口的 Update 回到主线程，改完重画
 	var win *mygo.Window

@@ -159,7 +159,7 @@ private struct AddDeviceView: View {
 
     private func add(_ found: Probed) {
         do {
-            _ = try model.add(found)
+            try model.add(found)
             dismiss()
         } catch {
             problem = error.localizedDescription

@@ -66,7 +66,7 @@ final class AppModel {
         }
     }
 
-    /// 把条目的变化依次套上；对不上时（不该发生）整份重取。
+    /// 把条目的变化依次套上；对不上时让核心下一次整份交。
     private func apply(_ chat: ChatState?) {
         guard let chat else {
             items = []
@@ -78,14 +78,15 @@ final class AppModel {
                 items = added
             } else if change.start >= 0, change.remove >= 0, change.start + change.remove <= items.count {
                 items.replaceSubrange(change.start..<(change.start + change.remove), with: added)
-            } else if let whole = try? core?.call("items", as: [Item].self) {
-                items = whole
+            } else {
+                // 对不上（不该发生）：叫核心下一次整份交
+                perform("resync")
                 return
             }
         }
     }
 
-    /// 调核心的一个方法，没成时弹出原因。
+    /// 调核心的一个方法，没成时弹出原因。状态变了由核心通知，不用另外刷新。
     func perform(_ method: String, _ params: [String: any Sendable] = [:]) {
         guard let core else { return }
         do {
@@ -93,7 +94,6 @@ final class AppModel {
         } catch {
             alert = error.localizedDescription
         }
-        scheduleRefresh()
     }
 
     /// 探测地址 target（会等到连上、查完，最多约 45 秒），不在主线程上等。
@@ -102,13 +102,10 @@ final class AppModel {
         return try await Task.detached { try core.call("probe", ["target": target], as: Probed.self) }.value
     }
 
-    /// 添加探测过的设备，返回它的编号。
-    func add(_ probed: Probed) throws -> String {
+    /// 添加探测过的设备。
+    func add(_ probed: Probed) throws {
         guard let core else { throw Core.Failure(message: "core not started") }
-        struct Added: Decodable { let id: String }
-        let added = try core.call("add", ["token": probed.token], as: Added.self)
-        scheduleRefresh()
-        return added.id
+        _ = try core.call("add", ["token": probed.token])
     }
 
     func deviceName(_ id: String) -> String {

@@ -76,11 +76,11 @@ func TestProbeAddListOpen(t *testing.T) {
 	if p.Token == "" || p.Fingerprint == "" || p.Hostname != "me@box" {
 		t.Fatalf("探测 %+v", p)
 	}
-	added := call[map[string]string](t, c, "add", map[string]string{"token": p.Token})
+	call[map[string]bool](t, c, "add", map[string]string{"token": p.Token})
 	if why := failure(c, "add", `{"token":"`+p.Token+`"}`); why != locales.MobileProbeFirst() {
 		t.Errorf("凭据用了第二次：%q", why)
 	}
-	id := added["id"]
+	id := call[State](t, c, "state", nil).Devices[0].ID
 	d.Push(id, hostlink.SessionsUpdate{Full: true, Upsert: []hostlink.Session{{ID: "s1", Title: "第一个", Cwd: "/home/me/w", Updated: 2}}})
 	c.Do(func() {}) // 推送经 post 排进核心的 goroutine，等它跑完
 	st := call[State](t, c, "state", nil)

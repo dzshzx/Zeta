@@ -12,6 +12,7 @@ static inline void zeta_changed(zeta_changed_fn f) { if (f) f(); }
 import "C"
 
 import (
+	"cmp"
 	"log"
 	"path/filepath"
 	"sync"
@@ -19,6 +20,7 @@ import (
 
 	"github.com/dzshzx/Zeta/windows/internal/mobile"
 	"github.com/dzshzx/Zeta/windows/internal/runlog"
+	"github.com/egoist/mygo/i18n"
 )
 
 var (
@@ -37,9 +39,11 @@ func ZetaStart(dir *C.char, seed unsafe.Pointer, seedLen C.int, lang, device *C.
 		return nil
 	}
 	d := C.GoString(dir)
+	language := cmp.Or(C.GoString(lang), "zh-Hans")
+	i18n.SetLocaleFunc(func() string { return language })
 	log.SetFlags(0)
 	log.SetOutput(runlog.Open(filepath.Join(d, "diag"), nil))
-	c, err := mobile.Start(mobile.Config{Dir: d, Seed: C.GoBytes(seed, seedLen), Lang: C.GoString(lang), Device: C.GoString(device),
+	c, err := mobile.Start(mobile.Config{Dir: d, Seed: C.GoBytes(seed, seedLen), Device: C.GoString(device),
 		Changed: func() { C.zeta_changed(changed) }})
 	if err != nil {
 		return C.CString(err.Error())

@@ -8,6 +8,16 @@ struct SessionListView: View {
 
     private var rows: [SessionRow] { model.state.sessions.filter { !$0.archived } }
 
+    /// 一组会话；没有会话时整组不显示。
+    @ViewBuilder
+    private func section(_ title: LocalizedStringKey, _ list: [SessionRow]) -> some View {
+        if !list.isEmpty {
+            Section(title) {
+                ForEach(list, id: \.key) { rowView($0) }
+            }
+        }
+    }
+
     private func rowView(_ row: SessionRow) -> some View {
         SessionRowView(row: row, showDevice: model.state.listed.isEmpty)
             .tag(Route.session(backend: row.backend, id: row.id))
@@ -16,26 +26,11 @@ struct SessionListView: View {
     var body: some View {
         List(selection: $selection) {
             if !model.state.problem.isEmpty {
-                Label(model.state.problem, systemImage: "wifi.exclamationmark")
-                    .font(.footnote)
-                    .foregroundStyle(.secondary)
+                Banner(text: Text(model.state.problem), icon: "wifi.exclamationmark")
             }
-            let pinned = rows.filter(\.pinned)
-            if !pinned.isEmpty {
-                Section("置顶") {
-                    ForEach(pinned, id: \.key) { row in
-                        rowView(row)
-                    }
-                }
-            }
-            let others = rows.filter { !$0.pinned }
-            if !others.isEmpty {
-                Section("对话") {
-                    ForEach(others, id: \.key) { row in
-                        rowView(row)
-                    }
-                }
-            }
+            let visible = rows
+            section("置顶", visible.filter(\.pinned))
+            section("对话", visible.filter { !$0.pinned })
         }
         .listStyle(.sidebar)
         .navigationTitle("Zeta")

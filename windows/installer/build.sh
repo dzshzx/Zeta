@@ -15,10 +15,10 @@ out=${1:-$windows/build}
 mkdir -p "$out"
 out=$(cd "$out" && pwd)
 
-read -r code version < <(bash "$windows/scripts/version.sh")
+read -r code version release < <(bash "$windows/scripts/version.sh")
 
 project=$windows name=Zeta
-if [[ ! $version =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+if [[ $release == 0 ]]; then
   command -v jq >/dev/null || {
     echo "build.sh: 打测试版要 jq（sudo apt install jq）" >&2
     exit 1

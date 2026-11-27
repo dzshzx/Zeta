@@ -16,7 +16,6 @@ import (
 	"slices"
 	"strings"
 	"sync"
-	"time"
 
 	"github.com/dzshzx/Zeta/client/hostlink"
 	"github.com/dzshzx/Zeta/client/sshlink"
@@ -28,7 +27,6 @@ import (
 	"github.com/dzshzx/Zeta/windows/internal/locales"
 	"github.com/dzshzx/Zeta/windows/internal/settings"
 	"github.com/dzshzx/Zeta/windows/internal/update"
-	"github.com/egoist/mygo/i18n"
 	"golang.org/x/crypto/ssh"
 )
 
@@ -38,8 +36,6 @@ type Config struct {
 	Dir string
 	// Seed 是 Zeta 登录用的 Ed25519 私钥的 32 字节种子，界面存在钥匙串里，每次起核心时交进来。
 	Seed []byte
-	// Lang 是界面语言（zh-Hans、en），空是 zh-Hans。
-	Lang string
 	// Device 是这台手机的名字，对话连接连上时报给核心（core.client），别的客户端看到会话被占着时说在哪台设备上。空是不报。
 	Device string
 	// Changed 在状态有了变化时调，在核心的 goroutine 上；界面收到后自己挑时候调 Call("state")。
@@ -55,7 +51,7 @@ type Core struct {
 	// 排给核心 goroutine 的事，按排进来的先后跑。不设上限：排的一方可能就是核心 goroutine 自己（中枢在主线程上也会 post），
 	// 有上限的通道满了会卡死。wake 有事可做时有一个信号。
 	queueMu sync.Mutex
-	queue   []func()
+	queue   []job
 	wake    chan struct{}
 
 	mu     sync.Mutex
@@ -66,12 +62,18 @@ type Core struct {
 	problem string             // 最近一次操作没成的原因，界面显示一次就清掉（state 的 failed）
 }
 
+// job 是排给核心 goroutine 的一件事；quiet 的（界面自己来取状态）跑完不算有变化，不然界面每取一次就又被叫来取一次。
+type job struct {
+	run   func()
+	quiet bool
+}
+
 type probed struct {
 	target string
 	found  host.Found
 }
 
-// Devices 是核心碰设备的几样：中枢要的 hub.Devices，iOS 上没有 ~/.ssh，导入配置和选私钥都没有。
+// devices 是中枢要的 hub.Devices：iOS 上没有 ~/.ssh，导入配置和选私钥都答没有。
 type devices struct{ *host.Devices }
 
 func (devices) ConfigHosts() ([]string, error) { return nil, nil }
@@ -87,12 +89,6 @@ func Start(c Config) (*Core, error) {
 	if len(c.Seed) != ed25519.SeedSize {
 		return nil, fmt.Errorf("key seed must be %d bytes, got %d", ed25519.SeedSize, len(c.Seed))
 	}
-	lang := c.Lang
-	if lang == "" {
-		lang = "zh-Hans"
-	}
-	i18n.SetLocaleFunc(func() string { return lang })
-	host.ThisDevice = func() string { return c.Device }
 	signer, err := ssh.NewSignerFromKey(ed25519.NewKeyFromSeed(c.Seed))
 	if err != nil {
 		return nil, err
@@ -101,17 +97,12 @@ func Start(c Config) (*Core, error) {
 	if err != nil {
 		log.Printf("zeta: %v", err)
 	}
-	helper, err := host.LoadProgram(hostlink.ZetaHelper)
+	set, err := host.NewDevices(appAuth{sshlink.KeyAuth{Signer: signer}})
 	if err != nil {
 		return nil, err
 	}
-	switcher, err := host.LoadProgram(hostlink.ClaudeSwitch)
-	if err != nil {
-		return nil, err
-	}
-	links := sshlink.NewLinks(appAuth{sshlink.KeyAuth{Signer: signer}}, time.Minute)
-	d := devices{&host.Devices{Links: links, Helper: helper, Switch: switcher}}
-	core := New(prefs, d, c.Changed)
+	set.Device = c.Device
+	core := New(prefs, devices{set}, c.Changed)
 	core.public = strings.TrimSpace(string(ssh.MarshalAuthorizedKey(signer.PublicKey()))) + " zeta-ios"
 	core.Do(core.hub.Start)
 	return core, nil
@@ -130,9 +121,11 @@ func New(s *settings.Settings, d hub.Devices, changed func()) *Core {
 }
 
 // post 把 f 排给核心 goroutine，不等它跑。
-func (c *Core) post(f func()) {
+func (c *Core) post(f func()) { c.enqueue(job{run: f}) }
+
+func (c *Core) enqueue(j job) {
 	c.queueMu.Lock()
-	c.queue = append(c.queue, f)
+	c.queue = append(c.queue, j)
 	c.queueMu.Unlock()
 	select {
 	case c.wake <- struct{}{}:
@@ -140,7 +133,7 @@ func (c *Core) post(f func()) {
 	}
 }
 
-// loop 是核心 goroutine：把排着的逐个跑完，每跑完一批通知界面一次。
+// loop 是核心 goroutine：把排着的逐个跑完，一批里有不是 quiet 的就通知界面一次。
 func (c *Core) loop() {
 	for range c.wake {
 		for {
@@ -151,18 +144,24 @@ func (c *Core) loop() {
 			if len(batch) == 0 {
 				break
 			}
-			for _, f := range batch {
-				f()
+			changed := false
+			for _, j := range batch {
+				j.run()
+				changed = changed || !j.quiet
 			}
-			c.changed()
+			if changed {
+				c.changed()
+			}
 		}
 	}
 }
 
 // Do 在核心的 goroutine 上跑 f，等它跑完。不能在核心 goroutine 上调（会等自己）。
-func (c *Core) Do(f func()) {
+func (c *Core) Do(f func()) { c.wait(f, false) }
+
+func (c *Core) wait(f func(), quiet bool) {
 	done := make(chan struct{})
-	c.post(func() { defer close(done); f() })
+	c.enqueue(job{run: func() { defer close(done); f() }, quiet: quiet})
 	<-done
 }
 
@@ -202,7 +201,7 @@ func (c *Core) call(method string, raw []byte) (any, error) {
 	}
 	var result any
 	var err error
-	c.Do(func() { result, err = c.onLoop(method, p) })
+	c.wait(func() { result, err = c.onLoop(method, p) }, method == "state")
 	return result, err
 }
 
@@ -223,8 +222,9 @@ func (c *Core) onLoop(method string, p params) (any, error) {
 	switch method {
 	case "state":
 		return c.state(), nil
-	case "items":
-		return c.items(), nil
+	case "resync":
+		c.shown = nil // 下一次 state 整份交条目
+		return ok, nil
 	case "add":
 		return c.add(p.Token)
 	case "remove":
@@ -292,11 +292,12 @@ func (c *Core) chatCall(method string, p params) (any, error) {
 
 // session 找列着的会话。
 func (c *Core) session(backend, id string) (hostlink.Session, bool) {
-	i := slices.IndexFunc(c.hub.Sessions(), func(s hostlink.Session) bool { return s.Backend == backend && s.ID == id })
+	list := c.hub.Sessions()
+	i := slices.IndexFunc(list, func(s hostlink.Session) bool { return s.Backend == backend && s.ID == id })
 	if i < 0 {
 		return hostlink.Session{}, false
 	}
-	return c.hub.Sessions()[i], true
+	return list[i], true
 }
 
 // Probed 是探测的结果：凭据 token 交给 add 加上这台，别的给人看。
@@ -328,6 +329,6 @@ func (c *Core) add(token string) (any, error) {
 	if !found {
 		return nil, locales.Err(locales.MobileProbeFirst)
 	}
-	x, err := c.hub.AddHost(p.target, "", p.found)
-	return map[string]string{"id": x.ID}, err
+	_, err := c.hub.AddHost(p.target, "", p.found)
+	return ok, err
 }

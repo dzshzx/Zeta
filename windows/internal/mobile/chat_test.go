@@ -40,7 +40,8 @@ func TestChatItemsAndAnswer(t *testing.T) {
 		})
 	}
 	p := call[Probed](t, c, "probe", map[string]string{"target": "me@box"})
-	id := call[map[string]string](t, c, "add", map[string]string{"token": p.Token})["id"]
+	call[map[string]bool](t, c, "add", map[string]string{"token": p.Token})
+	id := call[State](t, c, "state", nil).Devices[0].ID
 	call[map[string]bool](t, c, "new", map[string]string{"backend": id})
 	until(t, c, changed, func() bool { ch := c.hub.Chat(); return ch != nil && !ch.Opening })
 	st := call[State](t, c, "state", nil)
@@ -62,9 +63,11 @@ func TestChatItemsAndAnswer(t *testing.T) {
 		t.Fatalf("一轮里交的不是变化：%+v", st.Chat.Items)
 	}
 	shown = apply(t, shown, st)
-	var whole []items.Item
-	if err := json.Unmarshal(c.Call("items", nil), &whole); err != nil || len(whole) == 0 || !reflect.DeepEqual(shown, whole) {
-		t.Fatalf("套出来的 %+v，整份 %+v（%v）", shown, whole, err)
+	// resync 以后 state 整份重交，和套出来的一样
+	call[map[string]bool](t, c, "resync", nil)
+	st = call[State](t, c, "state", nil)
+	if len(st.Chat.Items) != 1 || !st.Chat.Items[0].Full || len(shown) == 0 || !reflect.DeepEqual(shown, st.Chat.Items[0].Items) {
+		t.Fatalf("套出来的 %+v，整份 %+v", shown, st.Chat.Items)
 	}
 
 	push("permission")

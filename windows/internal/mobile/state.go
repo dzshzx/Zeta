@@ -2,7 +2,6 @@ package mobile
 
 import (
 	"cmp"
-	"encoding/json"
 	"slices"
 	"time"
 
@@ -134,19 +133,6 @@ func (c *Core) chatState(locale string) *Chat {
 		out.Items = append(out.Items, change)
 	}
 	return out
-}
-
-// items 是聊天页对话此刻的整份条目（界面套变化对不上时整份重来）。
-func (c *Core) items() json.RawMessage {
-	ch := c.hub.Chat()
-	if ch == nil || ch.Conv == nil {
-		return json.RawMessage("[]")
-	}
-	data, err := json.Marshal(said(ch.Conv.Items(), i18n.Locale()))
-	if err != nil {
-		return json.RawMessage("[]")
-	}
-	return data
 }
 
 // said 把条目里核心按种类码写的字（提示、工具结果）换成界面语言说的，Swift 一侧只管显示 text、result。改的是副本。

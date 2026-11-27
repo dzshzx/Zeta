@@ -3,6 +3,7 @@ package host
 import (
 	"io"
 	"log"
+	"time"
 
 	"github.com/dzshzx/Zeta/client/hostlink"
 	"github.com/dzshzx/Zeta/client/sshlink"
@@ -16,6 +17,21 @@ type Devices struct {
 	Helper *hostlink.Program
 	// Switch 是带到设备上的 claude-switch（账号与额度），见 ClaudeSwitch。
 	Switch *hostlink.Program
+	// Device 是这台设备的名字，对话连接连上时报给核心（core.client），空是不报（见 ThisDevice）。
+	Device string
+}
+
+// NewDevices 用认证 auth 建 Devices：取编进程序的 zeta-helper 和 claude-switch，SSH 连接闲一分钟断开。Config、Device 由调用方填。
+func NewDevices(auth sshlink.Resolver) (*Devices, error) {
+	helper, err := LoadProgram(hostlink.ZetaHelper)
+	if err != nil {
+		return nil, err
+	}
+	switcher, err := LoadProgram(hostlink.ClaudeSwitch)
+	if err != nil {
+		return nil, err
+	}
+	return &Devices{Links: sshlink.NewLinks(auth, time.Minute), Helper: helper, Switch: switcher}, nil
 }
 
 // Probe 见 host.Probe。
