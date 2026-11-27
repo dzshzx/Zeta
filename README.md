@@ -1,19 +1,29 @@
 # Zeta
 
-Zeta 是 root 过的 Android 手机上 [Claude Code](https://github.com/anthropics/claude-code) 的原生客户端：它在手机里装好 Debian 和 Claude Code，你用一个 ColorOS 风格的原生界面和 Claude 对话，Claude 也能在后台操作这台手机。
+Zeta 是 [Claude Code](https://github.com/anthropics/claude-code) 的跨平台原生客户端，有 Android 版（root 过的手机）和 Windows 版。
 
 > Zeta 是个人维护的非官方项目。Claude 是 Anthropic 的商标；Zeta 不是 Anthropic 的产品，与 Anthropic 没有关联。
 
 ## 能做什么
 
-- **原生的对话界面**：Markdown、代码块和公式照手机屏幕排版；思考、工具调用、子代理、后台任务都能点开看；会话列表能改名、归档、置顶、导出，能从中间改写一条消息重来。
-- **自带 Linux 环境**：一键装好 Debian、Claude Code 和常用工具（Go、Node.js、Python 等可选），Claude Code 的配置（记忆、Skills、MCP、Subagent、工具权限）在设置里就能改。
-- **远程主机**：Claude Code 也可以跑在别的 Linux 主机上，经手机 Debian 里的 OpenSSH 连，或者用 Zeta 自带的 SSH 直连。
+### 两端都有
+
+- **原生的对话界面**：Markdown、代码块和公式按屏幕排版；思考、工具调用、子代理、后台任务都能点开看；会话列表能改名、归档、置顶、导出，能从中间改写一条消息重来。
+- **远程主机**：Claude Code 可以跑在别的 Linux 主机上，经 SSH 连；同一个会话可以电脑和手机同时接着。
+- **Claude Code 的配置与账号**：记忆、Skills、MCP、Subagent、工具权限在设置里就能改；每台设备的账号、额度和中转各管各的。
 - **和电脑上的终端交接**：同一个会话可以在电脑终端里的 `claude` 和 Zeta 之间来回接着用（两轮之间交接）。会话正在终端里开着时，Zeta 里点「接管会话」，那边像 `/exit` 一样退出；远程主机上在 Zeta 里起的会话，在那台的 tmux 会话 `zeta` 里各有一个窗口，回到电脑前 `tmux attach -t zeta` 回车就接着。终端里 `claude --resume` 接回时，要让 Zeta 那边自动让出来，在那台主机的 Claude Code 设置里登记一个 SessionStart hook（见下）。
+
+### Android 版独有
+
+- **自带 Linux 环境**：在手机里一键装好 Debian、Claude Code 和常用工具（Go、Node.js、Python 等可选）；连远程主机时可以经这里的 OpenSSH，也可以用 Zeta 自带的 SSH 直连。
 - **操作手机**：Claude 在后台虚拟屏上开应用、读屏、点按，不占你正在用的屏幕，你随时可以暂停或接管；也能查通知、日程、文件、健康数据这类信息。手机操作可以整个关掉，单个工具也能在工具权限里设成每次询问或不许用。
 - **关掉也照样跑**：对话跑在 Debian 里，Zeta 被系统杀掉也不中断，下次打开接着看；顶部胶囊、超级岛和屏幕底部的结果卡片随时告诉你进展。
 - **语音与数字助理**：按住发送键说话、朗读回答，只用手机自带的识别和朗读服务；可以设成系统的默认数字助理，带着当前屏幕问 Claude（HyperOS 上配合 LSPosed 可以长按电源键唤起）。
 - **定时任务**：到点自动开一轮对话，或者在收到某类通知时触发。
+
+### Windows 版独有
+
+- **桌面窗口**：可拖宽、可收起的侧栏，右键菜单和多选，一套快捷键；只经 SSH 连远程主机，不带手机一侧的功能。安装与更新见下面「Windows 桌面版」。
 
 ## 截图
 
@@ -133,7 +143,7 @@ Zeta 按 [GPL-3.0-only](LICENSE) 授权。APK 里带的第三方组件和它们�
 
 ## English
 
-Zeta is an unofficial native Android client for [Claude Code](https://github.com/anthropics/claude-code) on rooted phones. It installs Debian and Claude Code on the phone, gives you a native ColorOS-style chat UI, and lets Claude operate the phone on a background virtual display. It can also run Claude Code on remote Linux hosts over SSH.
+Zeta is an unofficial cross-platform native client for [Claude Code](https://github.com/anthropics/claude-code), for Android (rooted phones) and Windows. Both connect to Claude Code on remote Linux hosts over SSH. The Android app also installs Debian and Claude Code on the phone and lets Claude operate the phone on a background virtual display.
 
 - Requirements: Android 15+, arm64, root (KernelSU or Magisk). LSPosed is optional and only used for HyperOS features.
 - Install: download the APK from [Releases](https://github.com/dzshzx/Zeta/releases) and check that `apksigner verify --print-certs` reports the certificate SHA-256 `1b89b1ab1d2274b98847c466b19bbf51f9ef997cb08956d9ed4b4caa7fba2403`. Obtainium can track the releases.

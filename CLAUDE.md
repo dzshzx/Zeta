@@ -1,6 +1,12 @@
 # Zeta 项目约束
 
-Zeta（Ζ）是 root 过的 Android 手机上 Claude Code 的原生客户端：Kotlin、Compose，界面用 Miuix（HyperOS 风格）。包名 `com.dzshzx.zeta`（开发测试装的测试版是 `com.dzshzx.zeta.dev`，见「构建与测试」），默认分支 `master`。它要取代 Eta 做手机上的主力 agent，不只是 Claude Code 的图形界面：自带 Debian 环境的安装与管理、手机操作工具和后台虚拟屏。
+Zeta（Ζ）是 Claude Code 的跨平台原生客户端，有 Android 版和 Windows 版，默认分支 `master`。判断一项功能属于哪里，按下面三组：
+
+- 两端共有（Go 核心：主机上的 zeta-helper serve 与 `client/`，见 `docs/core.md`）：对话与会话列表、远程主机（SSH）、确认与提问、子代理与后台任务、账号额度与中转、Claude Code 配置页、诊断、和终端交接、多个客户端同时接着一个会话。跨平台的逻辑放核心，两端只画界面。
+- Android 版独有（`app/`，Kotlin、Compose，界面用 Miuix）：手机里自带的 Debian 环境与安装管理、手机操作工具与后台虚拟屏、语音与数字助理、定时任务与通知触发、超级岛与通知。包名 `com.dzshzx.zeta`（测试版 `com.dzshzx.zeta.dev`，见「构建与测试」）。它要取代 Eta 做手机上的主力 agent。
+- Windows 版独有（`windows/`，Go、mygo）：只经 SSH 直连远程主机，不带手机一侧的功能；鼠标与快捷键的交互、MSI 安装与应用内更新。见 `docs/desktop.md`。
+
+两端不追求功能对等：加功能先定它属于哪一组，平台独有的只改那一端。
 
 维护者本机的环境事实（设备的 ssh 别名、模拟器、参照源码的本机位置、账号与密钥条目）不进 Git，写在仓根的 `CLAUDE.local.md`，Claude Code 在主 checkout 里会自动加载它；在任务 worktree 里时去读主 checkout 的那一份（`git rev-parse --path-format=absolute --git-common-dir` 的上一级目录）。没有这个文件时，按下面「本机配置」配好自己的设备。
 
