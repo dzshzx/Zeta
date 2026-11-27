@@ -111,7 +111,7 @@ jobs:
             xcrun simctl terminate "$udid" "$bundle" || true
             xcrun simctl launch "$udid" "$bundle" -AppleLanguages "($lang)"
             sleep 6 # 等首屏画出来（只是截图给人看，不是测试）
-            xcrun simctl io "$udid" screenshot "$RUNNER_TEMP/shots/$lang.png"
+            xcrun simctl io "$udid" screenshot --display=1 "$RUNNER_TEMP/shots/$lang.png" # 有的模拟器带两块屏，1 是主屏
           done
 
       - name: 上传 ipa
