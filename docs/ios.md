@@ -73,8 +73,28 @@ Swift 经三个 C 函数调核心（`hub/cmd/zeta-ios`）：
 | `composer.quota` | `force` | 让对话所在设备的订阅额度刷新（不够新才问，`force` 时一定问） |
 | `composer.flush` | | 马上把草稿写盘（退到后台时）；阻塞 |
 | `prompts`、`prompts.add`、`prompts.update`、`prompts.remove`、`prompts.move` | `id`、`name`、`text`、`delta`、`dedupe` | 常用指令：答 `{list, full}`；`dedupe` 时已有同样内容的不加、答出错 |
+| `rewrite` | `target`、`text`、`files` | 改写：剪掉条目 `target`（用户消息）和之后的，再发改过的（`conv.rewrite`） |
+| `regenerate`、`drop` | `target`、`code` | 重新生成、删除这一轮；`code` 时先还原代码 |
+| `restorecode` | `target`、`drop` | 把文件改回这条消息之前，`drop` 时再删这一轮 |
+| `codechanges` | `target` | 还原代码会动到的 `{files, insertions, deletions}`，没有可还原的是 null；阻塞 |
+| `fork` | `last` | 从条目 `last` 所在那一轮之后分支（`hub.Fork`），聊天页换到新对话 |
+| `handover` | | 把别处运行的会话接过来（`hub.HandOver`） |
+| `elicit` | `request_id`、`action`、`values` | 回应 MCP 表单或网址；表单不对时答 `{problems}`（键 → 原因），表单留着；阻塞 |
+| `image` | `kind`、`key`、`file`、`ref`、`url` | 取聊天里的一张图（`items.Image` 的取法，同桌面版的 ImageLoader 三种），答 `{data}`（base64）；阻塞 |
+| `savemessage` | `text` | 把消息收藏为常用指令：`{saved, exists, problem}` |
 
-`send`、`interrupt`、`answer`、`earlier` 在后台做，没成的原因放在下一次 `state` 的 `chat.failed` 里。
+`send`、`interrupt`、`answer`、`earlier`、`rewrite`、`regenerate`、`drop`、`restorecode`、`fork` 在后台做，没成的原因放在下一次 `state` 的 `chat.failed` 里。
+
+## 聊天
+
+聊天页的界面在 `ios/Zeta/Views/Chat/`，行为照桌面版的 `chatview`，交互照手机版。
+
+- Markdown：`MarkdownView` 自己拆块（标题、列表与任务列表、引用、表格、代码块、公式、分隔线、单独一行的图），行内样式交给 `AttributedString(markdown:)`；每块是 Equatable 的视图，流式输出时只重画变了的块。表格和代码块横向滚动，代码块能复制。公式（`$$…$$`、`\[…\]`、`math` 代码块）先按原文等宽显示，还没有 RaTeX。
+- 条目：工作组是一张折叠卡，思考显示想了几秒，改文件的工具画红绿对比（`clipped` 时注明只显示了一部分）；另一个会话发来的消息注明来自哪个会话。图片（工具结果里的、随消息发的、回答里引用的）经 `image` 取，按 `cacheKey` 只取一次；网络图片等点一下才下载，设置里开了自动加载（`chat.auto_images`）时直接下载。点图看大图：缩放、拖动、双击复原、保存到相册、分享。
+- 长按消息：复制、收藏为常用指令、改写、还原代码、删除这一轮；一轮的最后一项上还有重新生成、删除这一轮、从这里分支（这一轮在进行时不出现，`can_rewind` 为假时变灰）。重新生成、删除、还原代码先确认，确认框里先问 `codechanges`。改写只带文字和附带的路径，图片不带。
+- 工具栏的放大镜在对话内查找：按条目的文字（工作组按各步的文字）找，上一个、下一个滚到那一项并铺底色。
+- 会话在别处运行时，输入栏上方是接管卡片（照 `chat.occupant` 说那边在哪、在做什么，能接管时点「接管」）。
+- 往上翻到顶自动载入更早的；离开底部时右下角有回到底部。
 
 ## 会话列表、后台任务与通知
 
