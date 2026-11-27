@@ -10,6 +10,8 @@ final class AppModel {
 
     private(set) var state = CoreState.empty
     private(set) var items: [Item] = []
+    /// 每取到一次 state 加一：设置各页按它重读自己的那份（账号、设备清单），不另起通知。
+    private(set) var revision = 0
     private(set) var publicKey = ""
     /// 登录用的是导入的私钥（不是 Zeta 自己生成的那把）。
     private(set) var keyImported = false
@@ -69,6 +71,7 @@ final class AppModel {
             let next = try core.call("state", as: CoreState.self)
             apply(next.chat)
             state = next
+            revision += 1
             if let failed = next.chat?.failed, !failed.isEmpty {
                 alert = failed
             }
