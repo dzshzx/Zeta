@@ -168,7 +168,7 @@ struct ConfigDocumentRef {
 }
 
 /// 整页的文件编辑（同桌面版 documentPage）：有内容的打开时先预览，能切到编辑；有改动时能保存、放弃。保存时文件在编辑期间
-/// 被改过（多半是 Claude 改的）先问一声。预览暂用 AttributedString(markdown:)。
+/// 被改过（多半是 Claude 改的）先问一声。预览照聊天里回答的样子排（MarkdownView）。
 struct DocumentView: View {
     let calls: ConfigCalls
     let document: ConfigDocumentRef
@@ -239,7 +239,7 @@ struct DocumentView: View {
                 }
             } else {
                 ScrollView {
-                    Text(Self.markdown(text))
+                    MarkdownView(text: text)
                         .textSelection(.enabled)
                         .frame(maxWidth: .infinity, alignment: .leading)
                         .padding()
@@ -334,11 +334,6 @@ struct DocumentView: View {
                 failure = ConfigFailure(String(localized: "删除失败"), error)
             }
         }
-    }
-
-    private static func markdown(_ text: String) -> AttributedString {
-        let options = AttributedString.MarkdownParsingOptions(interpretedSyntax: .inlineOnlyPreservingWhitespace)
-        return (try? AttributedString(markdown: text, options: options)) ?? AttributedString(text)
     }
 
     /// 去掉开头的 --- 前言块（记忆文件的 name、description、type）；没有收尾的 --- 时原样。

@@ -122,7 +122,7 @@ Swift 经三个 C 函数调核心（`hub/cmd/zeta-ios`）：
 
 ## Claude Code 配置
 
-设备页上「Claude Code 配置」一行进去（`ClaudeConfigView(backend:)`，`ios/Zeta/Views/ClaudeConfig/`），行为同桌面版 `windows/internal/ui/claudecfg/`：新对话默认（默认模型、默认思考强度、默认权限模式、上下文窗口）、Claude 一组（自动压缩、压缩时机、自动标题、闲置超时、那台的 Claude Code 版本和「更新」）、记忆与 CLAUDE.md、Skills、MCP 服务器、Subagent、工具权限。那台主机上的配置经 `core` 转给核心的 `config.*`、`system.*`，解析、校验和改写都在核心，Swift 只按 `helper/coreapi/config.go` 的结果画；工具权限每行的状态、一键开关会加删的规则也由核心算好。只有自动压缩、压缩时机、自动标题存在这台手机上（`claudecfg.local`）。记忆页的文件有内容时打开先预览，能切到编辑；预览用 `AttributedString(markdown:)` 只排行内样式。Skill 从「文件」里选 ZIP 导入，最大 45 MB。
+设备页上「Claude Code 配置」一行进去（`ClaudeConfigView(backend:)`，`ios/Zeta/Views/ClaudeConfig/`），行为同桌面版 `windows/internal/ui/claudecfg/`：新对话默认（默认模型、默认思考强度、默认权限模式、上下文窗口）、Claude 一组（自动压缩、压缩时机、自动标题、闲置超时、那台的 Claude Code 版本和「更新」）、记忆与 CLAUDE.md、Skills、MCP 服务器、Subagent、工具权限。那台主机上的配置经 `core` 转给核心的 `config.*`、`system.*`，解析、校验和改写都在核心，Swift 只按 `helper/coreapi/config.go` 的结果画；工具权限每行的状态、一键开关会加删的规则也由核心算好。只有自动压缩、压缩时机、自动标题存在这台手机上（`claudecfg.local`）。记忆页的文件有内容时打开先预览，能切到编辑；预览照聊天里回答的样子排（`MarkdownView`，去掉开头的 --- 前言块）。Skill 从「文件」里选 ZIP 导入，最大 45 MB。
 
 ## 现在没有的
 
