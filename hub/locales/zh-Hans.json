@@ -626,5 +626,53 @@
   "mobileChatNotOpen": "对话还没打开",
   "@mobileChatNotOpen": {
     "description": "iOS 版：对话还在打开时就发消息、停止或回应确认。"
+  },
+  "diagBundleEnvLine": "{name}：{value}",
+  "@diagBundleEnvLine": {
+    "description": "诊断包里环境.txt 的一行：名字和值。",
+    "placeholders": {
+      "name": {
+        "type": "String",
+        "example": "Zeta 版本"
+      },
+      "value": {
+        "type": "String",
+        "example": "0.8.0（80）"
+      }
+    }
+  },
+  "diagBundleListFailed": "列日志：{error}",
+  "@diagBundleListFailed": {
+    "description": "诊断包里一台设备的「读取失败.txt」的一行：列这台设备的日志清单失败。",
+    "placeholders": {
+      "error": {
+        "type": "String",
+        "example": "timeout"
+      }
+    }
+  },
+  "diagBundleReadFailed": "{path}：{error}",
+  "@diagBundleReadFailed": {
+    "description": "诊断包里一台设备的「读取失败.txt」的一行：读一个日志文件失败。",
+    "placeholders": {
+      "path": {
+        "type": "String",
+        "example": "/home/me/.claude/debug/a.txt"
+      },
+      "error": {
+        "type": "String",
+        "example": "timeout"
+      }
+    }
+  },
+  "diagBundleTruncated": "# 只取了最后 64 KB（整个文件 {size} 字节）",
+  "@diagBundleTruncated": {
+    "description": "诊断包里截过的日志文件开头加的一行。",
+    "placeholders": {
+      "size": {
+        "type": "int",
+        "example": "1048576"
+      }
+    }
   }
 }

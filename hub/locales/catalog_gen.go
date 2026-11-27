@@ -1368,3 +1368,63 @@ func MobileChatNotOpen() string { return In(i18n.Locale()).MobileChatNotOpen() }
 func (msgs Messages) MobileChatNotOpen() string {
 	return Catalog.Format(msgs.locale, "mobileChatNotOpen", nil)
 }
+
+// DiagBundleEnvLine says "{name}：{value}"
+// in the language the app shows.
+//
+// 诊断包里环境.txt 的一行：名字和值。
+func DiagBundleEnvLine(name string, value string) string {
+	return In(i18n.Locale()).DiagBundleEnvLine(name, value)
+}
+
+// DiagBundleEnvLine says "{name}：{value}"
+// in the language of msgs.
+//
+// 诊断包里环境.txt 的一行：名字和值。
+func (msgs Messages) DiagBundleEnvLine(name string, value string) string {
+	return Catalog.Format(msgs.locale, "diagBundleEnvLine", map[string]any{"name": name, "value": value})
+}
+
+// DiagBundleListFailed says "列日志：{error}"
+// in the language the app shows.
+//
+// 诊断包里一台设备的「读取失败.txt」的一行：列这台设备的日志清单失败。
+func DiagBundleListFailed(error string) string { return In(i18n.Locale()).DiagBundleListFailed(error) }
+
+// DiagBundleListFailed says "列日志：{error}"
+// in the language of msgs.
+//
+// 诊断包里一台设备的「读取失败.txt」的一行：列这台设备的日志清单失败。
+func (msgs Messages) DiagBundleListFailed(error string) string {
+	return Catalog.Format(msgs.locale, "diagBundleListFailed", map[string]any{"error": error})
+}
+
+// DiagBundleReadFailed says "{path}：{error}"
+// in the language the app shows.
+//
+// 诊断包里一台设备的「读取失败.txt」的一行：读一个日志文件失败。
+func DiagBundleReadFailed(path string, error string) string {
+	return In(i18n.Locale()).DiagBundleReadFailed(path, error)
+}
+
+// DiagBundleReadFailed says "{path}：{error}"
+// in the language of msgs.
+//
+// 诊断包里一台设备的「读取失败.txt」的一行：读一个日志文件失败。
+func (msgs Messages) DiagBundleReadFailed(path string, error string) string {
+	return Catalog.Format(msgs.locale, "diagBundleReadFailed", map[string]any{"path": path, "error": error})
+}
+
+// DiagBundleTruncated says "# 只取了最后 64 KB（整个文件 {size} 字节）"
+// in the language the app shows.
+//
+// 诊断包里截过的日志文件开头加的一行。
+func DiagBundleTruncated(size int) string { return In(i18n.Locale()).DiagBundleTruncated(size) }
+
+// DiagBundleTruncated says "# 只取了最后 64 KB（整个文件 {size} 字节）"
+// in the language of msgs.
+//
+// 诊断包里截过的日志文件开头加的一行。
+func (msgs Messages) DiagBundleTruncated(size int) string {
+	return Catalog.Format(msgs.locale, "diagBundleTruncated", map[string]any{"size": size})
+}

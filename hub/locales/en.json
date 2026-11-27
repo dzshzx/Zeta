@@ -90,5 +90,9 @@
   "mobileKeyRejected": "The server rejected Zeta’s public key. Copy it in Settings and add it to ~/.ssh/authorized_keys on that device.",
   "mobileSessionGone": "This conversation is no longer in the list",
   "mobileProbeFirst": "Check the connection before adding the device",
-  "mobileChatNotOpen": "The conversation isn’t open yet"
+  "mobileChatNotOpen": "The conversation isn’t open yet",
+  "diagBundleEnvLine": "{name}: {value}",
+  "diagBundleListFailed": "Listing logs: {error}",
+  "diagBundleReadFailed": "{path}: {error}",
+  "diagBundleTruncated": "# Only the last 64 KB (the whole file is {size, plural, one {# byte} other {# bytes}})"
 }
