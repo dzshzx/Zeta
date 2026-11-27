@@ -28,9 +28,12 @@ struct SessionListView: View {
                     }
                 }
             }
-            Section("对话") {
-                ForEach(rows.filter { !$0.pinned }, id: \.key) { row in
-                    rowView(row)
+            let others = rows.filter { !$0.pinned }
+            if !others.isEmpty {
+                Section("对话") {
+                    ForEach(others, id: \.key) { row in
+                        rowView(row)
+                    }
                 }
             }
         }
