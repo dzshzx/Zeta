@@ -3200,6 +3200,20 @@ object Strings {
     fun sidebarArchive(): String = catalog.say("sidebarArchive")
 
     /**
+     * 「归档并结束这个对话？」
+     *
+     * 归档一个还在运行的对话前的确认框标题：归档会结束它的进程。
+     */
+    fun sidebarArchiveRunningTitle(): String = catalog.say("sidebarArchiveRunningTitle")
+
+    /**
+     * 「归档 {count} 个对话？」
+     *
+     * 多选归档、其中有还在运行的时的确认框标题；count 是要归档的个数，运行中的会一并结束。
+     */
+    fun sidebarArchiveMany(count: Int): String = catalog.say("sidebarArchiveMany", mapOf("count" to count))
+
+    /**
      * 「取消归档」
      *
      * 已归档会话的操作（长按菜单、多选底部的按钮）。

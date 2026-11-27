@@ -544,6 +544,8 @@
   "sessionBatchDeleteMessage": "Their session files will be deleted, along with the tool results, subagent logs and other data Claude Code saved for them. This can't be undone.",
   "sessionEndTitle": "End this conversation?",
   "sessionBatchEndTitle": "{count, plural, one {End # conversation?} other {End # conversations?}}",
+  "sessionArchiveRunningTitle": "Archive and end this conversation?",
+  "sessionBatchArchiveTitle": "{count, plural, one {Archive # conversation?} other {Archive # conversations?}}",
   "sessionEndButton": "End",
   "sessionEndBusy": "It's still in progress (answering, waiting for you, or running background tasks). Ending it stops that too.",
   "sessionEndBusyMany": "Some of them are still in progress (answering, waiting for you, or running background tasks) or running elsewhere. Ending them stops that too.",

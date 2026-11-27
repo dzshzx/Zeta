@@ -7873,6 +7873,36 @@ func (msgs Messages) SessionBatchEndTitle(count int) string {
 	return Catalog.Format(msgs.locale, "sessionBatchEndTitle", map[string]any{"count": count})
 }
 
+// SessionArchiveRunningTitle says "归档并结束这个对话？"
+// in the language the app shows.
+//
+// 归档一个还在运行的对话前确认框的标题：归档会结束它的进程。
+func SessionArchiveRunningTitle() string { return In(i18n.Locale()).SessionArchiveRunningTitle() }
+
+// SessionArchiveRunningTitle says "归档并结束这个对话？"
+// in the language of msgs.
+//
+// 归档一个还在运行的对话前确认框的标题：归档会结束它的进程。
+func (msgs Messages) SessionArchiveRunningTitle() string {
+	return Catalog.Format(msgs.locale, "sessionArchiveRunningTitle", nil)
+}
+
+// SessionBatchArchiveTitle says "{count, plural, other {归档 # 个对话？}}"
+// in the language the app shows.
+//
+// 归档几个对话、其中有还在运行的时确认框的标题；运行中的会一并结束。
+func SessionBatchArchiveTitle(count int) string {
+	return In(i18n.Locale()).SessionBatchArchiveTitle(count)
+}
+
+// SessionBatchArchiveTitle says "{count, plural, other {归档 # 个对话？}}"
+// in the language of msgs.
+//
+// 归档几个对话、其中有还在运行的时确认框的标题；运行中的会一并结束。
+func (msgs Messages) SessionBatchArchiveTitle(count int) string {
+	return Catalog.Format(msgs.locale, "sessionBatchArchiveTitle", map[string]any{"count": count})
+}
+
 // SessionEndButton says "结束"
 // in the language the app shows.
 //

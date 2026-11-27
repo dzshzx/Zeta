@@ -95,6 +95,26 @@ class SessionSelectionTest {
     }
 
     @Test
+    fun archiveAsksOnlyWhenSomethingIsStillRunning() {
+        val ended = session("d").copy(live = false)
+        val idle = { _: String -> false }
+        assertEquals(null, archivePrompt(listOf(ended), true, idle))
+        assertEquals(null, archivePrompt(listOf(a), false, idle))
+
+        val one = archivePrompt(listOf(a), true, idle)!!
+        assertEquals(listOf(a), one.sessions)
+        assertEquals(listOf(a), one.archive)
+        assertEquals(Strings.sidebarArchiveRunningTitle(), one.title)
+        assertEquals(Strings.chatEndSummaryIdle(), one.summary)
+
+        // 几个里只结束还在运行的，但全部归档
+        val many = archivePrompt(listOf(a, ended), true, idle)!!
+        assertEquals(listOf(a), many.sessions)
+        assertEquals(listOf(a, ended), many.archive)
+        assertEquals(Strings.sidebarArchiveMany(2), many.title)
+    }
+
+    @Test
     fun endSkipsEndedSessionsAndSaysWhatStops() {
         val ended = session("d").copy(live = false)
         val elsewhere = session("e", external = true)

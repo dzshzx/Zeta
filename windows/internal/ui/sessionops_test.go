@@ -65,15 +65,36 @@ func TestSessionMenu(t *testing.T) {
 		t.Errorf("发出 %q", got)
 	}
 
-	// 归档：主列表里不见了，底部出现归档的入口，点进去能取消归档
+	// 已结束的归档不问，直接归档；取消归档回来
+	f.menu(t, "部署脚本", "归档")
+	f.notSee(t, "部署脚本", "归档并结束这个对话？")
+	f.click(t, "已归档 · 1")
+	f.menu(t, "部署脚本", "取消归档")
+	f.see(t, "部署脚本")
+	if got := f.devices.SessionCalls(); len(got) != 2 || !strings.Contains(got[0], `sessions.archive {"archived":true,"session":"s3"}`) {
+		t.Errorf("发出 %q", got)
+	}
+
+	// 还在运行的归档：同结束一样先问，取消了什么也不做；确认后先结束再归档。主列表里不见了，底部出现归档的入口，点进去能取消归档
 	f.menu(t, "查 nginx 日志", "归档")
+	f.see(t, "归档并结束这个对话？", "结束会停掉它背后的 Claude Code 进程。对话内容保留，可以从历史对话里接着聊。")
+	f.clickNamed(t, "取消", 0)
+	f.tt.Frame()
+	f.see(t, "查 nginx 日志")
+	f.menu(t, "查 nginx 日志", "归档")
+	f.clickNamed(t, "归档", 0)
+	f.tt.Frame()
 	f.notSee(t, "查 nginx 日志")
+	if got := f.devices.SessionCalls(); len(got) != 2 || !strings.Contains(got[0], `sessions.end {"session":"s2"}`) ||
+		!strings.Contains(got[1], `sessions.archive {"archived":true,"session":"s2"}`) {
+		t.Errorf("发出 %q", got)
+	}
 	f.click(t, "已归档 · 1")
 	f.see(t, "已归档 · 1", "查 nginx 日志")
 	f.notSee(t, "部署脚本")
 	f.menu(t, "查 nginx 日志", "取消归档")
 	f.see(t, "部署脚本", "查 nginx 日志") // 没有归档的了：回到全部对话
-	if got := f.devices.SessionCalls(); len(got) != 2 || !strings.Contains(got[1], `"archived":false`) {
+	if got := f.devices.SessionCalls(); len(got) != 1 || !strings.Contains(got[0], `"archived":false`) {
 		t.Errorf("发出 %q", got)
 	}
 }
@@ -174,8 +195,11 @@ func TestMultiSelect(t *testing.T) {
 	// 只选一个时右键是这一个的菜单；归档
 	f.ctrlClick(t, "修登录页")
 	f.menu(t, "修登录页", "归档")
+	f.see(t, "归档并结束这个对话？")
+	f.clickNamed(t, "归档", 0)
+	f.tt.Frame()
 	f.notSee(t, "修登录页")
-	if got := f.devices.SessionCalls(); len(got) != 1 || !strings.Contains(got[0], `sessions.archive {"archived":true,"session":"s1"}`) {
+	if got := f.devices.SessionCalls(); len(got) != 2 || !strings.Contains(got[1], `sessions.archive {"archived":true,"session":"s1"}`) {
 		t.Errorf("发出 %q", got)
 	}
 }

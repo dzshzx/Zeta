@@ -231,7 +231,11 @@ fun SessionPane(
             },
             export = exporter.save,
             share = exporter.share,
-            archive = { session -> onArchive(session, !session.archived) },
+            archive = { session ->
+                archivePrompt(listOf(session), !session.archived, hub::isActive)?.let {
+                    ending = it
+                } ?: onArchive(session, !session.archived)
+            },
             end = { session -> ending = endPrompt(listOf(session), hub::isActive) },
             delete = { session -> deleting = deletePrompt(session, hub::isActive) },
         )
@@ -323,8 +327,12 @@ fun SessionPane(
                 count = chosen.size,
                 archive = archive,
                 onArchive = {
-                    hub.sessionList.archive(chosen.filter { it.archived != archive }, archive)
-                    exitSelection()
+                    val changing = chosen.filter { it.archived != archive }
+                    archivePrompt(changing, archive, hub::isActive)?.let { ending = it }
+                        ?: run {
+                            hub.sessionList.archive(changing, archive)
+                            exitSelection()
+                        }
                 },
                 onExport = { exporter.saveAll(chosen) },
                 onEnd =
@@ -354,7 +362,7 @@ fun SessionPane(
     EndDialog(
         ending = ending,
         onConfirm = { prompt ->
-            hub.endSessions(prompt.sessions)
+            prompt.confirm(hub)
             exitSelection() // 多选里结束的做完退出多选；不在多选时什么也不变
         },
         onDismiss = { ending = null },
@@ -984,7 +992,7 @@ private fun EndDialog(
         show = ending != null,
         title = last?.title,
         summary = last?.summary,
-        confirmText = Strings.chatEnd(),
+        confirmText = last?.confirmText.orEmpty(),
         destructive = true,
         onConfirm = {
             ending?.let(onConfirm)

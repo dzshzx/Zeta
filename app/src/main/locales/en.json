@@ -456,6 +456,8 @@
   "sidebarSelectNone": "Deselect all",
   "sidebarSelectAll": "Select all",
   "sidebarArchive": "Archive",
+  "sidebarArchiveRunningTitle": "Archive and end this conversation?",
+  "sidebarArchiveMany": "{count, plural, one {Archive # conversation?} other {Archive # conversations?}}",
   "sidebarUnarchive": "Unarchive",
   "sidebarExport": "Export",
   "sidebarDelete": "Delete",

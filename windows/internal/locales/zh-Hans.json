@@ -3022,6 +3022,19 @@
       }
     }
   },
+  "sessionArchiveRunningTitle": "归档并结束这个对话？",
+  "@sessionArchiveRunningTitle": {
+    "description": "归档一个还在运行的对话前确认框的标题：归档会结束它的进程。"
+  },
+  "sessionBatchArchiveTitle": "{count, plural, other {归档 # 个对话？}}",
+  "@sessionBatchArchiveTitle": {
+    "description": "归档几个对话、其中有还在运行的时确认框的标题；运行中的会一并结束。",
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
   "sessionEndButton": "结束",
   "@sessionEndButton": {
     "description": "结束对话确认框的确认按钮。"
