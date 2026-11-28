@@ -1,6 +1,8 @@
 package accounts
 
 import (
+	"strings"
+
 	"github.com/dzshzx/Zeta/helper/coreapi"
 	acct "github.com/dzshzx/Zeta/hub/accounts"
 	"github.com/dzshzx/Zeta/windows/internal/locales"
@@ -21,11 +23,15 @@ const (
 )
 
 // relaySummary 是中转一行的小字：地址，设了默认模型时附上。
-func relaySummary(r coreapi.Relay) string {
-	if r.Model == "" {
-		return r.BaseURL
+func relaySummary(r coreapi.Relay, isAgy bool) string {
+	url := strings.TrimSpace(r.BaseURL)
+	if url == "" && isAgy {
+		url = locales.AccountsAgyOfficialEndpoint()
 	}
-	return locales.AccountsRelaySummaryModel(r.BaseURL, r.Model)
+	if r.Model == "" {
+		return url
+	}
+	return locales.AccountsRelaySummaryModel(url, r.Model)
 }
 
 // Title 是编辑页的标题（添加中转、编辑中转 名字）；没在编辑时为空，设置页用它自己的标题。
@@ -70,9 +76,9 @@ func (p *Page) relays(c *ui.Context) {
 	}
 	widget.Group(c, locales.AccountsRelaysTitle(), footer, func(l *widget.List) {
 		for _, r := range st.Relays {
-			row := widget.Row{Key: "relay:" + r.Name, Title: r.Name, Summary: relaySummary(r), End: func() {
+			row := widget.Row{Key: "relay:" + r.Name, Title: r.Name, Summary: relaySummary(r, p.isAgy()), End: func() {
 				widget.SmallButton(c.Key("edit:"+r.Name), locales.CommonEdit()).Disabled(!idle).
-					OnClick(func() { p.openEditor(acct.EditRelayDraft(r)) })
+					OnClick(func() { p.openEditor(acct.EditRelayDraftFor(p.Harness, r)) })
 			}}
 			switch {
 			case r.Current:
@@ -84,7 +90,7 @@ func (p *Page) relays(c *ui.Context) {
 		}
 		add := widget.Row{Key: "relay-add", Icon: widget.IconAdd, Title: locales.AccountsRelayAdd()}
 		if idle {
-			add.OnClick = func() { p.openEditor(acct.NewRelayDraft()) }
+			add.OnClick = func() { p.openEditor(acct.NewRelayDraftFor(p.Harness)) }
 		}
 		l.Row(add)
 	})

@@ -7,6 +7,7 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"io"
 	"os"
 	"os/exec"
@@ -17,6 +18,7 @@ import (
 	"time"
 
 	"github.com/dzshzx/Zeta/helper/agystore"
+	"github.com/dzshzx/Zeta/helper/locales"
 )
 
 const defaultAgyWindow = int64(1048576)
@@ -119,9 +121,12 @@ type bridge struct {
 	commandsReady              chan struct{}
 	contextNotes               []string
 
-	cumInput     int64
-	cumOutput    int64
-	cumCacheRead int64
+	cumInput      int64
+	cumOutput     int64
+	cumCacheRead  int64
+	cumCacheWrite int64
+
+	activeTasks map[string]bgTask
 
 	promptSeq int
 	prompts   []*pendingPrompt
@@ -231,10 +236,12 @@ func (b *bridge) start() error {
 	b.acp = acp
 	initRaw, err := b.acp.call("initialize", map[string]any{
 		"protocolVersion": 1,
-		"clientInfo":      map[string]any{"name": "Zed", "version": "1.0.0"},
+		// agy acp 仅对 Zed/JetBrains/Xcode 等识别客户端开放 Claude 等第三方模型，保留 Zed 标识。
+		"clientInfo": map[string]any{"name": "Zed", "version": "1.0.0"},
 		"clientCapabilities": map[string]any{
-			"fs":       map[string]any{"readTextFile": false, "writeTextFile": false},
-			"terminal": false,
+			"fs":          map[string]any{"readTextFile": false, "writeTextFile": false},
+			"terminal":    false,
+			"elicitation": map[string]any{"form": map[string]any{}},
 		},
 	})
 	if err != nil {
@@ -594,6 +601,7 @@ func (b *bridge) handleControlRequest(reqID string, rawReq json.RawMessage) {
 		Model       string          `json:"model"`
 		Mode        string          `json:"mode"`
 		Title       string          `json:"title"`
+		TaskID      string          `json:"task_id"`
 		MessageUUID string          `json:"message_uuid"`
 		Settings    json.RawMessage `json:"settings"`
 	}
@@ -641,11 +649,40 @@ func (b *bridge) handleControlRequest(reqID string, rawReq json.RawMessage) {
 		b.replyControlSuccess(reqID, map[string]any{})
 	case "rename_session":
 		b.controlRename(reqID, req.Title)
+	case "stop_task":
+		b.replyControlError(reqID, locales.M("errAgyStopTaskUnsupported").String())
+	case "get_task_output":
+		b.controlGetTaskOutput(reqID, req.TaskID)
 	case "end_session":
 		b.controlEndSession(reqID)
 	default:
 		b.replyControlSuccess(reqID, map[string]any{})
 	}
+}
+
+func (b *bridge) controlGetTaskOutput(reqID, taskID string) {
+	if !agystore.IsSessionID(taskID) {
+		b.replyControlError(reqID, locales.M("errAgyTaskOutputMissing").String())
+		return
+	}
+	path := agystore.TranscriptPath(b.agyDir, taskID)
+	data, err := os.ReadFile(path)
+	if err != nil {
+		b.replyControlError(reqID, locales.M("errAgyTaskOutputMissing").String())
+		return
+	}
+	const maxOut = 8192
+	total := len(data)
+	truncated := false
+	if len(data) > maxOut {
+		data = data[len(data)-maxOut:]
+		truncated = true
+	}
+	b.replyControlSuccess(reqID, map[string]any{
+		"output":      string(data),
+		"total_bytes": total,
+		"truncated":   truncated,
+	})
 }
 
 func (b *bridge) controlInitialize(reqID string) {
@@ -977,9 +1014,10 @@ func (b *bridge) emitPromptResult(sid string, pr acpPromptResult, durationMs int
 	b.mu.Lock()
 	model := cmp.Or(b.currentModel, "agy")
 	win := b.windowSize
-	var inTok, outTok, cacheRead int64
+	var inTok, outTok, cacheRead, cacheWrite int64
 	if pr.Usage != nil {
 		cacheRead = pr.Usage.CachedReadTokens
+		cacheWrite = pr.Usage.CachedWriteTokens
 		inTok = max(0, pr.Usage.InputTokens-cacheRead)
 		outTok = pr.Usage.OutputTokens + pr.Usage.ThoughtTokens
 		if total := pr.Usage.InputTokens + outTok; total > 0 {
@@ -988,8 +1026,9 @@ func (b *bridge) emitPromptResult(sid string, pr acpPromptResult, durationMs int
 		b.cumInput += inTok
 		b.cumOutput += outTok
 		b.cumCacheRead += cacheRead
+		b.cumCacheWrite += cacheWrite
 	}
-	cumIn, cumOut, cumCache := b.cumInput, b.cumOutput, b.cumCacheRead
+	cumIn, cumOut, cumCache, cumWrite := b.cumInput, b.cumOutput, b.cumCacheRead, b.cumCacheWrite
 	b.mu.Unlock()
 
 	res := map[string]any{
@@ -1004,14 +1043,15 @@ func (b *bridge) emitPromptResult(sid string, pr acpPromptResult, durationMs int
 			"input_tokens":                inTok,
 			"output_tokens":               outTok,
 			"cache_read_input_tokens":     cacheRead,
-			"cache_creation_input_tokens": int64(0),
+			"cache_creation_input_tokens": cacheWrite,
 		}
 		res["modelUsage"] = map[string]any{
 			model: map[string]any{
-				"inputTokens":          cumIn,
-				"outputTokens":         cumOut,
-				"cacheReadInputTokens": cumCache,
-				"contextWindow":        win,
+				"inputTokens":              cumIn,
+				"outputTokens":             cumOut,
+				"cacheReadInputTokens":     cumCache,
+				"cacheCreationInputTokens": cumWrite,
+				"contextWindow":            win,
 			},
 		}
 	}
@@ -1024,8 +1064,13 @@ func (b *bridge) runClear(uuid string) {
 	effort := b.currentEffort
 	mode := b.userMode
 	b.contextTokens = 0
-	b.cumInput, b.cumOutput, b.cumCacheRead = 0, 0, 0
+	b.cumInput, b.cumOutput, b.cumCacheRead, b.cumCacheWrite = 0, 0, 0, 0
+	b.contextNotes = nil
 	b.mu.Unlock()
+
+	b.turnM.Lock()
+	b.turnSeq = 0
+	b.turnM.Unlock()
 
 	b.cleanupSession(true)
 	b.mu.Lock()
@@ -1064,7 +1109,15 @@ func (b *bridge) handleBashCommand(uuid, command string) {
 	var stdoutBuf, stderrBuf bytes.Buffer
 	cmd.Stdout = &stdoutBuf
 	cmd.Stderr = &stderrBuf
-	_ = cmd.Run()
+	err := cmd.Run()
+	exitCode := 0
+	if ctx.Err() == context.DeadlineExceeded {
+		exitCode = 124
+	} else if ee, ok := errors.AsType[*exec.ExitError](err); ok {
+		exitCode = ee.ExitCode()
+	} else if err != nil {
+		exitCode = 1
+	}
 
 	b.emit(map[string]any{
 		"type":     "user",
@@ -1072,6 +1125,9 @@ func (b *bridge) handleBashCommand(uuid, command string) {
 		"message":  map[string]any{"content": "<bash-input>" + command + "</bash-input>"},
 	})
 	outText := "<bash-stdout>" + stdoutBuf.String() + "</bash-stdout><bash-stderr>" + stderrBuf.String() + "</bash-stderr>"
+	if exitCode != 0 {
+		outText += fmt.Sprintf("<bash-exit-code>%d</bash-exit-code>", exitCode)
+	}
 	b.emit(map[string]any{
 		"type":     "user",
 		"isReplay": true,

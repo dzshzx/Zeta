@@ -46,21 +46,9 @@ func ActiveHolders(agyDir, session string) []Holder {
 	return out
 }
 
-func hasActiveLockFile(presenceDir, session string) bool {
-	if session != "" {
-		_, err := os.Stat(filepath.Join(presenceDir, session+".lock"))
-		return err == nil
-	}
-	entries, err := os.ReadDir(presenceDir)
-	if err != nil {
-		return false
-	}
-	for _, e := range entries {
-		if strings.HasSuffix(e.Name(), ".lock") {
-			return true
-		}
-	}
-	return false
+func hasActiveLockFile(presenceDir, _ string) bool {
+	st, err := os.Stat(presenceDir)
+	return err == nil && st.IsDir()
 }
 
 func inspectProcLocks(pid int, presencePrefix, wantSession string) ([]Holder, bool) {

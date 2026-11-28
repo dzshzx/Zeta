@@ -2085,4 +2085,88 @@ object CoreStrings {
      * Antigravity 工具权限页 invoke_subagent 一行的说明。
      */
     fun toolAgyAgent(): String = catalog.say("toolAgyAgent")
+
+    /**
+     * 「Antigravity 不支持该配置项」
+     *
+     * 配置页出错：对 Antigravity 调用 Claude 专有配置方法。
+     */
+    fun errAgyConfigUnsupported(): String = catalog.say("errAgyConfigUnsupported")
+
+    /**
+     * 「规则格式应为 动作(目标)，例如 command(git status)、write_file(src/)、mcp(github/ *)」
+     *
+     * Antigravity 工具权限页出错：规则不符合 action(target) 语法。
+     */
+    fun cfgAgyRuleMalformed(): String = catalog.say("cfgAgyRuleMalformed")
+
+    /**
+     * 「运行终端命令」
+     *
+     * Antigravity 工具权限页 command 一行的说明。
+     */
+    fun toolAgyCommand(): String = catalog.say("toolAgyCommand")
+
+    /**
+     * 「读取文件与目录」
+     *
+     * Antigravity 工具权限页 read_file 一行的说明。
+     */
+    fun toolAgyReadFile(): String = catalog.say("toolAgyReadFile")
+
+    /**
+     * 「修改和写入文件」
+     *
+     * Antigravity 工具权限页 write_file 一行的说明。
+     */
+    fun toolAgyWriteFile(): String = catalog.say("toolAgyWriteFile")
+
+    /**
+     * 「读取网页与沙箱出网」
+     *
+     * Antigravity 工具权限页 read_url 一行的说明。
+     */
+    fun toolAgyReadUrl(): String = catalog.say("toolAgyReadUrl")
+
+    /**
+     * 「全部 MCP 工具」
+     *
+     * Antigravity 工具权限页 mcp 一行的说明。
+     */
+    fun toolAgyMcp(): String = catalog.say("toolAgyMcp")
+
+    /**
+     * 「浏览器打开网页」
+     *
+     * Antigravity 工具权限页 execute_url 一行的说明。
+     */
+    fun toolAgyExecuteUrl(): String = catalog.say("toolAgyExecuteUrl")
+
+    /**
+     * 「浏览器下载文件」
+     *
+     * Antigravity 工具权限页 download_url 一行的说明。
+     */
+    fun toolAgyDownloadUrl(): String = catalog.say("toolAgyDownloadUrl")
+
+    /**
+     * 「沙箱外执行（企业版）」
+     *
+     * Antigravity 工具权限页 unsandboxed 一行的说明。
+     */
+    fun toolAgyUnsandboxed(): String = catalog.say("toolAgyUnsandboxed")
+
+    /**
+     * 「Antigravity 暂不支持单独停止后台任务」
+     *
+     * 后台任务页出错：对 Antigravity 后台任务调用 stop_task。
+     */
+    fun errAgyStopTaskUnsupported(): String = catalog.say("errAgyStopTaskUnsupported")
+
+    /**
+     * 「未找到该后台任务的输出」
+     *
+     * 后台任务页出错：读不到 Antigravity 后台任务输出。
+     */
+    fun errAgyTaskOutputMissing(): String = catalog.say("errAgyTaskOutputMissing")
 }

@@ -113,7 +113,8 @@ func SetRelayDefaultModel(home, model string) (bool, error) {
 		if err := writeRelayRecord(home, rec); err != nil {
 			return err
 		}
-		return enableRelaySettings(home, rec.Model)
+		_, _, err := enableRelaySettings(home, rec.Model, false)
+		return err
 	})
 	return active, err
 }
@@ -175,7 +176,8 @@ func (h *Host) SaveRelay(_ context.Context, in accounts.RelayInput) error {
 			return err
 		}
 		if snap.ds.CurrentRelay == in.Name {
-			return enableRelaySettings(h.Home, rec.Model)
+			_, _, err := enableRelaySettings(h.Home, rec.Model, false)
+			return err
 		}
 		return nil
 	})
@@ -423,24 +425,40 @@ func validAgyRelay(in accounts.RelayInput) error {
 	return accounts.ValidRelayModel(in.Model)
 }
 
-func enableRelaySettings(home, model string) error {
-	return updateAgySettings(home, func(obj map[string]json.RawMessage, _ bool) bool {
+func enableRelaySettings(home, model string, recordPrev bool) (prevModel string, setModel bool, err error) {
+	err = updateAgySettings(home, func(obj map[string]json.RawMessage, _ bool) bool {
 		obj["modelProvider"], _ = json.Marshal("gemini")
 		if m := strings.TrimSpace(model); m != "" {
+			if recordPrev {
+				if raw, ok := obj["model"]; ok {
+					_ = json.Unmarshal(raw, &prevModel)
+				}
+			}
 			obj["model"], _ = json.Marshal(m)
+			setModel = true
 		}
 		return true
 	})
+	return prevModel, setModel, err
 }
 
-func clearRelaySettings(home string, clearProvider bool) error {
-	if !clearProvider {
+func clearRelaySettings(home string, clearProvider, clearModel bool, prevModel string) error {
+	if !clearProvider && !clearModel {
 		return nil
 	}
 	return updateAgySettings(home, func(obj map[string]json.RawMessage, existed bool) bool {
-		var cur string
-		if rawProv, ok := obj["modelProvider"]; ok && json.Unmarshal(rawProv, &cur) == nil && cur == "gemini" {
-			delete(obj, "modelProvider")
+		if clearProvider {
+			var cur string
+			if rawProv, ok := obj["modelProvider"]; ok && json.Unmarshal(rawProv, &cur) == nil && cur == "gemini" {
+				delete(obj, "modelProvider")
+			}
+		}
+		if clearModel {
+			if prevModel != "" {
+				obj["model"], _ = json.Marshal(prevModel)
+			} else {
+				delete(obj, "model")
+			}
 		}
 		return len(obj) > 0 || existed
 	})

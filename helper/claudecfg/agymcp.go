@@ -22,6 +22,18 @@ func (s *Store) scanAgyMcp(cwd string) ([]mcpEntry, error) {
 	}
 	found := appendAgyMcpFromBytes(nil, userBytes, "user")
 
+	disabled := s.agyDisabledPlugins()
+	userPlugins, _ := filepath.Glob(agyConfigDir(s.Home()) + "/plugins/*/mcp_config.json")
+	slices.Sort(userPlugins)
+	for _, p := range userPlugins {
+		if disabled[filepath.Base(filepath.Dir(p))] {
+			continue
+		}
+		if data, _, ok := readHead(p, 2<<20); ok {
+			found = appendAgyMcpFromBytes(found, data, "user")
+		}
+	}
+
 	wsRoot := agyWorkspaceRoot(cwd, s.Home())
 	pluginConfigs, _ := filepath.Glob(wsRoot + "/.agents/plugins/*/mcp_config.json")
 	slices.Sort(pluginConfigs)
@@ -79,8 +91,11 @@ func (s *Store) addAgyJSON(scope, name string, cfg *object) error {
 		return locales.Err("cfgMcpNotEditable")
 	}
 	clean := cloneObject(cfg)
-	if t, _ := clean.str("type"); t == "stdio" {
-		clean.del("type")
+	clean.del("type")
+	if su, ok := clean.str("serverUrl"); ok && su != "" {
+		if u, _ := clean.str("url"); u == su {
+			clean.del("url")
+		}
 	}
 	return s.updateAgyMcpFile(func(servers *object) error {
 		servers.set(name, clean)
@@ -128,7 +143,7 @@ func (s *Store) agyMcpStatus(ctx context.Context, cwd string) (McpStatus, error)
 	}
 	ctx, cancel := context.WithTimeout(ctx, 30*time.Second)
 	defer cancel()
-	const script = `cd -- "$1" 2>/dev/null || cd; PATH="$PATH:$HOME/.local/bin"; exec agy mcp list`
+	const script = `cd -- "$1" 2>/dev/null || cd; PATH="$PATH:$HOME/.local/bin"; exec "${ZETA_AGY_BIN:-agy}" mcp list`
 	text, code, err := run(ctx, s.loginCommand(ctx, script, []string{cwd}, nil), nil)
 	if err != nil || code != 0 {
 		for _, e := range entries {
@@ -141,23 +156,30 @@ func (s *Store) agyMcpStatus(ctx context.Context, cwd string) (McpStatus, error)
 
 func parseAgyMcpList(output string, entries []mcpEntry) McpStatus {
 	st := McpStatus{Servers: map[string]McpState{}}
-	lowerOut := strings.ToLower(output)
+	byName := map[string]string{}
+	for _, line := range strings.Split(output, "\n") {
+		fields := strings.Fields(line)
+		if len(fields) < 3 || strings.EqualFold(fields[0], "NAME") {
+			continue
+		}
+		status := strings.ToLower(fields[2])
+		switch {
+		case status == "enabled" || status == "connected" || status == "ok":
+			byName[fields[0]] = "connected"
+		case status == "disabled":
+			byName[fields[0]] = "disabled"
+		case strings.Contains(status, "auth"):
+			byName[fields[0]] = "auth"
+		case strings.Contains(status, "fail") || strings.Contains(status, "error"):
+			byName[fields[0]] = "failed"
+		default:
+			byName[fields[0]] = "unknown"
+		}
+	}
 	for _, e := range entries {
 		key := McpStatusKey(e.scope, e.name)
-		state := "connected"
-		for _, line := range strings.Split(output, "\n") {
-			if !strings.Contains(line, e.name) {
-				continue
-			}
-			ll := strings.ToLower(line)
-			switch {
-			case strings.Contains(ll, "disabled"):
-				state = "disabled"
-			case strings.Contains(ll, "fail") || strings.Contains(ll, "error"):
-				state = "failed"
-			}
-		}
-		if !strings.Contains(lowerOut, strings.ToLower(e.name)) {
+		state := byName[e.name]
+		if state == "" {
 			state = "unknown"
 		}
 		st.Servers[key] = McpState{State: state}

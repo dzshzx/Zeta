@@ -93,27 +93,25 @@ internal fun ClaudeMemoryScreen(
     ) {
         item(key = "instructions") { InstructionsGroup(o, isAgy, onOpen = { editing = it }) }
 
-        if (!isAgy) {
-            item(key = "auto") {
-                AutoMemoryGroup(
-                    o = o,
-                    home = home,
-                    working = working,
-                    onToggle = { on ->
-                        working = true
-                        scope.runConfig({ client.setAutoMemory(on) }) { result ->
-                            working = false
-                            result.onFailure {
-                                notice =
-                                    ConfigNotice(Strings.setupClaudeChangeFailed(), it.problem())
-                            }
-                            reload()
+        item(key = "auto") {
+            AutoMemoryGroup(
+                o = o,
+                home = home,
+                isAgy = isAgy,
+                working = working,
+                onToggle = { on ->
+                    working = true
+                    scope.runConfig({ client.setAutoMemory(on) }) { result ->
+                        working = false
+                        result.onFailure {
+                            notice = ConfigNotice(Strings.setupClaudeChangeFailed(), it.problem())
                         }
-                    },
-                    onSelectProject = { project = it },
-                    onOpen = { editing = it },
-                )
-            }
+                        reload()
+                    }
+                },
+                onSelectProject = { project = it },
+                onOpen = { editing = it },
+            )
         }
 
         if (o != null && (o.index != null || (isAgy && o.files.isNotEmpty()))) {
@@ -164,7 +162,7 @@ private fun InstructionsGroup(
 ) {
     val fileLabel =
         o?.instructions?.path?.substringAfterLast('/')?.takeIf { it.isNotBlank() }
-            ?: if (isAgy) "GEMINI.md" else "CLAUDE.md"
+            ?: if (isAgy) "AGENTS.md" else "CLAUDE.md"
     PreferenceGroup(
         title = Strings.setupMemoryInstructions(),
         footer = if (isAgy) null else Strings.setupMemoryInstructionsFooter(),
@@ -201,32 +199,41 @@ private fun InstructionsGroup(
 private fun AutoMemoryGroup(
     o: MemoryOverview?,
     home: String?,
+    isAgy: Boolean,
     working: Boolean,
     onToggle: (Boolean) -> Unit,
     onSelectProject: (String) -> Unit,
     onOpen: (MemoryTarget) -> Unit,
 ) {
     PreferenceGroup(
-        title = Strings.setupMemoryAuto(),
-        footer = Strings.setupMemoryAutoFooter(),
+        title = if (isAgy) Strings.settingsHostRules() else Strings.setupMemoryAuto(),
+        footer = if (isAgy) null else Strings.setupMemoryAutoFooter(),
     ) {
         if (o == null) {
             item { ConfigLoadingRow() }
         } else {
-            item {
-                SwitchPreference(
-                    checked = o.autoMemory && !o.forcedOff,
-                    onCheckedChange = onToggle,
-                    title = Strings.setupMemoryAutoEnable(),
-                    // forcedOff：settings.json 的 env 里设了
-                    // CLAUDE_CODE_DISABLE_AUTO_MEMORY，它压过开关
-                    summary = if (o.forcedOff) Strings.setupMemoryAutoForcedOff() else null,
-                    enabled = !o.forcedOff && !working,
-                )
-            }
+            if (!isAgy) autoMemoryToggleRow(o, working, onToggle)
             memoryLocationRows(o, home, onSelectProject)
-            memoryIndexRow(o.index, onOpen)
+            memoryIndexRow(o.index, isAgy, onOpen)
         }
+    }
+}
+
+private fun PreferenceGroupScope.autoMemoryToggleRow(
+    o: MemoryOverview,
+    working: Boolean,
+    onToggle: (Boolean) -> Unit,
+) {
+    item {
+        SwitchPreference(
+            checked = o.autoMemory && !o.forcedOff,
+            onCheckedChange = onToggle,
+            title = Strings.setupMemoryAutoEnable(),
+            // forcedOff：settings.json 的 env 里设了
+            // CLAUDE_CODE_DISABLE_AUTO_MEMORY，它压过开关
+            summary = if (o.forcedOff) Strings.setupMemoryAutoForcedOff() else null,
+            enabled = !o.forcedOff && !working,
+        )
     }
 }
 
@@ -283,12 +290,16 @@ private fun PreferenceGroupScope.memoryLocationRows(
 
 private fun PreferenceGroupScope.memoryIndexRow(
     index: ConfigFile?,
+    isAgy: Boolean,
     onOpen: (MemoryTarget) -> Unit,
 ) {
     if (index == null) return
+    val fileLabel =
+        index.path.substringAfterLast('/').takeIf { it.isNotBlank() }
+            ?: if (isAgy) "AGENTS.md" else "MEMORY.md"
     item {
         ArrowPreference(
-            title = "MEMORY.md",
+            title = fileLabel,
             summary =
                 if (index.exists) Strings.setupMemoryIndex() else Strings.setupMemoryIndexMissing(),
             endActions = { if (index.exists) PreferenceValue(sizeText(index.size)) },
@@ -296,8 +307,8 @@ private fun PreferenceGroupScope.memoryIndexRow(
                 onOpen(
                     MemoryTarget(
                         index.path,
-                        "MEMORY.md",
-                        "MEMORY.md",
+                        fileLabel,
+                        fileLabel,
                         Strings.setupMemoryIndexHint(),
                     ),
                 )

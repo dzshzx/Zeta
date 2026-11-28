@@ -5733,9 +5733,13 @@
   "@accountsAgyRelaysFooter": {
     "description": "Antigravity 账号页中转一组底下的说明。"
   },
-  "accountsAgyRelayUrlNote": "填写兼容 Gemini API 的接入地址，配合 Gemini API Key 使用。",
+  "accountsAgyRelayUrlNote": "留空则直连 Google 官方 Gemini 接口；使用第三方中转时再填写兼容地址。",
   "@accountsAgyRelayUrlNote": {
     "description": "Antigravity 中转编辑页地址输入框底下的说明。"
+  },
+  "accountsAgyOfficialEndpoint": "Google 官方 Gemini 接口",
+  "@accountsAgyOfficialEndpoint": {
+    "description": "Antigravity 中转未填自定义地址时的显示名称。"
   },
   "chatToolManageTask": "管理后台任务",
   "@chatToolManageTask": {

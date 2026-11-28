@@ -22,6 +22,8 @@ type RelayDraft struct {
 	Key string
 	// HasKey、KeyEditable、Current 照编辑的那个中转；添加时 KeyEditable 为真。
 	HasKey, KeyEditable, Current bool
+	// OptionalURL 为真时（Antigravity 的 Gemini API Key 中转）允许地址留空直连官方接口。
+	OptionalURL bool
 
 	models    []coreapi.RelayModel
 	fetched   bool
@@ -31,26 +33,39 @@ type RelayDraft struct {
 
 // NewRelayDraft 是添加中转的空草稿。
 func NewRelayDraft() *RelayDraft {
-	return &RelayDraft{Create: true, KeyEditable: true}
+	return NewRelayDraftFor("claude")
+}
+
+// NewRelayDraftFor 是添加指定 harness 中转的空草稿。
+func NewRelayDraftFor(harness string) *RelayDraft {
+	return &RelayDraft{Create: true, KeyEditable: true, OptionalURL: strings.TrimSpace(harness) == "agy"}
 }
 
 // EditRelayDraft 是编辑 r 的草稿：密钥空着（不改）。
 func EditRelayDraft(r coreapi.Relay) *RelayDraft {
-	return &RelayDraft{Name: r.Name, BaseURL: r.BaseURL, Model: r.Model, HasKey: r.HasKey,
-		KeyEditable: r.KeyEditable, Current: r.Current}
+	return EditRelayDraftFor("claude", r)
 }
 
-// Ready 报告能不能保存：名字（添加时）和地址填了，添加时密钥也填了。填得对不对由核心说。
+// EditRelayDraftFor 是编辑指定 harness 的中转 r 的草稿。
+func EditRelayDraftFor(harness string, r coreapi.Relay) *RelayDraft {
+	return &RelayDraft{Name: r.Name, BaseURL: r.BaseURL, Model: r.Model, HasKey: r.HasKey,
+		KeyEditable: r.KeyEditable, Current: r.Current, OptionalURL: strings.TrimSpace(harness) == "agy"}
+}
+
+// Ready 报告能不能保存：名字（添加时）已填、地址已填（或 OptionalURL 允许留空），添加时密钥也填了。填得对不对由核心说。
 func (d *RelayDraft) Ready() bool {
-	if strings.TrimSpace(d.Name) == "" || strings.TrimSpace(d.BaseURL) == "" {
+	if strings.TrimSpace(d.Name) == "" {
+		return false
+	}
+	if !d.OptionalURL && strings.TrimSpace(d.BaseURL) == "" {
 		return false
 	}
 	return !d.Create || strings.TrimSpace(d.Key) != ""
 }
 
-// CanFetch 报告能不能拉模型列表：地址填了，有密钥（新填的，或编辑时已存着的）。
+// CanFetch 报告能不能拉模型列表：地址已填（或 OptionalURL 允许留空），有密钥（新填的，或编辑时已存着的）。
 func (d *RelayDraft) CanFetch() bool {
-	if strings.TrimSpace(d.BaseURL) == "" || d.loading {
+	if (!d.OptionalURL && strings.TrimSpace(d.BaseURL) == "") || d.loading {
 		return false
 	}
 	return strings.TrimSpace(d.key()) != "" || (!d.Create && d.HasKey)

@@ -14783,18 +14783,32 @@ func (msgs Messages) AccountsAgyRelaysFooter() string {
 	return Catalog.Format(msgs.locale, "accountsAgyRelaysFooter", nil)
 }
 
-// AccountsAgyRelayUrlNote says "填写兼容 Gemini API 的接入地址，配合 Gemini API Key 使用。"
+// AccountsAgyRelayUrlNote says "留空则直连 Google 官方 Gemini 接口；使用第三方中转时再填写兼容地址。"
 // in the language the app shows.
 //
 // Antigravity 中转编辑页地址输入框底下的说明。
 func AccountsAgyRelayUrlNote() string { return In(i18n.Locale()).AccountsAgyRelayUrlNote() }
 
-// AccountsAgyRelayUrlNote says "填写兼容 Gemini API 的接入地址，配合 Gemini API Key 使用。"
+// AccountsAgyRelayUrlNote says "留空则直连 Google 官方 Gemini 接口；使用第三方中转时再填写兼容地址。"
 // in the language of msgs.
 //
 // Antigravity 中转编辑页地址输入框底下的说明。
 func (msgs Messages) AccountsAgyRelayUrlNote() string {
 	return Catalog.Format(msgs.locale, "accountsAgyRelayUrlNote", nil)
+}
+
+// AccountsAgyOfficialEndpoint says "Google 官方 Gemini 接口"
+// in the language the app shows.
+//
+// Antigravity 中转未填自定义地址时的显示名称。
+func AccountsAgyOfficialEndpoint() string { return In(i18n.Locale()).AccountsAgyOfficialEndpoint() }
+
+// AccountsAgyOfficialEndpoint says "Google 官方 Gemini 接口"
+// in the language of msgs.
+//
+// Antigravity 中转未填自定义地址时的显示名称。
+func (msgs Messages) AccountsAgyOfficialEndpoint() string {
+	return Catalog.Format(msgs.locale, "accountsAgyOfficialEndpoint", nil)
 }
 
 // ChatToolManageTask says "管理后台任务"

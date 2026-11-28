@@ -62,7 +62,7 @@ func (b *bridge) onPermissionRequest(rpcID json.RawMessage, rawParams json.RawMe
 	reqID := "agy-perm-" + strconv.Itoa(b.promptSeq)
 	b.mu.Unlock()
 
-	if bypass && toolName != "AskUserQuestion" {
+	if bypass && toolName != "AskUserQuestion" && toolName != "ask_question" {
 		if allowID := pickPermOption(p.Options, "allow_once", "allow_always"); allowID != "" {
 			_ = b.acp.reply(rpcID, map[string]any{"outcome": map[string]any{"outcome": "selected", "optionId": allowID}})
 			return
@@ -162,6 +162,9 @@ func (b *bridge) handlePromptResponse(reqID string, resp json.RawMessage) {
 				optID = always
 			}
 		}
+		if optID == "" && len(pp.options) > 0 {
+			optID = pp.options[0].OptionID
+		}
 		_ = b.acp.reply(pp.rpcID, map[string]any{"outcome": map[string]any{"outcome": "selected", "optionId": optID}})
 		return
 	}
@@ -198,9 +201,7 @@ func (b *bridge) pendingPermissionSnapshot() []json.RawMessage {
 	defer b.mu.Unlock()
 	out := []json.RawMessage{}
 	for _, pp := range b.prompts {
-		if pp.kind == "permission" {
-			out = append(out, pp.wireLine)
-		}
+		out = append(out, pp.wireLine)
 	}
 	return out
 }
@@ -212,9 +213,6 @@ func pickPermOption(opts []acpPermOpt, kinds ...string) string {
 				return o.OptionID
 			}
 		}
-	}
-	if len(opts) > 0 {
-		return opts[0].OptionID
 	}
 	return ""
 }

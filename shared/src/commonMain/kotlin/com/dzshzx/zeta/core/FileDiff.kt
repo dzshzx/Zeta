@@ -111,7 +111,7 @@ fun fileChangeOf(
         "Write",
         "write_file" -> writeAsNewFile(path, input, clipped)
         "Edit",
-        "edit_file" -> singleEditChange(path, input, clipped, name == "edit_file")
+        "edit_file" -> singleEditChange(path, input, clipped)
         "MultiEdit" -> multiEditChange(path, input, clipped)
         else -> null
     }
@@ -134,7 +134,7 @@ private fun patchedFileChange(
                 FileChange.Kind.Edit,
                 patch.hunks,
                 numbered = true,
-                replaceAll = name == "edit_file" || input.bool("replace_all") == true,
+                replaceAll = input.bool("replace_all") == true || input.bool("ReplaceAll") == true,
             )
     }
 
@@ -142,7 +142,6 @@ private fun singleEditChange(
     path: String,
     input: JsonObject,
     clipped: Boolean,
-    defaultReplaceAll: Boolean,
 ): FileChange? {
     val oldRaw = input.str("old_string") ?: input.str("Target") ?: return null
     val newRaw = input.str("new_string") ?: input.str("Replacement") ?: return null
@@ -154,7 +153,7 @@ private fun singleEditChange(
         LineDiff.hunks(old.first, new.first),
         numbered = false,
         truncated = old.second || new.second,
-        replaceAll = defaultReplaceAll || input.bool("replace_all") == true,
+        replaceAll = input.bool("replace_all") == true || input.bool("ReplaceAll") == true,
     )
 }
 

@@ -42,55 +42,59 @@ func agyMcpConfigPath(home string) string {
 	return agyConfigDir(home) + "/mcp_config.json"
 }
 
-// AgyCommonTools 与 AgyOtherTools 是 Antigravity CLI 的内置工具列表（供工具权限页展示）。
+// AgyCommonTools 与 AgyOtherTools 是 Antigravity CLI 的权限资源动作列表（供工具权限页展示）。
 var AgyCommonTools = []ToolInfo{
-	tool("run_command", locales.M("toolBash"), "run_command(git push:*)"),
-	tool("read_file", locales.M("toolRead"), "read_file(./.env)"),
-	tool("edit_file", locales.M("toolAgyEdit"), "edit_file(src/**)"),
-	tool("write_file", locales.M("toolWrite"), ""),
-	tool("grep_search", locales.M("toolAgyGrep"), ""),
-	tool("find_by_name", locales.M("toolAgyGlob"), ""),
-	tool("search_web", locales.M("toolWebSearch"), ""),
-	tool("invoke_subagent", locales.M("toolAgyAgent"), ""),
+	tool("command", locales.M("toolAgyCommand"), "command(git status)"),
+	tool("read_file", locales.M("toolAgyReadFile"), "read_file(/var/log)"),
+	tool("write_file", locales.M("toolAgyWriteFile"), "write_file(src/)"),
+	tool("read_url", locales.M("toolAgyReadUrl"), "read_url(github.com)"),
+	tool("mcp", locales.M("toolAgyMcp"), "mcp(github/*)"),
 }
 
 var AgyOtherTools = []ToolInfo{
-	tool("ask_question", locales.M("toolAskUserQuestion"), ""),
-	tool("update_steps", locales.M("toolUpdateSteps"), ""),
-	tool("run_workflow", locales.M("toolWorkflow"), ""),
-	tool("manage_task", locales.M("toolMonitor"), ""),
-	tool("schedule", locales.M("toolCronCreate"), ""),
-	tool("send_message", locales.M("toolSendMessage"), ""),
+	tool("execute_url", locales.M("toolAgyExecuteUrl"), "execute_url(localhost:3000)"),
+	tool("download_url", locales.M("toolAgyDownloadUrl"), "download_url(github.com)"),
+	tool("unsandboxed", locales.M("toolAgyUnsandboxed"), "unsandboxed(docker)"),
 }
 
-// AgyBuiltinGroup 返回 agy 全部内置工具组成的权限分组。
+// AgyBuiltinGroup 返回 agy 全部内置资源动作组成的权限分组（不含 mcp，避免一键开关影响 MCP 服务器规则）。
 func AgyBuiltinGroup() PermissionGroup {
 	var names []string
 	for _, t := range append(slices.Clone(AgyCommonTools), AgyOtherTools...) {
+		if t.Name == "mcp" {
+			continue
+		}
 		names = append(names, t.Name)
 	}
 	return PermissionGroup{Tools: names}
 }
 
 func agyDefaultsOf(s *object) Defaults {
-	d := defaultsOf(s)
-	d.PermissionMode = agyModeToZeta(nonBlank(s, "agentMode"), nonBlank(s, "toolPermission"))
-	return d
+	agentMode, hasAgentMode := s.str("agentMode")
+	return Defaults{
+		Model:          nonBlank(s, "model"),
+		PermissionMode: agyModeToZeta(strings.TrimSpace(agentMode), hasAgentMode, nonBlank(s, "toolPermission")),
+		Efforts:        []ModelEffort{},
+	}
 }
 
 // AgyDefaultModeFromSettings 从 ~/.gemini/antigravity-cli/settings.json 的 JSON 解析默认权限模式。
 func AgyDefaultModeFromSettings(data []byte) string {
 	var raw struct {
-		AgentMode      string `json:"agentMode"`
-		ToolPermission string `json:"toolPermission"`
+		AgentMode      *string `json:"agentMode"`
+		ToolPermission string  `json:"toolPermission"`
 	}
 	if json.Unmarshal(data, &raw) != nil {
 		return ""
 	}
-	return agyModeToZeta(strings.TrimSpace(raw.AgentMode), strings.TrimSpace(raw.ToolPermission))
+	agentMode, hasAgentMode := "", false
+	if raw.AgentMode != nil {
+		agentMode, hasAgentMode = strings.TrimSpace(*raw.AgentMode), true
+	}
+	return agyModeToZeta(agentMode, hasAgentMode, strings.TrimSpace(raw.ToolPermission))
 }
 
-func agyModeToZeta(agentMode, toolPerm string) string {
+func agyModeToZeta(agentMode string, hasAgentMode bool, toolPerm string) string {
 	if toolPerm == "always-proceed" {
 		return "bypassPermissions"
 	}
@@ -103,6 +107,10 @@ func agyModeToZeta(agentMode, toolPerm string) string {
 		return "plan"
 	case "default":
 		return "default"
+	case "":
+		if hasAgentMode {
+			return "default"
+		}
 	}
 	return ""
 }
@@ -122,8 +130,9 @@ func applyAgyDefaultMode(s *object, mode string) {
 		s.set("agentMode", "plan")
 		clearAlwaysProceed(s)
 	default:
-		s.del("agentMode")
-		s.set("toolPermission", "request-review")
+		// CLI 1.5.7+ 省略 agentMode 时默认以 auto 启动；显式写空串表示始终以 default 启动。
+		s.set("agentMode", "")
+		clearAlwaysProceed(s)
 	}
 }
 
@@ -151,14 +160,14 @@ func (s *Store) agyMemory(cwd, project string) Memory {
 		projects = append(projects, MemoryProject{
 			Key:     wsRoot,
 			Label:   wsRoot,
-			Count:   countMarkdownFiles(wsRules),
+			Count:   countMarkdownFiles(wsRules, ""),
 			Default: true,
 		})
 	}
 	projects = append(projects, MemoryProject{
 		Key:     "global",
 		Label:   "~/.gemini/config/rules",
-		Count:   countMarkdownFiles(globalDir),
+		Count:   countMarkdownFiles(globalDir, "AGENTS.md"),
 		Default: len(projects) == 0,
 	})
 
@@ -179,11 +188,19 @@ func (s *Store) agyMemory(cwd, project string) Memory {
 	if selected == "global" {
 		m.Dir = globalDir
 		m.Files = listMarkdownEntries(globalDir, "AGENTS.md")
+		if head, size, ok := readHead(resolve(home, ".gemini/GEMINI.md"), 4096); ok {
+			m.Files = append(m.Files, memoryEntry(resolve(home, ".gemini/GEMINI.md"), size, head))
+		}
 	} else {
 		m.Dir = selected + "/.agents/rules"
 		idx := s.workspaceInstructionsFile(selected)
 		m.Index = &idx
 		m.Files = listMarkdownEntries(m.Dir, "")
+		if idx.Path == selected+"/AGENTS.md" {
+			if head, size, ok := readHead(selected+"/GEMINI.md", 4096); ok {
+				m.Files = append(m.Files, memoryEntry(selected+"/GEMINI.md", size, head))
+			}
+		}
 	}
 	return m
 }
@@ -208,11 +225,11 @@ func (s *Store) workspaceInstructionsFile(wsRoot string) ConfigFile {
 	return ConfigFile{Path: agents}
 }
 
-func countMarkdownFiles(dir string) int {
+func countMarkdownFiles(dir, skipName string) int {
 	entries, _ := os.ReadDir(dir)
 	n := 0
 	for _, e := range entries {
-		if !e.IsDir() && isMemoryFileName(e.Name()) && e.Name() != "AGENTS.md" {
+		if !e.IsDir() && isMemoryFileName(e.Name()) && e.Name() != skipName {
 			n++
 		}
 	}
@@ -259,21 +276,26 @@ func (s *Store) checkAgyEditable(path string) error {
 	return locales.Err("cfgNotEditable")
 }
 
-func (s *Store) agySkills() Skills {
-	settings := s.lenientSettings()
+func (s *Store) agySkills(cwd string) Skills {
 	out := Skills{User: []Skill{}, Synced: []SyncedSkill{}}
 	seen := map[string]bool{}
 
 	skipDot := func(name string) bool { return strings.HasPrefix(name, ".") }
 	primary := agySkillsDir(s.Home())
-	for _, sk := range readSkillDir(primary, settings, skipDot) {
+	for _, sk := range readSkillDir(primary, nil, skipDot) {
 		seen[sk.Name] = true
 		out.User = append(out.User, sk)
 	}
 
-	extraDirs := append([]string{resolve(s.Home(), ".agents/skills")}, declaredSkillDirs(s.Home())...)
+	var extraDirs []string
+	if wsRoot := agyWorkspaceRoot(cmp.Or(cwd, s.Home()), s.Home()); wsRoot != "" && wsRoot != s.Home() {
+		extraDirs = append(extraDirs, wsRoot+"/.agents/skills")
+	}
+	extraDirs = append(extraDirs, resolve(s.Home(), ".agents/skills"))
+	extraDirs = append(extraDirs, declaredSkillDirs(s.Home())...)
+	extraDirs = append(extraDirs, s.enabledPluginSubdirs("skills")...)
 	for _, d := range extraDirs {
-		for _, sk := range readSkillDir(d, settings, skipDot) {
+		for _, sk := range readSkillDir(d, nil, skipDot) {
 			if seen[sk.Name] {
 				continue
 			}
@@ -281,13 +303,56 @@ func (s *Store) agySkills() Skills {
 			out.Synced = append(out.Synced, SyncedSkill{
 				Name:        sk.Name,
 				Description: sk.Description,
-				Enabled:     sk.Enabled,
+				Enabled:     true,
 			})
 		}
 	}
 	slices.SortFunc(out.User, func(a, b Skill) int { return cmp.Compare(a.Name, b.Name) })
 	slices.SortFunc(out.Synced, func(a, b SyncedSkill) int { return cmp.Compare(a.Name, b.Name) })
 	return out
+}
+
+func (s *Store) agyDisabledPlugins() map[string]bool {
+	out := map[string]bool{}
+	data, _, ok := readHead(agyConfigDir(s.Home())+"/config.json", 512*1024)
+	if !ok {
+		return out
+	}
+	var cfg struct {
+		Plugins map[string]struct {
+			Enabled *bool `json:"enabled"`
+		} `json:"plugins"`
+	}
+	if json.Unmarshal(data, &cfg) != nil {
+		return out
+	}
+	for name, p := range cfg.Plugins {
+		if p.Enabled != nil && !*p.Enabled {
+			out[name] = true
+		}
+	}
+	return out
+}
+
+func (s *Store) enabledPluginSubdirs(sub string) []string {
+	disabled := s.agyDisabledPlugins()
+	pluginsRoot := agyConfigDir(s.Home()) + "/plugins"
+	entries, err := os.ReadDir(pluginsRoot)
+	if err != nil {
+		return nil
+	}
+	var dirs []string
+	for _, e := range entries {
+		if disabled[e.Name()] || strings.HasPrefix(e.Name(), ".") {
+			continue
+		}
+		p := filepath.Join(pluginsRoot, e.Name(), sub)
+		if st, err := os.Stat(p); err == nil && st.IsDir() {
+			dirs = append(dirs, p)
+		}
+	}
+	slices.Sort(dirs)
+	return dirs
 }
 
 func readSkillDir(root string, settings *object, skip func(string) bool) []Skill {
@@ -354,7 +419,7 @@ type AgyModelItem struct {
 func (s *Store) ReadAgyModels(ctx context.Context) []AgyModelItem {
 	ctx, cancel := context.WithTimeout(ctx, 15*time.Second)
 	defer cancel()
-	const script = `PATH="$PATH:$HOME/.local/bin"; exec agy models`
+	const script = `PATH="$PATH:$HOME/.local/bin"; exec "${ZETA_AGY_BIN:-agy}" models`
 	text, code, err := run(ctx, s.loginCommand(ctx, script, nil, nil), nil)
 	if err != nil || code != 0 {
 		return []AgyModelItem{}

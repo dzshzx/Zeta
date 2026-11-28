@@ -11,6 +11,13 @@ type patchHunk struct {
 	Lines    []string `json:"lines"`
 }
 
+type diffOp struct {
+	kind byte // ' ', '-', '+'
+	text string
+	oldI int
+	newI int
+}
+
 // buildToolPatch 从 ACP diff 块（oldText -> newText）构造 Zeta 识别的 tool_use_result（含 structuredPatch 与 create/update 类型）。
 func buildToolPatch(oldText, newText string) map[string]any {
 	if oldText == newText {
@@ -40,61 +47,138 @@ func splitLines(s string) []string {
 }
 
 func computePatchHunks(oldLines, newLines []string) []patchHunk {
-	const maxLines = 1500
+	const maxLines = 2000
 	if len(oldLines)+len(newLines) > maxLines {
 		return nil
 	}
-	prefix := commonPrefixLen(oldLines, newLines)
-	suffix := commonSuffixLen(oldLines[prefix:], newLines[prefix:])
+	ops := myersDiff(oldLines, newLines)
+	return groupHunks(ops, 3)
+}
 
-	const ctx = 3
-	oldStart := max(0, prefix-ctx)
-	newStart := max(0, prefix-ctx)
-	oldEnd := min(len(oldLines), len(oldLines)-suffix+ctx)
-	newEnd := min(len(newLines), len(newLines)-suffix+ctx)
-
-	var lines []string
-	for i := oldStart; i < prefix; i++ {
-		lines = append(lines, " "+oldLines[i])
-	}
-	for i := prefix; i < len(oldLines)-suffix; i++ {
-		lines = append(lines, "-"+oldLines[i])
-	}
-	for i := prefix; i < len(newLines)-suffix; i++ {
-		lines = append(lines, "+"+newLines[i])
-	}
-	tailStart := len(oldLines) - suffix
-	for i := tailStart; i < oldEnd; i++ {
-		lines = append(lines, " "+oldLines[i])
-	}
-	if len(lines) == 0 {
+func myersDiff(a, b []string) []diffOp {
+	n, m := len(a), len(b)
+	maxD := n + m
+	if maxD == 0 {
 		return nil
 	}
-	return []patchHunk{{
-		OldStart: oldStart + 1,
-		OldLines: oldEnd - oldStart,
-		NewStart: newStart + 1,
-		NewLines: newEnd - newStart,
+	offset := maxD
+	v := make([]int, 2*maxD+1)
+	trace := make([][]int, 0, min(maxD+1, 256))
+	for d := 0; d <= maxD; d++ {
+		snap := make([]int, len(v))
+		copy(snap, v)
+		trace = append(trace, snap)
+		for k := -d; k <= d; k += 2 {
+			x := nextMyersX(v, offset, d, k)
+			y := x - k
+			for x < n && y < m && a[x] == b[y] {
+				x++
+				y++
+			}
+			v[offset+k] = x
+			if x >= n && y >= m {
+				return backtrackMyers(a, b, trace, offset)
+			}
+		}
+	}
+	return nil
+}
+
+func nextMyersX(v []int, offset, d, k int) int {
+	if k == -d || (k != d && v[offset+k-1] < v[offset+k+1]) {
+		return v[offset+k+1]
+	}
+	return v[offset+k-1] + 1
+}
+
+func backtrackMyers(a, b []string, trace [][]int, offset int) []diffOp {
+	x, y := len(a), len(b)
+	var rev []diffOp
+	for d := len(trace) - 1; d > 0; d-- {
+		v := trace[d]
+		k := x - y
+		prevK := k - 1
+		if k == -d || (k != d && v[offset+k-1] < v[offset+k+1]) {
+			prevK = k + 1
+		}
+		prevX := v[offset+prevK]
+		prevY := prevX - prevK
+		for x > prevX && y > prevY {
+			x--
+			y--
+			rev = append(rev, diffOp{kind: ' ', text: a[x], oldI: x, newI: y})
+		}
+		if x == prevX {
+			y--
+			rev = append(rev, diffOp{kind: '+', text: b[y], oldI: x, newI: y})
+		} else {
+			x--
+			rev = append(rev, diffOp{kind: '-', text: a[x], oldI: x, newI: y})
+		}
+	}
+	for x > 0 && y > 0 {
+		x--
+		y--
+		rev = append(rev, diffOp{kind: ' ', text: a[x], oldI: x, newI: y})
+	}
+	for i, j := 0, len(rev)-1; i < j; i, j = i+1, j-1 {
+		rev[i], rev[j] = rev[j], rev[i]
+	}
+	return rev
+}
+
+func groupHunks(ops []diffOp, ctx int) []patchHunk {
+	var hunks []patchHunk
+	i := 0
+	for i < len(ops) {
+		for i < len(ops) && ops[i].kind == ' ' {
+			i++
+		}
+		if i >= len(ops) {
+			break
+		}
+		start := max(0, i-ctx)
+		end := i
+		for end < len(ops) {
+			if ops[end].kind != ' ' {
+				end++
+				continue
+			}
+			eq := end
+			for eq < len(ops) && ops[eq].kind == ' ' {
+				eq++
+			}
+			if eq >= len(ops) || eq-end > 2*ctx {
+				end = min(len(ops), end+ctx)
+				break
+			}
+			end = eq
+		}
+		hunks = append(hunks, buildHunk(ops[start:end]))
+		i = end
+	}
+	return hunks
+}
+
+func buildHunk(seg []diffOp) patchHunk {
+	oldStart := seg[0].oldI + 1
+	newStart := seg[0].newI + 1
+	oldLines, newLines := 0, 0
+	lines := make([]string, 0, len(seg))
+	for _, op := range seg {
+		lines = append(lines, string(op.kind)+op.text)
+		if op.kind != '+' {
+			oldLines++
+		}
+		if op.kind != '-' {
+			newLines++
+		}
+	}
+	return patchHunk{
+		OldStart: oldStart,
+		OldLines: oldLines,
+		NewStart: newStart,
+		NewLines: newLines,
 		Lines:    lines,
-	}}
-}
-
-func commonPrefixLen(a, b []string) int {
-	n := min(len(a), len(b))
-	for i := 0; i < n; i++ {
-		if a[i] != b[i] {
-			return i
-		}
 	}
-	return n
-}
-
-func commonSuffixLen(a, b []string) int {
-	n := min(len(a), len(b))
-	for i := 0; i < n; i++ {
-		if a[len(a)-1-i] != b[len(b)-1-i] {
-			return i
-		}
-	}
-	return n
 }

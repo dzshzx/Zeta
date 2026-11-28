@@ -38,9 +38,15 @@ func (c *Conversation) subagentLabel(agentID string) (label, code string) {
 				}
 				var input struct {
 					Description string `json:"description"`
+					Role        string `json:"Role"`
 				}
-				if json.Unmarshal(s.Input, &input) == nil && strings.TrimSpace(input.Description) != "" {
-					return input.Description, ""
+				if json.Unmarshal(s.Input, &input) == nil {
+					if label := strings.TrimSpace(input.Description); label != "" {
+						return label, ""
+					}
+					if role := strings.TrimSpace(input.Role); role != "" {
+						return role, ""
+					}
 				}
 			}
 		}

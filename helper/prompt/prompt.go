@@ -24,11 +24,9 @@ const (
 	KindElicitation Kind = "elicitation" // MCP 服务器的表单或网址
 )
 
-// 几个有专门界面的工具。
-const (
-	toolExitPlanMode    = "ExitPlanMode"
-	toolAskUserQuestion = "AskUserQuestion"
-)
+// 几个有专门界面的工具（兼容 Claude Code 与 Antigravity 工具名）。
+func isExitPlanTool(name string) bool    { return name == "ExitPlanMode" || name == "exit_plan_mode" }
+func isAskQuestionTool(name string) bool { return name == "AskUserQuestion" || name == "ask_question" }
 
 // Prompt 是一个在等用户回应的请求。两种请求只用到各自那几个字段，没写出的字段是零值。
 type Prompt struct {
@@ -166,8 +164,8 @@ func permission(r *requestBody) *Prompt {
 		Reason:    string(r.DecisionReason),
 		AgentID:   r.AgentID,
 		ToolUseID: r.ToolUseID,
-		IsPlan:    r.ToolName == toolExitPlanMode,
-		AsksInput: r.ToolName == toolAskUserQuestion,
+		IsPlan:    isExitPlanTool(r.ToolName),
+		AsksInput: isAskQuestionTool(r.ToolName),
 	}
 	if isObject(r.Input) {
 		p.Input = r.Input
@@ -229,7 +227,7 @@ func (p *Prompt) notice() locales.Msg {
 		return locales.M("promptMcpForm", "server", p.Server)
 	case p.IsPlan:
 		return locales.M("promptPlan")
-	case p.ToolName == toolAskUserQuestion:
+	case isAskQuestionTool(p.ToolName):
 		return locales.M("promptQuestion")
 	default:
 		return locales.M("promptTool", "tool", p.ToolName)

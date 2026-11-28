@@ -40,9 +40,12 @@ type Skills struct {
 func (s *Store) skillsRoot() string { return s.activeSpec().skillsDir(s.Home()) }
 
 // Skills 读 Skills 页。
-func (s *Store) Skills() Skills {
+func (s *Store) Skills() Skills { return s.SkillsIn("") }
+
+// SkillsIn 读 Skills 页（agy 下同时扫描 cwd 所属工作区的 .agents/skills）。
+func (s *Store) SkillsIn(cwd string) Skills {
 	if s.IsAgy() {
-		return s.agySkills()
+		return s.agySkills(cwd)
 	}
 	settings := s.lenientSettings()
 	root := s.skillsRoot()
@@ -80,8 +83,8 @@ func (s *Store) Skills() Skills {
 	return out
 }
 
-func checkSkillName(name string) error {
-	if name == "" || strings.Contains(name, "/") || strings.HasPrefix(name, ".") || name == "synced" || hasControl(name) {
+func (st *Store) checkSkillName(name string) error {
+	if name == "" || strings.Contains(name, "/") || strings.HasPrefix(name, ".") || (!st.IsAgy() && name == "synced") || hasControl(name) {
 		return locales.Err("cfgSkillBadName")
 	}
 	return nil
@@ -90,7 +93,10 @@ func checkSkillName(name string) error {
 // SetSkillEnabled 停用写 skillOverrides 的 "off"，和 Claude Code 里 /skills 关掉一样；启用把这个名字（和 SKILL.md 里的 name）
 // 下的 "off" 去掉，别的取值（name-only 之类）不动。
 func (st *Store) SetSkillEnabled(s Skill, enabled bool) error {
-	if err := checkSkillName(s.Name); err != nil {
+	if st.IsAgy() {
+		return locales.Err("errAgyConfigUnsupported")
+	}
+	if err := st.checkSkillName(s.Name); err != nil {
 		return err
 	}
 	_, err := st.updateSettings(func(settings *object) error {
@@ -118,7 +124,7 @@ func (st *Store) SetSkillEnabled(s Skill, enabled bool) error {
 
 // DeleteSkill 删掉一个 Skill 的文件夹（是链接就只删链接），顺带清掉它的 skillOverrides 项。
 func (s *Store) DeleteSkill(name string) error {
-	if err := checkSkillName(name); err != nil {
+	if err := s.checkSkillName(name); err != nil {
 		return err
 	}
 	path := s.skillsRoot() + "/" + name
@@ -135,6 +141,9 @@ func (s *Store) DeleteSkill(name string) error {
 	}
 	if err != nil {
 		return locales.Err("cfgDeleteFailed", "reason", pathReason(err))
+	}
+	if s.IsAgy() {
+		return nil
 	}
 	_, err = s.updateSettings(func(settings *object) error {
 		if o := settings.obj("skillOverrides"); o != nil {

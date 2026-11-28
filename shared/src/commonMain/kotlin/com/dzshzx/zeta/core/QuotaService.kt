@@ -259,11 +259,8 @@ class QuotaService(
             val result = runCatching {
                 if (isAgy) {
                     link.call(
-                        "quota.get",
-                        buildJsonObject {
-                            put("harness", Harnesses.AGY)
-                            put("refresh", true)
-                        },
+                        "quota.usage",
+                        buildJsonObject { put("harness", Harnesses.AGY) },
                     ) as? JsonObject
                 } else {
                     usage(link, synchronized(probeLock) { QuotaProbe.query(shell, cwd) })

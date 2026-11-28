@@ -46,15 +46,37 @@ func ValidAgentName(name string) bool { return agentNamePattern.MatchString(name
 func (s *Store) agentsRoot() string { return s.activeSpec().agentsDir(s.Home()) }
 
 // Agents 列出 ~/.claude/agents（或 ~/.gemini/config/agents）下（含子目录，跟着符号链接走）的 Subagent，按路径排。
-func (s *Store) Agents() []Subagent {
+func (s *Store) Agents() []Subagent { return s.AgentsIn("") }
+
+// AgentsIn 列出 Subagent；agy 下若传入 cwd，则一并列出工作区 .agents/agents 里的定义。
+func (s *Store) AgentsIn(cwd string) []Subagent {
 	dir := s.agentsRoot()
+	out := readAgentDir(dir, "")
+	if s.IsAgy() && cwd != "" {
+		wsRoot := agyWorkspaceRoot(cwd, s.Home())
+		if wsRoot != "" && wsRoot != s.Home() {
+			seen := map[string]bool{}
+			for _, a := range out {
+				seen[a.Name] = true
+			}
+			for _, a := range readAgentDir(wsRoot+"/.agents/agents", ".agents/agents/") {
+				if !seen[a.Name] {
+					out = append(out, a)
+				}
+			}
+		}
+	}
+	return out
+}
+
+func readAgentDir(dir, filePrefix string) []Subagent {
 	out := []Subagent{}
 	for _, rel := range agentFiles(dir, "", 0) {
 		data, size, ok := readHead(dir+"/"+rel, MaxText+1)
 		if !ok || size > MaxText {
 			continue
 		}
-		a := parseAgent(rel, string(data))
+		a := parseAgent(filePrefix+rel, string(data))
 		a.SHA = sha256Hex(data)
 		out = append(out, a)
 	}

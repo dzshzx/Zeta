@@ -296,5 +296,17 @@
   "toolAgyEdit": "Edit files",
   "toolAgyGrep": "Search file contents",
   "toolAgyGlob": "Find files by name",
-  "toolAgyAgent": "Launch a Subagent"
+  "toolAgyAgent": "Launch a Subagent",
+  "errAgyConfigUnsupported": "Antigravity doesn't support this setting",
+  "cfgAgyRuleMalformed": "Invalid rule format. Use action(target), e.g. command(git status), write_file(src/), or mcp(github/*)",
+  "toolAgyCommand": "Run terminal commands",
+  "toolAgyReadFile": "Read files and directories",
+  "toolAgyWriteFile": "Edit and write files",
+  "toolAgyReadUrl": "Read web pages and sandbox outbound access",
+  "toolAgyMcp": "All MCP tools",
+  "toolAgyExecuteUrl": "Open web pages in browser",
+  "toolAgyDownloadUrl": "Download files in browser",
+  "toolAgyUnsandboxed": "Run commands outside sandbox (Enterprise)",
+  "errAgyStopTaskUnsupported": "Antigravity doesn't support stopping individual background tasks",
+  "errAgyTaskOutputMissing": "No output found for this background task"
 }

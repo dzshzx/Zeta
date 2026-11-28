@@ -130,8 +130,46 @@ func extractChildSessionID(agyDir, text string) string {
 
 // SubagentChunkEvents 将读取到的 transcript.jsonl 整行块转为子代理查看页的事件流，第一条 USER_INPUT 标上 prompt:true。
 func SubagentChunkEvents(data []byte, startLine int64) ([]map[string]any, int64) {
+	return subagentChunkEvents(data, startLine, nil)
+}
+
+// SubagentChunkEventsWithSeed 同 SubagentChunkEvents；当 startLine > 0 时先从 path 前序行恢复未配对的 tool_calls，避免跨块丢失工具结果。
+func SubagentChunkEventsWithSeed(path string, data []byte, startLine int64) ([]map[string]any, int64) {
+	var seed []string
+	if startLine > 0 && path != "" {
+		seed = pendingCallsBeforeLine(path, startLine)
+	}
+	return subagentChunkEvents(data, startLine, seed)
+}
+
+func pendingCallsBeforeLine(path string, stopLine int64) []string {
+	steps, err := readSteps(path)
+	if err != nil {
+		return nil
+	}
+	var pending []string
+	for i, st := range steps {
+		if int64(i) >= stopLine {
+			break
+		}
+		switch st.Type {
+		case "USER_INPUT":
+			pending = nil
+		case "PLANNER_RESPONSE":
+			for idx, tc := range st.ToolCalls {
+				pending = append(pending, toolCallID(st.StepIndex, idx, tc))
+			}
+		case "GENERIC":
+			if st.Source == "MODEL" && len(pending) > 0 {
+				pending = pending[1:]
+			}
+		}
+	}
+	return pending
+}
+
+func subagentChunkEvents(data []byte, startLine int64, pendingCalls []string) ([]map[string]any, int64) {
 	var events []map[string]any
-	var pendingCalls []string
 	line := startLine
 	for len(data) > 0 {
 		nl := bytes.IndexByte(data, '\n')

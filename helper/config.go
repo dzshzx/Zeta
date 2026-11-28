@@ -35,12 +35,20 @@ var configMethods = map[string]func(context.Context, *claudecfg.Store, json.RawM
 	"config.memory.delete":    withParams(deleteMemory),
 	"config.memory.setAuto":   withParams(setAutoMemory),
 
-	"config.skills.list":       noParams(func(_ context.Context, s *claudecfg.Store) (any, error) { return s.Skills(), nil }),
+	"config.skills.list": withParams(func(_ context.Context, s *claudecfg.Store, p struct {
+		Cwd string `json:"cwd"`
+	}) (any, error) {
+		return s.SkillsIn(p.Cwd), nil
+	}),
 	"config.skills.import":     withParams(importSkill),
 	"config.skills.setEnabled": withParams(setSkillEnabled),
 	"config.skills.delete":     withParams(deleteSkill),
 
-	"config.agents.list":   noParams(func(_ context.Context, s *claudecfg.Store) (any, error) { return s.Agents(), nil }),
+	"config.agents.list": withParams(func(_ context.Context, s *claudecfg.Store, p struct {
+		Cwd string `json:"cwd"`
+	}) (any, error) {
+		return s.AgentsIn(p.Cwd), nil
+	}),
 	"config.agents.save":   withParams(saveAgent),
 	"config.agents.delete": withParams(deleteAgent),
 

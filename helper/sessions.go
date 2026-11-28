@@ -463,12 +463,28 @@ func cmdArchive(e *env, o *emitter, sessions []string, on bool) error {
 
 // archiveSessions 把这些会话记成归档（on）或取消归档（markSessions）。zeta-helper archive 和核心的 sessions.archive 都用它。
 func archiveSessions(e *env, sessions []string, on bool) error {
-	return markSessions(e, e.archive, sessions, on)
+	if err := markSessions(e, e.archive, sessions, on); err != nil {
+		return err
+	}
+	for _, id := range sessions {
+		if agystore.IsSessionID(id) && agystore.HasSessionData(e.agy, id) {
+			_ = agystore.SetAnnotationArchived(e.agy, id, on)
+		}
+	}
+	return nil
 }
 
 // pinSessions 把这些会话置顶（on）或取消置顶（markSessions）。核心的 sessions.pin 用它。
 func pinSessions(e *env, sessions []string, on bool) error {
-	return markSessions(e, e.pinned, sessions, on)
+	if err := markSessions(e, e.pinned, sessions, on); err != nil {
+		return err
+	}
+	for _, id := range sessions {
+		if agystore.IsSessionID(id) && agystore.HasSessionData(e.agy, id) {
+			_ = agystore.SetAnnotationPinned(e.agy, id, on)
+		}
+	}
+	return nil
 }
 
 // markSessions 在标记文件 path（归档、置顶）里记上（on）或去掉这些会话（editMarks）。

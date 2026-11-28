@@ -2,6 +2,16 @@
   "sourceLanguage": "zh-Hans",
   "version": "1.0",
   "strings": {
+    "Google 官方 Gemini 接口": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Official Google Gemini API"
+          }
+        }
+      }
+    },
     "版本": {
       "localizations": {
         "en": {

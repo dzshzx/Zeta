@@ -33,7 +33,10 @@ type acpToolUpdate struct {
 	RawInput   json.RawMessage `json:"rawInput"`
 	RawOutput  json.RawMessage `json:"rawOutput"`
 	Content    []acpToolBlock  `json:"content"`
-	Meta       map[string]any  `json:"_meta"`
+	Locations  []struct {
+		Path string `json:"path"`
+	} `json:"locations"`
+	Meta map[string]any `json:"_meta"`
 }
 
 type acpToolBlock struct {
@@ -42,8 +45,10 @@ type acpToolBlock struct {
 	OldText string `json:"oldText"`
 	NewText string `json:"newText"`
 	Content struct {
-		Type string `json:"type"`
-		Text string `json:"text"`
+		Type     string `json:"type"`
+		Text     string `json:"text"`
+		MimeType string `json:"mimeType"`
+		Data     string `json:"data"`
 	} `json:"content"`
 }
 
@@ -77,6 +82,18 @@ type acpConfigUpdate struct {
 	ConfigOptions []acpConfigOption `json:"configOptions"`
 }
 
+type toolImage struct {
+	mediaType string
+	data      string
+}
+
+type bgTask struct {
+	id          string
+	taskType    string
+	description string
+	agentType   string
+}
+
 type trackedTool struct {
 	name            string
 	inputSent       bool
@@ -84,8 +101,10 @@ type trackedTool struct {
 	rawInput        json.RawMessage
 	patch           map[string]any
 	texts           []string
+	images          []toolImage
 	subagentID      string
 	subagentDesc    string
+	subagentType    string
 	subagentStarted bool
 }
 
@@ -240,8 +259,44 @@ func (b *bridge) mergeToolFields(ts *turnStream, callID string, tr *trackedTool,
 	b.emitFinishedToolResult(callID, tr, u)
 }
 
+func (b *bridge) emitBackgroundTasksChanged() {
+	b.mu.Lock()
+	list := make([]map[string]any, 0, len(b.activeTasks))
+	for _, t := range b.activeTasks {
+		item := map[string]any{
+			"task_id":   t.id,
+			"task_type": t.taskType,
+		}
+		if t.description != "" {
+			item["description"] = t.description
+		}
+		if t.agentType != "" {
+			item["subagent_type"] = t.agentType
+		}
+		list = append(list, item)
+	}
+	b.mu.Unlock()
+	b.emit(map[string]any{
+		"type":    "system",
+		"subtype": "background_tasks_changed",
+		"tasks":   list,
+	})
+}
+
 func (b *bridge) emitSubagentStarted(callID string, tr *trackedTool) {
 	tr.subagentStarted = true
+	b.mu.Lock()
+	if b.activeTasks == nil {
+		b.activeTasks = map[string]bgTask{}
+	}
+	b.activeTasks[tr.subagentID] = bgTask{
+		id:          tr.subagentID,
+		taskType:    "local_agent",
+		description: tr.subagentDesc,
+		agentType:   tr.subagentType,
+	}
+	b.mu.Unlock()
+	b.emitBackgroundTasksChanged()
 	ev := map[string]any{
 		"type":        "system",
 		"subtype":     "task_started",
@@ -261,7 +316,12 @@ func absorbToolUpdate(tr *trackedTool, u acpToolUpdate) {
 		if name := inferToolName(u); name != "" && tr.name == "tool" {
 			tr.name = name
 		}
+	} else if len(tr.rawInput) == 0 && len(u.Locations) > 0 && strings.TrimSpace(u.Locations[0].Path) != "" {
+		if raw, err := json.Marshal(map[string]string{"Path": u.Locations[0].Path}); err == nil {
+			tr.rawInput = raw
+		}
 	}
+	var blockTexts []string
 	for _, blk := range u.Content {
 		switch blk.Type {
 		case "diff":
@@ -269,10 +329,18 @@ func absorbToolUpdate(tr *trackedTool, u acpToolUpdate) {
 				tr.patch = p
 			}
 		case "content":
-			if blk.Content.Text != "" {
-				tr.texts = []string{blk.Content.Text}
+			if blk.Content.Type == "image" && blk.Content.Data != "" {
+				tr.images = append(tr.images, toolImage{
+					mediaType: cmp.Or(blk.Content.MimeType, "image/png"),
+					data:      blk.Content.Data,
+				})
+			} else if blk.Content.Text != "" {
+				blockTexts = append(blockTexts, blk.Content.Text)
 			}
 		}
+	}
+	if len(blockTexts) > 0 {
+		tr.texts = blockTexts
 	}
 	if tr.name == "invoke_subagent" {
 		absorbSubagentInfo(tr, u)
@@ -287,6 +355,7 @@ func absorbSubagentInfo(tr *trackedTool, u acpToolUpdate) {
 		}
 		if json.Unmarshal(tr.rawInput, &in) == nil {
 			tr.subagentDesc = cmp.Or(strings.TrimSpace(in.Role), strings.TrimSpace(in.TypeName))
+			tr.subagentType = strings.TrimSpace(in.TypeName)
 		}
 	}
 	if tr.subagentID != "" {
@@ -319,6 +388,20 @@ func (b *bridge) emitFinishedToolResult(callID string, tr *trackedTool, u acpToo
 	if resText == "" && len(u.RawOutput) > 0 && string(u.RawOutput) != "null" {
 		resText = stringifyOutput(u.RawOutput)
 	}
+	var content any = resText
+	if len(tr.images) > 0 {
+		blocks := make([]any, 0, len(tr.images)+1)
+		if resText != "" {
+			blocks = append(blocks, map[string]any{"type": "text", "text": resText})
+		}
+		for _, img := range tr.images {
+			blocks = append(blocks, map[string]any{
+				"type":   "image",
+				"source": map[string]any{"type": "base64", "media_type": img.mediaType, "data": img.data},
+			})
+		}
+		content = blocks
+	}
 	ev := map[string]any{
 		"type": "user",
 		"message": map[string]any{
@@ -327,7 +410,7 @@ func (b *bridge) emitFinishedToolResult(callID string, tr *trackedTool, u acpToo
 					"type":        "tool_result",
 					"tool_use_id": callID,
 					"is_error":    u.Status == "failed",
-					"content":     resText,
+					"content":     content,
 				},
 			},
 		},
@@ -349,6 +432,10 @@ func (b *bridge) emitFinishedToolResult(callID string, tr *trackedTool, u acpToo
 			"task_id": tr.subagentID,
 			"status":  status,
 		})
+		b.mu.Lock()
+		delete(b.activeTasks, tr.subagentID)
+		b.mu.Unlock()
+		b.emitBackgroundTasksChanged()
 	}
 }
 

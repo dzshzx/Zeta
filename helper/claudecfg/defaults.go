@@ -89,6 +89,9 @@ func (st *Store) SetDefaultModel(model string) (Defaults, error) {
 
 // SetCompactWindow 设上下文窗口（token 数）；0 是删掉，按模型本身的窗口。
 func (st *Store) SetCompactWindow(tokens int64) (Defaults, error) {
+	if st.IsAgy() {
+		return Defaults{}, locales.Err("errAgyConfigUnsupported")
+	}
 	if tokens != 0 && tokens < MinCompactWindow {
 		return Defaults{}, locales.Err("cfgCompactWindowMin", "min", FormatTokens(MinCompactWindow))
 	}
@@ -123,6 +126,9 @@ func (st *Store) SetDefaultPermissionMode(mode string) (Defaults, error) {
 // SetDefaultEffort 设默认思考强度（level 为空是删掉）。model 是完整模型 ID 时改 modelSettings.<model>.effortLevel，和 /effort
 // 存为默认一样，这个模型下别的键原样留着，删空了连这个模型一起删，modelSettings 空了也删；model 为空时改顶层的 effortLevel。
 func (st *Store) SetDefaultEffort(model, level string) (Defaults, error) {
+	if st.IsAgy() {
+		return Defaults{}, locales.Err("errAgyConfigUnsupported")
+	}
 	return st.editDefaults(func(s *object) error {
 		if model == "" {
 			setOrDelete(s, "effortLevel", optional(level))

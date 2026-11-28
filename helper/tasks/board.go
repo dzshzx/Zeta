@@ -11,8 +11,11 @@ const DefaultKeepFinished = 20
 // maxRemembered 是记着的工具调用、还没进清单的 task_started 各自最多几个。
 const maxRemembered = 64
 
-// taskTools 是会起后台任务的工具。Task 是 Agent 的旧名。
-var taskTools = map[string]bool{"Bash": true, "Monitor": true, "Agent": true, "Task": true}
+// taskTools 是会起后台任务的工具。Task 是 Agent 的旧名；同时兼容 Antigravity 工具名。
+var taskTools = map[string]bool{
+	"Bash": true, "Monitor": true, "Agent": true, "Task": true,
+	"run_command": true, "invoke_subagent": true, "run_workflow": true, "manage_task": true,
+}
 
 // Board 把 Claude Code 的事件归约成后台任务清单。
 //
@@ -40,9 +43,13 @@ type call struct {
 
 // toolInput 是工具调用参数里取命令要用的几项。
 type toolInput struct {
-	Command *string `json:"command"`
-	Prompt  *string `json:"prompt"`
-	WS      *struct {
+	Command     *string `json:"command"`
+	CommandLine *string `json:"CommandLine"`
+	Prompt      *string `json:"prompt"`
+	PromptUpper *string `json:"Prompt"`
+	Role        *string `json:"Role"`
+	ScriptPath  *string `json:"ScriptPath"`
+	WS          *struct {
 		URL *string `json:"url"`
 	} `json:"ws"`
 }
@@ -458,18 +465,31 @@ func commandOf(c call) string {
 	switch c.name {
 	case "Bash":
 		command = in.Command
+	case "run_command":
+		command = firstNonBlankPtr(in.CommandLine, in.Command)
 	case "Monitor":
 		command = in.Command
 		if command == nil && in.WS != nil {
 			command = in.WS.URL
 		}
+	case "run_workflow":
+		command = firstNonBlankPtr(in.ScriptPath, in.PromptUpper, in.Prompt)
 	default:
-		command = in.Prompt
+		command = firstNonBlankPtr(in.Prompt, in.PromptUpper, in.Role)
 	}
 	if command == nil || blank(*command) {
 		return ""
 	}
 	return *command
+}
+
+func firstNonBlankPtr(ptrs ...*string) *string {
+	for _, p := range ptrs {
+		if p != nil && !blank(*p) {
+			return p
+		}
+	}
+	return nil
 }
 
 // stateOf 是 task_updated 的 status 对应的状态：pending、running、paused 都算在跑。

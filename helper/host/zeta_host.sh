@@ -135,11 +135,12 @@ held_elsewhere() {
 
 held_elsewhere_agy() {
   local agy_dir="${ZETA_AGY_DIR:-$HOME/.gemini/antigravity-cli}"
+  [ -d "$agy_dir/presence" ] || return 1
   local lock_path="$agy_dir/presence/$1.lock"
-  [ -e "$lock_path" ] || return 1
   local resolved fd pid m
   local -a STAT
-  resolved=$(readlink -f "$lock_path" 2>/dev/null) || resolved="$lock_path"
+  resolved=$(readlink -f "$agy_dir/presence" 2>/dev/null) || resolved="$agy_dir/presence"
+  resolved="$resolved/$1.lock"
   while IFS= read -r fd; do
     [ -n "$fd" ] || continue
     pid=${fd#/proc/}
@@ -274,9 +275,22 @@ running() {
 # （$2 可能只是外面那层，见开头 pid 一项）。经 SIGTERM 结束时，返回时它们都已不在跑。stop 和看门狗都用它。
 end_claude() {
   local d=$1 p=$2 i
-  running "$p" || return 0
+  local is_agy=0
+  [ "$(cat "$d/harness" 2>/dev/null)" = agy ] && is_agy=1
+  if [ "$is_agy" = 1 ]; then
+    running "$p" $(hosted_claude "$d") || return 0
+  else
+    running "$p" || return 0
+  fi
   write_line "$d" '{"type":"control_request","request_id":"zeta-end","request":{"subtype":"end_session"}}'
-  for ((i = 0; i < ${ZETA_STOP_GRACE:-10} * 5; i++)); do running "$p" || return 0; sleep 0.2; done
+  for ((i = 0; i < ${ZETA_STOP_GRACE:-10} * 5; i++)); do
+    if [ "$is_agy" = 1 ]; then
+      running "$p" $(hosted_claude "$d") || return 0
+    else
+      running "$p" || return 0
+    fi
+    sleep 0.2
+  done
   set -- "$p" $(hosted_claude "$d") # 一行一个进程号，按词分开
   kill "$@" 2>/dev/null
   for ((i = 0; i < 25; i++)); do running "$@" || return 0; sleep 0.2; done
@@ -410,7 +424,7 @@ elif [ "$mode" = start ]; then
     if [ -s "$D/err.log" ]; then
       L="${D%/hosts/*}/stderr"
       T="$L/.${D##*/}.part"
-      mkdir -p "$L" && { echo "# zeta: claude 退出码 $code，$(date "+%F %T %z")"; tail -c 65536 "$D/err.log"; } > "$T" &&
+      mkdir -p "$L" && { echo "# zeta: $(cat "$D/harness" 2>/dev/null || echo claude) 退出码 $code，$(date "+%F %T %z")"; tail -c 65536 "$D/err.log"; } > "$T" &&
         mv -f "$T" "$L/$(date +%Y%m%d-%H%M%S)-${D##*/}.log"
       ls -1t "$L" 2>/dev/null | tail -n +21 | while read -r f; do rm -f "$L/$f"; done
     fi

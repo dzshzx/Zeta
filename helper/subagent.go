@@ -229,7 +229,7 @@ func cmdSubagent(e *env, o *emitter, req subagentRequest, chunk int) error {
 	var events []obj
 	var next int64
 	if _, _, isAgy := agyDirFromTranscript(path); isAgy {
-		events, next = agystore.SubagentChunkEvents(read.data, read.line)
+		events, next = agystore.SubagentChunkEventsWithSeed(path, read.data, read.line)
 	} else {
 		events, next = subagentEvents(read.data, read.line)
 	}

@@ -4389,3 +4389,173 @@ func ToolAgyAgent() string { return In(i18n.Locale()).ToolAgyAgent() }
 func (msgs Messages) ToolAgyAgent() string {
 	return Catalog.Format(msgs.locale, "toolAgyAgent", nil)
 }
+
+// ErrAgyConfigUnsupported says "Antigravity 不支持该配置项"
+// in the language the app shows.
+//
+// 配置页出错：对 Antigravity 调用 Claude 专有配置方法。
+func ErrAgyConfigUnsupported() string { return In(i18n.Locale()).ErrAgyConfigUnsupported() }
+
+// ErrAgyConfigUnsupported says "Antigravity 不支持该配置项"
+// in the language of msgs.
+//
+// 配置页出错：对 Antigravity 调用 Claude 专有配置方法。
+func (msgs Messages) ErrAgyConfigUnsupported() string {
+	return Catalog.Format(msgs.locale, "errAgyConfigUnsupported", nil)
+}
+
+// CfgAgyRuleMalformed says "规则格式应为 动作(目标)，例如 command(git status)、write_file(src/)、mcp(github/*)"
+// in the language the app shows.
+//
+// Antigravity 工具权限页出错：规则不符合 action(target)
+// 语法。
+func CfgAgyRuleMalformed() string { return In(i18n.Locale()).CfgAgyRuleMalformed() }
+
+// CfgAgyRuleMalformed says "规则格式应为 动作(目标)，例如 command(git status)、write_file(src/)、mcp(github/*)"
+// in the language of msgs.
+//
+// Antigravity 工具权限页出错：规则不符合 action(target)
+// 语法。
+func (msgs Messages) CfgAgyRuleMalformed() string {
+	return Catalog.Format(msgs.locale, "cfgAgyRuleMalformed", nil)
+}
+
+// ToolAgyCommand says "运行终端命令"
+// in the language the app shows.
+//
+// Antigravity 工具权限页 command 一行的说明。
+func ToolAgyCommand() string { return In(i18n.Locale()).ToolAgyCommand() }
+
+// ToolAgyCommand says "运行终端命令"
+// in the language of msgs.
+//
+// Antigravity 工具权限页 command 一行的说明。
+func (msgs Messages) ToolAgyCommand() string {
+	return Catalog.Format(msgs.locale, "toolAgyCommand", nil)
+}
+
+// ToolAgyReadFile says "读取文件与目录"
+// in the language the app shows.
+//
+// Antigravity 工具权限页 read_file 一行的说明。
+func ToolAgyReadFile() string { return In(i18n.Locale()).ToolAgyReadFile() }
+
+// ToolAgyReadFile says "读取文件与目录"
+// in the language of msgs.
+//
+// Antigravity 工具权限页 read_file 一行的说明。
+func (msgs Messages) ToolAgyReadFile() string {
+	return Catalog.Format(msgs.locale, "toolAgyReadFile", nil)
+}
+
+// ToolAgyWriteFile says "修改和写入文件"
+// in the language the app shows.
+//
+// Antigravity 工具权限页 write_file 一行的说明。
+func ToolAgyWriteFile() string { return In(i18n.Locale()).ToolAgyWriteFile() }
+
+// ToolAgyWriteFile says "修改和写入文件"
+// in the language of msgs.
+//
+// Antigravity 工具权限页 write_file 一行的说明。
+func (msgs Messages) ToolAgyWriteFile() string {
+	return Catalog.Format(msgs.locale, "toolAgyWriteFile", nil)
+}
+
+// ToolAgyReadUrl says "读取网页与沙箱出网"
+// in the language the app shows.
+//
+// Antigravity 工具权限页 read_url 一行的说明。
+func ToolAgyReadUrl() string { return In(i18n.Locale()).ToolAgyReadUrl() }
+
+// ToolAgyReadUrl says "读取网页与沙箱出网"
+// in the language of msgs.
+//
+// Antigravity 工具权限页 read_url 一行的说明。
+func (msgs Messages) ToolAgyReadUrl() string {
+	return Catalog.Format(msgs.locale, "toolAgyReadUrl", nil)
+}
+
+// ToolAgyMcp says "全部 MCP 工具"
+// in the language the app shows.
+//
+// Antigravity 工具权限页 mcp 一行的说明。
+func ToolAgyMcp() string { return In(i18n.Locale()).ToolAgyMcp() }
+
+// ToolAgyMcp says "全部 MCP 工具"
+// in the language of msgs.
+//
+// Antigravity 工具权限页 mcp 一行的说明。
+func (msgs Messages) ToolAgyMcp() string {
+	return Catalog.Format(msgs.locale, "toolAgyMcp", nil)
+}
+
+// ToolAgyExecuteUrl says "浏览器打开网页"
+// in the language the app shows.
+//
+// Antigravity 工具权限页 execute_url 一行的说明。
+func ToolAgyExecuteUrl() string { return In(i18n.Locale()).ToolAgyExecuteUrl() }
+
+// ToolAgyExecuteUrl says "浏览器打开网页"
+// in the language of msgs.
+//
+// Antigravity 工具权限页 execute_url 一行的说明。
+func (msgs Messages) ToolAgyExecuteUrl() string {
+	return Catalog.Format(msgs.locale, "toolAgyExecuteUrl", nil)
+}
+
+// ToolAgyDownloadUrl says "浏览器下载文件"
+// in the language the app shows.
+//
+// Antigravity 工具权限页 download_url 一行的说明。
+func ToolAgyDownloadUrl() string { return In(i18n.Locale()).ToolAgyDownloadUrl() }
+
+// ToolAgyDownloadUrl says "浏览器下载文件"
+// in the language of msgs.
+//
+// Antigravity 工具权限页 download_url 一行的说明。
+func (msgs Messages) ToolAgyDownloadUrl() string {
+	return Catalog.Format(msgs.locale, "toolAgyDownloadUrl", nil)
+}
+
+// ToolAgyUnsandboxed says "沙箱外执行（企业版）"
+// in the language the app shows.
+//
+// Antigravity 工具权限页 unsandboxed 一行的说明。
+func ToolAgyUnsandboxed() string { return In(i18n.Locale()).ToolAgyUnsandboxed() }
+
+// ToolAgyUnsandboxed says "沙箱外执行（企业版）"
+// in the language of msgs.
+//
+// Antigravity 工具权限页 unsandboxed 一行的说明。
+func (msgs Messages) ToolAgyUnsandboxed() string {
+	return Catalog.Format(msgs.locale, "toolAgyUnsandboxed", nil)
+}
+
+// ErrAgyStopTaskUnsupported says "Antigravity 暂不支持单独停止后台任务"
+// in the language the app shows.
+//
+// 后台任务页出错：对 Antigravity 后台任务调用 stop_task。
+func ErrAgyStopTaskUnsupported() string { return In(i18n.Locale()).ErrAgyStopTaskUnsupported() }
+
+// ErrAgyStopTaskUnsupported says "Antigravity 暂不支持单独停止后台任务"
+// in the language of msgs.
+//
+// 后台任务页出错：对 Antigravity 后台任务调用 stop_task。
+func (msgs Messages) ErrAgyStopTaskUnsupported() string {
+	return Catalog.Format(msgs.locale, "errAgyStopTaskUnsupported", nil)
+}
+
+// ErrAgyTaskOutputMissing says "未找到该后台任务的输出"
+// in the language the app shows.
+//
+// 后台任务页出错：读不到 Antigravity 后台任务输出。
+func ErrAgyTaskOutputMissing() string { return In(i18n.Locale()).ErrAgyTaskOutputMissing() }
+
+// ErrAgyTaskOutputMissing says "未找到该后台任务的输出"
+// in the language of msgs.
+//
+// 后台任务页出错：读不到 Antigravity 后台任务输出。
+func (msgs Messages) ErrAgyTaskOutputMissing() string {
+	return Catalog.Format(msgs.locale, "errAgyTaskOutputMissing", nil)
+}

@@ -75,12 +75,14 @@ type savedMeta struct {
 }
 
 type diskState struct {
-	Current      string               `json:"current,omitempty"`
-	CurrentRelay string               `json:"currentRelay,omitempty"`
-	PendingLogin string               `json:"pendingLogin,omitempty"`
-	RelaySetMode bool                 `json:"relaySetMode,omitempty"`
-	Accounts     map[string]savedMeta `json:"accounts,omitempty"`
-	Plans        map[string]string    `json:"plans,omitempty"`
+	Current        string               `json:"current,omitempty"`
+	CurrentRelay   string               `json:"currentRelay,omitempty"`
+	PendingLogin   string               `json:"pendingLogin,omitempty"`
+	RelaySetMode   bool                 `json:"relaySetMode,omitempty"`
+	RelaySetModel  bool                 `json:"relaySetModel,omitempty"`
+	RelayPrevModel string               `json:"relayPrevModel,omitempty"`
+	Accounts       map[string]savedMeta `json:"accounts,omitempty"`
+	Plans          map[string]string    `json:"plans,omitempty"`
 }
 
 // Host 是一台主机上的 agy 账号与中转管理器。
@@ -392,13 +394,15 @@ func (h *Host) activateAccountLocked(name string, ds *diskState) error {
 	if err := accounts.WriteFileAtomic(oauthTokenPath(h.Home), data, 0o600); err != nil {
 		return err
 	}
-	if err := clearRelaySettings(h.Home, ds.RelaySetMode); err != nil {
+	if err := clearRelaySettings(h.Home, ds.RelaySetMode, ds.RelaySetModel, ds.RelayPrevModel); err != nil {
 		return err
 	}
 	ds.Current = name
 	ds.CurrentRelay = ""
 	ds.PendingLogin = ""
 	ds.RelaySetMode = false
+	ds.RelaySetModel = false
+	ds.RelayPrevModel = ""
 	if err := saveDiskState(h.Home, *ds); err != nil {
 		return err
 	}
@@ -410,13 +414,20 @@ func (h *Host) activateRelayLocked(r accounts.Relay, ds *diskState) error {
 	if !accounts.Removed(oauthTokenPath(h.Home)) {
 		return locales.Err("errRelayWrite", "path", oauthTokenPath(h.Home))
 	}
-	if err := enableRelaySettings(h.Home, r.Model); err != nil {
+	prevModel, setModel, err := enableRelaySettings(h.Home, r.Model, !ds.RelaySetModel)
+	if err != nil {
 		return err
 	}
 	ds.Current = ""
 	ds.CurrentRelay = r.Name
 	ds.PendingLogin = ""
 	ds.RelaySetMode = true
+	if setModel {
+		if !ds.RelaySetModel {
+			ds.RelayPrevModel = prevModel
+		}
+		ds.RelaySetModel = true
+	}
 	if err := saveDiskState(h.Home, *ds); err != nil {
 		return err
 	}
@@ -440,7 +451,7 @@ func (h *Host) PrepareLogin(ctx context.Context) (string, error) {
 		if !accounts.Removed(oauthTokenPath(h.Home)) {
 			return locales.Err("errRelayWrite", "path", oauthTokenPath(h.Home))
 		}
-		if err := clearRelaySettings(h.Home, snap.ds.RelaySetMode); err != nil {
+		if err := clearRelaySettings(h.Home, snap.ds.RelaySetMode, snap.ds.RelaySetModel, snap.ds.RelayPrevModel); err != nil {
 			return err
 		}
 		name = FreeName(snap.taken)
@@ -448,6 +459,8 @@ func (h *Host) PrepareLogin(ctx context.Context) (string, error) {
 		snap.ds.CurrentRelay = ""
 		snap.ds.PendingLogin = name
 		snap.ds.RelaySetMode = false
+		snap.ds.RelaySetModel = false
+		snap.ds.RelayPrevModel = ""
 		if err := saveDiskState(h.Home, snap.ds); err != nil {
 			return err
 		}

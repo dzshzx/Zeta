@@ -215,7 +215,11 @@ private struct RelayLabel: View {
         HStack {
             VStack(alignment: .leading) {
                 Text(relay.name)
-                Text(relay.baseUrl).font(.caption).foregroundStyle(.secondary)
+                if relay.baseUrl.isEmpty {
+                    Text("Google 官方 Gemini 接口").font(.caption).foregroundStyle(.secondary)
+                } else {
+                    Text(relay.baseUrl).font(.caption).foregroundStyle(.secondary)
+                }
             }
             Spacer()
             if relay.current {

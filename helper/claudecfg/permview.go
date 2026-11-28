@@ -53,6 +53,9 @@ func bulkPair(rs Rules, g PermissionGroup) BulkPair {
 
 // PermissionsView 把规则 rs 摊成页面：cwd 是默认工作目录（列 MCP 服务器用，空是家目录）；server 不空时另算它整体的设置和它的 tools。
 func (s *Store) PermissionsView(rs Rules, cwd, server string, tools []string) PermissionsView {
+	if s.IsAgy() {
+		return s.agyPermissionsView(rs, cwd, server, tools)
+	}
 	v := PermissionsView{Rules: []RuleView{}, Builtin: []ToolView{}, Servers: []ServerView{}, ServerTools: []ToolView{}}
 	for _, r := range rs {
 		v.Rules = append(v.Rules, RuleView{r, RuleMalformed(r.Text)})

@@ -471,17 +471,20 @@ func (s *Store) editPermissions(edit func(*object) error) (Rules, error) {
 	return rulesOf(settings)
 }
 
-// SetToolPermission 把整个工具（内置工具，或整个 MCP 服务器 mcp__xxx）设成允许、询问、拒绝，空是去掉。
+// SetToolPermission 把整个工具（内置工具，或整个 MCP 服务器 mcp__xxx；agy 为 action(*) / mcp(server/*)）设成允许、询问、拒绝，空是去掉。
 func (s *Store) SetToolPermission(tool string, b Behavior) (Rules, error) {
 	if err := checkBehavior(b, true); err != nil {
 		return nil, err
+	}
+	if s.IsAgy() {
+		return s.editPermissions(func(o *object) error { return agyWithTool(o, tool, b) })
 	}
 	return s.editPermissions(func(o *object) error { return withTool(o, tool, b) })
 }
 
 // AddPermissionRule 加一条规则。
 func (s *Store) AddPermissionRule(r Rule) (Rules, error) {
-	if err := checkRule(r); err != nil {
+	if err := s.checkRule(r); err != nil {
 		return nil, err
 	}
 	return s.editPermissions(func(o *object) error { return withRule(o, r.Behavior, r.Text) })
@@ -494,7 +497,7 @@ func (s *Store) RemovePermissionRule(r Rule) (Rules, error) {
 
 // ReplacePermissionRule 把 old 换成 nw；old 已经被别人删了或改了时报错，界面重新读。
 func (s *Store) ReplacePermissionRule(old, nw Rule) (Rules, error) {
-	if err := checkRule(nw); err != nil {
+	if err := s.checkRule(nw); err != nil {
 		return nil, err
 	}
 	return s.editPermissions(func(o *object) error { return replaceRule(o, old.Behavior, old.Text, nw.Behavior, nw.Text) })
@@ -502,6 +505,9 @@ func (s *Store) ReplacePermissionRule(old, nw Rule) (Rules, error) {
 
 // SetGroupPermission 一键开启或关闭一组工具；按文件里最新的内容算要加、要删的。
 func (s *Store) SetGroupPermission(g PermissionGroup, enable bool) (Rules, error) {
+	if s.IsAgy() {
+		return s.editPermissions(func(o *object) error { return agyWithBulk(o, g, enable) })
+	}
 	return s.editPermissions(func(o *object) error { return withBulk(o, g, enable) })
 }
 
@@ -512,12 +518,12 @@ func checkBehavior(b Behavior, allowEmpty bool) error {
 	return locales.Err("cfgUnknownBehavior", "behavior", string(b))
 }
 
-func checkRule(r Rule) error {
+func (s *Store) checkRule(r Rule) error {
 	if err := checkBehavior(r.Behavior, false); err != nil {
 		return err
 	}
-	if err := RuleProblem(r.Text); err != nil {
-		return err
+	if s.IsAgy() {
+		return agyRuleProblem(r.Text)
 	}
-	return nil
+	return RuleProblem(r.Text)
 }

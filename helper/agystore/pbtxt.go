@@ -52,18 +52,55 @@ func parseAnnotation(text string) Annotation {
 
 // SetAnnotationTitle 在 annotations/<id>.pbtxt 里写入或替换 title，保留文件里的其余字段（tags、pinned 等）。
 func SetAnnotationTitle(agyDir, id, title string) error {
+	return writePbtxtField(agyDir, id, "title", quotePbtxt(title))
+}
+
+// SetAnnotationArchived 在 annotations/<id>.pbtxt 里写入或移除 archived: true。
+func SetAnnotationArchived(agyDir, id string, archived bool) error {
+	val := ""
+	if archived {
+		val = "true"
+	}
+	return writePbtxtField(agyDir, id, "archived", val)
+}
+
+// SetAnnotationPinned 在 annotations/<id>.pbtxt 里写入或移除 pinned: true。
+func SetAnnotationPinned(agyDir, id string, pinned bool) error {
+	val := ""
+	if pinned {
+		val = "true"
+	}
+	return writePbtxtField(agyDir, id, "pinned", val)
+}
+
+func writePbtxtField(agyDir, id, key, valueLiteral string) error {
 	dir := filepath.Join(agyDir, "annotations")
 	if err := os.MkdirAll(dir, 0o755); err != nil {
 		return err
 	}
 	path := filepath.Join(dir, id+".pbtxt")
 	existing, _ := os.ReadFile(path)
-	updated := replacePbtxtField(string(existing), "title", quotePbtxt(title))
-	tmp := path + ".tmp"
-	if err := os.WriteFile(tmp, []byte(updated), 0o644); err != nil {
+	updated := replacePbtxtField(string(existing), key, valueLiteral)
+	f, err := os.CreateTemp(dir, "."+id+".pbtxt.*")
+	if err != nil {
 		return err
 	}
-	return os.Rename(tmp, path)
+	tmp := f.Name()
+	_, werr := f.WriteString(updated)
+	cerr := f.Close()
+	if werr != nil || cerr != nil {
+		_ = os.Remove(tmp)
+		if werr != nil {
+			return werr
+		}
+		return cerr
+	}
+	_ = os.Chmod(tmp, 0o644)
+	if err := os.Rename(tmp, path); err != nil {
+		_ = os.Remove(tmp)
+		return err
+	}
+	return nil
 }
 
 func replacePbtxtField(content, key, valueLiteral string) string {

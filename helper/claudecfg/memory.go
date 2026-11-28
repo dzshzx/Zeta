@@ -262,6 +262,9 @@ func (s *Store) DeleteMemory(path string) error {
 	if err := os.Remove(path); err != nil && !os.IsNotExist(err) {
 		return locales.Err("cfgDeleteFailed", "reason", pathReason(err))
 	}
+	if s.IsAgy() {
+		return nil
+	}
 	index := parentDir(path) + "/MEMORY.md"
 	for range 3 {
 		doc, err := load(index, MaxText)
@@ -290,6 +293,9 @@ func indexWithout(index, fileName string) (string, bool) {
 
 // SetAutoMemory 打开或关掉自动记忆（settings.json 的 autoMemoryEnabled，对所有项目生效）。
 func (s *Store) SetAutoMemory(on bool) error {
+	if s.IsAgy() {
+		return locales.Err("errAgyConfigUnsupported")
+	}
 	_, err := s.updateSettings(func(settings *object) error {
 		settings.set("autoMemoryEnabled", on)
 		return nil

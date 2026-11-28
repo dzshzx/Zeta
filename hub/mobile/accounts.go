@@ -235,13 +235,13 @@ func init() {
 	})
 	// relay.edit 开始添加（name 空）或编辑中转 name：草稿留在核心里，之后 relay.draft 改、relay.fetch、relay.save。
 	onRemote("relay.edit", func(c *Core, svc *accounts.Service, _ *accounts.Quota, h string, p accountParams) error {
-		d := accounts.NewRelayDraft()
+		d := accounts.NewRelayDraftFor(h)
 		if p.Name != "" {
 			x, err := relay(svc, p.Name)
 			if err != nil {
 				return err
 			}
-			d = accounts.EditRelayDraft(x)
+			d = accounts.EditRelayDraftFor(h, x)
 		}
 		c.relay = &relayDraft{device: p.ID, harness: h, d: d}
 		return nil

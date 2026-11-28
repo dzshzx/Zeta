@@ -1,12 +1,16 @@
 package main
 
 import (
+	"fmt"
 	"os"
+	"path/filepath"
 	"sort"
 	"strings"
 	"sync"
 	"syscall"
 	"time"
+
+	"github.com/dzshzx/Zeta/helper/agystore"
 )
 
 // sessionWatch 是 serve 里会话列表的订阅：和 list 同样的范围、同样的每一项（最新的 listLimit 个会话，加上不在里面的置顶会话，见 listedFiles），
@@ -52,10 +56,11 @@ type watch struct {
 }
 
 type cached struct {
-	size  int64
-	mtime int64
-	s     summary
-	ok    bool
+	size      int64
+	mtime     int64
+	metaStamp string
+	s         summary
+	ok        bool
 }
 
 const (
@@ -242,7 +247,8 @@ func recentBrainDirs(brainRoot string, limit int) []string {
 	list := make([]timed, 0, len(ids))
 	for _, id := range ids {
 		d := joinPath(brainRoot, id)
-		list = append(list, timed{dir: d, mtime: mtimeFollow(d)})
+		mt := max(mtimeFollow(d), mtimeFollow(joinPath(d, ".system_generated/logs/transcript.jsonl")))
+		list = append(list, timed{dir: d, mtime: mt})
 	}
 	sort.Slice(list, func(i, j int) bool { return list[i].mtime > list[j].mtime })
 	if len(list) > limit {
@@ -321,14 +327,36 @@ func (w *sessionWatch) snapshot() []obj {
 	return items
 }
 
-// summaryOf 是记录 path 的概要：大小和修改时刻都没变时用上次读的。只是变长了时，最新回答时间只往回找到上次的大小（replyMark）。读不了时 ok 为假。
+func statStamp(path string) string {
+	fi, err := os.Stat(path)
+	if err != nil {
+		return ""
+	}
+	return fmt.Sprintf("%d:%d", fi.Size(), fi.ModTime().UnixNano())
+}
+
+func agyMetaStamp(path string) string {
+	agyDir, id, ok := agyDirFromTranscript(path)
+	if !ok {
+		return ""
+	}
+	return strings.Join([]string{
+		statStamp(agystore.AnnotationPath(agyDir, id)),
+		statStamp(filepath.Join(agyDir, "brain", id, ".zeta_meta.json")),
+		statStamp(filepath.Join(agyDir, "conversation_summaries.db")),
+		statStamp(filepath.Join(agyDir, "conversation_summaries.db-wal")),
+	}, "|")
+}
+
+// summaryOf 是记录 path 的概要：大小、修改时刻和 agy 元数据都没变时用上次读的。只是变长了时，最新回答时间只往回找到上次的大小（replyMark）。读不了时 ok 为假。
 func (w *sessionWatch) summaryOf(path string) (cached, bool) {
 	fi, err := os.Stat(path)
 	if err != nil {
 		return cached{}, false
 	}
 	size, mtime := fi.Size(), fi.ModTime().UnixNano()
-	if c, ok := w.cache[path]; ok && c.size == size && c.mtime == mtime {
+	stamp := agyMetaStamp(path)
+	if c, ok := w.cache[path]; ok && c.size == size && c.mtime == mtime && c.metaStamp == stamp {
 		return c, true
 	}
 	var known replyMark
@@ -339,13 +367,18 @@ func (w *sessionWatch) summaryOf(path string) (cached, bool) {
 	if err != nil {
 		return cached{}, false
 	}
-	return cached{size: size, mtime: mtime, s: s, ok: ok}, true
+	return cached{size: size, mtime: mtime, metaStamp: stamp, s: s, ok: ok}, true
 }
 
 // publish 重读一遍，发给客户端：full 时发整份，否则只发和上次不同的和 force 过的，都没有就不发。
 func (w *sessionWatch) publish(full bool) error {
-	// 先取走再重读：写操作在 force 之前就写完了，重读看得到
+	// 先取走再重读：写操作在 force 之前就写完了，重读看得到；强制推送的项清掉缓存避免命中旧标题/标记。
 	forced := w.takeForced()
+	for p, c := range w.cache {
+		if forced[c.s.id] {
+			delete(w.cache, p)
+		}
+	}
 	items := w.snapshot()
 	next := make(map[string]string, len(items))
 	upsert := []obj{}
