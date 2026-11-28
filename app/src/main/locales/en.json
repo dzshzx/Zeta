@@ -1379,7 +1379,7 @@
   "assistantWaitingFor": "Needs you: {what}. Handle it in Zeta.",
   "assistantNoAnswer": "No answer this turn",
   "assistantScreenshot": "Screenshot",
-  "assistantInputHint": "Ask Claude",
+  "assistantInputHint": "Ask {tool}",
   "assistantInputDescription": "Enter question",
   "assistantStop": "Stop",
   "assistantSend": "Send",
@@ -1683,9 +1683,9 @@
   "settingsAssistantTitle": "Digital assistant",
   "settingsAssistantIsDefault": "Default",
   "settingsAssistantNotSet": "Not set",
-  "settingsAssistantFooter": "As the default, the system's assistant shortcut opens the Zeta floating window and asks Claude about the current screen. On HyperOS, long-pressing the power button also needs the LSPosed module; see Diagnostics.",
+  "settingsAssistantFooter": "As the default, the system's assistant shortcut opens the Zeta floating window and asks {tool} about the current screen. On HyperOS, long-pressing the power button also needs the LSPosed module; see Diagnostics.",
   "settingsAssistantConversations": "Assistant conversations",
-  "settingsAssistantConversationsFooter": "“Claude Code default” uses the same defaults as new conversations, from the Claude Code settings (shown on the settings home page). Choices made here don't affect new conversations.",
+  "settingsAssistantConversationsFooter": "“{follow}” uses the same defaults as new conversations, from the {tool} settings (shown on the settings home page). Choices made here don't affect new conversations.",
   "settingsAssistantDefault": "Default digital assistant",
   "settingsAssistantDefaultSummary": "Choose in system settings",
   "settingsAssistantCantOpenSettings": "Couldn't open the system's default assistant settings",
@@ -2375,8 +2375,5 @@
   "setupAgentsAgyCustomFooter": "Stored in ~/.gemini/config/agents and available to all projects. Antigravity picks one based on its “When to use”, or you can name one in a conversation.",
   "setupAgentsAgyNoneSummary": "Ask Antigravity to write one, or tap + at the top right",
   "commonFollowDeviceDefault": "Follow device default",
-  "settingsBackupAssistantHarness": "Assistant CLI tool",
-  "assistantInputHintAgy": "Ask Antigravity",
-  "settingsAssistantFooterAgy": "As the default, the system's assistant shortcut opens the Zeta floating window and asks Antigravity about the current screen. On HyperOS, long-pressing the power button also needs the LSPosed module; see Diagnostics.",
-  "settingsAssistantConversationsFooterAgy": "“Antigravity default” uses the same defaults as new conversations, from the Antigravity settings (shown on the settings home page). Choices made here don't affect new conversations."
+  "settingsBackupAssistantHarness": "Assistant CLI tool"
 }

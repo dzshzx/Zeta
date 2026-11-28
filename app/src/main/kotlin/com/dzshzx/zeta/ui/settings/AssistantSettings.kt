@@ -83,15 +83,12 @@ internal fun AssistantSettingsScreen(
     var model by remember { mutableStateOf(hub.settings.assistantModel) }
     var effort by remember { mutableStateOf(hub.settings.assistantEffort) }
     val effectiveHarness = harness ?: hub.settings.defaultHarness(Backends.LOCAL)
-    val isAgy = Harnesses.normalize(effectiveHarness) == Harnesses.AGY
     MiuixPage(title = Strings.settingsAssistantTitle(), onBack = onBack) {
         // HyperOS 的长按电源键默认直接拉起小爱，要靠 Zeta 自带的 LSPosed 模块交给
         // Zeta；模块装没装上、最近的记录在诊断页（AssistantDiagnosticsGroup）
         item(key = "owner") {
             PreferenceGroup(
-                footer =
-                    if (isAgy) Strings.settingsAssistantFooterAgy()
-                    else Strings.settingsAssistantFooter(),
+                footer = Strings.settingsAssistantFooter(Harnesses.shortTitle(effectiveHarness)),
             ) {
                 item { DefaultAssistantPreference(current) }
             }
@@ -100,8 +97,10 @@ internal fun AssistantSettingsScreen(
             PreferenceGroup(
                 title = Strings.settingsAssistantConversations(),
                 footer =
-                    if (isAgy) Strings.settingsAssistantConversationsFooterAgy()
-                    else Strings.settingsAssistantConversationsFooter(),
+                    Strings.settingsAssistantConversationsFooter(
+                        harnessFollowLabel(effectiveHarness),
+                        Harnesses.title(effectiveHarness),
+                    ),
             ) {
                 item {
                     HarnessPreference(harness, Strings.commonFollowDeviceDefault()) { value ->

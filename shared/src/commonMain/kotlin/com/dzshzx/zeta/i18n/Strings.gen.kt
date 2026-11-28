@@ -9661,11 +9661,11 @@ object Strings {
     fun assistantScreenshot(): String = catalog.say("assistantScreenshot")
 
     /**
-     * 「问问 Claude」
+     * 「问问 {tool}」
      *
-     * 数字助理浮窗输入框空着时的提示。
+     * 数字助理浮窗输入框空着时的提示。{tool} 为命令行工具简称。
      */
-    fun assistantInputHint(): String = catalog.say("assistantInputHint")
+    fun assistantInputHint(tool: String): String = catalog.say("assistantInputHint", mapOf("tool" to tool))
 
     /**
      * 「输入问题」
@@ -11789,11 +11789,11 @@ object Strings {
     fun settingsAssistantNotSet(): String = catalog.say("settingsAssistantNotSet")
 
     /**
-     * 「设为默认后，系统助理入口会唤起 Zeta 浮窗，附带当前屏幕向 Claude 提问。在 HyperOS 上长按电源键唤起还需启用 LSPosed 模块，详见诊断页。」
+     * 「设为默认后，系统助理入口会唤起 Zeta 浮窗，附带当前屏幕向 {tool} 提问。在 HyperOS 上长按电源键唤起还需启用 LSPosed 模块，详见诊断页。」
      *
-     * 数字助理页第一组下面的说明。
+     * 数字助理页第一组下面的说明。{tool} 为命令行工具简称。
      */
-    fun settingsAssistantFooter(): String = catalog.say("settingsAssistantFooter")
+    fun settingsAssistantFooter(tool: String): String = catalog.say("settingsAssistantFooter", mapOf("tool" to tool))
 
     /**
      * 「数字助理的对话」
@@ -11803,11 +11803,11 @@ object Strings {
     fun settingsAssistantConversations(): String = catalog.say("settingsAssistantConversations")
 
     /**
-     * 「选择「跟随 Claude Code」时与新对话一致，使用 Claude Code 设置中的默认值（可在设置首页查看）。单独指定不会影响普通新对话。」
+     * 「选择「{follow}」时与新对话一致，使用 {tool} 设置中的默认值（可在设置首页查看）。单独指定不会影响普通新对话。」
      *
-     * 数字助理页「数字助理的对话」一组下面的说明；「跟随 Claude Code」是选项 commonFollowClaudeCode 的字。
+     * 数字助理页「数字助理的对话」一组下面的说明；{follow} 为对应的跟随选项文字，{tool} 为命令行工具全称。
      */
-    fun settingsAssistantConversationsFooter(): String = catalog.say("settingsAssistantConversationsFooter")
+    fun settingsAssistantConversationsFooter(follow: String, tool: String): String = catalog.say("settingsAssistantConversationsFooter", mapOf("follow" to follow, "tool" to tool))
 
     /**
      * 「默认数字助理」
@@ -16638,25 +16638,4 @@ object Strings {
      * 设置备份与恢复清单里数字助理命令行工具项的名称。
      */
     fun settingsBackupAssistantHarness(): String = catalog.say("settingsBackupAssistantHarness")
-
-    /**
-     * 「问问 Antigravity」
-     *
-     * Antigravity 模式下数字助理浮窗输入框空着时的占位提示。
-     */
-    fun assistantInputHintAgy(): String = catalog.say("assistantInputHintAgy")
-
-    /**
-     * 「设为默认后，系统助理入口会唤起 Zeta 浮窗，附带当前屏幕向 Antigravity 提问。在 HyperOS 上长按电源键唤起还需启用 LSPosed 模块，详见诊断页。」
-     *
-     * 数字助理页在 Antigravity 模式下「默认数字助理」一组下面的说明。
-     */
-    fun settingsAssistantFooterAgy(): String = catalog.say("settingsAssistantFooterAgy")
-
-    /**
-     * 「选择「跟随 Antigravity」时与新对话一致，使用 Antigravity 设置中的默认值（可在设置首页查看）。单独指定不会影响普通新对话。」
-     *
-     * 数字助理页在 Antigravity 模式下「数字助理的对话」一组下面的说明；「跟随 Antigravity」是选项 commonFollowAntigravity 的字。
-     */
-    fun settingsAssistantConversationsFooterAgy(): String = catalog.say("settingsAssistantConversationsFooterAgy")
 }

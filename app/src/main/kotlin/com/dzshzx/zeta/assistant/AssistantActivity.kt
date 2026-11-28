@@ -109,7 +109,7 @@ class AssistantActivity : ComponentActivity() {
                         autoFocus = onMainScreen,
                         onStop = { chat.conversation?.interrupt() },
                         bottomCornerRadius = bottomCorner,
-                        harness = chat.harness,
+                        inputHint = chat.inputHint,
                     )
                     // Claude 还没开口时屏幕边缘流光，和 Zeta 操作手机时同一种光（照 Eta 的助理光效）
                     EdgeGlow(
@@ -236,6 +236,7 @@ internal class AssistantChat(private val hub: ConversationHub, val capture: Assi
         Harnesses.normalize(
             hub.settings.assistantHarness ?: hub.settings.defaultHarness(Backends.LOCAL),
         )
+    val inputHint: String = Strings.assistantInputHint(Harnesses.shortTitle(harness))
     val draft = TextFieldState()
 
     /** 用户没把屏幕内容去掉。 */

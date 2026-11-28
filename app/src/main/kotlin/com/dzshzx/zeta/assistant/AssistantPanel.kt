@@ -192,8 +192,8 @@ internal fun AssistantScreen(
     onStop: () -> Unit = {},
     /** 屏幕下角的物理圆角半径（像素），唤起光效贴着它转弯；取不到时是 0。 */
     bottomCornerRadius: Float = 0f,
-    /** 当前数字助理使用的命令行工具，决定输入框占位提示。 */
-    harness: String = com.dzshzx.zeta.core.Harnesses.CLAUDE,
+    /** 输入框空着时的占位提示。 */
+    inputHint: String = Strings.assistantInputHint("Claude"),
 ) {
     val colors = rememberAssistantColors()
     val motion = rememberPanelMotion()
@@ -246,7 +246,7 @@ internal fun AssistantScreen(
                         suggestions = suggestions,
                         sending = sending,
                         problem = problem,
-                        harness = harness,
+                        inputHint = inputHint,
                     ),
                 reply = replyOf,
                 sheetAlpha = { sheetProgress.value },
@@ -267,7 +267,7 @@ private data class PanelState(
     val suggestions: List<String>,
     val sending: Boolean,
     val problem: String?,
-    val harness: String = com.dzshzx.zeta.core.Harnesses.CLAUDE,
+    val inputHint: String,
 )
 
 /** 浮窗上各处点了以后要做的事。 */
@@ -475,7 +475,7 @@ private fun ColumnScope.PanelBody(
             actions.onSend(text)
         },
         onStop = actions.onStop,
-        harness = state.harness,
+        hint = state.inputHint,
         modifier =
             Modifier.fillMaxWidth().padding(start = 18.dp, end = 18.dp, top = 2.dp, bottom = 14.dp),
     )

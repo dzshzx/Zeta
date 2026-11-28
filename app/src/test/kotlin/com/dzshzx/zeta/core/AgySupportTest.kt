@@ -2,7 +2,6 @@ package com.dzshzx.zeta.core
 
 import android.app.Application
 import androidx.test.core.app.ApplicationProvider
-import com.dzshzx.zeta.assistant.inputHint
 import com.dzshzx.zeta.core.claude.ClaudeConfigCore
 import com.dzshzx.zeta.core.notify.NotifyRules
 import com.dzshzx.zeta.core.notify.RuleDraft
@@ -376,10 +375,25 @@ class AgySupportTest {
         settings.assistantHarness = Harnesses.AGY
         assertEquals(Harnesses.AGY, settings.assistantHarness)
 
-        assertTrue(inputHint(Harnesses.CLAUDE).contains("Claude"))
-        assertTrue(inputHint(Harnesses.AGY).contains("Antigravity"))
-        assertTrue(Strings.settingsAssistantFooterAgy().contains("Antigravity"))
-        assertTrue(Strings.settingsAssistantConversationsFooterAgy().contains("Antigravity"))
+        assertEquals(
+            "问问 Claude",
+            Strings.assistantInputHint(Harnesses.shortTitle(Harnesses.CLAUDE)),
+        )
+        assertEquals(
+            "问问 Antigravity",
+            Strings.assistantInputHint(Harnesses.shortTitle(Harnesses.AGY)),
+        )
+        assertTrue(
+            Strings.settingsAssistantFooter(Harnesses.shortTitle(Harnesses.AGY))
+                .contains("Antigravity"),
+        )
+        assertTrue(
+            Strings.settingsAssistantConversationsFooter(
+                    Strings.commonFollowAntigravity(),
+                    Harnesses.title(Harnesses.AGY),
+                )
+                .contains("跟随 Antigravity"),
+        )
     }
 
     private fun runAsset(name: String, vararg args: String): String {

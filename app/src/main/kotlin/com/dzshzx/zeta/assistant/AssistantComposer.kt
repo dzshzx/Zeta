@@ -63,7 +63,6 @@ import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import com.dzshzx.zeta.core.Harnesses
 import com.dzshzx.zeta.i18n.Strings
 import com.dzshzx.zeta.ui.components.miuix.ZetaIcons
 import kotlinx.coroutines.flow.first
@@ -75,11 +74,6 @@ import top.yukonga.miuix.kmp.basic.Text
 
 /** 停止键上方块图标的大小：方块边长约 7dp，和 Eta 手画的那个一样大。 */
 private val StopIconSize = 10.8.dp
-
-/** 输入框空着时的提示（照 Eta 的「发消息问 Eta…」）。 */
-internal fun inputHint(harness: String = Harnesses.CLAUDE): String =
-    if (Harnesses.normalize(harness) == Harnesses.AGY) Strings.assistantInputHintAgy()
-    else Strings.assistantInputHint()
 
 /**
  * 输入栏：浮起的胶囊，左边输入框，右边圆形按钮。能发时是主色的发送键，空着时是灰的；这一轮还在进行时（[busy]）是停止键，输入框暂时不能输入。
@@ -96,8 +90,8 @@ internal fun AssistantInputBar(
     colors: AssistantColors,
     onSubmit: () -> Unit,
     onStop: () -> Unit,
+    hint: String,
     modifier: Modifier = Modifier,
-    harness: String = Harnesses.CLAUDE,
 ) {
     val inputEnabled = !busy && !sending
     val canSubmit = input.text.isNotBlank() && inputEnabled
@@ -148,7 +142,7 @@ internal fun AssistantInputBar(
             keyboardOptions = KeyboardOptions(imeAction = ImeAction.Send),
             onKeyboardAction = { if (canSubmit) onSubmit() },
             decorator = { innerTextField ->
-                HintDecorator(input.text.isEmpty(), inputHint(harness), colors) { innerTextField() }
+                HintDecorator(input.text.isEmpty(), hint, colors) { innerTextField() }
             },
         )
         TrailingButton(busy, canSubmit, colors, onSubmit, onStop)

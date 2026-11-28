@@ -7634,9 +7634,9 @@
   "@assistantScreenshot": {
     "description": "数字助理浮窗里截图缩略图的无障碍说明。"
   },
-  "assistantInputHint": "问问 Claude",
+  "assistantInputHint": "问问 {tool}",
   "@assistantInputHint": {
-    "description": "数字助理浮窗输入框空着时的提示。"
+    "description": "数字助理浮窗输入框空着时的提示。{tool} 为命令行工具简称。"
   },
   "assistantInputDescription": "输入问题",
   "@assistantInputDescription": {
@@ -9196,17 +9196,17 @@
   "@settingsAssistantNotSet": {
     "description": "设置首页「数字助理」右边：Zeta 不是默认数字助理。"
   },
-  "settingsAssistantFooter": "设为默认后，系统助理入口会唤起 Zeta 浮窗，附带当前屏幕向 Claude 提问。在 HyperOS 上长按电源键唤起还需启用 LSPosed 模块，详见诊断页。",
+  "settingsAssistantFooter": "设为默认后，系统助理入口会唤起 Zeta 浮窗，附带当前屏幕向 {tool} 提问。在 HyperOS 上长按电源键唤起还需启用 LSPosed 模块，详见诊断页。",
   "@settingsAssistantFooter": {
-    "description": "数字助理页第一组下面的说明。"
+    "description": "数字助理页第一组下面的说明。{tool} 为命令行工具简称。"
   },
   "settingsAssistantConversations": "数字助理的对话",
   "@settingsAssistantConversations": {
     "description": "数字助理页一组的标题：数字助理新开对话用的模型和思考强度。"
   },
-  "settingsAssistantConversationsFooter": "选择「跟随 Claude Code」时与新对话一致，使用 Claude Code 设置中的默认值（可在设置首页查看）。单独指定不会影响普通新对话。",
+  "settingsAssistantConversationsFooter": "选择「{follow}」时与新对话一致，使用 {tool} 设置中的默认值（可在设置首页查看）。单独指定不会影响普通新对话。",
   "@settingsAssistantConversationsFooter": {
-    "description": "数字助理页「数字助理的对话」一组下面的说明；「跟随 Claude Code」是选项 commonFollowClaudeCode 的字。"
+    "description": "数字助理页「数字助理的对话」一组下面的说明；{follow} 为对应的跟随选项文字，{tool} 为命令行工具全称。"
   },
   "settingsAssistantDefault": "默认数字助理",
   "@settingsAssistantDefault": {
@@ -12480,17 +12480,5 @@
   "settingsBackupAssistantHarness": "数字助理工具",
   "@settingsBackupAssistantHarness": {
     "description": "设置备份与恢复清单里数字助理命令行工具项的名称。"
-  },
-  "assistantInputHintAgy": "问问 Antigravity",
-  "@assistantInputHintAgy": {
-    "description": "Antigravity 模式下数字助理浮窗输入框空着时的占位提示。"
-  },
-  "settingsAssistantFooterAgy": "设为默认后，系统助理入口会唤起 Zeta 浮窗，附带当前屏幕向 Antigravity 提问。在 HyperOS 上长按电源键唤起还需启用 LSPosed 模块，详见诊断页。",
-  "@settingsAssistantFooterAgy": {
-    "description": "数字助理页在 Antigravity 模式下「默认数字助理」一组下面的说明。"
-  },
-  "settingsAssistantConversationsFooterAgy": "选择「跟随 Antigravity」时与新对话一致，使用 Antigravity 设置中的默认值（可在设置首页查看）。单独指定不会影响普通新对话。",
-  "@settingsAssistantConversationsFooterAgy": {
-    "description": "数字助理页在 Antigravity 模式下「数字助理的对话」一组下面的说明；「跟随 Antigravity」是选项 commonFollowAntigravity 的字。"
   }
 }
