@@ -180,7 +180,7 @@ func TestServeRoutesConfig(t *testing.T) {
 		t.Error("settings not written under the core's HOME")
 	}
 	c.send(`{"id":2,"method":"config.memory.readFile","path":"/etc/passwd"}`)
-	if r := c.next("zeta_reply"); r["ok"] != false || !strings.Contains(asString(r["error"]), "只能编辑") {
+	if r := c.next("zeta_reply"); r["ok"] != false || !strings.Contains(asString(r["error"]), "仅支持编辑") {
 		t.Errorf("error reply %v", r)
 	}
 }

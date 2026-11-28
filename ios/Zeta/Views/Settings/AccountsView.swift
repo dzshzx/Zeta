@@ -45,7 +45,7 @@ struct AccountsView: View {
         ) {
             Button("切换") { model.perform("accounts.switch", params(["name": switching?.name ?? ""])) }
         } message: {
-            Text("这台设备上闲着的对话进程会先结束，内容不丢，下次发消息时接上。")
+            Text("此设备上空闲的对话进程会先结束，对话记录不会丢失，下次发送消息时自动恢复。")
         }
         .confirmationDialog(
             "切换到中转「\(switchingRelay?.name ?? "")」？", isPresented: present($switchingRelay), titleVisibility: .visible
@@ -53,8 +53,8 @@ struct AccountsView: View {
             Button("切换") { model.perform("relay.switch", params(["name": switchingRelay?.name ?? ""])) }
         } message: {
             Text(isAgy
-                ? "这台设备上的 Antigravity 改用这个中转的 Gemini API 密钥和地址；闲着的对话进程会先结束。"
-                : "这台设备上的 Claude Code 改用这个中转的地址、密钥和默认模型；闲着的对话进程会先结束。")
+                ? "此设备上的 Antigravity 将改用该中转的 Gemini API 密钥和地址；空闲的对话进程会先结束。"
+                : "此设备上的 Claude Code 将改用该中转的地址、密钥和默认模型；空闲的对话进程会先结束。")
         }
         .sheet(isPresented: loginShown) {
             LoginSheet(id: id, harness: harness, login: state?.login, working: state?.working ?? "")
@@ -88,7 +88,7 @@ struct AccountsView: View {
                 }
             }
             if state.unsaved {
-                Button("记下在用的账号", systemImage: "square.and.arrow.down") {
+                Button("保存当前账号", systemImage: "square.and.arrow.down") {
                     model.perform("accounts.save", params())
                 }
             }
@@ -97,7 +97,7 @@ struct AccountsView: View {
         } header: {
             Text("账号")
         } footer: {
-            Text("删除只删这台设备上存着的一份，那个账号在服务端仍是登录状态。")
+            Text("仅删除此设备上保存的凭据副本，该账号在服务端仍保持登录状态。")
         }
     }
 
@@ -130,8 +130,8 @@ struct AccountsView: View {
             Text("中转")
         } footer: {
             Text(isAgy
-                ? "切到中转后，这台设备上的 Antigravity 使用这里填的 Gemini API 密钥（与可选地址）访问模型，没有订阅额度。"
-                : "切到中转后，这台设备上的 Claude Code 经它的地址和密钥访问模型，没有订阅额度。")
+                ? "切换至中转后，此设备上的 Antigravity 将使用此处填写的 Gemini API 密钥（及可选地址）访问模型，不计入订阅额度。"
+                : "切换至中转后，此设备上的 Claude Code 将通过该地址和密钥访问模型，不计入订阅额度。")
         }
     }
 
@@ -194,7 +194,7 @@ private struct AccountLabel: View {
                     Text(account.email).font(.caption).foregroundStyle(.secondary)
                 }
                 if account.expired {
-                    Text("登录过期了，要重新添加").font(.caption).foregroundStyle(.red)
+                    Text("登录已过期，请重新添加").font(.caption).foregroundStyle(.red)
                 }
             }
             Spacer()

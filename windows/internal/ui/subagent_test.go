@@ -95,7 +95,7 @@ func TestSubagentPageFromATask(t *testing.T) {
 	f.link().Push(`{"type":"conv.subagent","conv":"w1","tool_use_id":"toolu_a1","full":true,"items":[],"meta":null,"prompt":"",
 		"tool_uses":0,"running":false,"loaded":true,"missing":true,"file":"","skipped":0,"state":"missing"}`)
 	f.tt.Frame()
-	f.see(t, "没有找到它的记录：Claude Code 还没写出来，或者会话已经删了")
+	f.see(t, "未找到该子代理的记录：Claude Code 可能尚未写入，或会话已被删除")
 	f.click(t, "返回")
 	f.see(t, "子代理 · Explore · 已完成 · 用时 6 秒")
 }
@@ -161,13 +161,13 @@ func TestSubagentStateText(t *testing.T) {
 		{"", "正在读取", "正在读取…", toneQuiet},
 		{"loading", "正在读取", "正在读取…", toneQuiet},
 		{"read_failed", "读取失败", "读不了", toneQuiet},
-		{"missing", "没有记录", "没有找到它的记录：Claude Code 还没写出来，或者会话已经删了", toneQuiet},
-		{"running", "运行中", "还没有步骤", toneRunning},
-		{"completed", "已完成", "还没有步骤", toneDone},
-		{"failed", "失败", "还没有步骤", toneFailed},
-		{"stopped", "已停止", "还没有步骤", toneQuiet},
-		{"unfinished", "未做完", "还没有步骤", toneQuiet},
-		{"paused", "未做完", "还没有步骤", toneQuiet}, // 认不出的值（核心以后加的）
+		{"missing", "暂无记录", "未找到该子代理的记录：Claude Code 可能尚未写入，或会话已被删除", toneQuiet},
+		{"running", "运行中", "暂无步骤", toneRunning},
+		{"completed", "已完成", "暂无步骤", toneDone},
+		{"failed", "失败", "暂无步骤", toneFailed},
+		{"stopped", "已停止", "暂无步骤", toneQuiet},
+		{"unfinished", "未完成", "暂无步骤", toneQuiet},
+		{"paused", "未完成", "暂无步骤", toneQuiet}, // 认不出的值（核心以后加的）
 	} {
 		// 别的字段故意和 state 对不上：只看 state
 		s := chat.Subagent{State: c.state, Failure: "读不了", Running: c.state != "running", Loaded: c.state == "loading", Outcome: "completed"}
@@ -178,7 +178,7 @@ func TestSubagentStateText(t *testing.T) {
 			t.Errorf("noStepsText(%q) = %q，应为 %q", c.state, got, c.empty)
 		}
 	}
-	if got := noStepsText(chat.Subagent{State: "missing"}, "断了"); got != "没看上：断了" {
+	if got := noStepsText(chat.Subagent{State: "missing"}, "断了"); got != "无法读取进度：断了" {
 		t.Errorf("没看上：%q", got)
 	}
 }

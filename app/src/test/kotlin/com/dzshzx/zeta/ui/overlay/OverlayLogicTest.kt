@@ -39,8 +39,8 @@ class OverlayLogicTest {
     @Test
     fun pauseAndTakeoverReadDifferently() {
         assertEquals("已暂停", phaseLabel(OverlayPhase.PAUSED))
-        assertEquals("你在接管", phaseLabel(OverlayPhase.CONTROLLING))
-        assertEquals("已暂停，等你继续", stageModeLabel(OverlayPhase.PAUSED))
+        assertEquals("接管中", phaseLabel(OverlayPhase.CONTROLLING))
+        assertEquals("已暂停，等待继续", stageModeLabel(OverlayPhase.PAUSED))
         assertEquals("手动接管中", stageModeLabel(OverlayPhase.CONTROLLING))
         assertEquals("后台画布", stageModeLabel(OverlayPhase.RUNNING))
         for (colors in listOf(lightColorScheme(), darkColorScheme())) {

@@ -32,7 +32,7 @@
         }
       }
     },
-    "不批准时，告诉 Claude 要怎么改": {
+    "拒绝时可向 Claude 说明修改意见": {
       "localizations": {
         "en": {
           "stringUnit": {
@@ -42,7 +42,7 @@
         }
       }
     },
-    "打不开这个对话": {
+    "无法打开此对话": {
       "localizations": {
         "en": {
           "stringUnit": {
@@ -112,7 +112,7 @@
         }
       }
     },
-    "关掉后 Zeta 不连这台设备，它上面的对话在那边照样跑。": {
+    "关闭后，Zeta 将不再连接此设备，设备上的对话仍会继续运行。": {
       "localizations": {
         "en": {
           "stringUnit": {
@@ -122,7 +122,7 @@
         }
       }
     },
-    "还没有设备": {
+    "暂无设备": {
       "localizations": {
         "en": {
           "stringUnit": {
@@ -162,7 +162,7 @@
         }
       }
     },
-    "或者开一个新对话": {
+    "或发起一个新对话": {
       "localizations": {
         "en": {
           "stringUnit": {
@@ -222,7 +222,7 @@
         }
       }
     },
-    "没有成功": {
+    "操作失败": {
       "localizations": {
         "en": {
           "stringUnit": {
@@ -412,7 +412,7 @@
         }
       }
     },
-    "先聊聊": {
+    "先讨论": {
       "localizations": {
         "en": {
           "stringUnit": {
@@ -432,7 +432,7 @@
         }
       }
     },
-    "选一个对话": {
+    "选择一个对话": {
       "localizations": {
         "en": {
           "stringUnit": {
@@ -472,7 +472,7 @@
         }
       }
     },
-    "载入更早的消息": {
+    "加载更早的消息": {
       "localizations": {
         "en": {
           "stringUnit": {
@@ -482,7 +482,7 @@
         }
       }
     },
-    "找到了": {
+    "已找到设备": {
       "localizations": {
         "en": {
           "stringUnit": {
@@ -532,7 +532,7 @@
         }
       }
     },
-    "只是 Zeta 不再连它，那边的会话记录不动。": {
+    "仅停止 Zeta 与此设备的连接，不会删除设备上的会话记录。": {
       "localizations": {
         "en": {
           "stringUnit": {
@@ -624,7 +624,7 @@
         }
       }
     },
-    "Zeta 起不来": {
+    "Zeta 无法启动": {
       "localizations": {
         "en": {
           "stringUnit": {
@@ -644,7 +644,7 @@
         }
       }
     },
-    "换回 Zeta 的密钥": {
+    "恢复使用 Zeta 密钥": {
       "localizations": {
         "en": {
           "stringUnit": {
@@ -664,7 +664,7 @@
         }
       }
     },
-    "换回 Zeta 的密钥？": {
+    "恢复使用 Zeta 密钥？": {
       "localizations": {
         "en": {
           "stringUnit": {
@@ -674,7 +674,7 @@
         }
       }
     },
-    "换回": {
+    "恢复": {
       "localizations": {
         "en": {
           "stringUnit": {
@@ -684,7 +684,7 @@
         }
       }
     },
-    "导入的私钥从这台设备上删掉，之后用 Zeta 自己的密钥登录。": {
+    "将从此设备移除已导入的私钥，之后改用 Zeta 自带密钥登录。": {
       "localizations": {
         "en": {
           "stringUnit": {
@@ -714,7 +714,7 @@
         }
       }
     },
-    "粘贴或选取 OpenSSH、PEM 格式的私钥文件（如 ~/.ssh/id_ed25519），不是 .pub 公钥。": {
+    "粘贴或选取 OpenSSH、PEM 格式的私钥文件（例如 ~/.ssh/id_ed25519），请勿选择 .pub 公钥。": {
       "localizations": {
         "en": {
           "stringUnit": {
@@ -724,7 +724,7 @@
         }
       }
     },
-    "没有密码就留空": {
+    "无密码请留空": {
       "localizations": {
         "en": {
           "stringUnit": {
@@ -744,7 +744,7 @@
         }
       }
     },
-    "导入后私钥去掉密码存进这台设备的钥匙串，以后不再问。": {
+    "导入后会移除密码并将私钥存入本机钥匙串，之后不再提示输入。": {
       "localizations": {
         "en": {
           "stringUnit": {
@@ -764,7 +764,7 @@
         }
       }
     },
-    "Zeta 用导入的私钥登录，上面是它的公钥。": {
+    "Zeta 当前使用已导入的私钥登录，上方为其对应公钥。": {
       "localizations": {
         "en": {
           "stringUnit": {
@@ -774,7 +774,7 @@
         }
       }
     },
-    "把这一行加进设备上的 ~/.ssh/authorized_keys，Zeta 才能登录。": {
+    "将这一行添加到目标设备的 ~/.ssh/authorized_keys，Zeta 方可登录。": {
       "localizations": {
         "en": {
           "stringUnit": {
@@ -784,7 +784,7 @@
         }
       }
     },
-    "私钥只在这台设备的钥匙串里。": {
+    "私钥仅保存在本机钥匙串中。": {
       "localizations": {
         "en": {
           "stringUnit": {
@@ -794,7 +794,7 @@
         }
       }
     },
-    "这个文件不像私钥": {
+    "该文件不是有效的私钥格式": {
       "localizations": {
         "en": {
           "stringUnit": {
@@ -824,7 +824,7 @@
         }
       }
     },
-    "名称，比如 github": {
+    "名称，例如 github": {
       "localizations": {
         "en": {
           "stringUnit": {
@@ -834,7 +834,7 @@
         }
       }
     },
-    "命令，比如 npx": {
+    "命令，例如 npx": {
       "localizations": {
         "en": {
           "stringUnit": {
@@ -844,7 +844,7 @@
         }
       }
     },
-    "参数（可选，空格分开）": {
+    "参数（可选，以空格分隔）": {
       "localizations": {
         "en": {
           "stringUnit": {
@@ -914,7 +914,7 @@
         }
       }
     },
-    "名称只能用字母、数字、下划线和连字符": {
+    "名称仅支持字母、数字、下划线和连字符": {
       "localizations": {
         "en": {
           "stringUnit": {
@@ -924,7 +924,7 @@
         }
       }
     },
-    "地址要以 http:// 或 https:// 开头": {
+    "地址须以 http:// 或 https:// 开头": {
       "localizations": {
         "en": {
           "stringUnit": {
@@ -944,7 +944,7 @@
         }
       }
     },
-    "环境变量每行一个，写成 KEY=VALUE": {
+    "环境变量每行一条，格式为 KEY=VALUE": {
       "localizations": {
         "en": {
           "stringUnit": {
@@ -954,7 +954,7 @@
         }
       }
     },
-    "还没有自定义 Subagent": {
+    "暂无自定义 Subagent": {
       "localizations": {
         "en": {
           "stringUnit": {
@@ -964,7 +964,7 @@
         }
       }
     },
-    "让 Claude 写一个，或点右上角的“新建”": {
+    "可让 Claude 生成，或点击右上角“新建”": {
       "localizations": {
         "en": {
           "stringUnit": {
@@ -984,7 +984,7 @@
         }
       }
     },
-    "存在 ~/.claude/agents，所有项目都能用。Claude 按“什么时候用”自己决定交给哪个，你也可以在对话里点名。": {
+    "保存在 ~/.claude/agents，所有项目通用。Claude 会根据“适用场景”自动委派，你也可以在对话中直接指定。": {
       "localizations": {
         "en": {
           "stringUnit": {
@@ -1014,7 +1014,7 @@
         }
       }
     },
-    "名称只能用小写字母、数字和连字符，并以字母或数字开头": {
+    "名称仅支持小写字母、数字和连字符，且须以字母或数字开头": {
       "localizations": {
         "en": {
           "stringUnit": {
@@ -1024,7 +1024,7 @@
         }
       }
     },
-    "写上什么时候用它才能保存": {
+    "请填写适用场景后再保存": {
       "localizations": {
         "en": {
           "stringUnit": {
@@ -1054,16 +1054,6 @@
         }
       }
     },
-    "读文件": {
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Read files"
-          }
-        }
-      }
-    },
     "修改文件": {
       "localizations": {
         "en": {
@@ -1074,7 +1064,7 @@
         }
       }
     },
-    "新建、覆盖文件": {
+    "新建或覆盖文件": {
       "localizations": {
         "en": {
           "stringUnit": {
@@ -1094,7 +1084,7 @@
         }
       }
     },
-    "在文件里搜索": {
+    "搜索文件内容": {
       "localizations": {
         "en": {
           "stringUnit": {
@@ -1164,7 +1154,7 @@
         }
       }
     },
-    "小写字母、数字和连字符，比如 code-reviewer。": {
+    "仅支持小写字母、数字和连字符，例如 code-reviewer。": {
       "localizations": {
         "en": {
           "stringUnit": {
@@ -1174,7 +1164,7 @@
         }
       }
     },
-    "比如：改完代码后用它审查改动，找出 bug 和不清楚的地方": {
+    "例如：在修改代码后审查变更，排查潜在缺陷与不清晰之处": {
       "localizations": {
         "en": {
           "stringUnit": {
@@ -1184,7 +1174,7 @@
         }
       }
     },
-    "什么时候用": {
+    "适用场景": {
       "localizations": {
         "en": {
           "stringUnit": {
@@ -1194,7 +1184,7 @@
         }
       }
     },
-    "Claude 靠这段话决定要不要交给它，写清楚它擅长什么。": {
+    "Claude 根据此说明决定是否委派任务，请明确描述其擅长领域。": {
       "localizations": {
         "en": {
           "stringUnit": {
@@ -1214,7 +1204,7 @@
         }
       }
     },
-    "默认时跟随主对话的模型。": {
+    "默认沿用主对话模型。": {
       "localizations": {
         "en": {
           "stringUnit": {
@@ -1244,7 +1234,7 @@
         }
       }
     },
-    "写它的角色和做事方式。它看不到主对话，只看到这段话和交给它的任务。": {
+    "描述其角色与工作方式。该 Subagent 无法读取主对话，仅能看到此提示词和委派的任务。": {
       "localizations": {
         "en": {
           "stringUnit": {
@@ -1294,7 +1284,7 @@
         }
       }
     },
-    "删除“%@”？删了就找不回来。": {
+    "删除“%@”？删除后无法恢复。": {
       "localizations": {
         "en": {
           "stringUnit": {
@@ -1344,7 +1334,7 @@
         }
       }
     },
-    "关掉“全部工具”后只能用勾选的。MCP 工具写成 mcp__服务器__工具，多个用逗号分开。": {
+    "关闭“全部工具”后仅可使用已勾选工具。MCP 工具格式为 mcp__服务器__工具，多项请用逗号分隔。": {
       "localizations": {
         "en": {
           "stringUnit": {
@@ -1364,7 +1354,7 @@
         }
       }
     },
-    "另外还设了 %@，保存时原样保留。": {
+    "已另行配置 %@，保存时将原样保留。": {
       "localizations": {
         "en": {
           "stringUnit": {
@@ -1414,7 +1404,7 @@
         }
       }
     },
-    "读不到版本：%@": {
+    "无法读取版本：%@": {
       "localizations": {
         "en": {
           "stringUnit": {
@@ -1424,7 +1414,7 @@
         }
       }
     },
-    "没有改成": {
+    "修改失败": {
       "localizations": {
         "en": {
           "stringUnit": {
@@ -1434,17 +1424,7 @@
         }
       }
     },
-    "没存上": {
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Couldn't save"
-          }
-        }
-      }
-    },
-    "没更新成：%@": {
+    "更新失败：%@": {
       "localizations": {
         "en": {
           "stringUnit": {
@@ -1454,7 +1434,7 @@
         }
       }
     },
-    "claude update 出错了": {
+    "claude update 执行失败": {
       "localizations": {
         "en": {
           "stringUnit": {
@@ -1534,7 +1514,7 @@
         }
       }
     },
-    "改的是这台设备上 Claude Code 自己的配置（~/.claude），那边终端里的 claude 同样生效。": {
+    "修改此设备上 Claude Code 的原生配置（~/.claude），对终端中的 claude 同样生效。": {
       "localizations": {
         "en": {
           "stringUnit": {
@@ -1574,7 +1554,7 @@
         }
       }
     },
-    "按模型的窗口": {
+    "沿用模型默认窗口": {
       "localizations": {
         "en": {
           "stringUnit": {
@@ -1584,7 +1564,7 @@
         }
       }
     },
-    "还没读到 Claude Code 的设置": {
+    "暂未读取到 Claude Code 设置": {
       "localizations": {
         "en": {
           "stringUnit": {
@@ -1594,7 +1574,7 @@
         }
       }
     },
-    "新对话默认": {
+    "新对话默认设置": {
       "localizations": {
         "en": {
           "stringUnit": {
@@ -1604,7 +1584,7 @@
         }
       }
     },
-    "正在读取这台设备的模型清单。": {
+    "正在加载此设备的模型列表。": {
       "localizations": {
         "en": {
           "stringUnit": {
@@ -1614,7 +1594,7 @@
         }
       }
     },
-    "在这台设备上开新对话时用。使用中转时，默认模型存在中转设置里；对话里选的只管那个对话。思考强度按模型分别存。上下文窗口是会话最多用多少 token，自动压缩按它算，比模型本身的窗口大时按模型的。": {
+    "用于在此设备发起新对话。使用中转时，默认模型保存在中转设置中；对话内切换的选项仅对当前对话生效。思考强度按模型分别保存。上下文窗口指单次会话的 token 上限，自动压缩以此为基准；若超过模型自身上限，则以模型上限为准。": {
       "localizations": {
         "en": {
           "stringUnit": {
@@ -1624,7 +1604,7 @@
         }
       }
     },
-    "没有设，按 Claude Code 的默认": {
+    "未设置，沿用 Claude Code 默认值": {
       "localizations": {
         "en": {
           "stringUnit": {
@@ -1644,7 +1624,7 @@
         }
       }
     },
-    "Claude Code 内置的默认": {
+    "Claude Code 内置默认值": {
       "localizations": {
         "en": {
           "stringUnit": {
@@ -1704,7 +1684,7 @@
         }
       }
     },
-    "第一轮回答后由 Claude Code 起个简短标题，改过名的不动": {
+    "首轮回复后由 Claude Code 自动生成简短标题，已手动重命名的对话不受影响": {
       "localizations": {
         "en": {
           "stringUnit": {
@@ -1714,7 +1694,7 @@
         }
       }
     },
-    "只管 Zeta 在这台设备上起的对话。闲置超时马上生效，其余的下次起进程时生效。": {
+    "仅对 Zeta 在此设备发起的对话生效。闲置超时立即生效，其余设置将在下次启动进程时生效。": {
       "localizations": {
         "en": {
           "stringUnit": {
@@ -1764,7 +1744,7 @@
         }
       }
     },
-    "这台设备上的新对话按所用的模型取这里的设置，和那边终端里 /effort 存为默认的是同一份；没单独设的模型用「其他模型」那一档。": {
+    "此设备上的新对话按所用模型读取此处设置，与终端内 /effort 保存的默认配置同步；未单独设置的模型使用「其他模型」配置。": {
       "localizations": {
         "en": {
           "stringUnit": {
@@ -1944,7 +1924,7 @@
         }
       }
     },
-    "默认（快满时）": {
+    "默认（接近上限时）": {
       "localizations": {
         "en": {
           "stringUnit": {
@@ -1964,7 +1944,7 @@
         }
       }
     },
-    "还没有 MCP 服务器": {
+    "暂无 MCP 服务器": {
       "localizations": {
         "en": {
           "stringUnit": {
@@ -1974,7 +1954,7 @@
         }
       }
     },
-    "点右上角的“添加服务器”": {
+    "点击右上角“添加服务器”": {
       "localizations": {
         "en": {
           "stringUnit": {
@@ -1994,7 +1974,7 @@
         }
       }
     },
-    "新加的服务器所有项目都能用，改动对之后新开始的对话生效。": {
+    "新增服务器适用于所有项目，修改仅对之后新建的对话生效。": {
       "localizations": {
         "en": {
           "stringUnit": {
@@ -2004,7 +1984,7 @@
         }
       }
     },
-    "检查状态没有成功：%@": {
+    "状态检查失败：%@": {
       "localizations": {
         "en": {
           "stringUnit": {
@@ -2024,7 +2004,7 @@
         }
       }
     },
-    "在 claude.ai 上管理，这里只能看。": {
+    "在 claude.ai 中管理，此处仅支持查看。": {
       "localizations": {
         "en": {
           "stringUnit": {
@@ -2054,7 +2034,7 @@
         }
       }
     },
-    "被“%@”里的同名服务器盖住": {
+    "已被“%@”中的同名服务器覆盖": {
       "localizations": {
         "en": {
           "stringUnit": {
@@ -2074,7 +2054,7 @@
         }
       }
     },
-    "只在默认工作目录": {
+    "仅限默认工作目录": {
       "localizations": {
         "en": {
           "stringUnit": {
@@ -2114,7 +2094,7 @@
         }
       }
     },
-    "已连接 · 取工具出错": {
+    "已连接 · 获取工具失败": {
       "localizations": {
         "en": {
           "stringUnit": {
@@ -2124,7 +2104,7 @@
         }
       }
     },
-    "连不上": {
+    "无法连接": {
       "localizations": {
         "en": {
           "stringUnit": {
@@ -2204,7 +2184,7 @@
         }
       }
     },
-    "OAuth：在终端用 claude 的 /mcp 登录": {
+    "OAuth：请在终端中通过 claude 的 /mcp 登录": {
       "localizations": {
         "en": {
           "stringUnit": {
@@ -2260,7 +2240,7 @@
         }
       }
     },
-    "它的地址、Token 和设置都会从配置里去掉": {
+    "将从配置中移除其地址、Token 和相关设置": {
       "localizations": {
         "en": {
           "stringUnit": {
@@ -2290,7 +2270,7 @@
         }
       }
     },
-    "输入新 Token，留空则移除身份认证。原来的 Token 不会显示出来。": {
+    "输入新 Token，留空则移除身份认证。现有 Token 不会明文显示。": {
       "localizations": {
         "en": {
           "stringUnit": {
@@ -2300,7 +2280,7 @@
         }
       }
     },
-    "删除 %@？它的地址、Token 和设置都会从配置里去掉，无法撤销。": {
+    "删除 %@？其地址、Token 和相关设置将从配置中移除，且无法撤销。": {
       "localizations": {
         "en": {
           "stringUnit": {
@@ -2340,7 +2320,7 @@
         }
       }
     },
-    "%@ · 在项目里改": {
+    "%@ · 请在项目中修改": {
       "localizations": {
         "en": {
           "stringUnit": {
@@ -2370,7 +2350,7 @@
         }
       }
     },
-    "取不到工具清单": {
+    "无法获取工具列表": {
       "localizations": {
         "en": {
           "stringUnit": {
@@ -2390,7 +2370,7 @@
         }
       }
     },
-    "没有工具": {
+    "暂无工具": {
       "localizations": {
         "en": {
           "stringUnit": {
@@ -2410,7 +2390,7 @@
         }
       }
     },
-    "用 OAuth 登录的服务器取不到": {
+    "暂不支持获取 OAuth 登录服务器的工具列表": {
       "localizations": {
         "en": {
           "stringUnit": {
@@ -2420,7 +2400,7 @@
         }
       }
     },
-    "连上服务器取工具清单": {
+    "连接服务器以获取工具列表": {
       "localizations": {
         "en": {
           "stringUnit": {
@@ -2450,7 +2430,7 @@
         }
       }
     },
-    "还没有创建，打开就能写": {
+    "尚未创建，打开即可编辑": {
       "localizations": {
         "en": {
           "stringUnit": {
@@ -2470,7 +2450,7 @@
         }
       }
     },
-    "~/.claude/CLAUDE.md 里是你写给 Claude 的长期指令，所有项目通用。改动对之后新开始的对话生效。": {
+    "~/.claude/CLAUDE.md 用于存放写给 Claude 的长期指令，所有项目通用。修改对之后新建的对话生效。": {
       "localizations": {
         "en": {
           "stringUnit": {
@@ -2490,7 +2470,7 @@
         }
       }
     },
-    "Claude 会在对话中自己记下你的偏好、纠正和项目背景。开关对所有项目生效；关掉后不再读写，记忆留着。": {
+    "Claude 会在对话中自动记录你的偏好、纠正内容与项目背景。此开关对所有项目生效；关闭后不再读写，已有记忆仍会保留。": {
       "localizations": {
         "en": {
           "stringUnit": {
@@ -2510,7 +2490,7 @@
         }
       }
     },
-    "比如：回答用中文；我的主要技术栈是 Go；改代码前先说明打算怎么改": {
+    "例如：使用中文回复；主要技术栈为 Go；修改代码前先说明方案": {
       "localizations": {
         "en": {
           "stringUnit": {
@@ -2530,7 +2510,7 @@
         }
       }
     },
-    "被环境变量关掉了，这里改不了": {
+    "已被环境变量禁用，无法在此修改": {
       "localizations": {
         "en": {
           "stringUnit": {
@@ -2590,7 +2570,7 @@
         }
       }
     },
-    "记忆的索引": {
+    "记忆索引": {
       "localizations": {
         "en": {
           "stringUnit": {
@@ -2600,7 +2580,7 @@
         }
       }
     },
-    "记忆的索引，还没有": {
+    "记忆索引（尚未创建）": {
       "localizations": {
         "en": {
           "stringUnit": {
@@ -2620,7 +2600,7 @@
         }
       }
     },
-    "这个项目还没有记忆": {
+    "此项目暂无记忆": {
       "localizations": {
         "en": {
           "stringUnit": {
@@ -2630,7 +2610,7 @@
         }
       }
     },
-    "让 Claude 记住的东西会出现在这里": {
+    "让 Claude 记住的内容会显示在此处": {
       "localizations": {
         "en": {
           "stringUnit": {
@@ -2700,7 +2680,7 @@
         }
       }
     },
-    "文件已经变了": {
+    "文件已被修改": {
       "localizations": {
         "en": {
           "stringUnit": {
@@ -2740,7 +2720,7 @@
         }
       }
     },
-    "删除 %@，并从 MEMORY.md 里去掉它那一行。删了就找不回来。": {
+    "删除 %@ 并从 MEMORY.md 中移除对应条目？删除后无法恢复。": {
       "localizations": {
         "en": {
           "stringUnit": {
@@ -2750,7 +2730,7 @@
         }
       }
     },
-    "还没有内容": {
+    "暂无内容": {
       "localizations": {
         "en": {
           "stringUnit": {
@@ -2760,7 +2740,7 @@
         }
       }
     },
-    "已超过 1 MiB 上限，请删减": {
+    "已超过 1 MiB 上限，请精简内容": {
       "localizations": {
         "en": {
           "stringUnit": {
@@ -2840,7 +2820,7 @@
         }
       }
     },
-    "全部开启%@ 的工具": {
+    "全部开启 %@ 的工具": {
       "localizations": {
         "en": {
           "stringUnit": {
@@ -2850,7 +2830,7 @@
         }
       }
     },
-    "全部关闭%@ 的工具": {
+    "全部关闭 %@ 的工具": {
       "localizations": {
         "en": {
           "stringUnit": {
@@ -2860,7 +2840,7 @@
         }
       }
     },
-    "加到%@（%@ 条）：%@": {
+    "添加到「%@」（%@ 条）：%@": {
       "localizations": {
         "en": {
           "stringUnit": {
@@ -2870,7 +2850,7 @@
         }
       }
     },
-    "从%@里删（%@ 条）：%@": {
+    "从「%@」移除（%@ 条）：%@": {
       "localizations": {
         "en": {
           "stringUnit": {
@@ -2880,7 +2860,7 @@
         }
       }
     },
-    "关掉以后 Claude 连读写文件、跑命令都做不了，只能聊天和用 MCP 工具。": {
+    "关闭后，Claude 将无法读写文件或执行命令，仅能对话与使用 MCP 工具。": {
       "localizations": {
         "en": {
           "stringUnit": {
@@ -2910,7 +2890,7 @@
         }
       }
     },
-    "规则按“拒绝 > 询问 > 允许”取最严的，写得再细也一样。完全放行模式下，询问和拒绝照样生效。改动对所有项目、之后新开始的对话生效。": {
+    "规则按“拒绝 > 询问 > 允许”从严生效，不受规则细化程度影响。在完全放行模式下，询问和拒绝规则依然有效。修改对所有项目及之后新建的对话生效。": {
       "localizations": {
         "en": {
           "stringUnit": {
@@ -3010,7 +2990,7 @@
         }
       }
     },
-    "没有配置 MCP 服务器": {
+    "暂未配置 MCP 服务器": {
       "localizations": {
         "en": {
           "stringUnit": {
@@ -3020,7 +3000,7 @@
         }
       }
     },
-    "还没有规则": {
+    "暂无规则": {
       "localizations": {
         "en": {
           "stringUnit": {
@@ -3030,7 +3010,7 @@
         }
       }
     },
-    "点右上角的“添加规则”": {
+    "点击右上角“添加规则”": {
       "localizations": {
         "en": {
           "stringUnit": {
@@ -3060,7 +3040,7 @@
         }
       }
     },
-    "带参数的规则只在这里改，上面的下拉不动它们。": {
+    "带参数的规则仅可在此修改，上方下拉菜单不会影响它们。": {
       "localizations": {
         "en": {
           "stringUnit": {
@@ -3070,7 +3050,7 @@
         }
       }
     },
-    "表": {
+    "列表": {
       "localizations": {
         "en": {
           "stringUnit": {
@@ -3096,7 +3076,7 @@
         }
       }
     },
-    "写成 工具名 或 工具名(参数)。比如 Bash(npm run test:*)、Read(./.env)、Edit(src/**)、WebFetch(domain:github.com)、mcp__github（整个服务器）。": {
+    "格式为 工具名 或 工具名(参数)，例如 Bash(npm run test:*)、Read(./.env)、Edit(src/**)、WebFetch(domain:github.com)、mcp__github（整个服务器）。": {
       "localizations": {
         "en": {
           "stringUnit": {
@@ -3116,7 +3096,7 @@
         }
       }
     },
-    "规则不能是空的": {
+    "规则不能为空": {
       "localizations": {
         "en": {
           "stringUnit": {
@@ -3136,7 +3116,7 @@
         }
       }
     },
-    "整个服务器的设置管它的每个工具；工具自己也设了的，取更严的那个。": {
+    "服务器级设置适用于其下所有工具；若单个工具另有设置，则按更严格的一方生效。": {
       "localizations": {
         "en": {
           "stringUnit": {
@@ -3146,7 +3126,7 @@
         }
       }
     },
-    "要按工具设置，在上一页的“规则”里手写 %@__工具名。": {
+    "如需按工具单独设置，请在上一页的“规则”中手动添加 %@__工具名。": {
       "localizations": {
         "en": {
           "stringUnit": {
@@ -3176,7 +3156,7 @@
         }
       }
     },
-    "选一个含 SKILL.md 的 Skill 包": {
+    "选择包含 SKILL.md 的 Skill 压缩包": {
       "localizations": {
         "en": {
           "stringUnit": {
@@ -3216,7 +3196,7 @@
         }
       }
     },
-    "已经有一个叫“%@”的 Skill。替换会覆盖它当前的全部文件。": {
+    "已存在名为“%@”的 Skill，替换将覆盖其全部现有文件。": {
       "localizations": {
         "en": {
           "stringUnit": {
@@ -3236,7 +3216,7 @@
         }
       }
     },
-    "删除“%@”的整个文件夹，之后需要重新导入才能恢复。": {
+    "将删除“%@”的整个文件夹，后续需重新导入方可恢复。": {
       "localizations": {
         "en": {
           "stringUnit": {
@@ -3246,7 +3226,7 @@
         }
       }
     },
-    "还没有 Skill": {
+    "暂无 Skill": {
       "localizations": {
         "en": {
           "stringUnit": {
@@ -3256,7 +3236,7 @@
         }
       }
     },
-    "从 ZIP 导入，或让 Claude 写一个": {
+    "从 ZIP 导入，或让 Claude 生成": {
       "localizations": {
         "en": {
           "stringUnit": {
@@ -3276,7 +3256,7 @@
         }
       }
     },
-    "装在 ~/.claude/skills 里。关掉后文件留着，Claude 不再用它；改动对之后新开始的对话生效。": {
+    "安装在 ~/.claude/skills。关闭后文件仍会保留，但 Claude 不再调用；修改对之后新建的对话生效。": {
       "localizations": {
         "en": {
           "stringUnit": {
@@ -3336,7 +3316,7 @@
         }
       }
     },
-    "没有装上": {
+    "安装失败": {
       "localizations": {
         "en": {
           "stringUnit": {
@@ -3346,7 +3326,7 @@
         }
       }
     },
-    "文件超过 45 MB，不像是一个 Skill 包": {
+    "文件超过 45 MB，不符合 Skill 压缩包要求": {
       "localizations": {
         "en": {
           "stringUnit": {
@@ -3376,7 +3356,7 @@
         }
       }
     },
-    "“%@”装好了，Claude 会按需调用它。": {
+    "“%@”已安装，Claude 将按需调用。": {
       "localizations": {
         "en": {
           "stringUnit": {
@@ -3386,7 +3366,7 @@
         }
       }
     },
-    "“%@”装好了，但它被设成停用，打开开关后才能用。": {
+    "“%@”已安装，但当前处于停用状态，开启开关后方可使用。": {
       "localizations": {
         "en": {
           "stringUnit": {
@@ -3396,7 +3376,7 @@
         }
       }
     },
-    "没有启用": {
+    "启用失败": {
       "localizations": {
         "en": {
           "stringUnit": {
@@ -3406,7 +3386,7 @@
         }
       }
     },
-    "没有停用": {
+    "停用失败": {
       "localizations": {
         "en": {
           "stringUnit": {
@@ -3416,7 +3396,7 @@
         }
       }
     },
-    "用到 %@%% 时": {
+    "达到 %@%% 时": {
       "localizations": {
         "en": {
           "stringUnit": {
@@ -3456,7 +3436,7 @@
         }
       }
     },
-    "只搜了一部分对话内容": {
+    "仅搜索了部分对话内容": {
       "localizations": {
         "en": {
           "stringUnit": {
@@ -3466,7 +3446,7 @@
         }
       }
     },
-    "没搜成对话内容，只比对了标题": {
+    "无法搜索对话内容，仅匹配了标题": {
       "localizations": {
         "en": {
           "stringUnit": {
@@ -3606,7 +3586,7 @@
         }
       }
     },
-    "没有归档的对话": {
+    "暂无已归档对话": {
       "localizations": {
         "en": {
           "stringUnit": {
@@ -3626,7 +3606,7 @@
         }
       }
     },
-    "后台任务在跑": {
+    "后台任务运行中": {
       "localizations": {
         "en": {
           "stringUnit": {
@@ -3646,7 +3626,7 @@
         }
       }
     },
-    "改名": {
+    "重命名": {
       "localizations": {
         "en": {
           "stringUnit": {
@@ -3716,7 +3696,7 @@
         }
       }
     },
-    "会话记录连同 Claude Code 存的东西一起删掉，不能恢复。正在进行的对话删不了。": {
+    "将一并删除会话记录及 Claude Code 保存的相关数据，且无法恢复。进行中的对话无法删除。": {
       "localizations": {
         "en": {
           "stringUnit": {
@@ -3726,7 +3706,7 @@
         }
       }
     },
-    "结束 Claude Code 进程，对话内容留着，下次发消息时接上。别处运行的也会被结束，不管那边闲不闲。": {
+    "结束 Claude Code 进程，保留对话内容并在下次发送消息时恢复。其他位置运行的会话也会被一并结束，无论其是否空闲。": {
       "localizations": {
         "en": {
           "stringUnit": {
@@ -3736,7 +3716,7 @@
         }
       }
     },
-    "结束 Claude Code 进程，对话内容留着，下次发消息时接上。": {
+    "结束 Claude Code 进程，保留对话内容并在下次发送消息时恢复。": {
       "localizations": {
         "en": {
           "stringUnit": {
@@ -3756,7 +3736,7 @@
         }
       }
     },
-    "答完了": {
+    "已回复": {
       "localizations": {
         "en": {
           "stringUnit": {
@@ -3766,7 +3746,7 @@
         }
       }
     },
-    "有个问题等你回答：%@": {
+    "有问题等待回答：%@": {
       "localizations": {
         "en": {
           "stringUnit": {
@@ -3776,7 +3756,7 @@
         }
       }
     },
-    "有几个问题等你回答": {
+    "有多个问题等待回答": {
       "localizations": {
         "en": {
           "stringUnit": {
@@ -3786,7 +3766,7 @@
         }
       }
     },
-    "计划等你批准": {
+    "计划等待批准": {
       "localizations": {
         "en": {
           "stringUnit": {
@@ -3796,7 +3776,7 @@
         }
       }
     },
-    "MCP 服务等你回应": {
+    "MCP 服务等待回应": {
       "localizations": {
         "en": {
           "stringUnit": {
@@ -3816,7 +3796,7 @@
         }
       }
     },
-    "没有在后台进行的对话": {
+    "暂无后台运行中的对话": {
       "localizations": {
         "en": {
           "stringUnit": {
@@ -3836,7 +3816,7 @@
         }
       }
     },
-    "各台设备上在回答、等你回应或还有后台任务的对话。": {
+    "各设备上正在回复、等待回应或仍有后台任务的对话。": {
       "localizations": {
         "en": {
           "stringUnit": {
@@ -3846,7 +3826,7 @@
         }
       }
     },
-    "%lld 个后台任务在跑": {
+    "%lld 个后台任务运行中": {
       "localizations": {
         "en": {
           "stringUnit": {
@@ -3856,7 +3836,7 @@
         }
       }
     },
-    "没有后台任务": {
+    "暂无后台任务": {
       "localizations": {
         "en": {
           "stringUnit": {
@@ -3866,7 +3846,7 @@
         }
       }
     },
-    "Claude 在后台跑的命令、监视器和子代理会列在这里。": {
+    "Claude 在后台运行的命令、监视器和子代理将显示在此处。": {
       "localizations": {
         "en": {
           "stringUnit": {
@@ -3956,7 +3936,7 @@
         }
       }
     },
-    "这个任务已经不在了": {
+    "该任务已不存在": {
       "localizations": {
         "en": {
           "stringUnit": {
@@ -4056,7 +4036,7 @@
         }
       }
     },
-    "正在做": {
+    "当前执行": {
       "localizations": {
         "en": {
           "stringUnit": {
@@ -4116,7 +4096,7 @@
         }
       }
     },
-    "没读到输出：%@": {
+    "无法读取输出：%@": {
       "localizations": {
         "en": {
           "stringUnit": {
@@ -4126,7 +4106,7 @@
         }
       }
     },
-    "进程已经没了，读不到输出": {
+    "进程已结束，无法读取输出": {
       "localizations": {
         "en": {
           "stringUnit": {
@@ -4146,7 +4126,7 @@
         }
       }
     },
-    "还没有输出": {
+    "暂无输出": {
       "localizations": {
         "en": {
           "stringUnit": {
@@ -4156,7 +4136,7 @@
         }
       }
     },
-    "交给它的指令": {
+    "委派指令": {
       "localizations": {
         "en": {
           "stringUnit": {
@@ -4186,7 +4166,7 @@
         }
       }
     },
-    "还没有记录": {
+    "暂无记录": {
       "localizations": {
         "en": {
           "stringUnit": {
@@ -4196,17 +4176,7 @@
         }
       }
     },
-    "没读成": {
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Couldn’t read"
-          }
-        }
-      }
-    },
-    "没有做完": {
+    "未完成": {
       "localizations": {
         "en": {
           "stringUnit": {
@@ -4216,7 +4186,7 @@
         }
       }
     },
-    "没看上：%@": {
+    "无法监听：%@": {
       "localizations": {
         "en": {
           "stringUnit": {
@@ -4226,7 +4196,7 @@
         }
       }
     },
-    "它的记录文件还没有": {
+    "记录文件尚未生成": {
       "localizations": {
         "en": {
           "stringUnit": {
@@ -4236,7 +4206,7 @@
         }
       }
     },
-    "还没有步骤": {
+    "暂无步骤": {
       "localizations": {
         "en": {
           "stringUnit": {
@@ -4246,7 +4216,7 @@
         }
       }
     },
-    "都做完了": {
+    "全部完成": {
       "localizations": {
         "en": {
           "stringUnit": {
@@ -4266,7 +4236,7 @@
         }
       }
     },
-    "后台任务都结束了": {
+    "所有后台任务均已结束": {
       "localizations": {
         "en": {
           "stringUnit": {
@@ -4276,17 +4246,7 @@
         }
       }
     },
-    "%lld 个后台任务在运行": {
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "%lld background tasks running"
-          }
-        }
-      }
-    },
-    "把常发的话存下来，以后点一下就填进输入框。": {
+    "保存常用内容，点击即可快速填入输入框。": {
       "localizations": {
         "en": {
           "stringUnit": {
@@ -4336,17 +4296,7 @@
         }
       }
     },
-    "存": {
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Save"
-          }
-        }
-      }
-    },
-    "带 ≈ 的费用是按价目表估的。": {
+    "标注 ≈ 的费用按价目表估算。": {
       "localizations": {
         "en": {
           "stringUnit": {
@@ -4356,7 +4306,7 @@
         }
       }
     },
-    "到 %@（窗口的 %lld%%）时自动压缩。": {
+    "达到 %@（窗口的 %lld%%）时自动压缩。": {
       "localizations": {
         "en": {
           "stringUnit": {
@@ -4366,7 +4316,7 @@
         }
       }
     },
-    "到 %@ 时自动压缩。": {
+    "达到 %@ 时自动压缩。": {
       "localizations": {
         "en": {
           "stringUnit": {
@@ -4406,7 +4356,7 @@
         }
       }
     },
-    "额度用完了": {
+    "额度已用尽": {
       "localizations": {
         "en": {
           "stringUnit": {
@@ -4416,7 +4366,7 @@
         }
       }
     },
-    "额度用完了，%@恢复": {
+    "额度已用尽，%@恢复": {
       "localizations": {
         "en": {
           "stringUnit": {
@@ -4426,7 +4376,7 @@
         }
       }
     },
-    "发第一条消息后才知道上下文用了多少。": {
+    "发送首条消息后方可显示上下文用量。": {
       "localizations": {
         "en": {
           "stringUnit": {
@@ -4466,7 +4416,7 @@
         }
       }
     },
-    "更早的记录还没载入，没算进去。": {
+    "更早的历史记录尚未加载，未计入统计。": {
       "localizations": {
         "en": {
           "stringUnit": {
@@ -4486,7 +4436,7 @@
         }
       }
     },
-    "还没有常用指令": {
+    "暂无常用指令": {
       "localizations": {
         "en": {
           "stringUnit": {
@@ -4516,7 +4466,7 @@
         }
       }
     },
-    "回答中，发的消息会排队": {
+    "正在回复，新消息将排队发送": {
       "localizations": {
         "en": {
           "stringUnit": {
@@ -4536,7 +4486,7 @@
         }
       }
     },
-    "没传成：%@": {
+    "上传失败：%@": {
       "localizations": {
         "en": {
           "stringUnit": {
@@ -4546,7 +4496,7 @@
         }
       }
     },
-    "名字（可以不填）": {
+    "名称（可选）": {
       "localizations": {
         "en": {
           "stringUnit": {
@@ -4606,7 +4556,7 @@
         }
       }
     },
-    "上下文快满了，很快会自动压缩。": {
+    "上下文接近上限，即将自动压缩。": {
       "localizations": {
         "en": {
           "stringUnit": {
@@ -4616,7 +4566,7 @@
         }
       }
     },
-    "上下文快满了，自动压缩关着，可以手动压缩或开新对话。": {
+    "上下文接近上限且未开启自动压缩，可手动压缩或发起新对话。": {
       "localizations": {
         "en": {
           "stringUnit": {
@@ -4706,7 +4656,7 @@
         }
       }
     },
-    "太大的文件可以先放到设备上，再在消息里写它的路径。": {
+    "大文件可先上传至设备，再在消息中注明文件路径。": {
       "localizations": {
         "en": {
           "stringUnit": {
@@ -4796,7 +4746,7 @@
         }
       }
     },
-    "有的轮次算不出费用，没算进去。": {
+    "部分轮次无法计算费用，未计入统计。": {
       "localizations": {
         "en": {
           "stringUnit": {
@@ -4806,7 +4756,7 @@
         }
       }
     },
-    "有些没有加进来": {
+    "部分项目未添加": {
       "localizations": {
         "en": {
           "stringUnit": {
@@ -4816,7 +4766,7 @@
         }
       }
     },
-    "这个对话压缩过 %lld 次。": {
+    "本对话已压缩 %lld 次。": {
       "localizations": {
         "en": {
           "stringUnit": {
@@ -4826,7 +4776,7 @@
         }
       }
     },
-    "这是上一轮实测的。": {
+    "此数据为上一轮实测值。": {
       "localizations": {
         "en": {
           "stringUnit": {
@@ -4836,7 +4786,7 @@
         }
       }
     },
-    "这是 Claude Code 的估算，下一轮后换成实测的。": {
+    "此数据为 Claude Code 估算值，将在下一轮后更新为实测值。": {
       "localizations": {
         "en": {
           "stringUnit": {
@@ -4856,7 +4806,7 @@
         }
       }
     },
-    "正在传：%@": {
+    "正在上传：%@": {
       "localizations": {
         "en": {
           "stringUnit": {
@@ -4866,7 +4816,7 @@
         }
       }
     },
-    "正在传 %lld%%：%@": {
+    "正在上传 %lld%%：%@": {
       "localizations": {
         "en": {
           "stringUnit": {
@@ -4886,7 +4836,7 @@
         }
       }
     },
-    "自动压缩关着，满了以后要手动压缩。": {
+    "自动压缩已关闭，达到上限后需手动压缩。": {
       "localizations": {
         "en": {
           "stringUnit": {
@@ -4916,7 +4866,7 @@
         }
       }
     },
-    "把文件改回这条消息发出之前的样子。": {
+    "将文件还原至发送此消息前的状态。": {
       "localizations": {
         "en": {
           "stringUnit": {
@@ -4956,7 +4906,7 @@
         }
       }
     },
-    "参数太长，只显示了一部分": {
+    "参数过长，仅显示部分内容": {
       "localizations": {
         "en": {
           "stringUnit": {
@@ -4966,7 +4916,7 @@
         }
       }
     },
-    "查不到要还原的文件：%@": {
+    "无法查询待还原文件：%@": {
       "localizations": {
         "en": {
           "stringUnit": {
@@ -4996,7 +4946,7 @@
         }
       }
     },
-    "等那边空闲": {
+    "等待对方空闲": {
       "localizations": {
         "en": {
           "stringUnit": {
@@ -5036,7 +4986,7 @@
         }
       }
     },
-    "改动太长，这里只显示了一部分": {
+    "变更内容过长，仅显示部分内容": {
       "localizations": {
         "en": {
           "stringUnit": {
@@ -5126,7 +5076,7 @@
         }
       }
     },
-    "会还原的文件": {
+    "将还原的文件": {
       "localizations": {
         "en": {
           "stringUnit": {
@@ -5146,7 +5096,7 @@
         }
       }
     },
-    "会话正在设备本机的%@里运行": {
+    "会话正在设备本机的%@中运行": {
       "localizations": {
         "en": {
           "stringUnit": {
@@ -5156,7 +5106,7 @@
         }
       }
     },
-    "会话正在 %@ 的%@里运行": {
+    "会话正在 %@ 的%@中运行": {
       "localizations": {
         "en": {
           "stringUnit": {
@@ -5166,7 +5116,7 @@
         }
       }
     },
-    "会话正在%@里运行": {
+    "会话正在%@中运行": {
       "localizations": {
         "en": {
           "stringUnit": {
@@ -5186,7 +5136,7 @@
         }
       }
     },
-    "拒绝时可以告诉 Claude 换个做法": {
+    "拒绝时可向 Claude 说明替代方案": {
       "localizations": {
         "en": {
           "stringUnit": {
@@ -5196,7 +5146,7 @@
         }
       }
     },
-    "看不出那边是否空闲。": {
+    "无法判断当前是否空闲。": {
       "localizations": {
         "en": {
           "stringUnit": {
@@ -5226,7 +5176,7 @@
         }
       }
     },
-    "没有找到": {
+    "未找到匹配项": {
       "localizations": {
         "en": {
           "stringUnit": {
@@ -5236,7 +5186,7 @@
         }
       }
     },
-    "那边闲着。接管后那边的 Zeta 会放开这个会话，在这里接着。": {
+    "当前处于空闲状态。接管后另一端的 Zeta 将释放此会话，并由本机继续。": {
       "localizations": {
         "en": {
           "stringUnit": {
@@ -5246,7 +5196,7 @@
         }
       }
     },
-    "那边闲着。接管后那边会像 /exit 那样退出，在这里接着。": {
+    "当前处于空闲状态。接管后另一端将如同执行 /exit 般退出，并由本机继续。": {
       "localizations": {
         "en": {
           "stringUnit": {
@@ -5256,7 +5206,7 @@
         }
       }
     },
-    "那边在等确认。接管后那个确认作废。": {
+    "当前正在等待确认。接管后该确认请求将失效。": {
       "localizations": {
         "en": {
           "stringUnit": {
@@ -5266,7 +5216,7 @@
         }
       }
     },
-    "那边在等确认：%@。接管后那个确认作废。": {
+    "当前正在等待确认：%@。接管后该确认请求将失效。": {
       "localizations": {
         "en": {
           "stringUnit": {
@@ -5276,7 +5226,7 @@
         }
       }
     },
-    "那边在跑 shell 命令，跑完才能接管。": {
+    "当前正在执行 shell 命令，完成后方可接管。": {
       "localizations": {
         "en": {
           "stringUnit": {
@@ -5286,7 +5236,7 @@
         }
       }
     },
-    "那边正在回答，等这一轮结束才能接管。": {
+    "当前正在回复，请等待本轮结束后再接管。": {
       "localizations": {
         "en": {
           "stringUnit": {
@@ -5456,7 +5406,7 @@
         }
       }
     },
-    "这条消息之后的回答和之后的 %lld 轮对话都会去掉，再照原样重新发送。": {
+    "将移除此消息之后的回复及后续 %lld 轮对话，并按原样重新发送。": {
       "localizations": {
         "en": {
           "stringUnit": {
@@ -5466,7 +5416,7 @@
         }
       }
     },
-    "这条消息之后的回答会去掉，再照原样重新发送。": {
+    "将移除此消息之后的回复，并按原样重新发送。": {
       "localizations": {
         "en": {
           "stringUnit": {
@@ -5476,7 +5426,7 @@
         }
       }
     },
-    "这条消息之后没有可还原的文件改动。": {
+    "此消息之后没有可还原的文件变更。": {
       "localizations": {
         "en": {
           "stringUnit": {
@@ -5486,7 +5436,7 @@
         }
       }
     },
-    "这一轮对话会删掉。": {
+    "将删除本轮对话。": {
       "localizations": {
         "en": {
           "stringUnit": {
@@ -5496,7 +5446,7 @@
         }
       }
     },
-    "这一轮和之后的 %lld 轮对话都会删掉。": {
+    "将删除本轮及后续 %lld 轮对话。": {
       "localizations": {
         "en": {
           "stringUnit": {
@@ -5506,7 +5456,7 @@
         }
       }
     },
-    "正在查看那边的状态…": {
+    "正在检查对方状态…": {
       "localizations": {
         "en": {
           "stringUnit": {
@@ -5516,7 +5466,7 @@
         }
       }
     },
-    "正在查这条消息之后改过的文件…": {
+    "正在检查此消息之后变更的文件…": {
       "localizations": {
         "en": {
           "stringUnit": {
@@ -5576,7 +5526,7 @@
         }
       }
     },
-    "自己写": {
+    "自定义输入": {
       "localizations": {
         "en": {
           "stringUnit": {
@@ -5656,7 +5606,7 @@
         }
       }
     },
-    "把授权页给的整段码贴在这里，中间有一个 #。": {
+    "将授权页面显示的完整授权码粘贴到此处，中间包含一个 #。": {
       "localizations": {
         "en": {
           "stringUnit": {
@@ -5666,7 +5616,7 @@
         }
       }
     },
-    "把运行日志、环境和各台设备上的日志打成一个 zip，token、密码这类值打码。": {
+    "将运行日志、环境信息及各设备日志打包为 ZIP，敏感信息（如 Token、密码）会自动脱敏。": {
       "localizations": {
         "en": {
           "stringUnit": {
@@ -5686,7 +5636,7 @@
         }
       }
     },
-    "不设": {
+    "不设置": {
       "localizations": {
         "en": {
           "stringUnit": {
@@ -5706,7 +5656,7 @@
         }
       }
     },
-    "从列表选": {
+    "从列表选择": {
       "localizations": {
         "en": {
           "stringUnit": {
@@ -5716,7 +5666,7 @@
         }
       }
     },
-    "打开后用要添加的账号登录并授权，页面会给出一段授权码。": {
+    "打开页面后，使用要添加的账号登录并授权，随后获取页面显示的授权码。": {
       "localizations": {
         "en": {
           "stringUnit": {
@@ -5736,7 +5686,7 @@
         }
       }
     },
-    "带到设备上的 zeta-helper、claude-switch 链接的": {
+    "设备端 zeta-helper 与 claude-switch 依赖的组件": {
       "localizations": {
         "en": {
           "stringUnit": {
@@ -5766,7 +5716,7 @@
         }
       }
     },
-    "登录过期了，要重新添加": {
+    "登录已过期，请重新添加": {
       "localizations": {
         "en": {
           "stringUnit": {
@@ -5796,7 +5746,7 @@
         }
       }
     },
-    "各台设备上对话进程的错误输出和 Claude Code 的调试日志。「连接」关着的不列。": {
+    "各设备上对话进程的错误输出与 Claude Code 调试日志。未开启「连接」的设备不予列出。": {
       "localizations": {
         "en": {
           "stringUnit": {
@@ -5816,7 +5766,7 @@
         }
       }
     },
-    "关着时，回答里的网络图片要点一下才加载。": {
+    "关闭时，回复中的网络图片需点击后加载。": {
       "localizations": {
         "en": {
           "stringUnit": {
@@ -5826,7 +5776,7 @@
         }
       }
     },
-    "和桌面版共用的文字表格式与取字（MIT）": {
+    "与桌面版共用的本地化文本表与读取库（MIT）": {
       "localizations": {
         "en": {
           "stringUnit": {
@@ -5836,7 +5786,7 @@
         }
       }
     },
-    "核对不了": {
+    "无法校验": {
       "localizations": {
         "en": {
           "stringUnit": {
@@ -5866,7 +5816,7 @@
         }
       }
     },
-    "记下在用的账号": {
+    "保存当前账号": {
       "localizations": {
         "en": {
           "stringUnit": {
@@ -5876,7 +5826,7 @@
         }
       }
     },
-    "结束的对话进程": {
+    "已结束的对话进程": {
       "localizations": {
         "en": {
           "stringUnit": {
@@ -5886,7 +5836,7 @@
         }
       }
     },
-    "界面文字的多语言（BSD-3-Clause）": {
+    "界面多语言文本支持（BSD-3-Clause）": {
       "localizations": {
         "en": {
           "stringUnit": {
@@ -5906,7 +5856,7 @@
         }
       }
     },
-    "界面语言跟随系统，可以在系统设置里给 Zeta 单独选；外观跟随系统的浅色、深色。": {
+    "界面语言跟随系统，也可在系统设置中为 Zeta 单独指定；外观跟随系统的浅色与深色模式。": {
       "localizations": {
         "en": {
           "stringUnit": {
@@ -5936,7 +5886,7 @@
         }
       }
     },
-    "「连接」关着": {
+    "「连接」未开启": {
       "localizations": {
         "en": {
           "stringUnit": {
@@ -5946,7 +5896,7 @@
         }
       }
     },
-    "连接关着": {
+    "连接已关闭": {
       "localizations": {
         "en": {
           "stringUnit": {
@@ -5956,7 +5906,7 @@
         }
       }
     },
-    "连接开着": {
+    "连接已开启": {
       "localizations": {
         "en": {
           "stringUnit": {
@@ -5966,7 +5916,7 @@
         }
       }
     },
-    "连设备用的 SSH（BSD-3-Clause）": {
+    "用于连接设备的 SSH 客户端库（BSD-3-Clause）": {
       "localizations": {
         "en": {
           "stringUnit": {
@@ -5976,7 +5926,7 @@
         }
       }
     },
-    "留空就用设备自己的名字。": {
+    "留空则使用设备默认名称。": {
       "localizations": {
         "en": {
           "stringUnit": {
@@ -5986,7 +5936,7 @@
         }
       }
     },
-    "没法到「%@」上看 %@ 能不能进去：%@。仍然保存吗？": {
+    "无法在「%@」上校验目录 %@ 是否可访问：%@。仍要保存吗？": {
       "localizations": {
         "en": {
           "stringUnit": {
@@ -6026,22 +5976,12 @@
         }
       }
     },
-    "名称加好以后不能改。": {
+    "添加后无法修改名称。": {
       "localizations": {
         "en": {
           "stringUnit": {
             "state": "translated",
             "value": "The name can’t be changed after the relay is added."
-          }
-        }
-      }
-    },
-    "名字": {
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Name"
           }
         }
       }
@@ -6066,7 +6006,7 @@
         }
       }
     },
-    "默认模型（可不填）": {
+    "默认模型（可选）": {
       "localizations": {
         "en": {
           "stringUnit": {
@@ -6076,7 +6016,7 @@
         }
       }
     },
-    "切到中转后，这台设备上的 Claude Code 经它的地址和密钥访问模型，没有订阅额度。": {
+    "切换至中转后，此设备上的 Claude Code 将通过该地址和密钥访问模型，不计入订阅额度。": {
       "localizations": {
         "en": {
           "stringUnit": {
@@ -6146,7 +6086,7 @@
         }
       }
     },
-    "删除只删这台设备上存着的一份，那个账号在服务端仍是登录状态。": {
+    "仅删除此设备上保存的凭据副本，该账号在服务端仍保持登录状态。": {
       "localizations": {
         "en": {
           "stringUnit": {
@@ -6156,7 +6096,7 @@
         }
       }
     },
-    "设备上的日志": {
+    "设备日志": {
       "localizations": {
         "en": {
           "stringUnit": {
@@ -6236,7 +6176,7 @@
         }
       }
     },
-    "已存着，空着不改": {
+    "已保存，留空则保持不变": {
       "localizations": {
         "en": {
           "stringUnit": {
@@ -6296,7 +6236,7 @@
         }
       }
     },
-    "在跑的对话进程": {
+    "运行中的对话进程": {
       "localizations": {
         "en": {
           "stringUnit": {
@@ -6306,7 +6246,7 @@
         }
       }
     },
-    "在这台设备上开新对话时用的目录。~ 是家目录 %@。": {
+    "在此设备发起新对话时的默认目录。~ 表示主目录 %@。": {
       "localizations": {
         "en": {
           "stringUnit": {
@@ -6346,7 +6286,7 @@
         }
       }
     },
-    "这个中转的密钥不是 Zeta 存的，要在设备上的 claude-switch 配置里改。": {
+    "该中转的密钥不由 Zeta 保存，请在设备的 claude-switch 配置中修改。": {
       "localizations": {
         "en": {
           "stringUnit": {
@@ -6356,7 +6296,7 @@
         }
       }
     },
-    "这台设备上的 Claude Code 改用这个中转的地址、密钥和默认模型；闲着的对话进程会先结束。": {
+    "此设备上的 Claude Code 将改用该中转的地址、密钥和默认模型；空闲的对话进程会先结束。": {
       "localizations": {
         "en": {
           "stringUnit": {
@@ -6366,7 +6306,7 @@
         }
       }
     },
-    "这台设备上闲着的对话进程会先结束，内容不丢，下次发消息时接上。": {
+    "此设备上空闲的对话进程会先结束，对话记录不会丢失，下次发送消息时自动恢复。": {
       "localizations": {
         "en": {
           "stringUnit": {
@@ -6386,7 +6326,7 @@
         }
       }
     },
-    "正在到「%@」上核对……": {
+    "正在「%@」上校验…": {
       "localizations": {
         "en": {
           "stringUnit": {
@@ -6396,7 +6336,7 @@
         }
       }
     },
-    "正在用这个中转：改了以后，新起的对话进程才用上。要删除先换到别的账号或中转。": {
+    "当前正在使用该中转：修改仅对新启动的对话进程生效。如需删除，请先切换至其他账号或中转。": {
       "localizations": {
         "en": {
           "stringUnit": {
@@ -6406,7 +6346,7 @@
         }
       }
     },
-    "只取了最后 64 KB": {
+    "仅显示最后 64 KB": {
       "localizations": {
         "en": {
           "stringUnit": {
@@ -6496,7 +6436,7 @@
         }
       }
     },
-    "iOS 版链接的": {
+    "iOS 端依赖的组件": {
       "localizations": {
         "en": {
           "stringUnit": {
@@ -6506,7 +6446,7 @@
         }
       }
     },
-    "Zeta 按 GPL-3.0 授权。程序里还带着下面这些第三方组件，各自按它们的许可证分发。": {
+    "Zeta 采用 GPL-3.0 许可协议。应用中包含以下第三方组件，分别按各自的许可证分发。": {
       "localizations": {
         "en": {
           "stringUnit": {
@@ -6526,7 +6466,7 @@
         }
       }
     },
-    "早期参考项目，部分代码改写自它（GPL-3.0）": {
+    "早期参考项目，部分代码改写自此项目（GPL-3.0）": {
       "localizations": {
         "en": {
           "stringUnit": {
@@ -6537,12 +6477,12 @@
         "zh-Hans": {
           "stringUnit": {
             "state": "translated",
-            "value": "早期参考项目，部分代码改写自它（GPL-3.0）"
+            "value": "早期参考项目，部分代码改写自此项目（GPL-3.0）"
           }
         }
       }
     },
-    "Zeta 自己在这台设备上记的：连接、对话、出错。": {
+    "Zeta 在本机记录的连接、对话与错误日志。": {
       "localizations": {
         "en": {
           "stringUnit": {
@@ -6582,7 +6522,7 @@
         }
       }
     },
-    "有 %lld 张图取不回来，没有带上。": {
+    "有 %lld 张图片无法加载，发送时已跳过。": {
       "localizations": {
         "en": {
           "stringUnit": {
@@ -6592,7 +6532,7 @@
         }
       }
     },
-    "连接已断开，打开 Zeta 再回应": {
+    "连接已断开，请打开 Zeta 后回应": {
       "localizations": {
         "en": {
           "stringUnit": {
@@ -6602,7 +6542,7 @@
         }
       }
     },
-    "排回答里的数学公式，同手机版（MIT）": {
+    "渲染回复中的数学公式，与 Android 版一致（MIT）": {
       "localizations": {
         "en": {
           "stringUnit": {
@@ -6612,7 +6552,7 @@
         }
       }
     },
-    "公式用的字体（OFL-1.1）": {
+    "数学公式渲染字体（OFL-1.1）": {
       "localizations": {
         "en": {
           "stringUnit": {
@@ -6622,7 +6562,7 @@
         }
       }
     },
-    "运行 RaTeX 的 WebAssembly（Apache-2.0）": {
+    "用于运行 RaTeX 的 WebAssembly 运行时（Apache-2.0）": {
       "localizations": {
         "en": {
           "stringUnit": {
@@ -7016,7 +6956,7 @@
         }
       }
     },
-    "添加一台装了 Claude Code 或 Antigravity 的 Linux 设备，经 SSH 在上面开对话。": {
+    "添加已安装 Claude Code 或 Antigravity 的 Linux 设备，通过 SSH 发起对话。": {
       "localizations": {
         "en": {
           "stringUnit": {
@@ -7027,7 +6967,7 @@
         "zh-Hans": {
           "stringUnit": {
             "state": "translated",
-            "value": "添加一台装了 Claude Code 或 Antigravity 的 Linux 设备，经 SSH 在上面开对话。"
+            "value": "添加已安装 Claude Code 或 Antigravity 的 Linux 设备，通过 SSH 发起对话。"
           }
         }
       }
@@ -7112,7 +7052,7 @@
         }
       }
     },
-    "打开「连接」后才能看账号和配置。": {
+    "开启「连接」后才能查看账号与配置。": {
       "localizations": {
         "en": {
           "stringUnit": {
@@ -7123,7 +7063,7 @@
         "zh-Hans": {
           "stringUnit": {
             "state": "translated",
-            "value": "打开「连接」后才能看账号和配置。"
+            "value": "开启「连接」后才能查看账号与配置。"
           }
         }
       }
@@ -7144,7 +7084,7 @@
         }
       }
     },
-    "这台设备上的 Antigravity 改用这个中转的 Gemini API 密钥和地址；闲着的对话进程会先结束。": {
+    "此设备上的 Antigravity 将改用该中转的 Gemini API 密钥和地址；空闲的对话进程会先结束。": {
       "localizations": {
         "en": {
           "stringUnit": {
@@ -7155,12 +7095,12 @@
         "zh-Hans": {
           "stringUnit": {
             "state": "translated",
-            "value": "这台设备上的 Antigravity 改用这个中转的 Gemini API 密钥和地址；闲着的对话进程会先结束。"
+            "value": "此设备上的 Antigravity 将改用该中转的 Gemini API 密钥和地址；空闲的对话进程会先结束。"
           }
         }
       }
     },
-    "切到中转后，这台设备上的 Antigravity 使用这里填的 Gemini API 密钥（与可选地址）访问模型，没有订阅额度。": {
+    "切换至中转后，此设备上的 Antigravity 将使用此处填写的 Gemini API 密钥（及可选地址）访问模型，不计入订阅额度。": {
       "localizations": {
         "en": {
           "stringUnit": {
@@ -7171,12 +7111,12 @@
         "zh-Hans": {
           "stringUnit": {
             "state": "translated",
-            "value": "切到中转后，这台设备上的 Antigravity 使用这里填的 Gemini API 密钥（与可选地址）访问模型，没有订阅额度。"
+            "value": "切换至中转后，此设备上的 Antigravity 将使用此处填写的 Gemini API 密钥（及可选地址）访问模型，不计入订阅额度。"
           }
         }
       }
     },
-    "打开后用 Google 账号登录并授权；完成后复制页面给出的授权码，或复制跳转后的整条回调网址。": {
+    "打开页面后，使用 Google 账号登录并授权；完成后复制页面显示的授权码，或复制跳转后的完整回调网址。": {
       "localizations": {
         "en": {
           "stringUnit": {
@@ -7187,7 +7127,7 @@
         "zh-Hans": {
           "stringUnit": {
             "state": "translated",
-            "value": "打开后用 Google 账号登录并授权；完成后复制页面给出的授权码，或复制跳转后的整条回调网址。"
+            "value": "打开页面后，使用 Google 账号登录并授权；完成后复制页面显示的授权码，或复制跳转后的完整回调网址。"
           }
         }
       }
@@ -7208,7 +7148,7 @@
         }
       }
     },
-    "粘贴授权码，或粘贴包含 code= 的整条回调网址（http://localhost…）。": {
+    "粘贴授权码，或粘贴包含 code= 的完整回调网址（http://localhost…）。": {
       "localizations": {
         "en": {
           "stringUnit": {
@@ -7219,7 +7159,7 @@
         "zh-Hans": {
           "stringUnit": {
             "state": "translated",
-            "value": "粘贴授权码，或粘贴包含 code= 的整条回调网址（http://localhost…）。"
+            "value": "粘贴授权码，或粘贴包含 code= 的完整回调网址（http://localhost…）。"
           }
         }
       }
@@ -7240,7 +7180,7 @@
         }
       }
     },
-    "不填地址时直接连 Google 官方 Gemini 接口；走自定义接入点时再填地址。": {
+    "留空时直连 Google 官方 Gemini 接口；使用自定义接入点时再填写地址。": {
       "localizations": {
         "en": {
           "stringUnit": {
@@ -7251,12 +7191,12 @@
         "zh-Hans": {
           "stringUnit": {
             "state": "translated",
-            "value": "不填地址时直接连 Google 官方 Gemini 接口；走自定义接入点时再填地址。"
+            "value": "留空时直连 Google 官方 Gemini 接口；使用自定义接入点时再填写地址。"
           }
         }
       }
     },
-    "这个中转的密钥不是 Zeta 存的，要在设备上的配置里改。": {
+    "该中转的密钥不由 Zeta 保存，请在设备上的配置中修改。": {
       "localizations": {
         "en": {
           "stringUnit": {
@@ -7267,7 +7207,7 @@
         "zh-Hans": {
           "stringUnit": {
             "state": "translated",
-            "value": "这个中转的密钥不是 Zeta 存的，要在设备上的配置里改。"
+            "value": "该中转的密钥不由 Zeta 保存，请在设备上的配置中修改。"
           }
         }
       }
@@ -7288,7 +7228,7 @@
         }
       }
     },
-    "agy update 出错了": {
+    "agy update 执行失败": {
       "localizations": {
         "en": {
           "stringUnit": {
@@ -7299,12 +7239,12 @@
         "zh-Hans": {
           "stringUnit": {
             "state": "translated",
-            "value": "agy update 出错了"
+            "value": "agy update 执行失败"
           }
         }
       }
     },
-    "改的是这台设备上 Antigravity 自己的配置（~/.gemini），那边终端里的 agy 同样生效。": {
+    "修改此设备上 Antigravity 的原生配置（~/.gemini），对终端中的 agy 同样生效。": {
       "localizations": {
         "en": {
           "stringUnit": {
@@ -7315,12 +7255,12 @@
         "zh-Hans": {
           "stringUnit": {
             "state": "translated",
-            "value": "改的是这台设备上 Antigravity 自己的配置（~/.gemini），那边终端里的 agy 同样生效。"
+            "value": "修改此设备上 Antigravity 的原生配置（~/.gemini），对终端中的 agy 同样生效。"
           }
         }
       }
     },
-    "还没读到 Antigravity 的设置": {
+    "暂未读取到 Antigravity 设置": {
       "localizations": {
         "en": {
           "stringUnit": {
@@ -7331,12 +7271,12 @@
         "zh-Hans": {
           "stringUnit": {
             "state": "translated",
-            "value": "还没读到 Antigravity 的设置"
+            "value": "暂未读取到 Antigravity 设置"
           }
         }
       }
     },
-    "没有设，按 Antigravity 的默认": {
+    "未设置，沿用 Antigravity 默认值": {
       "localizations": {
         "en": {
           "stringUnit": {
@@ -7347,12 +7287,12 @@
         "zh-Hans": {
           "stringUnit": {
             "state": "translated",
-            "value": "没有设，按 Antigravity 的默认"
+            "value": "未设置，沿用 Antigravity 默认值"
           }
         }
       }
     },
-    "Antigravity 内置的默认": {
+    "Antigravity 内置默认值": {
       "localizations": {
         "en": {
           "stringUnit": {
@@ -7363,7 +7303,7 @@
         "zh-Hans": {
           "stringUnit": {
             "state": "translated",
-            "value": "Antigravity 内置的默认"
+            "value": "Antigravity 内置默认值"
           }
         }
       }
@@ -7400,7 +7340,7 @@
         }
       }
     },
-    "这台设备上的新对话按所用的模型取这里的设置；没单独设的模型用「其他模型」那一档。": {
+    "此设备上的新对话按所用模型读取此处设置；未单独设置的模型使用「其他模型」配置。": {
       "localizations": {
         "en": {
           "stringUnit": {
@@ -7411,7 +7351,7 @@
         "zh-Hans": {
           "stringUnit": {
             "state": "translated",
-            "value": "这台设备上的新对话按所用的模型取这里的设置；没单独设的模型用「其他模型」那一档。"
+            "value": "此设备上的新对话按所用模型读取此处设置；未单独设置的模型使用「其他模型」配置。"
           }
         }
       }
@@ -7432,7 +7372,7 @@
         }
       }
     },
-    "~/.gemini/config/rules/AGENTS.md 里是所有工作区通用的全局规则。改动对之后新开始的对话生效。": {
+    "~/.gemini/config/rules/AGENTS.md 存放所有工作区通用的全局规则。修改对之后新建的对话生效。": {
       "localizations": {
         "en": {
           "stringUnit": {
@@ -7443,7 +7383,7 @@
         "zh-Hans": {
           "stringUnit": {
             "state": "translated",
-            "value": "~/.gemini/config/rules/AGENTS.md 里是所有工作区通用的全局规则。改动对之后新开始的对话生效。"
+            "value": "~/.gemini/config/rules/AGENTS.md 存放所有工作区通用的全局规则。修改对之后新建的对话生效。"
           }
         }
       }
@@ -7480,7 +7420,7 @@
         }
       }
     },
-    "写给这个工作区的项目规则与约定": {
+    "此工作区的项目规则与约定": {
       "localizations": {
         "en": {
           "stringUnit": {
@@ -7491,7 +7431,7 @@
         "zh-Hans": {
           "stringUnit": {
             "state": "translated",
-            "value": "写给这个工作区的项目规则与约定"
+            "value": "此工作区的项目规则与约定"
           }
         }
       }
@@ -7512,7 +7452,7 @@
         }
       }
     },
-    "工作区根规则，还没有": {
+    "工作区根规则（尚未创建）": {
       "localizations": {
         "en": {
           "stringUnit": {
@@ -7523,7 +7463,7 @@
         "zh-Hans": {
           "stringUnit": {
             "state": "translated",
-            "value": "工作区根规则，还没有"
+            "value": "工作区根规则（尚未创建）"
           }
         }
       }
@@ -7544,7 +7484,7 @@
         }
       }
     },
-    "这个目录还没有规则文件": {
+    "此目录暂无规则文件": {
       "localizations": {
         "en": {
           "stringUnit": {
@@ -7555,12 +7495,12 @@
         "zh-Hans": {
           "stringUnit": {
             "state": "translated",
-            "value": "这个目录还没有规则文件"
+            "value": "此目录暂无规则文件"
           }
         }
       }
     },
-    "目录下的 .md 规则文件会列在这里": {
+    "此目录下的 .md 规则文件将显示在此处": {
       "localizations": {
         "en": {
           "stringUnit": {
@@ -7571,12 +7511,12 @@
         "zh-Hans": {
           "stringUnit": {
             "state": "translated",
-            "value": "目录下的 .md 规则文件会列在这里"
+            "value": "此目录下的 .md 规则文件将显示在此处"
           }
         }
       }
     },
-    "编辑期间这个文件被改过了。保存会用你的版本覆盖。": {
+    "编辑期间该文件已被修改，保存将用当前版本覆盖。": {
       "localizations": {
         "en": {
           "stringUnit": {
@@ -7587,7 +7527,7 @@
         "zh-Hans": {
           "stringUnit": {
             "state": "translated",
-            "value": "编辑期间这个文件被改过了。保存会用你的版本覆盖。"
+            "value": "编辑期间该文件已被修改，保存将用当前版本覆盖。"
           }
         }
       }
@@ -7608,7 +7548,7 @@
         }
       }
     },
-    "删除 %@？删了就找不回来。": {
+    "删除 %@？删除后无法恢复。": {
       "localizations": {
         "en": {
           "stringUnit": {
@@ -7619,7 +7559,7 @@
         "zh-Hans": {
           "stringUnit": {
             "state": "translated",
-            "value": "删除 %@？删了就找不回来。"
+            "value": "删除 %@？删除后无法恢复。"
           }
         }
       }
@@ -7640,7 +7580,7 @@
         }
       }
     },
-    "来自 ~/.agents/skills 或 skills.json 声明的目录，这里只能看。": {
+    "来自 ~/.agents/skills 或 skills.json 声明的目录，此处仅支持查看。": {
       "localizations": {
         "en": {
           "stringUnit": {
@@ -7651,12 +7591,12 @@
         "zh-Hans": {
           "stringUnit": {
             "state": "translated",
-            "value": "来自 ~/.agents/skills 或 skills.json 声明的目录，这里只能看。"
+            "value": "来自 ~/.agents/skills 或 skills.json 声明的目录，此处仅支持查看。"
           }
         }
       }
     },
-    "装在 ~/.gemini/config/skills 里。关掉后文件留着，Antigravity 不再用它；改动对之后新开始的对话生效。": {
+    "安装在 ~/.gemini/config/skills。关闭后文件仍会保留，但 Antigravity 不再调用；修改对之后新建的对话生效。": {
       "localizations": {
         "en": {
           "stringUnit": {
@@ -7667,12 +7607,12 @@
         "zh-Hans": {
           "stringUnit": {
             "state": "translated",
-            "value": "装在 ~/.gemini/config/skills 里。关掉后文件留着，Antigravity 不再用它；改动对之后新开始的对话生效。"
+            "value": "安装在 ~/.gemini/config/skills。关闭后文件仍会保留，但 Antigravity 不再调用；修改对之后新建的对话生效。"
           }
         }
       }
     },
-    "这个文件夹里没有 SKILL.md，%@ 不会把它当成 Skill。": {
+    "此文件夹缺少 SKILL.md，%@ 不会将其识别为 Skill。": {
       "localizations": {
         "en": {
           "stringUnit": {
@@ -7683,12 +7623,12 @@
         "zh-Hans": {
           "stringUnit": {
             "state": "translated",
-            "value": "这个文件夹里没有 SKILL.md，%@ 不会把它当成 Skill。"
+            "value": "此文件夹缺少 SKILL.md，%@ 不会将其识别为 Skill。"
           }
         }
       }
     },
-    "存在 ~/.gemini/config/agents，所有项目都能用。Antigravity 按“什么时候用”自己决定交给哪个，你也可以在对话里点名。": {
+    "保存在 ~/.gemini/config/agents，所有项目通用。Antigravity 会根据“适用场景”自动委派，你也可以在对话中直接指定。": {
       "localizations": {
         "en": {
           "stringUnit": {
@@ -7699,12 +7639,12 @@
         "zh-Hans": {
           "stringUnit": {
             "state": "translated",
-            "value": "存在 ~/.gemini/config/agents，所有项目都能用。Antigravity 按“什么时候用”自己决定交给哪个，你也可以在对话里点名。"
+            "value": "保存在 ~/.gemini/config/agents，所有项目通用。Antigravity 会根据“适用场景”自动委派，你也可以在对话中直接指定。"
           }
         }
       }
     },
-    "%@ · 括号不配对，%@ 认不出这条": {
+    "%@ · 括号不匹配，%@ 无法识别此规则": {
       "localizations": {
         "en": {
           "stringUnit": {
@@ -7715,12 +7655,12 @@
         "zh-Hans": {
           "stringUnit": {
             "state": "translated",
-            "value": "%@ · 括号不配对，%@ 认不出这条"
+            "value": "%@ · 括号不匹配，%@ 无法识别此规则"
           }
         }
       }
     },
-    "写成 工具名 或 工具名(参数)。比如 run_command(npm test:*)、read_file(./.env)、edit_file(src/**)、mcp__github（整个服务器）。": {
+    "格式为 工具名 或 工具名(参数)，例如 run_command(npm test:*)、read_file(./.env)、edit_file(src/**)、mcp__github（整个服务器）。": {
       "localizations": {
         "en": {
           "stringUnit": {
@@ -7731,12 +7671,12 @@
         "zh-Hans": {
           "stringUnit": {
             "state": "translated",
-            "value": "写成 工具名 或 工具名(参数)。比如 run_command(npm test:*)、read_file(./.env)、edit_file(src/**)、mcp__github（整个服务器）。"
+            "value": "格式为 工具名 或 工具名(参数)，例如 run_command(npm test:*)、read_file(./.env)、edit_file(src/**)、mcp__github（整个服务器）。"
           }
         }
       }
     },
-    "先把设置里 Zeta 的公钥加进那台设备的 ~/.ssh/authorized_keys。设备要是 arm64 或 x86-64 的 Linux，装着 bash，以及 Claude Code 或 Antigravity CLI。": {
+    "请先将设置中 Zeta 的公钥添加到目标设备的 ~/.ssh/authorized_keys。设备须为 arm64 或 x86-64 架构的 Linux，并已安装 bash 及 Claude Code 或 Antigravity CLI。": {
       "localizations": {
         "en": {
           "stringUnit": {
@@ -7747,7 +7687,7 @@
         "zh-Hans": {
           "stringUnit": {
             "state": "translated",
-            "value": "先把设置里 Zeta 的公钥加进那台设备的 ~/.ssh/authorized_keys。设备要是 arm64 或 x86-64 的 Linux，装着 bash，以及 Claude Code 或 Antigravity CLI。"
+            "value": "请先将设置中 Zeta 的公钥添加到目标设备的 ~/.ssh/authorized_keys。设备须为 arm64 或 x86-64 架构的 Linux，并已安装 bash 及 Claude Code 或 Antigravity CLI。"
           }
         }
       }

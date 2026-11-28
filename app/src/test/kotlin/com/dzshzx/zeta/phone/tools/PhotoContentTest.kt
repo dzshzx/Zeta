@@ -285,7 +285,7 @@ class PhotoContentTest {
     @Test
     fun titleNamesTheSource() {
         assertEquals(
-            "在照片内容里找「猫」",
+            "在照片内容中搜索「猫」",
             PersonalTools.title(
                 "search_personal",
                 buildJsonObject {

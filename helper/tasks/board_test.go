@@ -203,7 +203,7 @@ func TestOutputResponse(t *testing.T) {
 	eq(t, "ok", ok, Output{Text: "hello-bg\nsecond-line\n", TotalBytes: 21})
 	failed := ParseOutput([]byte(`{"subtype":"error","request_id":"c2","error":"get_task_output: no shell or Monitor task with that task_id in this session"}`))
 	eq(t, "error", failed.Error, "get_task_output: no shell or Monitor task with that task_id in this session")
-	eq(t, "没写原因", ParseOutput([]byte(`{"subtype":"error"}`)).Error, "没有读到输出")
+	eq(t, "没写原因", ParseOutput([]byte(`{"subtype":"error"}`)).Error, "未能读取输出")
 }
 
 func TestTerminalTextAndElapsed(t *testing.T) {

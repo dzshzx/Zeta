@@ -70,10 +70,10 @@ func TestDefaultModelUsesTheDevicesModels(t *testing.T) {
 	if want := []string{"conv.open", "conv.prepare", "conv.end", "conv.close"}; !slices.Equal(convCalls(), want) {
 		t.Fatalf("要清单发的：%q，要 %q", convCalls(), want)
 	}
-	f.notSee(t, "正在读取这台设备的模型清单。")
+	f.notSee(t, "正在读取该设备的模型清单。")
 
 	f.press(t, "默认模型")
-	f.see(t, "Claude Code 内置的默认", "Opus 5.5", "更多模型")
+	f.see(t, "Claude Code 内置默认", "Opus 5.5", "更多模型")
 	f.notSee(t, "Default (recommended)", "Opus 4.6")
 	f.click(t, "更多模型")
 	f.see(t, "Opus 4.6", "Sonnet 4.6")
@@ -97,7 +97,7 @@ func TestDefaultModelWhenTheDeviceCannotReport(t *testing.T) {
 	f.click(t, "设置")
 	f.clickButton(t, "box", 0)
 	f.until(t, "读到新对话默认、没要到清单", func() bool {
-		return f.shows("Claude Code 内置的默认") && !f.tt.HasText("正在读取这台设备的模型清单。")
+		return f.shows("Claude Code 内置默认") && !f.tt.HasText("正在读取该设备的模型清单。")
 	})
 	f.press(t, "默认模型")
 	f.see(t, "Opus", "Sonnet", "Haiku", "Fable")
@@ -125,7 +125,7 @@ func TestDefaultModelUsesActiveRelay(t *testing.T) {
 	f.until(t, "读到中转列表和默认模型", func() bool { return f.shows("Custom A") })
 	f.press(t, "默认模型")
 	f.see(t, "Custom B")
-	f.notSee(t, "Opus 5.5", "Sonnet", "Claude Code 内置的默认")
+	f.notSee(t, "Opus 5.5", "Sonnet", "Claude Code 内置默认")
 	f.click(t, "Custom B")
 	f.until(t, "中转默认模型已更新", func() bool { return f.shows("Custom B") })
 	if slices.Contains(*methods, "conv.prepare") {

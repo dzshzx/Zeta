@@ -14,8 +14,8 @@ struct AgentsView: View {
                     LoadingRow()
                 } else if list.isEmpty {
                     TitledRow(
-                        title: String(localized: "还没有自定义 Subagent"),
-                        summary: String(localized: "让 Claude 写一个，或点右上角的“新建”"))
+                        title: String(localized: "暂无自定义 Subagent"),
+                        summary: String(localized: "可让 Claude 生成，或点击右上角“新建”"))
                 }
                 ForEach(list, id: \.file) { agent in
                     NavigationLink {
@@ -34,8 +34,8 @@ struct AgentsView: View {
                 Text("自定义 Subagent · \(String(list.count))")
             } footer: {
                 Text(calls.isAgy
-                    ? "存在 ~/.gemini/config/agents，所有项目都能用。Antigravity 按“什么时候用”自己决定交给哪个，你也可以在对话里点名。"
-                    : "存在 ~/.claude/agents，所有项目都能用。Claude 按“什么时候用”自己决定交给哪个，你也可以在对话里点名。")
+                    ? "保存在 ~/.gemini/config/agents，所有项目通用。Antigravity 会根据“适用场景”自动委派，你也可以在对话中直接指定。"
+                    : "保存在 ~/.claude/agents，所有项目通用。Claude 会根据“适用场景”自动委派，你也可以在对话中直接指定。")
             }
         }
         .navigationTitle("Subagent")
@@ -118,10 +118,10 @@ struct AgentDraft: Equatable {
     /// 保存前还差什么；不差时为空。
     var missing: String {
         if name.trimmingCharacters(in: .whitespaces).wholeMatch(of: /[a-z0-9][a-z0-9-]{0,63}/) == nil {
-            return String(localized: "名称只能用小写字母、数字和连字符，并以字母或数字开头")
+            return String(localized: "名称仅支持小写字母、数字和连字符，且须以字母或数字开头")
         }
         if description.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
-            return String(localized: "写上什么时候用它才能保存")
+            return String(localized: "请填写适用场景后再保存")
         }
         return ""
     }
@@ -158,11 +158,11 @@ struct AgentDraft: Equatable {
 
     static func toolLabel(_ tool: String) -> String {
         let labels = [
-            "Read": String(localized: "读文件"),
+            "Read": String(localized: "读取文件"),
             "Edit": String(localized: "修改文件"),
-            "Write": String(localized: "新建、覆盖文件"),
+            "Write": String(localized: "新建或覆盖文件"),
             "Glob": String(localized: "按文件名查找"),
-            "Grep": String(localized: "在文件里搜索"),
+            "Grep": String(localized: "搜索文件内容"),
             "Bash": String(localized: "执行命令"),
             "WebFetch": String(localized: "抓取网页"),
             "WebSearch": String(localized: "网络搜索"),
@@ -201,22 +201,22 @@ struct AgentEditView: View {
             } header: {
                 Text("名称")
             } footer: {
-                Text("小写字母、数字和连字符，比如 code-reviewer。")
+                Text("仅支持小写字母、数字和连字符，例如 code-reviewer。")
             }
             Section {
-                TextField("比如：改完代码后用它审查改动，找出 bug 和不清楚的地方", text: $draft.description, axis: .vertical)
+                TextField("例如：在修改代码后审查变更，排查潜在缺陷与不清晰之处", text: $draft.description, axis: .vertical)
                     .lineLimit(2...6)
             } header: {
-                Text("什么时候用")
+                Text("适用场景")
             } footer: {
-                Text("Claude 靠这段话决定要不要交给它，写清楚它擅长什么。")
+                Text("Claude 根据此说明决定是否委派任务，请明确描述其擅长领域。")
             }
             Section {
                 Picker("模型", selection: $draft.model) {
                     ForEach(modelValues, id: \.self) { Text(AgentDraft.modelLabel($0)).tag($0) }
                 }
             } footer: {
-                Text("默认时跟随主对话的模型。")
+                Text("默认沿用主对话模型。")
             }
             toolsSection
             Section {
@@ -225,7 +225,7 @@ struct AgentEditView: View {
             } header: {
                 Text("系统提示词")
             } footer: {
-                Text("写它的角色和做事方式。它看不到主对话，只看到这段话和交给它的任务。")
+                Text("描述其角色与工作方式。该 Subagent 无法读取主对话，仅能看到此提示词和委派的任务。")
             }
             notes
         }
@@ -245,7 +245,7 @@ struct AgentEditView: View {
         .confirmationDialog("删除 Subagent", isPresented: $deleting, titleVisibility: .visible) {
             Button("删除", role: .destructive) { delete() }
         } message: {
-            Text("删除“\(originalName)”？删了就找不回来。")
+            Text("删除“\(originalName)”？删除后无法恢复。")
         }
         .configFailure($failure)
     }
@@ -284,7 +284,7 @@ struct AgentEditView: View {
         } header: {
             Text("工具")
         } footer: {
-            Text("关掉“全部工具”后只能用勾选的。MCP 工具写成 mcp__服务器__工具，多个用逗号分开。")
+            Text("关闭“全部工具”后仅可使用已勾选工具。MCP 工具格式为 mcp__服务器__工具，多项请用逗号分隔。")
         }
     }
 
@@ -298,7 +298,7 @@ struct AgentEditView: View {
         if let keys = original?.extraKeys, !keys.isEmpty {
             Section {
                 let listed = keys.joined(separator: String(localized: "、"))
-                Text("另外还设了 \(listed)，保存时原样保留。").foregroundStyle(.secondary)
+                Text("已另行配置 \(listed)，保存时将原样保留。").foregroundStyle(.secondary)
             }
         }
     }

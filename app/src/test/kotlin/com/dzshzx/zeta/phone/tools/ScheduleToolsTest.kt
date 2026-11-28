@@ -259,7 +259,7 @@ class ScheduleToolsTest {
             .exceptionOrNull()
             ?.message
             .orEmpty()
-        assertTrue(past, past.startsWith("这个时间已经过了") && "2026-11-19T10:00" in past)
+        assertTrue(past, past.startsWith("所选时间已过期") && "2026-11-19T10:00" in past)
         assertFalse(update(daily, """{"id":"t1","enabled":false}""").enabled)
     }
 

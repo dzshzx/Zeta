@@ -83,7 +83,7 @@ struct ComposerView: View {
                 UsageSheet(composer: state, busy: chat.busy, connected: chat.connected)
             }
         }
-        .alert("有些没有加进来", isPresented: problemsShown) {
+        .alert("部分项目未添加", isPresented: problemsShown) {
             Button("知道了") { model.perform("composer.problems") }
         } message: {
             Text(problemsText)
@@ -141,7 +141,7 @@ struct ComposerView: View {
     }
 
     private var placeholder: String {
-        chat.busy ? String(localized: "回答中，发的消息会排队") : String(localized: "发消息")
+        chat.busy ? String(localized: "正在回复，新消息将排队发送") : String(localized: "发消息")
     }
 
     private var sendIcon: String { stopping ? "stop.fill" : "arrow.up" }
@@ -204,7 +204,7 @@ struct ComposerView: View {
         guard let state else { return "" }
         var message = state.problems.map { "· " + $0 }.joined(separator: "\n")
         if state.tooLarge {
-            message += "\n\n" + String(localized: "太大的文件可以先放到设备上，再在消息里写它的路径。")
+            message += "\n\n" + String(localized: "大文件可先上传至设备，再在消息中注明文件路径。")
         }
         return message
     }

@@ -42,7 +42,7 @@ struct SessionMenu: View {
         Button(row.pinned ? "取消置顶" : "置顶", systemImage: row.pinned ? "pin.slash" : "pin") {
             model.perform("pin", row.ref)
         }
-        Button("改名", systemImage: "pencil") { ops.rename(row) }
+        Button("重命名", systemImage: "pencil") { ops.rename(row) }
         Button(row.archived ? "取消归档" : "归档", systemImage: "archivebox") {
             model.perform("archive", ["sessions": [row.ref], "archived": !row.archived])
         }
@@ -96,10 +96,10 @@ private struct SessionOpsDialogs: ViewModifier {
 
     private var confirmMessage: String {
         switch ops.kind {
-        case .delete: String(localized: "会话记录连同 Claude Code 存的东西一起删掉，不能恢复。正在进行的对话删不了。")
+        case .delete: String(localized: "将一并删除会话记录及 Claude Code 保存的相关数据，且无法恢复。进行中的对话无法删除。")
         case .end: ops.targets.contains(where: \.external)
-            ? String(localized: "结束 Claude Code 进程，对话内容留着，下次发消息时接上。别处运行的也会被结束，不管那边闲不闲。")
-            : String(localized: "结束 Claude Code 进程，对话内容留着，下次发消息时接上。")
+            ? String(localized: "结束 Claude Code 进程，保留对话内容并在下次发送消息时恢复。其他位置运行的会话也会被一并结束，无论其是否空闲。")
+            : String(localized: "结束 Claude Code 进程，保留对话内容并在下次发送消息时恢复。")
         case nil: ""
         }
     }
@@ -121,7 +121,7 @@ private struct SessionOpsDialogs: ViewModifier {
             } message: {
                 Text(confirmMessage)
             }
-            .alert("改名", isPresented: Binding { ops.renaming != nil } set: { if !$0 { ops.renaming = nil } }) {
+            .alert("重命名", isPresented: Binding { ops.renaming != nil } set: { if !$0 { ops.renaming = nil } }) {
                 TextField("标题", text: $ops.title)
                 Button("取消", role: .cancel) { ops.renaming = nil }
                 Button("好") {

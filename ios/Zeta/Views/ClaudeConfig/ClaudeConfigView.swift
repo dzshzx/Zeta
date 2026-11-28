@@ -42,8 +42,8 @@ private struct ClaudeConfigForm: View {
                 Text(store.isAgy ? "Antigravity 配置" : "Claude Code 配置")
             } footer: {
                 Text(store.isAgy
-                    ? "改的是这台设备上 Antigravity 自己的配置（~/.gemini），那边终端里的 agy 同样生效。"
-                    : "改的是这台设备上 Claude Code 自己的配置（~/.claude），那边终端里的 claude 同样生效。")
+                    ? "修改此设备上 Antigravity 的原生配置（~/.gemini），对终端中的 agy 同样生效。"
+                    : "修改此设备上 Claude Code 的原生配置（~/.claude），对终端中的 claude 同样生效。")
             }
         }
         .refreshable { await store.load() }
@@ -69,7 +69,7 @@ private struct DefaultsSection: View {
                 }
                 .disabled(store.working)
                 Picker("上下文窗口", selection: windowBinding()) {
-                    Text("按模型的窗口").tag(Int64(0))
+                    Text("沿用模型默认窗口").tag(Int64(0))
                     ForEach(windows(defaults), id: \.self) { Text(ConfigLabels.tokens($0)).tag($0) }
                 }
                 .disabled(store.working)
@@ -78,18 +78,18 @@ private struct DefaultsSection: View {
             } else {
                 TitledRow(
                     title: store.isAgy
-                        ? String(localized: "还没读到 Antigravity 的设置")
-                        : String(localized: "还没读到 Claude Code 的设置"),
+                        ? String(localized: "暂未读取到 Antigravity 设置")
+                        : String(localized: "暂未读取到 Claude Code 设置"),
                     summary: store.defaultsProblem)
             }
         } header: {
-            Text("新对话默认")
+            Text("新对话默认设置")
         } footer: {
             VStack(alignment: .leading, spacing: 8) {
-                if store.modelsPending { Text("正在读取这台设备的模型清单。") }
+                if store.modelsPending { Text("正在加载此设备的模型列表。") }
                 Text("""
-                    在这台设备上开新对话时用。使用中转时，默认模型存在中转设置里；对话里选的只管那个对话。\
-                    思考强度按模型分别存。上下文窗口是会话最多用多少 token，自动压缩按它算，比模型本身的窗口大时按模型的。
+                    用于在此设备发起新对话。使用中转时，默认模型保存在中转设置中；对话内切换的选项仅对当前对话生效。\
+                    思考强度按模型分别保存。上下文窗口指单次会话的 token 上限，自动压缩以此为基准；若超过模型自身上限，则以模型上限为准。
                     """)
             }
         }
@@ -129,8 +129,8 @@ private struct DefaultsSection: View {
         if parts.isEmpty {
             guard !defaults.effort.isEmpty else {
                 return store.isAgy
-                    ? String(localized: "没有设，按 Antigravity 的默认")
-                    : String(localized: "没有设，按 Claude Code 的默认")
+                    ? String(localized: "未设置，沿用 Antigravity 默认值")
+                    : String(localized: "未设置，沿用 Claude Code 默认值")
             }
             return ConfigLabels.effort(defaults.effort)
         }
@@ -155,7 +155,7 @@ private struct DefaultModelMenu: View {
             top.append(ModelChoice(value: current, label: ConfigLabels.readableModel(current), id: "", older: false))
         }
         let defaultLabel = store.models.source == "harness"
-            ? (store.isAgy ? String(localized: "Antigravity 内置的默认") : String(localized: "Claude Code 内置的默认"))
+            ? (store.isAgy ? String(localized: "Antigravity 内置默认值") : String(localized: "Claude Code 内置默认值"))
             : String(localized: "默认")
         let shown = (top + older).first { $0.value == current }?.label ?? defaultLabel
         let disabled = store.working || store.models.source == "unknown"
@@ -201,7 +201,7 @@ private struct ClaudeSection: View {
                     Toggle(isOn: Binding { local.autoTitle } set: { store.setLocal("autoTitle", $0) }) {
                         TitledRow(
                             title: String(localized: "自动生成对话标题"),
-                            summary: String(localized: "第一轮回答后由 Claude Code 起个简短标题，改过名的不动"))
+                            summary: String(localized: "首轮回复后由 Claude Code 自动生成简短标题，已手动重命名的对话不受影响"))
                     }
                 } else {
                     LoadingRow()
@@ -212,7 +212,7 @@ private struct ClaudeSection: View {
         } header: {
             Text(store.isAgy ? "Antigravity" : "Claude")
         } footer: {
-            Text("只管 Zeta 在这台设备上起的对话。闲置超时马上生效，其余的下次起进程时生效。")
+            Text("仅对 Zeta 在此设备发起的对话生效。闲置超时立即生效，其余设置将在下次启动进程时生效。")
         }
     }
 
@@ -282,8 +282,8 @@ private struct EffortView: View {
                 }
             } footer: {
                 Text(store.isAgy
-                    ? "这台设备上的新对话按所用的模型取这里的设置；没单独设的模型用「其他模型」那一档。"
-                    : "这台设备上的新对话按所用的模型取这里的设置，和那边终端里 /effort 存为默认的是同一份；没单独设的模型用「其他模型」那一档。")
+                    ? "此设备上的新对话按所用模型读取此处设置；未单独设置的模型使用「其他模型」配置。"
+                    : "此设备上的新对话按所用模型读取此处设置，与终端内 /effort 保存的默认配置同步；未单独设置的模型使用「其他模型」配置。")
             }
         }
         .navigationTitle("默认思考强度")

@@ -59,8 +59,8 @@ class UpdateManifestTest {
 
     @Test
     fun badFieldsAreNamed() {
-        assertEquals("更新清单格式不对：不是 JSON 对象", reason("<html>captive portal</html>"))
-        assertEquals("更新清单格式不对：不是 JSON 对象", reason("[1, 2]"))
+        assertEquals("更新清单格式错误：不是 JSON 对象", reason("<html>captive portal</html>"))
+        assertEquals("更新清单格式错误：不是 JSON 对象", reason("[1, 2]"))
         assertTrue(reason(json(versionCode = "\"905\"")).contains("versionCode"))
         assertTrue(reason(json(versionCode = "0")).contains("versionCode"))
         assertTrue(reason(json(versionCode = "9999999999")).contains("versionCode"))

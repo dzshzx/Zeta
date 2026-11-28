@@ -283,14 +283,14 @@ class BrowserPageTest {
             "打开网页 example.com",
             title("""{"action":"open","url":"https://example.com/path"}"""),
         )
-        assertEquals("点按网页里的[12]", title("""{"action":"click","element":12}"""))
-        assertEquals("点按网页里的(3, 4)", title("""{"action":"click","x":3,"y":4}"""))
+        assertEquals("点按网页中的[12]", title("""{"action":"click","element":12}"""))
+        assertEquals("点按网页中的(3, 4)", title("""{"action":"click","x":3,"y":4}"""))
         assertEquals(
-            "在网页里输入“kotlin”并提交",
+            "在网页中输入「kotlin」并提交",
             title("""{"action":"type","element":2,"text":"kotlin","submit":true}"""),
         )
         assertEquals("网页向上滚动", title("""{"action":"scroll","direction":"up"}"""))
-        assertEquals("等网页出现「Done」", title("""{"action":"wait","text":"Done"}"""))
+        assertEquals("等待网页出现「Done」", title("""{"action":"wait","text":"Done"}"""))
         assertEquals("等待网页 2.5 秒", title("""{"action":"wait","ms":2500}"""))
         assertEquals("网页截图", title("""{"action":"screenshot"}"""))
     }

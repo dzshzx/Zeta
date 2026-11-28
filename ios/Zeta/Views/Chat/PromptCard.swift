@@ -79,7 +79,7 @@ private struct ToolPrompt: View {
             }
             .font(.footnote)
         }
-        TextField("拒绝时可以告诉 Claude 换个做法", text: $feedback, axis: .vertical)
+        TextField("拒绝时可向 Claude 说明替代方案", text: $feedback, axis: .vertical)
             .lineLimit(1...4)
             .textFieldStyle(.roundedBorder)
         HStack {
@@ -111,7 +111,7 @@ private struct PlanPrompt: View {
                 .font(.footnote)
         }
         .frame(maxHeight: 240)
-        TextField("不批准时，告诉 Claude 要怎么改", text: $feedback, axis: .vertical)
+        TextField("拒绝时可向 Claude 说明修改意见", text: $feedback, axis: .vertical)
             .lineLimit(1...4)
             .textFieldStyle(.roundedBorder)
         HStack {
@@ -162,7 +162,7 @@ private struct QuestionsPrompt: View {
         }
         .frame(maxHeight: 360)
         HStack {
-            Button("先聊聊") { submit("clarify") }
+            Button("先讨论") { submit("clarify") }
                 .buttonStyle(.glass)
             Spacer()
             Button("提交") { submit("answer") }
@@ -212,7 +212,7 @@ private struct QuestionView: View {
                 if answer.otherOn, !multi { answer.chosen = [] }
             }
             if answer.otherOn {
-                TextField("自己写", text: $answer.other, axis: .vertical)
+                TextField("自定义输入", text: $answer.other, axis: .vertical)
                     .lineLimit(1...4)
                     .textFieldStyle(.roundedBorder)
             }

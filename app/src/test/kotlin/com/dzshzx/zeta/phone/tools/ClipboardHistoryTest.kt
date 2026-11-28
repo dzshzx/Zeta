@@ -220,6 +220,6 @@ class ClipboardHistoryTest {
                     put("query", "取件码")
                 },
             )
-        assertEquals("在剪贴板历史里找「取件码」", title)
+        assertEquals("在剪贴板历史中搜索「取件码」", title)
     }
 }

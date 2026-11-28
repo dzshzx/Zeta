@@ -98,7 +98,7 @@ class CatalogTest {
         )
         val list = args("""{"reason":[{"code":"turnDone"},{"code":"noticeStopped"}]}""")
         assertEquals("Not sent: Done, Stopped", inEnglish { coreSaid("noticeNotSent", list, "x") })
-        assertEquals("没有发出：已完成、已停止", coreSaid("noticeNotSent", list, "x"))
+        assertEquals("发送失败：已完成、已停止", coreSaid("noticeNotSent", list, "x"))
         assertEquals(
             "Request failed, retrying (attempt 2)",
             inEnglish { coreSaid("statusRetrying", args("""{"attempt":2}"""), "x") },

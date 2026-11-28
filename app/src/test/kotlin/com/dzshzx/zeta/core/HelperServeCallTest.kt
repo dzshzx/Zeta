@@ -93,7 +93,7 @@ class HelperServeCallTest {
     fun droppedConnectionFailsTheRequestAndLaterOnesWaitForTheReconnect() {
         val s = serve()
         val e = failure { s.call("drop", JsonObject(emptyMap())) }
-        assertEquals("和 zeta-helper serve 的连接断了，没收到应答", e.message)
+        assertEquals("与 zeta-helper serve 的连接已断开，未收到应答", e.message)
         // 重连上以后照常
         assertEquals("echo", (s.call("echo", JsonObject(emptyMap())) as JsonObject).str("method"))
     }
@@ -109,9 +109,9 @@ class HelperServeCallTest {
         // 请求已经发到 serve、在等应答了再关
         assertEquals("silent", messages.poll(5, TimeUnit.SECONDS)?.str("method"))
         s.close()
-        assertEquals("和 zeta-helper serve 的连接已关闭", waiting.poll(5, TimeUnit.SECONDS))
+        assertEquals("与 zeta-helper serve 的连接已关闭", waiting.poll(5, TimeUnit.SECONDS))
         assertEquals(
-            "和 zeta-helper serve 的连接已关闭",
+            "与 zeta-helper serve 的连接已关闭",
             failure { s.call("echo", JsonObject(emptyMap())) }.message,
         )
     }
@@ -126,7 +126,7 @@ class HelperServeCallTest {
     fun timesOutWithoutAReply() {
         val s = serve()
         assertTrue(
-            failure { s.call("silent", JsonObject(emptyMap()), 300) }.message!!.contains("没有应答"),
+            failure { s.call("silent", JsonObject(emptyMap()), 300) }.message!!.contains("未应答"),
         )
     }
 

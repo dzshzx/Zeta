@@ -1,6 +1,6 @@
 {
   "@@locale": "zh-Hans",
-  "hostNoResponse": "「{host}」没有响应（超时）",
+  "hostNoResponse": "「{host}」无响应（超时）",
   "@hostNoResponse": {
     "description": "查对话的工作目录时那台设备没回话。",
     "placeholders": {
@@ -10,7 +10,7 @@
       }
     }
   },
-  "hostDirMissing": "「{host}」上没有 {path} 这个目录",
+  "hostDirMissing": "「{host}」上不存在目录 {path}",
   "@hostDirMissing": {
     "description": "聊天窗格里的提示：对话的工作目录在那台设备上不存在。",
     "placeholders": {
@@ -34,7 +34,7 @@
       }
     }
   },
-  "hostDirDenied": "「{host}」上的 {path} 没有权限进去",
+  "hostDirDenied": "无权限访问「{host}」上的 {path}",
   "@hostDirDenied": {
     "description": "聊天窗格里的提示：对话的工作目录进不去。",
     "placeholders": {
@@ -52,19 +52,19 @@
   "@hostProbeTimeout": {
     "description": "添加设备、检查连接时的结果：连接超时。"
   },
-  "hostProbeNotConnected": "没有连上",
+  "hostProbeNotConnected": "无法连接",
   "@hostProbeNotConnected": {
     "description": "添加设备、检查连接时的结果：没连上，SSH 也没说原因。"
   },
-  "hostProbeNoClaude": "那台设备上未找到 Claude Code（claude）或 Antigravity CLI（agy）（登录 shell 的 PATH 里和 ~/.local/bin 都没有）",
+  "hostProbeNoClaude": "该设备上未找到 Claude Code（claude）或 Antigravity CLI（agy）（登录 shell 的 PATH 与 ~/.local/bin 中均未找到）",
   "@hostProbeNoClaude": {
     "description": "添加设备、检查连接时的结果：那边既没装 Claude Code 也没装 Antigravity CLI。"
   },
-  "hostProbeUnknownSystem": "未知的系统",
+  "hostProbeUnknownSystem": "未知系统",
   "@hostProbeUnknownSystem": {
     "description": "添加设备时查不到系统，填进 hostProbeUnsupported 的 system。"
   },
-  "hostProbeUnsupported": "Zeta 读会话记录的程序只能在 arm64、x86-64 的 Linux 上跑，这台是 {system}",
+  "hostProbeUnsupported": "Zeta 读取会话记录的程序仅支持 arm64 与 x86-64 架构的 Linux，当前设备为 {system}",
   "@hostProbeUnsupported": {
     "description": "添加设备、检查连接时的结果：那台的系统或 CPU 不支持。",
     "placeholders": {
@@ -74,11 +74,11 @@
       }
     }
   },
-  "hostProgramMissing": "桌面版里没有带这个程序",
+  "hostProgramMissing": "桌面版未内置该程序",
   "@hostProgramMissing": {
     "description": "往设备上装 claude-switch 时桌面版里没带它（账号与额度页的报错）。"
   },
-  "hostProgramNotInstalled": "{program} 没装上",
+  "hostProgramNotInstalled": "无法安装 {program}",
   "@hostProgramNotInstalled": {
     "description": "往设备上装程序失败、那边没说原因时（账号与额度页的报错）。",
     "placeholders": {
@@ -88,11 +88,11 @@
       }
     }
   },
-  "attachNotImage": "不是能读的图片",
+  "attachNotImage": "无法读取该图片",
   "@attachNotImage": {
     "description": "附图片时文件解不开的原因。"
   },
-  "attachTooLargeSized": "「{name}」有 {size}，超过 {limit} 的上限，没有传上去",
+  "attachTooLargeSized": "「{name}」大小为 {size}，超过 {limit} 上限，未上传",
   "@attachTooLargeSized": {
     "description": "输入栏里没收某个附件的原因：文件太大。",
     "placeholders": {
@@ -110,7 +110,7 @@
       }
     }
   },
-  "attachTooLarge": "「{name}」超过 {limit} 的上限，没有传上去",
+  "attachTooLarge": "「{name}」超过 {limit} 上限，未上传",
   "@attachTooLarge": {
     "description": "输入栏里没收某个附件的原因：传到一半发现超过上限。",
     "placeholders": {
@@ -148,11 +148,11 @@
   "@chatNewTitle": {
     "description": "还没有标题的对话在顶栏的标题。"
   },
-  "hubSessionActive": "对话正在进行，结束后再删",
+  "hubSessionActive": "对话正在进行，请结束后再删除",
   "@hubSessionActive": {
     "description": "删除对话时核心答它正在进行：弹框里的原因。"
   },
-  "hubSessionSomeFailed": "{count, plural, other {# 个没成功：{reason}}}",
+  "hubSessionSomeFailed": "{count, plural, other {# 项操作失败：{reason}}}",
   "@hubSessionSomeFailed": {
     "description": "对几个对话一起操作（归档、删除、结束……）有没成的时弹框里的原因；reason 是第一个没成的原因。",
     "placeholders": {
@@ -166,7 +166,7 @@
       }
     }
   },
-  "hubSessionNothingExported": "没有导出任何对话",
+  "hubSessionNothingExported": "未导出任何对话",
   "@hubSessionNothingExported": {
     "description": "导出对话时一个都没导出来：弹框里的原因。"
   },
@@ -184,7 +184,7 @@
   "@hubDeletedDevice": {
     "description": "设备已经删掉时界面上代替它名字的说法。"
   },
-  "hubListFailed": "没读到会话列表：{reason}",
+  "hubListFailed": "无法读取会话列表：{reason}",
   "@hubListFailed": {
     "description": "侧栏会话列表的问题那一行：读不到这台的会话列表，后面是原因。",
     "placeholders": {
@@ -208,7 +208,7 @@
       }
     }
   },
-  "hubOpenFailed": "打不开这个对话：{error}",
+  "hubOpenFailed": "无法打开该对话：{error}",
   "@hubOpenFailed": {
     "description": "聊天窗格里的问题：打开对话失败，后面是原因。",
     "placeholders": {
@@ -218,11 +218,11 @@
       }
     }
   },
-  "hubImageMissing": "没取到图片",
+  "hubImageMissing": "未能获取图片",
   "@hubImageMissing": {
     "description": "聊天里的图片没取到时的原因（核心给了空的）。"
   },
-  "hubImageStatus": "下载图片：{status}",
+  "hubImageStatus": "图片下载失败：{status}",
   "@hubImageStatus": {
     "description": "聊天里的网络图片下载失败的原因，后面是 HTTP 状态。",
     "placeholders": {
@@ -232,7 +232,7 @@
       }
     }
   },
-  "hubImageTooLarge": "图片太大（超过 12 MB）",
+  "hubImageTooLarge": "图片过大（超过 12 MB）",
   "@hubImageTooLarge": {
     "description": "聊天里的网络图片太大不下载时的原因。"
   },
@@ -240,15 +240,15 @@
   "@promptCheckEmpty": {
     "description": "新建或编辑常用指令时的问题。"
   },
-  "promptCheckTooLong": "内容太长了（最多 20000 个字）",
+  "promptCheckTooLong": "内容过长（最多 20000 字）",
   "@promptCheckTooLong": {
     "description": "新建或编辑常用指令时的问题。"
   },
-  "promptCheckNameTooLong": "名字太长了（最多 40 个字）",
+  "promptCheckNameTooLong": "名称过长（最多 40 字）",
   "@promptCheckNameTooLong": {
     "description": "新建或编辑常用指令时的问题。"
   },
-  "promptCheckFull": "最多存 100 条，先删掉一些",
+  "promptCheckFull": "最多保存 100 条，请先删除部分指令",
   "@promptCheckFull": {
     "description": "新建常用指令时已经存满了。"
   },
@@ -262,11 +262,11 @@
       }
     }
   },
-  "handoffStuck": "对方的 Claude Code 没有退出，可以在终端里结束它后再试。",
+  "handoffStuck": "另一端的 Claude Code 尚未退出，可以在终端中结束该进程后再试。",
   "@handoffStuck": {
     "description": "别处运行卡片的说明：那边的 Claude Code 卡住没退出。"
   },
-  "chatFormInvalid": "表单有几项不对：{problems}",
+  "chatFormInvalid": "表单存在无效项：{problems}",
   "@chatFormInvalid": {
     "description": "MCP 表单交上去核心说有几项不对时的错误（通常写在各项下面，这句只在别处显示）。",
     "placeholders": {
@@ -294,7 +294,7 @@
   "@chatFormProblemSeparator": {
     "description": "chatFormInvalid 里各项之间的分隔。"
   },
-  "chatNotConnected": "和主机的连接断了，正在重连",
+  "chatNotConnected": "与主机的连接已断开，正在重连",
   "@chatNotConnected": {
     "description": "对话没连上时操作（发消息、回应确认）给出的错误。"
   },
@@ -306,7 +306,7 @@
   "@runlogLevelWarn": {
     "description": "诊断页运行日志里一条记录的轻重：警告。"
   },
-  "runlogLevelError": "出错",
+  "runlogLevelError": "错误",
   "@runlogLevelError": {
     "description": "诊断页运行日志里一条记录的轻重：出错。"
   },
@@ -322,11 +322,11 @@
   "@runlogTopicDevice": {
     "description": "运行日志的类别：和设备的连接、会话列表。"
   },
-  "accountsOwnBusy": "这里还有对话在进行",
+  "accountsOwnBusy": "当前窗口仍有对话正在进行",
   "@accountsOwnBusy": {
     "description": "账号页的出错：本窗口在这台设备上还有对话在进行，不能动登录状态。"
   },
-  "accountsInstallFailed": "装不上 claude-switch：{error}",
+  "accountsInstallFailed": "无法安装 claude-switch：{error}",
   "@accountsInstallFailed": {
     "description": "账号页的出错：往设备上装换号程序没成，后面是原因。",
     "placeholders": {
@@ -335,7 +335,7 @@
       }
     }
   },
-  "accountsReadFailed": "读不了账号：{error}",
+  "accountsReadFailed": "无法读取账号：{error}",
   "@accountsReadFailed": {
     "description": "账号页的出错：没读到这台设备上的账号，后面是原因。",
     "placeholders": {
@@ -353,11 +353,11 @@
       }
     }
   },
-  "accountsSaving": "正在记下",
+  "accountsSaving": "正在保存",
   "@accountsSaving": {
     "description": "账号页：正在记下在用的登录。"
   },
-  "accountsBusy": "上一件事还没做完",
+  "accountsBusy": "上一项操作尚未完成",
   "@accountsBusy": {
     "description": "账号页的出错：上一次切换、记下、移除还在做。"
   },
@@ -370,7 +370,7 @@
       }
     }
   },
-  "accountsRemoveFailed": "没有移除：{error}",
+  "accountsRemoveFailed": "移除失败：{error}",
   "@accountsRemoveFailed": {
     "description": "账号页的出错：账号没移除，后面是原因。",
     "placeholders": {
@@ -379,7 +379,7 @@
       }
     }
   },
-  "accountsCodeIncomplete": "授权码不完整：要连中间的 # 和它后面的部分一起复制",
+  "accountsCodeIncomplete": "授权码不完整：请连同中间的 # 及后面的部分一起复制",
   "@accountsCodeIncomplete": {
     "description": "账号页添加账号：贴的授权码少了 # 和后半段。"
   },
@@ -391,7 +391,7 @@
   "@accountsLoggingIn": {
     "description": "账号页：交上授权码，正在登录。"
   },
-  "accountsLoginFailed": "没有登录成功：{error}",
+  "accountsLoginFailed": "登录失败：{error}",
   "@accountsLoginFailed": {
     "description": "账号页的出错：登录没成，后面是原因。",
     "placeholders": {
@@ -400,11 +400,11 @@
       }
     }
   },
-  "accountsQuotaTimedOut": "等了太久没有结果",
+  "accountsQuotaTimedOut": "等待超时，未返回结果",
   "@accountsQuotaTimedOut": {
     "description": "额度没取到的原因：问 Claude Code 等太久了。"
   },
-  "accountsQuotaFailed": "没取到最新的额度：{error}",
+  "accountsQuotaFailed": "未能获取最新额度：{error}",
   "@accountsQuotaFailed": {
     "description": "额度说明后面：这次没取到最新的额度，后面是原因。",
     "placeholders": {
@@ -413,7 +413,7 @@
       }
     }
   },
-  "accountsQuotaStale": "没取到最新的额度，显示的是{age}的数",
+  "accountsQuotaStale": "未能获取最新额度，当前显示的是{age}的数据",
   "@accountsQuotaStale": {
     "description": "额度说明后面：Claude Code 这次没取到服务器的数，显示的是多久以前的。",
     "placeholders": {
@@ -422,19 +422,19 @@
       }
     }
   },
-  "accountsQuotaFetching": "正在取额度",
+  "accountsQuotaFetching": "正在获取额度",
   "@accountsQuotaFetching": {
     "description": "额度说明：还没有数，正在取。"
   },
-  "accountsQuotaNoData": "还没有额度数据",
+  "accountsQuotaNoData": "暂无额度数据",
   "@accountsQuotaNoData": {
     "description": "额度说明：还没有数。"
   },
-  "accountsQuotaUnavailable": "这种登录方式没有订阅额度",
+  "accountsQuotaUnavailable": "该登录方式没有订阅额度",
   "@accountsQuotaUnavailable": {
     "description": "额度说明：用 API key 等方式登录的没有订阅额度。"
   },
-  "accountsQuotaNotYet": "Claude Code 还没拿到这个账号的额度",
+  "accountsQuotaNotYet": "Claude Code 尚未获取到该账号的额度",
   "@accountsQuotaNotYet": {
     "description": "额度说明：Claude Code 还没给出额度窗口。"
   },
@@ -554,7 +554,7 @@
       }
     }
   },
-  "accountsRelayModelsFailed": "没取到模型列表：{error}",
+  "accountsRelayModelsFailed": "未能获取模型列表：{error}",
   "@accountsRelayModelsFailed": {
     "description": "中转编辑页：获取模型列表没成，后面是原因。",
     "placeholders": {
@@ -572,7 +572,7 @@
       }
     }
   },
-  "accountsRelaySaveFailed": "没有保存：{error}",
+  "accountsRelaySaveFailed": "保存失败：{error}",
   "@accountsRelaySaveFailed": {
     "description": "中转编辑页：保存没成，后面是原因。",
     "placeholders": {
@@ -590,7 +590,7 @@
       }
     }
   },
-  "accountsRelayRemoveFailed": "没有删除：{error}",
+  "accountsRelayRemoveFailed": "删除失败：{error}",
   "@accountsRelayRemoveFailed": {
     "description": "中转编辑页：删除没成，后面是原因。",
     "placeholders": {
@@ -599,35 +599,35 @@
       }
     }
   },
-  "mobileImportedKeyRejected": "服务器不认导入的私钥：把它对应的公钥加进那台设备的 ~/.ssh/authorized_keys，或在设置里换回 Zeta 自己的密钥",
+  "mobileImportedKeyRejected": "服务器未接受导入的私钥：请将其对应的公钥添加到该设备的 ~/.ssh/authorized_keys，或在设置中切回 Zeta 自带密钥",
   "@mobileImportedKeyRejected": {
     "description": "iOS 版：用导入的私钥登录、SSH 登录被拒时设备页和聊天页说的原因。"
   },
-  "mobileKeyNeedsPassphrase": "这把私钥有密码，请填上密码再导入",
+  "mobileKeyNeedsPassphrase": "该私钥受密码保护，请填写密码后再导入",
   "@mobileKeyNeedsPassphrase": {
     "description": "iOS 版：导入加了密码的私钥、没填密码时说的原因。"
   },
-  "mobileKeyUnreadable": "认不出这把私钥：要 OpenSSH 或 PEM 格式的私钥（不是公钥），密码要对",
+  "mobileKeyUnreadable": "无法识别该私钥：请提供 OpenSSH 或 PEM 格式的私钥（非公钥），并确保密码正确",
   "@mobileKeyUnreadable": {
     "description": "iOS 版：导入的私钥解析不了（格式不对、是公钥、密码错）时说的原因。"
   },
-  "mobileKeyRejected": "服务器不认 Zeta 的公钥：在设置里复制公钥，加进那台设备的 ~/.ssh/authorized_keys",
+  "mobileKeyRejected": "服务器未接受 Zeta 的公钥：请在设置中复制公钥，并添加到该设备的 ~/.ssh/authorized_keys",
   "@mobileKeyRejected": {
     "description": "iOS 版：SSH 登录被拒时设备页和聊天页说的原因。"
   },
-  "mobileSessionGone": "这个会话已经不在列表里了",
+  "mobileSessionGone": "该会话已不在列表中",
   "@mobileSessionGone": {
     "description": "iOS 版：点开的会话在会话列表里找不到了。"
   },
-  "mobileProbeFirst": "先检查连接，再添加设备",
+  "mobileProbeFirst": "请先检查连接，再添加设备",
   "@mobileProbeFirst": {
     "description": "iOS 版：添加设备时探测结果已过期或没探测过。"
   },
-  "mobileChatNotOpen": "对话还没打开",
+  "mobileChatNotOpen": "对话尚未打开",
   "@mobileChatNotOpen": {
     "description": "iOS 版：对话还在打开时就发消息、停止或回应确认。"
   },
-  "mobileAttachUnreadable": "读不了 {name}",
+  "mobileAttachUnreadable": "无法读取 {name}",
   "@mobileAttachUnreadable": {
     "description": "iOS 版输入栏：选的文件读不出来，没收进附件。",
     "placeholders": {
@@ -637,7 +637,7 @@
       }
     }
   },
-  "mobileAttachTooMany": "一次最多 {max} 个文件，后面 {dropped} 个没有加进来",
+  "mobileAttachTooMany": "单次最多添加 {max} 个文件，其余 {dropped} 个未添加",
   "@mobileAttachTooMany": {
     "description": "iOS 版输入栏：一次选的文件超过上限。",
     "placeholders": {
@@ -651,7 +651,7 @@
       }
     }
   },
-  "mobilePromptExists": "常用指令里已经有这一条",
+  "mobilePromptExists": "常用指令中已存在该条目",
   "@mobilePromptExists": {
     "description": "iOS 版：把消息收藏为常用指令时，清单里已经有同样内容的。"
   },
@@ -677,7 +677,7 @@
       }
     }
   },
-  "diagBundleListFailed": "列日志：{error}",
+  "diagBundleListFailed": "列出日志失败：{error}",
   "@diagBundleListFailed": {
     "description": "诊断包里一台设备的「读取失败.txt」的一行：列这台设备的日志清单失败。",
     "placeholders": {
@@ -701,7 +701,7 @@
       }
     }
   },
-  "diagBundleTruncated": "# 只取了最后 64 KB（整个文件 {size} 字节）",
+  "diagBundleTruncated": "# 仅截取最后 64 KB（文件总计 {size} 字节）",
   "@diagBundleTruncated": {
     "description": "诊断包里截过的日志文件开头加的一行。",
     "placeholders": {
@@ -711,23 +711,23 @@
       }
     }
   },
-  "mobileDeviceGone": "这台设备已经删掉了",
+  "mobileDeviceGone": "该设备已被删除",
   "@mobileDeviceGone": {
     "description": "iOS 版：设备页上操作的那台设备已经不在设置里了。"
   },
-  "mobileCwdNotAbsolute": "要写以 / 或 ~ 开头的目录",
+  "mobileCwdNotAbsolute": "请填写以 / 或 ~ 开头的目录路径",
   "@mobileCwdNotAbsolute": {
     "description": "iOS 版：设备页改默认工作目录时填的不是绝对路径。"
   },
-  "mobileAccountGone": "这个账号或中转已经不在列表里了",
+  "mobileAccountGone": "该账号或中转已不在列表中",
   "@mobileAccountGone": {
     "description": "iOS 版：账号页上要切换、删除、编辑的账号或中转在读到的列表里找不到了。"
   },
-  "mobileRelayDraftGone": "中转的编辑页已经关了",
+  "mobileRelayDraftGone": "中转编辑页已关闭",
   "@mobileRelayDraftGone": {
     "description": "iOS 版：中转的编辑页关掉以后才到的操作（获取模型列表、保存）。"
   },
-  "mobileLicensesUnreadable": "读不出许可证清单",
+  "mobileLicensesUnreadable": "无法读取许可证清单",
   "@mobileLicensesUnreadable": {
     "description": "iOS 版：关于页的开源许可清单格式不对，或要看的许可不在清单里。"
   }

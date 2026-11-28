@@ -236,7 +236,7 @@ class RemoteHostsTest {
                 .hostname,
         )
         assertEquals(
-            RemoteHosts.Probe.Failed("对方不认手机 Debian 里的 SSH 密钥（Permission denied）"),
+            RemoteHosts.Probe.Failed("对方主机拒绝了手机 Debian 中的 SSH 密钥（Permission denied）"),
             probe(
                 "",
                 RemoteShell.CONNECTION_FAILED,
@@ -254,11 +254,11 @@ class RemoteHostsTest {
             val failed =
                 probe("zeta_home /h\nzeta_claude 2.1.329\nzeta_system $system\n")
                     as RemoteHosts.Probe.Failed
-            assertTrue(failed.reason, failed.reason.contains("arm64、x86-64 的 Linux"))
+            assertTrue(failed.reason, failed.reason.contains("arm64 和 x86-64 架构的 Linux"))
         }
         assertEquals(RemoteHosts.Probe.Failed("连接超时"), probe("", -1, CommandResult.TIMEOUT))
         assertEquals(
-            "找不到这台设备（地址解析失败）",
+            "无法找到该设备（地址解析失败）",
             RemoteHosts.sshProblem(
                 "ssh: Could not resolve hostname nope: Name or service not known",
             ),

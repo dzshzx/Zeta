@@ -76,7 +76,7 @@ func TestDiagnosticsDisconnectedDevice(t *testing.T) {
 	f.click(t, "设置")
 	f.click(t, "诊断")
 	f.until(t, "读到 box 的清单", func() bool { return f.shows("box · 对话进程的错误输出") })
-	f.see(t, "lab · Claude Code 日志", "这台设备的「连接」关着，打开连接后才能看。", "对话进程没有往标准错误写过东西", "没有调试日志")
+	f.see(t, "lab · Claude Code 日志", "该设备的「连接」已关闭，开启连接后方可查看。", "对话进程暂无标准错误输出", "暂无调试日志")
 }
 
 func TestDiagnosticsExport(t *testing.T) {
@@ -186,7 +186,7 @@ func TestDiagnosticsRunLog(t *testing.T) {
 	f.see(t, "运行日志", "查看运行日志", "共 3 条，1 条警告", "1 条出错", "环境", "Zeta 版本", "0.8.0（80）", "界面缩放", "100%")
 
 	f.click(t, "查看运行日志")
-	f.see(t, "类别", "轻重", "Zeta 0.8.0 启动", "会话列表连不上", "14:00:03 · 设备", "出错")
+	f.see(t, "类别", "级别", "Zeta 0.8.0 启动", "会话列表连不上", "14:00:03 · 设备", "错误")
 	f.notSee(t, "w1 重新打开失败：Authorization: Bearer fake-token-1") // 记的时候就打了码
 	f.see(t, "w1 重新打开失败：Authorization: Bearer "+redact.Mask)
 
@@ -196,7 +196,7 @@ func TestDiagnosticsRunLog(t *testing.T) {
 	f.see(t, "w1 重新打开失败：Authorization: Bearer "+redact.Mask)
 	f.notSee(t, "会话列表连不上", "Zeta 0.8.0 启动")
 	f.click(t, "全部")
-	f.clickMenuItem(t, "只看出错")
+	f.clickMenuItem(t, "仅看错误")
 	f.see(t, "没有符合条件的记录")
 
 	// 开着的时候记了新的一条，跟着出来
@@ -219,7 +219,7 @@ func TestDiagnosticsRunLog(t *testing.T) {
 	f.see(t, "清空运行日志？")
 	f.clickButton(t, "清空", 0) // 对话框开着时只有它那一个按得到
 	f.tt.Frame()
-	f.see(t, "还没有记录")
+	f.see(t, "暂无记录")
 	if _, err := os.Stat(filepath.Join(dir, runlog.FileName)); !os.IsNotExist(err) {
 		t.Fatalf("文件还在：%v", err)
 	}

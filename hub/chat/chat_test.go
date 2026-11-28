@@ -359,7 +359,7 @@ func TestRequestResults(t *testing.T) {
 	link.results["conv.elicit"] = `{"errors":{"port":"要填整数","host":"必填"}}`
 	err := conv.Elicit(ctx, "e1", prompt.ElicitAccept, map[string][]string{"port": {"x"}})
 	var fe FormError
-	if !errors.As(err, &fe) || fe["port"] != "要填整数" || err.Error() != "表单有几项不对：host：必填；port：要填整数" {
+	if !errors.As(err, &fe) || fe["port"] != "要填整数" || err.Error() != "表单存在无效项：host：必填；port：要填整数" {
 		t.Fatalf("表单的问题 %v", err)
 	}
 	if got := link.took(); got[len(got)-1] != (call{"conv.elicit", `{"action":"accept","conv":"w1","request_id":"e1","values":{"port":["x"]}}`}) {

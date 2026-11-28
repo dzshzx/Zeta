@@ -206,7 +206,7 @@ func TestPageShowsQuotaAndAccounts(t *testing.T) {
 	f.until(t, tt, "读完", f.loaded)
 	hasAll(t, tt, "订阅额度", "每周 · 全部模型", "86%", "每周 · Fable", "40%", "2 小时后重置", "刚刚更新",
 		"账号", "a@example.com", "claude · Org A · Max", "当前", "b@example.com", "claude-b · Pro", "切换", "移除")
-	if shows(tt, "正在读取") || shows(tt, "记下") {
+	if shows(tt, "正在读取") || shows(tt, "保存") {
 		t.Errorf("读完以后：%q", tt.Texts())
 	}
 	if f.src.asked.Load() != 1 {
@@ -255,7 +255,7 @@ func TestProblemIsShown(t *testing.T) {
 	f.until(t, tt, "读完", f.loaded)
 	click(t, tt, "切换")
 	click(t, tt, "切换")
-	hasAll(t, tt, "这里还有对话在进行")
+	hasAll(t, tt, "当前窗口仍有对话正在进行")
 }
 
 func TestUnknownLoginCanBeSaved(t *testing.T) {
@@ -264,13 +264,13 @@ func TestUnknownLoginCanBeSaved(t *testing.T) {
 	f.host.unknown = &coreapi.Account{Email: "x@example.com", Subscription: "pro"}
 	tt := ui.NewTester(f.page.View, 560, 900)
 	f.until(t, tt, "读完", f.loaded)
-	hasAll(t, tt, "x@example.com", "Pro · 还没记下名字", "记下")
-	click(t, tt, "记下")
+	hasAll(t, tt, "x@example.com", "Pro · 未保存名称", "保存")
+	click(t, tt, "保存")
 	f.until(t, tt, "记下", func() bool {
 		st, _ := f.page.Accounts.State()
 		return f.page.Accounts.Working() == "" && st.Current != nil && st.Current.Name == "claude-c"
 	})
-	if shows(tt, "记下") {
+	if shows(tt, "保存") {
 		t.Fatal("记下以后不该再有这个按钮")
 	}
 }

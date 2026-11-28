@@ -32,8 +32,8 @@ struct AddDeviceView: View {
                 .disabled(probing || target.trimmingCharacters(in: .whitespaces).isEmpty)
             } footer: {
                 Text("""
-                    先把设置里 Zeta 的公钥加进那台设备的 ~/.ssh/authorized_keys。\
-                    设备要是 arm64 或 x86-64 的 Linux，装着 bash，以及 Claude Code 或 Antigravity CLI。
+                    请先将设置中 Zeta 的公钥添加到目标设备的 ~/.ssh/authorized_keys。\
+                    设备须为 arm64 或 x86-64 架构的 Linux，并已安装 bash 及 Claude Code 或 Antigravity CLI。
                     """)
             }
             if let problem {
@@ -42,7 +42,7 @@ struct AddDeviceView: View {
                 }
             }
             if let probed {
-                Section("找到了") {
+                Section("已找到设备") {
                     LabeledContent("主机名", value: probed.hostname)
                     LabeledContent("环境", value: probed.summary)
                     LabeledContent("主机指纹") {
@@ -103,14 +103,14 @@ struct ImportKeyView: View {
             } header: {
                 Text("私钥")
             } footer: {
-                Text("粘贴或选取 OpenSSH、PEM 格式的私钥文件（如 ~/.ssh/id_ed25519），不是 .pub 公钥。")
+                Text("粘贴或选取 OpenSSH、PEM 格式的私钥文件（例如 ~/.ssh/id_ed25519），请勿选择 .pub 公钥。")
             }
             Section {
-                SecureField("没有密码就留空", text: $passphrase)
+                SecureField("无密码请留空", text: $passphrase)
             } header: {
                 Text("密码")
             } footer: {
-                Text("导入后私钥去掉密码存进这台设备的钥匙串，以后不再问。")
+                Text("导入后会移除密码并将私钥存入本机钥匙串，之后不再提示输入。")
             }
             if let problem {
                 Section {
@@ -139,7 +139,7 @@ struct ImportKeyView: View {
                 return String(bytes: try Data(contentsOf: url), encoding: .utf8)
             }.value
             guard let read else {
-                problem = String(localized: "这个文件不像私钥")
+                problem = String(localized: "该文件不是有效的私钥格式")
                 return
             }
             text = read

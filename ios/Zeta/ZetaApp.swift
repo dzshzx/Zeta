@@ -28,7 +28,7 @@ struct RootView: View {
 
     var body: some View {
         if let problem = model.startProblem {
-            ContentUnavailableView("Zeta 起不来", systemImage: "exclamationmark.triangle", description: Text(problem))
+            ContentUnavailableView("Zeta 无法启动", systemImage: "exclamationmark.triangle", description: Text(problem))
         } else {
             NavigationSplitView {
                 SessionListView(selection: $selection, settingsShown: $settingsShown)
@@ -36,8 +36,8 @@ struct RootView: View {
                 if selection != nil, model.state.chat != nil {
                     ChatView()
                 } else {
-                    ContentUnavailableView("选一个对话", systemImage: "bubble.left.and.text.bubble.right",
-                                           description: Text("或者开一个新对话"))
+                    ContentUnavailableView("选择一个对话", systemImage: "bubble.left.and.text.bubble.right",
+                                           description: Text("或发起一个新对话"))
                 }
             }
             .onChange(of: selection) { _, route in open(route) }
@@ -53,7 +53,7 @@ struct RootView: View {
                 selection = route
             }
             .sheet(isPresented: $settingsShown) { SettingsView() }
-            .alert("没有成功", isPresented: Binding { model.alert != nil } set: { if !$0 { model.alert = nil } }) {
+            .alert("操作失败", isPresented: Binding { model.alert != nil } set: { if !$0 { model.alert = nil } }) {
                 Button("好") { model.alert = nil }
             } message: {
                 Text(model.alert ?? "")

@@ -266,7 +266,7 @@ func TestSwitch(t *testing.T) {
 		t.Fatalf("%q", f.svc.Working())
 	}
 	f.svc.Switch(coreapi.Account{Name: "claude"})
-	if f.svc.Problem() != "上一件事还没做完" {
+	if f.svc.Problem() != "上一项操作尚未完成" {
 		t.Fatalf("%q", f.svc.Problem())
 	}
 	f.loop.until(t, "换好", func() bool { return f.svc.Working() == "" && current(f.svc) == "claude-b" })
@@ -323,7 +323,7 @@ func TestSaveAndRemove(t *testing.T) {
 	}
 	f.svc.Remove(coreapi.Account{Name: "claude-c"})
 	f.loop.until(t, "移除", func() bool { return f.svc.Working() == "" })
-	if !strings.HasPrefix(f.svc.Problem(), "没有移除：") {
+	if !strings.HasPrefix(f.svc.Problem(), "移除失败：") {
 		t.Fatalf("删在用的号：%q", f.svc.Problem())
 	}
 }
@@ -333,7 +333,7 @@ func TestUnreachableHost(t *testing.T) {
 	svc := NewService(coreapi.New(callerFunc(func() error { return errors.New("连不上") })), nil, &fakeConvs{}, nil, l.accounts())
 	svc.Refresh()
 	l.until(t, "读完", func() bool { return svc.Problem() != "" })
-	if svc.Problem() != "读不了账号：连不上" {
+	if svc.Problem() != "无法读取账号：连不上" {
 		t.Fatalf("%q", svc.Problem())
 	}
 }
@@ -350,11 +350,11 @@ func TestQuotaRefreshRules(t *testing.T) {
 	f := newFixture()
 	f.quota.now = func() time.Time { return clock }
 	q := f.quota
-	if q.Footnote(clock) != "还没有额度数据" {
+	if q.Footnote(clock) != "暂无额度数据" {
 		t.Fatalf("%q", q.Footnote(clock))
 	}
 	q.Refresh(false)
-	if q.Footnote(clock) != "正在取额度" {
+	if q.Footnote(clock) != "正在获取额度" {
 		t.Fatalf("%q", q.Footnote(clock))
 	}
 	f.loop.until(t, "取到", func() bool { return !q.Refreshing() })
@@ -374,7 +374,7 @@ func TestQuotaRefreshRules(t *testing.T) {
 	f.src.err = errors.New("Claude Code 起不来")
 	q.Refresh(true)
 	f.loop.until(t, "问完", func() bool { return !q.Refreshing() })
-	if f.src.asked.Load() != 2 || q.Footnote(clock) != "刚刚更新。没取到最新的额度：Claude Code 起不来" {
+	if f.src.asked.Load() != 2 || q.Footnote(clock) != "刚刚更新。未能获取最新额度：Claude Code 起不来" {
 		t.Fatalf("%d %q", f.src.asked.Load(), q.Footnote(clock))
 	}
 	if _, ok := q.Snapshot(); !ok {

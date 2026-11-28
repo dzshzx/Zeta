@@ -35,7 +35,7 @@ struct SavedPromptsView: View {
             }
             .overlay {
                 if prompts.list.isEmpty {
-                    ContentUnavailableView("还没有常用指令", systemImage: "star", description: Text("把常发的话存下来，以后点一下就填进输入框。"))
+                    ContentUnavailableView("暂无常用指令", systemImage: "star", description: Text("保存常用内容，点击即可快速填入输入框。"))
                 }
             }
             .navigationTitle("常用指令")
@@ -107,7 +107,7 @@ private struct PromptEditor: View {
     var body: some View {
         NavigationStack {
             Form {
-                TextField("名字（可以不填）", text: $draft.name)
+                TextField("名称（可选）", text: $draft.name)
                 TextField("内容", text: $draft.text, axis: .vertical)
                     .lineLimit(4...12)
             }
@@ -118,7 +118,7 @@ private struct PromptEditor: View {
                     Button("取消") { dismiss() }
                 }
                 ToolbarItem(placement: .confirmationAction) {
-                    Button("存") {
+                    Button("保存") {
                         if save(draft) { dismiss() }
                     }
                     .disabled(draft.text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)

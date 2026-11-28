@@ -71,7 +71,7 @@ class ClaudeConfigCoreTest {
 
         // 核心拒绝的原因原样交给界面
         val small = assertThrows(ServeError::class.java) { client.setCompactWindow(50_000) }
-        assertTrue(small.message!!, small.message!!.startsWith("上下文窗口最小是"))
+        assertTrue(small.message!!, small.message!!.startsWith("上下文窗口最小为"))
     }
 
     @Test
@@ -187,7 +187,7 @@ class ClaudeConfigCoreTest {
         client.deleteSkill("notes")
         assertEquals(emptyList<SkillInfo>(), client.skills().skills)
         val gone = assertThrows(ServeError::class.java) { client.deleteSkill("notes") }
-        assertEquals("找不到这个 Skill，可能已经被删了", gone.message)
+        assertEquals("未找到该 Skill，可能已被删除", gone.message)
     }
 
     @Test
@@ -223,7 +223,7 @@ class ClaudeConfigCoreTest {
             assertThrows(ServeError::class.java) {
                 client.saveAgent(saved, SubagentDraft("checker", "x", "", emptyList(), "p"))
             }
-        assertTrue(changed.message!!.contains("被改过了"))
+        assertTrue(changed.message!!.contains("已被修改"))
 
         // 新建：名字不对时核心给原因；空的工具清单写成 tools: []
         assertThrows(ServeError::class.java) {
@@ -298,12 +298,12 @@ class ClaudeConfigCoreTest {
             assertThrows(ServeError::class.java) {
                 client.replacePermissionRule(query, moved, rule)
             }
-        assertTrue(stale.message!!.contains("已经被改过了"))
+        assertTrue(stale.message!!.contains("已被修改"))
         val malformed =
             assertThrows(ServeError::class.java) {
                 client.addPermissionRule(query, PermissionRule(PermissionBehavior.Ask, "Bash(x"))
             }
-        assertEquals("括号不配对，写成 工具名 或 工具名(参数)", malformed.message)
+        assertEquals("括号不匹配，格式应为 工具名 或 工具名(参数)", malformed.message)
 
         // 一键关掉手机工具：只留一条整个服务器的拒绝
         val off = view.focus!!.bulk.disable
@@ -341,7 +341,7 @@ class ClaudeConfigCoreTest {
             assertThrows(ServeError::class.java) {
                 client.addHttpServer("remote", "http", "https://b.example.invalid", "")
             }
-        assertEquals("已经有一个叫 remote 的服务器了", dup.message)
+        assertEquals("已存在名为 remote 的服务器", dup.message)
 
         val servers = client.mcpServers(home.path)
         assertEquals(listOf("local-fake", "remote"), servers.map { it.name }.sorted())

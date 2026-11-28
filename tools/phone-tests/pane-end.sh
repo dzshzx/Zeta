@@ -99,7 +99,7 @@ sleep 1
 run "$A"
 menu_item $END_X $END_Y
 wait_text '结束这个对话' 5 || fail "顶栏结束闲着的对话没问" top-no-confirm
-vd nodes '结束会停掉它背后的' | grep -q . || fail "闲着的说明不对" top-summary
+vd nodes '结束会停止对应的' | grep -q . || fail "闲着的说明不对" top-summary
 vd shot end-top.png >/dev/null
 vd tap $CONFIRM_X $CONFIRM_Y >/dev/null
 exited "${HOST[$A]}" || fail "顶栏确认后进程没退出" top-not-ended

@@ -8,7 +8,7 @@ struct AboutView: View {
     /// 鸣谢：iOS 版参照和依靠的项目，只列 iOS 版实际用到的（Go 依赖照 hub/go.mod 里核心桥链接的）。
     private static let credits: [Credit] = [
         Credit(
-            name: "Eta", summary: "早期参考项目，部分代码改写自它（GPL-3.0）",
+            name: "Eta", summary: "早期参考项目，部分代码改写自此项目（GPL-3.0）",
             url: "https://github.com/Mangi-11/Eta"),
         Credit(
             name: "Claude Code", summary: "Anthropic 的 Code Agent，Zeta 支持接入",
@@ -16,13 +16,13 @@ struct AboutView: View {
         Credit(
             name: "Antigravity CLI", summary: "Google DeepMind 的 Code Agent，Zeta 支持接入",
             url: "https://antigravity.google"),
-        Credit(name: "Go x/crypto", summary: "连设备用的 SSH（BSD-3-Clause）", url: "https://github.com/golang/crypto"),
-        Credit(name: "Go x/text", summary: "界面文字的多语言（BSD-3-Clause）", url: "https://github.com/golang/text"),
-        Credit(name: "mygo", summary: "和桌面版共用的文字表格式与取字（MIT）", url: "https://github.com/egoist/mygo"),
-        Credit(name: "RaTeX", summary: "排回答里的数学公式，同手机版（MIT）", url: "https://github.com/erweixin/RaTeX"),
-        Credit(name: "KaTeX", summary: "公式用的字体（OFL-1.1）", url: "https://github.com/KaTeX/KaTeX"),
+        Credit(name: "Go x/crypto", summary: "用于连接设备的 SSH 客户端库（BSD-3-Clause）", url: "https://github.com/golang/crypto"),
+        Credit(name: "Go x/text", summary: "界面多语言文本支持（BSD-3-Clause）", url: "https://github.com/golang/text"),
+        Credit(name: "mygo", summary: "与桌面版共用的本地化文本表与读取库（MIT）", url: "https://github.com/egoist/mygo"),
+        Credit(name: "RaTeX", summary: "渲染回复中的数学公式，与 Android 版一致（MIT）", url: "https://github.com/erweixin/RaTeX"),
+        Credit(name: "KaTeX", summary: "数学公式渲染字体（OFL-1.1）", url: "https://github.com/KaTeX/KaTeX"),
         Credit(
-            name: "wazero", summary: "运行 RaTeX 的 WebAssembly（Apache-2.0）",
+            name: "wazero", summary: "用于运行 RaTeX 的 WebAssembly 运行时（Apache-2.0）",
             url: "https://github.com/tetratelabs/wazero")
     ]
 
@@ -69,10 +69,10 @@ struct AboutView: View {
         } header: {
             Text("开源许可")
         } footer: {
-            Text("Zeta 按 GPL-3.0 授权。程序里还带着下面这些第三方组件，各自按它们的许可证分发。")
+            Text("Zeta 采用 GPL-3.0 许可协议。应用中包含以下第三方组件，分别按各自的许可证分发。")
         }
-        licenseGroup("ios", title: "iOS 版链接的")
-        licenseGroup("host", title: "带到设备上的 zeta-helper、claude-switch 链接的")
+        licenseGroup("ios", title: "iOS 端依赖的组件")
+        licenseGroup("host", title: "设备端 zeta-helper 与 claude-switch 依赖的组件")
     }
 
     private func licenseGroup(_ place: String, title: LocalizedStringKey) -> some View {

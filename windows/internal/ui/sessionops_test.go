@@ -77,7 +77,7 @@ func TestSessionMenu(t *testing.T) {
 
 	// 还在运行的归档：同结束一样先问，取消了什么也不做；确认后先结束再归档。主列表里不见了，底部出现归档的入口，点进去能取消归档
 	f.menu(t, "查 nginx 日志", "归档")
-	f.see(t, "归档并结束这个对话？", "结束会停掉它背后的 Claude Code 进程。对话内容保留，可以从历史对话里接着聊。")
+	f.see(t, "归档并结束这个对话？", "结束将停止其后台 Claude Code 进程。对话记录会保留，之后可从历史对话中继续。")
 	f.clickNamed(t, "取消", 0)
 	f.tt.Frame()
 	f.see(t, "查 nginx 日志")
@@ -122,7 +122,7 @@ func TestDeleteAsksFirst(t *testing.T) {
 	f.menu(t, "修登录页", "删除")
 	f.clickNamed(t, "删除", 0)
 	f.tt.Frame()
-	f.see(t, "这个对话正在进行", "对话正在进行，结束后再删")
+	f.see(t, "该对话正在进行中", "对话正在进行，请结束后再删除")
 	if got := f.devices.SessionCalls(); len(got) != 1 || !strings.Contains(got[0], `sessions.delete {"session":"s1"}`) {
 		t.Errorf("发出 %q", got)
 	}
@@ -171,7 +171,7 @@ func TestMultiSelect(t *testing.T) {
 	if len(got) != 3 || !strings.Contains(got[0], `"s1"`) || !strings.Contains(got[1], `"s2"`) || !strings.Contains(got[2], `"s3"`) {
 		t.Errorf("发出 %q", got)
 	}
-	f.see(t, "这个对话正在进行", "1 个没成功：对话正在进行，结束后再删")
+	f.see(t, "该对话正在进行中", "1 项操作失败：对话正在进行，请结束后再删除")
 	f.click(t, "好")
 	// 核心没删的照原样放回列表，选择取消了
 	f.see(t, "修登录页")
@@ -375,7 +375,7 @@ func TestEndConversation(t *testing.T) {
 
 	// 闲着的也先问，说明只说停掉背后的进程；取消了不结束
 	f.menu(t, "看看日志", "结束对话")
-	f.see(t, "结束这个对话？", "结束会停掉它背后的 Claude Code 进程。对话内容保留，可以从历史对话里接着聊。")
+	f.see(t, "结束这个对话？", "结束将停止其后台 Claude Code 进程。对话记录会保留，之后可从历史对话中继续。")
 	f.clickNamed(t, "取消", 0)
 	f.tt.Frame()
 	if got := f.devices.SessionCalls(); len(got) != 0 {
@@ -395,7 +395,7 @@ func TestEndConversation(t *testing.T) {
 	f.devices.PushActivity(f.id, map[string]hostlink.Activity{"s1": {State: "answering"}})
 	f.tt.Frame()
 	f.menu(t, "修登录页", "结束对话")
-	f.see(t, "结束这个对话？", "它还在进行（在回答、等你确认或有后台任务），结束会一并停掉。对话内容保留，可以从历史对话里接着聊。")
+	f.see(t, "结束这个对话？", "该对话仍在进行（正在回答、等待确认或有后台任务），结束将一并停止。对话记录会保留，之后可从历史对话中继续。")
 	f.clickNamed(t, "结束", 0)
 	f.tt.Frame()
 	if got := f.devices.SessionCalls(); len(got) != 1 || !strings.Contains(got[0], `sessions.end {"session":"s1"}`) {
@@ -408,7 +408,7 @@ func TestEndConversation(t *testing.T) {
 	}})
 	f.tt.Frame()
 	f.menu(t, "终端里开着的", "结束对话")
-	f.see(t, "它正在别处运行，结束会停掉那边的进程，那边在做的也一并停掉。对话内容保留，可以从历史对话里接着聊。")
+	f.see(t, "该对话正在别处运行，结束将停止对方进程及当前操作。对话记录会保留，之后可从历史对话中继续。")
 	f.clickNamed(t, "结束", 0)
 	f.tt.Frame()
 	if got := f.devices.SessionCalls(); len(got) != 1 || !strings.Contains(got[0], `sessions.end_elsewhere {"session":"s4"}`) {
@@ -424,7 +424,7 @@ func TestEndSelectedConversations(t *testing.T) {
 	f.ctrlClick(t, "看看日志")
 	f.ctrlClick(t, "部署脚本")
 	f.menu(t, "看看日志", "结束 2 个对话")
-	f.see(t, "结束 2 个对话？", "其中有还在进行（在回答、等你确认或有后台任务）或在别处运行的，结束会一并停掉。对话内容保留，可以从历史对话里接着聊。")
+	f.see(t, "结束 2 个对话？", "其中包含正在进行（正在回答、等待确认或有后台任务）或在别处运行的对话，结束将一并停止。对话记录会保留，之后可从历史对话中继续。")
 	f.clickNamed(t, "结束", 0)
 	f.tt.Frame()
 	got := f.devices.SessionCalls()

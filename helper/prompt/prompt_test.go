@@ -79,16 +79,16 @@ func TestParse(t *testing.T) {
 	}{
 		{"工具确认", bashLine, `{"kind":"permission","request_id":"r1","tool_name":"Bash","input":{"command":"touch a"},
 			"suggestions":` + bashSuggestions + `,
-			"suggestion_lines":["允许 Bash(touch a)","允许访问 /w/proj（只在这个对话里）","这个对话里自动接受改动"],
-			"reason":"需要写文件","agent_id":"a7","tool_use_id":"t1","notice":"Claude 想用 Bash"}`},
+			"suggestion_lines":["允许 Bash(touch a)","允许访问 /w/proj（仅当前对话）","当前对话自动接受编辑"],
+			"reason":"需要写文件","agent_id":"a7","tool_use_id":"t1","notice":"Claude 请求使用 Bash"}`},
 		{"TUI 不给不再问时这里也不给", `{"type":"control_request","request_id":"r2","request":{"subtype":"can_use_tool","tool_name":"Bash","input":{},
 			"suppress_always_allow_rule":true,"permission_suggestions":[{"type":"addRules","rules":[{"toolName":"Bash"}],"behavior":"allow"}]}}`,
-			`{"kind":"permission","request_id":"r2","tool_name":"Bash","input":{},"notice":"Claude 想用 Bash"}`},
+			`{"kind":"permission","request_id":"r2","tool_name":"Bash","input":{},"notice":"Claude 请求使用 Bash"}`},
 		{"手机工具的 MCP 消息不是要用户回应的", `{"type":"control_request","request_id":"m","request":{"subtype":"mcp_message"}}`, `null`},
 		{"不是 control_request", `{"type":"assistant","request_id":"m","request":{"subtype":"can_use_tool"}}`, `null`},
 		{"不是 JSON", `{"type":`, `null`},
 		{"计划审批", planLine, `{"kind":"permission","request_id":"p","tool_name":"ExitPlanMode",
-			"input":{"plan":"# 计划","planFilePath":"/h/.claude/plans/x.md"},"is_plan":true,"notice":"Claude 交来了计划，等你审批"}`},
+			"input":{"plan":"# 计划","planFilePath":"/h/.claude/plans/x.md"},"is_plan":true,"notice":"Claude 已提交计划，等待审批"}`},
 		{"提问", askLine, `{"kind":"permission","request_id":"q","tool_name":"AskUserQuestion","input":{"questions":` + askQuestions + `},
 			"questions":[
 				{"question":"用哪个库？","header":"库","options":[{"label":"A","description":"a","preview":"import a"},{"label":"B","description":"b"}],"takes_notes":true},
@@ -100,16 +100,16 @@ func TestParse(t *testing.T) {
 			"questions":[{"question":"哪些","header":"h","options":[{"label":"X","description":"","preview":"x"}],"multi_select":true}],
 			"notice":"Claude 有问题要问你","asks_input":true}`},
 		{"没有参数时是空对象，没有建议时不给不再问", `{"type":"control_request","request_id":"x","request":{"subtype":"can_use_tool","tool_name":"Read"}}`,
-			`{"kind":"permission","request_id":"x","tool_name":"Read","input":{},"notice":"Claude 想用 Read"}`},
+			`{"kind":"permission","request_id":"x","tool_name":"Read","input":{},"notice":"Claude 请求使用 Read"}`},
 		{"decision_reason 写成对象", `{"type":"control_request","request_id":"o","request":{"subtype":"can_use_tool","tool_name":"Edit","input":{},
 			"decision_reason":{"type":"rule","reason":"规则要求确认"}}}`,
-			`{"kind":"permission","request_id":"o","tool_name":"Edit","input":{},"reason":"规则要求确认","notice":"Claude 想用 Edit"}`},
+			`{"kind":"permission","request_id":"o","tool_name":"Edit","input":{},"reason":"规则要求确认","notice":"Claude 请求使用 Edit"}`},
 		{"decision_reason 只有空白时当作没有", `{"type":"control_request","request_id":"b","request":{"subtype":"can_use_tool","tool_name":"Edit","input":{},
 			"decision_reason":"  "}}`,
-			`{"kind":"permission","request_id":"b","tool_name":"Edit","input":{},"notice":"Claude 想用 Edit"}`},
+			`{"kind":"permission","request_id":"b","tool_name":"Edit","input":{},"notice":"Claude 请求使用 Edit"}`},
 		{"字段类型不对只丢那一项", `{"type":"control_request","request_id":"w","request":{"subtype":"can_use_tool","tool_name":"Bash","input":[1],
 			"agent_id":5,"tool_use_id":"t9"}}`,
-			`{"kind":"permission","request_id":"w","tool_name":"Bash","input":{},"tool_use_id":"t9","notice":"Claude 想用 Bash"}`},
+			`{"kind":"permission","request_id":"w","tool_name":"Bash","input":{},"tool_use_id":"t9","notice":"Claude 请求使用 Bash"}`},
 		{"MCP 表单", formLine, `{"kind":"elicitation","request_id":"e","server":"eli","message":"请填写","fields":[
 			{"key":"count","title":"实例数","kind":"integer","default":["2"],"min":1,"max":5},
 			{"key":"name","title":"名字","required":true,"kind":"text","min_length":2},
@@ -118,7 +118,7 @@ func TestParse(t *testing.T) {
 			{"key":"tags","title":"标签","kind":"multi","choices":[{"value":"a","label":"甲"},{"value":"b","label":"乙"}]}],
 			"notice":"MCP 服务器 eli 需要你填写信息","asks_input":true}`},
 		{"MCP 网址", urlLine, `{"kind":"elicitation","request_id":"u","server":"eli","message":"去登录","url":"https://example.com/a",
-			"notice":"MCP 服务器 eli 需要你去网页上操作","asks_input":true}`},
+			"notice":"MCP 服务器 eli 需要你在网页中完成操作","asks_input":true}`},
 		{"没有 property_order 时按 properties 里的先后，display_name 优先", `{"type":"control_request","request_id":"o2","request":{"subtype":"elicitation",
 			"mcp_server_name":"eli","display_name":"表单","requested_schema":{"properties":{
 			"z":{"type":"number","description":"说明","minItems":0,"format":"email"},"a":{"oneOf":[{"const":1},{"const":"y","title":""}]},"skip":3}}}}`,
@@ -141,14 +141,14 @@ func TestDescribeSuggestions(t *testing.T) {
 		want []string
 		en   []string
 	}{
-		{"三种都认", bashSuggestions, []string{"允许 Bash(touch a)", "允许访问 /w/proj（只在这个对话里）", "这个对话里自动接受改动"},
+		{"三种都认", bashSuggestions, []string{"允许 Bash(touch a)", "允许访问 /w/proj（仅当前对话）", "当前对话自动接受编辑"},
 			[]string{"Allow Bash(touch a)", "Allow access to /w/proj (this conversation only)", "Auto-accept edits in this conversation"}},
 		{"规则的去向和行为", `[{"type":"addRules","rules":[{"toolName":"Read"},{"ruleContent":"没有工具名的跳过"},{"toolName":"Bash","ruleContent":"ls"}],
 			"behavior":"deny","destination":"userSettings"},{"type":"addRules","rules":[{"toolName":"Edit"}],"behavior":"ask","destination":"projectSettings"}]`,
-			[]string{"一律拒绝 Read（所有项目）", "一律拒绝 Bash(ls)（所有项目）", "每次都问 Edit（这个项目，进 Git）"},
+			[]string{"一律拒绝 Read（所有项目）", "一律拒绝 Bash(ls)（所有项目）", "每次询问 Edit（当前项目，纳入 Git）"},
 			[]string{"Always deny Read (all projects)", "Always deny Bash(ls) (all projects)", "Always ask for Edit (this project, checked into Git)"}},
 		{"模式与认不出的类型", `[{"type":"setMode","mode":"plan"},{"type":"setMode","mode":"dontAsk"},{"type":"replaceRules"},"不是对象"]`,
-			[]string{"这个对话切到计划模式", "这个对话切到 dontAsk 模式", "replaceRules"},
+			[]string{"当前对话切换到计划模式", "当前对话切换到 dontAsk 模式", "replaceRules"},
 			[]string{"Switch this conversation to plan mode", "Switch this conversation to dontAsk mode", "replaceRules"}},
 	}
 	for _, c := range cases {
@@ -279,11 +279,11 @@ func TestContent(t *testing.T) {
 		{"超出范围、太短", map[string][]string{"count": {"9"}, "name": {"x"}}, "",
 			map[string]string{"count": "不能大于 5", "name": "至少 2 个字"}},
 		{"必填的没填", map[string][]string{}, "", map[string]string{"name": "必填"}},
-		{"整数不收小数", map[string][]string{"name": {"ok"}, "count": {"1.5"}}, "", map[string]string{"count": "要填整数"}},
+		{"整数不收小数", map[string][]string{"name": {"ok"}, "count": {"1.5"}}, "", map[string]string{"count": "请填写整数"}},
 		{"没填的可选项不交，开关没动就是关", map[string][]string{"name": {"ok"}}, `{"name":"ok","prod":false}`, map[string]string{}},
 		{"小于下限", map[string][]string{"name": {"ok"}, "count": {"0"}}, "", map[string]string{"count": "不能小于 1"}},
 		{"整数可以写成 2.0", map[string][]string{"name": {"ok"}, "count": {"2.0"}}, `{"count":2,"name":"ok","prod":false}`, map[string]string{}},
-		{"不是数字", map[string][]string{"name": {"ok"}, "count": {"NaN"}}, "", map[string]string{"count": "要填整数"}},
+		{"不是数字", map[string][]string{"name": {"ok"}, "count": {"NaN"}}, "", map[string]string{"count": "请填写整数"}},
 	}
 	for _, c := range cases {
 		t.Run(c.name, func(t *testing.T) {
@@ -313,10 +313,10 @@ func TestContentChecks(t *testing.T) {
 		error string
 	}{
 		{"数字照原值交", Field{Key: "n", Kind: FieldNumber}, []string{"1.5"}, `1.5`, ""},
-		{"数字不收别的字", Field{Key: "n", Kind: FieldNumber}, []string{"abc"}, ``, "要填数字"},
+		{"数字不收别的字", Field{Key: "n", Kind: FieldNumber}, []string{"abc"}, ``, "请填写数字"},
 		{"数字的下限带小数", Field{Key: "n", Kind: FieldNumber, Min: ptr(0.5)}, []string{"0.25"}, `0.25`, "不能小于 0.5"},
-		{"多选至少几项", Field{Key: "m", Kind: FieldMulti, Min: ptr(2)}, []string{"a"}, `["a"]`, "至少选 2 项"},
-		{"多选最多几项", Field{Key: "m", Kind: FieldMulti, Max: ptr(1)}, []string{"a", "b"}, `["a","b"]`, "最多选 1 项"},
+		{"多选至少几项", Field{Key: "m", Kind: FieldMulti, Min: ptr(2)}, []string{"a"}, `["a"]`, "至少选择 2 项"},
+		{"多选最多几项", Field{Key: "m", Kind: FieldMulti, Max: ptr(1)}, []string{"a", "b"}, `["a","b"]`, "最多选择 1 项"},
 		{"必填的多选没选", Field{Key: "m", Kind: FieldMulti, Required: true}, nil, ``, "必填"},
 		{"字数按字算", Field{Key: "t", Kind: FieldText, MaxLength: &length}, []string{"一二三四"}, `"一二三四"`, "最多 3 个字"},
 		{"三个汉字不超三个字", Field{Key: "t", Kind: FieldText, MaxLength: &length}, []string{"一二三"}, `"一二三"`, ""},
@@ -413,11 +413,11 @@ func withoutCodes(t *testing.T, got []byte) []byte {
 // 通知那一句带种类码：客户端按自己的语言出字，Notice 仍是源语言；旧核心没给种类码时照 Notice。
 func TestNoticeCodes(t *testing.T) {
 	cases := []struct{ line, zh, en string }{
-		{bashLine, "Claude 想用 Bash", "Claude wants to use Bash"},
-		{planLine, "Claude 交来了计划，等你审批", "Claude has a plan for you to review"},
+		{bashLine, "Claude 请求使用 Bash", "Claude wants to use Bash"},
+		{planLine, "Claude 已提交计划，等待审批", "Claude has a plan for you to review"},
 		{askLine, "Claude 有问题要问你", "Claude has a question for you"},
 		{formLine, "MCP 服务器 eli 需要你填写信息", "MCP server eli needs some information from you"},
-		{urlLine, "MCP 服务器 eli 需要你去网页上操作", "MCP server eli needs you to do something on a web page"},
+		{urlLine, "MCP 服务器 eli 需要你在网页中完成操作", "MCP server eli needs you to do something on a web page"},
 	}
 	for _, c := range cases {
 		p := Parse([]byte(c.line))

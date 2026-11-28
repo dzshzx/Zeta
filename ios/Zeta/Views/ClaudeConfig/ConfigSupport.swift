@@ -126,7 +126,7 @@ enum ConfigLabels {
     }
 
     static func compactPercent(_ percent: Int) -> String {
-        percent == 0 ? String(localized: "默认（快满时）") : String(localized: "用到 \(String(percent))% 时")
+        percent == 0 ? String(localized: "默认（接近上限时）") : String(localized: "达到 \(String(percent))% 时")
     }
 
     /// 1234 → 1.2K，400000 → 400K，1000000 → 1M。

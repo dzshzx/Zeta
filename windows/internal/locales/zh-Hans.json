@@ -144,11 +144,11 @@
   "@aboutLicenses": {
     "description": "关于页开源许可一组的标题。"
   },
-  "aboutLicensesFooter": "Zeta 按 GPL-3.0 授权，Copyright © 2026 dzshzx。程序里还带着下面这些第三方组件，各自按它们的许可证分发。",
+  "aboutLicensesFooter": "Zeta 基于 GPL-3.0 协议授权，Copyright © 2026 dzshzx。本程序包含以下第三方组件，分别遵循各自的开源许可证分发。",
   "@aboutLicensesFooter": {
     "description": "开源许可一组下面的说明。"
   },
-  "aboutLicensesLoadFailed": "读不出许可证清单：{error}",
+  "aboutLicensesLoadFailed": "无法读取许可证清单：{error}",
   "@aboutLicensesLoadFailed": {
     "description": "开源许可下面的报错：编进程序的许可证清单读不出来。",
     "placeholders": {
@@ -158,15 +158,15 @@
       }
     }
   },
-  "aboutLicensesApp": "Windows 程序链接的",
+  "aboutLicensesApp": "Windows 客户端依赖的组件",
   "@aboutLicensesApp": {
     "description": "开源许可里的一组标题：Windows 程序带着的第三方组件。"
   },
-  "aboutLicensesHost": "带到主机上的 zeta-helper、claude-switch 链接的",
+  "aboutLicensesHost": "主机端 zeta-helper 与 claude-switch 依赖的组件",
   "@aboutLicensesHost": {
     "description": "开源许可里的一组标题：带到远程主机上的程序带着的第三方组件。"
   },
-  "aboutLicenseTextFailed": "读不出许可证全文：{error}",
+  "aboutLicenseTextFailed": "无法读取许可证全文：{error}",
   "@aboutLicenseTextFailed": {
     "description": "展开一项许可证时全文读不出来的报错。",
     "placeholders": {
@@ -176,7 +176,7 @@
       }
     }
   },
-  "aboutLicensesBadLine": "licenses/index.tsv 第 {line} 行格式不对：{text}",
+  "aboutLicensesBadLine": "licenses/index.tsv 第 {line} 行格式无效：{text}",
   "@aboutLicensesBadLine": {
     "description": "许可证清单某一行格式不对的报错（显示在开源许可下面）。",
     "placeholders": {
@@ -204,7 +204,7 @@
       }
     }
   },
-  "updateMkdirFailed": "建不了下载目录：{error}",
+  "updateMkdirFailed": "无法创建下载目录：{error}",
   "@updateMkdirFailed": {
     "description": "下载新版本失败的原因（关于页新版本一行的说明）。",
     "placeholders": {
@@ -214,7 +214,7 @@
       }
     }
   },
-  "updateManifestTooLarge": "{host} 给的更新清单比 {size} KB 还大，不像是清单",
+  "updateManifestTooLarge": "{host} 返回的更新清单超过 {size} KB，可能不是有效的清单文件",
   "@updateManifestTooLarge": {
     "description": "检查更新失败的原因：取到的清单太大。",
     "placeholders": {
@@ -228,7 +228,7 @@
       }
     }
   },
-  "updateFromHost": "{host} 给的{error}",
+  "updateFromHost": "{host} 返回的{error}",
   "@updateFromHost": {
     "description": "检查更新失败的原因：某处给的清单格式不对，error 是 updateManifest… 的一句。",
     "placeholders": {
@@ -242,19 +242,19 @@
       }
     }
   },
-  "updateManifestNotObject": "更新清单格式不对：不是 JSON 对象",
+  "updateManifestNotObject": "更新清单格式无效：不是 JSON 对象",
   "@updateManifestNotObject": {
     "description": "检查更新失败的原因。"
   },
-  "updateManifestBadCode": "更新清单格式不对：versionCode 缺少或不是正整数",
+  "updateManifestBadCode": "更新清单格式无效：缺少 versionCode 或其不是正整数",
   "@updateManifestBadCode": {
     "description": "检查更新失败的原因。"
   },
-  "updateManifestBadName": "更新清单格式不对：versionName 缺少或不是 X.Y.Z",
+  "updateManifestBadName": "更新清单格式无效：缺少 versionName 或不符合 X.Y.Z 格式",
   "@updateManifestBadName": {
     "description": "检查更新失败的原因。"
   },
-  "updateSaveFailed": "存不下下载的文件：{error}",
+  "updateSaveFailed": "无法保存下载的文件：{error}",
   "@updateSaveFailed": {
     "description": "下载新版本失败的原因。",
     "placeholders": {
@@ -264,7 +264,7 @@
       }
     }
   },
-  "updateDownloadTooLarge": "从 {host} 下的文件比清单写的 {size} 字节大，已删掉",
+  "updateDownloadTooLarge": "从 {host} 下载的文件超出清单声明的 {size} 字节，已删除",
   "@updateDownloadTooLarge": {
     "description": "下载新版本失败的原因。",
     "placeholders": {
@@ -278,7 +278,7 @@
       }
     }
   },
-  "updateDownloadTooSmall": "从 {host} 下的文件只有 {got} 字节，清单写的是 {size}，已删掉",
+  "updateDownloadTooSmall": "从 {host} 下载的文件仅有 {got} 字节（清单声明为 {size} 字节），已删除",
   "@updateDownloadTooSmall": {
     "description": "下载新版本失败的原因。",
     "placeholders": {
@@ -296,7 +296,7 @@
       }
     }
   },
-  "updateDownloadBadHash": "从 {host} 下的文件 sha256 和清单不一致，已删掉",
+  "updateDownloadBadHash": "从 {host} 下载的文件 SHA-256 校验与清单不一致，已删除",
   "@updateDownloadBadHash": {
     "description": "下载新版本失败的原因。",
     "placeholders": {
@@ -306,7 +306,7 @@
       }
     }
   },
-  "updateHTTPStatus": "{host} 回了 HTTP {status}",
+  "updateHTTPStatus": "{host} 返回 HTTP {status}",
   "@updateHTTPStatus": {
     "description": "检查或下载更新失败的原因。",
     "placeholders": {
@@ -320,7 +320,7 @@
       }
     }
   },
-  "updateHostTimeout": "连 {host} 超时",
+  "updateHostTimeout": "连接 {host} 超时",
   "@updateHostTimeout": {
     "description": "检查或下载更新失败的原因。",
     "placeholders": {
@@ -330,7 +330,7 @@
       }
     }
   },
-  "updateHostNotFound": "找不到 {host}（没有网络？）",
+  "updateHostNotFound": "无法解析 {host}（可能未连接网络）",
   "@updateHostNotFound": {
     "description": "检查或下载更新失败的原因。",
     "placeholders": {
@@ -340,7 +340,7 @@
       }
     }
   },
-  "updateHostUnreachable": "连不上 {host}",
+  "updateHostUnreachable": "无法连接 {host}",
   "@updateHostUnreachable": {
     "description": "检查或下载更新失败的原因。",
     "placeholders": {
@@ -354,7 +354,7 @@
   "@updateReasonSeparator": {
     "description": "几处都没取成时，各处原因之间的分隔。"
   },
-  "updateInstallWindowsOnly": "只有 Windows 版能自动安装",
+  "updateInstallWindowsOnly": "仅 Windows 版支持自动安装",
   "@updateInstallWindowsOnly": {
     "description": "不在 Windows 上点安装时的原因。"
   },
@@ -424,11 +424,11 @@
   "@commonNew": {
     "description": "新建一条的按钮（常用指令、Claude Code 配置各页）。"
   },
-  "claudecfgChangeFailed": "没有改成",
+  "claudecfgChangeFailed": "修改失败",
   "@claudecfgChangeFailed": {
     "description": "改设置没成功时弹出提示的标题。"
   },
-  "commonSaveFailed": "没存上",
+  "commonSaveFailed": "保存失败",
   "@commonSaveFailed": {
     "description": "没存上时弹框的标题；正文是原因。"
   },
@@ -468,7 +468,7 @@
       }
     }
   },
-  "claudecfgManagedOnClaudeAi": "在 claude.ai 上管理，这里只能看。",
+  "claudecfgManagedOnClaudeAi": "由 claude.ai 管理，此处仅可查看。",
   "@claudecfgManagedOnClaudeAi": {
     "description": "账号同步的 Skills、Claude 账号的连接器一组下面的说明。"
   },
@@ -480,11 +480,11 @@
   "@claudecfgZipDialogTitle": {
     "description": "导入 Skill 时系统文件对话框的标题。"
   },
-  "claudecfgZipUnreadable": "读不了这个文件",
+  "claudecfgZipUnreadable": "无法读取该文件",
   "@claudecfgZipUnreadable": {
     "description": "导入 Skill 时选的文件读不了。"
   },
-  "claudecfgZipTooLarge": "文件超过 45 MB，不像是一个 Skill 包",
+  "claudecfgZipTooLarge": "文件超过 45 MB，可能不是有效的 Skill 包",
   "@claudecfgZipTooLarge": {
     "description": "导入 Skill 时选的文件太大。"
   },
@@ -562,7 +562,7 @@
   "@claudecfgConfigTitle": {
     "description": "设备页上 Claude Code 配置入口那一组的标题。"
   },
-  "claudecfgConfigFooter": "改的是这台设备上 Claude Code 自己的配置（~/.claude），那边终端里的 claude 同样生效。",
+  "claudecfgConfigFooter": "此处修改的是该设备上 Claude Code 自身的配置（~/.claude），终端中的 claude 也会同步生效。",
   "@claudecfgConfigFooter": {
     "description": "Claude Code 配置一组下面的说明。"
   },
@@ -586,15 +586,15 @@
   "@claudecfgDefaultsTitle": {
     "description": "设备页上一组的标题。"
   },
-  "claudecfgDefaultsFooter": "在这台设备上开新对话时用。使用中转时，默认模型存在中转设置里；对话里选的只管那个对话。思考强度按模型分别存。上下文窗口是会话最多用多少 token，自动压缩按它算，比模型本身的窗口大时按模型的。",
+  "claudecfgDefaultsFooter": "用于该设备上新建的对话。使用中转时，默认模型保存在中转设置中；单个对话内的选择仅对该对话生效。思考强度按模型分别保存。上下文窗口表示会话的 token 上限，自动压缩以此为基准；若超出模型自身上限，则以模型上限为准。",
   "@claudecfgDefaultsFooter": {
     "description": "新对话默认一组下面的说明。"
   },
-  "claudecfgNotRead": "还没读到 Claude Code 的设置",
+  "claudecfgNotRead": "尚未读取到 Claude Code 的设置",
   "@claudecfgNotRead": {
     "description": "新对话默认、默认思考强度还没读到时的一行。"
   },
-  "claudecfgModelBuiltin": "Claude Code 内置的默认",
+  "claudecfgModelBuiltin": "Claude Code 内置默认",
   "@claudecfgModelBuiltin": {
     "description": "默认模型下拉的第一项：不设，用 Claude Code 内置的默认。"
   },
@@ -614,11 +614,11 @@
   "@claudecfgContextWindow": {
     "description": "新对话默认的一行。"
   },
-  "claudecfgContextWindowModel": "按模型的窗口",
+  "claudecfgContextWindowModel": "使用模型默认窗口",
   "@claudecfgContextWindowModel": {
     "description": "上下文窗口下拉的第一项：按模型本身的窗口。"
   },
-  "claudecfgEffortUnset": "没有设，按 Claude Code 的默认",
+  "claudecfgEffortUnset": "未设置，沿用 Claude Code 默认值",
   "@claudecfgEffortUnset": {
     "description": "默认思考强度一行的说明：一档都没设。"
   },
@@ -640,7 +640,7 @@
       }
     }
   },
-  "claudecfgEffortFooter": "这台设备上的新对话按所用的模型取这里的设置，和那边终端里 /effort 存为默认的是同一份；没单独设的模型用「其他模型」那一档。",
+  "claudecfgEffortFooter": "该设备上的新对话会按所用模型读取此处设置，与终端中通过 /effort 保存的默认配置一致；未单独设置的模型沿用「其他模型」一档。",
   "@claudecfgEffortFooter": {
     "description": "默认思考强度页的说明。"
   },
@@ -648,7 +648,7 @@
   "@claudecfgEffortFollow": {
     "description": "默认思考强度下拉的第一项：不设，由 Claude Code 定。"
   },
-  "claudecfgClaudeFooter": "只管 Zeta 在这台设备上起的对话。闲置超时马上生效，其余的下次起进程时生效。",
+  "claudecfgClaudeFooter": "仅作用于 Zeta 在该设备上启动的对话。闲置超时立即生效，其余设置将在下次启动进程时生效。",
   "@claudecfgClaudeFooter": {
     "description": "设备页 Claude 一组下面的说明。"
   },
@@ -678,7 +678,7 @@
   "@claudecfgAutoTitle": {
     "description": "设备页 Claude 一组的开关。"
   },
-  "claudecfgAutoTitleSummary": "第一轮回答后由 Claude Code 起个简短标题，改过名的不动",
+  "claudecfgAutoTitleSummary": "首轮回答后由 Claude Code 生成简短标题，已手动重命名的保持不变",
   "@claudecfgAutoTitleSummary": {
     "description": "自动生成对话标题开关下面的说明。"
   },
@@ -686,7 +686,7 @@
   "@claudecfgIdleTimeout": {
     "description": "设备页 Claude 一组的下拉：对话进程闲多久后结束。"
   },
-  "claudecfgClaudeVersionFailed": "读不到版本：{error}",
+  "claudecfgClaudeVersionFailed": "无法读取版本：{error}",
   "@claudecfgClaudeVersionFailed": {
     "description": "设备页 Claude Code 一行的说明。",
     "placeholders": {
@@ -708,7 +708,7 @@
   "@claudecfgClaudeUpdate": {
     "description": "设备页 Claude Code 一行右边的按钮：在那台上跑 claude update。"
   },
-  "claudecfgClaudeUpdateFailed": "没更新成：{reason}",
+  "claudecfgClaudeUpdateFailed": "更新失败：{reason}",
   "@claudecfgClaudeUpdateFailed": {
     "description": "设备页 Claude Code 一行的说明：更新没成，原因是报错或 claude update 输出的最后一行。",
     "placeholders": {
@@ -718,7 +718,7 @@
       }
     }
   },
-  "claudecfgClaudeUpdateError": "claude update 出错了",
+  "claudecfgClaudeUpdateError": "claude update 执行失败",
   "@claudecfgClaudeUpdateError": {
     "description": "claude update 失败又没有输出时的原因。"
   },
@@ -748,7 +748,7 @@
   "@claudecfgAgentModelInherit": {
     "description": "Subagent 模型下拉的选项：inherit。"
   },
-  "claudecfgToolRead": "读文件",
+  "claudecfgToolRead": "读取文件",
   "@claudecfgToolRead": {
     "description": "Subagent 工具清单里 Read 的说明。"
   },
@@ -756,7 +756,7 @@
   "@claudecfgToolEdit": {
     "description": "Subagent 工具清单里 Edit 的说明。"
   },
-  "claudecfgToolWrite": "新建、覆盖文件",
+  "claudecfgToolWrite": "新建或覆盖文件",
   "@claudecfgToolWrite": {
     "description": "Subagent 工具清单里 Write 的说明。"
   },
@@ -764,7 +764,7 @@
   "@claudecfgToolGlob": {
     "description": "Subagent 工具清单里 Glob 的说明。"
   },
-  "claudecfgToolGrep": "在文件里搜索",
+  "claudecfgToolGrep": "在文件中搜索",
   "@claudecfgToolGrep": {
     "description": "Subagent 工具清单里 Grep 的说明。"
   },
@@ -788,11 +788,11 @@
   "@claudecfgToolSkill": {
     "description": "Subagent 工具清单里 Skill 的说明。"
   },
-  "claudecfgAgentNameInvalid": "名称只能用小写字母、数字和连字符，并以字母或数字开头",
+  "claudecfgAgentNameInvalid": "名称仅支持小写字母、数字和连字符，且须以字母或数字开头",
   "@claudecfgAgentNameInvalid": {
     "description": "Subagent 编辑页：名称不合规时的提示。"
   },
-  "claudecfgAgentWhenMissing": "写上什么时候用它才能保存",
+  "claudecfgAgentWhenMissing": "请填写适用场景后再保存",
   "@claudecfgAgentWhenMissing": {
     "description": "Subagent 编辑页：还没写什么时候用时的提示。"
   },
@@ -808,7 +808,7 @@
   "@claudecfgAgentEdit": {
     "description": "编辑页的标题。"
   },
-  "claudecfgAgentsFooter": "存在 ~/.claude/agents，所有项目都能用。Claude 按“什么时候用”自己决定交给哪个，你也可以在对话里点名。",
+  "claudecfgAgentsFooter": "保存在 ~/.claude/agents，所有项目均可使用。Claude 会根据「适用场景」自动决定调用时机，你也可以在对话中直接指定。",
   "@claudecfgAgentsFooter": {
     "description": "Subagent 页一组下面的说明。"
   },
@@ -822,11 +822,11 @@
       }
     }
   },
-  "claudecfgAgentsEmpty": "还没有自定义 Subagent",
+  "claudecfgAgentsEmpty": "暂无自定义 Subagent",
   "@claudecfgAgentsEmpty": {
     "description": "Subagent 页没有时的一行。"
   },
-  "claudecfgAgentsEmptyHint": "让 Claude 写一个，或点右上角的“新建”",
+  "claudecfgAgentsEmptyHint": "可让 Claude 生成一个，或点击右上角的「新建」",
   "@claudecfgAgentsEmptyHint": {
     "description": "Subagent 页没有时那一行的说明。"
   },
@@ -834,19 +834,19 @@
   "@claudecfgName": {
     "description": "Subagent 编辑页的一组和输入框，添加 MCP 服务器对话框的输入框。"
   },
-  "claudecfgAgentNameFooter": "小写字母、数字和连字符，比如 code-reviewer。",
+  "claudecfgAgentNameFooter": "支持小写字母、数字和连字符，例如 code-reviewer。",
   "@claudecfgAgentNameFooter": {
     "description": "Subagent 编辑页名称一组下面的说明。"
   },
-  "claudecfgAgentWhen": "什么时候用",
+  "claudecfgAgentWhen": "适用场景",
   "@claudecfgAgentWhen": {
     "description": "Subagent 编辑页的一组和输入框。"
   },
-  "claudecfgAgentWhenFooter": "Claude 靠这段话决定要不要交给它，写清楚它擅长什么。",
+  "claudecfgAgentWhenFooter": "Claude 依据这段说明判断是否调用该 Subagent，请写明它擅长的任务。",
   "@claudecfgAgentWhenFooter": {
     "description": "Subagent 编辑页什么时候用一组下面的说明。"
   },
-  "claudecfgAgentWhenPlaceholder": "比如：改完代码后用它审查改动，找出 bug 和不清楚的地方",
+  "claudecfgAgentWhenPlaceholder": "例如：修改代码后用它审查改动，排查 bug 与潜在问题",
   "@claudecfgAgentWhenPlaceholder": {
     "description": "Subagent 编辑页什么时候用的占位。"
   },
@@ -854,7 +854,7 @@
   "@claudecfgAgentPrompt": {
     "description": "Subagent 编辑页的一组和输入框。"
   },
-  "claudecfgAgentPromptFooter": "写它的角色和做事方式。它看不到主对话，只看到这段话和交给它的任务。",
+  "claudecfgAgentPromptFooter": "设定它的角色与工作方式。它无法看到主对话，只能获取这段提示词与分派给它的任务。",
   "@claudecfgAgentPromptFooter": {
     "description": "Subagent 编辑页系统提示词一组下面的说明。"
   },
@@ -862,7 +862,7 @@
   "@claudecfgAgentPromptPlaceholder": {
     "description": "Subagent 编辑页系统提示词的占位。"
   },
-  "claudecfgAgentExtraKeys": "另外还设了 {keys}，保存时原样保留。",
+  "claudecfgAgentExtraKeys": "另配置了 {keys}，保存时会原样保留。",
   "@claudecfgAgentExtraKeys": {
     "description": "Subagent 编辑页底下：文件里还有别的前言项。",
     "placeholders": {
@@ -876,11 +876,11 @@
   "@claudecfgAgentModel": {
     "description": "Subagent 编辑页的一组和下拉。"
   },
-  "claudecfgAgentModelFooter": "默认时跟随主对话的模型。",
+  "claudecfgAgentModelFooter": "默认跟随主对话所用的模型。",
   "@claudecfgAgentModelFooter": {
     "description": "Subagent 编辑页模型一组下面的说明。"
   },
-  "claudecfgAgentToolsFooter": "关掉“全部工具”后只能用勾选的。MCP 工具写成 mcp__服务器__工具，多个用逗号分开。",
+  "claudecfgAgentToolsFooter": "关闭「全部工具」后仅可使用勾选的工具。MCP 工具格式为 mcp__服务器__工具，多个工具用逗号分隔。",
   "@claudecfgAgentToolsFooter": {
     "description": "Subagent 编辑页工具一组下面的说明。"
   },
@@ -914,7 +914,7 @@
   "@claudecfgAgentDeleteTitle": {
     "description": "删除 Subagent 的确认框标题。"
   },
-  "claudecfgAgentDeleteMessage": "删除“{name}”？删了就找不回来。",
+  "claudecfgAgentDeleteMessage": "确定删除「{name}」？删除后无法恢复。",
   "@claudecfgAgentDeleteMessage": {
     "description": "删除 Subagent 的确认框说明。",
     "placeholders": {
@@ -948,15 +948,15 @@
   "@claudecfgMemoryInstructions": {
     "description": "记忆页的一组标题，也是编辑 CLAUDE.md 那一页的标题。"
   },
-  "claudecfgMemoryInstructionsFooter": "~/.claude/CLAUDE.md 里是你写给 Claude 的长期指令，所有项目通用。改动对之后新开始的对话生效。",
+  "claudecfgMemoryInstructionsFooter": "~/.claude/CLAUDE.md 用于存放给 Claude 的长期指令，所有项目通用。修改后对后续新建的对话生效。",
   "@claudecfgMemoryInstructionsFooter": {
     "description": "记忆页用户指令一组下面的说明。"
   },
-  "claudecfgMemoryInstructionsMissing": "还没有创建，打开就能写",
+  "claudecfgMemoryInstructionsMissing": "尚未创建，打开即可编辑",
   "@claudecfgMemoryInstructionsMissing": {
     "description": "CLAUDE.md 一行的说明：文件还不存在。"
   },
-  "claudecfgMemoryInstructionsPlaceholder": "比如：回答用中文；我的主要技术栈是 Go；改代码前先说明打算怎么改",
+  "claudecfgMemoryInstructionsPlaceholder": "例如：使用中文回答；我的主要技术栈是 Go；修改代码前先说明改动方案",
   "@claudecfgMemoryInstructionsPlaceholder": {
     "description": "编辑 CLAUDE.md 时正文的占位。"
   },
@@ -964,11 +964,11 @@
   "@claudecfgAutoMemory": {
     "description": "记忆页的一组标题。"
   },
-  "claudecfgAutoMemoryFooter": "Claude 会在对话中自己记下你的偏好、纠正和项目背景。开关对所有项目生效；关掉后不再读写，记忆留着。",
+  "claudecfgAutoMemoryFooter": "Claude 会在对话中自动记录你的偏好、纠正意见与项目背景。开关对所有项目生效；关闭后停止读写，已有记忆仍会保留。",
   "@claudecfgAutoMemoryFooter": {
     "description": "记忆页自动记忆一组下面的说明。"
   },
-  "claudecfgAutoMemoryForcedOff": "被环境变量关掉了，这里改不了",
+  "claudecfgAutoMemoryForcedOff": "已被环境变量禁用，无法在此修改",
   "@claudecfgAutoMemoryForcedOff": {
     "description": "启用自动记忆开关下面的说明。"
   },
@@ -998,11 +998,11 @@
   "@claudecfgMemoryProject": {
     "description": "记忆页的下拉：看哪个项目的自动记忆。"
   },
-  "claudecfgMemoryIndexMissing": "记忆的索引，还没有",
+  "claudecfgMemoryIndexMissing": "记忆索引，尚未创建",
   "@claudecfgMemoryIndexMissing": {
     "description": "MEMORY.md 一行的说明：文件还不存在。"
   },
-  "claudecfgMemoryIndex": "记忆的索引",
+  "claudecfgMemoryIndex": "记忆索引",
   "@claudecfgMemoryIndex": {
     "description": "MEMORY.md 一行的说明。"
   },
@@ -1020,11 +1020,11 @@
       }
     }
   },
-  "claudecfgMemoryFilesEmpty": "这个项目还没有记忆",
+  "claudecfgMemoryFilesEmpty": "该项目暂无记忆",
   "@claudecfgMemoryFilesEmpty": {
     "description": "记忆页这个项目没有记忆时的一行。"
   },
-  "claudecfgMemoryFilesEmptyHint": "让 Claude 记住的东西会出现在这里",
+  "claudecfgMemoryFilesEmptyHint": "让 Claude 记住的内容会显示在这里",
   "@claudecfgMemoryFilesEmptyHint": {
     "description": "没有记忆那一行的说明。"
   },
@@ -1036,15 +1036,15 @@
   "@claudecfgDocumentUnsaved": {
     "description": "编辑记忆文件时底下一行：有没保存的改动。"
   },
-  "claudecfgDocumentTooLarge": "已超过 1 MiB 上限，请删减",
+  "claudecfgDocumentTooLarge": "已超过 1 MiB 上限，请精简内容",
   "@claudecfgDocumentTooLarge": {
     "description": "编辑记忆文件时底下一行：太大存不了。"
   },
-  "claudecfgConflictTitle": "文件已经变了",
+  "claudecfgConflictTitle": "文件已发生变更",
   "@claudecfgConflictTitle": {
     "description": "保存记忆文件时发现文件在编辑期间被改过的确认框标题。"
   },
-  "claudecfgConflictMessage": "编辑期间这个文件被改过了，多半是 Claude 在对话里更新了它。保存会用你的版本覆盖。",
+  "claudecfgConflictMessage": "编辑期间该文件已被修改，可能是 Claude 在对话中更新了它。继续保存将用当前内容覆盖。",
   "@claudecfgConflictMessage": {
     "description": "文件已经变了确认框的说明。"
   },
@@ -1056,7 +1056,7 @@
   "@claudecfgMemoryDeleteTitle": {
     "description": "删除一条记忆的确认框标题。"
   },
-  "claudecfgMemoryDeleteMessage": "删除 {file}，并从 MEMORY.md 里去掉它那一行。删了就找不回来。",
+  "claudecfgMemoryDeleteMessage": "将删除 {file}，并从 MEMORY.md 中移除对应条目。删除后无法恢复。",
   "@claudecfgMemoryDeleteMessage": {
     "description": "删除一条记忆的确认框说明。",
     "placeholders": {
@@ -1074,7 +1074,7 @@
   "@claudecfgMcpScopeUser": {
     "description": "MCP 服务器的范围：用户配置。"
   },
-  "claudecfgMcpScopeLocal": "只在默认工作目录",
+  "claudecfgMcpScopeLocal": "仅限默认工作目录",
   "@claudecfgMcpScopeLocal": {
     "description": "MCP 服务器的范围：本地配置。"
   },
@@ -1090,11 +1090,11 @@
   "@claudecfgMcpStateConnected": {
     "description": "MCP 服务器的状态。"
   },
-  "claudecfgMcpStatePartial": "已连接 · 取工具出错",
+  "claudecfgMcpStatePartial": "已连接 · 获取工具失败",
   "@claudecfgMcpStatePartial": {
     "description": "MCP 服务器的状态。"
   },
-  "claudecfgMcpStateFailed": "连不上",
+  "claudecfgMcpStateFailed": "无法连接",
   "@claudecfgMcpStateFailed": {
     "description": "MCP 服务器的状态。"
   },
@@ -1122,7 +1122,7 @@
   "@claudecfgMcpStateUnknown": {
     "description": "MCP 服务器的状态：健康检查里没有它。"
   },
-  "claudecfgMcpShadowedBy": "被“{scope}”里的同名服务器盖住",
+  "claudecfgMcpShadowedBy": "已被「{scope}」中的同名服务器覆盖",
   "@claudecfgMcpShadowedBy": {
     "description": "被盖住的 MCP 服务器的状态说明。",
     "placeholders": {
@@ -1144,11 +1144,11 @@
   "@claudecfgMcpAdd": {
     "description": "MCP 服务器页右上角的按钮，也是添加对话框的标题。"
   },
-  "claudecfgMcpFooter": "新加的服务器所有项目都能用，改动对之后新开始的对话生效。",
+  "claudecfgMcpFooter": "新增的服务器对所有项目生效，修改将在后续新建的对话中生效。",
   "@claudecfgMcpFooter": {
     "description": "MCP 服务器页一组下面的说明。"
   },
-  "claudecfgMcpStatusFailed": "检查状态没有成功：{error}",
+  "claudecfgMcpStatusFailed": "状态检查失败：{error}",
   "@claudecfgMcpStatusFailed": {
     "description": "MCP 服务器页一组下面：健康检查没成功。",
     "placeholders": {
@@ -1168,11 +1168,11 @@
       }
     }
   },
-  "claudecfgMcpEmpty": "还没有 MCP 服务器",
+  "claudecfgMcpEmpty": "暂无 MCP 服务器",
   "@claudecfgMcpEmpty": {
     "description": "MCP 服务器页没有服务器时的一行。"
   },
-  "claudecfgMcpEmptyHint": "点右上角的“添加服务器”",
+  "claudecfgMcpEmptyHint": "点击右上角的「添加服务器」",
   "@claudecfgMcpEmptyHint": {
     "description": "没有 MCP 服务器那一行的说明。"
   },
@@ -1180,11 +1180,11 @@
   "@claudecfgMcpConnectors": {
     "description": "MCP 服务器页的一组：claude.ai 账号上的连接器。"
   },
-  "claudecfgMcpNameInvalid": "名称只能用字母、数字、下划线和连字符",
+  "claudecfgMcpNameInvalid": "名称仅支持字母、数字、下划线和连字符",
   "@claudecfgMcpNameInvalid": {
     "description": "添加 MCP 服务器对话框的提示。"
   },
-  "claudecfgMcpURLInvalid": "地址要以 http:// 或 https:// 开头",
+  "claudecfgMcpURLInvalid": "地址须以 http:// 或 https:// 开头",
   "@claudecfgMcpURLInvalid": {
     "description": "添加 MCP 服务器对话框的提示。"
   },
@@ -1192,7 +1192,7 @@
   "@claudecfgMcpCommandMissing": {
     "description": "添加 MCP 服务器对话框的提示。"
   },
-  "claudecfgMcpEnvInvalid": "环境变量每行一个，写成 KEY=VALUE",
+  "claudecfgMcpEnvInvalid": "环境变量每行一项，格式为 KEY=VALUE",
   "@claudecfgMcpEnvInvalid": {
     "description": "添加 MCP 服务器对话框的提示。"
   },
@@ -1200,15 +1200,15 @@
   "@claudecfgMcpType": {
     "description": "添加 MCP 服务器对话框的下拉，详情页的一行。"
   },
-  "claudecfgMcpNamePlaceholder": "名称，比如 github",
+  "claudecfgMcpNamePlaceholder": "名称，例如 github",
   "@claudecfgMcpNamePlaceholder": {
     "description": "添加 MCP 服务器对话框的占位。"
   },
-  "claudecfgMcpCommandPlaceholder": "命令，比如 npx",
+  "claudecfgMcpCommandPlaceholder": "命令，例如 npx",
   "@claudecfgMcpCommandPlaceholder": {
     "description": "添加 MCP 服务器对话框的占位。"
   },
-  "claudecfgMcpArgsPlaceholder": "参数（可选，空格分开）",
+  "claudecfgMcpArgsPlaceholder": "参数（可选，以空格分隔）",
   "@claudecfgMcpArgsPlaceholder": {
     "description": "添加 MCP 服务器对话框的占位。"
   },
@@ -1216,7 +1216,7 @@
   "@claudecfgMcpArgs": {
     "description": "添加 MCP 服务器对话框参数输入框的读屏名字。"
   },
-  "claudecfgMcpEnvPlaceholder": "环境变量（可选，每行一个 KEY=VALUE）",
+  "claudecfgMcpEnvPlaceholder": "环境变量（可选，每行一项 KEY=VALUE）",
   "@claudecfgMcpEnvPlaceholder": {
     "description": "添加 MCP 服务器对话框的占位。"
   },
@@ -1272,7 +1272,7 @@
   "@claudecfgMcpHeaders": {
     "description": "MCP 服务器详情页的一行。"
   },
-  "claudecfgMcpEditInProject": "{summary} · 在项目里改",
+  "claudecfgMcpEditInProject": "{summary} · 请在项目中修改",
   "@claudecfgMcpEditInProject": {
     "description": "MCP 服务器详情页身份认证一行的说明：项目配置的服务器在这里改不了。",
     "placeholders": {
@@ -1298,7 +1298,7 @@
   "@claudecfgMcpDelete": {
     "description": "MCP 服务器详情页的一行，也是删除确认框的标题。"
   },
-  "claudecfgMcpDeleteSummary": "它的地址、Token 和设置都会从配置里去掉",
+  "claudecfgMcpDeleteSummary": "将从配置中移除其地址、Token 及相关设置",
   "@claudecfgMcpDeleteSummary": {
     "description": "删除服务器一行的说明。"
   },
@@ -1306,19 +1306,19 @@
   "@claudecfgMcpAuthHeader": {
     "description": "身份认证一行的说明：用 Authorization 请求头认证。"
   },
-  "claudecfgMcpAuthOAuth": "OAuth：在终端用 claude 的 /mcp 登录",
+  "claudecfgMcpAuthOAuth": "OAuth：请在终端中通过 claude 的 /mcp 登录",
   "@claudecfgMcpAuthOAuth": {
     "description": "身份认证一行的说明：用 OAuth 认证。"
   },
-  "claudecfgToolsListFailed": "取不到工具清单",
+  "claudecfgToolsListFailed": "无法获取工具清单",
   "@claudecfgToolsListFailed": {
     "description": "MCP 服务器详情页、工具权限的服务器页：取工具清单失败。"
   },
-  "claudecfgToolsConnectHint": "连上服务器取工具清单",
+  "claudecfgToolsConnectHint": "连接服务器以获取工具清单",
   "@claudecfgToolsConnectHint": {
     "description": "列出工具一行的说明。"
   },
-  "claudecfgToolsOAuth": "用 OAuth 登录的服务器取不到",
+  "claudecfgToolsOAuth": "无法获取 OAuth 登录服务器的工具清单",
   "@claudecfgToolsOAuth": {
     "description": "列出工具一行的说明：OAuth 的服务器取不了。"
   },
@@ -1330,15 +1330,15 @@
   "@claudecfgToolsListButton": {
     "description": "列出工具一行右边的按钮。"
   },
-  "claudecfgToolsNone": "没有工具",
+  "claudecfgToolsNone": "暂无工具",
   "@claudecfgToolsNone": {
     "description": "服务器的工具清单是空的。"
   },
-  "claudecfgMcpTokenHint": "输入新 Token，留空则移除身份认证。原来的 Token 不会显示出来。",
+  "claudecfgMcpTokenHint": "输入新 Token，留空将移除身份认证。原 Token 不会显示。",
   "@claudecfgMcpTokenHint": {
     "description": "更换 Token 对话框的说明。"
   },
-  "claudecfgMcpDeleteMessage": "删除 {name}？它的地址、Token 和设置都会从配置里去掉，无法撤销。",
+  "claudecfgMcpDeleteMessage": "确定删除 {name}？其地址、Token 及相关设置都将从配置中移除，且无法撤销。",
   "@claudecfgMcpDeleteMessage": {
     "description": "删除 MCP 服务器的确认框说明。",
     "placeholders": {
@@ -1386,7 +1386,7 @@
   "@claudecfgPermAddRule": {
     "description": "工具权限页右上角的按钮，也是添加规则对话框的标题。"
   },
-  "claudecfgPermissionsIntro": "规则按“拒绝 > 询问 > 允许”取最严的，写得再细也一样。完全放行模式下，询问和拒绝照样生效。改动对所有项目、之后新开始的对话生效。",
+  "claudecfgPermissionsIntro": "规则按「拒绝 > 询问 > 允许」取最严格的一项，细粒度规则亦然。完全放行模式下，询问与拒绝规则依然生效。修改对所有项目及后续新建的对话生效。",
   "@claudecfgPermissionsIntro": {
     "description": "工具权限页顶上的说明。"
   },
@@ -1456,7 +1456,7 @@
       }
     }
   },
-  "claudecfgPermBulkAdd": "{count, plural, other {加到{behavior}（# 条）：{rules}}}",
+  "claudecfgPermBulkAdd": "{count, plural, other {添加到「{behavior}」（# 条）：{rules}}}",
   "@claudecfgPermBulkAdd": {
     "description": "全部开启、关闭确认框里的一行：会加进某张表的规则。",
     "placeholders": {
@@ -1474,7 +1474,7 @@
       }
     }
   },
-  "claudecfgPermBulkRemove": "{count, plural, other {从{behavior}里删（# 条）：{rules}}}",
+  "claudecfgPermBulkRemove": "{count, plural, other {从「{behavior}」移除（# 条）：{rules}}}",
   "@claudecfgPermBulkRemove": {
     "description": "全部开启、关闭确认框里的一行：会从某张表里删的规则。",
     "placeholders": {
@@ -1492,11 +1492,11 @@
       }
     }
   },
-  "claudecfgPermNoToolsWarning": "关掉以后 Claude 连读写文件、跑命令都做不了，只能聊天和用 MCP 工具。",
+  "claudecfgPermNoToolsWarning": "全部关闭后，Claude 将无法读写文件或执行命令，仅能对话与使用 MCP 工具。",
   "@claudecfgPermNoToolsWarning": {
     "description": "全部关闭内置工具确认框里的提醒。"
   },
-  "claudecfgPermNoServers": "没有配置 MCP 服务器",
+  "claudecfgPermNoServers": "未配置 MCP 服务器",
   "@claudecfgPermNoServers": {
     "description": "工具权限页 MCP 服务器一组是空的。"
   },
@@ -1510,19 +1510,19 @@
       }
     }
   },
-  "claudecfgPermRulesFooter": "带参数的规则只在这里改，上面的下拉不动它们。",
+  "claudecfgPermRulesFooter": "带参数的规则仅可在此修改，上方的下拉选项不会影响它们。",
   "@claudecfgPermRulesFooter": {
     "description": "工具权限页规则一组下面的说明。"
   },
-  "claudecfgPermRulesEmpty": "还没有规则",
+  "claudecfgPermRulesEmpty": "暂无规则",
   "@claudecfgPermRulesEmpty": {
     "description": "工具权限页没有规则时的一行。"
   },
-  "claudecfgPermRulesEmptyHint": "点右上角的“添加规则”",
+  "claudecfgPermRulesEmptyHint": "点击右上角的「添加规则」",
   "@claudecfgPermRulesEmptyHint": {
     "description": "没有规则那一行的说明。"
   },
-  "claudecfgPermRuleMalformed": "{behavior} · 括号不配对，Claude Code 认不出这条",
+  "claudecfgPermRuleMalformed": "{behavior} · 括号不匹配，Claude Code 无法识别该规则",
   "@claudecfgPermRuleMalformed": {
     "description": "一条规则的说明：写法不对。",
     "placeholders": {
@@ -1546,7 +1546,7 @@
       }
     }
   },
-  "claudecfgPermRuleEmpty": "规则不能是空的",
+  "claudecfgPermRuleEmpty": "规则不能为空",
   "@claudecfgPermRuleEmpty": {
     "description": "添加、编辑规则对话框的提示。"
   },
@@ -1554,7 +1554,7 @@
   "@claudecfgPermDeleteRule": {
     "description": "删除一条规则的确认框标题。"
   },
-  "claudecfgPermDeleteRuleMessage": "删除{behavior}规则 {rule}？",
+  "claudecfgPermDeleteRuleMessage": "确定删除{behavior}规则 {rule}？",
   "@claudecfgPermDeleteRuleMessage": {
     "description": "删除一条规则的确认框说明。",
     "placeholders": {
@@ -1580,7 +1580,7 @@
   "@claudecfgPermRule": {
     "description": "添加、编辑规则对话框输入框的读屏名字。"
   },
-  "claudecfgPermRuleHelp": "写成 工具名 或 工具名(参数)。比如 Bash(npm run test:*)、Read(./.env)、Edit(src/**)、WebFetch(domain:github.com)、mcp__github（整个服务器）。",
+  "claudecfgPermRuleHelp": "格式为 工具名 或 工具名(参数)，例如 Bash(npm run test:*)、Read(./.env)、Edit(src/**)、WebFetch(domain:github.com)、mcp__github（整个服务器）。",
   "@claudecfgPermRuleHelp": {
     "description": "添加、编辑规则对话框的说明。"
   },
@@ -1588,11 +1588,11 @@
   "@claudecfgPermSaving": {
     "description": "添加、编辑规则对话框的保存按钮正在保存时。"
   },
-  "claudecfgPermServerFooter": "整个服务器的设置管它的每个工具；工具自己也设了的，取更严的那个。",
+  "claudecfgPermServerFooter": "整个服务器的设置适用于其下所有工具；若单个工具另有设置，则取更严格的一项。",
   "@claudecfgPermServerFooter": {
     "description": "工具权限的服务器页顶上的说明。"
   },
-  "claudecfgPermServerOAuth": "要按工具设置，在上一页的“规则”里手写 {rule}__工具名。",
+  "claudecfgPermServerOAuth": "如需按工具单独设置，请在上一页的「规则」中手动添加 {rule}__工具名。",
   "@claudecfgPermServerOAuth": {
     "description": "工具权限的服务器页：OAuth 的服务器取不到工具清单时的说明。",
     "placeholders": {
@@ -1606,7 +1606,7 @@
   "@claudecfgSkillsLoadFailed": {
     "description": "Skills 页读取失败时弹出提示的标题。"
   },
-  "claudecfgSkillInstallFailed": "没有装上",
+  "claudecfgSkillInstallFailed": "安装失败",
   "@claudecfgSkillInstallFailed": {
     "description": "导入 Skill 失败时弹出提示的标题。"
   },
@@ -1618,7 +1618,7 @@
   "@claudecfgSkillReplaced": {
     "description": "替换已有的 Skill 成功时弹出提示的标题。"
   },
-  "claudecfgSkillInstalledMessage": "“{name}”装好了，Claude 会按需调用它。",
+  "claudecfgSkillInstalledMessage": "「{name}」已安装，Claude 会按需调用。",
   "@claudecfgSkillInstalledMessage": {
     "description": "导入 Skill 成功时弹出提示的说明。",
     "placeholders": {
@@ -1628,7 +1628,7 @@
       }
     }
   },
-  "claudecfgSkillInstalledDisabled": "“{name}”装好了，但它被设成停用，打开开关后才能用。",
+  "claudecfgSkillInstalledDisabled": "「{name}」已安装，但当前处于停用状态，开启开关后即可使用。",
   "@claudecfgSkillInstalledDisabled": {
     "description": "导入的 Skill 被设成停用时弹出提示的说明。",
     "placeholders": {
@@ -1638,7 +1638,7 @@
       }
     }
   },
-  "claudecfgSkillPick": "选一个含 SKILL.md 的 Skill 包",
+  "claudecfgSkillPick": "选择包含 SKILL.md 的 Skill 包",
   "@claudecfgSkillPick": {
     "description": "从 ZIP 导入一行的说明。"
   },
@@ -1664,15 +1664,15 @@
       }
     }
   },
-  "claudecfgSkillsUserFooter": "装在 ~/.claude/skills 里。关掉后文件留着，Claude 不再用它；改动对之后新开始的对话生效。",
+  "claudecfgSkillsUserFooter": "安装在 ~/.claude/skills 中。停用后文件会保留，Claude 不再调用；修改对后续新建的对话生效。",
   "@claudecfgSkillsUserFooter": {
     "description": "Skills 页用户安装一组下面的说明。"
   },
-  "claudecfgSkillsEmpty": "还没有 Skill",
+  "claudecfgSkillsEmpty": "暂无 Skill",
   "@claudecfgSkillsEmpty": {
     "description": "Skills 页没有用户安装的 Skill 时的一行。"
   },
-  "claudecfgSkillsEmptyHint": "从 ZIP 导入，或让 Claude 写一个",
+  "claudecfgSkillsEmptyHint": "从 ZIP 导入，或让 Claude 生成一个",
   "@claudecfgSkillsEmptyHint": {
     "description": "没有 Skill 那一行的说明。"
   },
@@ -1712,7 +1712,7 @@
   "@claudecfgSkillMissingFile": {
     "description": "Skill 一行的说明：文件夹里没有 SKILL.md。"
   },
-  "claudecfgSkillMissingFileDetail": "这个文件夹里没有 SKILL.md，Claude Code 不会把它当成 Skill。",
+  "claudecfgSkillMissingFileDetail": "该文件夹中缺少 SKILL.md，Claude Code 不会将其识别为 Skill。",
   "@claudecfgSkillMissingFileDetail": {
     "description": "点说明时弹出的说明：文件夹里没有 SKILL.md。"
   },
@@ -1740,15 +1740,15 @@
       }
     }
   },
-  "claudecfgSkillDisableFailed": "没有停用",
+  "claudecfgSkillDisableFailed": "停用失败",
   "@claudecfgSkillDisableFailed": {
     "description": "停用 Skill 没成功时弹出提示的标题。"
   },
-  "claudecfgSkillEnableFailed": "没有启用",
+  "claudecfgSkillEnableFailed": "启用失败",
   "@claudecfgSkillEnableFailed": {
     "description": "启用 Skill 没成功时弹出提示的标题。"
   },
-  "claudecfgSkillReplaceMessage": "已经有一个叫“{name}”的 Skill。替换会覆盖它当前的全部文件。",
+  "claudecfgSkillReplaceMessage": "已存在名为「{name}」的 Skill。替换将覆盖其现有的全部文件。",
   "@claudecfgSkillReplaceMessage": {
     "description": "导入同名 Skill 时确认框的说明。",
     "placeholders": {
@@ -1770,7 +1770,7 @@
   "@claudecfgSkillDeleteTitle": {
     "description": "删除 Skill 的确认框标题。"
   },
-  "claudecfgSkillDeleteMessage": "删除“{name}”的整个文件夹，之后需要重新导入才能恢复。",
+  "claudecfgSkillDeleteMessage": "将删除「{name}」的整个文件夹，之后需重新导入才能恢复。",
   "@claudecfgSkillDeleteMessage": {
     "description": "删除 Skill 的确认框说明。",
     "placeholders": {
@@ -1784,7 +1784,7 @@
   "@commonClose": {
     "description": "关掉对话框、编辑页的按钮。"
   },
-  "claudecfgModelsPending": "正在读取这台设备的模型清单。",
+  "claudecfgModelsPending": "正在读取该设备的模型清单。",
   "@claudecfgModelsPending": {
     "description": "新对话默认一组下面的说明：模型清单还没要到。"
   },
@@ -1800,11 +1800,11 @@
   "@claudecfgDocumentPreview": {
     "description": "记忆文件编辑页的切换：看排好的样子。"
   },
-  "claudecfgDocumentEmpty": "还没有内容",
+  "claudecfgDocumentEmpty": "暂无内容",
   "@claudecfgDocumentEmpty": {
     "description": "记忆文件预览时正文是空的。"
   },
-  "claudecfgDocumentEmptyEdit": "还没有内容，去编辑",
+  "claudecfgDocumentEmptyEdit": "暂无内容，点击编辑",
   "@claudecfgDocumentEmptyEdit": {
     "description": "正文是空的那块的读屏名字：点了切到编辑。"
   },
@@ -1824,19 +1824,19 @@
   "@aboutCreditMygo": {
     "description": "关于页鸣谢里 mygo 的介绍。"
   },
-  "aboutCreditCrypto": "直连设备用的 SSH（BSD-3-Clause）",
+  "aboutCreditCrypto": "用于直连设备的 SSH 实现（BSD-3-Clause）",
   "@aboutCreditCrypto": {
     "description": "关于页鸣谢里 Go x/crypto 的介绍。"
   },
-  "aboutCreditImage": "附件图片的缩小与 WebP、BMP 解码（BSD-3-Clause）",
+  "aboutCreditImage": "附件图片缩放与 WebP、BMP 解码（BSD-3-Clause）",
   "@aboutCreditImage": {
     "description": "关于页鸣谢里 Go x/image 的介绍。"
   },
-  "aboutCreditCoui": "一部分图标取自它的图标库 coui-icons（Apache-2.0）",
+  "aboutCreditCoui": "部分图标取自其图标库 coui-icons（Apache-2.0）",
   "@aboutCreditCoui": {
     "description": "关于页鸣谢里 COUI 2 的介绍。"
   },
-  "aboutCreditRatex": "排回答里的数学公式，同手机版（MIT）",
+  "aboutCreditRatex": "用于渲染回答中的数学公式，与手机版相同（MIT）",
   "@aboutCreditRatex": {
     "description": "关于页鸣谢里 RaTeX 的介绍。"
   },
@@ -1844,11 +1844,11 @@
   "@aboutCreditKatexFonts": {
     "description": "关于页鸣谢里一项的名字：KaTeX 的字体。"
   },
-  "aboutCreditKatex": "公式用的字体（OFL-1.1）",
+  "aboutCreditKatex": "数学公式渲染字体（OFL-1.1）",
   "@aboutCreditKatex": {
     "description": "关于页鸣谢里 KaTeX 字体的介绍。"
   },
-  "aboutCreditWazero": "运行 RaTeX 的 WebAssembly（Apache-2.0）",
+  "aboutCreditWazero": "用于运行 RaTeX 的 WebAssembly 运行时（Apache-2.0）",
   "@aboutCreditWazero": {
     "description": "关于页鸣谢里 wazero 的介绍。"
   },
@@ -1868,7 +1868,7 @@
   "@composerHint": {
     "description": "输入框空着时的占位提示。"
   },
-  "composerHintBusy": "Claude 正在工作，可以接着发",
+  "composerHintBusy": "Claude 正在回复，可继续发送消息",
   "@composerHintBusy": {
     "description": "Claude 正在回答时输入框的占位提示：这时发的进排队条。"
   },
@@ -2022,23 +2022,23 @@
   "@composerContextNotYet": {
     "description": "用量弹出框上下文一节的说明：还没有数。"
   },
-  "composerContextFullOff": "快满了，自动压缩已关闭，请手动压缩，不然很快发不出去。",
+  "composerContextFullOff": "上下文即将用满，自动压缩已关闭，请手动压缩，否则很快无法发送新消息。",
   "@composerContextFullOff": {
     "description": "用量弹出框上下文一节的说明：快满了且自动压缩关着。"
   },
-  "composerContextOff": "自动压缩已关闭（Zeta 或 Claude Code 的设置），快满时手动压缩。",
+  "composerContextOff": "自动压缩已关闭（受 Zeta 或 Claude Code 设置控制），即将用满时请手动压缩。",
   "@composerContextOff": {
     "description": "用量弹出框上下文一节的说明：自动压缩关着。"
   },
-  "composerContextFull": "快满了，Claude Code 马上会自动压缩；也可以现在手动压缩。",
+  "composerContextFull": "上下文即将用满，Claude Code 将很快自动压缩，你也可以现在手动压缩。",
   "@composerContextFull": {
     "description": "用量弹出框上下文一节的说明：快满了。"
   },
-  "composerContextEstimated": "Claude Code 的估算，下一轮后按实测；快到上限时它会自动压缩。",
+  "composerContextEstimated": "此为 Claude Code 的估算值，下一轮起将按实测值显示；接近上限时会自动压缩。",
   "@composerContextEstimated": {
     "description": "用量弹出框上下文一节的说明：数是 Claude Code 估的。"
   },
-  "composerContextMeasured": "按上一轮实测；快到上限时 Claude Code 会自动压缩。",
+  "composerContextMeasured": "按上一轮实测值显示；接近上限时 Claude Code 会自动压缩。",
   "@composerContextMeasured": {
     "description": "用量弹出框上下文一节的说明：数是上一轮实测的。"
   },
@@ -2072,15 +2072,15 @@
       }
     }
   },
-  "usageCostEstimated": "带 ≈ 的是按 token 数和 API 标价估的：会话记录里没有费用。",
+  "usageCostEstimated": "带 ≈ 的金额按 token 数与 API 标价估算，会话记录中未包含实际费用。",
   "@usageCostEstimated": {
     "description": "用量弹出框累计一节下面的说明：费用是估的。"
   },
-  "usageCostPartial": "有些轮次用的模型不在价目表里，费用没有计入。",
+  "usageCostPartial": "部分轮次所用模型不在价目表中，未计入费用。",
   "@usageCostPartial": {
     "description": "用量弹出框累计一节下面的说明：有的轮次算不出费用。"
   },
-  "usageEarlierNotCounted": "更早的记录没有载入，也没有计入。",
+  "usageEarlierNotCounted": "更早的记录尚未载入，未计入统计。",
   "@usageEarlierNotCounted": {
     "description": "用量弹出框累计一节下面的说明：更早的记录没载入。"
   },
@@ -2119,7 +2119,7 @@
       }
     }
   },
-  "commonSendFailed": "没发出去：{error}",
+  "commonSendFailed": "发送失败：{error}",
   "@commonSendFailed": {
     "description": "消息没发出去的出错说明，后面是原因（输入栏上方、编辑消息后发送）。",
     "placeholders": {
@@ -2137,7 +2137,7 @@
       }
     }
   },
-  "chatDisconnectedNote": "Zeta 不连这台设备，它上面的对话在那边照样跑。连上后接着看。",
+  "chatDisconnectedNote": "Zeta 当前未连接该设备，设备上的对话仍会继续运行。重新连接后可继续查看。",
   "@chatDisconnectedNote": {
     "description": "对话所在设备断开时标题下面的说明。"
   },
@@ -2153,7 +2153,7 @@
   "@chatScrollToBottom": {
     "description": "对话没在最底下时浮在输入栏上方的按钮（读屏名字和悬停提示）。"
   },
-  "chatChangeCwd": "换工作目录",
+  "chatChangeCwd": "切换工作目录",
   "@chatChangeCwd": {
     "description": "新对话顶栏工作目录那一行（点了换目录）的读屏名字和悬停提示。"
   },
@@ -2161,7 +2161,7 @@
   "@chatCwdTitle": {
     "description": "新对话换工作目录对话框的标题。"
   },
-  "chatCwdSummary": "这个对话在「{name}」上的哪个目录下进行",
+  "chatCwdSummary": "选择该对话在「{name}」上的工作目录",
   "@chatCwdSummary": {
     "description": "新对话换工作目录对话框的说明。",
     "placeholders": {
@@ -2170,7 +2170,7 @@
       }
     }
   },
-  "chatCwdProblem": "Claude Code 起不来：{why}。点上面的工作目录换一个，或在「设备」页改默认工作目录。",
+  "chatCwdProblem": "Claude Code 无法启动：{why}。请点击上方工作目录切换，或在「设备」页修改默认工作目录。",
   "@chatCwdProblem": {
     "description": "输入栏上方的出错说明：工作目录进不去，Claude Code 起不来；why 是设备给的原因。",
     "placeholders": {
@@ -2247,7 +2247,7 @@
       }
     }
   },
-  "chatEarlierFailed": "没读到更早的记录：{error}",
+  "chatEarlierFailed": "无法读取更早的记录：{error}",
   "@chatEarlierFailed": {
     "description": "载入更早的记录没成功时的原因。",
     "placeholders": {
@@ -2260,11 +2260,11 @@
   "@emptyChatTitle": {
     "description": "新对话空白页的标题。"
   },
-  "emptyChatHostTip": "新对话开在哪台设备",
+  "emptyChatHostTip": "选择新对话运行的设备",
   "@emptyChatHostTip": {
     "description": "新对话空白页上设备胶囊的悬停提示。"
   },
-  "emptyChatHostLabel": "新对话开在哪台设备：{name}",
+  "emptyChatHostLabel": "新对话运行设备：{name}",
   "@emptyChatHostLabel": {
     "description": "新对话空白页上设备胶囊的读屏名字。",
     "placeholders": {
@@ -2306,7 +2306,7 @@
       }
     }
   },
-  "todoDismiss": "收掉这份任务清单",
+  "todoDismiss": "关闭任务清单",
   "@todoDismiss": {
     "description": "任务清单条右边的叉（读屏名字和悬停提示）。"
   },
@@ -2318,7 +2318,7 @@
   "@todoInProgress": {
     "description": "展开的任务清单里一项前面记号的读屏名字：正在做。"
   },
-  "todoPending": "待做",
+  "todoPending": "待处理",
   "@todoPending": {
     "description": "展开的任务清单里一项前面记号的读屏名字：还没做。"
   },
@@ -2346,11 +2346,11 @@
   "@findNoResults": {
     "description": "查找栏的计数：没有命中。"
   },
-  "findScope": "查提问和回答，不含工具步骤和思考",
+  "findScope": "搜索提问与回答，不含工具步骤和思考过程",
   "@findScope": {
     "description": "查找栏下面的说明。"
   },
-  "findScopeFailed": "查提问和回答，不含工具步骤和思考；{failed}，更早的 {count} 条没查",
+  "findScopeFailed": "搜索提问与回答，不含工具步骤和思考过程；{failed}，更早的 {count} 条未搜索",
   "@findScopeFailed": {
     "description": "查找栏下面的说明：更早的记录没载入成功，failed 是原因。",
     "placeholders": {
@@ -2362,7 +2362,7 @@
       }
     }
   },
-  "findScopeLoading": "查提问和回答，不含工具步骤和思考；正在载入更早的 {count} 条…",
+  "findScopeLoading": "搜索提问与回答，不含工具步骤和思考过程；正在载入更早的 {count} 条…",
   "@findScopeLoading": {
     "description": "查找栏下面的说明：正在载入更早的记录接着找。",
     "placeholders": {
@@ -2425,7 +2425,7 @@
   "@composerPickFolder": {
     "description": "选文件夹的系统对话框的标题。"
   },
-  "composerTooManyFiles": "一次最多收 {max} 个文件，另外 {rest} 个没有加进来",
+  "composerTooManyFiles": "单次最多添加 {max} 个文件，其余 {rest} 个未添加",
   "@composerTooManyFiles": {
     "description": "附件没加进来的原因：一次选的文件太多。",
     "placeholders": {
@@ -2437,7 +2437,7 @@
       }
     }
   },
-  "composerUnreadable": "「{name}」读不了，没有加进来",
+  "composerUnreadable": "无法读取「{name}」，未添加",
   "@composerUnreadable": {
     "description": "附件没加进来的原因：读不了这个文件。",
     "placeholders": {
@@ -2446,7 +2446,7 @@
       }
     }
   },
-  "composerFolderUnreadable": "文件夹「{name}」读不了，没有加进来",
+  "composerFolderUnreadable": "无法读取文件夹「{name}」，未添加",
   "@composerFolderUnreadable": {
     "description": "附件没加进来的原因：文件夹读不了。",
     "placeholders": {
@@ -2464,11 +2464,11 @@
       }
     }
   },
-  "composerTooLargeAdvice": "太大的文件传到设备上要多占一份同样大的空间，Claude 也读不完。要让 Claude 处理它，可以先把它放到设备上，再从附件菜单的「输入路径」引用。",
+  "composerTooLargeAdvice": "过大的文件上传后会额外占用同等存储空间，且 Claude 也无法完整读取。如需让 Claude 处理，建议先将文件放到设备上，再通过附件菜单的「输入路径」引用。",
   "@composerTooLargeAdvice": {
     "description": "附件没加进来弹框里，有文件因为太大没收时跟在后面的建议。"
   },
-  "composerProblemsTitle": "有些内容没有加进来",
+  "composerProblemsTitle": "部分内容未能添加",
   "@composerProblemsTitle": {
     "description": "附件没加进来时弹框的标题。"
   },
@@ -2485,11 +2485,11 @@
       }
     }
   },
-  "hostLoadUnknown": "设备负载：还没有读到",
+  "hostLoadUnknown": "设备负载：暂未获取",
   "@hostLoadUnknown": {
     "description": "顶栏 CPU 读数的悬停提示：还没读到。"
   },
-  "hostLoadTip": "{name} 的 CPU 使用率 {percent}%，{cores} 个核的平均（整机所有进程，同 Claude Code 状态栏的 cpu%）",
+  "hostLoadTip": "{name} 的 CPU 使用率为 {percent}%，{cores} 核平均（整机所有进程，同 Claude Code 状态栏的 cpu%）",
   "@hostLoadTip": {
     "description": "顶栏 CPU 读数的悬停提示：name 是设备名。",
     "placeholders": {
@@ -2504,7 +2504,7 @@
       }
     }
   },
-  "hostLoadDenied": "设备负载：那台主机不让读 CPU 计数（/proc/stat）",
+  "hostLoadDenied": "设备负载：无权限读取主机 CPU 计数（/proc/stat）",
   "@hostLoadDenied": {
     "description": "顶栏 CPU 读数的悬停提示：那台主机读不了 CPU 计数。"
   },
@@ -2528,11 +2528,11 @@
   "@sidebarManageDevices": {
     "description": "侧栏设备菜单最后一项：打开设置里的设备。"
   },
-  "sidebarNoDevices": "还没有设备",
+  "sidebarNoDevices": "暂无设备",
   "@sidebarNoDevices": {
     "description": "侧栏里还没添加任何设备时的一句灰字。"
   },
-  "sidebarNoChats": "还没有对话",
+  "sidebarNoChats": "暂无对话",
   "@sidebarNoChats": {
     "description": "侧栏里设备上还没有任何对话时的一句灰字。"
   },
@@ -2770,11 +2770,11 @@
       }
     }
   },
-  "sessionDeleteFailed": "删除没成功",
+  "sessionDeleteFailed": "删除失败",
   "@sessionDeleteFailed": {
     "description": "删除对话没成时弹框的标题，下面是原因。"
   },
-  "sessionActive": "这个对话正在进行",
+  "sessionActive": "该对话正在进行中",
   "@sessionActive": {
     "description": "删除对话时核心答它正在进行、没删时弹框的标题。"
   },
@@ -2782,35 +2782,35 @@
   "@sessionExportDialogTitle": {
     "description": "导出对话时系统存文件对话框的标题。"
   },
-  "sessionExportFailed": "导出没成功",
+  "sessionExportFailed": "导出失败",
   "@sessionExportFailed": {
     "description": "导出对话没成时弹框的标题，下面是原因。"
   },
-  "sessionArchiveFailed": "归档没成功",
+  "sessionArchiveFailed": "归档失败",
   "@sessionArchiveFailed": {
     "description": "归档对话没成时弹框的标题，下面是原因。"
   },
-  "sessionUnarchiveFailed": "取消归档没成功",
+  "sessionUnarchiveFailed": "取消归档失败",
   "@sessionUnarchiveFailed": {
     "description": "取消归档没成时弹框的标题，下面是原因。"
   },
-  "sessionPinFailed": "置顶没成功",
+  "sessionPinFailed": "置顶失败",
   "@sessionPinFailed": {
     "description": "置顶没成时弹框的标题，下面是原因。"
   },
-  "sessionUnpinFailed": "取消置顶没成功",
+  "sessionUnpinFailed": "取消置顶失败",
   "@sessionUnpinFailed": {
     "description": "取消置顶没成时弹框的标题，下面是原因。"
   },
-  "sessionMoveFailed": "调整位置没成功",
+  "sessionMoveFailed": "调整位置失败",
   "@sessionMoveFailed": {
     "description": "手动排序时拖动会话、新位置没记下时弹框的标题，下面是原因。"
   },
-  "sessionRenameFailed": "改名没成功",
+  "sessionRenameFailed": "重命名失败",
   "@sessionRenameFailed": {
     "description": "改对话标题没成时弹框的标题，下面是原因。"
   },
-  "sessionEndFailed": "结束没成功",
+  "sessionEndFailed": "结束对话失败",
   "@sessionEndFailed": {
     "description": "结束对话没成时弹框的标题，下面是原因。"
   },
@@ -2828,7 +2828,7 @@
       }
     }
   },
-  "sessionNoArchived": "没有归档的对话",
+  "sessionNoArchived": "暂无归档对话",
   "@sessionNoArchived": {
     "description": "看归档时一个都没有了的灰字。"
   },
@@ -2895,23 +2895,23 @@
   "@sessionEndButton": {
     "description": "结束对话确认框的确认按钮。"
   },
-  "sessionEndBusy": "它还在进行（在回答、等你确认或有后台任务），结束会一并停掉。",
+  "sessionEndBusy": "该对话仍在进行（正在回答、等待确认或有后台任务），结束将一并停止。",
   "@sessionEndBusy": {
     "description": "结束一个还在进行的对话前确认框说明的前半句。"
   },
-  "sessionEndBusyMany": "其中有还在进行（在回答、等你确认或有后台任务）或在别处运行的，结束会一并停掉。",
+  "sessionEndBusyMany": "其中包含正在进行（正在回答、等待确认或有后台任务）或在别处运行的对话，结束将一并停止。",
   "@sessionEndBusyMany": {
     "description": "结束几个对话前确认框说明的前半句。"
   },
-  "sessionEndIdle": "结束会停掉它背后的 Claude Code 进程。",
+  "sessionEndIdle": "结束将停止其后台 Claude Code 进程。",
   "@sessionEndIdle": {
     "description": "结束一个闲着的对话前确认框说明的前半句。"
   },
-  "sessionEndIdleMany": "结束会停掉它们背后的 Claude Code 进程。",
+  "sessionEndIdleMany": "结束将停止它们的后台 Claude Code 进程。",
   "@sessionEndIdleMany": {
     "description": "结束几个都闲着的对话前确认框说明的前半句。"
   },
-  "sessionEndExternal": "它正在{place}运行，结束会停掉那边的进程，那边在做的也一并停掉。",
+  "sessionEndExternal": "该对话正在{place}运行，结束将停止对方进程及当前操作。",
   "@sessionEndExternal": {
     "description": "结束一个在别处运行的对话前确认框说明的前半句；place 是在哪运行（如「work-pc 的终端里」），不知道时是「别处」那一条。",
     "placeholders": {
@@ -2925,7 +2925,7 @@
   "@sessionEndElsewhere": {
     "description": "结束确认框里不知道对话在哪运行时代替地点的词，填进「它正在{place}运行」。"
   },
-  "sessionEndConfirm": "{what}对话内容保留，可以从历史对话里接着聊。",
+  "sessionEndConfirm": "{what}对话记录会保留，之后可从历史对话中继续。",
   "@sessionEndConfirm": {
     "description": "结束对话确认框的说明：what 是前半句（还在进行、在别处运行），后面说对话内容保留。",
     "placeholders": {
@@ -2955,11 +2955,11 @@
   "@searchContentRunning": {
     "description": "搜索结果末尾：标题比完了，还在搜对话内容。"
   },
-  "searchPartial": "结果较多，只列出了一部分，换个更具体的词试试",
+  "searchPartial": "匹配结果较多，仅显示部分，可尝试更具体的关键词",
   "@searchPartial": {
     "description": "搜索结果末尾：结果太多只列了一部分。"
   },
-  "searchContentFailed": "对话内容没搜成，只比对了标题",
+  "searchContentFailed": "对话内容搜索失败，仅匹配了标题",
   "@searchContentFailed": {
     "description": "搜索结果末尾：对话内容没搜成。"
   },
@@ -2993,7 +2993,7 @@
   "@tasksTitle": {
     "description": "侧栏的后台任务入口、后台任务面板和任务列表页的标题。"
   },
-  "tasksBackgroundChatsFooter": "侧栏列着的设备上，还在回答、等你确认或有后台任务的其他对话，手机上开着的也在里面。点一个切过去。",
+  "tasksBackgroundChatsFooter": "侧栏所列设备中，正在回答、等待确认或运行后台任务的其他对话（含手机端发起的对话）。点击即可切换。",
   "@tasksBackgroundChatsFooter": {
     "description": "后台任务面板里「后台对话」一组下面的说明。"
   },
@@ -3017,15 +3017,15 @@
       }
     }
   },
-  "tasksNoBackgroundChats": "没有在后台运行的对话",
+  "tasksNoBackgroundChats": "暂无后台运行的对话",
   "@tasksNoBackgroundChats": {
     "description": "「后台对话」一组里一个都没有时的一行。"
   },
-  "tasksNone": "没有后台任务",
+  "tasksNone": "暂无后台任务",
   "@tasksNone": {
     "description": "没有后台任务时的一行标题。"
   },
-  "tasksNoneSummary": "Claude 用 run_in_background 跑的命令、Monitor 和后台子代理会列在这里",
+  "tasksNoneSummary": "Claude 通过 run_in_background 运行的命令、Monitor 和后台子代理会显示在这里",
   "@tasksNoneSummary": {
     "description": "没有后台任务时那一行的说明。"
   },
@@ -3057,11 +3057,11 @@
       }
     }
   },
-  "tasksListFooter": "Claude 在对话里放到后台跑的命令、监视器和子代理。它们跑在对话的 Claude Code 进程里：对话闲下来被 Zeta 收起、或进程结束时，没跑完的一起结束。结束了的留最近 20 个。",
+  "tasksListFooter": "Claude 在对话中启动的后台命令、监视器和子代理。它们运行在当前对话的 Claude Code 进程内：对话闲置释放或进程结束时，未完成的任务也会随之终止。已结束的任务最多保留最近 20 条。",
   "@tasksListFooter": {
     "description": "后台任务列表下面的说明。"
   },
-  "tasksGone": "这个任务已经不在了",
+  "tasksGone": "该任务已不存在",
   "@tasksGone": {
     "description": "后台任务详情页：任务已经不在清单里了。"
   },
@@ -3139,7 +3139,7 @@
   "@tasksOutput": {
     "description": "后台命令、监视器详情页里输出一块的标题。"
   },
-  "tasksOutputFailed": "没读到：{error}",
+  "tasksOutputFailed": "无法读取输出：{error}",
   "@tasksOutputFailed": {
     "description": "输出一块的内容：输出没读到，后面是原因。",
     "placeholders": {
@@ -3149,11 +3149,11 @@
       }
     }
   },
-  "tasksOutputGone": "进程已经结束，读不到输出了",
+  "tasksOutputGone": "进程已结束，无法读取输出",
   "@tasksOutputGone": {
     "description": "输出一块的内容：对话的进程已结束。"
   },
-  "tasksOutputEmpty": "（还没有输出）",
+  "tasksOutputEmpty": "（暂无输出）",
   "@tasksOutputEmpty": {
     "description": "输出一块的内容：还没有输出。"
   },
@@ -3167,7 +3167,7 @@
       }
     }
   },
-  "tasksOutputTail": "输出 · 共 {size}，只显示最后 8 KB",
+  "tasksOutputTail": "输出 · 共 {size}，仅显示最后 8 KB",
   "@tasksOutputTail": {
     "description": "输出一块的标题：输出太长，只显示最后 8 KB。",
     "placeholders": {
@@ -3273,7 +3273,7 @@
       }
     }
   },
-  "tasksStopAgentNote": "{title}\n子代理停下后，Claude 会收到通知并接着处理。",
+  "tasksStopAgentNote": "{title}\n子代理停止后，Claude 会收到通知并继续处理。",
   "@tasksStopAgentNote": {
     "description": "停止子代理前确认框的说明；title 是任务的说明。",
     "placeholders": {
@@ -3291,7 +3291,7 @@
   "@tasksChatAnswering": {
     "description": "后台对话一行的状态：Claude 正在回答。"
   },
-  "tasksChatTasks": "{count, plural, other {# 个后台任务在跑}}",
+  "tasksChatTasks": "{count, plural, other {# 个后台任务运行中}}",
   "@tasksChatTasks": {
     "description": "后台对话一行的状态：有几个后台任务在跑。",
     "placeholders": {
@@ -3425,7 +3425,7 @@
   "@settingsTranslucent": {
     "description": "设置「常规」外观里的开关（也是开关的读屏名字）：看大图的遮罩、聊天顶栏这些毛玻璃透不透出底下的界面。"
   },
-  "settingsTranslucentSummary": "看大图的遮罩、聊天顶栏透出底下模糊的界面；关着时是不透明的底色。不跟随 Windows 的透明效果设置",
+  "settingsTranslucentSummary": "大图遮罩与聊天顶栏会透出下方的模糊界面；关闭时显示为不透明底色。不跟随 Windows 的透明效果设置",
   "@settingsTranslucentSummary": {
     "description": "半透明开关下面的说明。「透明效果」是 Windows 设置「个性化 > 颜色」里的开关。"
   },
@@ -3445,7 +3445,7 @@
   "@settingsAutoLoadImages": {
     "description": "设置「常规」对话一组的开关。"
   },
-  "settingsAutoLoadImagesSummary": "关着时回答里的网络图片先显示「加载图片」，点了才去取：取图会把这台电脑的 IP 交给图片所在的网站",
+  "settingsAutoLoadImagesSummary": "关闭时，回答中的网络图片会先显示「加载图片」，点击后再加载；加载图片会将本机 IP 发送给图片所在网站",
   "@settingsAutoLoadImagesSummary": {
     "description": "自动加载网络图片开关下面的说明。「加载图片」是聊天里图片位置上的按钮。"
   },
@@ -3465,7 +3465,7 @@
   "@shortcutSearch": {
     "description": "快捷键一览：焦点放进侧栏的搜索框。"
   },
-  "shortcutToggleSidebar": "收起、展开侧栏",
+  "shortcutToggleSidebar": "收起或展开侧栏",
   "@shortcutToggleSidebar": {
     "description": "快捷键一览：收起或展开侧栏。"
   },
@@ -3477,11 +3477,11 @@
   "@shortcutPreviousChat": {
     "description": "快捷键一览：打开侧栏列表里的上一个对话。"
   },
-  "shortcutNthChat": "侧栏里第几个对话",
+  "shortcutNthChat": "切换至侧栏第 1–9 个对话",
   "@shortcutNthChat": {
     "description": "快捷键一览：Ctrl+1 到 9 打开侧栏列表里第几个对话。"
   },
-  "shortcutNextWaiting": "下一个等你回应的对话",
+  "shortcutNextWaiting": "下一个待回应的对话",
   "@shortcutNextWaiting": {
     "description": "快捷键一览：打开下一个在等用户确认或回答的对话。"
   },
@@ -3517,7 +3517,7 @@
   "@shortcutFindStep": {
     "description": "快捷键一览：查找条里 Enter 跳到下一处、Shift+Enter 上一处。"
   },
-  "shortcutSelectAll": "侧栏列表里：全选列着的对话",
+  "shortcutSelectAll": "侧栏列表中：全选当前列出的对话",
   "@shortcutSelectAll": {
     "description": "快捷键一览：焦点在侧栏列表里时 Ctrl+A 全选。"
   },
@@ -3579,7 +3579,7 @@
   "@devicesAddress": {
     "description": "手动添加的地址输入框的读屏名字，也是设备页上一行的标题。"
   },
-  "devicesNotAdded": "没有添加「{target}」",
+  "devicesNotAdded": "无法添加「{target}」",
   "@devicesNotAdded": {
     "description": "添加设备时连不上，提示框的标题；正文是原因。",
     "placeholders": {
@@ -3589,7 +3589,7 @@
       }
     }
   },
-  "devicesNotSaved": "「{device}」没存上",
+  "devicesNotSaved": "「{device}」保存失败",
   "@devicesNotSaved": {
     "description": "设备连上了但存不进设置文件，提示框的标题；正文是原因。",
     "placeholders": {
@@ -3645,11 +3645,11 @@
   "@deviceConnect": {
     "description": "设备页的开关：关掉后 Zeta 不连这台设备（行标题和开关的读屏名字）。"
   },
-  "deviceConnectSummary": "用到这台设备时连上，断了自动重连",
+  "deviceConnectSummary": "使用该设备时自动连接，断开后自动重连",
   "@deviceConnectSummary": {
     "description": "「连接」开关开着时下面的说明。"
   },
-  "deviceOffSummary": "已断开：Zeta 不连这台设备，它上面的对话在那边照样跑",
+  "deviceOffSummary": "已断开：Zeta 不会连接该设备，设备上的对话仍会继续运行",
   "@deviceOffSummary": {
     "description": "「连接」开关关着时下面的说明。"
   },
@@ -3689,11 +3689,11 @@
       }
     }
   },
-  "deviceCheckMismatch": "没连上：主机指纹和记下的不一样",
+  "deviceCheckMismatch": "连接失败：主机指纹与已保存的不一致",
   "@deviceCheckMismatch": {
     "description": "检查连接下面的结果：对方的主机公钥变了。"
   },
-  "deviceCheckFailed": "没连上：{reason}",
+  "deviceCheckFailed": "连接失败：{reason}",
   "@deviceCheckFailed": {
     "description": "检查连接下面的结果：连不上，后面是原因。",
     "placeholders": {
@@ -3703,7 +3703,7 @@
       }
     }
   },
-  "deviceCheckOk": "连上了：{summary}",
+  "deviceCheckOk": "连接成功：{summary}",
   "@deviceCheckOk": {
     "description": "检查连接下面的结果：连上了，后面是 Claude Code 版本和系统。",
     "placeholders": {
@@ -3713,7 +3713,7 @@
       }
     }
   },
-  "deviceNameHint": "留空就用设备自己的名字「{name}」",
+  "deviceNameHint": "留空则使用设备默认名称「{name}」",
   "@deviceNameHint": {
     "description": "改设备名对话框的说明。",
     "placeholders": {
@@ -3723,11 +3723,11 @@
       }
     }
   },
-  "deviceFingerprintTitle": "主机指纹变了",
+  "deviceFingerprintTitle": "主机指纹已变更",
   "@deviceFingerprintTitle": {
     "description": "检查连接时发现主机指纹和记下的不一样，确认框的标题。"
   },
-  "deviceFingerprintMessage": "记下的：{saved}\n现在的：{seen}\n确认是那台设备换过密钥（比如重装过系统）再改认新的；不确定的话可能连到了别的机器上。",
+  "deviceFingerprintMessage": "已保存：{saved}\n当前值：{seen}\n请确认该设备确实更换过密钥（例如重装系统）后再信任新指纹；若无法确认，可能连接到了其他主机。",
   "@deviceFingerprintMessage": {
     "description": "主机指纹变了的确认框正文。",
     "placeholders": {
@@ -3741,11 +3741,11 @@
       }
     }
   },
-  "deviceTrustNew": "改认新的",
+  "deviceTrustNew": "信任新指纹",
   "@deviceTrustNew": {
     "description": "主机指纹变了的确认框里的按钮：以后认新的指纹。"
   },
-  "deviceTrusted": "已改认新的主机指纹，再检查一次连接",
+  "deviceTrusted": "已信任新的主机指纹，请重新检查连接",
   "@deviceTrusted": {
     "description": "改认新指纹后检查连接下面的说明。"
   },
@@ -3759,7 +3759,7 @@
       }
     }
   },
-  "deviceDisconnectMessage": "这台设备上有对话在进行（在回答、等你确认或有后台任务）。断开后它们在那边接着跑完，打开连接后接着看；等你确认的要连上后才能答。",
+  "deviceDisconnectMessage": "该设备上有对话正在进行（正在回答、等待确认或有后台任务）。断开后它们会在设备上继续运行，重新连接后可继续查看；等待确认的操作需重新连接后才能回应。",
   "@deviceDisconnectMessage": {
     "description": "断开设备确认框的正文。"
   },
@@ -3777,7 +3777,7 @@
       }
     }
   },
-  "deviceRemoveMessage": "只是 Zeta 不再连它。那台设备上的会话记录、Claude Code 的配置都不动。",
+  "deviceRemoveMessage": "仅从 Zeta 移除连接，不会影响该设备上的会话记录与 Claude Code 配置。",
   "@deviceRemoveMessage": {
     "description": "删除设备确认框的正文。"
   },
@@ -3785,7 +3785,7 @@
   "@deviceRemoveConfirm": {
     "description": "删除设备确认框里确认的按钮（红色）。"
   },
-  "deviceCwdSummary": "在这台设备上开新对话时的工作目录，~ 是 {home}",
+  "deviceCwdSummary": "在该设备上新建对话时的默认工作目录，~ 表示 {home}",
   "@deviceCwdSummary": {
     "description": "改默认工作目录对话框的说明。",
     "placeholders": {
@@ -3795,7 +3795,7 @@
       }
     }
   },
-  "deviceCwdVerifying": "正在到「{device}」上看 {path} 能不能进去…",
+  "deviceCwdVerifying": "正在检查「{device}」上的 {path} 是否可访问…",
   "@deviceCwdVerifying": {
     "description": "改默认工作目录对话框的说明：存之前正在设备上核对这个目录。",
     "placeholders": {
@@ -3809,7 +3809,7 @@
       }
     }
   },
-  "deviceCwdProblem": "{problem}。换一个目录，或先在那边建好。",
+  "deviceCwdProblem": "{problem}。请更换目录，或先在设备上创建该目录。",
   "@deviceCwdProblem": {
     "description": "改默认工作目录对话框的说明：那个目录进不去，前面是设备上查到的原因。",
     "placeholders": {
@@ -3823,7 +3823,7 @@
   "@deviceCwdUncheckedTitle": {
     "description": "改默认工作目录时连不上设备，问仍然保存吗的确认框标题。"
   },
-  "deviceCwdUncheckedMessage": "没连上「{device}」，不知道 {path} 在那边能不能进去：{reason}。仍然保存的话，进不去时开新对话会再说。",
+  "deviceCwdUncheckedMessage": "无法连接「{device}」，暂时无法确认 {path} 是否可访问：{reason}。若仍然保存，新建对话时如无法访问会再提示。",
   "@deviceCwdUncheckedMessage": {
     "description": "无法核对这个目录的确认框正文。",
     "placeholders": {
@@ -3851,7 +3851,7 @@
       }
     }
   },
-  "pathDialogHint": "这台设备上一个文件或文件夹的绝对路径，Claude 会直接读到它。",
+  "pathDialogHint": "输入该设备上文件或文件夹的绝对路径，Claude 将直接读取。",
   "@pathDialogHint": {
     "description": "输入路径对话框标题下面的说明。"
   },
@@ -3863,7 +3863,7 @@
   "@pathDialogAttach": {
     "description": "输入路径对话框里确认的按钮：把这个路径作为附件加进输入栏。"
   },
-  "pathDialogChecking": "正在查…",
+  "pathDialogChecking": "正在检查…",
   "@pathDialogChecking": {
     "description": "输入路径对话框里跟在输入框后面的小字：正在设备上查这个路径。"
   },
@@ -3879,15 +3879,15 @@
   "@pathDialogUnavailable": {
     "description": "输入路径对话框里跟在输入框后面的小字：不能引用，原因写在下面。"
   },
-  "pathDialogNotAbsolute": "要输入以 / 开头的绝对路径",
+  "pathDialogNotAbsolute": "请输入以 / 开头的绝对路径",
   "@pathDialogNotAbsolute": {
     "description": "输入路径对话框里输入框下面的问题。"
   },
-  "pathDialogBadChars": "路径里不能有双引号或控制字符",
+  "pathDialogBadChars": "路径不能包含双引号或控制字符",
   "@pathDialogBadChars": {
     "description": "输入路径对话框里输入框下面的问题。"
   },
-  "pathDialogCheckError": "查不了：{error}",
+  "pathDialogCheckError": "无法检查：{error}",
   "@pathDialogCheckError": {
     "description": "输入路径对话框里输入框下面的问题：没查成，后面是原因。",
     "placeholders": {
@@ -3897,7 +3897,7 @@
       }
     }
   },
-  "pathDialogMissing": "没有这个路径：{path}",
+  "pathDialogMissing": "路径不存在：{path}",
   "@pathDialogMissing": {
     "description": "输入路径对话框里输入框下面的问题。",
     "placeholders": {
@@ -3917,7 +3917,7 @@
       }
     }
   },
-  "pathDialogCheckFailed": "查不了这个路径",
+  "pathDialogCheckFailed": "无法检查该路径",
   "@pathDialogCheckFailed": {
     "description": "输入路径对话框里输入框下面的问题：设备给了认不得的结果。"
   },
@@ -3999,7 +3999,7 @@
   "@promptDontAskAgain": {
     "description": "工具确认卡的勾选项：允许时按 Claude Code 给的建议记下规则。"
   },
-  "promptDenyPlaceholder": "拒绝时告诉 Claude 换个做法（可不填）",
+  "promptDenyPlaceholder": "拒绝时可向 Claude 说明替代方案（选填）",
   "@promptDenyPlaceholder": {
     "description": "工具确认卡里拒绝理由输入框的占位。"
   },
@@ -4031,7 +4031,7 @@
   "@promptPlanAskEach": {
     "description": "计划审批卡的选项：批准后每次改动都要确认。"
   },
-  "promptPlanFeedbackPlaceholder": "不批准：告诉 Claude 要改什么",
+  "promptPlanFeedbackPlaceholder": "不批准时，告诉 Claude 需要修改的地方",
   "@promptPlanFeedbackPlaceholder": {
     "description": "计划审批卡里修改意见输入框的占位。"
   },
@@ -4075,7 +4075,7 @@
   "@promptNotes": {
     "description": "提问卡里备注输入框的读屏名字。"
   },
-  "promptNotesPlaceholder": "备注（可不填）",
+  "promptNotesPlaceholder": "备注（选填）",
   "@promptNotesPlaceholder": {
     "description": "提问卡里备注输入框的占位。"
   },
@@ -4119,11 +4119,11 @@
   "@messageRestoreCode": {
     "description": "自己发的消息的右键菜单项：把文件改回这条消息之前的样子。"
   },
-  "messagePromptExists": "已经在常用指令里了",
+  "messagePromptExists": "已在常用指令中",
   "@messagePromptExists": {
     "description": "收藏消息为常用指令时的提示：同样的内容已存过。"
   },
-  "messagePromptSaveFailed": "常用指令没存上：{error}",
+  "messagePromptSaveFailed": "常用指令保存失败：{error}",
   "@messagePromptSaveFailed": {
     "description": "收藏消息为常用指令时的提示：存设置失败。",
     "placeholders": {
@@ -4133,7 +4133,7 @@
       }
     }
   },
-  "messagePromptSaved": "已收藏，在输入栏左下角的「+」里",
+  "messagePromptSaved": "已收藏，可在「+」菜单中查看",
   "@messagePromptSaved": {
     "description": "收藏消息为常用指令成功后的提示。"
   },
@@ -4149,11 +4149,11 @@
   "@messageFork": {
     "description": "一轮对话下的操作键：从这一轮分出一个新对话。"
   },
-  "messageImagesLost": "有图片取不回来，没有放进输入框",
+  "messageImagesLost": "部分图片无法读取，未放入输入框",
   "@messageImagesLost": {
     "description": "编辑消息时输入栏上方的提示：原消息里有图片取不回来。"
   },
-  "messageWaitRound": "等这一轮结束再发",
+  "messageWaitRound": "请等待当前回复结束后再发送",
   "@messageWaitRound": {
     "description": "编辑消息后发送时的提示：这一轮还没结束。"
   },
@@ -4185,7 +4185,7 @@
   "@messageAlsoRestoreCode": {
     "description": "重新生成、删除一轮的确认框的勾选项。"
   },
-  "messageFilesChanged": "这条消息之后改过 {count} 个文件（+{insertions} −{deletions}）。",
+  "messageFilesChanged": "该消息之后修改了 {count} 个文件（+{insertions} −{deletions}）。",
   "@messageFilesChanged": {
     "description": "确认框说明里的一句：这条消息之后改过多少文件、加减多少行。",
     "placeholders": {
@@ -4247,7 +4247,7 @@
   "@messageRestore": {
     "description": "还原代码确认框的确认键。"
   },
-  "messageRestoreCheckFailed": "没查到改过哪些文件：{error}",
+  "messageRestoreCheckFailed": "无法获取已修改的文件列表：{error}",
   "@messageRestoreCheckFailed": {
     "description": "还原代码确认框的说明：问核心改过哪些文件失败。",
     "placeholders": {
@@ -4257,15 +4257,15 @@
       }
     }
   },
-  "messageRestoreChecking": "正在查这条消息之后改过哪些文件…",
+  "messageRestoreChecking": "正在查询该消息之后修改的文件…",
   "@messageRestoreChecking": {
     "description": "还原代码确认框的说明：正在问。"
   },
-  "messageRestoreNothing": "这条消息之后没有可还原的文件改动。",
+  "messageRestoreNothing": "该消息之后没有可还原的文件改动。",
   "@messageRestoreNothing": {
     "description": "还原代码确认框的说明：没有改过文件。"
   },
-  "messageRestoreSummary": "把文件改回这条消息之前的样子，对话不动。{files}",
+  "messageRestoreSummary": "将文件还原至该消息之前的状态，对话记录保持不变。{files}",
   "@messageRestoreSummary": {
     "description": "还原代码确认框的说明，files 是 messageFilesChanged 那一句。",
     "placeholders": {
@@ -4299,7 +4299,7 @@
       }
     }
   },
-  "handoffQuerying": "正在查询那边的状态。",
+  "handoffQuerying": "正在查询运行状态。",
   "@handoffQuerying": {
     "description": "别处运行卡片的说明：还没查到那边的样子。"
   },
@@ -4327,11 +4327,11 @@
   "@handoffAppClaudeDesktop": {
     "description": "占着会话的应用：Claude 桌面版，填进 handoffPlace… 的 app。"
   },
-  "handoffPlaceLocalTerminal": "本机终端里",
+  "handoffPlaceLocalTerminal": "本机终端中",
   "@handoffPlaceLocalTerminal": {
     "description": "会话在哪运行：本机的终端里。接在「会话正在」「它正在」后面。"
   },
-  "handoffPlaceLocal": "本机的{app}里",
+  "handoffPlaceLocal": "本机的{app}中",
   "@handoffPlaceLocal": {
     "description": "会话在哪运行：本机的某个应用里。接在「会话正在」「它正在」后面。",
     "placeholders": {
@@ -4341,7 +4341,7 @@
       }
     }
   },
-  "handoffPlaceDevice": "{device}的{app}里",
+  "handoffPlaceDevice": "{device}的{app}中",
   "@handoffPlaceDevice": {
     "description": "会话在哪运行：某台设备的某个应用里（中文的空格由程序在中西文相接处补）。",
     "placeholders": {
@@ -4355,7 +4355,7 @@
       }
     }
   },
-  "handoffPlaceApp": "{app}里",
+  "handoffPlaceApp": "{app}中",
   "@handoffPlaceApp": {
     "description": "会话在哪运行：只知道应用。",
     "placeholders": {
@@ -4375,11 +4375,11 @@
       }
     }
   },
-  "handoffWaiting": "正在等待确认。接管后这个确认作废，要让 Claude 重做这一步。",
+  "handoffWaiting": "正在等待确认。接管后当前确认将失效，需让 Claude 重新执行该步骤。",
   "@handoffWaiting": {
     "description": "别处运行卡片的说明：那边在等确认。"
   },
-  "handoffWaitingFor": "正在等待确认：{what}。接管后这个确认作废，要让 Claude 重做这一步。",
+  "handoffWaitingFor": "正在等待确认：{what}。接管后当前确认将失效，需让 Claude 重新执行该步骤。",
   "@handoffWaitingFor": {
     "description": "别处运行卡片的说明：那边在等确认，what 是等确认的工具。",
     "placeholders": {
@@ -4389,7 +4389,7 @@
       }
     }
   },
-  "handoffUnknown": "看不出是否空闲。接管会让它退出，进行中的操作会中断。",
+  "handoffUnknown": "无法判断是否空闲。接管会导致对方退出，进行中的操作将被中断。",
   "@handoffUnknown": {
     "description": "别处运行卡片的说明：看不出那边的状态。"
   },
@@ -4401,11 +4401,11 @@
   "@handoffBusy": {
     "description": "别处运行卡片的说明：那边正在回答。"
   },
-  "handoffEffectZeta": "接管后那边的对话会结束，会话转到这里继续。",
+  "handoffEffectZeta": "接管后原设备的对话将结束，会话转至此设备继续。",
   "@handoffEffectZeta": {
     "description": "接管的后果：占着的是 Zeta。"
   },
-  "handoffEffectOther": "接管后那边会退出，会话转到 Zeta 继续。",
+  "handoffEffectOther": "接管后对方将退出，会话转至 Zeta 继续。",
   "@handoffEffectOther": {
     "description": "接管的后果：占着的是终端等。"
   },
@@ -4413,7 +4413,7 @@
   "@subagentStateReadFailed": {
     "description": "子代理页概要右边的状态。"
   },
-  "subagentStateMissing": "没有记录",
+  "subagentStateMissing": "暂无记录",
   "@subagentStateMissing": {
     "description": "子代理页概要右边的状态。"
   },
@@ -4421,11 +4421,11 @@
   "@subagentStateLoading": {
     "description": "子代理页概要右边的状态。"
   },
-  "subagentStateUnfinished": "未做完",
+  "subagentStateUnfinished": "未完成",
   "@subagentStateUnfinished": {
     "description": "子代理页概要右边的状态：没跑完就停了。"
   },
-  "subagentWatchFailed": "没看上：{error}",
+  "subagentWatchFailed": "无法读取进度：{error}",
   "@subagentWatchFailed": {
     "description": "子代理页没有步骤时的说明：这边没读成。",
     "placeholders": {
@@ -4435,11 +4435,11 @@
       }
     }
   },
-  "subagentMissing": "没有找到它的记录：Claude Code 还没写出来，或者会话已经删了",
+  "subagentMissing": "未找到该子代理的记录：Claude Code 可能尚未写入，或会话已被删除",
   "@subagentMissing": {
     "description": "子代理页没有步骤时的说明。"
   },
-  "subagentNoSteps": "还没有步骤",
+  "subagentNoSteps": "暂无步骤",
   "@subagentNoSteps": {
     "description": "子代理页没有步骤时的说明。"
   },
@@ -4517,7 +4517,7 @@
   "@savedPromptsTitle": {
     "description": "常用指令列表对话框的标题。"
   },
-  "savedPromptsEmpty": "还没有常用指令。点「新建」写一条，或者在自己发过的消息上右键，选「收藏为常用指令」。点一条就把它填进输入框，可以改了再发。",
+  "savedPromptsEmpty": "暂无常用指令。点击「新建」添加，或在已发送的消息上右键选择「收藏为常用指令」。点击条目即可填入输入框，修改后再发送。",
   "@savedPromptsEmpty": {
     "description": "常用指令列表对话框：还没有时的说明。"
   },
@@ -4541,11 +4541,11 @@
   "@savedPromptsNewTitle": {
     "description": "新建常用指令对话框的标题。"
   },
-  "savedPromptsNamePlaceholder": "名字（可不填）",
+  "savedPromptsNamePlaceholder": "名称（选填）",
   "@savedPromptsNamePlaceholder": {
     "description": "常用指令对话框里名字输入框的占位。"
   },
-  "savedPromptsName": "名字",
+  "savedPromptsName": "名称",
   "@savedPromptsName": {
     "description": "常用指令对话框里名字输入框的读屏名字。"
   },
@@ -4557,7 +4557,7 @@
   "@savedPromptsDeleteTitle": {
     "description": "删除常用指令的确认框标题。"
   },
-  "savedPromptsDeleteMessage": "「{name}」删除后找不回来。",
+  "savedPromptsDeleteMessage": "「{name}」删除后无法恢复。",
   "@savedPromptsDeleteMessage": {
     "description": "删除常用指令的确认框说明。",
     "placeholders": {
@@ -4567,7 +4567,7 @@
       }
     }
   },
-  "savedPromptsSaveFailed": "常用指令没存上",
+  "savedPromptsSaveFailed": "常用指令保存失败",
   "@savedPromptsSaveFailed": {
     "description": "存常用指令失败时弹框的标题，下面是原因。"
   },
@@ -4583,7 +4583,7 @@
   "@commonCopy": {
     "description": "复制到剪贴板的按钮或菜单项。"
   },
-  "diagNoDevices": "还没有设备。添加设备后，这里能看那台上 Claude Code 的日志。",
+  "diagNoDevices": "暂无设备。添加设备后，可在此查看该设备上的 Claude Code 日志。",
   "@diagNoDevices": {
     "description": "诊断页上一台设备也没有时的提示。"
   },
@@ -4605,11 +4605,11 @@
   "@diagClaudeLogs": {
     "description": "诊断页里一台设备的日志还没读到、读不到或连接关着时那一组的标题。"
   },
-  "diagConnectionOff": "这台设备的「连接」关着，打开连接后才能看。",
+  "diagConnectionOff": "该设备的「连接」已关闭，开启连接后方可查看。",
   "@diagConnectionOff": {
     "description": "诊断页里设备的「连接」开关关着时，那台设备一组里的提示。"
   },
-  "diagDeviceLogsFailed": "读不到这台设备上的日志",
+  "diagDeviceLogsFailed": "无法读取该设备的日志",
   "@diagDeviceLogsFailed": {
     "description": "诊断页里读设备上的日志清单失败时那一行的标题，下面是原因。"
   },
@@ -4617,7 +4617,7 @@
   "@diagStderrGroup": {
     "description": "诊断页一台设备上的一组：各对话进程（Claude Code）写到标准错误的内容。"
   },
-  "diagStderrFooter": "正在进行的对话和最近结束的 {count} 个。",
+  "diagStderrFooter": "包含正在进行的对话及最近结束的 {count} 个对话。",
   "@diagStderrFooter": {
     "description": "「对话进程的错误输出」一组下面的说明：列哪些。",
     "placeholders": {
@@ -4627,7 +4627,7 @@
       }
     }
   },
-  "diagStderrEmpty": "对话进程没有往标准错误写过东西",
+  "diagStderrEmpty": "对话进程暂无标准错误输出",
   "@diagStderrEmpty": {
     "description": "「对话进程的错误输出」一组一个文件也没有时。"
   },
@@ -4635,7 +4635,7 @@
   "@diagDebugGroup": {
     "description": "诊断页一台设备上的一组：Claude Code 的调试日志文件。"
   },
-  "diagDebugFooter": "Claude Code 开着调试时才写，只列最近 {count} 个。",
+  "diagDebugFooter": "仅在 Claude Code 开启调试时生成，最多列出最近 {count} 个。",
   "@diagDebugFooter": {
     "description": "「Claude Code 调试日志」一组下面的说明。",
     "placeholders": {
@@ -4645,7 +4645,7 @@
       }
     }
   },
-  "diagDebugEmpty": "没有调试日志",
+  "diagDebugEmpty": "暂无调试日志",
   "@diagDebugEmpty": {
     "description": "「Claude Code 调试日志」一组一个文件也没有时。"
   },
@@ -4673,11 +4673,11 @@
   "@diagWhenOlder": {
     "description": "诊断页日志文件的改动时间（往年的）。这是 Go 的时间格式模板：2006 是年、1 是月、Jan 是英文月份简称、2 是日，译文照这几个记号写。"
   },
-  "diagTailTruncated": "只显示最后 64 KB",
+  "diagTailTruncated": "仅显示最后 64 KB",
   "@diagTailTruncated": {
     "description": "点开的日志文件上面一行（设备 · 路径 · 大小）后面：文件太大，只读了尾部。"
   },
-  "diagFileUnreadable": "读不出这个文件（可能已经被删掉了）",
+  "diagFileUnreadable": "无法读取该文件（可能已被删除）",
   "@diagFileUnreadable": {
     "description": "点开的日志文件读失败时的标题，下面是原因。"
   },
@@ -4689,7 +4689,7 @@
   "@diagRunLog": {
     "description": "诊断页里 Zeta 自己的运行日志：一组的标题、点进去那一页的标题。"
   },
-  "diagRunLogFooter": "Zeta 在这台电脑上记下的事：启动、出错和重连这类，只留最近 {count} 条。",
+  "diagRunLogFooter": "记录 Zeta 在本机的运行事件（如启动、出错与重连等），仅保留最近 {count} 条。",
   "@diagRunLogFooter": {
     "description": "诊断页「运行日志」一组下面的说明。",
     "placeholders": {
@@ -4703,7 +4703,7 @@
   "@diagViewRunLog": {
     "description": "诊断页「运行日志」一组里点进去看的一行。"
   },
-  "diagNoEntries": "还没有记录",
+  "diagNoEntries": "暂无记录",
   "@diagNoEntries": {
     "description": "运行日志一条记录也没有时（清单上那一行的副标题、运行日志页里）。"
   },
@@ -4753,7 +4753,7 @@
   "@diagCategory": {
     "description": "运行日志页的筛选：按类别（应用、对话、设备）。"
   },
-  "diagSeverity": "轻重",
+  "diagSeverity": "级别",
   "@diagSeverity": {
     "description": "运行日志页的筛选：按轻重（信息、警告、出错）。"
   },
@@ -4761,15 +4761,15 @@
   "@diagFilterAll": {
     "description": "运行日志页类别、轻重下拉的一项：不筛。"
   },
-  "diagFilterWarnings": "警告和出错",
+  "diagFilterWarnings": "警告与错误",
   "@diagFilterWarnings": {
     "description": "运行日志页轻重下拉的一项：只看警告和出错。"
   },
-  "diagFilterErrors": "只看出错",
+  "diagFilterErrors": "仅看错误",
   "@diagFilterErrors": {
     "description": "运行日志页轻重下拉的一项：只看出错。"
   },
-  "diagShownLimit": "只列最近 {count} 条，更早的在导出的诊断包里。",
+  "diagShownLimit": "仅列出最近 {count} 条，更早的记录请查看导出的诊断包。",
   "@diagShownLimit": {
     "description": "运行日志页下面的说明：列满了上限时。",
     "placeholders": {
@@ -4779,7 +4779,7 @@
       }
     }
   },
-  "diagClearFailed": "没清干净：{error}",
+  "diagClearFailed": "未能完全清空：{error}",
   "@diagClearFailed": {
     "description": "运行日志页下面：清空时有文件没删掉。",
     "placeholders": {
@@ -4797,7 +4797,7 @@
   "@diagClearTitle": {
     "description": "点运行日志页的「清空」后确认框的标题。"
   },
-  "diagClearMessage": "这台电脑上记下的都会删掉。",
+  "diagClearMessage": "将删除本机保存的全部运行日志。",
   "@diagClearMessage": {
     "description": "清空运行日志确认框的说明。"
   },
@@ -4805,7 +4805,7 @@
   "@diagExport": {
     "description": "诊断页最下面一行：点了打包并弹保存对话框；也是保存对话框的标题。"
   },
-  "diagExportNote": "把运行日志、环境和上面这些日志（各取最后 64 KB）打成一个 zip。token、密码这类值会先打码。",
+  "diagExportNote": "将运行日志、环境信息及上述日志（各取最后 64 KB）打包为 zip 文件。token、密码等敏感信息会自动脱敏。",
   "@diagExportNote": {
     "description": "「导出诊断包」一行下面的说明。"
   },
@@ -4813,7 +4813,7 @@
   "@diagExporting": {
     "description": "「导出诊断包」一行的副标题：正在打包。"
   },
-  "diagExportFailed": "没有导出：{error}",
+  "diagExportFailed": "导出失败：{error}",
   "@diagExportFailed": {
     "description": "「导出诊断包」一行的副标题（红字）：没导出成，后面是原因。",
     "placeholders": {
@@ -4879,7 +4879,7 @@
       }
     }
   },
-  "diagEnvHost": "地址 {target} · 连法 {via} · 私钥 {key} · 连接 {connection} · 主机名 {hostname} · 指纹 {fingerprint} · 默认工作目录 {cwd}",
+  "diagEnvHost": "地址 {target} · 连接方式 {via} · 私钥 {key} · 连接 {connection} · 主机名 {hostname} · 指纹 {fingerprint} · 默认工作目录 {cwd}",
   "@diagEnvHost": {
     "description": "诊断页「环境」一组里一台设备怎么连。",
     "placeholders": {
@@ -4913,7 +4913,7 @@
       }
     }
   },
-  "diagEnvKeyFromConfig": "照 ~/.ssh/config",
+  "diagEnvKeyFromConfig": "按 ~/.ssh/config",
   "@diagEnvKeyFromConfig": {
     "description": "设备一行里的私钥：没指定，按 ~/.ssh/config。"
   },
@@ -4951,7 +4951,7 @@
   "@chatEmptyFile": {
     "description": "改动卡片里：新建的文件没有内容。"
   },
-  "chatDiffClipped": "内容太长，记录里只留了前一部分，对比到截断处为止",
+  "chatDiffClipped": "内容过长，记录仅保留前段，对比至截断处为止",
   "@chatDiffClipped": {
     "description": "改动卡片底下：会话记录里改文件的参数被截断了。"
   },
@@ -4968,7 +4968,7 @@
   "@chatCollapse": {
     "description": "展开了的长改动底下收起的一行。"
   },
-  "chatCollapseHidden": "收起 · 还有 {lines} 行太长未显示",
+  "chatCollapseHidden": "收起 · 另有 {lines} 行因过长未显示",
   "@chatCollapseHidden": {
     "description": "展开了的长改动底下收起的一行：还有太多行没画出来。",
     "placeholders": {
@@ -4997,7 +4997,7 @@
   "@chatLoadingEarlier": {
     "description": "聊天列表顶上：正在载入更早的记录。"
   },
-  "chatTapToRetry": "{message}，点按重试",
+  "chatTapToRetry": "{message}，点击重试",
   "@chatTapToRetry": {
     "description": "聊天列表顶上没读到更早的记录时：原因后面说点一下重试。",
     "placeholders": {
@@ -5203,7 +5203,7 @@
       }
     }
   },
-  "chatTodoDelete": "删掉任务 #{id}",
+  "chatTodoDelete": "删除任务 #{id}",
   "@chatTodoDelete": {
     "description": "工具步骤的标题：任务清单里删掉一项。",
     "placeholders": {
@@ -5290,7 +5290,7 @@
   "@chatImageCopied": {
     "description": "看大图底下：图片已放上剪贴板。"
   },
-  "chatZoomActual": "原大",
+  "chatZoomActual": "原始大小",
   "@chatZoomActual": {
     "description": "看大图里图的缩放（读屏说明）：原大。"
   },
@@ -5362,7 +5362,7 @@
       }
     }
   },
-  "accountsSwitchMessage": "会先关掉这台设备上闲着的对话进程，对话内容不丢。之后这台上的新对话、额度和终端里的 claude 都用这个账号。",
+  "accountsSwitchMessage": "将先结束该设备上闲置的对话进程，对话记录不会丢失。之后该设备的新对话、额度及终端中的 claude 均会使用此账号。",
   "@accountsSwitchMessage": {
     "description": "账号页：切换账号确认框的说明。"
   },
@@ -5379,7 +5379,7 @@
       }
     }
   },
-  "accountsRemoveMessage": "只删这台设备上存着的这份登录，服务器上的登录还在。以后要用得重新登录。",
+  "accountsRemoveMessage": "仅删除该设备上保存的登录凭据，不影响服务端登录状态。之后使用需重新登录。",
   "@accountsRemoveMessage": {
     "description": "账号页：移除账号确认框的说明。"
   },
@@ -5395,11 +5395,11 @@
   "@accountsTitle": {
     "description": "账号页第二组的标题。"
   },
-  "accountsFooter": "这台设备上两个 Zeta 和终端里的 claude 共用一份登录，有对话在进行或别处开着 Claude Code 时不能切换。添加账号时在用的号先存起来，之后能切换回去。",
+  "accountsFooter": "该设备上各端 Zeta 与终端中的 claude 共用同一份登录；存在进行中的对话或其他位置运行着 Claude Code 时无法切换。添加新账号时会先保存当前账号，以便日后切回。",
   "@accountsFooter": {
     "description": "账号页「账号」一组底下的说明。"
   },
-  "accountsNotSignedIn": "还没有登录",
+  "accountsNotSignedIn": "尚未登录",
   "@accountsNotSignedIn": {
     "description": "账号页：这台设备上还没有登录任何账号。"
   },
@@ -5411,7 +5411,7 @@
   "@accountsCurrent": {
     "description": "账号页：在用的账号右边写的。"
   },
-  "accountsSave": "记下",
+  "accountsSave": "保存",
   "@accountsSave": {
     "description": "账号页：在用的登录还没记下名字时右边的按钮，记下后就能在这里切换。"
   },
@@ -5419,15 +5419,15 @@
   "@accountsExpired": {
     "description": "账号页一行的说明：这个账号的登录过期了。"
   },
-  "accountsUnnamed": "还没记下名字",
+  "accountsUnnamed": "未保存名称",
   "@accountsUnnamed": {
     "description": "账号页一行的说明：在用的登录还没记下名字。"
   },
-  "accountsBlocked": "已达上限，暂时发不出请求",
+  "accountsBlocked": "已达上限，暂时无法发送请求",
   "@accountsBlocked": {
     "description": "额度明细最上面：额度用完了。"
   },
-  "accountsBlockedUntil": "已达上限，暂时发不出请求，{reset}",
+  "accountsBlockedUntil": "已达上限，暂时无法发送请求，{reset}",
   "@accountsBlockedUntil": {
     "description": "额度明细最上面：额度用完了，后面是什么时候重置。",
     "placeholders": {
@@ -5448,7 +5448,7 @@
   "@accountsLoginTitle": {
     "description": "账号页：添加账号进行中的一组标题。"
   },
-  "accountsLoginFooter": "在浏览器里打开授权网页，登录要添加的 Claude 账号，再把网页给的授权码贴到这里。",
+  "accountsLoginFooter": "在浏览器中打开授权页面，登录要添加的 Claude 账号，再将页面返回的授权码粘贴到此处。",
   "@accountsLoginFooter": {
     "description": "账号页：添加账号进行中的一组底下的说明。"
   },
@@ -5481,7 +5481,7 @@
   "@accountsRelaysTitle": {
     "description": "账号页「中转」一组的标题：经中转用 API 密钥访问模型。"
   },
-  "accountsRelaysFooter": "Claude Code 经中转用 API 密钥访问模型，协议只有 Anthropic Messages。点一行换过去，和切换账号一样先关掉闲着的对话进程；在用中转时没有订阅额度。",
+  "accountsRelaysFooter": "Claude Code 通过中转使用 API 密钥访问模型，仅支持 Anthropic Messages 协议。点击条目即可切换，切换前会先结束闲置的对话进程；使用中转时不显示订阅额度。",
   "@accountsRelaysFooter": {
     "description": "账号页「中转」一组底下的说明。"
   },
@@ -5510,7 +5510,7 @@
       }
     }
   },
-  "accountsRelaySwitchMessage": "会先关掉这台设备上闲着的对话进程，对话内容不丢。之后这台上的新对话和终端里的 claude 都经这个中转，没有订阅额度。",
+  "accountsRelaySwitchMessage": "将先结束该设备上闲置的对话进程，对话记录不会丢失。之后该设备的新对话与终端中的 claude 均经此中转，不显示订阅额度。",
   "@accountsRelaySwitchMessage": {
     "description": "切换到中转的确认对话框的说明。"
   },
@@ -5540,7 +5540,7 @@
   "@accountsRelayNameHint": {
     "description": "中转编辑页：添加时名称输入框的占位字。"
   },
-  "accountsRelayNameFixed": "名称加好以后不能改",
+  "accountsRelayNameFixed": "创建后无法修改名称",
   "@accountsRelayNameFixed": {
     "description": "中转编辑页：编辑时名称一行下面的小字。"
   },
@@ -5552,11 +5552,11 @@
   "@accountsRelayKey": {
     "description": "中转编辑页：密钥一行。"
   },
-  "accountsRelayKeyKeep": "留空不改",
+  "accountsRelayKeyKeep": "留空则保持不变",
   "@accountsRelayKeyKeep": {
     "description": "中转编辑页：编辑时密钥输入框的占位字。"
   },
-  "accountsRelayKeyReadOnly": "密钥不是从文件读的，Zeta 改不了；在它的设置文件里改",
+  "accountsRelayKeyReadOnly": "该密钥并非从密钥文件读取，Zeta 无法修改，请在其配置文件中更改",
   "@accountsRelayKeyReadOnly": {
     "description": "中转编辑页：用户自己放的中转，密钥框灰着时下面的说明。"
   },
@@ -5572,11 +5572,11 @@
   "@accountsRelayModel": {
     "description": "中转编辑页：默认模型一组的标题和输入框的读屏名字。"
   },
-  "accountsRelayModelFooter": "使用这个中转时，这里和设备页的默认模型是同一项。留空时继承设备设置；对话里选的只管那个对话。",
+  "accountsRelayModelFooter": "使用该中转时，此处与设备页的默认模型为同一配置。留空则继承设备设置；单个对话内的选择仅对该对话生效。",
   "@accountsRelayModelFooter": {
     "description": "中转编辑页：默认模型一组底下的说明。"
   },
-  "accountsRelayModelNone": "不设",
+  "accountsRelayModelNone": "未设置",
   "@accountsRelayModelNone": {
     "description": "中转编辑页：默认模型输入框空着时的占位字。"
   },
@@ -5584,7 +5584,7 @@
   "@accountsRelayFetchModels": {
     "description": "中转编辑页：向中转要模型列表的按钮。"
   },
-  "accountsRelayFetchNeeds": "填好地址和密钥后能获取模型列表",
+  "accountsRelayFetchNeeds": "填写地址和密钥后即可获取模型列表",
   "@accountsRelayFetchNeeds": {
     "description": "中转编辑页：添加时还没填地址或密钥，获取模型列表的按钮点不了时的说明。"
   },
@@ -5592,7 +5592,7 @@
   "@accountsRelayFetching": {
     "description": "中转编辑页：正在向中转要模型列表。"
   },
-  "accountsRelayModelsEmpty": "这个中转没有报模型",
+  "accountsRelayModelsEmpty": "该中转未返回可用模型",
   "@accountsRelayModelsEmpty": {
     "description": "中转编辑页：模型列表取到了但是空的。"
   },
@@ -5600,11 +5600,11 @@
   "@accountsRelayModelsFilter": {
     "description": "中转编辑页：模型多时列表上面筛选框的占位字。"
   },
-  "accountsRelayModelsNoMatch": "没有对得上的模型",
+  "accountsRelayModelsNoMatch": "没有匹配的模型",
   "@accountsRelayModelsNoMatch": {
     "description": "中转编辑页：筛选后一个模型都不剩。"
   },
-  "accountsRelayModelsMore": "还有 {count} 个，输入筛选",
+  "accountsRelayModelsMore": "另有 {count} 个，请输入关键词筛选",
   "@accountsRelayModelsMore": {
     "description": "中转编辑页：模型太多只列了一部分，最后一行说还有多少。",
     "placeholders": {
@@ -5622,7 +5622,7 @@
   "@accountsRelayClearModel": {
     "description": "中转编辑页：清掉默认模型的按钮。"
   },
-  "accountsRelayCurrentNote": "正在用这个中转：改了以后，新起的对话进程才用上。要删除先换到别的账号或中转。",
+  "accountsRelayCurrentNote": "当前正在使用该中转：修改仅对新启动的对话进程生效。如需删除，请先切换至其他账号或中转。",
   "@accountsRelayCurrentNote": {
     "description": "中转编辑页：编辑的是在用的中转时下面的说明。"
   },
@@ -5635,11 +5635,11 @@
       }
     }
   },
-  "accountsRelayRemoveMessage": "删掉这台设备上这个中转的设置，和 Zeta 给它存的密钥文件。",
+  "accountsRelayRemoveMessage": "将删除该设备上此中转的配置及 Zeta 保存的密钥文件。",
   "@accountsRelayRemoveMessage": {
     "description": "删除中转的确认对话框的说明。"
   },
-  "accountsRelayUrlNote": "要是 Anthropic Messages 协议的接入点；OpenAI 协议的上游请经能翻译的中转接入。",
+  "accountsRelayUrlNote": "需为 Anthropic Messages 协议接入点；OpenAI 协议上游请通过协议转换中转接入。",
   "@accountsRelayUrlNote": {
     "description": "中转编辑页：地址输入框下面的说明。"
   },
@@ -5667,11 +5667,11 @@
   "@claudecfgAgyConfigTitle": {
     "description": "设备设置页 Antigravity 配置入口一组的标题。"
   },
-  "claudecfgAgyConfigFooter": "读取和修改那台设备上的 ~/.gemini/config 与 ~/.gemini/antigravity-cli 配置。",
+  "claudecfgAgyConfigFooter": "读取和修改该设备上的 ~/.gemini/config 与 ~/.gemini/antigravity-cli 配置。",
   "@claudecfgAgyConfigFooter": {
     "description": "设备设置页 Antigravity 配置入口一组底下的说明。"
   },
-  "claudecfgAgyFooter": "闲置超时对这台设备上托管的进程生效；更新在那台主机上运行 agy update，进行中的对话不受影响。",
+  "claudecfgAgyFooter": "闲置超时作用于该设备上托管的进程；更新会在该主机上运行 agy update，进行中的对话不受影响。",
   "@claudecfgAgyFooter": {
     "description": "设备设置页 Antigravity 运行与版本更新一组底下的说明。"
   },
@@ -5713,11 +5713,11 @@
   "@claudecfgAgyAgentsFooter": {
     "description": "Antigravity Subagent 页底下的说明。"
   },
-  "claudecfgAgyPermRuleHelp": "写工具名（如 run_command），或带前缀匹配的写法，如 run_command(git push:*)、read_file(./.env)、edit_file(src/**)。",
+  "claudecfgAgyPermRuleHelp": "填写工具名（如 run_command），或带前缀匹配的规则，例如 run_command(git push:*)、read_file(./.env)、edit_file(src/**)。",
   "@claudecfgAgyPermRuleHelp": {
     "description": "Antigravity 工具权限添加规则对话框里的格式说明。"
   },
-  "accountsAgyFooter": "切换或添加这台设备上 Antigravity CLI 的 Google 登录账号；切换前会先收起闲置的 Antigravity 对话进程。",
+  "accountsAgyFooter": "切换或添加该设备上 Antigravity CLI 的 Google 登录账号；切换前会先结束闲置的 Antigravity 对话进程。",
   "@accountsAgyFooter": {
     "description": "Antigravity 账号与额度页里账号一组底下的说明。"
   },

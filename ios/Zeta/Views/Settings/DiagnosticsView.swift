@@ -14,7 +14,7 @@ struct DiagnosticsView: View {
             Section {
                 NavigationLink("运行日志") { RunLogView() }
             } footer: {
-                Text("Zeta 自己在这台设备上记的：连接、对话、出错。")
+                Text("Zeta 在本机记录的连接、对话与错误日志。")
             }
             Section("环境") {
                 ForEach(envLines, id: \.self) { line in
@@ -26,9 +26,9 @@ struct DiagnosticsView: View {
                     NavigationLink(device.name) { DeviceLogsView(device: device) }
                 }
             } header: {
-                Text("设备上的日志")
+                Text("设备日志")
             } footer: {
-                Text("各台设备上对话进程的错误输出和 Claude Code 的调试日志。「连接」关着的不列。")
+                Text("各设备上对话进程的错误输出与 Claude Code 调试日志。未开启「连接」的设备不予列出。")
             }
             exportSection
         }
@@ -59,7 +59,7 @@ struct DiagnosticsView: View {
                 Label(problem, systemImage: "exclamationmark.triangle").foregroundStyle(.red)
             }
         } footer: {
-            Text("把运行日志、环境和各台设备上的日志打成一个 zip，token、密码这类值打码。")
+            Text("将运行日志、环境信息及各设备日志打包为 ZIP，敏感信息（如 Token、密码）会自动脱敏。")
         }
     }
 
@@ -73,7 +73,7 @@ struct DiagnosticsView: View {
             EnvLine(name: String(localized: "机型"), value: UIDevice.current.model)
         ]
         for device in devices {
-            let state = device.off ? String(localized: "连接关着") : String(localized: "连接开着")
+            let state = device.off ? String(localized: "连接已关闭") : String(localized: "连接已开启")
             var parts = [device.target, device.via, state]
             if !device.hostname.isEmpty { parts.append(device.hostname) }
             parts.append(device.fingerprint)
@@ -196,8 +196,8 @@ private struct DeviceLogsView: View {
 
     private var kinds: [Kind] {
         [
-            Kind(kind: "running", title: String(localized: "在跑的对话进程")),
-            Kind(kind: "finished", title: String(localized: "结束的对话进程")),
+            Kind(kind: "running", title: String(localized: "运行中的对话进程")),
+            Kind(kind: "finished", title: String(localized: "已结束的对话进程")),
             Kind(kind: "debug", title: String(localized: "Claude Code 调试日志"))
         ]
     }
@@ -260,7 +260,7 @@ private struct LogTailView: View {
                 }
                 if let tail {
                     if tail.truncated {
-                        Text("只取了最后 64 KB").font(.caption).foregroundStyle(.secondary)
+                        Text("仅显示最后 64 KB").font(.caption).foregroundStyle(.secondary)
                     }
                     Text(tail.text).font(.caption.monospaced()).textSelection(.enabled)
                 } else if problem == nil {

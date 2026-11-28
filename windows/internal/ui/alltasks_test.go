@@ -66,7 +66,7 @@ func TestAllTasksPanel(t *testing.T) {
 	f.notSee(t, "后台对话 · 1")
 	// 切过来以后它是当前对话，不在后台对话里，入口也不算它
 	f.click(t, "后台任务")
-	f.see(t, "后台对话 · 0", "没有在后台运行的对话")
+	f.see(t, "后台对话 · 0", "暂无后台运行的对话")
 	f.tt.Key(0, ui.KeyEscape)
 	f.tt.Frame()
 	f.notSee(t, "后台对话 · 0")
@@ -100,7 +100,7 @@ func TestAllTasksWithoutAChat(t *testing.T) {
 		t.Fatalf("入口：%q %q", count, tip)
 	}
 	f.click(t, "后台任务")
-	f.see(t, "后台对话 · 1", "修登录页", "box · 等你确认", "没有后台任务")
+	f.see(t, "后台对话 · 1", "修登录页", "box · 等你确认", "暂无后台任务")
 	f.click(t, "返回")
 	f.notSee(t, "后台对话 · 1")
 }
@@ -111,7 +111,7 @@ func TestBackgroundLabels(t *testing.T) {
 		tasks         int
 		want          string
 	}{
-		{true, true, 2, "等你确认"}, {false, true, 2, "正在回答"}, {false, false, 2, "2 个后台任务在跑"}, {false, false, 0, "已结束，稍后收起"},
+		{true, true, 2, "等你确认"}, {false, true, 2, "正在回答"}, {false, false, 2, "2 个后台任务运行中"}, {false, false, 0, "已结束，稍后收起"},
 	} {
 		if got := conversationState(c.waiting, c.busy, c.tasks); got != c.want {
 			t.Errorf("conversationState(%v, %v, %d) = %q，应为 %q", c.waiting, c.busy, c.tasks, got, c.want)

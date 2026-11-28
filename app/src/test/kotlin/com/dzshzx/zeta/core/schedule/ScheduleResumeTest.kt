@@ -84,7 +84,7 @@ class ScheduleResumeTest {
         awaitMain { records.record.lastRun != null }
         val run = records.record.lastRun!!
         assertEquals("记为没有运行：$run", RunOutcome.Failed, run.outcome)
-        assertTrue(run.summary, run.summary.contains("查不到原来的对话"))
+        assertTrue(run.summary, run.summary.contains("无法找到原对话"))
         assertEquals("任务仍然接着原来的会话", "s-old", records.record.sessionId)
         assertFalse("没有留下进行中的运行", ScheduleRunner.isRunning(records, spec.id))
     }

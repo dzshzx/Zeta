@@ -289,21 +289,21 @@ func TestNewChatInAMissingDirectory(t *testing.T) {
 	f := newChatFixture(t)
 	f.devices.DirProblems = map[string]string{"/home/box": "「box」上没有 /home/box 这个目录"}
 	f.click(t, "新对话")
-	f.see(t, "Claude Code 起不来：「box」上没有 /home/box 这个目录。点上面的工作目录换一个，或在「设备」页改默认工作目录。")
+	f.see(t, "Claude Code 无法启动：「box」上没有 /home/box 这个目录。请点击上方工作目录切换，或在「设备」页修改默认工作目录。")
 	if a, _ := f.tt.AccessByRole(ui.RoleButton, "发送"); !a.Disabled {
 		t.Error("进不去还能发")
 	}
 	// 新对话还没发消息：点顶栏的工作目录换一个，在那里重开。这一行和标题一样靠左
-	if dir, ok := f.tt.Find("换工作目录"); !ok || dir.W > 400 {
+	if dir, ok := f.tt.Find("切换工作目录"); !ok || dir.W > 400 {
 		t.Errorf("工作目录那一行横跨整个顶栏、字居中了，没和标题一样靠左：%v", dir)
 	}
-	f.click(t, "换工作目录")
+	f.click(t, "切换工作目录")
 	f.clickField(t, "/home/…")
 	f.tt.Key(ui.Cmd, ui.KeyA)
 	f.tt.Type("/srv/work")
 	f.click(t, "确定")
 	f.tt.Frame()
-	f.notSee(t, "Claude Code 起不来：「box」上没有 /home/box 这个目录。点上面的工作目录换一个，或在「设备」页改默认工作目录。")
+	f.notSee(t, "Claude Code 无法启动：「box」上没有 /home/box 这个目录。请点击上方工作目录切换，或在「设备」页修改默认工作目录。")
 	if c := f.hub.Chat(); c == nil || c.Session.Cwd != "/srv/work" || c.CwdProblem != "" {
 		t.Fatalf("换目录后：%+v", c)
 	}
@@ -369,8 +369,8 @@ func TestEarlierHistory(t *testing.T) {
 	if got := f.sent("conv.earlier"); len(got) != 1 {
 		t.Fatalf("载入更早的：%v", got)
 	}
-	f.see(t, "没读到更早的记录：会话记录在别处改过，重新打开这个对话再看更早的内容")
-	f.notSee(t, "点按重试")
+	f.see(t, "无法读取更早的记录：会话记录在别处改过，重新打开这个对话再看更早的内容")
+	f.notSee(t, "点击重试")
 }
 
 // token 数的写法由 helper/usage 的 FormatTokens 管，模型名的写法由 chat.ReadableModel 管，测试都在那边。
@@ -595,12 +595,12 @@ func TestHostLoad(t *testing.T) {
 	f.replay("turn")
 	f.tt.Frame()
 	f.tt.Frame()
-	f.see(t, "box 的 CPU 使用率 93%，8 个核的平均（整机所有进程，同 Claude Code 状态栏的 cpu%）")
+	f.see(t, "box 的 CPU 使用率为 93%，8 核平均（整机所有进程，同 Claude Code 状态栏的 cpu%）")
 	f.answers["system.cpu"] = `{"percent":12,"cores":8}`
 	f.tt.Advance(hostLoadEvery)
 	f.tt.Frame()
 	f.tt.Frame()
-	f.see(t, "box 的 CPU 使用率 12%，8 个核的平均（整机所有进程，同 Claude Code 状态栏的 cpu%）")
+	f.see(t, "box 的 CPU 使用率为 12%，8 核平均（整机所有进程，同 Claude Code 状态栏的 cpu%）")
 }
 
 // manyTurnsUsage 是有 n 轮明细的 conv.state 用量片段。

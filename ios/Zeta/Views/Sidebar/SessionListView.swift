@@ -87,8 +87,8 @@ struct SessionListView: View {
         } header: {
             switch model.state.side.search {
             case "running": Text("正在搜索对话内容")
-            case "partial": Text("只搜了一部分对话内容")
-            case "failed": Text("没搜成对话内容，只比对了标题")
+            case "partial": Text("仅搜索了部分对话内容")
+            case "failed": Text("无法搜索对话内容，仅匹配了标题")
             default: Text("搜索结果")
             }
         }
@@ -142,9 +142,9 @@ struct SessionListView: View {
     private var empty: some View {
         if model.state.devices.isEmpty {
             ContentUnavailableView {
-                Label("还没有设备", systemImage: "desktopcomputer")
+                Label("暂无设备", systemImage: "desktopcomputer")
             } description: {
-                Text("添加一台装了 Claude Code 或 Antigravity 的 Linux 设备，经 SSH 在上面开对话。")
+                Text("添加已安装 Claude Code 或 Antigravity 的 Linux 设备，通过 SSH 发起对话。")
             } actions: {
                 Button("添加设备") { settingsShown = true }
                     .buttonStyle(.glassProminent)
@@ -243,7 +243,7 @@ private struct ArchivedView: View {
         }
         .overlay {
             if list.isEmpty {
-                ContentUnavailableView("没有归档的对话", systemImage: "archivebox")
+                ContentUnavailableView("暂无已归档对话", systemImage: "archivebox")
             }
         }
         .navigationTitle("已归档")
@@ -357,7 +357,7 @@ struct ActivityMark: View {
             }
             .font(.caption)
             .foregroundStyle(.secondary)
-            .accessibilityLabel("后台任务在跑")
+            .accessibilityLabel("后台任务运行中")
         case "unread":
             Circle()
                 .fill(.tint)

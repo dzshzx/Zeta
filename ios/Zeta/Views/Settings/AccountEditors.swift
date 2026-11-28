@@ -27,8 +27,8 @@ struct LoginSheet: View {
                         Text("授权网址")
                     } footer: {
                         Text(isAgy
-                            ? "打开后用 Google 账号登录并授权；完成后复制页面给出的授权码，或复制跳转后的整条回调网址。"
-                            : "打开后用要添加的账号登录并授权，页面会给出一段授权码。")
+                            ? "打开页面后，使用 Google 账号登录并授权；完成后复制页面显示的授权码，或复制跳转后的完整回调网址。"
+                            : "打开页面后，使用要添加的账号登录并授权，随后获取页面显示的授权码。")
                     }
                     Section {
                         TextField(isAgy ? String(localized: "授权码或回调网址") : String(localized: "授权码"),
@@ -49,8 +49,8 @@ struct LoginSheet: View {
                             Text(working)
                         } else {
                             Text(isAgy
-                                ? "粘贴授权码，或粘贴包含 code= 的整条回调网址（http://localhost…）。"
-                                : "把授权页给的整段码贴在这里，中间有一个 #。")
+                                ? "粘贴授权码，或粘贴包含 code= 的完整回调网址（http://localhost…）。"
+                                : "将授权页面显示的完整授权码粘贴到此处，中间包含一个 #。")
                         }
                     }
                 }
@@ -108,8 +108,8 @@ struct RelayEditor: View {
                     .keyboardType(.URL)
                 } footer: {
                     VStack(alignment: .leading, spacing: 4) {
-                        if !start.create { Text("名称加好以后不能改。") }
-                        if isAgy { Text("不填地址时直接连 Google 官方 Gemini 接口；走自定义接入点时再填地址。") }
+                        if !start.create { Text("添加后无法修改名称。") }
+                        if isAgy { Text("留空时直连 Google 官方 Gemini 接口；使用自定义接入点时再填写地址。") }
                     }
                 }
                 .textInputAutocapitalization(.never)
@@ -117,7 +117,7 @@ struct RelayEditor: View {
                 keySection
                 modelSection
                 if draft?.current == true {
-                    Text("正在用这个中转：改了以后，新起的对话进程才用上。要删除先换到别的账号或中转。")
+                    Text("当前正在使用该中转：修改仅对新启动的对话进程生效。如需删除，请先切换至其他账号或中转。")
                         .font(.footnote).foregroundStyle(.secondary)
                 }
             }
@@ -158,20 +158,20 @@ struct RelayEditor: View {
         } footer: {
             if !keyEditable {
                 Text(isAgy
-                    ? "这个中转的密钥不是 Zeta 存的，要在设备上的配置里改。"
-                    : "这个中转的密钥不是 Zeta 存的，要在设备上的 claude-switch 配置里改。")
+                    ? "该中转的密钥不由 Zeta 保存，请在设备上的配置中修改。"
+                    : "该中转的密钥不由 Zeta 保存，请在设备的 claude-switch 配置中修改。")
             }
         }
     }
 
     private var modelSection: some View {
         Section {
-            TextField("默认模型（可不填）", text: $defaultModel)
+            TextField("默认模型（可选）", text: $defaultModel)
                 .textInputAutocapitalization(.never)
                 .autocorrectionDisabled()
             if let models = draft?.models, !models.isEmpty {
-                Picker("从列表选", selection: $defaultModel) {
-                    Text("不设").tag("")
+                Picker("从列表选择", selection: $defaultModel) {
+                    Text("不设置").tag("")
                     ForEach(models) { item in
                         Text(item.displayName ?? item.id).tag(item.id)
                     }
@@ -215,7 +215,7 @@ struct RelayEditor: View {
     private var keyEditable: Bool { start.create || draft?.keyEditable == true }
 
     private var keyPlaceholder: String {
-        if !start.create, draft?.hasKey == true { return String(localized: "已存着，空着不改") }
+        if !start.create, draft?.hasKey == true { return String(localized: "已保存，留空则保持不变") }
         return isAgy ? String(localized: "Gemini API 密钥") : String(localized: "API 密钥")
     }
 

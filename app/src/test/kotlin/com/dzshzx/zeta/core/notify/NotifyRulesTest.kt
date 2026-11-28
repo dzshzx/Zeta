@@ -242,9 +242,9 @@ class NotifyRulesTest {
     fun problemsAreReported() {
         val ok = RuleDraft("快递", "com.example.express", "快递助手", "取件码，快递", null, "看看 {text}")
         assertNull(NotifyRules.problem(ok))
-        assertEquals("写一个名字", NotifyRules.problem(ok.copy(name = " ")))
-        assertEquals("选一个应用", NotifyRules.problem(ok.copy(packageName = "")))
-        assertEquals("应用的包名格式不对", NotifyRules.problem(ok.copy(packageName = "not a package")))
+        assertEquals("请输入名称", NotifyRules.problem(ok.copy(name = " ")))
+        assertEquals("请选择应用", NotifyRules.problem(ok.copy(packageName = "")))
+        assertEquals("应用包名格式不正确", NotifyRules.problem(ok.copy(packageName = "not a package")))
         assertEquals(
             "Zeta 自己的通知不会触发任务",
             NotifyRules.problem(ok.copy(packageName = "com.dzshzx.zeta.dev")),
@@ -253,10 +253,10 @@ class NotifyRulesTest {
             "时段的开始和结束不能是同一时刻",
             NotifyRules.problem(ok.copy(window = TimeWindow(LocalTime.NOON, LocalTime.NOON))),
         )
-        assertEquals("写上要让 Claude 做什么", NotifyRules.problem(ok.copy(prompt = "  ")))
-        assertEquals("工作目录要写 Linux 环境里的绝对路径", NotifyRules.problem(ok.copy(cwd = "relative")))
-        assertEquals("冷却时间要在 1 分钟到 24 小时之间", NotifyRules.problem(ok.copy(cooldownMinutes = 0)))
-        assertEquals("每天上限要在 1 到 100 次之间", NotifyRules.problem(ok.copy(dailyLimit = 0)))
+        assertEquals("请输入要让 Claude 执行的指令", NotifyRules.problem(ok.copy(prompt = "  ")))
+        assertEquals("工作目录须为 Linux 环境中的绝对路径", NotifyRules.problem(ok.copy(cwd = "relative")))
+        assertEquals("冷却时间须在 1 分钟至 24 小时之间", NotifyRules.problem(ok.copy(cooldownMinutes = 0)))
+        assertEquals("每日上限须在 1 至 100 次之间", NotifyRules.problem(ok.copy(dailyLimit = 0)))
     }
 
     @Test

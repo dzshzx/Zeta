@@ -254,7 +254,7 @@ class ChatImagesTest {
         assertEquals(PersonalSource.WechatImages, PersonalSource.of("wechat_images"))
         assertEquals(PersonalSource.QqImages, PersonalSource.of("qq_images"))
         assertEquals(
-            "看微信图片",
+            "查看微信图片",
             PersonalTools.title("view_media", buildJsonObject { put("kind", "wechat") }),
         )
         assertEquals(

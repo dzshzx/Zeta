@@ -25,7 +25,7 @@ func TestDefaultCwdIsCheckedOnTheDevice(t *testing.T) {
 	f.app.edit.cwd = "/srv/gone"
 	f.tt.Frame()
 	f.click(t, "确定")
-	f.see(t, "「box」上没有 /srv/gone 这个目录。换一个目录，或先在那边建好。")
+	f.see(t, "「box」上没有 /srv/gone 这个目录。请更换目录，或先在设备上创建该目录。")
 	if !f.app.edit.moving {
 		t.Fatal("进不去时输入框要留着")
 	}
@@ -35,7 +35,7 @@ func TestDefaultCwdIsCheckedOnTheDevice(t *testing.T) {
 	// 改了字，原因不再挂着
 	f.app.edit.cwd = "/srv/ok"
 	f.tt.Frame()
-	f.notSee(t, "「box」上没有 /srv/gone 这个目录。换一个目录，或先在那边建好。")
+	f.notSee(t, "「box」上没有 /srv/gone 这个目录。请更换目录，或先在设备上创建该目录。")
 	f.click(t, "确定")
 	if got, _ := f.hub.Host(x.ID); got.DefaultCwd != "/srv/ok" || f.app.edit.moving {
 		t.Fatalf("进得去要存上并关掉输入框：%q %v", got.DefaultCwd, f.app.edit.moving)
@@ -67,7 +67,7 @@ func TestDefaultCwdWhenTheDeviceIsOff(t *testing.T) {
 	f.app.edit.cwd = "/srv/a"
 	f.tt.Frame()
 	f.click(t, "确定")
-	f.see(t, "无法核对这个目录", "没连上「box」，不知道 /srv/a 在那边能不能进去：「box」已断开。仍然保存的话，进不去时开新对话会再说。")
+	f.see(t, "无法核对这个目录", "无法连接「box」，暂时无法确认 /srv/a 是否可访问：「box」已断开。若仍然保存，新建对话时如无法访问会再提示。")
 	f.click(t, "取消")
 	if got, _ := f.hub.Host(x.ID); got.DefaultCwd != "/home/box" {
 		t.Fatalf("取消了也存了：%q", got.DefaultCwd)
@@ -100,7 +100,7 @@ func TestDefaultCwdCheckAfterCancelIsDropped(t *testing.T) {
 	f.app.edit.cwd = "/srv/late"
 	f.tt.Frame()
 	f.click(t, "确定")
-	f.see(t, "正在到「box」上看 /srv/late 能不能进去…")
+	f.see(t, "正在检查「box」上的 /srv/late 是否可访问…")
 	if a, _ := f.tt.AccessByRole(ui.RoleButton, "确定"); !a.Disabled {
 		t.Error("核对时还能再点确定")
 	}

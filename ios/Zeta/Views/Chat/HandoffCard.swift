@@ -27,29 +27,29 @@ struct HandoffCard: View {
     private func button(_ occupant: Occupancy?) -> String {
         if chat.handing == true { return String(localized: "正在接管…") }
         if occupant == nil || occupant?.handsOver == true { return String(localized: "接管") }
-        return String(localized: "等那边空闲")
+        return String(localized: "等待对方空闲")
     }
 
     private func summary(_ occupant: Occupancy?) -> String {
         if let problem = chat.handoffProblem, !problem.isEmpty { return problem }
-        guard let occupant else { return String(localized: "正在查看那边的状态…") }
+        guard let occupant else { return String(localized: "正在检查对方状态…") }
         let zeta = occupant.app == "zeta" || occupant.app == "zeta-dev"
         switch occupant.status {
         case "idle":
             return zeta
-                ? String(localized: "那边闲着。接管后那边的 Zeta 会放开这个会话，在这里接着。")
-                : String(localized: "那边闲着。接管后那边会像 /exit 那样退出，在这里接着。")
+                ? String(localized: "当前处于空闲状态。接管后另一端的 Zeta 将释放此会话，并由本机继续。")
+                : String(localized: "当前处于空闲状态。接管后另一端将如同执行 /exit 般退出，并由本机继续。")
         case "waiting":
             if let what = occupant.waitingFor, !what.isEmpty {
-                return String(localized: "那边在等确认：\(what)。接管后那个确认作废。")
+                return String(localized: "当前正在等待确认：\(what)。接管后该确认请求将失效。")
             }
-            return String(localized: "那边在等确认。接管后那个确认作废。")
+            return String(localized: "当前正在等待确认。接管后该确认请求将失效。")
         case "unknown":
-            return String(localized: "看不出那边是否空闲。")
+            return String(localized: "无法判断当前是否空闲。")
         case "shell":
-            return String(localized: "那边在跑 shell 命令，跑完才能接管。")
+            return String(localized: "当前正在执行 shell 命令，完成后方可接管。")
         default:
-            return String(localized: "那边正在回答，等这一轮结束才能接管。")
+            return String(localized: "当前正在回复，请等待本轮结束后再接管。")
         }
     }
 
@@ -66,11 +66,11 @@ struct HandoffCard: View {
         default: return String(localized: "会话正在别处运行")
         }
         if occupant.local == true {
-            return String(localized: "会话正在设备本机的\(what)里运行")
+            return String(localized: "会话正在设备本机的\(what)中运行")
         }
         if let device = occupant.device, !device.isEmpty {
-            return String(localized: "会话正在 \(device) 的\(what)里运行")
+            return String(localized: "会话正在 \(device) 的\(what)中运行")
         }
-        return String(localized: "会话正在\(what)里运行")
+        return String(localized: "会话正在\(what)中运行")
     }
 }

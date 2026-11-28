@@ -40,7 +40,7 @@ func TestTodoStripFollowsTheList(t *testing.T) {
 	f.click(t, "收起任务清单")
 	f.notSee(t, "跑测试")
 	// 收掉以后，同一份再推来也不出来；清单变了再出来
-	f.click(t, "收掉这份任务清单")
+	f.click(t, "关闭任务清单")
 	f.notSee(t, "正在修表单校验")
 	f.push(todoList)
 	f.notSee(t, "正在修表单校验")

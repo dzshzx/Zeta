@@ -15,7 +15,7 @@ func TestFindInConversation(t *testing.T) {
 	f.showTurn(t, false)
 	f.tt.Key(ui.Cmd, ui.KeyF)
 	f.tt.Frame()
-	f.see(t, "查提问和回答，不含工具步骤和思考")
+	f.see(t, "搜索提问与回答，不含工具步骤和思考过程")
 	f.see(t, "发送") // 查找栏浮在右上角，输入栏照旧
 	// 焦点已经在查找框里：提问里两处（gradlew、tools/gradle），回答里的行内代码一处；代码块不查。从最新的一处开始
 	f.tt.Type("GRADLE")
@@ -54,9 +54,9 @@ func TestFindLoadsEarlierRecords(t *testing.T) {
 	}
 	f.tt.Type("没有的词")
 	f.tt.Frame()
-	f.see(t, "查找中", "查提问和回答，不含工具步骤和思考；正在载入更早的 120 条…")
+	f.see(t, "查找中", "搜索提问与回答，不含工具步骤和思考过程；正在载入更早的 120 条…")
 	f.push(`"earlier":0`)
-	f.see(t, "无结果", "查提问和回答，不含工具步骤和思考")
+	f.see(t, "无结果", "搜索提问与回答，不含工具步骤和思考过程")
 	if got := f.sent("conv.earlier"); len(got) != 0 {
 		t.Fatalf("载完了还在要：%v", got)
 	}
@@ -126,7 +126,7 @@ func TestFindSaysWhyEarlierRecordsAreMissing(t *testing.T) {
 	f.tt.Type("没有的词")
 	f.tt.Frame()
 	f.tt.Frame()
-	f.see(t, "无结果", "查提问和回答，不含工具步骤和思考；没读到更早的记录："+stale+"，更早的 120 条没查")
+	f.see(t, "无结果", "搜索提问与回答，不含工具步骤和思考过程；无法读取更早的记录："+stale+"，更早的 120 条未搜索")
 	if got := f.sent("conv.earlier"); len(got) != 1 {
 		t.Fatalf("要了 %d 次：%v", len(got), got)
 	}

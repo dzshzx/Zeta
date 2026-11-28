@@ -35,13 +35,13 @@ type Messages struct{ locale string }
 // source language.
 func In(locale string) Messages { return Messages{locale} }
 
-// HostNoResponse says "「{host}」没有响应（超时）"
+// HostNoResponse says "「{host}」无响应（超时）"
 // in the language the app shows.
 //
 // 查对话的工作目录时那台设备没回话。
 func HostNoResponse(host string) string { return In(i18n.Locale()).HostNoResponse(host) }
 
-// HostNoResponse says "「{host}」没有响应（超时）"
+// HostNoResponse says "「{host}」无响应（超时）"
 // in the language of msgs.
 //
 // 查对话的工作目录时那台设备没回话。
@@ -49,7 +49,7 @@ func (msgs Messages) HostNoResponse(host string) string {
 	return Catalog.Format(msgs.locale, "hostNoResponse", map[string]any{"host": host})
 }
 
-// HostDirMissing says "「{host}」上没有 {path} 这个目录"
+// HostDirMissing says "「{host}」上不存在目录 {path}"
 // in the language the app shows.
 //
 // 聊天窗格里的提示：对话的工作目录在那台设备上不存在。
@@ -57,7 +57,7 @@ func HostDirMissing(host string, path string) string {
 	return In(i18n.Locale()).HostDirMissing(host, path)
 }
 
-// HostDirMissing says "「{host}」上没有 {path} 这个目录"
+// HostDirMissing says "「{host}」上不存在目录 {path}"
 // in the language of msgs.
 //
 // 聊天窗格里的提示：对话的工作目录在那台设备上不存在。
@@ -79,7 +79,7 @@ func (msgs Messages) HostDirIsFile(path string) string {
 	return Catalog.Format(msgs.locale, "hostDirIsFile", map[string]any{"path": path})
 }
 
-// HostDirDenied says "「{host}」上的 {path} 没有权限进去"
+// HostDirDenied says "无权限访问「{host}」上的 {path}"
 // in the language the app shows.
 //
 // 聊天窗格里的提示：对话的工作目录进不去。
@@ -87,7 +87,7 @@ func HostDirDenied(host string, path string) string {
 	return In(i18n.Locale()).HostDirDenied(host, path)
 }
 
-// HostDirDenied says "「{host}」上的 {path} 没有权限进去"
+// HostDirDenied says "无权限访问「{host}」上的 {path}"
 // in the language of msgs.
 //
 // 聊天窗格里的提示：对话的工作目录进不去。
@@ -109,14 +109,14 @@ func (msgs Messages) HostProbeTimeout() string {
 	return Catalog.Format(msgs.locale, "hostProbeTimeout", nil)
 }
 
-// HostProbeNotConnected says "没有连上"
+// HostProbeNotConnected says "无法连接"
 // in the language the app shows.
 //
 // 添加设备、检查连接时的结果：没连上，SSH
 // 也没说原因。
 func HostProbeNotConnected() string { return In(i18n.Locale()).HostProbeNotConnected() }
 
-// HostProbeNotConnected says "没有连上"
+// HostProbeNotConnected says "无法连接"
 // in the language of msgs.
 //
 // 添加设备、检查连接时的结果：没连上，SSH
@@ -125,14 +125,14 @@ func (msgs Messages) HostProbeNotConnected() string {
 	return Catalog.Format(msgs.locale, "hostProbeNotConnected", nil)
 }
 
-// HostProbeNoClaude says "那台设备上未找到 Claude Code（claude）或 Antigravity CLI（agy）（登录 shell 的 PATH 里和 ~/.local/…"
+// HostProbeNoClaude says "该设备上未找到 Claude Code（claude）或 Antigravity CLI（agy）（登录 shell 的 PATH 与 ~/.local/bin …"
 // in the language the app shows.
 //
 // 添加设备、检查连接时的结果：那边既没装 Claude Code
 // 也没装 Antigravity CLI。
 func HostProbeNoClaude() string { return In(i18n.Locale()).HostProbeNoClaude() }
 
-// HostProbeNoClaude says "那台设备上未找到 Claude Code（claude）或 Antigravity CLI（agy）（登录 shell 的 PATH 里和 ~/.local/…"
+// HostProbeNoClaude says "该设备上未找到 Claude Code（claude）或 Antigravity CLI（agy）（登录 shell 的 PATH 与 ~/.local/bin …"
 // in the language of msgs.
 //
 // 添加设备、检查连接时的结果：那边既没装 Claude Code
@@ -141,14 +141,14 @@ func (msgs Messages) HostProbeNoClaude() string {
 	return Catalog.Format(msgs.locale, "hostProbeNoClaude", nil)
 }
 
-// HostProbeUnknownSystem says "未知的系统"
+// HostProbeUnknownSystem says "未知系统"
 // in the language the app shows.
 //
 // 添加设备时查不到系统，填进 hostProbeUnsupported 的
 // system。
 func HostProbeUnknownSystem() string { return In(i18n.Locale()).HostProbeUnknownSystem() }
 
-// HostProbeUnknownSystem says "未知的系统"
+// HostProbeUnknownSystem says "未知系统"
 // in the language of msgs.
 //
 // 添加设备时查不到系统，填进 hostProbeUnsupported 的
@@ -157,7 +157,7 @@ func (msgs Messages) HostProbeUnknownSystem() string {
 	return Catalog.Format(msgs.locale, "hostProbeUnknownSystem", nil)
 }
 
-// HostProbeUnsupported says "Zeta 读会话记录的程序只能在 arm64、x86-64 的 Linux 上跑，这台是 {system}"
+// HostProbeUnsupported says "Zeta 读取会话记录的程序仅支持 arm64 与 x86-64 架构的 Linux，当前设备为 {system}"
 // in the language the app shows.
 //
 // 添加设备、检查连接时的结果：那台的系统或 CPU
@@ -166,7 +166,7 @@ func HostProbeUnsupported(system string) string {
 	return In(i18n.Locale()).HostProbeUnsupported(system)
 }
 
-// HostProbeUnsupported says "Zeta 读会话记录的程序只能在 arm64、x86-64 的 Linux 上跑，这台是 {system}"
+// HostProbeUnsupported says "Zeta 读取会话记录的程序仅支持 arm64 与 x86-64 架构的 Linux，当前设备为 {system}"
 // in the language of msgs.
 //
 // 添加设备、检查连接时的结果：那台的系统或 CPU
@@ -175,14 +175,14 @@ func (msgs Messages) HostProbeUnsupported(system string) string {
 	return Catalog.Format(msgs.locale, "hostProbeUnsupported", map[string]any{"system": system})
 }
 
-// HostProgramMissing says "桌面版里没有带这个程序"
+// HostProgramMissing says "桌面版未内置该程序"
 // in the language the app shows.
 //
 // 往设备上装 claude-switch
 // 时桌面版里没带它（账号与额度页的报错）。
 func HostProgramMissing() string { return In(i18n.Locale()).HostProgramMissing() }
 
-// HostProgramMissing says "桌面版里没有带这个程序"
+// HostProgramMissing says "桌面版未内置该程序"
 // in the language of msgs.
 //
 // 往设备上装 claude-switch
@@ -191,7 +191,7 @@ func (msgs Messages) HostProgramMissing() string {
 	return Catalog.Format(msgs.locale, "hostProgramMissing", nil)
 }
 
-// HostProgramNotInstalled says "{program} 没装上"
+// HostProgramNotInstalled says "无法安装 {program}"
 // in the language the app shows.
 //
 // 往设备上装程序失败、那边没说原因时（账号与额度页的报错）。
@@ -199,7 +199,7 @@ func HostProgramNotInstalled(program string) string {
 	return In(i18n.Locale()).HostProgramNotInstalled(program)
 }
 
-// HostProgramNotInstalled says "{program} 没装上"
+// HostProgramNotInstalled says "无法安装 {program}"
 // in the language of msgs.
 //
 // 往设备上装程序失败、那边没说原因时（账号与额度页的报错）。
@@ -207,13 +207,13 @@ func (msgs Messages) HostProgramNotInstalled(program string) string {
 	return Catalog.Format(msgs.locale, "hostProgramNotInstalled", map[string]any{"program": program})
 }
 
-// AttachNotImage says "不是能读的图片"
+// AttachNotImage says "无法读取该图片"
 // in the language the app shows.
 //
 // 附图片时文件解不开的原因。
 func AttachNotImage() string { return In(i18n.Locale()).AttachNotImage() }
 
-// AttachNotImage says "不是能读的图片"
+// AttachNotImage says "无法读取该图片"
 // in the language of msgs.
 //
 // 附图片时文件解不开的原因。
@@ -221,7 +221,7 @@ func (msgs Messages) AttachNotImage() string {
 	return Catalog.Format(msgs.locale, "attachNotImage", nil)
 }
 
-// AttachTooLargeSized says "「{name}」有 {size}，超过 {limit} 的上限，没有传上去"
+// AttachTooLargeSized says "「{name}」大小为 {size}，超过 {limit} 上限，未上传"
 // in the language the app shows.
 //
 // 输入栏里没收某个附件的原因：文件太大。
@@ -229,7 +229,7 @@ func AttachTooLargeSized(name string, size string, limit string) string {
 	return In(i18n.Locale()).AttachTooLargeSized(name, size, limit)
 }
 
-// AttachTooLargeSized says "「{name}」有 {size}，超过 {limit} 的上限，没有传上去"
+// AttachTooLargeSized says "「{name}」大小为 {size}，超过 {limit} 上限，未上传"
 // in the language of msgs.
 //
 // 输入栏里没收某个附件的原因：文件太大。
@@ -237,7 +237,7 @@ func (msgs Messages) AttachTooLargeSized(name string, size string, limit string)
 	return Catalog.Format(msgs.locale, "attachTooLargeSized", map[string]any{"name": name, "size": size, "limit": limit})
 }
 
-// AttachTooLarge says "「{name}」超过 {limit} 的上限，没有传上去"
+// AttachTooLarge says "「{name}」超过 {limit} 上限，未上传"
 // in the language the app shows.
 //
 // 输入栏里没收某个附件的原因：传到一半发现超过上限。
@@ -245,7 +245,7 @@ func AttachTooLarge(name string, limit string) string {
 	return In(i18n.Locale()).AttachTooLarge(name, limit)
 }
 
-// AttachTooLarge says "「{name}」超过 {limit} 的上限，没有传上去"
+// AttachTooLarge says "「{name}」超过 {limit} 上限，未上传"
 // in the language of msgs.
 //
 // 输入栏里没收某个附件的原因：传到一半发现超过上限。
@@ -341,13 +341,13 @@ func (msgs Messages) ChatNewTitle() string {
 	return Catalog.Format(msgs.locale, "chatNewTitle", nil)
 }
 
-// HubSessionActive says "对话正在进行，结束后再删"
+// HubSessionActive says "对话正在进行，请结束后再删除"
 // in the language the app shows.
 //
 // 删除对话时核心答它正在进行：弹框里的原因。
 func HubSessionActive() string { return In(i18n.Locale()).HubSessionActive() }
 
-// HubSessionActive says "对话正在进行，结束后再删"
+// HubSessionActive says "对话正在进行，请结束后再删除"
 // in the language of msgs.
 //
 // 删除对话时核心答它正在进行：弹框里的原因。
@@ -355,7 +355,7 @@ func (msgs Messages) HubSessionActive() string {
 	return Catalog.Format(msgs.locale, "hubSessionActive", nil)
 }
 
-// HubSessionSomeFailed says "{count, plural, other {# 个没成功：{reason}}}"
+// HubSessionSomeFailed says "{count, plural, other {# 项操作失败：{reason}}}"
 // in the language the app shows.
 //
 // 对几个对话一起操作（归档、删除、结束……）有没成的时弹框里的原因；reason
@@ -364,7 +364,7 @@ func HubSessionSomeFailed(count int, reason string) string {
 	return In(i18n.Locale()).HubSessionSomeFailed(count, reason)
 }
 
-// HubSessionSomeFailed says "{count, plural, other {# 个没成功：{reason}}}"
+// HubSessionSomeFailed says "{count, plural, other {# 项操作失败：{reason}}}"
 // in the language of msgs.
 //
 // 对几个对话一起操作（归档、删除、结束……）有没成的时弹框里的原因；reason
@@ -373,13 +373,13 @@ func (msgs Messages) HubSessionSomeFailed(count int, reason string) string {
 	return Catalog.Format(msgs.locale, "hubSessionSomeFailed", map[string]any{"count": count, "reason": reason})
 }
 
-// HubSessionNothingExported says "没有导出任何对话"
+// HubSessionNothingExported says "未导出任何对话"
 // in the language the app shows.
 //
 // 导出对话时一个都没导出来：弹框里的原因。
 func HubSessionNothingExported() string { return In(i18n.Locale()).HubSessionNothingExported() }
 
-// HubSessionNothingExported says "没有导出任何对话"
+// HubSessionNothingExported says "未导出任何对话"
 // in the language of msgs.
 //
 // 导出对话时一个都没导出来：弹框里的原因。
@@ -415,13 +415,13 @@ func (msgs Messages) HubDeletedDevice() string {
 	return Catalog.Format(msgs.locale, "hubDeletedDevice", nil)
 }
 
-// HubListFailed says "没读到会话列表：{reason}"
+// HubListFailed says "无法读取会话列表：{reason}"
 // in the language the app shows.
 //
 // 侧栏会话列表的问题那一行：读不到这台的会话列表，后面是原因。
 func HubListFailed(reason string) string { return In(i18n.Locale()).HubListFailed(reason) }
 
-// HubListFailed says "没读到会话列表：{reason}"
+// HubListFailed says "无法读取会话列表：{reason}"
 // in the language of msgs.
 //
 // 侧栏会话列表的问题那一行：读不到这台的会话列表，后面是原因。
@@ -445,13 +445,13 @@ func (msgs Messages) HubProblemOnDevice(device string, problem string) string {
 	return Catalog.Format(msgs.locale, "hubProblemOnDevice", map[string]any{"device": device, "problem": problem})
 }
 
-// HubOpenFailed says "打不开这个对话：{error}"
+// HubOpenFailed says "无法打开该对话：{error}"
 // in the language the app shows.
 //
 // 聊天窗格里的问题：打开对话失败，后面是原因。
 func HubOpenFailed(error string) string { return In(i18n.Locale()).HubOpenFailed(error) }
 
-// HubOpenFailed says "打不开这个对话：{error}"
+// HubOpenFailed says "无法打开该对话：{error}"
 // in the language of msgs.
 //
 // 聊天窗格里的问题：打开对话失败，后面是原因。
@@ -459,13 +459,13 @@ func (msgs Messages) HubOpenFailed(error string) string {
 	return Catalog.Format(msgs.locale, "hubOpenFailed", map[string]any{"error": error})
 }
 
-// HubImageMissing says "没取到图片"
+// HubImageMissing says "未能获取图片"
 // in the language the app shows.
 //
 // 聊天里的图片没取到时的原因（核心给了空的）。
 func HubImageMissing() string { return In(i18n.Locale()).HubImageMissing() }
 
-// HubImageMissing says "没取到图片"
+// HubImageMissing says "未能获取图片"
 // in the language of msgs.
 //
 // 聊天里的图片没取到时的原因（核心给了空的）。
@@ -473,13 +473,13 @@ func (msgs Messages) HubImageMissing() string {
 	return Catalog.Format(msgs.locale, "hubImageMissing", nil)
 }
 
-// HubImageStatus says "下载图片：{status}"
+// HubImageStatus says "图片下载失败：{status}"
 // in the language the app shows.
 //
 // 聊天里的网络图片下载失败的原因，后面是 HTTP 状态。
 func HubImageStatus(status string) string { return In(i18n.Locale()).HubImageStatus(status) }
 
-// HubImageStatus says "下载图片：{status}"
+// HubImageStatus says "图片下载失败：{status}"
 // in the language of msgs.
 //
 // 聊天里的网络图片下载失败的原因，后面是 HTTP 状态。
@@ -487,13 +487,13 @@ func (msgs Messages) HubImageStatus(status string) string {
 	return Catalog.Format(msgs.locale, "hubImageStatus", map[string]any{"status": status})
 }
 
-// HubImageTooLarge says "图片太大（超过 12 MB）"
+// HubImageTooLarge says "图片过大（超过 12 MB）"
 // in the language the app shows.
 //
 // 聊天里的网络图片太大不下载时的原因。
 func HubImageTooLarge() string { return In(i18n.Locale()).HubImageTooLarge() }
 
-// HubImageTooLarge says "图片太大（超过 12 MB）"
+// HubImageTooLarge says "图片过大（超过 12 MB）"
 // in the language of msgs.
 //
 // 聊天里的网络图片太大不下载时的原因。
@@ -515,13 +515,13 @@ func (msgs Messages) PromptCheckEmpty() string {
 	return Catalog.Format(msgs.locale, "promptCheckEmpty", nil)
 }
 
-// PromptCheckTooLong says "内容太长了（最多 20000 个字）"
+// PromptCheckTooLong says "内容过长（最多 20000 字）"
 // in the language the app shows.
 //
 // 新建或编辑常用指令时的问题。
 func PromptCheckTooLong() string { return In(i18n.Locale()).PromptCheckTooLong() }
 
-// PromptCheckTooLong says "内容太长了（最多 20000 个字）"
+// PromptCheckTooLong says "内容过长（最多 20000 字）"
 // in the language of msgs.
 //
 // 新建或编辑常用指令时的问题。
@@ -529,13 +529,13 @@ func (msgs Messages) PromptCheckTooLong() string {
 	return Catalog.Format(msgs.locale, "promptCheckTooLong", nil)
 }
 
-// PromptCheckNameTooLong says "名字太长了（最多 40 个字）"
+// PromptCheckNameTooLong says "名称过长（最多 40 字）"
 // in the language the app shows.
 //
 // 新建或编辑常用指令时的问题。
 func PromptCheckNameTooLong() string { return In(i18n.Locale()).PromptCheckNameTooLong() }
 
-// PromptCheckNameTooLong says "名字太长了（最多 40 个字）"
+// PromptCheckNameTooLong says "名称过长（最多 40 字）"
 // in the language of msgs.
 //
 // 新建或编辑常用指令时的问题。
@@ -543,13 +543,13 @@ func (msgs Messages) PromptCheckNameTooLong() string {
 	return Catalog.Format(msgs.locale, "promptCheckNameTooLong", nil)
 }
 
-// PromptCheckFull says "最多存 100 条，先删掉一些"
+// PromptCheckFull says "最多保存 100 条，请先删除部分指令"
 // in the language the app shows.
 //
 // 新建常用指令时已经存满了。
 func PromptCheckFull() string { return In(i18n.Locale()).PromptCheckFull() }
 
-// PromptCheckFull says "最多存 100 条，先删掉一些"
+// PromptCheckFull says "最多保存 100 条，请先删除部分指令"
 // in the language of msgs.
 //
 // 新建常用指令时已经存满了。
@@ -571,13 +571,13 @@ func (msgs Messages) HandoffFailed(error string) string {
 	return Catalog.Format(msgs.locale, "handoffFailed", map[string]any{"error": error})
 }
 
-// HandoffStuck says "对方的 Claude Code 没有退出，可以在终端里结束它后再试。"
+// HandoffStuck says "另一端的 Claude Code 尚未退出，可以在终端中结束该进程后再试。"
 // in the language the app shows.
 //
 // 别处运行卡片的说明：那边的 Claude Code 卡住没退出。
 func HandoffStuck() string { return In(i18n.Locale()).HandoffStuck() }
 
-// HandoffStuck says "对方的 Claude Code 没有退出，可以在终端里结束它后再试。"
+// HandoffStuck says "另一端的 Claude Code 尚未退出，可以在终端中结束该进程后再试。"
 // in the language of msgs.
 //
 // 别处运行卡片的说明：那边的 Claude Code 卡住没退出。
@@ -585,14 +585,14 @@ func (msgs Messages) HandoffStuck() string {
 	return Catalog.Format(msgs.locale, "handoffStuck", nil)
 }
 
-// ChatFormInvalid says "表单有几项不对：{problems}"
+// ChatFormInvalid says "表单存在无效项：{problems}"
 // in the language the app shows.
 //
 // MCP
 // 表单交上去核心说有几项不对时的错误（通常写在各项下面，这句只在别处显示）。
 func ChatFormInvalid(problems string) string { return In(i18n.Locale()).ChatFormInvalid(problems) }
 
-// ChatFormInvalid says "表单有几项不对：{problems}"
+// ChatFormInvalid says "表单存在无效项：{problems}"
 // in the language of msgs.
 //
 // MCP
@@ -631,13 +631,13 @@ func (msgs Messages) ChatFormProblemSeparator() string {
 	return Catalog.Format(msgs.locale, "chatFormProblemSeparator", nil)
 }
 
-// ChatNotConnected says "和主机的连接断了，正在重连"
+// ChatNotConnected says "与主机的连接已断开，正在重连"
 // in the language the app shows.
 //
 // 对话没连上时操作（发消息、回应确认）给出的错误。
 func ChatNotConnected() string { return In(i18n.Locale()).ChatNotConnected() }
 
-// ChatNotConnected says "和主机的连接断了，正在重连"
+// ChatNotConnected says "与主机的连接已断开，正在重连"
 // in the language of msgs.
 //
 // 对话没连上时操作（发消息、回应确认）给出的错误。
@@ -673,13 +673,13 @@ func (msgs Messages) RunlogLevelWarn() string {
 	return Catalog.Format(msgs.locale, "runlogLevelWarn", nil)
 }
 
-// RunlogLevelError says "出错"
+// RunlogLevelError says "错误"
 // in the language the app shows.
 //
 // 诊断页运行日志里一条记录的轻重：出错。
 func RunlogLevelError() string { return In(i18n.Locale()).RunlogLevelError() }
 
-// RunlogLevelError says "出错"
+// RunlogLevelError says "错误"
 // in the language of msgs.
 //
 // 诊断页运行日志里一条记录的轻重：出错。
@@ -731,13 +731,13 @@ func (msgs Messages) RunlogTopicDevice() string {
 	return Catalog.Format(msgs.locale, "runlogTopicDevice", nil)
 }
 
-// AccountsOwnBusy says "这里还有对话在进行"
+// AccountsOwnBusy says "当前窗口仍有对话正在进行"
 // in the language the app shows.
 //
 // 账号页的出错：本窗口在这台设备上还有对话在进行，不能动登录状态。
 func AccountsOwnBusy() string { return In(i18n.Locale()).AccountsOwnBusy() }
 
-// AccountsOwnBusy says "这里还有对话在进行"
+// AccountsOwnBusy says "当前窗口仍有对话正在进行"
 // in the language of msgs.
 //
 // 账号页的出错：本窗口在这台设备上还有对话在进行，不能动登录状态。
@@ -745,7 +745,7 @@ func (msgs Messages) AccountsOwnBusy() string {
 	return Catalog.Format(msgs.locale, "accountsOwnBusy", nil)
 }
 
-// AccountsInstallFailed says "装不上 claude-switch：{error}"
+// AccountsInstallFailed says "无法安装 claude-switch：{error}"
 // in the language the app shows.
 //
 // 账号页的出错：往设备上装换号程序没成，后面是原因。
@@ -753,7 +753,7 @@ func AccountsInstallFailed(error string) string {
 	return In(i18n.Locale()).AccountsInstallFailed(error)
 }
 
-// AccountsInstallFailed says "装不上 claude-switch：{error}"
+// AccountsInstallFailed says "无法安装 claude-switch：{error}"
 // in the language of msgs.
 //
 // 账号页的出错：往设备上装换号程序没成，后面是原因。
@@ -761,13 +761,13 @@ func (msgs Messages) AccountsInstallFailed(error string) string {
 	return Catalog.Format(msgs.locale, "accountsInstallFailed", map[string]any{"error": error})
 }
 
-// AccountsReadFailed says "读不了账号：{error}"
+// AccountsReadFailed says "无法读取账号：{error}"
 // in the language the app shows.
 //
 // 账号页的出错：没读到这台设备上的账号，后面是原因。
 func AccountsReadFailed(error string) string { return In(i18n.Locale()).AccountsReadFailed(error) }
 
-// AccountsReadFailed says "读不了账号：{error}"
+// AccountsReadFailed says "无法读取账号：{error}"
 // in the language of msgs.
 //
 // 账号页的出错：没读到这台设备上的账号，后面是原因。
@@ -789,13 +789,13 @@ func (msgs Messages) AccountsSwitching(name string) string {
 	return Catalog.Format(msgs.locale, "accountsSwitching", map[string]any{"name": name})
 }
 
-// AccountsSaving says "正在记下"
+// AccountsSaving says "正在保存"
 // in the language the app shows.
 //
 // 账号页：正在记下在用的登录。
 func AccountsSaving() string { return In(i18n.Locale()).AccountsSaving() }
 
-// AccountsSaving says "正在记下"
+// AccountsSaving says "正在保存"
 // in the language of msgs.
 //
 // 账号页：正在记下在用的登录。
@@ -803,13 +803,13 @@ func (msgs Messages) AccountsSaving() string {
 	return Catalog.Format(msgs.locale, "accountsSaving", nil)
 }
 
-// AccountsBusy says "上一件事还没做完"
+// AccountsBusy says "上一项操作尚未完成"
 // in the language the app shows.
 //
 // 账号页的出错：上一次切换、记下、移除还在做。
 func AccountsBusy() string { return In(i18n.Locale()).AccountsBusy() }
 
-// AccountsBusy says "上一件事还没做完"
+// AccountsBusy says "上一项操作尚未完成"
 // in the language of msgs.
 //
 // 账号页的出错：上一次切换、记下、移除还在做。
@@ -831,13 +831,13 @@ func (msgs Messages) AccountsRemoving(name string) string {
 	return Catalog.Format(msgs.locale, "accountsRemoving", map[string]any{"name": name})
 }
 
-// AccountsRemoveFailed says "没有移除：{error}"
+// AccountsRemoveFailed says "移除失败：{error}"
 // in the language the app shows.
 //
 // 账号页的出错：账号没移除，后面是原因。
 func AccountsRemoveFailed(error string) string { return In(i18n.Locale()).AccountsRemoveFailed(error) }
 
-// AccountsRemoveFailed says "没有移除：{error}"
+// AccountsRemoveFailed says "移除失败：{error}"
 // in the language of msgs.
 //
 // 账号页的出错：账号没移除，后面是原因。
@@ -845,13 +845,13 @@ func (msgs Messages) AccountsRemoveFailed(error string) string {
 	return Catalog.Format(msgs.locale, "accountsRemoveFailed", map[string]any{"error": error})
 }
 
-// AccountsCodeIncomplete says "授权码不完整：要连中间的 # 和它后面的部分一起复制"
+// AccountsCodeIncomplete says "授权码不完整：请连同中间的 # 及后面的部分一起复制"
 // in the language the app shows.
 //
 // 账号页添加账号：贴的授权码少了 # 和后半段。
 func AccountsCodeIncomplete() string { return In(i18n.Locale()).AccountsCodeIncomplete() }
 
-// AccountsCodeIncomplete says "授权码不完整：要连中间的 # 和它后面的部分一起复制"
+// AccountsCodeIncomplete says "授权码不完整：请连同中间的 # 及后面的部分一起复制"
 // in the language of msgs.
 //
 // 账号页添加账号：贴的授权码少了 # 和后半段。
@@ -887,13 +887,13 @@ func (msgs Messages) AccountsLoggingIn() string {
 	return Catalog.Format(msgs.locale, "accountsLoggingIn", nil)
 }
 
-// AccountsLoginFailed says "没有登录成功：{error}"
+// AccountsLoginFailed says "登录失败：{error}"
 // in the language the app shows.
 //
 // 账号页的出错：登录没成，后面是原因。
 func AccountsLoginFailed(error string) string { return In(i18n.Locale()).AccountsLoginFailed(error) }
 
-// AccountsLoginFailed says "没有登录成功：{error}"
+// AccountsLoginFailed says "登录失败：{error}"
 // in the language of msgs.
 //
 // 账号页的出错：登录没成，后面是原因。
@@ -901,13 +901,13 @@ func (msgs Messages) AccountsLoginFailed(error string) string {
 	return Catalog.Format(msgs.locale, "accountsLoginFailed", map[string]any{"error": error})
 }
 
-// AccountsQuotaTimedOut says "等了太久没有结果"
+// AccountsQuotaTimedOut says "等待超时，未返回结果"
 // in the language the app shows.
 //
 // 额度没取到的原因：问 Claude Code 等太久了。
 func AccountsQuotaTimedOut() string { return In(i18n.Locale()).AccountsQuotaTimedOut() }
 
-// AccountsQuotaTimedOut says "等了太久没有结果"
+// AccountsQuotaTimedOut says "等待超时，未返回结果"
 // in the language of msgs.
 //
 // 额度没取到的原因：问 Claude Code 等太久了。
@@ -915,13 +915,13 @@ func (msgs Messages) AccountsQuotaTimedOut() string {
 	return Catalog.Format(msgs.locale, "accountsQuotaTimedOut", nil)
 }
 
-// AccountsQuotaFailed says "没取到最新的额度：{error}"
+// AccountsQuotaFailed says "未能获取最新额度：{error}"
 // in the language the app shows.
 //
 // 额度说明后面：这次没取到最新的额度，后面是原因。
 func AccountsQuotaFailed(error string) string { return In(i18n.Locale()).AccountsQuotaFailed(error) }
 
-// AccountsQuotaFailed says "没取到最新的额度：{error}"
+// AccountsQuotaFailed says "未能获取最新额度：{error}"
 // in the language of msgs.
 //
 // 额度说明后面：这次没取到最新的额度，后面是原因。
@@ -929,14 +929,14 @@ func (msgs Messages) AccountsQuotaFailed(error string) string {
 	return Catalog.Format(msgs.locale, "accountsQuotaFailed", map[string]any{"error": error})
 }
 
-// AccountsQuotaStale says "没取到最新的额度，显示的是{age}的数"
+// AccountsQuotaStale says "未能获取最新额度，当前显示的是{age}的数据"
 // in the language the app shows.
 //
 // 额度说明后面：Claude Code
 // 这次没取到服务器的数，显示的是多久以前的。
 func AccountsQuotaStale(age string) string { return In(i18n.Locale()).AccountsQuotaStale(age) }
 
-// AccountsQuotaStale says "没取到最新的额度，显示的是{age}的数"
+// AccountsQuotaStale says "未能获取最新额度，当前显示的是{age}的数据"
 // in the language of msgs.
 //
 // 额度说明后面：Claude Code
@@ -945,13 +945,13 @@ func (msgs Messages) AccountsQuotaStale(age string) string {
 	return Catalog.Format(msgs.locale, "accountsQuotaStale", map[string]any{"age": age})
 }
 
-// AccountsQuotaFetching says "正在取额度"
+// AccountsQuotaFetching says "正在获取额度"
 // in the language the app shows.
 //
 // 额度说明：还没有数，正在取。
 func AccountsQuotaFetching() string { return In(i18n.Locale()).AccountsQuotaFetching() }
 
-// AccountsQuotaFetching says "正在取额度"
+// AccountsQuotaFetching says "正在获取额度"
 // in the language of msgs.
 //
 // 额度说明：还没有数，正在取。
@@ -959,13 +959,13 @@ func (msgs Messages) AccountsQuotaFetching() string {
 	return Catalog.Format(msgs.locale, "accountsQuotaFetching", nil)
 }
 
-// AccountsQuotaNoData says "还没有额度数据"
+// AccountsQuotaNoData says "暂无额度数据"
 // in the language the app shows.
 //
 // 额度说明：还没有数。
 func AccountsQuotaNoData() string { return In(i18n.Locale()).AccountsQuotaNoData() }
 
-// AccountsQuotaNoData says "还没有额度数据"
+// AccountsQuotaNoData says "暂无额度数据"
 // in the language of msgs.
 //
 // 额度说明：还没有数。
@@ -973,13 +973,13 @@ func (msgs Messages) AccountsQuotaNoData() string {
 	return Catalog.Format(msgs.locale, "accountsQuotaNoData", nil)
 }
 
-// AccountsQuotaUnavailable says "这种登录方式没有订阅额度"
+// AccountsQuotaUnavailable says "该登录方式没有订阅额度"
 // in the language the app shows.
 //
 // 额度说明：用 API key 等方式登录的没有订阅额度。
 func AccountsQuotaUnavailable() string { return In(i18n.Locale()).AccountsQuotaUnavailable() }
 
-// AccountsQuotaUnavailable says "这种登录方式没有订阅额度"
+// AccountsQuotaUnavailable says "该登录方式没有订阅额度"
 // in the language of msgs.
 //
 // 额度说明：用 API key 等方式登录的没有订阅额度。
@@ -987,13 +987,13 @@ func (msgs Messages) AccountsQuotaUnavailable() string {
 	return Catalog.Format(msgs.locale, "accountsQuotaUnavailable", nil)
 }
 
-// AccountsQuotaNotYet says "Claude Code 还没拿到这个账号的额度"
+// AccountsQuotaNotYet says "Claude Code 尚未获取到该账号的额度"
 // in the language the app shows.
 //
 // 额度说明：Claude Code 还没给出额度窗口。
 func AccountsQuotaNotYet() string { return In(i18n.Locale()).AccountsQuotaNotYet() }
 
-// AccountsQuotaNotYet says "Claude Code 还没拿到这个账号的额度"
+// AccountsQuotaNotYet says "Claude Code 尚未获取到该账号的额度"
 // in the language of msgs.
 //
 // 额度说明：Claude Code 还没给出额度窗口。
@@ -1193,7 +1193,7 @@ func (msgs Messages) AccountsAgeDays(days int) string {
 	return Catalog.Format(msgs.locale, "accountsAgeDays", map[string]any{"days": days})
 }
 
-// AccountsRelayModelsFailed says "没取到模型列表：{error}"
+// AccountsRelayModelsFailed says "未能获取模型列表：{error}"
 // in the language the app shows.
 //
 // 中转编辑页：获取模型列表没成，后面是原因。
@@ -1201,7 +1201,7 @@ func AccountsRelayModelsFailed(error string) string {
 	return In(i18n.Locale()).AccountsRelayModelsFailed(error)
 }
 
-// AccountsRelayModelsFailed says "没取到模型列表：{error}"
+// AccountsRelayModelsFailed says "未能获取模型列表：{error}"
 // in the language of msgs.
 //
 // 中转编辑页：获取模型列表没成，后面是原因。
@@ -1223,7 +1223,7 @@ func (msgs Messages) AccountsRelaySaving(name string) string {
 	return Catalog.Format(msgs.locale, "accountsRelaySaving", map[string]any{"name": name})
 }
 
-// AccountsRelaySaveFailed says "没有保存：{error}"
+// AccountsRelaySaveFailed says "保存失败：{error}"
 // in the language the app shows.
 //
 // 中转编辑页：保存没成，后面是原因。
@@ -1231,7 +1231,7 @@ func AccountsRelaySaveFailed(error string) string {
 	return In(i18n.Locale()).AccountsRelaySaveFailed(error)
 }
 
-// AccountsRelaySaveFailed says "没有保存：{error}"
+// AccountsRelaySaveFailed says "保存失败：{error}"
 // in the language of msgs.
 //
 // 中转编辑页：保存没成，后面是原因。
@@ -1253,7 +1253,7 @@ func (msgs Messages) AccountsRelayRemoving(name string) string {
 	return Catalog.Format(msgs.locale, "accountsRelayRemoving", map[string]any{"name": name})
 }
 
-// AccountsRelayRemoveFailed says "没有删除：{error}"
+// AccountsRelayRemoveFailed says "删除失败：{error}"
 // in the language the app shows.
 //
 // 中转编辑页：删除没成，后面是原因。
@@ -1261,7 +1261,7 @@ func AccountsRelayRemoveFailed(error string) string {
 	return In(i18n.Locale()).AccountsRelayRemoveFailed(error)
 }
 
-// AccountsRelayRemoveFailed says "没有删除：{error}"
+// AccountsRelayRemoveFailed says "删除失败：{error}"
 // in the language of msgs.
 //
 // 中转编辑页：删除没成，后面是原因。
@@ -1269,14 +1269,14 @@ func (msgs Messages) AccountsRelayRemoveFailed(error string) string {
 	return Catalog.Format(msgs.locale, "accountsRelayRemoveFailed", map[string]any{"error": error})
 }
 
-// MobileImportedKeyRejected says "服务器不认导入的私钥：把它对应的公钥加进那台设备的 ~/.ssh/authorized_keys…"
+// MobileImportedKeyRejected says "服务器未接受导入的私钥：请将其对应的公钥添加到该设备的 ~/.ssh/authorized_keys…"
 // in the language the app shows.
 //
 // iOS 版：用导入的私钥登录、SSH
 // 登录被拒时设备页和聊天页说的原因。
 func MobileImportedKeyRejected() string { return In(i18n.Locale()).MobileImportedKeyRejected() }
 
-// MobileImportedKeyRejected says "服务器不认导入的私钥：把它对应的公钥加进那台设备的 ~/.ssh/authorized_keys…"
+// MobileImportedKeyRejected says "服务器未接受导入的私钥：请将其对应的公钥添加到该设备的 ~/.ssh/authorized_keys…"
 // in the language of msgs.
 //
 // iOS 版：用导入的私钥登录、SSH
@@ -1285,13 +1285,13 @@ func (msgs Messages) MobileImportedKeyRejected() string {
 	return Catalog.Format(msgs.locale, "mobileImportedKeyRejected", nil)
 }
 
-// MobileKeyNeedsPassphrase says "这把私钥有密码，请填上密码再导入"
+// MobileKeyNeedsPassphrase says "该私钥受密码保护，请填写密码后再导入"
 // in the language the app shows.
 //
 // iOS 版：导入加了密码的私钥、没填密码时说的原因。
 func MobileKeyNeedsPassphrase() string { return In(i18n.Locale()).MobileKeyNeedsPassphrase() }
 
-// MobileKeyNeedsPassphrase says "这把私钥有密码，请填上密码再导入"
+// MobileKeyNeedsPassphrase says "该私钥受密码保护，请填写密码后再导入"
 // in the language of msgs.
 //
 // iOS 版：导入加了密码的私钥、没填密码时说的原因。
@@ -1299,14 +1299,14 @@ func (msgs Messages) MobileKeyNeedsPassphrase() string {
 	return Catalog.Format(msgs.locale, "mobileKeyNeedsPassphrase", nil)
 }
 
-// MobileKeyUnreadable says "认不出这把私钥：要 OpenSSH 或 PEM 格式的私钥（不是公钥），密码要对"
+// MobileKeyUnreadable says "无法识别该私钥：请提供 OpenSSH 或 PEM 格式的私钥（非公钥），并确保密码正确"
 // in the language the app shows.
 //
 // iOS
 // 版：导入的私钥解析不了（格式不对、是公钥、密码错）时说的原因。
 func MobileKeyUnreadable() string { return In(i18n.Locale()).MobileKeyUnreadable() }
 
-// MobileKeyUnreadable says "认不出这把私钥：要 OpenSSH 或 PEM 格式的私钥（不是公钥），密码要对"
+// MobileKeyUnreadable says "无法识别该私钥：请提供 OpenSSH 或 PEM 格式的私钥（非公钥），并确保密码正确"
 // in the language of msgs.
 //
 // iOS
@@ -1315,13 +1315,13 @@ func (msgs Messages) MobileKeyUnreadable() string {
 	return Catalog.Format(msgs.locale, "mobileKeyUnreadable", nil)
 }
 
-// MobileKeyRejected says "服务器不认 Zeta 的公钥：在设置里复制公钥，加进那台设备的 ~/.ssh/authorized_keys"
+// MobileKeyRejected says "服务器未接受 Zeta 的公钥：请在设置中复制公钥，并添加到该设备的 ~/.ssh/authorized_keys"
 // in the language the app shows.
 //
 // iOS 版：SSH 登录被拒时设备页和聊天页说的原因。
 func MobileKeyRejected() string { return In(i18n.Locale()).MobileKeyRejected() }
 
-// MobileKeyRejected says "服务器不认 Zeta 的公钥：在设置里复制公钥，加进那台设备的 ~/.ssh/authorized_keys"
+// MobileKeyRejected says "服务器未接受 Zeta 的公钥：请在设置中复制公钥，并添加到该设备的 ~/.ssh/authorized_keys"
 // in the language of msgs.
 //
 // iOS 版：SSH 登录被拒时设备页和聊天页说的原因。
@@ -1329,13 +1329,13 @@ func (msgs Messages) MobileKeyRejected() string {
 	return Catalog.Format(msgs.locale, "mobileKeyRejected", nil)
 }
 
-// MobileSessionGone says "这个会话已经不在列表里了"
+// MobileSessionGone says "该会话已不在列表中"
 // in the language the app shows.
 //
 // iOS 版：点开的会话在会话列表里找不到了。
 func MobileSessionGone() string { return In(i18n.Locale()).MobileSessionGone() }
 
-// MobileSessionGone says "这个会话已经不在列表里了"
+// MobileSessionGone says "该会话已不在列表中"
 // in the language of msgs.
 //
 // iOS 版：点开的会话在会话列表里找不到了。
@@ -1343,13 +1343,13 @@ func (msgs Messages) MobileSessionGone() string {
 	return Catalog.Format(msgs.locale, "mobileSessionGone", nil)
 }
 
-// MobileProbeFirst says "先检查连接，再添加设备"
+// MobileProbeFirst says "请先检查连接，再添加设备"
 // in the language the app shows.
 //
 // iOS 版：添加设备时探测结果已过期或没探测过。
 func MobileProbeFirst() string { return In(i18n.Locale()).MobileProbeFirst() }
 
-// MobileProbeFirst says "先检查连接，再添加设备"
+// MobileProbeFirst says "请先检查连接，再添加设备"
 // in the language of msgs.
 //
 // iOS 版：添加设备时探测结果已过期或没探测过。
@@ -1357,13 +1357,13 @@ func (msgs Messages) MobileProbeFirst() string {
 	return Catalog.Format(msgs.locale, "mobileProbeFirst", nil)
 }
 
-// MobileChatNotOpen says "对话还没打开"
+// MobileChatNotOpen says "对话尚未打开"
 // in the language the app shows.
 //
 // iOS 版：对话还在打开时就发消息、停止或回应确认。
 func MobileChatNotOpen() string { return In(i18n.Locale()).MobileChatNotOpen() }
 
-// MobileChatNotOpen says "对话还没打开"
+// MobileChatNotOpen says "对话尚未打开"
 // in the language of msgs.
 //
 // iOS 版：对话还在打开时就发消息、停止或回应确认。
@@ -1371,7 +1371,7 @@ func (msgs Messages) MobileChatNotOpen() string {
 	return Catalog.Format(msgs.locale, "mobileChatNotOpen", nil)
 }
 
-// MobileAttachUnreadable says "读不了 {name}"
+// MobileAttachUnreadable says "无法读取 {name}"
 // in the language the app shows.
 //
 // iOS 版输入栏：选的文件读不出来，没收进附件。
@@ -1379,7 +1379,7 @@ func MobileAttachUnreadable(name string) string {
 	return In(i18n.Locale()).MobileAttachUnreadable(name)
 }
 
-// MobileAttachUnreadable says "读不了 {name}"
+// MobileAttachUnreadable says "无法读取 {name}"
 // in the language of msgs.
 //
 // iOS 版输入栏：选的文件读不出来，没收进附件。
@@ -1387,7 +1387,7 @@ func (msgs Messages) MobileAttachUnreadable(name string) string {
 	return Catalog.Format(msgs.locale, "mobileAttachUnreadable", map[string]any{"name": name})
 }
 
-// MobileAttachTooMany says "一次最多 {max} 个文件，后面 {dropped} 个没有加进来"
+// MobileAttachTooMany says "单次最多添加 {max} 个文件，其余 {dropped} 个未添加"
 // in the language the app shows.
 //
 // iOS 版输入栏：一次选的文件超过上限。
@@ -1395,7 +1395,7 @@ func MobileAttachTooMany(max int, dropped int) string {
 	return In(i18n.Locale()).MobileAttachTooMany(max, dropped)
 }
 
-// MobileAttachTooMany says "一次最多 {max} 个文件，后面 {dropped} 个没有加进来"
+// MobileAttachTooMany says "单次最多添加 {max} 个文件，其余 {dropped} 个未添加"
 // in the language of msgs.
 //
 // iOS 版输入栏：一次选的文件超过上限。
@@ -1403,14 +1403,14 @@ func (msgs Messages) MobileAttachTooMany(max int, dropped int) string {
 	return Catalog.Format(msgs.locale, "mobileAttachTooMany", map[string]any{"max": max, "dropped": dropped})
 }
 
-// MobilePromptExists says "常用指令里已经有这一条"
+// MobilePromptExists says "常用指令中已存在该条目"
 // in the language the app shows.
 //
 // iOS
 // 版：把消息收藏为常用指令时，清单里已经有同样内容的。
 func MobilePromptExists() string { return In(i18n.Locale()).MobilePromptExists() }
 
-// MobilePromptExists says "常用指令里已经有这一条"
+// MobilePromptExists says "常用指令中已存在该条目"
 // in the language of msgs.
 //
 // iOS
@@ -1467,13 +1467,13 @@ func (msgs Messages) DiagBundleEnvLine(name string, value string) string {
 	return Catalog.Format(msgs.locale, "diagBundleEnvLine", map[string]any{"name": name, "value": value})
 }
 
-// DiagBundleListFailed says "列日志：{error}"
+// DiagBundleListFailed says "列出日志失败：{error}"
 // in the language the app shows.
 //
 // 诊断包里一台设备的「读取失败.txt」的一行：列这台设备的日志清单失败。
 func DiagBundleListFailed(error string) string { return In(i18n.Locale()).DiagBundleListFailed(error) }
 
-// DiagBundleListFailed says "列日志：{error}"
+// DiagBundleListFailed says "列出日志失败：{error}"
 // in the language of msgs.
 //
 // 诊断包里一台设备的「读取失败.txt」的一行：列这台设备的日志清单失败。
@@ -1497,13 +1497,13 @@ func (msgs Messages) DiagBundleReadFailed(path string, error string) string {
 	return Catalog.Format(msgs.locale, "diagBundleReadFailed", map[string]any{"path": path, "error": error})
 }
 
-// DiagBundleTruncated says "# 只取了最后 64 KB（整个文件 {size} 字节）"
+// DiagBundleTruncated says "# 仅截取最后 64 KB（文件总计 {size} 字节）"
 // in the language the app shows.
 //
 // 诊断包里截过的日志文件开头加的一行。
 func DiagBundleTruncated(size int) string { return In(i18n.Locale()).DiagBundleTruncated(size) }
 
-// DiagBundleTruncated says "# 只取了最后 64 KB（整个文件 {size} 字节）"
+// DiagBundleTruncated says "# 仅截取最后 64 KB（文件总计 {size} 字节）"
 // in the language of msgs.
 //
 // 诊断包里截过的日志文件开头加的一行。
@@ -1511,13 +1511,13 @@ func (msgs Messages) DiagBundleTruncated(size int) string {
 	return Catalog.Format(msgs.locale, "diagBundleTruncated", map[string]any{"size": size})
 }
 
-// MobileDeviceGone says "这台设备已经删掉了"
+// MobileDeviceGone says "该设备已被删除"
 // in the language the app shows.
 //
 // iOS 版：设备页上操作的那台设备已经不在设置里了。
 func MobileDeviceGone() string { return In(i18n.Locale()).MobileDeviceGone() }
 
-// MobileDeviceGone says "这台设备已经删掉了"
+// MobileDeviceGone says "该设备已被删除"
 // in the language of msgs.
 //
 // iOS 版：设备页上操作的那台设备已经不在设置里了。
@@ -1525,13 +1525,13 @@ func (msgs Messages) MobileDeviceGone() string {
 	return Catalog.Format(msgs.locale, "mobileDeviceGone", nil)
 }
 
-// MobileCwdNotAbsolute says "要写以 / 或 ~ 开头的目录"
+// MobileCwdNotAbsolute says "请填写以 / 或 ~ 开头的目录路径"
 // in the language the app shows.
 //
 // iOS 版：设备页改默认工作目录时填的不是绝对路径。
 func MobileCwdNotAbsolute() string { return In(i18n.Locale()).MobileCwdNotAbsolute() }
 
-// MobileCwdNotAbsolute says "要写以 / 或 ~ 开头的目录"
+// MobileCwdNotAbsolute says "请填写以 / 或 ~ 开头的目录路径"
 // in the language of msgs.
 //
 // iOS 版：设备页改默认工作目录时填的不是绝对路径。
@@ -1539,14 +1539,14 @@ func (msgs Messages) MobileCwdNotAbsolute() string {
 	return Catalog.Format(msgs.locale, "mobileCwdNotAbsolute", nil)
 }
 
-// MobileAccountGone says "这个账号或中转已经不在列表里了"
+// MobileAccountGone says "该账号或中转已不在列表中"
 // in the language the app shows.
 //
 // iOS
 // 版：账号页上要切换、删除、编辑的账号或中转在读到的列表里找不到了。
 func MobileAccountGone() string { return In(i18n.Locale()).MobileAccountGone() }
 
-// MobileAccountGone says "这个账号或中转已经不在列表里了"
+// MobileAccountGone says "该账号或中转已不在列表中"
 // in the language of msgs.
 //
 // iOS
@@ -1555,14 +1555,14 @@ func (msgs Messages) MobileAccountGone() string {
 	return Catalog.Format(msgs.locale, "mobileAccountGone", nil)
 }
 
-// MobileRelayDraftGone says "中转的编辑页已经关了"
+// MobileRelayDraftGone says "中转编辑页已关闭"
 // in the language the app shows.
 //
 // iOS
 // 版：中转的编辑页关掉以后才到的操作（获取模型列表、保存）。
 func MobileRelayDraftGone() string { return In(i18n.Locale()).MobileRelayDraftGone() }
 
-// MobileRelayDraftGone says "中转的编辑页已经关了"
+// MobileRelayDraftGone says "中转编辑页已关闭"
 // in the language of msgs.
 //
 // iOS
@@ -1571,14 +1571,14 @@ func (msgs Messages) MobileRelayDraftGone() string {
 	return Catalog.Format(msgs.locale, "mobileRelayDraftGone", nil)
 }
 
-// MobileLicensesUnreadable says "读不出许可证清单"
+// MobileLicensesUnreadable says "无法读取许可证清单"
 // in the language the app shows.
 //
 // iOS
 // 版：关于页的开源许可清单格式不对，或要看的许可不在清单里。
 func MobileLicensesUnreadable() string { return In(i18n.Locale()).MobileLicensesUnreadable() }
 
-// MobileLicensesUnreadable says "读不出许可证清单"
+// MobileLicensesUnreadable says "无法读取许可证清单"
 // in the language of msgs.
 //
 // iOS

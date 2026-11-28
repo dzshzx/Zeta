@@ -92,7 +92,7 @@ func TestUpdatesMergeAndAllHostsListTogether(t *testing.T) {
 	}
 	// 一台连不上：列着几台时注明是哪台；连上了就清掉
 	d.Fail(b.ID, "对方拒绝连接")
-	if got := h.Problem(); got != "b：没读到会话列表：对方拒绝连接" {
+	if got := h.Problem(); got != "b：无法读取会话列表：对方拒绝连接" {
 		t.Errorf("problem %q", got)
 	}
 	// 连不上的那台，刷新时重连

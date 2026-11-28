@@ -248,7 +248,7 @@ class NoteToolsTest {
         assertEquals("新建便签「一二三四五六七八九十一二…」", title("action" to "create", "title" to "一二三四五六七八九十一二三"))
         assertEquals("新建便签", title("action" to "create"))
         assertEquals("修改便签", title("action" to "update"))
-        assertEquals("改便签", title("action" to "delete"))
+        assertEquals("修改便签", title("action" to "delete"))
     }
 }
 

@@ -97,7 +97,7 @@ func TestRelayEditOpens(t *testing.T) {
 	if f.page.Title() != "编辑中转 cpa" {
 		t.Fatalf("%q", f.page.Title())
 	}
-	hasAll(t, tt, "名称加好以后不能改", "要是 Anthropic Messages 协议的接入点；OpenAI 协议的上游请经能翻译的中转接入。", "密钥", "默认模型", "删除", "保存")
+	hasAll(t, tt, "创建后无法修改名称", "需为 Anthropic Messages 协议接入点；OpenAI 协议上游请通过协议转换中转接入。", "密钥", "默认模型", "删除", "保存")
 	if !f.page.Back() || f.page.edit != nil || f.page.Back() {
 		t.Fatal("Back 该回到账号页")
 	}
@@ -113,7 +113,7 @@ func TestRelayAdd(t *testing.T) {
 	if d == nil || !d.Create || f.page.Title() != "添加中转" {
 		t.Fatalf("没打开添加：%+v", d)
 	}
-	hasAll(t, tt, "填好地址和密钥后能获取模型列表")
+	hasAll(t, tt, "填写地址和密钥后即可获取模型列表")
 	d.Name, d.BaseURL, d.Key = "new", "https://n.example.com", testKey
 	tt.Frame()
 	if shows(tt, testKey) {
@@ -169,7 +169,7 @@ func TestRelayRemove(t *testing.T) {
 	tt = ui.NewTester(f.page.View, 640, 1400)
 	f.until(t, tt, "读完", func() bool { _, ok := f.page.Accounts.State(); return ok && !f.page.Quota.Refreshing() })
 	click(t, tt, "编辑")
-	hasAll(t, tt, "正在用这个中转：改了以后，新起的对话进程才用上。要删除先换到别的账号或中转。")
+	hasAll(t, tt, "当前正在使用该中转：修改仅对新启动的对话进程生效。如需删除，请先切换至其他账号或中转。")
 	click(t, tt, "删除")
 	if f.page.askRemoveRelay {
 		t.Fatal("在用的中转不该能删")
@@ -183,7 +183,7 @@ func TestRelayKeyReadOnly(t *testing.T) {
 	tt := ui.NewTester(f.page.View, 640, 1400)
 	f.until(t, tt, "读完", f.loaded)
 	click(t, tt, "编辑")
-	hasAll(t, tt, "密钥不是从文件读的，Zeta 改不了；在它的设置文件里改")
+	hasAll(t, tt, "该密钥并非从密钥文件读取，Zeta 无法修改，请在其配置文件中更改")
 	f.page.edit.Key = testKey
 	tt.Frame()
 	click(t, tt, "保存")

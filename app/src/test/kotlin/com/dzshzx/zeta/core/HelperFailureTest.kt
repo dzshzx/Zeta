@@ -35,7 +35,7 @@ class HelperFailureTest {
     @Test
     fun onlyASuccessfulRunHasOutput() {
         assertEquals("[]", HelperResult.of(CommandResult(0, "[]", "")).outputOrNull)
-        assertEquals("进不了 Linux 环境", (HelperResult.of(null) as HelperResult.Failed).reason)
+        assertEquals("无法进入 Linux 环境", (HelperResult.of(null) as HelperResult.Failed).reason)
         val timedOut =
             HelperResult.of(CommandResult(-1, """{"partial":1}""", CommandResult.TIMEOUT))
         assertEquals("Linux 环境没有响应（超时）", (timedOut as HelperResult.Failed).reason)
@@ -71,7 +71,7 @@ class HelperFailureTest {
         awaitMain { list.sessions.single().title == "原来的" }
         assertTrue(
             ShadowToast.getTextOfLatestToast(),
-            ShadowToast.getTextOfLatestToast().startsWith("改名没成功："),
+            ShadowToast.getTextOfLatestToast().startsWith("重命名失败："),
         )
     }
 

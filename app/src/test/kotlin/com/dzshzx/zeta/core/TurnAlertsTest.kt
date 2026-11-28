@@ -134,7 +134,7 @@ class TurnAlertsTest {
         val chat = hub.current
         chat.core { it.copy(tasks = List(3) { i -> running(i) }) }
         hub.alerts.turnFinished(chat, stopped = false)
-        assertEquals("答完了，后台还有 3 个任务在跑", text(chat.openKey))
+        assertEquals("回答已完成，后台仍有 3 个任务运行中", text(chat.openKey))
         assertEquals("后台还在跑，不响铃", "silent", notification(chat.openKey)!!.group)
 
         chat.core { it.copy(tasks = emptyList()) }

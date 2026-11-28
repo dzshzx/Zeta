@@ -195,7 +195,7 @@ func TestServeAccountsOverServe(t *testing.T) {
 		t.Fatalf("accounts.list：%v", got["1"])
 	}
 	c.send(`{"id":3,"method":"accounts.switch","name":"nobody"}`)
-	if r := c.next("zeta_reply"); r["ok"] != false || r["code"] != "no_account" || r["error"] != "这个账号已经不在了" {
+	if r := c.next("zeta_reply"); r["ok"] != false || r["code"] != "no_account" || r["error"] != "该账号已不存在" {
 		t.Fatalf("换到没有的号：%v", r)
 	}
 	c.send(`{"id":4,"method":"quota.get"}`)

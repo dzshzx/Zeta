@@ -202,11 +202,11 @@ class ClaudeDefaultsTest {
     @Test
     fun effortSummaryReadsPerModel() {
         assertEquals(
-            "没有设，按 Claude Code 的默认",
+            "未设置，使用 Claude Code 默认值",
             effortSummary(ClaudeDefaults(null, null, emptyMap(), null)),
         )
         assertEquals(
-            "没有设，按 Antigravity 的默认",
+            "未设置，使用 Antigravity 默认值",
             effortSummary(ClaudeDefaults(null, null, emptyMap(), null), Harnesses.AGY),
         )
         assertEquals("高", effortSummary(ClaudeDefaults(null, null, emptyMap(), "high")))

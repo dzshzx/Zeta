@@ -202,7 +202,7 @@ class PowerKeyTest {
                 .trimIndent()
         val status = PowerKeyLog.parse(output, releaseTag)
         assertEquals(true, status.installed)
-        assertEquals("已装上", status.summary)
+        assertEquals("已安装", status.summary)
         assertEquals(3, status.recent.size)
         assertEquals(
             "09:01:02 装上了：ShortCutActionsUtils.triggerFunction(String, String, Bundle, boolean, String)",
@@ -232,6 +232,6 @@ class PowerKeyTest {
         val status = PowerKeyLog.parse(PowerKeyLog.SPLIT + "\n--------- beginning of main\n")
         assertNull(status.installed)
         assertTrue(status.recent.isEmpty())
-        assertEquals("没有记录", status.summary)
+        assertEquals("无记录", status.summary)
     }
 }

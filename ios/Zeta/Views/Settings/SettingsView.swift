@@ -91,7 +91,7 @@ private struct KeySection: View {
                 Label("导入私钥", systemImage: "key")
             }
             if model.keyImported {
-                Button("换回 Zeta 的密钥", systemImage: "arrow.uturn.backward", role: .destructive) {
+                Button("恢复使用 Zeta 密钥", systemImage: "arrow.uturn.backward", role: .destructive) {
                     resetting = true
                 }
             }
@@ -100,15 +100,15 @@ private struct KeySection: View {
         } footer: {
             VStack(alignment: .leading) {
                 Text(model.keyImported
-                    ? "Zeta 用导入的私钥登录，上面是它的公钥。"
-                    : "把这一行加进设备上的 ~/.ssh/authorized_keys，Zeta 才能登录。")
-                Text("私钥只在这台设备的钥匙串里。")
+                    ? "Zeta 当前使用已导入的私钥登录，上方为其对应公钥。"
+                    : "将这一行添加到目标设备的 ~/.ssh/authorized_keys，Zeta 方可登录。")
+                Text("私钥仅保存在本机钥匙串中。")
             }
         }
-        .confirmationDialog("换回 Zeta 的密钥？", isPresented: $resetting, titleVisibility: .visible) {
-            Button("换回", role: .destructive) { model.resetKey() }
+        .confirmationDialog("恢复使用 Zeta 密钥？", isPresented: $resetting, titleVisibility: .visible) {
+            Button("恢复", role: .destructive) { model.resetKey() }
         } message: {
-            Text("导入的私钥从这台设备上删掉，之后用 Zeta 自己的密钥登录。")
+            Text("将从此设备移除已导入的私钥，之后改用 Zeta 自带密钥登录。")
         }
     }
 }
@@ -130,14 +130,14 @@ struct GeneralSettingsView: View {
                         model.perform("prefs.set", ["auto_load_remote_images": enabled])
                     }
             } footer: {
-                Text("关着时，回答里的网络图片要点一下才加载。")
+                Text("关闭时，回复中的网络图片需点击后加载。")
             }
             Section {
                 Button("界面语言", systemImage: "globe") {
                     if let url = URL(string: UIApplication.openSettingsURLString) { openURL(url) }
                 }
             } footer: {
-                Text("界面语言跟随系统，可以在系统设置里给 Zeta 单独选；外观跟随系统的浅色、深色。")
+                Text("界面语言跟随系统，也可在系统设置中为 Zeta 单独指定；外观跟随系统的浅色与深色模式。")
             }
         }
         .navigationTitle("常规")

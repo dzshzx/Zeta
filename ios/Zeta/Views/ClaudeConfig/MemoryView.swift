@@ -23,7 +23,7 @@ struct MemoryView: View {
                         TitledRow(
                             title: doc.file,
                             summary: data.instructions.exists ? ConfigLabels.size(data.instructions.size)
-                                : String(localized: "还没有创建，打开就能写"))
+                                : String(localized: "尚未创建，打开即可编辑"))
                     }
                 } else {
                     LoadingRow()
@@ -32,8 +32,8 @@ struct MemoryView: View {
                 Text(isAgy ? "全局规则" : "用户指令")
             } footer: {
                 Text(isAgy
-                    ? "~/.gemini/config/rules/AGENTS.md 里是所有工作区通用的全局规则。改动对之后新开始的对话生效。"
-                    : "~/.claude/CLAUDE.md 里是你写给 Claude 的长期指令，所有项目通用。改动对之后新开始的对话生效。")
+                    ? "~/.gemini/config/rules/AGENTS.md 存放所有工作区通用的全局规则。修改对之后新建的对话生效。"
+                    : "~/.claude/CLAUDE.md 用于存放写给 Claude 的长期指令，所有项目通用。修改对之后新建的对话生效。")
             }
             Section {
                 if let data { autoMemoryRows(data) } else { LoadingRow() }
@@ -42,7 +42,7 @@ struct MemoryView: View {
             } footer: {
                 Text(isAgy
                     ? "工作区根目录的 AGENTS.md（或 GEMINI.md）和 .agents/rules 下的 .md 规则文件。"
-                    : "Claude 会在对话中自己记下你的偏好、纠正和项目背景。开关对所有项目生效；关掉后不再读写，记忆留着。")
+                    : "Claude 会在对话中自动记录你的偏好、纠正内容与项目背景。此开关对所有项目生效；关闭后不再读写，已有记忆仍会保留。")
             }
             if let data, data.index != nil || isAgy {
                 filesSection(data)
@@ -74,7 +74,7 @@ struct MemoryView: View {
         return ConfigDocumentRef(
             path: data.instructions.path,
             title: isAgy ? String(localized: "全局规则") : String(localized: "用户指令"), file: file,
-            placeholder: String(localized: "比如：回答用中文；我的主要技术栈是 Go；改代码前先说明打算怎么改"))
+            placeholder: String(localized: "例如：使用中文回复；主要技术栈为 Go；修改代码前先说明方案"))
     }
 
     @ViewBuilder private func autoMemoryRows(_ data: MemoryPage) -> some View {
@@ -82,7 +82,7 @@ struct MemoryView: View {
             Toggle(isOn: Binding { data.autoMemory && !data.forcedOff } set: { setAuto($0) }) {
                 TitledRow(
                     title: String(localized: "启用自动记忆"),
-                    summary: data.forcedOff ? String(localized: "被环境变量关掉了，这里改不了") : "")
+                    summary: data.forcedOff ? String(localized: "已被环境变量禁用，无法在此修改") : "")
             }
             .disabled(data.forcedOff || working)
         }
@@ -110,7 +110,7 @@ struct MemoryView: View {
                     document: ConfigDocumentRef(
                         path: index.path, title: file, file: file,
                         placeholder: isAgy
-                            ? String(localized: "写给这个工作区的项目规则与约定")
+                            ? String(localized: "此工作区的项目规则与约定")
                             : String(localized: "一行一条记忆：- [标题](文件名.md) — 一句话说明")),
                     changed: reload)
             } label: {
@@ -127,19 +127,19 @@ struct MemoryView: View {
 
     private func indexSummary(exists: Bool) -> String {
         if isAgy {
-            return exists ? String(localized: "工作区根规则") : String(localized: "工作区根规则，还没有")
+            return exists ? String(localized: "工作区根规则") : String(localized: "工作区根规则（尚未创建）")
         }
-        return exists ? String(localized: "记忆的索引") : String(localized: "记忆的索引，还没有")
+        return exists ? String(localized: "记忆索引") : String(localized: "记忆索引（尚未创建）")
     }
 
     private func filesSection(_ data: MemoryPage) -> some View {
         Section(isAgy ? "规则文件 · \(String(data.files.count))" : "记忆 · \(String(data.files.count))") {
             if data.files.isEmpty {
                 TitledRow(
-                    title: isAgy ? String(localized: "这个目录还没有规则文件") : String(localized: "这个项目还没有记忆"),
+                    title: isAgy ? String(localized: "此目录暂无规则文件") : String(localized: "此项目暂无记忆"),
                     summary: isAgy
-                        ? String(localized: "目录下的 .md 规则文件会列在这里")
-                        : String(localized: "让 Claude 记住的东西会出现在这里"))
+                        ? String(localized: "此目录下的 .md 规则文件将显示在此处")
+                        : String(localized: "让 Claude 记住的内容会显示在此处"))
             }
             ForEach(data.files, id: \.path) { file in
                 let name = file.name.isEmpty ? file.fileName : file.name
@@ -169,7 +169,7 @@ struct MemoryView: View {
             do {
                 try await calls.run("config.memory.setAuto", ["on": enabled])
             } catch {
-                failure = ConfigFailure(String(localized: "没有改成"), error)
+                failure = ConfigFailure(String(localized: "修改失败"), error)
             }
             await load()
         }
@@ -238,10 +238,10 @@ struct DocumentView: View {
         .navigationBarBackButtonHidden(dirty)
         .toolbar { toolbar }
         .task { await load() }
-        .confirmationDialog("文件已经变了", isPresented: $conflict, titleVisibility: .visible) {
+        .confirmationDialog("文件已被修改", isPresented: $conflict, titleVisibility: .visible) {
             Button("仍然保存", role: .destructive) { save(force: true) }
         } message: {
-            Text("编辑期间这个文件被改过了。保存会用你的版本覆盖。")
+            Text("编辑期间该文件已被修改，保存将用当前版本覆盖。")
         }
         .confirmationDialog("放弃未保存的更改？", isPresented: $leaving, titleVisibility: .visible) {
             Button("放弃", role: .destructive) { dismiss() }
@@ -253,8 +253,8 @@ struct DocumentView: View {
             Button("删除", role: .destructive) { delete() }
         } message: {
             Text(calls.isAgy
-                ? "删除 \(document.file)？删了就找不回来。"
-                : "删除 \(document.file)，并从 MEMORY.md 里去掉它那一行。删了就找不回来。")
+                ? "删除 \(document.file)？删除后无法恢复。"
+                : "删除 \(document.file) 并从 MEMORY.md 中移除对应条目？删除后无法恢复。")
         }
         .configFailure($failure)
     }
@@ -264,7 +264,7 @@ struct DocumentView: View {
             let text = Self.stripFrontmatter(draft)
             if text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
                 ContentUnavailableView {
-                    Label("还没有内容", systemImage: "doc.text")
+                    Label("暂无内容", systemImage: "doc.text")
                 } description: {
                     Text(document.placeholder)
                 } actions: {
@@ -295,7 +295,7 @@ struct DocumentView: View {
                 .foregroundStyle(over ? .red : .secondary)
             Spacer()
             if over {
-                Text("已超过 1 MiB 上限，请删减").font(.caption).foregroundStyle(.red)
+                Text("已超过 1 MiB 上限，请精简内容").font(.caption).foregroundStyle(.red)
             } else if dirty {
                 Text("未保存的更改").font(.caption).foregroundStyle(.secondary)
             }

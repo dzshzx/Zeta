@@ -180,7 +180,7 @@ class AgyToolPresentationTest : ShotTest() {
         }
         compose.onNodeWithText("新对话默认工具").assertExists()
         compose.onNodeWithText("Antigravity CLI").assertExists()
-        compose.onNodeWithText("Antigravity 内置的默认").assertExists()
-        compose.onNodeWithText("没有设，按 Antigravity 的默认").assertExists()
+        compose.onNodeWithText("Antigravity 内置默认").assertExists()
+        compose.onNodeWithText("未设置，使用 Antigravity 默认值").assertExists()
     }
 }

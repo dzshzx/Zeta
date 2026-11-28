@@ -301,7 +301,7 @@ class SettingsBackupTest {
             put("time", "08:00")
         }
         assertEquals(
-            "第 1 个缺少指令或时间",
+            "第 1 项缺少指令或时间",
             reason(
                 "scheduledTasks",
                 buildJsonObject {
@@ -318,7 +318,7 @@ class SettingsBackupTest {
             ),
         )
         assertEquals(
-            "第 1 个缺少指令或时间",
+            "第 1 项缺少指令或时间",
             reason(
                 "scheduledTasks",
                 buildJsonObject {
@@ -328,7 +328,7 @@ class SettingsBackupTest {
             ),
         )
         assertEquals(
-            "第 1 个（早报）：不认识的权限模式“yolo”",
+            "第 1 项（早报）：无法识别的权限模式「yolo」",
             reason(
                 "scheduledTasks",
                 buildJsonObject {
@@ -340,7 +340,7 @@ class SettingsBackupTest {
             ),
         )
         assertEquals(
-            "第 1 个（早报）：不是有效的模型名",
+            "第 1 项（早报）：不是有效的模型名",
             reason(
                 "scheduledTasks",
                 buildJsonObject {
@@ -352,7 +352,7 @@ class SettingsBackupTest {
             ),
         )
         assertEquals(
-            "第 1 个（早报）：工作目录要写 Linux 环境里的绝对路径",
+            "第 1 项（早报）：工作目录请填写 Linux 环境中的绝对路径",
             reason(
                 "scheduledTasks",
                 buildJsonObject {
@@ -446,7 +446,7 @@ class SettingsBackupTest {
             reason("{\"format\":\"zeta-settings\",\"version\":\"1\",\"settings\":{}}"),
         )
         assertTrue(reason(file(buildJsonObject {}, version = 2)).contains("更新版本"))
-        assertEquals("备份文件里没有设置", reason("{\"format\":\"zeta-settings\",\"version\":1}"))
+        assertEquals("备份文件中没有设置项", reason("{\"format\":\"zeta-settings\",\"version\":1}"))
     }
 
     @Test
@@ -531,9 +531,9 @@ class SettingsBackupTest {
             ),
             skipped.keys,
         )
-        assertTrue(skipped.getValue("uid").reason.startsWith("这台手机特有的设置"))
+        assertTrue(skipped.getValue("uid").reason.startsWith("仅限本机的设置"))
         for (gone in listOf("somethingNew", "pureBlack", "permissionMode", "accent")) {
-            assertTrue(skipped.getValue(gone).reason.startsWith("这个版本的 Zeta 没有这一项"))
+            assertTrue(skipped.getValue(gone).reason.startsWith("当前版本的 Zeta 不包含此项"))
         }
         assertTrue(skipped.getValue("sharedFolders").reason.contains("不能共享"))
         assertEquals("第 1 条：内容不能为空", skipped.getValue("savedPrompts").reason)

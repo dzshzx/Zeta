@@ -41,7 +41,7 @@ func TestSettingsThroughServe(t *testing.T) {
 	f.app.device = f.host.ID
 	f.app.open(pageDevice)
 	f.app.openAccounts()
-	f.until(t, "账号页", func() bool { return f.shows("还没有登录") }) // 临时家目录里没登录过
+	f.until(t, "账号页", func() bool { return f.shows("尚未登录") }) // 临时家目录里没登录过
 	if _, err := os.Stat(filepath.Join(home, loadProgram(t, hostlink.ClaudeSwitch).RelativePath(host.LinuxName))); err != nil {
 		t.Fatalf("claude-switch 没装到主机上：%v", err)
 	}
@@ -56,7 +56,7 @@ func TestSettingsThroughServe(t *testing.T) {
 		return f.shows("Sonnet") || strings.Contains(strings.Join(f.tt.Texts(), "\n"), "读取失败")
 	})
 	f.see(t, "Sonnet", "新对话默认", "Claude Code 配置")
-	f.notSee(t, "还没读到 Claude Code 的设置")
+	f.notSee(t, "尚未读取到 Claude Code 的设置")
 }
 
 // coreFixture 是整条链路的测试窗口：一台经 SSH 连的设备（sshtest，命令在临时家目录里真跑 bash），上面按内容哈希装

@@ -42,7 +42,7 @@ struct ChatTaskBar: View {
                     HStack(spacing: 8) {
                         Image(systemName: "checklist")
                         Text(verbatim: "\(position)/\(list.count)").monospacedDigit()
-                        Text(current.map(Self.line) ?? String(localized: "都做完了"))
+                        Text(current.map(Self.line) ?? String(localized: "全部完成"))
                             .lineLimit(1)
                         Spacer(minLength: 0)
                         Image(systemName: expanded ? "chevron.down" : "chevron.up")
@@ -77,8 +77,8 @@ struct ChatTaskBar: View {
             HStack(spacing: 8) {
                 Image(systemName: "timer")
                 VStack(alignment: .leading, spacing: 1) {
-                    Text(running.isEmpty ? String(localized: "后台任务都结束了")
-                         : String(localized: "\(running.count) 个后台任务在运行"))
+                    Text(running.isEmpty ? String(localized: "所有后台任务均已结束")
+                         : String(localized: "\(running.count) 个后台任务运行中"))
                     if let last = running.last {
                         Text(last.progress?.isEmpty == false ? last.progress ?? "" : last.title)
                             .foregroundStyle(.secondary)

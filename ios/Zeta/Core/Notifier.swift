@@ -78,7 +78,7 @@ final class Notifier: NSObject, UNUserNotificationCenterDelegate {
                 if !active || open != id { post(event, waiting: true) }
             default:
                 let event = SessionEvent(backend: alert.backend, id: alert.id, title: alert.title, kind: .finished,
-                                         body: String(localized: "答完了"))
+                                         body: String(localized: "已回复"))
                 emit(event)
                 if !active || open != id { post(event, waiting: false) } else { withdraw(id) }
             }
@@ -134,11 +134,11 @@ final class Notifier: NSObject, UNUserNotificationCenterDelegate {
     static func waitingText(_ prompt: Prompt) -> String {
         if let questions = prompt.questions, !questions.isEmpty {
             let first = questions[0].question.trimmingCharacters(in: .whitespacesAndNewlines)
-            return questions.count == 1 && !first.isEmpty ? String(localized: "有个问题等你回答：\(first)")
-                : String(localized: "有几个问题等你回答")
+            return questions.count == 1 && !first.isEmpty ? String(localized: "有问题等待回答：\(first)")
+                : String(localized: "有多个问题等待回答")
         }
-        if prompt.isPlan == true { return String(localized: "计划等你批准") }
-        if prompt.kind == "elicitation" { return String(localized: "MCP 服务等你回应") }
+        if prompt.isPlan == true { return String(localized: "计划等待批准") }
+        if prompt.kind == "elicitation" { return String(localized: "MCP 服务等待回应") }
         return String(localized: "等你确认：\(ToolLabels.title(prompt.toolName ?? ""))")
     }
 
@@ -220,7 +220,7 @@ final class Notifier: NSObject, UNUserNotificationCenterDelegate {
             post(
                 SessionEvent(
                     backend: backend, id: id, title: chat.title, kind: .waiting,
-                    body: String(localized: "连接已断开，打开 Zeta 再回应")),
+                    body: String(localized: "连接已断开，请打开 Zeta 后回应")),
                 waiting: true)
             return
         }

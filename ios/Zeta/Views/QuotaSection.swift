@@ -11,7 +11,7 @@ struct QuotaSection: View {
         Section {
             if quota.blocked {
                 let until = quota.blockedUntil
-                Text(until.isEmpty ? String(localized: "额度用完了") : String(localized: "额度用完了，\(until)恢复"))
+                Text(until.isEmpty ? String(localized: "额度已用尽") : String(localized: "额度已用尽，\(until)恢复"))
                     .foregroundStyle(.red)
             }
             if !quota.unavailable {

@@ -69,26 +69,26 @@ struct UsageSheet: View {
         let critical = usage.level == "critical"
         var notes: [String] = []
         if !usage.contextKnown {
-            notes.append(String(localized: "发第一条消息后才知道上下文用了多少。"))
+            notes.append(String(localized: "发送首条消息后方可显示上下文用量。"))
         } else if usage.autoCompactOff {
             notes.append(
                 critical
-                    ? String(localized: "上下文快满了，自动压缩关着，可以手动压缩或开新对话。")
-                    : String(localized: "自动压缩关着，满了以后要手动压缩。"))
+                    ? String(localized: "上下文接近上限且未开启自动压缩，可手动压缩或发起新对话。")
+                    : String(localized: "自动压缩已关闭，达到上限后需手动压缩。"))
         } else if critical {
-            notes.append(String(localized: "上下文快满了，很快会自动压缩。"))
+            notes.append(String(localized: "上下文接近上限，即将自动压缩。"))
         } else if usage.contextEstimated {
-            notes.append(String(localized: "这是 Claude Code 的估算，下一轮后换成实测的。"))
+            notes.append(String(localized: "此数据为 Claude Code 估算值，将在下一轮后更新为实测值。"))
         } else {
-            notes.append(String(localized: "这是上一轮实测的。"))
+            notes.append(String(localized: "此数据为上一轮实测值。"))
         }
         if !usage.compactAt.isEmpty {
             notes.append(
-                usage.compactPercent.map { String(localized: "到 \(usage.compactAt)（窗口的 \($0)%）时自动压缩。") }
-                    ?? String(localized: "到 \(usage.compactAt) 时自动压缩。"))
+                usage.compactPercent.map { String(localized: "达到 \(usage.compactAt)（窗口的 \($0)%）时自动压缩。") }
+                    ?? String(localized: "达到 \(usage.compactAt) 时自动压缩。"))
         }
         if usage.compactions > 0 {
-            notes.append(String(localized: "这个对话压缩过 \(usage.compactions) 次。"))
+            notes.append(String(localized: "本对话已压缩 \(usage.compactions) 次。"))
         }
         var meta: [String] = []
         if !usage.model.isEmpty { meta.append(usage.model) }
@@ -116,9 +116,9 @@ struct UsageSheet: View {
     /// 累计下面的说明（同桌面版 totalsNote）。
     private var totalsNote: String {
         var notes: [String] = []
-        if usage.costEstimated { notes.append(String(localized: "带 ≈ 的费用是按价目表估的。")) }
-        if usage.costPartial { notes.append(String(localized: "有的轮次算不出费用，没算进去。")) }
-        if usage.earlier { notes.append(String(localized: "更早的记录还没载入，没算进去。")) }
+        if usage.costEstimated { notes.append(String(localized: "标注 ≈ 的费用按价目表估算。")) }
+        if usage.costPartial { notes.append(String(localized: "部分轮次无法计算费用，未计入统计。")) }
+        if usage.earlier { notes.append(String(localized: "更早的历史记录尚未加载，未计入统计。")) }
         return notes.joined(separator: " ")
     }
 

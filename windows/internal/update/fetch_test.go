@@ -81,7 +81,7 @@ func TestManifestMirrors(t *testing.T) {
 
 	c = &Client{Mirrors: mirrors(missing.URL+"/update.json", bad.URL+"/update.json")}
 	_, err := c.Manifest(context.Background())
-	want := host(missing.URL) + " 回了 HTTP 404；" + host(bad.URL) + " 给的更新清单格式不对：不是 JSON 对象"
+	want := host(missing.URL) + " 返回 HTTP 404；" + host(bad.URL) + " 返回的更新清单格式无效：不是 JSON 对象"
 	if err == nil || err.Error() != want {
 		t.Errorf("error %v, want %s", err, want)
 	}
@@ -90,7 +90,7 @@ func TestManifestMirrors(t *testing.T) {
 func TestManifestTooBig(t *testing.T) {
 	s := serve(t, map[string]string{"/update.json": strings.Repeat(" ", maxManifestBytes+1)})
 	_, err := (&Client{URL: s.URL + "/update.json"}).Manifest(context.Background())
-	if err == nil || !strings.Contains(err.Error(), "不像是清单") {
+	if err == nil || !strings.Contains(err.Error(), "可能不是有效的清单文件") {
 		t.Errorf("error %v", err)
 	}
 }
@@ -100,7 +100,7 @@ func TestManifestUnreachable(t *testing.T) {
 	u := s.URL + "/update.json"
 	s.Close()
 	_, err := (&Client{URL: u}).Manifest(context.Background())
-	if err == nil || err.Error() != "连不上 "+host(u) {
+	if err == nil || err.Error() != "无法连接 "+host(u) {
 		t.Errorf("error %v", err)
 	}
 }
@@ -120,7 +120,7 @@ func TestManifestStalls(t *testing.T) {
 
 	c := &Client{Stall: 50 * time.Millisecond, Mirrors: func(string) []string { return []string{slow.URL, slow.URL} }}
 	_, err := c.Manifest(context.Background())
-	want := "连 " + host(slow.URL) + " 超时；连 " + host(slow.URL) + " 超时"
+	want := "连接 " + host(slow.URL) + " 超时；连接 " + host(slow.URL) + " 超时"
 	if err == nil || err.Error() != want {
 		t.Errorf("error %v, want %s", err, want)
 	}
@@ -173,9 +173,9 @@ func TestDownloadMismatch(t *testing.T) {
 
 	err := try("/short", "/long", "/other")
 	h := host(s.URL)
-	want := "从 " + h + " 下的文件只有 4 字节，清单写的是 12，已删掉；" +
-		"从 " + h + " 下的文件比清单写的 12 字节大，已删掉；" +
-		"从 " + h + " 下的文件 sha256 和清单不一致，已删掉"
+	want := "从 " + h + " 下载的文件仅有 4 字节（清单声明为 12 字节），已删除；" +
+		"从 " + h + " 下载的文件超出清单声明的 12 字节，已删除；" +
+		"从 " + h + " 下载的文件 SHA-256 校验与清单不一致，已删除"
 	if err == nil || err.Error() != want {
 		t.Errorf("error %v\nwant %s", err, want)
 	}

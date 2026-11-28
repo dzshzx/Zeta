@@ -130,15 +130,15 @@ func TestRewriteRefused(t *testing.T) {
 	cases := []struct {
 		name, response, errText, notice string
 	}{
-		{"另有新内容", `{"rewound":false,"reason":"stale_target"}`, "", "这个会话在别处有了新内容，重新打开它再试"},
-		{"还在回答", `{"rewound":false,"reason":"commands_queued"}`, "", "Claude 还在处理消息，等这一轮结束再试"},
-		{"压缩之前", `{"rewound":false,"reason":"target_not_found"}`, "", "会话记录里找不到这条消息（上下文压缩之前的消息改不了）"},
-		{"工具中间", `{"rewound":false,"reason":"poll_tool_result_target"}`, "", "这条消息在工具调用中间，不能从这里改"},
-		{"写不进", `{"rewound":false,"reason":"persist_failed"}`, "", "写不进会话记录"},
-		{"不认识的原因", `{"rewound":false,"reason":"weird"}`, "", "Claude Code 没有剪：weird"},
-		{"带说明", `{"rewound":false,"reason":"weird","error":"说明"}`, "", "Claude Code 没有剪：说明"},
+		{"另有新内容", `{"rewound":false,"reason":"stale_target"}`, "", "该会话在其他位置有新内容，请重新打开后再试"},
+		{"还在回答", `{"rewound":false,"reason":"commands_queued"}`, "", "Claude 正在处理消息，请等待本轮结束后再试"},
+		{"压缩之前", `{"rewound":false,"reason":"target_not_found"}`, "", "会话记录中未找到这条消息（上下文压缩之前的消息无法修改）"},
+		{"工具中间", `{"rewound":false,"reason":"poll_tool_result_target"}`, "", "这条消息位于工具调用过程中，无法从此处修改"},
+		{"写不进", `{"rewound":false,"reason":"persist_failed"}`, "", "无法写入会话记录"},
+		{"不认识的原因", `{"rewound":false,"reason":"weird"}`, "", "Claude Code 未执行回退：weird"},
+		{"带说明", `{"rewound":false,"reason":"weird","error":"说明"}`, "", "Claude Code 未执行回退：说明"},
 		{"拒绝", "", "boom", "Claude Code 拒绝了这次操作：boom"},
-		{"没说剪没剪", "", "", "Claude Code 没有说剪没剪"},
+		{"没说剪没剪", "", "", "Claude Code 未返回回退结果"},
 	}
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
@@ -147,7 +147,7 @@ func TestRewriteRefused(t *testing.T) {
 			h.call(1, "conv.rewrite", map[string]any{"conv": "a", "target": second["id"], "text": "改过的二"})
 			_, id := lastRequest(t, l, "rewind_conversation")
 			h.respond(c, l, id, tc.response, tc.errText)
-			want := []string{"user:一", "answer:回答一", "user:二", "answer:回答二", "notice:没有发出：" + tc.notice}
+			want := []string{"user:一", "answer:回答一", "user:二", "answer:回答二", "notice:发送失败：" + tc.notice}
 			if got := h.texts(1); !reflect.DeepEqual(got, want) {
 				t.Fatalf("条目：%v", got)
 			}
@@ -167,8 +167,8 @@ func TestRewriteRefused(t *testing.T) {
 
 func TestRewindAbortedWhenProcessGoes(t *testing.T) {
 	for _, tc := range []struct{ name, notice string }{
-		{"进程退出", "没有发出：Claude Code 进程退出了"},
-		{"结束对话", "没有发出：对话已关闭"},
+		{"进程退出", "发送失败：Claude Code 进程已退出"},
+		{"结束对话", "发送失败：对话已关闭"},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			h, c, l := twoTurns(t)
@@ -221,7 +221,7 @@ func TestDrop(t *testing.T) {
 	h.call(1, "conv.drop", map[string]any{"conv": "a", "target": first["id"]})
 	_, id = lastRequest(t, l, "rewind_conversation")
 	h.respond(c, l, id, `{"rewound":false,"reason":"persist_failed"}`, "")
-	if got := h.texts(1); !reflect.DeepEqual(got, []string{"user:一", "answer:回答一", "notice:没有删除：写不进会话记录"}) {
+	if got := h.texts(1); !reflect.DeepEqual(got, []string{"user:一", "answer:回答一", "notice:未能删除：无法写入会话记录"}) {
 		t.Fatalf("没删成的条目：%v", got)
 	}
 }
@@ -327,13 +327,13 @@ func TestRestoreCode(t *testing.T) {
 	h.call(1, "conv.restore_code", map[string]any{"conv": "a", "target": second["id"]})
 	_, id = lastRequest(t, l, "rewind_files")
 	h.respond(c, l, id, `{"canRewind":false,"error":"No file checkpoint found for this message."}`, "")
-	if got := h.texts(1); got[len(got)-1] != "notice:没有还原代码：No file checkpoint found for this message." {
+	if got := h.texts(1); got[len(got)-1] != "notice:未能还原代码：No file checkpoint found for this message." {
 		t.Fatalf("没还原成的条目：%v", got)
 	}
 	h.call(1, "conv.restore_code", map[string]any{"conv": "a", "target": second["id"]})
 	_, id = lastRequest(t, l, "rewind_files")
 	h.respond(c, l, id, "", "denied")
-	if got := h.texts(1); got[len(got)-1] != "notice:Claude Code 拒绝了：denied" {
+	if got := h.texts(1); got[len(got)-1] != "notice:Claude Code 拒绝了此次操作：denied" {
 		t.Fatalf("被拒的条目：%v", got)
 	}
 	if n := len(l.lines("control_request/rewind_conversation")); n != 0 {
@@ -362,7 +362,7 @@ func TestRestoreCodeThenDrop(t *testing.T) {
 	h.call(1, "conv.restore_code", map[string]any{"conv": "a", "target": first["id"], "drop": true})
 	_, id = lastRequest(t, l, "rewind_files")
 	h.respond(c, l, id, `{"canRewind":false}`, "")
-	if got := h.texts(1); !reflect.DeepEqual(got, []string{"user:一", "answer:回答一", "notice:没有还原代码：没有这条消息之前的快照"}) {
+	if got := h.texts(1); !reflect.DeepEqual(got, []string{"user:一", "answer:回答一", "notice:未能还原代码：缺少这条消息之前的快照"}) {
 		t.Fatalf("条目：%v", got)
 	}
 	if n := len(l.lines("control_request/rewind_conversation")); n != 1 {
@@ -426,7 +426,7 @@ func (h *harness) clientItems(client int, name string) []string {
 	return out
 }
 
-const forkNotice = "notice:从这里分支出的新对话，原对话不变。发出消息后保存"
+const forkNotice = "notice:已从此处分支出新对话，原对话保持不变。发送消息后保存。"
 
 func TestForkFromMiddle(t *testing.T) {
 	h, _, l := twoTurns(t)
@@ -501,7 +501,7 @@ func TestForkCutFails(t *testing.T) {
 	bl := h.link(1)
 	_, id := lastRequest(t, bl, "rewind_conversation")
 	h.respond(b, bl, id, `{"rewound":false,"reason":"target_not_found"}`, "")
-	want := []string{"user:一", "answer:回答一", forkNotice, "notice:没有发出：分支没有建成：会话记录里找不到这条消息（上下文压缩之前的消息改不了）"}
+	want := []string{"user:一", "answer:回答一", forkNotice, "notice:发送失败：无法创建分支：会话记录中未找到这条消息（上下文压缩之前的消息无法修改）"}
 	if got := h.clientItems(1, "b"); !reflect.DeepEqual(got, want) {
 		t.Fatalf("条目：%v", got)
 	}

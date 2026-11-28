@@ -25,7 +25,7 @@ class ClaudeCodeUpdateRowTest {
             ),
         )
         assertEquals(
-            "没更新成：npm ERR! permission denied",
+            "更新失败：npm ERR! permission denied",
             updateNote(
                 ClaudeUpdate(
                     ok = false,
@@ -36,7 +36,7 @@ class ClaudeCodeUpdateRowTest {
             ),
         )
         assertEquals(
-            "没更新成：claude update 出错了",
+            "更新失败：claude update 执行出错",
             updateNote(ClaudeUpdate(ok = false, before = null, version = null, output = "")),
         )
     }

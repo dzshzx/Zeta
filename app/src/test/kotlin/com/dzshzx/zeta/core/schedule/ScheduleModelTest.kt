@@ -280,7 +280,7 @@ class ScheduleModelTest {
                 ScheduleRule.Once(LocalDateTime.parse("2026-11-19T09:00")),
                 enabled = false,
             )
-        assertEquals(Edited(fresh.copy(enabled = true), "这个时间已经过了"), edit(null, fresh))
+        assertEquals(Edited(fresh.copy(enabled = true), "所选时间已过期"), edit(null, fresh))
         // 关着的任务：只改文字保持关着；改了时间就打开，除非明确给了开关
         val off = daily.copy(enabled = false)
         assertEquals(false, edit(off, Schedules.draftOf(off).copy(name = "晨报")).draft.enabled)
@@ -295,9 +295,9 @@ class ScheduleModelTest {
                 enabled = false,
             )
         assertNull(edit(ran, Schedules.draftOf(ran).copy(name = "旧提醒")).problem)
-        assertEquals("这个时间已经过了", edit(ran, Schedules.draftOf(ran), enabled = true).problem)
+        assertEquals("所选时间已过期", edit(ran, Schedules.draftOf(ran), enabled = true).problem)
         assertEquals(
-            "这个时间已经过了",
+            "所选时间已过期",
             edit(
                     ran,
                     Schedules.draftOf(ran)
@@ -305,7 +305,7 @@ class ScheduleModelTest {
                 )
                 .problem,
         )
-        assertEquals("写一个名字", edit(ran, Schedules.draftOf(ran).copy(name = " ")).problem)
+        assertEquals("请输入名称", edit(ran, Schedules.draftOf(ran).copy(name = " ")).problem)
     }
 
     @Test

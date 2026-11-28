@@ -128,8 +128,8 @@ func TestParseProbe(t *testing.T) {
 	for r, want := range map[*sshlink.Result]string{
 		{TimedOut: true}: "连接超时",
 		{Code: sshlink.ConnectionFailed, Stderr: "x\nbroken pipe\n"}:                                     "broken pipe",
-		{Stdout: "zeta_home /h\nzeta_claude 2\nzeta_system Darwin arm64\n"}:                              "这台是 Darwin arm64",
-		{Stdout: "zeta_home /h\nzeta_claude 2\nzeta_system Linux riscv64\n"}:                             "这台是 Linux riscv64",
+		{Stdout: "zeta_home /h\nzeta_claude 2\nzeta_system Darwin arm64\n"}:                              "当前设备为 Darwin arm64",
+		{Stdout: "zeta_home /h\nzeta_claude 2\nzeta_system Linux riscv64\n"}:                             "当前设备为 Linux riscv64",
 		{Stdout: "zeta_home /h\nzeta_claude \nzeta_system Linux x86_64\n"}:                               "未找到 Claude Code",
 		{Stdout: "zeta_home \nzeta_claude 2\nzeta_system Linux x86_64\n", Stderr: "bash: no such thing"}: "bash: no such thing",
 	} {

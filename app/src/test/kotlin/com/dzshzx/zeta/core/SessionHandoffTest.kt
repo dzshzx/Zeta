@@ -97,19 +97,19 @@ class SessionHandoffTest {
                     Occupant("idle", app = "terminal", device = "work-pc"),
                     busy = false,
                 )
-                .startsWith("它正在 work-pc 的终端里运行，结束会停掉那边的进程"),
+                .startsWith("该会话正在 work-pc 的终端里运行，结束会停止对应进程"),
         )
         assertTrue(
             endConfirmSummary(true, Occupant("idle", app = "zeta", local = true), busy = false)
-                .startsWith("它正在本机的 Zeta 里运行，"),
+                .startsWith("该会话正在本机的 Zeta 里运行，"),
         )
-        assertTrue(endConfirmSummary(true, null, busy = false).startsWith("它正在别处运行，"))
+        assertTrue(endConfirmSummary(true, null, busy = false).startsWith("该会话正在别处运行，"))
         assertTrue(
             endConfirmSummary(true, Occupant("idle", app = "sdk-py"), busy = false)
-                .startsWith("它正在别处运行，"),
+                .startsWith("该会话正在别处运行，"),
         )
-        assertTrue(endConfirmSummary(false, null, busy = true).startsWith("它还在进行"))
-        assertTrue(endConfirmSummary(false, null, busy = false).startsWith("结束会停掉它背后的"))
+        assertTrue(endConfirmSummary(false, null, busy = true).startsWith("该会话仍在进行"))
+        assertTrue(endConfirmSummary(false, null, busy = false).startsWith("结束会停止对应的"))
     }
 
     @Test
@@ -183,13 +183,13 @@ class SessionHandoffTest {
         externalNoticeText(null, handing = false, problem = null).let {
             assertFalse(it.enabled)
             assertEquals("会话正在别处运行", it.title)
-            assertEquals("正在查询那边的状态。", it.summary)
+            assertEquals("正在查询对方状态。", it.summary)
         }
         externalNoticeText(Occupant(Occupant.IDLE), handing = false, problem = null).let {
             assertTrue(it.enabled)
             assertEquals("接管会话", it.button)
             assertEquals("会话正在别处运行", it.title)
-            assertEquals("当前空闲。接管后那边会退出，会话转到 Zeta 继续。", it.summary)
+            assertEquals("当前空闲。接管后对方进程会退出，会话将转至 Zeta 继续。", it.summary)
         }
         // 标题说在哪，正文只说状态；Zeta 托管的那边是结束它的对话
         externalNoticeText(
@@ -199,7 +199,7 @@ class SessionHandoffTest {
             )
             .let {
                 assertEquals("会话正在 Xiaomi 17 的 Zeta 测试版里运行", it.title)
-                assertEquals("当前空闲。接管后那边的对话会结束，会话转到这里继续。", it.summary)
+                assertEquals("当前空闲。接管后对方端的对话会结束，会话将转至此处继续。", it.summary)
             }
         externalNoticeText(
                 Occupant("busy", handsOver = false, app = "terminal", device = "work-pc"),
@@ -232,7 +232,7 @@ class SessionHandoffTest {
             .let {
                 assertTrue(it.enabled)
                 assertEquals(
-                    "正在等待确认：approve Bash。接管后这个确认作废，要让 Claude 重做这一步。",
+                    "正在等待确认：approve Bash。接管后该确认将失效，需要让 Claude 重新执行这一步。",
                     it.summary,
                 )
             }

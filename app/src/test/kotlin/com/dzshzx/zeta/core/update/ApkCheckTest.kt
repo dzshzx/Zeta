@@ -66,7 +66,7 @@ class ApkCheckTest {
     @Test
     fun everyMismatchIsRejectedWithAReason() {
         val installed = apk(release, listOf(debug, release), versionCode = 900)
-        assertEquals("读不出下载的安装包（文件坏了，或不是 APK）", ApkCheck.verdict(null, manifest, installed))
+        assertEquals("无法读取下载的安装包（文件已损坏或不是 APK）", ApkCheck.verdict(null, manifest, installed))
         assertEquals(
             "安装包的包名是 com.example.other，不是本应用（com.dzshzx.zeta）",
             ApkCheck.verdict(
@@ -84,11 +84,11 @@ class ApkCheckTest {
             ),
         )
         // 别人的证书；只有调试证书、没有 lineage 的（旧证书已经作废，系统也装不上）
-        assertEquals("安装包的签名和已装的 Zeta 不一致", ApkCheck.verdict(apk(stranger), manifest, installed))
-        assertEquals("安装包的签名和已装的 Zeta 不一致", ApkCheck.verdict(apk(debug), manifest, installed))
+        assertEquals("安装包签名与已安装的 Zeta 不一致", ApkCheck.verdict(apk(stranger), manifest, installed))
+        assertEquals("安装包签名与已安装的 Zeta 不一致", ApkCheck.verdict(apk(debug), manifest, installed))
         // 自称从别人的证书轮换过来、却不含已装的证书
         assertEquals(
-            "安装包的签名和已装的 Zeta 不一致",
+            "安装包签名与已安装的 Zeta 不一致",
             ApkCheck.verdict(
                 apk(release, listOf(stranger, release)),
                 manifest,
@@ -97,7 +97,7 @@ class ApkCheckTest {
         )
         // 读不出已装的签名时不放行
         assertEquals(
-            "安装包的签名和已装的 Zeta 不一致",
+            "安装包签名与已安装的 Zeta 不一致",
             ApkCheck.verdict(apk(release), manifest, ApkFacts(pkg, 900, emptyList(), emptyList())),
         )
     }

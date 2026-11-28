@@ -13,12 +13,12 @@ func TestConnectSwitch(t *testing.T) {
 	f.app.device = f.id
 	f.app.open(pageDevice)
 	f.tt.Frame()
-	f.see(t, "用到这台设备时连上，断了自动重连")
+	f.see(t, "使用该设备时自动连接，断开后自动重连")
 	f.press(t, "连接")
 	if !first.Closed() || !f.hub.Off(f.id) {
 		t.Fatalf("拨掉以后：连接关了 %v，Off %v", first.Closed(), f.hub.Off(f.id))
 	}
-	f.see(t, "已断开：Zeta 不连这台设备，它上面的对话在那边照样跑")
+	f.see(t, "已断开：Zeta 不会连接该设备，设备上的对话仍会继续运行")
 	f.notSee(t, "新对话默认") // 断开时没有那台上的 Claude Code 配置
 	f.app.open(pageSettings)
 	f.tt.Frame()

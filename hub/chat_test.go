@@ -322,7 +322,7 @@ func TestOpenFailsWhenTheDeviceIsUnreachable(t *testing.T) {
 	h, _ := newHub(t, d)
 	x, _ := h.AddHost("box", "", d.Found("box"))
 	h.OpenSession(hostlink.Session{ID: "s1", Backend: x.ID})
-	if c := h.Chat(); c.Opening || c.Conv != nil || c.Problem == nil || c.Problem.Error() != "打不开这个对话：连不上「box」：connection refused" {
+	if c := h.Chat(); c.Opening || c.Conv != nil || c.Problem == nil || c.Problem.Error() != "无法打开该对话：连不上「box」：connection refused" {
 		t.Fatalf("打不开：%+v", c)
 	}
 	first := d.Chat(x.ID)

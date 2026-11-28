@@ -285,7 +285,7 @@ func TestSaveRelayProblemHasNoKey(t *testing.T) {
 	saved := false
 	f.svc.SaveRelay(d, func() { saved = true })
 	f.loop.until(t, "做完", func() bool { return f.svc.Working() == "" })
-	if saved || f.svc.Problem() != "没有保存：这个名称已经有账号或中转在用了" || strings.Contains(f.svc.Problem(), testKey) {
+	if saved || f.svc.Problem() != "保存失败：这个名称已经有账号或中转在用了" || strings.Contains(f.svc.Problem(), testKey) {
 		t.Fatalf("%v %q", saved, f.svc.Problem())
 	}
 }
@@ -305,7 +305,7 @@ func TestRemoveRelay(t *testing.T) {
 	f.serve.current, f.serve.relay = "", "cpa"
 	f.svc.RemoveRelay("cpa", func() { removed++ })
 	f.loop.until(t, "删完", func() bool { return f.svc.Working() == "" })
-	if removed != 1 || f.svc.Problem() != "没有删除：正在用这个中转，先换到别的账号或中转再删" {
+	if removed != 1 || f.svc.Problem() != "删除失败：正在用这个中转，先换到别的账号或中转再删" {
 		t.Fatalf("删在用的：%q", f.svc.Problem())
 	}
 }
@@ -333,7 +333,7 @@ func TestFetchRelayModels(t *testing.T) {
 	f.serve.modelsErr = codeErr{"errModelsAuth", "中转拒绝了这个密钥"}
 	f.svc.FetchRelayModels(d)
 	f.loop.until(t, "拉完", func() bool { return !d.Loading() })
-	if d.ModelsProblem() != "没取到模型列表：中转拒绝了这个密钥" || strings.Contains(d.ModelsProblem(), testKey) {
+	if d.ModelsProblem() != "未能获取模型列表：中转拒绝了这个密钥" || strings.Contains(d.ModelsProblem(), testKey) {
 		t.Fatalf("%q", d.ModelsProblem())
 	}
 	if models, _ := d.Models(); len(models) != 2 {

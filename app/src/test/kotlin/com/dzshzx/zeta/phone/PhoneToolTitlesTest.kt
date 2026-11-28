@@ -25,7 +25,7 @@ class PhoneToolTitlesTest {
 
     @Test
     fun chatSaysWhatTheInputSays() {
-        assertEquals("看屏幕（带截图）", title("screen") { put("screenshot", true) })
+        assertEquals("查看屏幕（含截图）", title("screen") { put("screenshot", true) })
         assertEquals("点按「7」", title("tap") { put("match", "7") })
         assertEquals("点按控件 12", title("tap") { put("node", 12) })
         assertEquals("点按 id=search", title("tap") { put("id", "search") })
@@ -85,16 +85,16 @@ class PhoneToolTitlesTest {
         )
         assertEquals("输入「1+1」", title("type_text") { put("text", "1+1") })
         assertEquals("清空输入框", title("type_text") { put("text", "") })
-        assertEquals("等「结果」出现", title("wait") { put("match", "结果") })
+        assertEquals("等待「结果」出现", title("wait") { put("match", "结果") })
         assertEquals(
-            "等 id=progress 消失",
+            "等待 id=progress 消失",
             title("wait") {
                 put("id", "progress")
                 put("gone", true)
             },
         )
-        assertEquals("等微信打开", title("wait") { put("app", "微信") })
-        assertEquals("等 com.tencent.mm 打开", title("wait") { put("app", "com.tencent.mm") })
+        assertEquals("等待微信打开", title("wait") { put("app", "微信") })
+        assertEquals("等待 com.tencent.mm 打开", title("wait") { put("app", "com.tencent.mm") })
         assertEquals("等待 1.5 秒", title("wait") { put("duration_ms", 1500) })
         assertEquals("打开计算器", title("open_app") { put("app", "计算器") })
         assertEquals("打开 com.tencent.mm", title("open_app") { put("app", "com.tencent.mm") })
@@ -106,7 +106,7 @@ class PhoneToolTitlesTest {
             "打开设置页 WIFI_SETTINGS",
             title("open_app") { put("action", "android.settings.WIFI_SETTINGS") },
         )
-        assertEquals("把应用移到主屏", title("show_to_user"))
+        assertEquals("将应用移至主屏", title("show_to_user"))
         assertEquals("查找应用 计算器", title("find_apps") { put("query", "计算器") })
         assertEquals(
             "Android：dumpsys battery",
@@ -166,10 +166,10 @@ class PhoneToolTitlesTest {
                 put("text", "secret")
             },
         )
-        assertEquals("把计算器移到主屏", title("show_to_user", onCalculator))
+        assertEquals("将计算器移至主屏", title("show_to_user", onCalculator))
         // 主屏上没有“在后台操作”这一说
         val main = CallScene(onAgentDisplay = false, agentDisplayApp = "计算器") { null }
         assertEquals("点按控件 9", title("tap", main) { put("node", 9) })
-        assertEquals("把计算器移到主屏", title("show_to_user", main))
+        assertEquals("将计算器移至主屏", title("show_to_user", main))
     }
 }

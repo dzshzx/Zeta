@@ -34,7 +34,7 @@ struct SubagentView: View {
                 Section("出错") { Text(error).foregroundStyle(.red).textSelection(.enabled) }
             }
             if !prompt.isEmpty {
-                Section("交给它的指令") {
+                Section("委派指令") {
                     Text(prompt)
                         .font(.callout)
                         .lineLimit(promptOpen ? nil : 5)
@@ -108,20 +108,20 @@ struct SubagentView: View {
         case "completed": String(localized: "已完成")
         case "failed": String(localized: "失败")
         case "stopped": String(localized: "已停止")
-        case "missing": String(localized: "还没有记录")
-        case "read_failed": String(localized: "没读成")
+        case "missing": String(localized: "暂无记录")
+        case "read_failed": String(localized: "读取失败")
         case "loading", "": String(localized: "正在读取")
-        default: String(localized: "没有做完")
+        default: String(localized: "未完成")
         }
     }
 
     private var noSteps: String {
-        if !failed.isEmpty { return String(localized: "没看上：\(failed)") }
+        if !failed.isEmpty { return String(localized: "无法监听：\(failed)") }
         switch page?.state ?? "" {
-        case "missing": return String(localized: "它的记录文件还没有")
+        case "missing": return String(localized: "记录文件尚未生成")
         case "read_failed": return page?.failure ?? ""
         case "loading", "": return String(localized: "正在读取")
-        default: return String(localized: "还没有步骤")
+        default: return String(localized: "暂无步骤")
         }
     }
 

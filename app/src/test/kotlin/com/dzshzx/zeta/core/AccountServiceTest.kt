@@ -204,7 +204,7 @@ class AccountServiceTest {
             ".claude/sessions/${other.pid()}.json",
             """{"pid":${other.pid()},"procStart":"$start","sessionId":"s-1","kind":"interactive","status":"busy"}""",
         )
-        val blocker = "还有 1 个别处开着的 Claude Code（比如终端里的 claude），其中 1 个在进行，先退出它们。"
+        val blocker = "其他位置还运行着 1 个 Claude Code（如终端中的 claude），其中 1 个正在进行，请先退出。"
         service.switchTo(ClaudeAccount("claude-b", "", "", "", "", null))
         awaitIdle()
         assertEquals(blocker, service.problem)
@@ -225,7 +225,7 @@ class AccountServiceTest {
         awaitMain(60_000) { login.state is LoginState.Failed }
         assertTrue(
             login.state.toString(),
-            (login.state as LoginState.Failed).message.contains("没有被接受"),
+            (login.state as LoginState.Failed).message.contains("未被接受"),
         )
         val ended = assertThrows(ServeError::class.java) { service.core.loginCode("good#code") }
         assertEquals(ended.message, AccountsCore.NO_LOGIN, ended.code)

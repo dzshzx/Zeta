@@ -42,8 +42,8 @@ class BridgeFocusTest {
         val focus = hub.alerts.overlayFocus
         assertSame(client, focus)
         focus!!
-        assertEquals("电脑在操作", focus.title)
-        assertEquals("电脑在操作", focus.thought)
+        assertEquals("电脑正在操作", focus.title)
+        assertEquals("电脑正在操作", focus.thought)
         assertEquals(OverlayPhase.RUNNING, focus.phase)
         assertFalse("外部客户端不能补充、不能在 Zeta 里打开", focus.inZeta)
         hub.onBridgeCall("workstation", started = false)

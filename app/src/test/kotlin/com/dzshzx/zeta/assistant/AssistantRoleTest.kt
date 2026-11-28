@@ -67,7 +67,7 @@ class AssistantRoleTest {
                 )
                 .keepsOnBoot,
         )
-        assertEquals("没有设置", AssistantOwner(true, dev, null, null).recognizerSummary)
+        assertEquals("未设置", AssistantOwner(true, dev, null, null).recognizerSummary)
         assertEquals("是 Zeta 测试版", AssistantOwner(true, dev, null, dev).recognizerSummary)
         assertEquals("是 Zeta 正式版", AssistantOwner(false, "com.dzshzx.zeta", null, null).summary)
     }

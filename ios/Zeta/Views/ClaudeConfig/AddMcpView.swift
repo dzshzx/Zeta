@@ -25,10 +25,10 @@ struct AddMcpView: View {
                     Text("命令").tag("stdio")
                 }
                 Section {
-                    TextField("名称，比如 github", text: $name)
+                    TextField("名称，例如 github", text: $name)
                     if type == "stdio" {
-                        TextField("命令，比如 npx", text: $command)
-                        TextField("参数（可选，空格分开）", text: $args)
+                        TextField("命令，例如 npx", text: $command)
+                        TextField("参数（可选，以空格分隔）", text: $args)
                         TextField("环境变量（可选，每行一个 KEY=VALUE）", text: $env, axis: .vertical)
                             .lineLimit(2...6)
                     } else {
@@ -67,16 +67,16 @@ struct AddMcpView: View {
     /// 表单还差什么；没问题时为空。
     private var missing: String {
         if trimmedName.wholeMatch(of: /[A-Za-z0-9_-]{1,64}/) == nil {
-            return String(localized: "名称只能用字母、数字、下划线和连字符")
+            return String(localized: "名称仅支持字母、数字、下划线和连字符")
         }
         if type != "stdio", url.trimmingCharacters(in: .whitespaces).wholeMatch(of: /https?:\/\/\S+/) == nil {
-            return String(localized: "地址要以 http:// 或 https:// 开头")
+            return String(localized: "地址须以 http:// 或 https:// 开头")
         }
         if type == "stdio", command.trimmingCharacters(in: .whitespaces).isEmpty {
             return String(localized: "请输入要运行的命令")
         }
         if envLines.contains(where: { $0.wholeMatch(of: /[A-Za-z_][A-Za-z0-9_]*=.*/) == nil }) {
-            return String(localized: "环境变量每行一个，写成 KEY=VALUE")
+            return String(localized: "环境变量每行一条，格式为 KEY=VALUE")
         }
         return ""
     }

@@ -31,7 +31,7 @@ struct SkillsView: View {
                         TitledRow(
                             title: String(localized: "从 ZIP 导入"),
                             summary: importing
-                                ? String(localized: "正在检查并安装…") : String(localized: "选一个含 SKILL.md 的 Skill 包"))
+                                ? String(localized: "正在检查并安装…") : String(localized: "选择包含 SKILL.md 的 Skill 压缩包"))
                         Spacer()
                         if importing { ProgressView() }
                     }
@@ -54,8 +54,8 @@ struct SkillsView: View {
                         : "账号同步 · \(String(synced.count))")
                 } footer: {
                     Text(calls.isAgy
-                        ? "来自 ~/.agents/skills 或 skills.json 声明的目录，这里只能看。"
-                        : "在 claude.ai 上管理，这里只能看。")
+                        ? "来自 ~/.agents/skills 或 skills.json 声明的目录，此处仅支持查看。"
+                        : "在 claude.ai 中管理，此处仅支持查看。")
                 }
             }
         }
@@ -69,7 +69,7 @@ struct SkillsView: View {
         ) { zip in
             Button("替换", role: .destructive) { install(file: zip.file, zip: zip.zip, replace: true) }
         } message: { zip in
-            Text("已经有一个叫“\(zip.name)”的 Skill。替换会覆盖它当前的全部文件。")
+            Text("已存在名为“\(zip.name)”的 Skill，替换将覆盖其全部现有文件。")
         }
         .confirmationDialog(
             "删除 Skill", isPresented: Binding { deleting != nil } set: { if !$0 { deleting = nil } },
@@ -77,7 +77,7 @@ struct SkillsView: View {
         ) { skill in
             Button("删除", role: .destructive) { delete(skill) }
         } message: { skill in
-            Text("删除“\(skill.name)”的整个文件夹，之后需要重新导入才能恢复。")
+            Text("将删除“\(skill.name)”的整个文件夹，后续需重新导入方可恢复。")
         }
         .configFailure($failure)
     }
@@ -87,8 +87,8 @@ struct SkillsView: View {
             if let data {
                 if data.user.isEmpty {
                     TitledRow(
-                        title: String(localized: "还没有 Skill"),
-                        summary: String(localized: "从 ZIP 导入，或让 Claude 写一个"))
+                        title: String(localized: "暂无 Skill"),
+                        summary: String(localized: "从 ZIP 导入，或让 Claude 生成"))
                 }
                 ForEach(data.user, id: \.name) { skill in
                     row(skill)
@@ -100,8 +100,8 @@ struct SkillsView: View {
             Text("用户安装 · \(String(data?.user.count ?? 0))")
         } footer: {
             Text(calls.isAgy
-                ? "装在 ~/.gemini/config/skills 里。关掉后文件留着，Antigravity 不再用它；改动对之后新开始的对话生效。"
-                : "装在 ~/.claude/skills 里。关掉后文件留着，Claude 不再用它；改动对之后新开始的对话生效。")
+                ? "安装在 ~/.gemini/config/skills。关闭后文件仍会保留，但 Antigravity 不再调用；修改对之后新建的对话生效。"
+                : "安装在 ~/.claude/skills。关闭后文件仍会保留，但 Claude 不再调用；修改对之后新建的对话生效。")
         }
     }
 
@@ -110,7 +110,7 @@ struct SkillsView: View {
         let summary = skill.valid
             ? ConfigLabels.clip(Self.orNone(skill.description), 90) : String(localized: "缺少 SKILL.md")
         let detail = skill.valid ? Self.orNone(skill.description)
-            : String(localized: "这个文件夹里没有 SKILL.md，\(Harness.name(calls.harness)) 不会把它当成 Skill。")
+            : String(localized: "此文件夹缺少 SKILL.md，\(Harness.name(calls.harness)) 不会将其识别为 Skill。")
         return Toggle(isOn: Binding { skill.enabled } set: { setEnabled(skill, $0) }) {
             TitledRow(title: title, summary: summary)
         }
@@ -141,12 +141,12 @@ struct SkillsView: View {
             let bytes = try Data(contentsOf: url)
             guard bytes.count <= Self.maxZip else {
                 failure = ConfigFailure(
-                    title: String(localized: "没有装上"), message: String(localized: "文件超过 45 MB，不像是一个 Skill 包"))
+                    title: String(localized: "安装失败"), message: String(localized: "文件超过 45 MB，不符合 Skill 压缩包要求"))
                 return
             }
             install(file: url.lastPathComponent, zip: bytes.base64EncodedString(), replace: false)
         } catch {
-            failure = ConfigFailure(String(localized: "没有装上"), error)
+            failure = ConfigFailure(String(localized: "安装失败"), error)
         }
     }
 
@@ -162,12 +162,12 @@ struct SkillsView: View {
                     return
                 }
                 let title = result.replaced ? String(localized: "已替换") : String(localized: "已安装")
-                let message = result.enabled ? String(localized: "“\(result.name)”装好了，Claude 会按需调用它。")
-                    : String(localized: "“\(result.name)”装好了，但它被设成停用，打开开关后才能用。")
+                let message = result.enabled ? String(localized: "“\(result.name)”已安装，Claude 将按需调用。")
+                    : String(localized: "“\(result.name)”已安装，但当前处于停用状态，开启开关后方可使用。")
                 failure = ConfigFailure(title: title, message: message)
                 await load()
             } catch {
-                failure = ConfigFailure(String(localized: "没有装上"), error)
+                failure = ConfigFailure(String(localized: "安装失败"), error)
             }
         }
     }
@@ -178,7 +178,7 @@ struct SkillsView: View {
                 try await calls.run(
                     "config.skills.setEnabled", ["name": skill.name, "title": skill.title, "enabled": enabled])
             } catch {
-                failure = ConfigFailure(enabled ? String(localized: "没有启用") : String(localized: "没有停用"), error)
+                failure = ConfigFailure(enabled ? String(localized: "启用失败") : String(localized: "停用失败"), error)
             }
             await load()
         }

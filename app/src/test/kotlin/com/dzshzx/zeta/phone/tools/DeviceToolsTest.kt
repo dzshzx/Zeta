@@ -61,7 +61,7 @@ class DeviceToolsTest {
             },
         )
         assertEquals(
-            "亮度调到 40%",
+            "将亮度调至 40%",
             title("device_state") {
                 put("action", "set")
                 put("target", "brightness")
@@ -85,7 +85,7 @@ class DeviceToolsTest {
             },
         )
         assertEquals(
-            "媒体音量调到 30%",
+            "媒体音量调至 30%",
             title("media") {
                 put("action", "set_volume")
                 put("stream", "media")

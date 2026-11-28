@@ -46,7 +46,7 @@ func TestBackgroundTasksPage(t *testing.T) {
 		t.Fatalf("看着输出：%v", got)
 	}
 	f.pushOutput("b1", `"text":"\u001b[32mok\u001b[0m 第 1 步\n","total_bytes":20470,"truncated":true`)
-	f.see(t, "输出 · 共 20.5 KB，只显示最后 8 KB")
+	f.see(t, "输出 · 共 20.5 KB，仅显示最后 8 KB")
 	if !strings.Contains(strings.Join(f.tt.Texts(), "\n"), "第 1 步") {
 		t.Fatalf("没显示输出：%q", f.tt.Texts())
 	}
@@ -105,11 +105,11 @@ func TestTaskPageWhenGone(t *testing.T) {
 	f.click(t, "查看后台任务")
 	f.click(t, "监听构建日志")
 	f.pushOutput("b1", `"text":"","total_bytes":0,"truncated":false,"error":"get_task_output: no shell or Monitor task with that task_id in this session"`)
-	f.see(t, "没读到：get_task_output: no shell or Monitor task with that task_id in this session")
+	f.see(t, "无法读取输出：get_task_output: no shell or Monitor task with that task_id in this session")
 	f.push(`"tasks":[]`)
-	f.see(t, "这个任务已经不在了")
+	f.see(t, "该任务已不存在")
 	f.click(t, "返回")
-	f.see(t, "没有后台任务")
+	f.see(t, "暂无后台任务")
 	f.click(t, "返回")
 	f.see(t, "消息")
 }
@@ -134,13 +134,13 @@ func TestTaskLabels(t *testing.T) {
 	for o, want := range map[tasks.Output]string{
 		{}:                                   "输出",
 		{TotalBytes: 999}:                    "输出 · 999 B",
-		{TotalBytes: 20480, Truncated: true}: "输出 · 共 20.5 KB，只显示最后 8 KB",
+		{TotalBytes: 20480, Truncated: true}: "输出 · 共 20.5 KB，仅显示最后 8 KB",
 	} {
 		if got := outputHeader(o); got != want {
 			t.Errorf("outputHeader(%+v) = %q，应为 %q", o, got, want)
 		}
 	}
-	if got := stopSummary(tasks.Task{Kind: tasks.KindAgent, Description: "查代码"}); got != "查代码\n子代理停下后，Claude 会收到通知并接着处理。" {
+	if got := stopSummary(tasks.Task{Kind: tasks.KindAgent, Description: "查代码"}); got != "查代码\n子代理停止后，Claude 会收到通知并继续处理。" {
 		t.Errorf("stopSummary = %q", got)
 	}
 }

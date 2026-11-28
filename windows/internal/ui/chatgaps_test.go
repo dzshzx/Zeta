@@ -133,16 +133,16 @@ func TestUsageContextSection(t *testing.T) {
 	}{
 		{"实测", `"context_tokens":42000,"context_window":200000,"model":"claude-opus-5-5","applied_effort":"high","auto_compact":true,` +
 			`"compact_at":167000,"compactions":2,"fraction":0.21,"compact_fraction":0.835,"level":"normal"`,
-			[]string{"42K / 200K · 21.0%", "按上一轮实测；快到上限时 Claude Code 会自动压缩。", "自动压缩点：167K（窗口的 83%）。", "已压缩 2 次。", "Opus 5.5 · 思考 高"},
+			[]string{"42K / 200K · 21.0%", "按上一轮实测值显示；接近上限时 Claude Code 会自动压缩。", "自动压缩点：167K（窗口的 83%）。", "已压缩 2 次。", "Opus 5.5 · 思考 高"},
 			[]string{"估算", "快满了"}, "上下文 21%"},
 		{"估算", `"context_tokens":42000,"context_window":200000,"context_estimated":true,"fraction":0.21,"level":"normal"`,
-			[]string{"Claude Code 的估算，下一轮后按实测；快到上限时它会自动压缩。"}, []string{"自动压缩点", "已压缩", "思考 "}, "上下文 21%"},
+			[]string{"此为 Claude Code 的估算值，下一轮起将按实测值显示；接近上限时会自动压缩。"}, []string{"自动压缩点", "已压缩", "思考 "}, "上下文 21%"},
 		{"快满了", `"context_tokens":190000,"context_window":200000,"auto_compact":true,"compact_at":167000,"fraction":0.95,"compact_fraction":0.835,"level":"critical"`,
-			[]string{"快满了，Claude Code 马上会自动压缩；也可以现在手动压缩。", "自动压缩点：167K（窗口的 83%）。"}, nil, "上下文 95%"},
+			[]string{"上下文即将用满，Claude Code 将很快自动压缩，你也可以现在手动压缩。", "自动压缩点：167K（窗口的 83%）。"}, nil, "上下文 95%"},
 		{"关了自动压缩", `"context_tokens":120000,"context_window":200000,"auto_compact":false,"fraction":0.6,"level":"warning"`,
-			[]string{"自动压缩已关闭（Zeta 或 Claude Code 的设置），快满时手动压缩。"}, []string{"自动压缩点"}, "上下文 60%"},
+			[]string{"自动压缩已关闭（受 Zeta 或 Claude Code 设置控制），即将用满时请手动压缩。"}, []string{"自动压缩点"}, "上下文 60%"},
 		{"关了自动压缩又快满了", `"context_tokens":190000,"context_window":200000,"auto_compact":false,"fraction":0.95,"level":"critical"`,
-			[]string{"快满了，自动压缩已关闭，请手动压缩，不然很快发不出去。"}, nil, "上下文 95%"},
+			[]string{"上下文即将用满，自动压缩已关闭，请手动压缩，否则很快无法发送新消息。"}, nil, "上下文 95%"},
 		{"还没发", ``, []string{"发出第一条消息后显示。"}, []string{"实测"}, "上下文"},
 	} {
 		t.Run(c.name, func(t *testing.T) {

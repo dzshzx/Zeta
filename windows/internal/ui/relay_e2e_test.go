@@ -97,7 +97,7 @@ func TestRelayThroughServe(t *testing.T) {
 
 	f.clickButton(t, "编辑", 0)
 	f.until(t, "编辑页", func() bool { return f.shows("获取模型列表") })
-	f.see(t, "正在用这个中转：改了以后，新起的对话进程才用上。要删除先换到别的账号或中转。")
+	f.see(t, "当前正在使用该中转：修改仅对新启动的对话进程生效。如需删除，请先切换至其他账号或中转。")
 	if a, ok := f.tt.AccessByRole(ui.RoleButton, "删除"); ok && !a.Disabled {
 		t.Fatal("在用的中转不该能删")
 	}

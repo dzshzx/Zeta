@@ -72,7 +72,7 @@ final class ClaudeConfigStore {
             claudeLoaded = true
             claudeNote = ""
         } catch {
-            claudeNote = String(localized: "读不到版本：\(error.localizedDescription)")
+            claudeNote = String(localized: "无法读取版本：\(error.localizedDescription)")
         }
     }
 
@@ -85,7 +85,7 @@ final class ClaudeConfigStore {
             do {
                 defaults = try await calls.get(method, params, as: ConfigDefaults.self)
             } catch {
-                failure = ConfigFailure(String(localized: "没有改成"), error)
+                failure = ConfigFailure(String(localized: "修改失败"), error)
             }
         }
     }
@@ -96,7 +96,7 @@ final class ClaudeConfigStore {
             do {
                 local = try await calls.hub("claudecfg.setlocal", [key: value], as: ClaudeLocal.self)
             } catch {
-                failure = ConfigFailure(String(localized: "没存上"), error)
+                failure = ConfigFailure(String(localized: "保存失败"), error)
             }
         }
     }
@@ -106,7 +106,7 @@ final class ClaudeConfigStore {
             do {
                 idle = try await calls.get("system.set_idle", ["minutes": minutes], as: IdleReply.self).minutes
             } catch {
-                failure = ConfigFailure(String(localized: "没有改成"), error)
+                failure = ConfigFailure(String(localized: "修改失败"), error)
             }
         }
     }
@@ -123,7 +123,7 @@ final class ClaudeConfigStore {
                 claudeVersion = update.version
                 claudeNote = Self.note(update, isAgy: agy)
             } catch {
-                claudeNote = String(localized: "没更新成：\(error.localizedDescription)")
+                claudeNote = String(localized: "更新失败：\(error.localizedDescription)")
             }
         }
     }
@@ -132,9 +132,9 @@ final class ClaudeConfigStore {
     static func note(_ update: ClaudeUpdate, isAgy: Bool = false) -> String {
         if !update.succeeded {
             let last = update.output.split(separator: "\n").last { !$0.trimmingCharacters(in: .whitespaces).isEmpty }
-            let fallback = isAgy ? String(localized: "agy update 出错了") : String(localized: "claude update 出错了")
+            let fallback = isAgy ? String(localized: "agy update 执行失败") : String(localized: "claude update 执行失败")
             let reason = last.map { String($0) } ?? fallback
-            return String(localized: "没更新成：\(reason)")
+            return String(localized: "更新失败：\(reason)")
         }
         if !update.version.isEmpty, update.version != update.before {
             let before = update.before.isEmpty ? String(localized: "未安装") : update.before

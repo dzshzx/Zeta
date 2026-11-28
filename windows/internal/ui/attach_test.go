@@ -230,7 +230,7 @@ func TestTooLargeOrUnreadableIsReported(t *testing.T) {
 	}
 	f.pickReturns(big, bad)
 	f.attach(t, "文件")
-	f.see(t, "有些内容没有加进来", "「整盘备份.img」有 200 MB，超过 200 MB 的上限，没有传上去。")
+	f.see(t, "部分内容未能添加", "「整盘备份.img」大小为 200 MB，超过 200 MB 上限，未上传。")
 	if up := f.devices.Uploaded(); len(up) != 1 || filepath.Base(up[0].Local) != "坏的.png" {
 		t.Errorf("读不了的图当文件传，太大的不传：%+v", up)
 	}
@@ -238,7 +238,7 @@ func TestTooLargeOrUnreadableIsReported(t *testing.T) {
 		t.Errorf("解不开的图只当文件，画成文件小标签：%+v", at.files)
 	}
 	f.click(t, "好")
-	f.notSee(t, "有些内容没有加进来")
+	f.notSee(t, "部分内容未能添加")
 }
 
 func TestPastingAnImageOrDroppingFiles(t *testing.T) {
@@ -276,9 +276,9 @@ func TestEnteringAPathOnTheDevice(t *testing.T) {
 	f.attach(t, "输入路径")
 	f.see(t, "引用「box」上的路径")
 	for input, want := range map[string]string{
-		"notes":    "要输入以 / 开头的绝对路径",
-		"/w/\"x\"": "路径里不能有双引号或控制字符",
-		"/nope":    "没有这个路径：/nope",
+		"notes":    "请输入以 / 开头的绝对路径",
+		"/w/\"x\"": "路径不能包含双引号或控制字符",
+		"/nope":    "路径不存在：/nope",
 	} {
 		f.app.path.input = input
 		f.tt.Frame()
@@ -306,14 +306,14 @@ func TestSavedPrompts(t *testing.T) {
 	f := newChatFixture(t)
 	f.newChat(t)
 	f.attach(t, "常用指令")
-	f.see(t, "还没有常用指令。点「新建」写一条，或者在自己发过的消息上右键，选「收藏为常用指令」。点一条就把它填进输入框，可以改了再发。")
+	f.see(t, "暂无常用指令。点击「新建」添加，或在已发送的消息上右键选择「收藏为常用指令」。点击条目即可填入输入框，修改后再发送。")
 	f.click(t, "新建")
 	f.see(t, "新建常用指令")
 	f.click(t, "内容")
 	f.tt.Type("审查这次改动，列出风险")
 	f.click(t, "保存")
 	f.click(t, "新建")
-	f.click(t, "名字")
+	f.click(t, "名称")
 	f.tt.Type("周报")
 	f.click(t, "内容")
 	f.tt.Type("把这周的提交整理成周报")
@@ -332,7 +332,7 @@ func TestSavedPrompts(t *testing.T) {
 	f.attach(t, "常用指令")
 	f.clickNamed(t, "更多操作", 1)
 	f.click(t, "删除")
-	f.see(t, "删除这条常用指令？", "「审查这次改动，列出风险」删除后找不回来。")
+	f.see(t, "删除这条常用指令？", "「审查这次改动，列出风险」删除后无法恢复。")
 	f.clickButton(t, "删除", 0)
 	if got := f.hub.Prompts(); len(got) != 1 || got[0].Name != "周报" {
 		t.Errorf("删除后：%+v", got)

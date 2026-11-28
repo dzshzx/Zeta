@@ -424,7 +424,7 @@ class ConvClientTest {
             conv.interrupt()
             fail("断线时的请求没报错")
         } catch (e: ServeError) {
-            assertEquals("和主机的连接断了，正在重连", e.message)
+            assertEquals("与主机的连接已断开，正在重连", e.message)
         }
         assertTrue(link.took().isEmpty())
         client.connected()

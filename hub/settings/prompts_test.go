@@ -80,9 +80,9 @@ func TestPromptProblem(t *testing.T) {
 		want             string
 	}{
 		{nil, "", "  ", "", "内容不能为空"},
-		{nil, strings.Repeat("名", 41), "x", "", "名字太长了（最多 40 个字）"},
-		{nil, "", strings.Repeat("字", MaxPromptText+1), "", "内容太长了（最多 20000 个字）"},
-		{full, "", "x", "", "最多存 100 条，先删掉一些"},
+		{nil, strings.Repeat("名", 41), "x", "", "名称过长（最多 40 字）"},
+		{nil, "", strings.Repeat("字", MaxPromptText+1), "", "内容过长（最多 20000 字）"},
+		{full, "", "x", "", "最多保存 100 条，请先删除部分指令"},
 		{full, "", "x", "id", ""},
 	} {
 		if got := PromptProblem(c.list, c.name, c.text, c.edit); got != c.want {

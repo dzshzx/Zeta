@@ -135,14 +135,14 @@ class StorageTest {
             )
         val text = Storage.confirmMessage(StorageKind.ClaudeResidue, usage)
         assertTrue(text.startsWith("删除："))
-        assertTrue(text.contains("能腾出约 8 KB（2 项）"))
+        assertTrue(text.contains("预计可释放约 8 KB（2 项）"))
         assertTrue(text.contains("file-history 5 KB"))
-        assertTrue(text.contains("项目里的同名目录 3 KB"))
-        assertTrue(text.contains("会话记录本身一个都不删"))
+        assertTrue(text.contains("项目中的同名目录 3 KB"))
+        assertTrue(text.contains("会话记录本身不会删除"))
         // 每一类都写明不删什么
         for (kind in StorageKind.entries) assertTrue(
             kind.name,
-            Storage.confirmMessage(kind, StorageUsage(1, 1, 1)).contains("\n不删："),
+            Storage.confirmMessage(kind, StorageUsage(1, 1, 1)).contains("\n保留："),
         )
     }
 
@@ -150,18 +150,18 @@ class StorageTest {
     fun summariesAndOutcomes() {
         assertEquals("统计中…", Storage.summary(StorageKind.Tmp, null))
         assertEquals(
-            "npm 正在运行，稍后再清",
+            "npm 正在运行，请稍后清理",
             Storage.summary(StorageKind.Npm, StorageUsage(1, 1, 1, busy = "npm")),
         )
-        assertEquals("没有可清理的", Storage.summary(StorageKind.Tmp, StorageUsage(5)))
+        assertEquals("无可清理内容", Storage.summary(StorageKind.Tmp, StorageUsage(5)))
         assertEquals("可清理 2 KB（3 项）", Storage.summary(StorageKind.Tmp, StorageUsage(5000, 2000, 3)))
-        assertEquals("已腾出 2 KB", Storage.outcomeText(StorageKind.Tmp, CleanOutcome(2000, 3)))
+        assertEquals("已释放 2 KB", Storage.outcomeText(StorageKind.Tmp, CleanOutcome(2000, 3)))
         assertTrue(
             Storage.outcomeText(StorageKind.Tmp, CleanOutcome(2000, 3, failed = 1))
-                .contains("1 项没删成"),
+                .contains("1 项未删除"),
         )
         assertEquals(
-            "npm 正在运行，这次没有清理npm 缓存",
+            "npm 正在运行，本次跳过清理npm 缓存",
             Storage.outcomeText(StorageKind.Npm, CleanOutcome(0, 0, busy = "npm")),
         )
         assertEquals("30 天（默认）", Storage.cleanupText(null))

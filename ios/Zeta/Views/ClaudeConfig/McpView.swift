@@ -20,8 +20,8 @@ struct McpView: View {
                     LoadingRow()
                 } else if servers.isEmpty {
                     TitledRow(
-                        title: String(localized: "还没有 MCP 服务器"),
-                        summary: String(localized: "点右上角的“添加服务器”"))
+                        title: String(localized: "暂无 MCP 服务器"),
+                        summary: String(localized: "点击右上角“添加服务器”"))
                 }
                 ForEach(servers, id: \.key) { server in
                     NavigationLink {
@@ -38,8 +38,8 @@ struct McpView: View {
                 Text("服务器 · \(String(servers.count))")
             } footer: {
                 VStack(alignment: .leading, spacing: 8) {
-                    Text("新加的服务器所有项目都能用，改动对之后新开始的对话生效。")
-                    if !statusProblem.isEmpty { Text("检查状态没有成功：\(statusProblem)") }
+                    Text("新增服务器适用于所有项目，修改仅对之后新建的对话生效。")
+                    if !statusProblem.isEmpty { Text("状态检查失败：\(statusProblem)") }
                 }
             }
             if let connectors = status?.connectors, !connectors.isEmpty {
@@ -52,7 +52,7 @@ struct McpView: View {
                 } header: {
                     Text("Claude 账号的连接器")
                 } footer: {
-                    Text("在 claude.ai 上管理，这里只能看。")
+                    Text("在 claude.ai 中管理，此处仅支持查看。")
                 }
             }
         }
@@ -103,7 +103,7 @@ struct McpView: View {
     private func stateOf(_ server: McpServer) -> McpState? {
         if !server.shadowedBy.isEmpty {
             let scope = McpLabels.scope(server.shadowedBy)
-            return McpState(state: "shadowed", issue: String(localized: "被“\(scope)”里的同名服务器盖住"))
+            return McpState(state: "shadowed", issue: String(localized: "已被“\(scope)”中的同名服务器覆盖"))
         }
         if let found = status?.servers?[server.key] { return found }
         return status != nil || !statusProblem.isEmpty ? McpState(state: "unknown", issue: "") : nil
@@ -120,7 +120,7 @@ enum McpLabels {
     static func scope(_ scope: String) -> String {
         switch scope {
         case "user": String(localized: "所有项目")
-        case "local": String(localized: "只在默认工作目录")
+        case "local": String(localized: "仅限默认工作目录")
         case "project": String(localized: "项目的 .mcp.json")
         default: scope
         }
@@ -140,8 +140,8 @@ enum McpLabels {
         guard let state else { return String(localized: "检查中…") }
         let labels = [
             "connected": String(localized: "已连接"),
-            "partial": String(localized: "已连接 · 取工具出错"),
-            "failed": String(localized: "连不上"),
+            "partial": String(localized: "已连接 · 获取工具失败"),
+            "failed": String(localized: "无法连接"),
             "auth": String(localized: "需要登录"),
             "pending": String(localized: "等待批准"),
             "rejected": String(localized: "已拒绝"),
@@ -155,7 +155,7 @@ enum McpLabels {
     static func auth(_ server: McpServer) -> String {
         if server.bearer { return "Bearer Token" }
         if server.authHeader { return String(localized: "Authorization 请求头") }
-        if server.oauth { return String(localized: "OAuth：在终端用 claude 的 /mcp 登录") }
+        if server.oauth { return String(localized: "OAuth：请在终端中通过 claude 的 /mcp 登录") }
         return String(localized: "未配置")
     }
 }
@@ -200,7 +200,7 @@ struct McpServerView: View {
                     Button("删除服务器", role: .destructive) { removing = true }
                         .disabled(working)
                 } footer: {
-                    Text("它的地址、Token 和设置都会从配置里去掉")
+                    Text("将从配置中移除其地址、Token 和相关设置")
                 }
             }
         }
@@ -220,12 +220,12 @@ struct McpServerView: View {
             Button("取消", role: .cancel) { token = "" }
             Button("保存") { setToken() }
         } message: {
-            Text("输入新 Token，留空则移除身份认证。原来的 Token 不会显示出来。")
+            Text("输入新 Token，留空则移除身份认证。现有 Token 不会明文显示。")
         }
         .confirmationDialog("删除服务器", isPresented: $removing, titleVisibility: .visible) {
             Button("删除", role: .destructive) { remove() }
         } message: {
-            Text("删除 \(server.name)？它的地址、Token 和设置都会从配置里去掉，无法撤销。")
+            Text("删除 \(server.name)？其地址、Token 和相关设置将从配置中移除，且无法撤销。")
         }
         .configFailure($failure)
     }
@@ -257,7 +257,7 @@ struct McpServerView: View {
             HStack {
                 TitledRow(
                     title: String(localized: "身份认证"),
-                    summary: editable ? auth : String(localized: "\(auth) · 在项目里改"))
+                    summary: editable ? auth : String(localized: "\(auth) · 请在项目中修改"))
                 Spacer()
                 Button("更换") {
                     token = ""
@@ -294,7 +294,7 @@ struct McpServerView: View {
                 changed()
                 await loadTools()
             } catch {
-                failure = ConfigFailure(String(localized: "没有改成"), error)
+                failure = ConfigFailure(String(localized: "修改失败"), error)
             }
         }
     }
@@ -330,18 +330,20 @@ struct ToolsSection<Row: View>: View {
                 LoadingRow(text: "正在连接…")
             } else if !problem.isEmpty {
                 HStack {
-                    TitledRow(title: String(localized: "取不到工具清单"), summary: problem)
+                    TitledRow(title: String(localized: "无法获取工具列表"), summary: problem)
                     Spacer()
                     Button("重试", action: load).buttonStyle(.bordered)
                 }
             } else if let tools {
-                if tools.isEmpty { Text("没有工具").foregroundStyle(.secondary) }
+                if tools.isEmpty { Text("暂无工具").foregroundStyle(.secondary) }
                 ForEach(tools, id: \.name) { row($0) }
             } else {
                 HStack {
                     TitledRow(
                         title: String(localized: "列出工具"),
-                        summary: oauth ? String(localized: "用 OAuth 登录的服务器取不到") : String(localized: "连上服务器取工具清单"))
+                        summary: oauth
+                            ? String(localized: "暂不支持获取 OAuth 登录服务器的工具列表")
+                            : String(localized: "连接服务器以获取工具列表"))
                     Spacer()
                     Button("列出", action: load).buttonStyle(.bordered).disabled(oauth)
                 }

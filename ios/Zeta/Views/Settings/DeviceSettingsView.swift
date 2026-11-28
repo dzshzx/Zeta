@@ -21,12 +21,12 @@ struct DeviceSettingsView: View {
         }
         .navigationTitle(info?.name ?? "")
         .task(id: model.revision) { await reload() }
-        .alert("名字", isPresented: $naming) {
+        .alert("名称", isPresented: $naming) {
             TextField(info?.original ?? "", text: $nameText)
             Button("取消", role: .cancel) {}
             Button("好") { model.perform("device.rename", ["id": id, "name": nameText]) }
         } message: {
-            Text("留空就用设备自己的名字。")
+            Text("留空则使用设备默认名称。")
         }
         .sheet(isPresented: $movingCwd) {
             if let info { CwdEditor(device: info) }
@@ -37,7 +37,7 @@ struct DeviceSettingsView: View {
                 dismiss()
             }
         } message: {
-            Text("只是 Zeta 不再连它，那边的会话记录不动。")
+            Text("仅停止 Zeta 与此设备的连接，不会删除设备上的会话记录。")
         }
     }
 
@@ -46,14 +46,14 @@ struct DeviceSettingsView: View {
         Section {
             Toggle("连接", isOn: Binding { !info.off } set: { model.perform("connect", ["id": id, "on": $0]) })
         } footer: {
-            Text("关掉后 Zeta 不连这台设备，它上面的对话在那边照样跑。")
+            Text("关闭后，Zeta 将不再连接此设备，设备上的对话仍会继续运行。")
         }
         Section {
             Button {
                 nameText = info.customName
                 naming = true
             } label: {
-                LabeledContent("名字", value: info.name)
+                LabeledContent("名称", value: info.name)
             }
             .tint(.primary)
             LabeledContent("地址", value: info.target)
@@ -102,7 +102,7 @@ struct DeviceSettingsView: View {
         } header: {
             Text("工具与账号")
         } footer: {
-            if info.off { Text("打开「连接」后才能看账号和配置。") }
+            if info.off { Text("开启「连接」后才能查看账号与配置。") }
         }
     }
 
@@ -143,11 +143,11 @@ private struct CwdEditor: View {
                         .onChange(of: text) { problem = nil }
                 } footer: {
                     if checking {
-                        Text("正在到「\(device.name)」上核对……")
+                        Text("正在「\(device.name)」上校验…")
                     } else if let problem {
                         Text(problem).foregroundStyle(.red)
                     } else {
-                        Text("在这台设备上开新对话时用的目录。~ 是家目录 \(device.home)。")
+                        Text("在此设备发起新对话时的默认目录。~ 表示主目录 \(device.home)。")
                     }
                 }
             }
@@ -162,7 +162,7 @@ private struct CwdEditor: View {
                         .disabled(checking || text.trimmingCharacters(in: .whitespaces).isEmpty)
                 }
             }
-            .alert("核对不了", isPresented: Binding { unchecked != nil } set: { if !$0 { unchecked = nil } }) {
+            .alert("无法校验", isPresented: Binding { unchecked != nil } set: { if !$0 { unchecked = nil } }) {
                 Button("取消", role: .cancel) {}
                 Button("仍然保存") {
                     if let path = unchecked?.path { model.perform("device.setcwd", ["id": device.id, "path": path]) }
@@ -177,8 +177,8 @@ private struct CwdEditor: View {
 
     private var uncheckedMessage: String {
         guard let unchecked else { return "" }
-        let why = unchecked.off ? String(localized: "「连接」关着") : unchecked.unchecked
-        return String(localized: "没法到「\(device.name)」上看 \(unchecked.path) 能不能进去：\(why)。仍然保存吗？")
+        let why = unchecked.off ? String(localized: "「连接」未开启") : unchecked.unchecked
+        return String(localized: "无法在「\(device.name)」上校验目录 \(unchecked.path) 是否可访问：\(why)。仍要保存吗？")
     }
 
     private func check() async {

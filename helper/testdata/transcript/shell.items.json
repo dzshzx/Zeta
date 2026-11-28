@@ -34,7 +34,7 @@
           "description": "! "
         },
         "status": "success",
-        "result": "（没有输出）",
+        "result": "（无输出）",
         "result_code": "stepShellNoOutput"
       }
     ]

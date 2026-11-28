@@ -201,7 +201,7 @@ func TestRestoreCodeThenRewrite(t *testing.T) {
 	if recalled["text"] != "再改一" || !reflect.DeepEqual(recalled["files"], []any{"/w/a.txt"}) {
 		t.Fatalf("放回的：%v", recalled)
 	}
-	if got := h.texts(1); got[len(got)-1] != "notice:没有还原代码：没有这条消息之前的快照" {
+	if got := h.texts(1); got[len(got)-1] != "notice:未能还原代码：缺少这条消息之前的快照" {
 		t.Fatalf("条目：%v", got)
 	}
 	if n := len(l.lines("control_request/rewind_conversation")); n != 1 || len(h.client(1).turns) != turns {

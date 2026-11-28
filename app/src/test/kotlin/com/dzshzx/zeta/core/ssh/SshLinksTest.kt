@@ -289,14 +289,14 @@ class SshLinksTest {
         assertTrue(process.waitFor(20, TimeUnit.SECONDS))
         assertEquals(RemoteShell.CONNECTION_FAILED, process.exitValue())
         val problem = RemoteHosts.sshProblem(process.errorStream.bufferedReader().readText())
-        assertTrue(problem, problem.startsWith("Zeta 的 SSH 程序退出了"))
+        assertTrue(problem, problem.startsWith("Zeta 的 SSH 程序已退出"))
     }
 
     @Test
     fun programThatCannotStartIsExplained() {
         val broken = SshLinks({ key }) { File(home, "missing") }
         val result = broken.probe(server.target.toString(), null, "true", "zeta-test", "UTC")
-        assertTrue(result.problem, result.problem!!.startsWith("Zeta 的 SSH 程序起不来"))
+        assertTrue(result.problem, result.problem!!.startsWith("无法启动 Zeta 的 SSH 程序"))
     }
 
     @Test

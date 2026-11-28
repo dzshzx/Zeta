@@ -38,7 +38,7 @@ struct RoundConfirmSheet: View {
                     }
                 }
                 if let changes, confirm.kind == .restore {
-                    Section("会还原的文件") {
+                    Section("将还原的文件") {
                         ForEach(changes.files.prefix(20), id: \.self) { file in
                             Text(relative(file)).font(.footnote.monospaced()).lineLimit(1)
                         }
@@ -118,17 +118,17 @@ struct RoundConfirmSheet: View {
         switch confirm.kind {
         case .regenerate:
             return later > 0
-                ? String(localized: "这条消息之后的回答和之后的 \(later) 轮对话都会去掉，再照原样重新发送。")
-                : String(localized: "这条消息之后的回答会去掉，再照原样重新发送。")
+                ? String(localized: "将移除此消息之后的回复及后续 \(later) 轮对话，并按原样重新发送。")
+                : String(localized: "将移除此消息之后的回复，并按原样重新发送。")
         case .drop:
             return later > 0
-                ? String(localized: "这一轮和之后的 \(later) 轮对话都会删掉。")
-                : String(localized: "这一轮对话会删掉。")
+                ? String(localized: "将删除本轮及后续 \(later) 轮对话。")
+                : String(localized: "将删除本轮对话。")
         case .restore:
-            if let failed { return String(localized: "查不到要还原的文件：\(failed)") }
-            if !asked { return String(localized: "正在查这条消息之后改过的文件…") }
-            if changes == nil { return String(localized: "这条消息之后没有可还原的文件改动。") }
-            return String(localized: "把文件改回这条消息发出之前的样子。")
+            if let failed { return String(localized: "无法查询待还原文件：\(failed)") }
+            if !asked { return String(localized: "正在检查此消息之后变更的文件…") }
+            if changes == nil { return String(localized: "此消息之后没有可还原的文件变更。") }
+            return String(localized: "将文件还原至发送此消息前的状态。")
         }
     }
 
@@ -212,7 +212,7 @@ struct RewriteSheet: View {
         let removed = Set((item.images ?? []).compactMap(\.original)).subtracting(images.compactMap(\.original))
         let files = (item.files ?? []).filter { !removed.contains($0) }
         model.perform("rewrite", ["target": item.id, "text": text, "files": files, "images": pictures])
-        if lost > 0 { model.alert = String(localized: "有 \(lost) 张图取不回来，没有带上。") }
+        if lost > 0 { model.alert = String(localized: "有 \(lost) 张图片无法加载，发送时已跳过。") }
         dismiss()
     }
 }

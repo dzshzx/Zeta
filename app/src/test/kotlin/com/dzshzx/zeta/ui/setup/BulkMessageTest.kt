@@ -24,12 +24,12 @@ class BulkMessageTest {
                     ),
             )
         assertEquals(
-            "加到拒绝（2 条）：Bash、Read\n从允许里删（1 条）：Bash(git push:*)\n从询问里删（1 条）：Agent\n" +
-                "\n关掉以后 Claude 连读写文件、跑命令都做不了，只能聊天和用手机工具、MCP 工具。",
+            "添加到拒绝（2 条）：Bash、Read\n从允许中移除（1 条）：Bash(git push:*)\n从询问中移除（1 条）：Agent\n" +
+                "\n关闭后，Claude 将无法读写文件或执行命令，只能对话及使用手机工具和 MCP 工具。",
             bulkMessage(change, warnNoTools = true),
         )
         assertEquals(
-            "加到允许（1 条）：mcp__phone",
+            "添加到允许（1 条）：mcp__phone",
             bulkMessage(
                 BulkChange(
                     listOf(PermissionRule(PermissionBehavior.Allow, "mcp__phone")),

@@ -129,10 +129,10 @@ func TestImportSkillAndToggle(t *testing.T) {
 
 func TestSkillZipChecks(t *testing.T) {
 	cases := map[string][]byte{
-		"没有 SKILL.md":     makeZip(t, zipItem{name: "a/readme.md", body: "x"}),
+		"缺少 SKILL.md":     makeZip(t, zipItem{name: "a/readme.md", body: "x"}),
 		"不安全的路径":          makeZip(t, zipItem{name: "SKILL.md", body: skillMD}, zipItem{name: "../evil", body: "x"}),
 		"符号链接":            makeZip(t, zipItem{name: "SKILL.md", body: skillMD}, zipItem{name: "link", body: "/etc/passwd", mode: fs.ModeSymlink | 0o777}),
-		"缺少带 description": makeZip(t, zipItem{name: "SKILL.md", body: "# 没有前言\n"}),
+		"缺少含 description": makeZip(t, zipItem{name: "SKILL.md", body: "# 没有前言\n"}),
 		"不是一个有效的 ZIP":     []byte("not a zip"),
 	}
 	for want, data := range cases {

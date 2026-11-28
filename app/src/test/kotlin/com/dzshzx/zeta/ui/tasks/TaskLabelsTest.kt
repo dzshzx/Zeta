@@ -62,7 +62,7 @@ class TaskLabelsTest {
     @Test
     fun conversationState() {
         assertEquals(
-            "等你确认",
+            "等待确认",
             TaskLabels.conversation(busy = true, waiting = true, tasks = 0, schedule = null),
         )
         assertEquals(
@@ -70,7 +70,7 @@ class TaskLabelsTest {
             TaskLabels.conversation(busy = true, waiting = false, tasks = 2, schedule = null),
         )
         assertEquals(
-            "2 个后台任务在跑",
+            "2 个后台任务运行中",
             TaskLabels.conversation(busy = false, waiting = false, tasks = 2, schedule = null),
         )
         assertEquals(

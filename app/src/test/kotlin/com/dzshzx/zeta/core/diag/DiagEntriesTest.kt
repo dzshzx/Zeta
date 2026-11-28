@@ -73,7 +73,7 @@ class DiagEntriesTest {
     fun formatting() {
         val entry = DiagEntry(at, DiagLevel.Error, DiagTopic.Claude, "退出码 1\nstderr 第一行")
         assertEquals(
-            "2026-11-19 10:00:00.123 出错 [Claude 进程] 退出码 1\n    stderr 第一行",
+            "2026-11-19 10:00:00.123 错误 [Claude 进程] 退出码 1\n    stderr 第一行",
             DiagEntries.format(entry, zone),
         )
         assertEquals(

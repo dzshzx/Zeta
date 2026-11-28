@@ -15,7 +15,7 @@ struct PermissionsView: View {
     var body: some View {
         Form {
             Section {
-                Text("规则按“拒绝 > 询问 > 允许”取最严的，写得再细也一样。完全放行模式下，询问和拒绝照样生效。改动对所有项目、之后新开始的对话生效。")
+                Text("规则按“拒绝 > 询问 > 允许”从严生效，不受规则细化程度影响。在完全放行模式下，询问和拒绝规则依然有效。修改对所有项目及之后新建的对话生效。")
                     .font(.footnote)
                     .foregroundStyle(.secondary)
                 if !store.loadProblem.isEmpty {
@@ -93,7 +93,7 @@ struct PermissionsView: View {
     private func serversSection(_ data: PermissionsPage) -> some View {
         Section("MCP 服务器") {
             if data.servers.isEmpty {
-                Text("没有配置 MCP 服务器").foregroundStyle(.secondary)
+                Text("暂未配置 MCP 服务器").foregroundStyle(.secondary)
             }
             ForEach(data.servers, id: \.name) { server in
                 NavigationLink {
@@ -115,8 +115,8 @@ struct PermissionsView: View {
         Section {
             if data.rules.isEmpty {
                 TitledRow(
-                    title: String(localized: "还没有规则"),
-                    summary: String(localized: "点右上角的“添加规则”"))
+                    title: String(localized: "暂无规则"),
+                    summary: String(localized: "点击右上角“添加规则”"))
             }
             ForEach(data.rules, id: \.self) { rule in
                 let table = ConfigLabels.behavior(rule.behavior)
@@ -126,7 +126,7 @@ struct PermissionsView: View {
                     TitledRow(
                         title: rule.rule,
                         summary: rule.malformed
-                            ? String(localized: "\(table) · 括号不配对，\(Harness.name(store.calls.harness)) 认不出这条")
+                            ? String(localized: "\(table) · 括号不匹配，\(Harness.name(store.calls.harness)) 无法识别此规则")
                             : table)
                 }
                 .foregroundStyle(.primary)
@@ -142,7 +142,7 @@ struct PermissionsView: View {
         } header: {
             Text("规则 · \(String(data.rules.count))")
         } footer: {
-            Text("带参数的规则只在这里改，上面的下拉不动它们。")
+            Text("带参数的规则仅可在此修改，上方下拉菜单不会影响它们。")
         }
     }
 }
@@ -166,7 +166,7 @@ private struct RuleEditView: View {
     var body: some View {
         NavigationStack {
             Form {
-                Picker("表", selection: $behavior) {
+                Picker("列表", selection: $behavior) {
                     ForEach(ConfigLabels.behaviors, id: \.self) { Text(ConfigLabels.behavior($0)).tag($0) }
                 }
                 Section {
@@ -178,13 +178,13 @@ private struct RuleEditView: View {
                 } footer: {
                     Text(store.calls.isAgy
                         ? """
-                            写成 工具名 或 工具名(参数)。\
-                            比如 run_command(npm test:*)、read_file(./.env)、\
+                            格式为 工具名 或 工具名(参数)，\
+                            例如 run_command(npm test:*)、read_file(./.env)、\
                             edit_file(src/**)、mcp__github（整个服务器）。
                             """
                         : """
-                            写成 工具名 或 工具名(参数)。\
-                            比如 Bash(npm run test:*)、Read(./.env)、\
+                            格式为 工具名 或 工具名(参数)，\
+                            例如 Bash(npm run test:*)、Read(./.env)、\
                             Edit(src/**)、WebFetch(domain:github.com)、mcp__github（整个服务器）。
                             """)
                 }
@@ -215,7 +215,7 @@ private struct RuleEditView: View {
     private func save() {
         let rule = PermRule(behavior: behavior, rule: text.trimmingCharacters(in: .whitespaces))
         guard !rule.rule.isEmpty else {
-            problem = String(localized: "规则不能是空的")
+            problem = String(localized: "规则不能为空")
             return
         }
         saving = true
@@ -243,12 +243,12 @@ private struct PermServerView: View {
                         store: store, title: String(localized: "整个服务器"), summary: server.rule, rule: server.rule,
                         own: server.state.behavior)
                 } footer: {
-                    Text("整个服务器的设置管它的每个工具；工具自己也设了的，取更严的那个。")
+                    Text("服务器级设置适用于其下所有工具；若单个工具另有设置，则按更严格的一方生效。")
                 }
                 ToolsSection(
                     tools: store.server == name ? store.serverTools : nil, busy: busy, problem: problem,
                     oauth: server.oauth, load: { Task { await loadTools(server) } },
-                    footer: server.oauth ? String(localized: "要按工具设置，在上一页的“规则”里手写 \(server.rule)__工具名。") : "",
+                    footer: server.oauth ? String(localized: "如需按工具单独设置，请在上一页的“规则”中手动添加 \(server.rule)__工具名。") : "",
                     row: { tool in
                     if let view = store.serverTool(tool.name) {
                         ToolPermissionRow(

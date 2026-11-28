@@ -68,7 +68,7 @@ final class PermissionsStore {
                 } else if data == nil {
                     loadProblem = error.localizedDescription
                 } else {
-                    failure = ConfigFailure(String(localized: "没有改成"), error)
+                    failure = ConfigFailure(String(localized: "修改失败"), error)
                 }
             }
         }
@@ -104,8 +104,8 @@ enum PermLabels {
         switch (server, enable) {
         case (nil, true): String(localized: "全部开启内置工具")
         case (nil, false): String(localized: "全部关闭内置工具")
-        case let (name?, true): String(localized: "全部开启\(name) 的工具")
-        case let (name?, false): String(localized: "全部关闭\(name) 的工具")
+        case let (name?, true): String(localized: "全部开启 \(name) 的工具")
+        case let (name?, false): String(localized: "全部关闭 \(name) 的工具")
         }
     }
 
@@ -118,7 +118,7 @@ enum PermLabels {
             if !rules.isEmpty {
                 let table = ConfigLabels.behavior(behavior)
                 let count = String(rules.count), joined = rules.joined(separator: separator)
-                lines.append(String(localized: "加到\(table)（\(count) 条）：\(joined)"))
+                lines.append(String(localized: "添加到「\(table)」（\(count) 条）：\(joined)"))
             }
         }
         for behavior in ConfigLabels.behaviors {
@@ -126,11 +126,11 @@ enum PermLabels {
             if !rules.isEmpty {
                 let table = ConfigLabels.behavior(behavior)
                 let count = String(rules.count), joined = rules.joined(separator: separator)
-                lines.append(String(localized: "从\(table)里删（\(count) 条）：\(joined)"))
+                lines.append(String(localized: "从「\(table)」移除（\(count) 条）：\(joined)"))
             }
         }
         if warn {
-            lines.append("\n" + String(localized: "关掉以后 Claude 连读写文件、跑命令都做不了，只能聊天和用 MCP 工具。"))
+            lines.append("\n" + String(localized: "关闭后，Claude 将无法读写文件或执行命令，仅能对话与使用 MCP 工具。"))
         }
         return lines.joined(separator: "\n")
     }

@@ -87,7 +87,7 @@ func TestLabelsAndSizes(t *testing.T) {
 	if !TooLarge(MaxBytes+1) || TooLarge(-1) {
 		t.Error("TooLarge")
 	}
-	if got := TooLargeReason("录像.mp4", 300_000_000); got != "「录像.mp4」有 300 MB，超过 200 MB 的上限，没有传上去" {
+	if got := TooLargeReason("录像.mp4", 300_000_000); got != "「录像.mp4」大小为 300 MB，超过 200 MB 上限，未上传" {
 		t.Errorf("TooLargeReason = %q", got)
 	}
 	if !IsImage("A.JPG") || IsImage("a.svg") || IsImage("png") {

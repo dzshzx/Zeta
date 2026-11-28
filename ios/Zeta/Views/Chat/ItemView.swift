@@ -198,7 +198,7 @@ private struct StepView: View {
             if let patch = step.patch, !patch.hunks.isEmpty {
                 FileChangeView(patch: patch, clipped: step.clipped == true)
             } else if step.clipped == true {
-                Text("参数太长，只显示了一部分").font(.caption).foregroundStyle(.secondary)
+                Text("参数过长，仅显示部分内容").font(.caption).foregroundStyle(.secondary)
             }
             ForEach(step.images ?? [], id: \.cacheKey) { ChatImageView(image: $0) }
             if step.patch == nil || step.failed {
@@ -258,7 +258,7 @@ struct FileChangeView: View {
             }
             .background(.fill.quaternary, in: .rect(cornerRadius: 10))
             if clipped {
-                Text("改动太长，这里只显示了一部分").font(.caption).foregroundStyle(.secondary)
+                Text("变更内容过长，仅显示部分内容").font(.caption).foregroundStyle(.secondary)
             }
         }
     }

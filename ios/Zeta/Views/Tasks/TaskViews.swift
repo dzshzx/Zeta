@@ -30,7 +30,7 @@ struct BackgroundTasksView: View {
         List {
             Section {
                 if chats.isEmpty {
-                    Text("没有在后台进行的对话").foregroundStyle(.secondary)
+                    Text("暂无后台运行中的对话").foregroundStyle(.secondary)
                 }
                 ForEach(chats, id: \.key) { chat in
                     Button { open(.session(backend: chat.backend, id: chat.id)) } label: {
@@ -47,7 +47,7 @@ struct BackgroundTasksView: View {
             } header: {
                 Text("后台对话")
             } footer: {
-                Text("各台设备上在回答、等你回应或还有后台任务的对话。")
+                Text("各设备上正在回复、等待回应或仍有后台任务的对话。")
             }
             if let chat = model.state.chat {
                 TaskRows(title: chat.title, tasks: chat.tasks)
@@ -66,7 +66,7 @@ struct BackgroundTasksView: View {
         switch chat.activity {
         case "waiting": state = String(localized: "等你回应")
         case "answering": state = String(localized: "正在回答")
-        default: state = String(localized: "\(chat.tasks) 个后台任务在跑")
+        default: state = String(localized: "\(chat.tasks) 个后台任务运行中")
         }
         if model.state.listed.isEmpty {
             state = model.deviceName(chat.backend) + " · " + state
@@ -104,8 +104,8 @@ private struct TaskRows: View {
         Section {
             if tasks.isEmpty {
                 VStack(alignment: .leading, spacing: 2) {
-                    Text("没有后台任务")
-                    Text("Claude 在后台跑的命令、监视器和子代理会列在这里。").font(.caption).foregroundStyle(.secondary)
+                    Text("暂无后台任务")
+                    Text("Claude 在后台运行的命令、监视器和子代理将显示在此处。").font(.caption).foregroundStyle(.secondary)
                 }
             }
             ForEach(tasks.filter(\.running) + tasks.filter { !$0.running }) { task in
@@ -171,7 +171,7 @@ struct TaskDetailView: View {
             if let task {
                 form(task)
             } else {
-                ContentUnavailableView("这个任务已经不在了", systemImage: "timer")
+                ContentUnavailableView("该任务已不存在", systemImage: "timer")
             }
         }
         .navigationTitle("任务详情")
@@ -218,7 +218,7 @@ struct TaskDetailView: View {
                 LabeledContent("工具调用") { Text(uses, format: .number) }
             }
             if task.running, let progress = task.progress, !progress.isEmpty {
-                LabeledContent("正在做", value: progress)
+                LabeledContent("当前执行", value: progress)
             }
         } header: {
             Text(task.title)
@@ -232,12 +232,12 @@ struct TaskDetailView: View {
     }
 
     private func outputText(_ task: TaskInfo) -> String {
-        if !failed.isEmpty { return String(localized: "没读到输出：\(failed)") }
+        if !failed.isEmpty { return String(localized: "无法读取输出：\(failed)") }
         guard let output, output.got else {
-            return model.state.chat?.process == false ? String(localized: "进程已经没了，读不到输出") : String(localized: "正在读取")
+            return model.state.chat?.process == false ? String(localized: "进程已结束，无法读取输出") : String(localized: "正在读取")
         }
-        if !output.error.isEmpty { return String(localized: "没读到输出：\(output.error)") }
-        return output.text.isEmpty ? String(localized: "还没有输出") : output.text
+        if !output.error.isEmpty { return String(localized: "无法读取输出：\(output.error)") }
+        return output.text.isEmpty ? String(localized: "暂无输出") : output.text
     }
 
     private func watch(_ watching: Bool) {

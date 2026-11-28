@@ -1,8 +1,8 @@
 <resources>
     <string name="app_name">Zeta</string>
     <string name="capture_tile">截屏给 Claude</string>
-    <string name="accessibility_description">让 Claude 在你交代任务时读取屏幕上的内容，并代你点按、滑动和输入文字。Zeta 只在 Claude 调用手机工具时才使用它。</string>
+    <string name="accessibility_description">允许 Claude 在执行你指派的任务时读取屏幕内容，并代你点击、滑动和输入文字。Zeta 仅在 Claude 调用手机工具时启用此服务。</string>
     <string name="assistant_label">Zeta 助理</string>
-    <string name="recognition_label">Zeta 语音识别（转给系统识别服务）</string>
-    <string name="xposed_description">长按电源键交给 Zeta：默认数字助理是 Zeta 时，HyperOS 长按电源键显示 Zeta 的助理浮窗，而不是小爱。另外放行 Zeta 调用系统应用开给小爱的工具，并让 Zeta 的通知上超级岛。作用域是系统框架和系统界面。</string>
+    <string name="recognition_label">Zeta 语音识别（转交系统识别服务）</string>
+    <string name="xposed_description">长按电源键唤起 Zeta：将 Zeta 设为默认数字助理后，HyperOS 长按电源键会显示 Zeta 助理浮窗，而非小爱。同时允许 Zeta 调用系统应用向小爱开放的工具，并支持 Zeta 通知显示在超级岛。作用域为系统框架和系统界面。</string>
 </resources>

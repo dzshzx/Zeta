@@ -463,7 +463,7 @@ func TestServeForwardsConversationsToOneCore(t *testing.T) {
 	}
 
 	b.send(`{"id":"x","method":"conv.send","conv":"c1","text":"你好"}`)
-	if r := b.next("zeta_reply"); r["id"] != "x" || r["error"] != "没有打开这个对话" {
+	if r := b.next("zeta_reply"); r["id"] != "x" || r["error"] != "尚未打开该对话" {
 		t.Fatalf("b 经核心的应答 %v", r)
 	}
 	if corePid(p) != pid {

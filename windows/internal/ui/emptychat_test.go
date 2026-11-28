@@ -87,14 +87,14 @@ func TestEmptyChatPicksTheDevice(t *testing.T) {
 	f.failOn("conv.open", "核心不在")
 	f.tt.Key(ui.Cmd, ui.KeyN)
 	f.tt.Frame()
-	f.see(t, "打不开这个对话：核心不在")
+	f.see(t, "无法打开该对话：核心不在")
 	if !f.shows(hostPill("box")) {
 		t.Error("打不开时没有设备胶囊")
 	}
 
 	// 接着旧会话打开的（同样打不开）没有
 	f.click(t, "修登录页")
-	f.see(t, "打不开这个对话：核心不在")
+	f.see(t, "无法打开该对话：核心不在")
 	if f.shows(hostPill("box")) {
 		t.Error("接着旧会话也有设备胶囊")
 	}

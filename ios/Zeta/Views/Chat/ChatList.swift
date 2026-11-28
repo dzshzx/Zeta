@@ -97,7 +97,7 @@ struct ChatList: View {
                 if chat.earlierLoading == true {
                     ProgressView()
                 } else {
-                    Button("载入更早的消息") { model.perform("earlier") }
+                    Button("加载更早的消息") { model.perform("earlier") }
                         .buttonStyle(.bordered)
                 }
             }
@@ -200,7 +200,7 @@ private struct FindBar: View {
                 .submitLabel(.search)
                 .onSubmit { step(-1) }
             if !query.isEmpty {
-                Text(count == 0 ? String(localized: "没有找到") : "\(hit + 1)/\(count)")
+                Text(count == 0 ? String(localized: "未找到匹配项") : "\(hit + 1)/\(count)")
                     .font(.caption.monospacedDigit())
                     .foregroundStyle(.secondary)
             }

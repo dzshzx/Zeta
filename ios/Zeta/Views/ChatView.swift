@@ -25,7 +25,7 @@ struct ChatView: View {
                     ProgressView("正在打开")
                 } else if !chat.problem.isEmpty {
                     ContentUnavailableView(
-                        "打不开这个对话", systemImage: "exclamationmark.triangle", description: Text(chat.problem))
+                        "无法打开此对话", systemImage: "exclamationmark.triangle", description: Text(chat.problem))
                 }
             }
             .safeAreaInset(edge: .bottom) { bottomBar(chat) }

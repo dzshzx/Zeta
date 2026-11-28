@@ -892,10 +892,10 @@ class PersonalToolsTest {
     fun titlesAreChinese() {
         fun title(name: String, vararg pairs: Pair<String, String>) =
             PersonalTools.title(name, buildJsonObject { pairs.forEach { (k, v) -> put(k, v) } })
-        assertEquals("找验证码", title("search_personal", "source" to "codes"))
+        assertEquals("查找验证码", title("search_personal", "source" to "codes"))
         assertEquals("查看日程", title("search_personal", "source" to "calendar"))
-        assertEquals("在短信里找「快递」", title("search_personal", "source" to "sms", "query" to "快递"))
-        assertEquals("看照片", title("view_media"))
+        assertEquals("在短信中搜索「快递」", title("search_personal", "source" to "sms", "query" to "快递"))
+        assertEquals("查看照片", title("view_media"))
         assertEquals(
             "新建日程「Zeta 测试」",
             title("edit_calendar", "action" to "create", "title" to "Zeta 测试"),

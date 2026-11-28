@@ -38,13 +38,13 @@ func TestAgentsSaveKeepsUnknownKeysAndRenames(t *testing.T) {
 	}
 
 	// 新建：同名的已经有了
-	if _, err := c.SaveAgent(nil, SubagentDraft{Name: "plain", Description: "x"}); err == nil || !strings.Contains(err.Error(), "已经有一个叫 plain") {
+	if _, err := c.SaveAgent(nil, SubagentDraft{Name: "plain", Description: "x"}); err == nil || !strings.Contains(err.Error(), "已存在名为 plain") {
 		t.Errorf("duplicate: %v", err)
 	}
 	// 编辑期间被别人改过
 	stale := c.Agents()[0]
 	write(t, filepath.Join(dir, "plain.md"), "改过了\n")
-	if _, err := c.SaveAgent(&stale, SubagentDraft{Name: "plain", Description: "x"}); err == nil || !strings.Contains(err.Error(), "被改过了") {
+	if _, err := c.SaveAgent(&stale, SubagentDraft{Name: "plain", Description: "x"}); err == nil || !strings.Contains(err.Error(), "已被修改") {
 		t.Errorf("stale: %v", err)
 	}
 	for _, d := range []SubagentDraft{{Name: "Bad Name", Description: "x"}, {Name: "ok"}} {

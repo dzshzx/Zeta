@@ -217,7 +217,7 @@ class ScreenDigestTest {
         assertTrue(failed.entries.last() is ReplyEntry.Problem)
         assertFalse(failed.busy)
         assertEquals(
-            "这一轮没有回答",
+            "本轮没有回复",
             status(AssistantReplies.view(asked, busy = false, waitingFor = null))?.text,
         )
     }

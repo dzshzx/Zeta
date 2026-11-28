@@ -139,11 +139,11 @@ func TestEditAndResend(t *testing.T) {
 	if f.sent("conv.rewrite") != nil || f.app.pane.draft != "说慢点" {
 		t.Fatalf("不能改时发出去了：%q", f.app.pane.draft)
 	}
-	f.see(t, "等这一轮结束再发")
+	f.see(t, "请等待当前回复结束后再发送")
 	f.push(`"can_rewind":true`)
 	f.failOn("conv.rewrite", "现在不能改：等这一轮结束、回应完等着的请求再试")
 	f.click(t, "发送")
-	f.see(t, "没发出去：现在不能改：等这一轮结束、回应完等着的请求再试")
+	f.see(t, "发送失败：现在不能改：等这一轮结束、回应完等着的请求再试")
 }
 
 // 编辑带图的消息：会话记录里的图取回来放进输入栏，发出时一起带上。
@@ -175,7 +175,7 @@ func TestRegenerate(t *testing.T) {
 	f := openedForActions(t)
 	f.answers["conv.code_changes"] = `{"files":["/home/zeta/a.go"],"insertions":3,"deletions":1}`
 	f.clickButton(t, "重新生成", 0)
-	f.see(t, "重新生成回复？", "将删除之后 4 轮对话，并从这条消息重新生成。\n这条消息之后改过 1 个文件（+3 −1）。", "同时还原代码")
+	f.see(t, "重新生成回复？", "将删除之后 4 轮对话，并从这条消息重新生成。\n该消息之后修改了 1 个文件（+3 −1）。", "同时还原代码")
 	if got := f.sent("conv.code_changes"); len(got) != 1 || got[0] != `{"conv":"w1","target":"u-1"}` {
 		t.Fatalf("问改动：%v", got)
 	}
@@ -229,7 +229,7 @@ func TestRestoreCode(t *testing.T) {
 		t.Fatal(err)
 	}
 	f.tt.Frame()
-	f.see(t, "还原代码？", "把文件改回这条消息之前的样子，对话不动。这条消息之后改过 2 个文件（+12 −4）。", "web/login.go", "/etc/hosts",
+	f.see(t, "还原代码？", "将文件还原至该消息之前的状态，对话记录保持不变。该消息之后修改了 2 个文件（+12 −4）。", "web/login.go", "/etc/hosts",
 		"同时删除这一轮及之后的")
 	f.click(t, "同时删除这一轮及之后的")
 	f.click(t, "还原")
@@ -241,7 +241,7 @@ func TestRestoreCode(t *testing.T) {
 	_ = f.tt.RightClick("说慢点")
 	_ = f.tt.ChooseMenuItem("还原代码")
 	f.tt.Frame()
-	f.see(t, "这条消息之后没有可还原的文件改动。")
+	f.see(t, "该消息之后没有可还原的文件改动。")
 	if len(f.buttons("还原")) != 0 {
 		t.Fatal("没有改动时还能点还原")
 	}
@@ -413,14 +413,14 @@ func TestSaveMessageAsPrompt(t *testing.T) {
 	if got := f.hub.Prompts(); len(got) != 1 || got[0].Text != "看看有什么文件" || got[0].Name != "" {
 		t.Fatalf("存下的：%+v", got)
 	}
-	f.see(t, "已收藏，在输入栏左下角的「+」里")
+	f.see(t, "已收藏，可在「+」菜单中查看")
 	// 再收藏一次：不重复存
 	_ = f.tt.RightClick("看看有什么文件")
 	if err := f.tt.ChooseMenuItem("收藏为常用指令"); err != nil {
 		t.Fatal(err)
 	}
 	f.tt.Frame()
-	f.see(t, "已经在常用指令里了")
+	f.see(t, "已在常用指令中")
 	if got := f.hub.Prompts(); len(got) != 1 {
 		t.Fatalf("重复存了：%+v", got)
 	}

@@ -185,11 +185,11 @@ private struct FileChip: View {
     }
 
     private var label: String {
-        if !item.failed.isEmpty { return String(localized: "没传成：\(item.name)") }
+        if !item.failed.isEmpty { return String(localized: "上传失败：\(item.name)") }
         if item.uploading {
             return item.percent >= 0
-                ? String(localized: "正在传 \(item.percent)%：\(item.name)")
-                : String(localized: "正在传：\(item.name)")
+                ? String(localized: "正在上传 \(item.percent)%：\(item.name)")
+                : String(localized: "正在上传：\(item.name)")
         }
         return item.name
     }

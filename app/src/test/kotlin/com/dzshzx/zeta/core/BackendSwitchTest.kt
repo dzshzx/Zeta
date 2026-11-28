@@ -90,15 +90,15 @@ class BackendSwitchTest {
             )
         hub.settings.remoteHosts = listOf(remote, direct)
         assertNull(hub.shell(Backends.LOCAL))
-        assertEquals("还没有配置 Linux 环境，请到设置里检查", hub.unavailable(Backends.LOCAL))
+        assertEquals("尚未配置 Linux 环境，请前往设置检查", hub.unavailable(Backends.LOCAL))
         assertNull(hub.shell(remote.id))
-        assertEquals("「工作站」经手机的 Debian 连，Debian 环境还没就绪", hub.unavailable(remote.id))
+        assertEquals("「工作站」需经手机 Debian 连接，但 Debian 环境尚未就绪", hub.unavailable(remote.id))
         assertTrue(hub.shell(direct.id) is DirectSshShell)
         assertNull(hub.unavailable(direct.id))
         hub.selectBackend(direct.id)
         assertEquals(direct.id, hub.current.backend)
         assertEquals("/root", hub.current.cwd)
-        assertEquals("远程设备已经从设置里删掉了", hub.unavailable("r-gone"))
+        assertEquals("该远程设备已从设置中移除", hub.unavailable("r-gone"))
     }
 
     /** 换手机的 Debian 环境只收掉要靠 Debian 的主机上的对话，直连主机上的照常留着。 */
@@ -225,7 +225,7 @@ class BackendSwitchTest {
         hub.setConnected(remote.id, false)
         assertFalse(hub.usable(remote.id))
         assertNull(hub.shell(remote.id))
-        assertEquals("「工作站」已断开，在设置里这台设备的页面打开「连接」", hub.unavailable(remote.id))
+        assertEquals("「工作站」已断开，请在设置中该设备的页面开启「连接」", hub.unavailable(remote.id))
         assertSame(opened, hub.current)
         assertFalse(hub.hostWorking(remote.id))
         assertFalse(

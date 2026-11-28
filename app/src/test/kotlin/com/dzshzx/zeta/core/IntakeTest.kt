@@ -134,10 +134,10 @@ class IntakeTest {
         assertFalse(FileLimits.tooLarge(FileLimits.MAX_BYTES))
         assertTrue(FileLimits.tooLarge(FileLimits.MAX_BYTES + 1))
         assertEquals(
-            "「v.mp4」有 1.29 GB，超过 200 MB 的上限，没有复制",
+            "「v.mp4」大小为 1.29 GB，超过 200 MB 上限，未复制",
             FileLimits.tooLargeReason("v.mp4", 1288490189L),
         )
-        assertEquals("「v.mp4」超过 200 MB 的上限，没有复制", FileLimits.tooLargeReason("v.mp4", null))
+        assertEquals("「v.mp4」超过 200 MB 上限，未复制", FileLimits.tooLargeReason("v.mp4", null))
     }
 
     @Test

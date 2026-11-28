@@ -92,13 +92,13 @@ func (msgs Messages) StepInterrupted() string {
 	return Catalog.Format(msgs.locale, "stepInterrupted", nil)
 }
 
-// StepShellNoOutput says "（没有输出）"
+// StepShellNoOutput says "（无输出）"
 // in the language the app shows.
 //
 // 输入栏里 ! 命令那一步的结果：命令什么也没输出。
 func StepShellNoOutput() string { return In(i18n.Locale()).StepShellNoOutput() }
 
-// StepShellNoOutput says "（没有输出）"
+// StepShellNoOutput says "（无输出）"
 // in the language of msgs.
 //
 // 输入栏里 ! 命令那一步的结果：命令什么也没输出。
@@ -126,14 +126,14 @@ func (msgs Messages) StepShellExit(output string, code string) string {
 	return Catalog.Format(msgs.locale, "stepShellExit", map[string]any{"output": output, "code": code})
 }
 
-// StepShellNoOutputExit says "（没有输出）\n退出码 {code}"
+// StepShellNoOutputExit says "（无输出）\n退出码 {code}"
 // in the language the app shows.
 //
 // 输入栏里 ! 命令那一步的结果：没有输出，退出码不为
 // 0。
 func StepShellNoOutputExit(code string) string { return In(i18n.Locale()).StepShellNoOutputExit(code) }
 
-// StepShellNoOutputExit says "（没有输出）\n退出码 {code}"
+// StepShellNoOutputExit says "（无输出）\n退出码 {code}"
 // in the language of msgs.
 //
 // 输入栏里 ! 命令那一步的结果：没有输出，退出码不为
@@ -220,14 +220,14 @@ func (msgs Messages) NoticeAutoCompactedFrom(tokens string) string {
 	return Catalog.Format(msgs.locale, "noticeAutoCompactedFrom", map[string]any{"tokens": tokens})
 }
 
-// NoticeTurnAbnormal says "这一轮没有正常结束（{subtype}）"
+// NoticeTurnAbnormal says "本轮未正常结束（{subtype}）"
 // in the language the app shows.
 //
 // 对话里的出错提示：一轮出错结束，Claude Code
 // 没给原因，subtype 是 result 的 subtype 原样。
 func NoticeTurnAbnormal(subtype string) string { return In(i18n.Locale()).NoticeTurnAbnormal(subtype) }
 
-// NoticeTurnAbnormal says "这一轮没有正常结束（{subtype}）"
+// NoticeTurnAbnormal says "本轮未正常结束（{subtype}）"
 // in the language of msgs.
 //
 // 对话里的出错提示：一轮出错结束，Claude Code
@@ -294,13 +294,13 @@ func (msgs Messages) TurnStopped() string {
 	return Catalog.Format(msgs.locale, "turnStopped", nil)
 }
 
-// TurnFailed says "出错了"
+// TurnFailed says "发生错误"
 // in the language the app shows.
 //
 // 一轮结束的通知：这一轮出错结束。
 func TurnFailed() string { return In(i18n.Locale()).TurnFailed() }
 
-// TurnFailed says "出错了"
+// TurnFailed says "发生错误"
 // in the language of msgs.
 //
 // 一轮结束的通知：这一轮出错结束。
@@ -338,14 +338,14 @@ func (msgs Messages) NoticeStartFailed(reason string) string {
 	return Catalog.Format(msgs.locale, "noticeStartFailed", map[string]any{"reason": reason})
 }
 
-// NoticeNoWorkDir says "Claude Code 没有启动：进不去工作目录 {cwd}…"
+// NoticeNoWorkDir says "Claude Code 无法启动：无法进入工作目录 {cwd}…"
 // in the language the app shows.
 //
 // 对话里的出错提示：Claude Code 进不去工作目录
 // cwd，告诉用户去哪改。
 func NoticeNoWorkDir(cwd string) string { return In(i18n.Locale()).NoticeNoWorkDir(cwd) }
 
-// NoticeNoWorkDir says "Claude Code 没有启动：进不去工作目录 {cwd}…"
+// NoticeNoWorkDir says "Claude Code 无法启动：无法进入工作目录 {cwd}…"
 // in the language of msgs.
 //
 // 对话里的出错提示：Claude Code 进不去工作目录
@@ -354,14 +354,14 @@ func (msgs Messages) NoticeNoWorkDir(cwd string) string {
 	return Catalog.Format(msgs.locale, "noticeNoWorkDir", map[string]any{"cwd": cwd})
 }
 
-// NoticeClaudeNotStarted says "Claude Code 没能启动"
+// NoticeClaudeNotStarted says "Claude Code 未能启动"
 // in the language the app shows.
 //
 // 对话里的出错提示：新对话的 Claude Code
 // 一启动就退出了，没说原因。
 func NoticeClaudeNotStarted() string { return In(i18n.Locale()).NoticeClaudeNotStarted() }
 
-// NoticeClaudeNotStarted says "Claude Code 没能启动"
+// NoticeClaudeNotStarted says "Claude Code 未能启动"
 // in the language of msgs.
 //
 // 对话里的出错提示：新对话的 Claude Code
@@ -370,14 +370,14 @@ func (msgs Messages) NoticeClaudeNotStarted() string {
 	return Catalog.Format(msgs.locale, "noticeClaudeNotStarted", nil)
 }
 
-// NoticeClaudeKilled says "Claude Code 进程被结束了"
+// NoticeClaudeKilled says "Claude Code 进程已被终止"
 // in the language the app shows.
 //
 // 对话里的出错提示：Claude Code 进程被信号结束（退出码
 // 143 或 137）。
 func NoticeClaudeKilled() string { return In(i18n.Locale()).NoticeClaudeKilled() }
 
-// NoticeClaudeKilled says "Claude Code 进程被结束了"
+// NoticeClaudeKilled says "Claude Code 进程已被终止"
 // in the language of msgs.
 //
 // 对话里的出错提示：Claude Code 进程被信号结束（退出码
@@ -436,13 +436,13 @@ func (msgs Messages) NoticeHandedToTerminal() string {
 	return Catalog.Format(msgs.locale, "noticeHandedToTerminal", nil)
 }
 
-// NoticeNotDeleted says "没有删除：{reason}"
+// NoticeNotDeleted says "未能删除：{reason}"
 // in the language the app shows.
 //
 // 对话里的出错提示：删除一轮没成，reason 是原因。
 func NoticeNotDeleted(reason string) string { return In(i18n.Locale()).NoticeNotDeleted(reason) }
 
-// NoticeNotDeleted says "没有删除：{reason}"
+// NoticeNotDeleted says "未能删除：{reason}"
 // in the language of msgs.
 //
 // 对话里的出错提示：删除一轮没成，reason 是原因。
@@ -450,14 +450,14 @@ func (msgs Messages) NoticeNotDeleted(reason string) string {
 	return Catalog.Format(msgs.locale, "noticeNotDeleted", map[string]any{"reason": reason})
 }
 
-// NoticeNotSent says "没有发出：{reason}"
+// NoticeNotSent says "发送失败：{reason}"
 // in the language the app shows.
 //
 // 对话里的出错提示：改写、重新生成或分支后的消息没发出去，已放回输入框，reason
 // 是原因。
 func NoticeNotSent(reason string) string { return In(i18n.Locale()).NoticeNotSent(reason) }
 
-// NoticeNotSent says "没有发出：{reason}"
+// NoticeNotSent says "发送失败：{reason}"
 // in the language of msgs.
 //
 // 对话里的出错提示：改写、重新生成或分支后的消息没发出去，已放回输入框，reason
@@ -480,13 +480,13 @@ func (msgs Messages) NoticeCodeRestored() string {
 	return Catalog.Format(msgs.locale, "noticeCodeRestored", nil)
 }
 
-// NoticeForkStarted says "从这里分支出的新对话，原对话不变。发出消息后保存"
+// NoticeForkStarted says "已从此处分支出新对话，原对话保持不变。发送消息后保存。"
 // in the language the app shows.
 //
 // 对话里的灰色提示：分支出的新对话开头的说明。
 func NoticeForkStarted() string { return In(i18n.Locale()).NoticeForkStarted() }
 
-// NoticeForkStarted says "从这里分支出的新对话，原对话不变。发出消息后保存"
+// NoticeForkStarted says "已从此处分支出新对话，原对话保持不变。发送消息后保存。"
 // in the language of msgs.
 //
 // 对话里的灰色提示：分支出的新对话开头的说明。
@@ -494,14 +494,14 @@ func (msgs Messages) NoticeForkStarted() string {
 	return Catalog.Format(msgs.locale, "noticeForkStarted", nil)
 }
 
-// NoticeShellWhileBusy says "回答进行中不能直接执行命令，等这一轮结束再发"
+// NoticeShellWhileBusy says "回答进行中无法直接执行命令，请等待本轮结束后再发送。"
 // in the language the app shows.
 //
 // 对话里的出错提示：回答进行中用户发了 !
 // 命令，命令已放回输入框。
 func NoticeShellWhileBusy() string { return In(i18n.Locale()).NoticeShellWhileBusy() }
 
-// NoticeShellWhileBusy says "回答进行中不能直接执行命令，等这一轮结束再发"
+// NoticeShellWhileBusy says "回答进行中无法直接执行命令，请等待本轮结束后再发送。"
 // in the language of msgs.
 //
 // 对话里的出错提示：回答进行中用户发了 !
@@ -510,14 +510,14 @@ func (msgs Messages) NoticeShellWhileBusy() string {
 	return Catalog.Format(msgs.locale, "noticeShellWhileBusy", nil)
 }
 
-// NoticeShellRunning says "上一条 ! 命令还在跑，等它出结果再发"
+// NoticeShellRunning says "上一条 ! 命令仍在运行，请等待结果返回后再发送。"
 // in the language the app shows.
 //
 // 对话里的出错提示：上一条 !
 // 命令还没出结果，这条已放回输入框。
 func NoticeShellRunning() string { return In(i18n.Locale()).NoticeShellRunning() }
 
-// NoticeShellRunning says "上一条 ! 命令还在跑，等它出结果再发"
+// NoticeShellRunning says "上一条 ! 命令仍在运行，请等待结果返回后再发送。"
 // in the language of msgs.
 //
 // 对话里的出错提示：上一条 !
@@ -526,7 +526,7 @@ func (msgs Messages) NoticeShellRunning() string {
 	return Catalog.Format(msgs.locale, "noticeShellRunning", nil)
 }
 
-// NoticeReattachFailed says "重新接上后台进程失败：{reason}"
+// NoticeReattachFailed says "重新连接后台进程失败：{reason}"
 // in the language the app shows.
 //
 // 对话里的出错提示：核心重启后接回托管的 Claude Code
@@ -535,7 +535,7 @@ func NoticeReattachFailed(reason string) string {
 	return In(i18n.Locale()).NoticeReattachFailed(reason)
 }
 
-// NoticeReattachFailed says "重新接上后台进程失败：{reason}"
+// NoticeReattachFailed says "重新连接后台进程失败：{reason}"
 // in the language of msgs.
 //
 // 对话里的出错提示：核心重启后接回托管的 Claude Code
@@ -580,14 +580,14 @@ func (msgs Messages) NoticeHookContext(event string, text string) string {
 	return Catalog.Format(msgs.locale, "noticeHookContext", map[string]any{"event": event, "text": text})
 }
 
-// ForkFailed says "分支没有建成：{reason}"
+// ForkFailed says "无法创建分支：{reason}"
 // in the language the app shows.
 //
 // 「没有发出：」后面的原因：分支第一次发消息时剪会话没成，reason
 // 是原因。
 func ForkFailed(reason string) string { return In(i18n.Locale()).ForkFailed(reason) }
 
-// ForkFailed says "分支没有建成：{reason}"
+// ForkFailed says "无法创建分支：{reason}"
 // in the language of msgs.
 //
 // 「没有发出：」后面的原因：分支第一次发消息时剪会话没成，reason
@@ -596,13 +596,13 @@ func (msgs Messages) ForkFailed(reason string) string {
 	return Catalog.Format(msgs.locale, "forkFailed", map[string]any{"reason": reason})
 }
 
-// RewindProcessExited says "Claude Code 进程退出了"
+// RewindProcessExited says "Claude Code 进程已退出"
 // in the language the app shows.
 //
 // 剪会话或还原代码没成的原因：等应答时进程没了。
 func RewindProcessExited() string { return In(i18n.Locale()).RewindProcessExited() }
 
-// RewindProcessExited says "Claude Code 进程退出了"
+// RewindProcessExited says "Claude Code 进程已退出"
 // in the language of msgs.
 //
 // 剪会话或还原代码没成的原因：等应答时进程没了。
@@ -640,13 +640,13 @@ func (msgs Messages) RewindRefusedUnknown() string {
 	return Catalog.Format(msgs.locale, "rewindRefusedUnknown", nil)
 }
 
-// RewindNoAnswer says "Claude Code 没有说剪没剪"
+// RewindNoAnswer says "Claude Code 未返回回退结果"
 // in the language the app shows.
 //
 // 剪会话没成的原因：应答里认不出结果。
 func RewindNoAnswer() string { return In(i18n.Locale()).RewindNoAnswer() }
 
-// RewindNoAnswer says "Claude Code 没有说剪没剪"
+// RewindNoAnswer says "Claude Code 未返回回退结果"
 // in the language of msgs.
 //
 // 剪会话没成的原因：应答里认不出结果。
@@ -654,13 +654,13 @@ func (msgs Messages) RewindNoAnswer() string {
 	return Catalog.Format(msgs.locale, "rewindNoAnswer", nil)
 }
 
-// RewindTurnRunning says "Claude 还在处理消息，等这一轮结束再试"
+// RewindTurnRunning says "Claude 正在处理消息，请等待本轮结束后再试"
 // in the language the app shows.
 //
 // 剪会话没成的原因：Claude Code 正在一轮里。
 func RewindTurnRunning() string { return In(i18n.Locale()).RewindTurnRunning() }
 
-// RewindTurnRunning says "Claude 还在处理消息，等这一轮结束再试"
+// RewindTurnRunning says "Claude 正在处理消息，请等待本轮结束后再试"
 // in the language of msgs.
 //
 // 剪会话没成的原因：Claude Code 正在一轮里。
@@ -668,13 +668,13 @@ func (msgs Messages) RewindTurnRunning() string {
 	return Catalog.Format(msgs.locale, "rewindTurnRunning", nil)
 }
 
-// RewindTargetNotFound says "会话记录里找不到这条消息（上下文压缩之前的消息改不了）"
+// RewindTargetNotFound says "会话记录中未找到这条消息（上下文压缩之前的消息无法修改）"
 // in the language the app shows.
 //
 // 剪会话没成的原因：会话记录里没有这条消息。
 func RewindTargetNotFound() string { return In(i18n.Locale()).RewindTargetNotFound() }
 
-// RewindTargetNotFound says "会话记录里找不到这条消息（上下文压缩之前的消息改不了）"
+// RewindTargetNotFound says "会话记录中未找到这条消息（上下文压缩之前的消息无法修改）"
 // in the language of msgs.
 //
 // 剪会话没成的原因：会话记录里没有这条消息。
@@ -682,13 +682,13 @@ func (msgs Messages) RewindTargetNotFound() string {
 	return Catalog.Format(msgs.locale, "rewindTargetNotFound", nil)
 }
 
-// RewindStale says "这个会话在别处有了新内容，重新打开它再试"
+// RewindStale says "该会话在其他位置有新内容，请重新打开后再试"
 // in the language the app shows.
 //
 // 剪会话没成的原因：别处给会话加了新内容。
 func RewindStale() string { return In(i18n.Locale()).RewindStale() }
 
-// RewindStale says "这个会话在别处有了新内容，重新打开它再试"
+// RewindStale says "该会话在其他位置有新内容，请重新打开后再试"
 // in the language of msgs.
 //
 // 剪会话没成的原因：别处给会话加了新内容。
@@ -696,13 +696,13 @@ func (msgs Messages) RewindStale() string {
 	return Catalog.Format(msgs.locale, "rewindStale", nil)
 }
 
-// RewindSplitsToolCall says "这条消息在工具调用中间，不能从这里改"
+// RewindSplitsToolCall says "这条消息位于工具调用过程中，无法从此处修改"
 // in the language the app shows.
 //
 // 剪会话没成的原因：目标在工具调用中间。
 func RewindSplitsToolCall() string { return In(i18n.Locale()).RewindSplitsToolCall() }
 
-// RewindSplitsToolCall says "这条消息在工具调用中间，不能从这里改"
+// RewindSplitsToolCall says "这条消息位于工具调用过程中，无法从此处修改"
 // in the language of msgs.
 //
 // 剪会话没成的原因：目标在工具调用中间。
@@ -710,13 +710,13 @@ func (msgs Messages) RewindSplitsToolCall() string {
 	return Catalog.Format(msgs.locale, "rewindSplitsToolCall", nil)
 }
 
-// RewindPersistFailed says "写不进会话记录"
+// RewindPersistFailed says "无法写入会话记录"
 // in the language the app shows.
 //
 // 剪会话没成的原因：Claude Code 写不进会话记录。
 func RewindPersistFailed() string { return In(i18n.Locale()).RewindPersistFailed() }
 
-// RewindPersistFailed says "写不进会话记录"
+// RewindPersistFailed says "无法写入会话记录"
 // in the language of msgs.
 //
 // 剪会话没成的原因：Claude Code 写不进会话记录。
@@ -724,14 +724,14 @@ func (msgs Messages) RewindPersistFailed() string {
 	return Catalog.Format(msgs.locale, "rewindPersistFailed", nil)
 }
 
-// RewindNotDone says "Claude Code 没有剪：{detail}"
+// RewindNotDone says "Claude Code 未执行回退：{detail}"
 // in the language the app shows.
 //
 // 剪会话没成的原因：Claude Code 给的别的原因，detail
 // 是原文。
 func RewindNotDone(detail string) string { return In(i18n.Locale()).RewindNotDone(detail) }
 
-// RewindNotDone says "Claude Code 没有剪：{detail}"
+// RewindNotDone says "Claude Code 未执行回退：{detail}"
 // in the language of msgs.
 //
 // 剪会话没成的原因：Claude Code 给的别的原因，detail
@@ -740,13 +740,13 @@ func (msgs Messages) RewindNotDone(detail string) string {
 	return Catalog.Format(msgs.locale, "rewindNotDone", map[string]any{"detail": detail})
 }
 
-// RewindNotDoneUnknown says "Claude Code 没有剪：未知原因"
+// RewindNotDoneUnknown says "Claude Code 未执行回退：未知原因"
 // in the language the app shows.
 //
 // 剪会话没成的原因：Claude Code 没说为什么。
 func RewindNotDoneUnknown() string { return In(i18n.Locale()).RewindNotDoneUnknown() }
 
-// RewindNotDoneUnknown says "Claude Code 没有剪：未知原因"
+// RewindNotDoneUnknown says "Claude Code 未执行回退：未知原因"
 // in the language of msgs.
 //
 // 剪会话没成的原因：Claude Code 没说为什么。
@@ -754,14 +754,14 @@ func (msgs Messages) RewindNotDoneUnknown() string {
 	return Catalog.Format(msgs.locale, "rewindNotDoneUnknown", nil)
 }
 
-// RestoreRefused says "Claude Code 拒绝了：{detail}"
+// RestoreRefused says "Claude Code 拒绝了此次操作：{detail}"
 // in the language the app shows.
 //
 // 还原代码没成的提示：Claude Code 答了出错，detail
 // 是原文。
 func RestoreRefused(detail string) string { return In(i18n.Locale()).RestoreRefused(detail) }
 
-// RestoreRefused says "Claude Code 拒绝了：{detail}"
+// RestoreRefused says "Claude Code 拒绝了此次操作：{detail}"
 // in the language of msgs.
 //
 // 还原代码没成的提示：Claude Code 答了出错，detail
@@ -770,13 +770,13 @@ func (msgs Messages) RestoreRefused(detail string) string {
 	return Catalog.Format(msgs.locale, "restoreRefused", map[string]any{"detail": detail})
 }
 
-// RestoreRefusedUnknown says "Claude Code 拒绝了：未知错误"
+// RestoreRefusedUnknown says "Claude Code 拒绝了此次操作：未知错误"
 // in the language the app shows.
 //
 // 还原代码没成的提示：Claude Code 答了出错，没给原文。
 func RestoreRefusedUnknown() string { return In(i18n.Locale()).RestoreRefusedUnknown() }
 
-// RestoreRefusedUnknown says "Claude Code 拒绝了：未知错误"
+// RestoreRefusedUnknown says "Claude Code 拒绝了此次操作：未知错误"
 // in the language of msgs.
 //
 // 还原代码没成的提示：Claude Code 答了出错，没给原文。
@@ -784,13 +784,13 @@ func (msgs Messages) RestoreRefusedUnknown() string {
 	return Catalog.Format(msgs.locale, "restoreRefusedUnknown", nil)
 }
 
-// RestoreNoAnswer says "Claude Code 没有说还原没还原"
+// RestoreNoAnswer says "Claude Code 未返回还原结果"
 // in the language the app shows.
 //
 // 还原代码没成的提示：应答里认不出结果。
 func RestoreNoAnswer() string { return In(i18n.Locale()).RestoreNoAnswer() }
 
-// RestoreNoAnswer says "Claude Code 没有说还原没还原"
+// RestoreNoAnswer says "Claude Code 未返回还原结果"
 // in the language of msgs.
 //
 // 还原代码没成的提示：应答里认不出结果。
@@ -798,13 +798,13 @@ func (msgs Messages) RestoreNoAnswer() string {
 	return Catalog.Format(msgs.locale, "restoreNoAnswer", nil)
 }
 
-// RestoreNotDone says "没有还原代码：{detail}"
+// RestoreNotDone says "未能还原代码：{detail}"
 // in the language the app shows.
 //
 // 还原代码没成的提示：detail 是 Claude Code 的原文。
 func RestoreNotDone(detail string) string { return In(i18n.Locale()).RestoreNotDone(detail) }
 
-// RestoreNotDone says "没有还原代码：{detail}"
+// RestoreNotDone says "未能还原代码：{detail}"
 // in the language of msgs.
 //
 // 还原代码没成的提示：detail 是 Claude Code 的原文。
@@ -812,13 +812,13 @@ func (msgs Messages) RestoreNotDone(detail string) string {
 	return Catalog.Format(msgs.locale, "restoreNotDone", map[string]any{"detail": detail})
 }
 
-// RestoreNoSnapshot says "没有还原代码：没有这条消息之前的快照"
+// RestoreNoSnapshot says "未能还原代码：缺少这条消息之前的快照"
 // in the language the app shows.
 //
 // 还原代码没成的提示：没有快照。
 func RestoreNoSnapshot() string { return In(i18n.Locale()).RestoreNoSnapshot() }
 
-// RestoreNoSnapshot says "没有还原代码：没有这条消息之前的快照"
+// RestoreNoSnapshot says "未能还原代码：缺少这条消息之前的快照"
 // in the language of msgs.
 //
 // 还原代码没成的提示：没有快照。
@@ -826,13 +826,13 @@ func (msgs Messages) RestoreNoSnapshot() string {
 	return Catalog.Format(msgs.locale, "restoreNoSnapshot", nil)
 }
 
-// PromptMcpUrl says "MCP 服务器 {server} 需要你去网页上操作"
+// PromptMcpUrl says "MCP 服务器 {server} 需要你在网页中完成操作"
 // in the language the app shows.
 //
 // 等你回应的通知：MCP 服务器要用户去网页上做一件事。
 func PromptMcpUrl(server string) string { return In(i18n.Locale()).PromptMcpUrl(server) }
 
-// PromptMcpUrl says "MCP 服务器 {server} 需要你去网页上操作"
+// PromptMcpUrl says "MCP 服务器 {server} 需要你在网页中完成操作"
 // in the language of msgs.
 //
 // 等你回应的通知：MCP 服务器要用户去网页上做一件事。
@@ -854,13 +854,13 @@ func (msgs Messages) PromptMcpForm(server string) string {
 	return Catalog.Format(msgs.locale, "promptMcpForm", map[string]any{"server": server})
 }
 
-// PromptPlan says "Claude 交来了计划，等你审批"
+// PromptPlan says "Claude 已提交计划，等待审批"
 // in the language the app shows.
 //
 // 等你回应的通知：计划审批。
 func PromptPlan() string { return In(i18n.Locale()).PromptPlan() }
 
-// PromptPlan says "Claude 交来了计划，等你审批"
+// PromptPlan says "Claude 已提交计划，等待审批"
 // in the language of msgs.
 //
 // 等你回应的通知：计划审批。
@@ -882,13 +882,13 @@ func (msgs Messages) PromptQuestion() string {
 	return Catalog.Format(msgs.locale, "promptQuestion", nil)
 }
 
-// PromptTool says "Claude 想用 {tool}"
+// PromptTool says "Claude 请求使用 {tool}"
 // in the language the app shows.
 //
 // 等你回应的通知：工具确认，tool 是工具名。
 func PromptTool(tool string) string { return In(i18n.Locale()).PromptTool(tool) }
 
-// PromptTool says "Claude 想用 {tool}"
+// PromptTool says "Claude 请求使用 {tool}"
 // in the language of msgs.
 //
 // 等你回应的通知：工具确认，tool 是工具名。
@@ -910,7 +910,7 @@ func (msgs Messages) PromptBackgroundSubagent() string {
 	return Catalog.Format(msgs.locale, "promptBackgroundSubagent", nil)
 }
 
-// SuggestRule says "{behavior, select, deny {一律拒绝} ask {每次都问} other {允许}} {target}{where, select, userSettings {…"
+// SuggestRule says "{behavior, select, deny {一律拒绝} ask {每次询问} other {允许}} {target}{where, select, userSettings {…"
 // in the language the app shows.
 //
 // 确认卡「以后不再询问」列的一条：加一条权限规则。behavior
@@ -920,7 +920,7 @@ func SuggestRule(behavior string, target string, where string) string {
 	return In(i18n.Locale()).SuggestRule(behavior, target, where)
 }
 
-// SuggestRule says "{behavior, select, deny {一律拒绝} ask {每次都问} other {允许}} {target}{where, select, userSettings {…"
+// SuggestRule says "{behavior, select, deny {一律拒绝} ask {每次询问} other {允许}} {target}{where, select, userSettings {…"
 // in the language of msgs.
 //
 // 确认卡「以后不再询问」列的一条：加一条权限规则。behavior
@@ -930,7 +930,7 @@ func (msgs Messages) SuggestRule(behavior string, target string, where string) s
 	return Catalog.Format(msgs.locale, "suggestRule", map[string]any{"behavior": behavior, "target": target, "where": where})
 }
 
-// SuggestDirectory says "允许访问 {dir}{where, select, userSettings {（所有项目）} projectSettings {（这个项目，进 Git）} se…"
+// SuggestDirectory says "允许访问 {dir}{where, select, userSettings {（所有项目）} projectSettings {（当前项目，纳入 Git）}…"
 // in the language the app shows.
 //
 // 确认卡「以后不再询问」列的一条：允许访问一个目录，where
@@ -939,7 +939,7 @@ func SuggestDirectory(dir string, where string) string {
 	return In(i18n.Locale()).SuggestDirectory(dir, where)
 }
 
-// SuggestDirectory says "允许访问 {dir}{where, select, userSettings {（所有项目）} projectSettings {（这个项目，进 Git）} se…"
+// SuggestDirectory says "允许访问 {dir}{where, select, userSettings {（所有项目）} projectSettings {（当前项目，纳入 Git）}…"
 // in the language of msgs.
 //
 // 确认卡「以后不再询问」列的一条：允许访问一个目录，where
@@ -948,14 +948,14 @@ func (msgs Messages) SuggestDirectory(dir string, where string) string {
 	return Catalog.Format(msgs.locale, "suggestDirectory", map[string]any{"dir": dir, "where": where})
 }
 
-// SuggestMode says "{mode, select, acceptEdits {这个对话里自动接受改动} bypassPermissions {这个对话里完全放行} defaul…"
+// SuggestMode says "{mode, select, acceptEdits {当前对话自动接受编辑} bypassPermissions {当前对话完全放行} default {…"
 // in the language the app shows.
 //
 // 确认卡「以后不再询问」列的一条：切换这个对话的权限模式，mode
 // 是 Claude Code 的模式名。
 func SuggestMode(mode string) string { return In(i18n.Locale()).SuggestMode(mode) }
 
-// SuggestMode says "{mode, select, acceptEdits {这个对话里自动接受改动} bypassPermissions {这个对话里完全放行} defaul…"
+// SuggestMode says "{mode, select, acceptEdits {当前对话自动接受编辑} bypassPermissions {当前对话完全放行} default {…"
 // in the language of msgs.
 //
 // 确认卡「以后不再询问」列的一条：切换这个对话的权限模式，mode
@@ -1074,14 +1074,14 @@ func (msgs Messages) ErrConvClosed() string {
 	return Catalog.Format(msgs.locale, "errConvClosed", nil)
 }
 
-// ErrConvGone says "这个对话已经不在核心里了"
+// ErrConvGone says "该对话已不在核心中"
 // in the language the app shows.
 //
 // 出错应答：客户端指的对话已经不在核心里（客户端据
 // code 重新打开）。
 func ErrConvGone() string { return In(i18n.Locale()).ErrConvGone() }
 
-// ErrConvGone says "这个对话已经不在核心里了"
+// ErrConvGone says "该对话已不在核心中"
 // in the language of msgs.
 //
 // 出错应答：客户端指的对话已经不在核心里（客户端据
@@ -1090,13 +1090,13 @@ func (msgs Messages) ErrConvGone() string {
 	return Catalog.Format(msgs.locale, "errConvGone", nil)
 }
 
-// ErrConvNotOpen says "没有打开这个对话"
+// ErrConvNotOpen says "尚未打开该对话"
 // in the language the app shows.
 //
 // 出错应答：这条连接没有打开这个对话。
 func ErrConvNotOpen() string { return In(i18n.Locale()).ErrConvNotOpen() }
 
-// ErrConvNotOpen says "没有打开这个对话"
+// ErrConvNotOpen says "尚未打开该对话"
 // in the language of msgs.
 //
 // 出错应答：这条连接没有打开这个对话。
@@ -1104,13 +1104,13 @@ func (msgs Messages) ErrConvNotOpen() string {
 	return Catalog.Format(msgs.locale, "errConvNotOpen", nil)
 }
 
-// ErrConvBlocked says "这个会话正被别处的 Claude Code 占着，先把它接过来"
+// ErrConvBlocked says "该会话正被其他位置的 Claude Code 占用，请先接管会话"
 // in the language the app shows.
 //
 // 出错应答：发消息时会话正被别处的 Claude Code 占着。
 func ErrConvBlocked() string { return In(i18n.Locale()).ErrConvBlocked() }
 
-// ErrConvBlocked says "这个会话正被别处的 Claude Code 占着，先把它接过来"
+// ErrConvBlocked says "该会话正被其他位置的 Claude Code 占用，请先接管会话"
 // in the language of msgs.
 //
 // 出错应答：发消息时会话正被别处的 Claude Code 占着。
@@ -1118,13 +1118,13 @@ func (msgs Messages) ErrConvBlocked() string {
 	return Catalog.Format(msgs.locale, "errConvBlocked", nil)
 }
 
-// ErrHistoryLoading says "历史还在载入"
+// ErrHistoryLoading says "历史记录正在加载"
 // in the language the app shows.
 //
 // 出错应答：历史还没载入完。
 func ErrHistoryLoading() string { return In(i18n.Locale()).ErrHistoryLoading() }
 
-// ErrHistoryLoading says "历史还在载入"
+// ErrHistoryLoading says "历史记录正在加载"
 // in the language of msgs.
 //
 // 出错应答：历史还没载入完。
@@ -1132,13 +1132,13 @@ func (msgs Messages) ErrHistoryLoading() string {
 	return Catalog.Format(msgs.locale, "errHistoryLoading", nil)
 }
 
-// ErrClaudeNoAnswer says "等了 30 秒，Claude Code 没有回应"
+// ErrClaudeNoAnswer says "等待 30 秒后 Claude Code 仍无响应"
 // in the language the app shows.
 //
 // 出错应答：等 Claude Code 的控制应答超时。
 func ErrClaudeNoAnswer() string { return In(i18n.Locale()).ErrClaudeNoAnswer() }
 
-// ErrClaudeNoAnswer says "等了 30 秒，Claude Code 没有回应"
+// ErrClaudeNoAnswer says "等待 30 秒后 Claude Code 仍无响应"
 // in the language of msgs.
 //
 // 出错应答：等 Claude Code 的控制应答超时。
@@ -1146,13 +1146,13 @@ func (msgs Messages) ErrClaudeNoAnswer() string {
 	return Catalog.Format(msgs.locale, "errClaudeNoAnswer", nil)
 }
 
-// ErrNoProcess says "这个对话没有开着的 Claude Code 进程"
+// ErrNoProcess says "该对话没有运行中的 Claude Code 进程"
 // in the language the app shows.
 //
 // 出错应答：要问额度等时对话没有进程。
 func ErrNoProcess() string { return In(i18n.Locale()).ErrNoProcess() }
 
-// ErrNoProcess says "这个对话没有开着的 Claude Code 进程"
+// ErrNoProcess says "该对话没有运行中的 Claude Code 进程"
 // in the language of msgs.
 //
 // 出错应答：要问额度等时对话没有进程。
@@ -1160,14 +1160,14 @@ func (msgs Messages) ErrNoProcess() string {
 	return Catalog.Format(msgs.locale, "errNoProcess", nil)
 }
 
-// ErrNoQuotaAnswer says "Claude Code 没有给额度：{detail}"
+// ErrNoQuotaAnswer says "Claude Code 未返回额度信息：{detail}"
 // in the language the app shows.
 //
 // 出错应答：问额度时 Claude Code 答了出错，detail
 // 是原文。
 func ErrNoQuotaAnswer(detail string) string { return In(i18n.Locale()).ErrNoQuotaAnswer(detail) }
 
-// ErrNoQuotaAnswer says "Claude Code 没有给额度：{detail}"
+// ErrNoQuotaAnswer says "Claude Code 未返回额度信息：{detail}"
 // in the language of msgs.
 //
 // 出错应答：问额度时 Claude Code 答了出错，detail
@@ -1176,13 +1176,13 @@ func (msgs Messages) ErrNoQuotaAnswer(detail string) string {
 	return Catalog.Format(msgs.locale, "errNoQuotaAnswer", map[string]any{"detail": detail})
 }
 
-// ErrRewinding says "正在等 Claude Code 剪会话，等它剪完再发"
+// ErrRewinding says "正在等待 Claude Code 回退会话，请完成后再发送"
 // in the language the app shows.
 //
 // 出错应答：正在剪会话时发了消息。
 func ErrRewinding() string { return In(i18n.Locale()).ErrRewinding() }
 
-// ErrRewinding says "正在等 Claude Code 剪会话，等它剪完再发"
+// ErrRewinding says "正在等待 Claude Code 回退会话，请完成后再发送"
 // in the language of msgs.
 //
 // 出错应答：正在剪会话时发了消息。
@@ -1190,13 +1190,13 @@ func (msgs Messages) ErrRewinding() string {
 	return Catalog.Format(msgs.locale, "errRewinding", nil)
 }
 
-// ErrRewindNotNow says "现在不能改：等这一轮结束、回应完等着的请求再试"
+// ErrRewindNotNow says "当前无法修改：请等待本轮结束并回应待处理的请求后再试"
 // in the language the app shows.
 //
 // 出错应答：现在不能编辑、重新生成、删除或分支。
 func ErrRewindNotNow() string { return In(i18n.Locale()).ErrRewindNotNow() }
 
-// ErrRewindNotNow says "现在不能改：等这一轮结束、回应完等着的请求再试"
+// ErrRewindNotNow says "当前无法修改：请等待本轮结束并回应待处理的请求后再试"
 // in the language of msgs.
 //
 // 出错应答：现在不能编辑、重新生成、删除或分支。
@@ -1204,13 +1204,13 @@ func (msgs Messages) ErrRewindNotNow() string {
 	return Catalog.Format(msgs.locale, "errRewindNotNow", nil)
 }
 
-// ErrRewindNoTarget says "找不到这条消息"
+// ErrRewindNoTarget says "未找到这条消息"
 // in the language the app shows.
 //
 // 出错应答：要改的消息不在列表里。
 func ErrRewindNoTarget() string { return In(i18n.Locale()).ErrRewindNoTarget() }
 
-// ErrRewindNoTarget says "找不到这条消息"
+// ErrRewindNoTarget says "未找到这条消息"
 // in the language of msgs.
 //
 // 出错应答：要改的消息不在列表里。
@@ -1218,13 +1218,13 @@ func (msgs Messages) ErrRewindNoTarget() string {
 	return Catalog.Format(msgs.locale, "errRewindNoTarget", nil)
 }
 
-// ErrRewindUnknownMessage says "这条消息 Claude Code 不认得（还没有 uuid），改不了"
+// ErrRewindUnknownMessage says "Claude Code 无法识别这条消息（缺少 uuid），无法修改"
 // in the language the app shows.
 //
 // 出错应答：要改的消息还没有 uuid。
 func ErrRewindUnknownMessage() string { return In(i18n.Locale()).ErrRewindUnknownMessage() }
 
-// ErrRewindUnknownMessage says "这条消息 Claude Code 不认得（还没有 uuid），改不了"
+// ErrRewindUnknownMessage says "Claude Code 无法识别这条消息（缺少 uuid），无法修改"
 // in the language of msgs.
 //
 // 出错应答：要改的消息还没有 uuid。
@@ -1232,13 +1232,13 @@ func (msgs Messages) ErrRewindUnknownMessage() string {
 	return Catalog.Format(msgs.locale, "errRewindUnknownMessage", nil)
 }
 
-// ErrForkNoSession says "这个对话还没有会话记录，不能分支"
+// ErrForkNoSession says "该对话尚无会话记录，无法创建分支"
 // in the language the app shows.
 //
 // 出错应答：还没有会话记录的对话不能分支。
 func ErrForkNoSession() string { return In(i18n.Locale()).ErrForkNoSession() }
 
-// ErrForkNoSession says "这个对话还没有会话记录，不能分支"
+// ErrForkNoSession says "该对话尚无会话记录，无法创建分支"
 // in the language of msgs.
 //
 // 出错应答：还没有会话记录的对话不能分支。
@@ -1246,13 +1246,13 @@ func (msgs Messages) ErrForkNoSession() string {
 	return Catalog.Format(msgs.locale, "errForkNoSession", nil)
 }
 
-// ErrForkHere says "不能从这里分支：找不到这一项，或下一轮的消息 Claude Code 不认得"
+// ErrForkHere says "无法从此处创建分支：未找到该项，或 Claude Code 无法识别下一轮消息"
 // in the language the app shows.
 //
 // 出错应答：分支点不对。
 func ErrForkHere() string { return In(i18n.Locale()).ErrForkHere() }
 
-// ErrForkHere says "不能从这里分支：找不到这一项，或下一轮的消息 Claude Code 不认得"
+// ErrForkHere says "无法从此处创建分支：未找到该项，或 Claude Code 无法识别下一轮消息"
 // in the language of msgs.
 //
 // 出错应答：分支点不对。
@@ -1274,13 +1274,13 @@ func (msgs Messages) ErrNoEarlier() string {
 	return Catalog.Format(msgs.locale, "errNoEarlier", nil)
 }
 
-// ErrEarlierBusy says "正在载入更早的记录"
+// ErrEarlierBusy says "正在加载更早的记录"
 // in the language the app shows.
 //
 // 出错应答：已经在载入更早的一页。
 func ErrEarlierBusy() string { return In(i18n.Locale()).ErrEarlierBusy() }
 
-// ErrEarlierBusy says "正在载入更早的记录"
+// ErrEarlierBusy says "正在加载更早的记录"
 // in the language of msgs.
 //
 // 出错应答：已经在载入更早的一页。
@@ -1288,13 +1288,13 @@ func (msgs Messages) ErrEarlierBusy() string {
 	return Catalog.Format(msgs.locale, "errEarlierBusy", nil)
 }
 
-// ErrEarlierStale says "会话记录在别处改过，重新打开这个对话再看更早的内容"
+// ErrEarlierStale says "会话记录已在其他位置被修改，请重新打开该对话后再查看更早内容"
 // in the language the app shows.
 //
 // 出错应答：载入更早的一页时会话记录对不上了。
 func ErrEarlierStale() string { return In(i18n.Locale()).ErrEarlierStale() }
 
-// ErrEarlierStale says "会话记录在别处改过，重新打开这个对话再看更早的内容"
+// ErrEarlierStale says "会话记录已在其他位置被修改，请重新打开该对话后再查看更早内容"
 // in the language of msgs.
 //
 // 出错应答：载入更早的一页时会话记录对不上了。
@@ -1302,7 +1302,7 @@ func (msgs Messages) ErrEarlierStale() string {
 	return Catalog.Format(msgs.locale, "errEarlierStale", nil)
 }
 
-// ErrEarlierReadFailed says "没有读到更早的记录：{detail}"
+// ErrEarlierReadFailed says "读取更早记录失败：{detail}"
 // in the language the app shows.
 //
 // 出错应答：读更早的一页失败，detail 是原因原文。
@@ -1310,7 +1310,7 @@ func ErrEarlierReadFailed(detail string) string {
 	return In(i18n.Locale()).ErrEarlierReadFailed(detail)
 }
 
-// ErrEarlierReadFailed says "没有读到更早的记录：{detail}"
+// ErrEarlierReadFailed says "读取更早记录失败：{detail}"
 // in the language of msgs.
 //
 // 出错应答：读更早的一页失败，detail 是原因原文。
@@ -1318,13 +1318,13 @@ func (msgs Messages) ErrEarlierReadFailed(detail string) string {
 	return Catalog.Format(msgs.locale, "errEarlierReadFailed", map[string]any{"detail": detail})
 }
 
-// ErrNoImage says "这个对话里没有这张图"
+// ErrNoImage says "该对话中没有这张图片"
 // in the language the app shows.
 //
 // 出错应答：按 key 取图时找不到。
 func ErrNoImage() string { return In(i18n.Locale()).ErrNoImage() }
 
-// ErrNoImage says "这个对话里没有这张图"
+// ErrNoImage says "该对话中没有这张图片"
 // in the language of msgs.
 //
 // 出错应答：按 key 取图时找不到。
@@ -1332,13 +1332,13 @@ func (msgs Messages) ErrNoImage() string {
 	return Catalog.Format(msgs.locale, "errNoImage", nil)
 }
 
-// ErrResendImage says "取不回原消息里的图片：{reason}"
+// ErrResendImage says "无法获取原消息中的图片：{reason}"
 // in the language the app shows.
 //
 // 出错应答：重新生成时取不回原消息里的图。
 func ErrResendImage(reason string) string { return In(i18n.Locale()).ErrResendImage(reason) }
 
-// ErrResendImage says "取不回原消息里的图片：{reason}"
+// ErrResendImage says "无法获取原消息中的图片：{reason}"
 // in the language of msgs.
 //
 // 出错应答：重新生成时取不回原消息里的图。
@@ -1346,13 +1346,13 @@ func (msgs Messages) ErrResendImage(reason string) string {
 	return Catalog.Format(msgs.locale, "errResendImage", map[string]any{"reason": reason})
 }
 
-// ErrResendEmpty says "这条消息没有内容可以重发"
+// ErrResendEmpty says "这条消息没有可重发的内容"
 // in the language the app shows.
 //
 // 出错应答：重新生成的那条消息是空的。
 func ErrResendEmpty() string { return In(i18n.Locale()).ErrResendEmpty() }
 
-// ErrResendEmpty says "这条消息没有内容可以重发"
+// ErrResendEmpty says "这条消息没有可重发的内容"
 // in the language of msgs.
 //
 // 出错应答：重新生成的那条消息是空的。
@@ -1360,13 +1360,13 @@ func (msgs Messages) ErrResendEmpty() string {
 	return Catalog.Format(msgs.locale, "errResendEmpty", nil)
 }
 
-// ErrSessionImageUnsupported says "这台主机取不了会话记录里的图片"
+// ErrSessionImageUnsupported says "当前主机不支持获取会话记录中的图片"
 // in the language the app shows.
 //
 // 取不回图的原因：没有取会话记录里的图的办法。
 func ErrSessionImageUnsupported() string { return In(i18n.Locale()).ErrSessionImageUnsupported() }
 
-// ErrSessionImageUnsupported says "这台主机取不了会话记录里的图片"
+// ErrSessionImageUnsupported says "当前主机不支持获取会话记录中的图片"
 // in the language of msgs.
 //
 // 取不回图的原因：没有取会话记录里的图的办法。
@@ -1374,13 +1374,13 @@ func (msgs Messages) ErrSessionImageUnsupported() string {
 	return Catalog.Format(msgs.locale, "errSessionImageUnsupported", nil)
 }
 
-// ErrImageNoData says "这张图没有数据"
+// ErrImageNoData says "该图片没有数据"
 // in the language the app shows.
 //
 // 取不回图的原因：图没有数据。
 func ErrImageNoData() string { return In(i18n.Locale()).ErrImageNoData() }
 
-// ErrImageNoData says "这张图没有数据"
+// ErrImageNoData says "该图片没有数据"
 // in the language of msgs.
 //
 // 取不回图的原因：图没有数据。
@@ -1388,13 +1388,13 @@ func (msgs Messages) ErrImageNoData() string {
 	return Catalog.Format(msgs.locale, "errImageNoData", nil)
 }
 
-// ErrImageNotBase64 says "图片的数据不是 base64"
+// ErrImageNotBase64 says "图片数据不是 base64 格式"
 // in the language the app shows.
 //
 // 取不回图的原因：数据不是 base64。
 func ErrImageNotBase64() string { return In(i18n.Locale()).ErrImageNotBase64() }
 
-// ErrImageNotBase64 says "图片的数据不是 base64"
+// ErrImageNotBase64 says "图片数据不是 base64 格式"
 // in the language of msgs.
 //
 // 取不回图的原因：数据不是 base64。
@@ -1402,13 +1402,13 @@ func (msgs Messages) ErrImageNotBase64() string {
 	return Catalog.Format(msgs.locale, "errImageNotBase64", nil)
 }
 
-// ErrImageFormat says "认不出图片的格式"
+// ErrImageFormat says "无法识别图片格式"
 // in the language the app shows.
 //
 // 取不回图的原因：认不出格式。
 func ErrImageFormat() string { return In(i18n.Locale()).ErrImageFormat() }
 
-// ErrImageFormat says "认不出图片的格式"
+// ErrImageFormat says "无法识别图片格式"
 // in the language of msgs.
 //
 // 取不回图的原因：认不出格式。
@@ -1416,13 +1416,13 @@ func (msgs Messages) ErrImageFormat() string {
 	return Catalog.Format(msgs.locale, "errImageFormat", nil)
 }
 
-// ErrRenameNoSession says "这个对话还没有保存，发出第一条消息后再改名"
+// ErrRenameNoSession says "该对话尚未保存，请发送第一条消息后再重命名"
 // in the language the app shows.
 //
 // 出错应答：还没有会话号的对话不能改名。
 func ErrRenameNoSession() string { return In(i18n.Locale()).ErrRenameNoSession() }
 
-// ErrRenameNoSession says "这个对话还没有保存，发出第一条消息后再改名"
+// ErrRenameNoSession says "该对话尚未保存，请发送第一条消息后再重命名"
 // in the language of msgs.
 //
 // 出错应答：还没有会话号的对话不能改名。
@@ -1430,13 +1430,13 @@ func (msgs Messages) ErrRenameNoSession() string {
 	return Catalog.Format(msgs.locale, "errRenameNoSession", nil)
 }
 
-// ErrRenameNoFile says "找不到这个会话的会话记录，改不了名"
+// ErrRenameNoFile says "未找到该会话的记录文件，无法重命名"
 // in the language the app shows.
 //
 // 出错应答：改名时找不到会话记录。
 func ErrRenameNoFile() string { return In(i18n.Locale()).ErrRenameNoFile() }
 
-// ErrRenameNoFile says "找不到这个会话的会话记录，改不了名"
+// ErrRenameNoFile says "未找到该会话的记录文件，无法重命名"
 // in the language of msgs.
 //
 // 出错应答：改名时找不到会话记录。
@@ -1768,7 +1768,7 @@ func (msgs Messages) QuotaWeekly() string {
 	return Catalog.Format(msgs.locale, "quotaWeekly", nil)
 }
 
-// ErrSwitchMissing says "claude-switch 还没装上"
+// ErrSwitchMissing says "尚未安装 claude-switch"
 // in the language the app shows.
 //
 // 出错应答（code 是
@@ -1776,7 +1776,7 @@ func (msgs Messages) QuotaWeekly() string {
 // claude-switch，客户端会先装上再试。
 func ErrSwitchMissing() string { return In(i18n.Locale()).ErrSwitchMissing() }
 
-// ErrSwitchMissing says "claude-switch 还没装上"
+// ErrSwitchMissing says "尚未安装 claude-switch"
 // in the language of msgs.
 //
 // 出错应答（code 是
@@ -1786,13 +1786,13 @@ func (msgs Messages) ErrSwitchMissing() string {
 	return Catalog.Format(msgs.locale, "errSwitchMissing", nil)
 }
 
-// ErrSwitchRun says "跑不了 claude-switch：{detail}"
+// ErrSwitchRun says "无法运行 claude-switch：{detail}"
 // in the language the app shows.
 //
 // 出错应答：起不了 claude-switch，detail 是原因原文。
 func ErrSwitchRun(detail string) string { return In(i18n.Locale()).ErrSwitchRun(detail) }
 
-// ErrSwitchRun says "跑不了 claude-switch：{detail}"
+// ErrSwitchRun says "无法运行 claude-switch：{detail}"
 // in the language of msgs.
 //
 // 出错应答：起不了 claude-switch，detail 是原因原文。
@@ -1800,13 +1800,13 @@ func (msgs Messages) ErrSwitchRun(detail string) string {
 	return Catalog.Format(msgs.locale, "errSwitchRun", map[string]any{"detail": detail})
 }
 
-// ErrSwitchFailed says "没有成功（claude-switch 退出码 {code}）"
+// ErrSwitchFailed says "执行失败（claude-switch 退出码 {code}）"
 // in the language the app shows.
 //
 // 出错应答：claude-switch 没成功也没说原因。
 func ErrSwitchFailed(code string) string { return In(i18n.Locale()).ErrSwitchFailed(code) }
 
-// ErrSwitchFailed says "没有成功（claude-switch 退出码 {code}）"
+// ErrSwitchFailed says "执行失败（claude-switch 退出码 {code}）"
 // in the language of msgs.
 //
 // 出错应答：claude-switch 没成功也没说原因。
@@ -1814,13 +1814,13 @@ func (msgs Messages) ErrSwitchFailed(code string) string {
 	return Catalog.Format(msgs.locale, "errSwitchFailed", map[string]any{"code": code})
 }
 
-// ErrSwitchOutput says "读不懂 claude-switch 的输出"
+// ErrSwitchOutput says "无法解析 claude-switch 的输出"
 // in the language the app shows.
 //
 // 出错应答：claude-switch 的输出认不出。
 func ErrSwitchOutput() string { return In(i18n.Locale()).ErrSwitchOutput() }
 
-// ErrSwitchOutput says "读不懂 claude-switch 的输出"
+// ErrSwitchOutput says "无法解析 claude-switch 的输出"
 // in the language of msgs.
 //
 // 出错应答：claude-switch 的输出认不出。
@@ -1828,14 +1828,14 @@ func (msgs Messages) ErrSwitchOutput() string {
 	return Catalog.Format(msgs.locale, "errSwitchOutput", nil)
 }
 
-// ErrSwitchOwnBusy says "这里的对话进程还没退出"
+// ErrSwitchOwnBusy says "当前应用的对话进程尚未退出"
 // in the language the app shows.
 //
 // 出错应答（code 是
 // busy）：换号时本包自己的对话进程还没退出。
 func ErrSwitchOwnBusy() string { return In(i18n.Locale()).ErrSwitchOwnBusy() }
 
-// ErrSwitchOwnBusy says "这里的对话进程还没退出"
+// ErrSwitchOwnBusy says "当前应用的对话进程尚未退出"
 // in the language of msgs.
 //
 // 出错应答（code 是
@@ -1844,7 +1844,7 @@ func (msgs Messages) ErrSwitchOwnBusy() string {
 	return Catalog.Format(msgs.locale, "errSwitchOwnBusy", nil)
 }
 
-// ErrSwitchBlockedZeta says "另一个 Zeta（{apps}）开着 {count, plural, other {# 个对话}}{busy, plural, =0 {} other {，其中 # …"
+// ErrSwitchBlockedZeta says "另一个 Zeta（{apps}）打开了 {count, plural, other {# 个对话}}{busy, plural, =0 {} other {，其中 # …"
 // in the language the app shows.
 //
 // 换号被挡住时的说明：别的 Zeta 包开着对话。apps
@@ -1854,7 +1854,7 @@ func ErrSwitchBlockedZeta(apps string, count int, busy int) string {
 	return In(i18n.Locale()).ErrSwitchBlockedZeta(apps, count, busy)
 }
 
-// ErrSwitchBlockedZeta says "另一个 Zeta（{apps}）开着 {count, plural, other {# 个对话}}{busy, plural, =0 {} other {，其中 # …"
+// ErrSwitchBlockedZeta says "另一个 Zeta（{apps}）打开了 {count, plural, other {# 个对话}}{busy, plural, =0 {} other {，其中 # …"
 // in the language of msgs.
 //
 // 换号被挡住时的说明：别的 Zeta 包开着对话。apps
@@ -1864,7 +1864,7 @@ func (msgs Messages) ErrSwitchBlockedZeta(apps string, count int, busy int) stri
 	return Catalog.Format(msgs.locale, "errSwitchBlockedZeta", map[string]any{"apps": apps, "count": count, "busy": busy})
 }
 
-// ErrSwitchBlockedElsewhere says "还有 {others, plural, other {# 个别处开着的 Claude Code}}（比如终端里的 claude）{othersBusy, plural, …"
+// ErrSwitchBlockedElsewhere says "其他位置还运行着 {others, plural, other {# 个 Claude Code}}（如终端中的 claude）{othersBusy, plural, …"
 // in the language the app shows.
 //
 // 换号被挡住时的说明：Zeta 之外开着 Claude Code。others
@@ -1873,7 +1873,7 @@ func ErrSwitchBlockedElsewhere(others int, othersBusy int) string {
 	return In(i18n.Locale()).ErrSwitchBlockedElsewhere(others, othersBusy)
 }
 
-// ErrSwitchBlockedElsewhere says "还有 {others, plural, other {# 个别处开着的 Claude Code}}（比如终端里的 claude）{othersBusy, plural, …"
+// ErrSwitchBlockedElsewhere says "其他位置还运行着 {others, plural, other {# 个 Claude Code}}（如终端中的 claude）{othersBusy, plural, …"
 // in the language of msgs.
 //
 // 换号被挡住时的说明：Zeta 之外开着 Claude Code。others
@@ -1882,7 +1882,7 @@ func (msgs Messages) ErrSwitchBlockedElsewhere(others int, othersBusy int) strin
 	return Catalog.Format(msgs.locale, "errSwitchBlockedElsewhere", map[string]any{"others": others, "othersBusy": othersBusy})
 }
 
-// ErrSwitchBlockedBoth says "另一个 Zeta（{apps}）开着 {count, plural, other {# 个对话}}{busy, plural, =0 {} other {，其中 # …"
+// ErrSwitchBlockedBoth says "另一个 Zeta（{apps}）打开了 {count, plural, other {# 个对话}}{busy, plural, =0 {} other {，其中 # …"
 // in the language the app shows.
 //
 // 换号被挡住时的说明：两种都有，参数同
@@ -1891,7 +1891,7 @@ func ErrSwitchBlockedBoth(apps string, count int, busy int, others int, othersBu
 	return In(i18n.Locale()).ErrSwitchBlockedBoth(apps, count, busy, others, othersBusy)
 }
 
-// ErrSwitchBlockedBoth says "另一个 Zeta（{apps}）开着 {count, plural, other {# 个对话}}{busy, plural, =0 {} other {，其中 # …"
+// ErrSwitchBlockedBoth says "另一个 Zeta（{apps}）打开了 {count, plural, other {# 个对话}}{busy, plural, =0 {} other {，其中 # …"
 // in the language of msgs.
 //
 // 换号被挡住时的说明：两种都有，参数同
@@ -1946,14 +1946,14 @@ func (msgs Messages) ZetaOther(name string) string {
 	return Catalog.Format(msgs.locale, "zetaOther", map[string]any{"name": name})
 }
 
-// ErrAccountMissing says "这个账号已经不在了"
+// ErrAccountMissing says "该账号已不存在"
 // in the language the app shows.
 //
 // 出错应答（code 是
 // no_account）：要换、要删的账号已经不在了。
 func ErrAccountMissing() string { return In(i18n.Locale()).ErrAccountMissing() }
 
-// ErrAccountMissing says "这个账号已经不在了"
+// ErrAccountMissing says "该账号已不存在"
 // in the language of msgs.
 //
 // 出错应答（code 是
@@ -1962,14 +1962,14 @@ func (msgs Messages) ErrAccountMissing() string {
 	return Catalog.Format(msgs.locale, "errAccountMissing", nil)
 }
 
-// ErrRelayName says "中转名称只能用小写字母、数字和连字符，以字母或数字开头，最长 32 …"
+// ErrRelayName says "中转名称只能包含小写字母、数字和连字符，需以字母或数字开头，最长 32 …"
 // in the language the app shows.
 //
 // 出错应答：添加中转时名称不合规（claude-switch
 // 的名字规则）。
 func ErrRelayName() string { return In(i18n.Locale()).ErrRelayName() }
 
-// ErrRelayName says "中转名称只能用小写字母、数字和连字符，以字母或数字开头，最长 32 …"
+// ErrRelayName says "中转名称只能包含小写字母、数字和连字符，需以字母或数字开头，最长 32 …"
 // in the language of msgs.
 //
 // 出错应答：添加中转时名称不合规（claude-switch
@@ -1978,13 +1978,13 @@ func (msgs Messages) ErrRelayName() string {
 	return Catalog.Format(msgs.locale, "errRelayName", nil)
 }
 
-// ErrRelayURL says "地址要以 http:// 或 https:// 开头"
+// ErrRelayURL says "地址须以 http:// 或 https:// 开头"
 // in the language the app shows.
 //
 // 出错应答：中转地址不是 http(s) 网址。
 func ErrRelayURL() string { return In(i18n.Locale()).ErrRelayURL() }
 
-// ErrRelayURL says "地址要以 http:// 或 https:// 开头"
+// ErrRelayURL says "地址须以 http:// 或 https:// 开头"
 // in the language of msgs.
 //
 // 出错应答：中转地址不是 http(s) 网址。
@@ -1992,13 +1992,13 @@ func (msgs Messages) ErrRelayURL() string {
 	return Catalog.Format(msgs.locale, "errRelayURL", nil)
 }
 
-// ErrRelayKey says "密钥里不能有空格或换行"
+// ErrRelayKey says "密钥中不能包含空格或换行"
 // in the language the app shows.
 //
 // 出错应答：填的中转密钥中间带空白。
 func ErrRelayKey() string { return In(i18n.Locale()).ErrRelayKey() }
 
-// ErrRelayKey says "密钥里不能有空格或换行"
+// ErrRelayKey says "密钥中不能包含空格或换行"
 // in the language of msgs.
 //
 // 出错应答：填的中转密钥中间带空白。
@@ -2006,13 +2006,13 @@ func (msgs Messages) ErrRelayKey() string {
 	return Catalog.Format(msgs.locale, "errRelayKey", nil)
 }
 
-// ErrRelayNameTaken says "这个名称已经有账号或中转在用了"
+// ErrRelayNameTaken says "该名称已被其他账号或中转占用"
 // in the language the app shows.
 //
 // 出错应答：添加中转时名称和已有的账号或中转重名。
 func ErrRelayNameTaken() string { return In(i18n.Locale()).ErrRelayNameTaken() }
 
-// ErrRelayNameTaken says "这个名称已经有账号或中转在用了"
+// ErrRelayNameTaken says "该名称已被其他账号或中转占用"
 // in the language of msgs.
 //
 // 出错应答：添加中转时名称和已有的账号或中转重名。
@@ -2020,13 +2020,13 @@ func (msgs Messages) ErrRelayNameTaken() string {
 	return Catalog.Format(msgs.locale, "errRelayNameTaken", nil)
 }
 
-// ErrRelayKeyRequired says "添加中转要填密钥"
+// ErrRelayKeyRequired says "添加中转需要填写密钥"
 // in the language the app shows.
 //
 // 出错应答：添加中转没填密钥。
 func ErrRelayKeyRequired() string { return In(i18n.Locale()).ErrRelayKeyRequired() }
 
-// ErrRelayKeyRequired says "添加中转要填密钥"
+// ErrRelayKeyRequired says "添加中转需要填写密钥"
 // in the language of msgs.
 //
 // 出错应答：添加中转没填密钥。
@@ -2034,7 +2034,7 @@ func (msgs Messages) ErrRelayKeyRequired() string {
 	return Catalog.Format(msgs.locale, "errRelayKeyRequired", nil)
 }
 
-// ErrRelayKeyReadOnly says "这个中转的密钥不是从文件读的，Zeta 改不了；在它的设置文件里改"
+// ErrRelayKeyReadOnly says "该中转的密钥并非从文件读取，Zeta 无法修改，请在对应的设置文件中修改。"
 // in the language the app shows.
 //
 // 出错应答：用户自己放的中转设置文件的 apiKeyHelper
@@ -2042,7 +2042,7 @@ func (msgs Messages) ErrRelayKeyRequired() string {
 // 里），不能改密钥。
 func ErrRelayKeyReadOnly() string { return In(i18n.Locale()).ErrRelayKeyReadOnly() }
 
-// ErrRelayKeyReadOnly says "这个中转的密钥不是从文件读的，Zeta 改不了；在它的设置文件里改"
+// ErrRelayKeyReadOnly says "该中转的密钥并非从文件读取，Zeta 无法修改，请在对应的设置文件中修改。"
 // in the language of msgs.
 //
 // 出错应答：用户自己放的中转设置文件的 apiKeyHelper
@@ -2052,13 +2052,13 @@ func (msgs Messages) ErrRelayKeyReadOnly() string {
 	return Catalog.Format(msgs.locale, "errRelayKeyReadOnly", nil)
 }
 
-// ErrRelayMissing says "这个中转已经不在了"
+// ErrRelayMissing says "该中转已不存在"
 // in the language the app shows.
 //
 // 出错应答：要改、要删的中转已经不在了。
 func ErrRelayMissing() string { return In(i18n.Locale()).ErrRelayMissing() }
 
-// ErrRelayMissing says "这个中转已经不在了"
+// ErrRelayMissing says "该中转已不存在"
 // in the language of msgs.
 //
 // 出错应答：要改、要删的中转已经不在了。
@@ -2066,13 +2066,13 @@ func (msgs Messages) ErrRelayMissing() string {
 	return Catalog.Format(msgs.locale, "errRelayMissing", nil)
 }
 
-// ErrRelayInUse says "正在用这个中转，先换到别的账号或中转再删"
+// ErrRelayInUse says "当前正在使用该中转，请先切换到其他账号或中转后再删除"
 // in the language the app shows.
 //
 // 出错应答：要删的中转正在用。
 func ErrRelayInUse() string { return In(i18n.Locale()).ErrRelayInUse() }
 
-// ErrRelayInUse says "正在用这个中转，先换到别的账号或中转再删"
+// ErrRelayInUse says "当前正在使用该中转，请先切换到其他账号或中转后再删除"
 // in the language of msgs.
 //
 // 出错应答：要删的中转正在用。
@@ -2080,14 +2080,14 @@ func (msgs Messages) ErrRelayInUse() string {
 	return Catalog.Format(msgs.locale, "errRelayInUse", nil)
 }
 
-// ErrRelayUnreadable says "读不懂这个中转的设置文件"
+// ErrRelayUnreadable says "无法解析该中转的设置文件"
 // in the language the app shows.
 //
 // 出错应答：要改的中转设置文件读不了或不是 JSON
 // 对象。
 func ErrRelayUnreadable() string { return In(i18n.Locale()).ErrRelayUnreadable() }
 
-// ErrRelayUnreadable says "读不懂这个中转的设置文件"
+// ErrRelayUnreadable says "无法解析该中转的设置文件"
 // in the language of msgs.
 //
 // 出错应答：要改的中转设置文件读不了或不是 JSON
@@ -2096,14 +2096,14 @@ func (msgs Messages) ErrRelayUnreadable() string {
 	return Catalog.Format(msgs.locale, "errRelayUnreadable", nil)
 }
 
-// ErrRelayWrite says "写不了 {path}"
+// ErrRelayWrite says "无法写入 {path}"
 // in the language the app shows.
 //
 // 出错应答：中转的设置文件或密钥文件写不了、删不了；path
 // 是文件路径。
 func ErrRelayWrite(path string) string { return In(i18n.Locale()).ErrRelayWrite(path) }
 
-// ErrRelayWrite says "写不了 {path}"
+// ErrRelayWrite says "无法写入 {path}"
 // in the language of msgs.
 //
 // 出错应答：中转的设置文件或密钥文件写不了、删不了；path
@@ -2112,14 +2112,14 @@ func (msgs Messages) ErrRelayWrite(path string) string {
 	return Catalog.Format(msgs.locale, "errRelayWrite", map[string]any{"path": path})
 }
 
-// ErrNoSubscription says "这台设备正在用中转，没有订阅额度"
+// ErrNoSubscription says "当前设备正在使用中转，没有订阅额度"
 // in the language the app shows.
 //
 // 出错应答（code 是
 // errNoSubscription）：问订阅额度时这台设备在用中转（非账号目标）。
 func ErrNoSubscription() string { return In(i18n.Locale()).ErrNoSubscription() }
 
-// ErrNoSubscription says "这台设备正在用中转，没有订阅额度"
+// ErrNoSubscription says "当前设备正在使用中转，没有订阅额度"
 // in the language of msgs.
 //
 // 出错应答（code 是
@@ -2128,13 +2128,13 @@ func (msgs Messages) ErrNoSubscription() string {
 	return Catalog.Format(msgs.locale, "errNoSubscription", nil)
 }
 
-// ErrRelayModel says "模型名里不能有空格，最长 200 个字符"
+// ErrRelayModel says "模型名称不能包含空格，最长 200 个字符"
 // in the language the app shows.
 //
 // 出错应答：中转的默认模型名不合规。
 func ErrRelayModel() string { return In(i18n.Locale()).ErrRelayModel() }
 
-// ErrRelayModel says "模型名里不能有空格，最长 200 个字符"
+// ErrRelayModel says "模型名称不能包含空格，最长 200 个字符"
 // in the language of msgs.
 //
 // 出错应答：中转的默认模型名不合规。
@@ -2142,14 +2142,14 @@ func (msgs Messages) ErrRelayModel() string {
 	return Catalog.Format(msgs.locale, "errRelayModel", nil)
 }
 
-// ErrModelsRedirect says "中转把请求转到了别的地址（{host}），为了不把密钥带过去没有跟过去"
+// ErrModelsRedirect says "中转将请求重定向到了其他地址（{host}），为避免泄露密钥，未跟随重定向"
 // in the language the app shows.
 //
 // 出错应答：拉模型列表时服务器重定向到别的主机；host
 // 是那个主机。
 func ErrModelsRedirect(host string) string { return In(i18n.Locale()).ErrModelsRedirect(host) }
 
-// ErrModelsRedirect says "中转把请求转到了别的地址（{host}），为了不把密钥带过去没有跟过去"
+// ErrModelsRedirect says "中转将请求重定向到了其他地址（{host}），为避免泄露密钥，未跟随重定向"
 // in the language of msgs.
 //
 // 出错应答：拉模型列表时服务器重定向到别的主机；host
@@ -2158,13 +2158,13 @@ func (msgs Messages) ErrModelsRedirect(host string) string {
 	return Catalog.Format(msgs.locale, "errModelsRedirect", map[string]any{"host": host})
 }
 
-// ErrModelsNoKey says "先填密钥再获取模型列表"
+// ErrModelsNoKey says "请先填写密钥再获取模型列表"
 // in the language the app shows.
 //
 // 出错应答：拉模型列表时没填密钥，已保存的中转也读不到密钥文件。
 func ErrModelsNoKey() string { return In(i18n.Locale()).ErrModelsNoKey() }
 
-// ErrModelsNoKey says "先填密钥再获取模型列表"
+// ErrModelsNoKey says "请先填写密钥再获取模型列表"
 // in the language of msgs.
 //
 // 出错应答：拉模型列表时没填密钥，已保存的中转也读不到密钥文件。
@@ -2172,13 +2172,13 @@ func (msgs Messages) ErrModelsNoKey() string {
 	return Catalog.Format(msgs.locale, "errModelsNoKey", nil)
 }
 
-// ErrModelsAuth says "中转拒绝了这个密钥（HTTP {status}），检查密钥"
+// ErrModelsAuth says "中转拒绝了该密钥（HTTP {status}），请检查密钥是否正确"
 // in the language the app shows.
 //
 // 出错应答：拉模型列表返回 401 或 403；status 是状态码。
 func ErrModelsAuth(status string) string { return In(i18n.Locale()).ErrModelsAuth(status) }
 
-// ErrModelsAuth says "中转拒绝了这个密钥（HTTP {status}），检查密钥"
+// ErrModelsAuth says "中转拒绝了该密钥（HTTP {status}），请检查密钥是否正确"
 // in the language of msgs.
 //
 // 出错应答：拉模型列表返回 401 或 403；status 是状态码。
@@ -2186,13 +2186,13 @@ func (msgs Messages) ErrModelsAuth(status string) string {
 	return Catalog.Format(msgs.locale, "errModelsAuth", map[string]any{"status": status})
 }
 
-// ErrModelsNotFound says "这个中转没有模型列表接口（/v1/models 返回 404），可以直接填模型名"
+// ErrModelsNotFound says "该中转未提供模型列表接口（/v1/models 返回 404），可直接填写模型名称"
 // in the language the app shows.
 //
 // 出错应答：拉模型列表返回 404。
 func ErrModelsNotFound() string { return In(i18n.Locale()).ErrModelsNotFound() }
 
-// ErrModelsNotFound says "这个中转没有模型列表接口（/v1/models 返回 404），可以直接填模型名"
+// ErrModelsNotFound says "该中转未提供模型列表接口（/v1/models 返回 404），可直接填写模型名称"
 // in the language of msgs.
 //
 // 出错应答：拉模型列表返回 404。
@@ -2200,14 +2200,14 @@ func (msgs Messages) ErrModelsNotFound() string {
 	return Catalog.Format(msgs.locale, "errModelsNotFound", nil)
 }
 
-// ErrModelsStatus says "中转返回了 HTTP {status}"
+// ErrModelsStatus says "中转返回 HTTP {status}"
 // in the language the app shows.
 //
 // 出错应答：拉模型列表返回别的非 2xx 状态；status
 // 是状态码。
 func ErrModelsStatus(status string) string { return In(i18n.Locale()).ErrModelsStatus(status) }
 
-// ErrModelsStatus says "中转返回了 HTTP {status}"
+// ErrModelsStatus says "中转返回 HTTP {status}"
 // in the language of msgs.
 //
 // 出错应答：拉模型列表返回别的非 2xx 状态；status
@@ -2216,13 +2216,13 @@ func (msgs Messages) ErrModelsStatus(status string) string {
 	return Catalog.Format(msgs.locale, "errModelsStatus", map[string]any{"status": status})
 }
 
-// ErrModelsTooLarge says "模型列表超过 4 MB，没有读完"
+// ErrModelsTooLarge says "模型列表超过 4 MB，未能完整读取"
 // in the language the app shows.
 //
 // 出错应答：拉模型列表的响应太大。
 func ErrModelsTooLarge() string { return In(i18n.Locale()).ErrModelsTooLarge() }
 
-// ErrModelsTooLarge says "模型列表超过 4 MB，没有读完"
+// ErrModelsTooLarge says "模型列表超过 4 MB，未能完整读取"
 // in the language of msgs.
 //
 // 出错应答：拉模型列表的响应太大。
@@ -2244,14 +2244,14 @@ func (msgs Messages) ErrModelsTimeout() string {
 	return Catalog.Format(msgs.locale, "errModelsTimeout", nil)
 }
 
-// ErrModelsNetwork says "连不上中转：{detail}"
+// ErrModelsNetwork says "无法连接中转：{detail}"
 // in the language the app shows.
 //
 // 出错应答：拉模型列表时网络出错；detail 是 Go
 // 的原话（有地址，没有密钥）。
 func ErrModelsNetwork(detail string) string { return In(i18n.Locale()).ErrModelsNetwork(detail) }
 
-// ErrModelsNetwork says "连不上中转：{detail}"
+// ErrModelsNetwork says "无法连接中转：{detail}"
 // in the language of msgs.
 //
 // 出错应答：拉模型列表时网络出错；detail 是 Go
@@ -2260,13 +2260,13 @@ func (msgs Messages) ErrModelsNetwork(detail string) string {
 	return Catalog.Format(msgs.locale, "errModelsNetwork", map[string]any{"detail": detail})
 }
 
-// ErrModelsNotJSON says "中转返回的不是模型列表（不是带 data 的 JSON）"
+// ErrModelsNotJSON says "中转返回的不是模型列表（不是包含 data 字段的 JSON）"
 // in the language the app shows.
 //
 // 出错应答：拉模型列表的响应不是 JSON 或没有 data。
 func ErrModelsNotJSON() string { return In(i18n.Locale()).ErrModelsNotJSON() }
 
-// ErrModelsNotJSON says "中转返回的不是模型列表（不是带 data 的 JSON）"
+// ErrModelsNotJSON says "中转返回的不是模型列表（不是包含 data 字段的 JSON）"
 // in the language of msgs.
 //
 // 出错应答：拉模型列表的响应不是 JSON 或没有 data。
@@ -2274,13 +2274,13 @@ func (msgs Messages) ErrModelsNotJSON() string {
 	return Catalog.Format(msgs.locale, "errModelsNotJSON", nil)
 }
 
-// ErrClaudeJSON says "读不懂 ~/.claude.json"
+// ErrClaudeJSON says "无法解析 ~/.claude.json"
 // in the language the app shows.
 //
 // 出错应答：~/.claude.json 不是有效的 JSON。
 func ErrClaudeJSON() string { return In(i18n.Locale()).ErrClaudeJSON() }
 
-// ErrClaudeJSON says "读不懂 ~/.claude.json"
+// ErrClaudeJSON says "无法解析 ~/.claude.json"
 // in the language of msgs.
 //
 // 出错应答：~/.claude.json 不是有效的 JSON。
@@ -2288,13 +2288,13 @@ func (msgs Messages) ErrClaudeJSON() string {
 	return Catalog.Format(msgs.locale, "errClaudeJSON", nil)
 }
 
-// ErrLoginNoURL says "登录命令没给出授权网址就退出了"
+// ErrLoginNoURL says "登录命令未输出授权网址即退出"
 // in the language the app shows.
 //
 // 出错应答：登录命令没给授权网址就退出了。
 func ErrLoginNoURL() string { return In(i18n.Locale()).ErrLoginNoURL() }
 
-// ErrLoginNoURL says "登录命令没给出授权网址就退出了"
+// ErrLoginNoURL says "登录命令未输出授权网址即退出"
 // in the language of msgs.
 //
 // 出错应答：登录命令没给授权网址就退出了。
@@ -2302,13 +2302,13 @@ func (msgs Messages) ErrLoginNoURL() string {
 	return Catalog.Format(msgs.locale, "errLoginNoURL", nil)
 }
 
-// ErrLoginURLTimeout says "登录命令 30 秒没给出授权网址"
+// ErrLoginURLTimeout says "登录命令在 30 秒内未输出授权网址"
 // in the language the app shows.
 //
 // 出错应答：等授权网址超时。
 func ErrLoginURLTimeout() string { return In(i18n.Locale()).ErrLoginURLTimeout() }
 
-// ErrLoginURLTimeout says "登录命令 30 秒没给出授权网址"
+// ErrLoginURLTimeout says "登录命令在 30 秒内未输出授权网址"
 // in the language of msgs.
 //
 // 出错应答：等授权网址超时。
@@ -2316,14 +2316,14 @@ func (msgs Messages) ErrLoginURLTimeout() string {
 	return Catalog.Format(msgs.locale, "errLoginURLTimeout", nil)
 }
 
-// ErrLoginEnded says "登录已经结束了，请重新开始"
+// ErrLoginEnded says "登录已结束，请重新开始"
 // in the language the app shows.
 //
 // 出错应答（code 是
 // no_login）：交授权码时登录已经结束。
 func ErrLoginEnded() string { return In(i18n.Locale()).ErrLoginEnded() }
 
-// ErrLoginEnded says "登录已经结束了，请重新开始"
+// ErrLoginEnded says "登录已结束，请重新开始"
 // in the language of msgs.
 //
 // 出错应答（code 是
@@ -2332,14 +2332,14 @@ func (msgs Messages) ErrLoginEnded() string {
 	return Catalog.Format(msgs.locale, "errLoginEnded", nil)
 }
 
-// ErrLoginExited says "登录命令已经退出了，请重新开始"
+// ErrLoginExited says "登录命令已退出，请重新开始"
 // in the language the app shows.
 //
 // 出错应答（code 是
 // no_login）：交授权码时登录命令已经退出。
 func ErrLoginExited() string { return In(i18n.Locale()).ErrLoginExited() }
 
-// ErrLoginExited says "登录命令已经退出了，请重新开始"
+// ErrLoginExited says "登录命令已退出，请重新开始"
 // in the language of msgs.
 //
 // 出错应答（code 是
@@ -2348,13 +2348,13 @@ func (msgs Messages) ErrLoginExited() string {
 	return Catalog.Format(msgs.locale, "errLoginExited", nil)
 }
 
-// ErrLoginCodeTimeout says "交了授权码一分钟没有结果，请重新开始"
+// ErrLoginCodeTimeout says "提交授权码 1 分钟后仍无结果，请重新开始"
 // in the language the app shows.
 //
 // 出错应答：交了授权码一分钟没结果。
 func ErrLoginCodeTimeout() string { return In(i18n.Locale()).ErrLoginCodeTimeout() }
 
-// ErrLoginCodeTimeout says "交了授权码一分钟没有结果，请重新开始"
+// ErrLoginCodeTimeout says "提交授权码 1 分钟后仍无结果，请重新开始"
 // in the language of msgs.
 //
 // 出错应答：交了授权码一分钟没结果。
@@ -2362,13 +2362,13 @@ func (msgs Messages) ErrLoginCodeTimeout() string {
 	return Catalog.Format(msgs.locale, "errLoginCodeTimeout", nil)
 }
 
-// ErrLoginFailed says "登录没有成功"
+// ErrLoginFailed says "登录失败"
 // in the language the app shows.
 //
 // 出错应答：登录命令没成功，也没说原因。
 func ErrLoginFailed() string { return In(i18n.Locale()).ErrLoginFailed() }
 
-// ErrLoginFailed says "登录没有成功"
+// ErrLoginFailed says "登录失败"
 // in the language of msgs.
 //
 // 出错应答：登录命令没成功，也没说原因。
@@ -2376,13 +2376,13 @@ func (msgs Messages) ErrLoginFailed() string {
 	return Catalog.Format(msgs.locale, "errLoginFailed", nil)
 }
 
-// ErrLoginStart says "起不了登录命令：{detail}"
+// ErrLoginStart says "无法启动登录命令：{detail}"
 // in the language the app shows.
 //
 // 出错应答：起不了登录命令，detail 是原因原文。
 func ErrLoginStart(detail string) string { return In(i18n.Locale()).ErrLoginStart(detail) }
 
-// ErrLoginStart says "起不了登录命令：{detail}"
+// ErrLoginStart says "无法启动登录命令：{detail}"
 // in the language of msgs.
 //
 // 出错应答：起不了登录命令，detail 是原因原文。
@@ -2390,14 +2390,14 @@ func (msgs Messages) ErrLoginStart(detail string) string {
 	return Catalog.Format(msgs.locale, "errLoginStart", map[string]any{"detail": detail})
 }
 
-// ErrLoginIncomplete says "授权码不完整：要连中间的 # 和它后面的部分一起复制"
+// ErrLoginIncomplete says "授权码不完整：请连同中间的 # 及后面的部分一起复制"
 // in the language the app shows.
 //
 // 出错应答：授权码不完整（要连 #
 // 和后面的一起复制）。
 func ErrLoginIncomplete() string { return In(i18n.Locale()).ErrLoginIncomplete() }
 
-// ErrLoginIncomplete says "授权码不完整：要连中间的 # 和它后面的部分一起复制"
+// ErrLoginIncomplete says "授权码不完整：请连同中间的 # 及后面的部分一起复制"
 // in the language of msgs.
 //
 // 出错应答：授权码不完整（要连 #
@@ -2406,13 +2406,13 @@ func (msgs Messages) ErrLoginIncomplete() string {
 	return Catalog.Format(msgs.locale, "errLoginIncomplete", nil)
 }
 
-// ErrLoginRejected says "授权码没有被接受，可能已经过期或者复制错了。请重新开始登录"
+// ErrLoginRejected says "授权码未被接受，可能已过期或复制有误，请重新开始登录。"
 // in the language the app shows.
 //
 // 出错应答：授权码没被接受。
 func ErrLoginRejected() string { return In(i18n.Locale()).ErrLoginRejected() }
 
-// ErrLoginRejected says "授权码没有被接受，可能已经过期或者复制错了。请重新开始登录"
+// ErrLoginRejected says "授权码未被接受，可能已过期或复制有误，请重新开始登录。"
 // in the language of msgs.
 //
 // 出错应答：授权码没被接受。
@@ -2420,14 +2420,14 @@ func (msgs Messages) ErrLoginRejected() string {
 	return Catalog.Format(msgs.locale, "errLoginRejected", nil)
 }
 
-// TaskNoOutput says "没有读到输出"
+// TaskNoOutput says "未能读取输出"
 // in the language the app shows.
 //
 // 后台任务页：读后台命令的输出没成，Claude Code
 // 没说原因（conv.task_output 的 error_code）。
 func TaskNoOutput() string { return In(i18n.Locale()).TaskNoOutput() }
 
-// TaskNoOutput says "没有读到输出"
+// TaskNoOutput says "未能读取输出"
 // in the language of msgs.
 //
 // 后台任务页：读后台命令的输出没成，Claude Code
@@ -2482,13 +2482,13 @@ func (msgs Messages) ElapsedSeconds(s string) string {
 	return Catalog.Format(msgs.locale, "elapsedSeconds", map[string]any{"s": s})
 }
 
-// ErrClaudeUpdateTimeout says "超时没跑完"
+// ErrClaudeUpdateTimeout says "更新超时，未能完成"
 // in the language the app shows.
 //
 // 出错应答：claude update 超时没跑完。
 func ErrClaudeUpdateTimeout() string { return In(i18n.Locale()).ErrClaudeUpdateTimeout() }
 
-// ErrClaudeUpdateTimeout says "超时没跑完"
+// ErrClaudeUpdateTimeout says "更新超时，未能完成"
 // in the language of msgs.
 //
 // 出错应答：claude update 超时没跑完。
@@ -2496,13 +2496,13 @@ func (msgs Messages) ErrClaudeUpdateTimeout() string {
 	return Catalog.Format(msgs.locale, "errClaudeUpdateTimeout", nil)
 }
 
-// ErrClaudeUpdating says "这台主机上正在更新 Claude Code"
+// ErrClaudeUpdating says "当前主机正在更新 Claude Code"
 // in the language the app shows.
 //
 // 出错应答：已经有一次 claude update 在跑。
 func ErrClaudeUpdating() string { return In(i18n.Locale()).ErrClaudeUpdating() }
 
-// ErrClaudeUpdating says "这台主机上正在更新 Claude Code"
+// ErrClaudeUpdating says "当前主机正在更新 Claude Code"
 // in the language of msgs.
 //
 // 出错应答：已经有一次 claude update 在跑。
@@ -2510,13 +2510,13 @@ func (msgs Messages) ErrClaudeUpdating() string {
 	return Catalog.Format(msgs.locale, "errClaudeUpdating", nil)
 }
 
-// ErrIdleMinutes says "minutes 要是 0～{max} 的整数"
+// ErrIdleMinutes says "minutes 须为 0～{max} 之间的整数"
 // in the language the app shows.
 //
 // 出错应答：闲置超时的分钟数不对，max 是上限。
 func ErrIdleMinutes(max string) string { return In(i18n.Locale()).ErrIdleMinutes(max) }
 
-// ErrIdleMinutes says "minutes 要是 0～{max} 的整数"
+// ErrIdleMinutes says "minutes 须为 0～{max} 之间的整数"
 // in the language of msgs.
 //
 // 出错应答：闲置超时的分钟数不对，max 是上限。
@@ -2524,13 +2524,13 @@ func (msgs Messages) ErrIdleMinutes(max string) string {
 	return Catalog.Format(msgs.locale, "errIdleMinutes", map[string]any{"max": max})
 }
 
-// ErrNoSession says "这个会话的记录已经不在了"
+// ErrNoSession says "该会话的记录已不存在"
 // in the language the app shows.
 //
 // 出错应答（code 是 no_session）：会话记录不在了。
 func ErrNoSession() string { return In(i18n.Locale()).ErrNoSession() }
 
-// ErrNoSession says "这个会话的记录已经不在了"
+// ErrNoSession says "该会话的记录已不存在"
 // in the language of msgs.
 //
 // 出错应答（code 是 no_session）：会话记录不在了。
@@ -2538,13 +2538,13 @@ func (msgs Messages) ErrNoSession() string {
 	return Catalog.Format(msgs.locale, "errNoSession", nil)
 }
 
-// ErrSessionActive says "对话正在进行，结束后再删"
+// ErrSessionActive says "对话正在进行，请结束后再删除"
 // in the language the app shows.
 //
 // 出错应答（code 是 active）：要删的会话正在进行。
 func ErrSessionActive() string { return In(i18n.Locale()).ErrSessionActive() }
 
-// ErrSessionActive says "对话正在进行，结束后再删"
+// ErrSessionActive says "对话正在进行，请结束后再删除"
 // in the language of msgs.
 //
 // 出错应答（code 是 active）：要删的会话正在进行。
@@ -2552,13 +2552,13 @@ func (msgs Messages) ErrSessionActive() string {
 	return Catalog.Format(msgs.locale, "errSessionActive", nil)
 }
 
-// CfgClaudeJSONTooBig says "~/.claude.json 太大，读不了"
+// CfgClaudeJSONTooBig says "~/.claude.json 文件过大，无法读取"
 // in the language the app shows.
 //
 // MCP 页出错：~/.claude.json 太大。
 func CfgClaudeJSONTooBig() string { return In(i18n.Locale()).CfgClaudeJSONTooBig() }
 
-// CfgClaudeJSONTooBig says "~/.claude.json 太大，读不了"
+// CfgClaudeJSONTooBig says "~/.claude.json 文件过大，无法读取"
 // in the language of msgs.
 //
 // MCP 页出错：~/.claude.json 太大。
@@ -2566,13 +2566,13 @@ func (msgs Messages) CfgClaudeJSONTooBig() string {
 	return Catalog.Format(msgs.locale, "cfgClaudeJSONTooBig", nil)
 }
 
-// CfgMcpBadName says "名称只能用字母、数字、下划线和连字符"
+// CfgMcpBadName says "名称只能包含字母、数字、下划线和连字符"
 // in the language the app shows.
 //
 // MCP 页出错：服务器名称不对。
 func CfgMcpBadName() string { return In(i18n.Locale()).CfgMcpBadName() }
 
-// CfgMcpBadName says "名称只能用字母、数字、下划线和连字符"
+// CfgMcpBadName says "名称只能包含字母、数字、下划线和连字符"
 // in the language of msgs.
 //
 // MCP 页出错：服务器名称不对。
@@ -2580,13 +2580,13 @@ func (msgs Messages) CfgMcpBadName() string {
 	return Catalog.Format(msgs.locale, "cfgMcpBadName", nil)
 }
 
-// CfgMcpBadScope says "范围不对"
+// CfgMcpBadScope says "范围无效"
 // in the language the app shows.
 //
 // MCP 页出错：范围参数不对。
 func CfgMcpBadScope() string { return In(i18n.Locale()).CfgMcpBadScope() }
 
-// CfgMcpBadScope says "范围不对"
+// CfgMcpBadScope says "范围无效"
 // in the language of msgs.
 //
 // MCP 页出错：范围参数不对。
@@ -2594,13 +2594,13 @@ func (msgs Messages) CfgMcpBadScope() string {
 	return Catalog.Format(msgs.locale, "cfgMcpBadScope", nil)
 }
 
-// CfgMcpNotFound says "找不到这个服务器，可能已经被删了"
+// CfgMcpNotFound says "未找到该服务器，可能已被删除"
 // in the language the app shows.
 //
 // MCP 页出错：服务器不在了。
 func CfgMcpNotFound() string { return In(i18n.Locale()).CfgMcpNotFound() }
 
-// CfgMcpNotFound says "找不到这个服务器，可能已经被删了"
+// CfgMcpNotFound says "未找到该服务器，可能已被删除"
 // in the language of msgs.
 //
 // MCP 页出错：服务器不在了。
@@ -2608,13 +2608,13 @@ func (msgs Messages) CfgMcpNotFound() string {
 	return Catalog.Format(msgs.locale, "cfgMcpNotFound", nil)
 }
 
-// CfgMcpNotEditable says "只能修改用户配置或本地配置里的服务器"
+// CfgMcpNotEditable says "仅支持修改用户配置或本地配置中的服务器"
 // in the language the app shows.
 //
 // MCP 页出错：项目配置里的服务器不能改。
 func CfgMcpNotEditable() string { return In(i18n.Locale()).CfgMcpNotEditable() }
 
-// CfgMcpNotEditable says "只能修改用户配置或本地配置里的服务器"
+// CfgMcpNotEditable says "仅支持修改用户配置或本地配置中的服务器"
 // in the language of msgs.
 //
 // MCP 页出错：项目配置里的服务器不能改。
@@ -2650,13 +2650,13 @@ func (msgs Messages) CfgZipInvalid() string {
 	return Catalog.Format(msgs.locale, "cfgZipInvalid", nil)
 }
 
-// CfgZipNoSkill says "包里没有 SKILL.md（应放在根目录或第一层文件夹里）"
+// CfgZipNoSkill says "压缩包中缺少 SKILL.md（应位于根目录或第一层目录中）"
 // in the language the app shows.
 //
 // 导入 Skill 出错：没有 SKILL.md。
 func CfgZipNoSkill() string { return In(i18n.Locale()).CfgZipNoSkill() }
 
-// CfgZipNoSkill says "包里没有 SKILL.md（应放在根目录或第一层文件夹里）"
+// CfgZipNoSkill says "压缩包中缺少 SKILL.md（应位于根目录或第一层目录中）"
 // in the language of msgs.
 //
 // 导入 Skill 出错：没有 SKILL.md。
@@ -2678,13 +2678,13 @@ func (msgs Messages) CfgZipSkillNotUTF8() string {
 	return Catalog.Format(msgs.locale, "cfgZipSkillNotUTF8", nil)
 }
 
-// CfgZipNoDescription says "SKILL.md 开头缺少带 description 的前言（--- 包起来的 name、description），Claude …"
+// CfgZipNoDescription says "SKILL.md 开头缺少含 description 的前言（由 --- 包裹的 name 和 description），Claude …"
 // in the language the app shows.
 //
 // 导入 Skill 出错：SKILL.md 没有 description。
 func CfgZipNoDescription() string { return In(i18n.Locale()).CfgZipNoDescription() }
 
-// CfgZipNoDescription says "SKILL.md 开头缺少带 description 的前言（--- 包起来的 name、description），Claude …"
+// CfgZipNoDescription says "SKILL.md 开头缺少含 description 的前言（由 --- 包裹的 name 和 description），Claude …"
 // in the language of msgs.
 //
 // 导入 Skill 出错：SKILL.md 没有 description。
@@ -2692,13 +2692,13 @@ func (msgs Messages) CfgZipNoDescription() string {
 	return Catalog.Format(msgs.locale, "cfgZipNoDescription", nil)
 }
 
-// CfgZipNoName says "认不出 Skill 的名字：请在 SKILL.md 里写上 name（小写字母、数字和连字符）"
+// CfgZipNoName says "无法识别 Skill 名称：请在 SKILL.md 中填写 name（仅限小写字母、数字和连字符）"
 // in the language the app shows.
 //
 // 导入 Skill 出错：认不出名字。
 func CfgZipNoName() string { return In(i18n.Locale()).CfgZipNoName() }
 
-// CfgZipNoName says "认不出 Skill 的名字：请在 SKILL.md 里写上 name（小写字母、数字和连字符）"
+// CfgZipNoName says "无法识别 Skill 名称：请在 SKILL.md 中填写 name（仅限小写字母、数字和连字符）"
 // in the language of msgs.
 //
 // 导入 Skill 出错：认不出名字。
@@ -2720,13 +2720,13 @@ func (msgs Messages) CfgWriteFailedSpace() string {
 	return Catalog.Format(msgs.locale, "cfgWriteFailedSpace", nil)
 }
 
-// CfgPermissionsInvalid says "settings.json 里的 permissions 不是一个对象，先在终端里修好它"
+// CfgPermissionsInvalid says "settings.json 中的 permissions 不是对象，请先在终端中修复"
 // in the language the app shows.
 //
 // 工具权限页出错：settings.json 的 permissions 不对。
 func CfgPermissionsInvalid() string { return In(i18n.Locale()).CfgPermissionsInvalid() }
 
-// CfgPermissionsInvalid says "settings.json 里的 permissions 不是一个对象，先在终端里修好它"
+// CfgPermissionsInvalid says "settings.json 中的 permissions 不是对象，请先在终端中修复"
 // in the language of msgs.
 //
 // 工具权限页出错：settings.json 的 permissions 不对。
@@ -2734,13 +2734,13 @@ func (msgs Messages) CfgPermissionsInvalid() string {
 	return Catalog.Format(msgs.locale, "cfgPermissionsInvalid", nil)
 }
 
-// CfgRuleChanged says "这条规则已经被改过了（可能是 Claude 或终端里改的），已重新读取"
+// CfgRuleChanged says "该规则已被修改（可能由 Claude 或在终端中修改），已重新读取"
 // in the language the app shows.
 //
 // 工具权限页出错：规则在别处被改过。
 func CfgRuleChanged() string { return In(i18n.Locale()).CfgRuleChanged() }
 
-// CfgRuleChanged says "这条规则已经被改过了（可能是 Claude 或终端里改的），已重新读取"
+// CfgRuleChanged says "该规则已被修改（可能由 Claude 或在终端中修改），已重新读取"
 // in the language of msgs.
 //
 // 工具权限页出错：规则在别处被改过。
@@ -2748,13 +2748,13 @@ func (msgs Messages) CfgRuleChanged() string {
 	return Catalog.Format(msgs.locale, "cfgRuleChanged", nil)
 }
 
-// CfgModelSettingsInvalid says "settings.json 里的 modelSettings 不是对象，先在终端里修好它"
+// CfgModelSettingsInvalid says "settings.json 中的 modelSettings 不是对象，请先在终端中修复"
 // in the language the app shows.
 //
 // 新对话默认出错：modelSettings 不对。
 func CfgModelSettingsInvalid() string { return In(i18n.Locale()).CfgModelSettingsInvalid() }
 
-// CfgModelSettingsInvalid says "settings.json 里的 modelSettings 不是对象，先在终端里修好它"
+// CfgModelSettingsInvalid says "settings.json 中的 modelSettings 不是对象，请先在终端中修复"
 // in the language of msgs.
 //
 // 新对话默认出错：modelSettings 不对。
@@ -2762,13 +2762,13 @@ func (msgs Messages) CfgModelSettingsInvalid() string {
 	return Catalog.Format(msgs.locale, "cfgModelSettingsInvalid", nil)
 }
 
-// CfgMcpOAuth says "这个服务器用 OAuth 登录，Zeta 取不到它的工具"
+// CfgMcpOAuth says "该服务器使用 OAuth 登录，Zeta 无法获取其工具列表"
 // in the language the app shows.
 //
 // MCP 工具列表出错：OAuth 服务器。
 func CfgMcpOAuth() string { return In(i18n.Locale()).CfgMcpOAuth() }
 
-// CfgMcpOAuth says "这个服务器用 OAuth 登录，Zeta 取不到它的工具"
+// CfgMcpOAuth says "该服务器使用 OAuth 登录，Zeta 无法获取其工具列表"
 // in the language of msgs.
 //
 // MCP 工具列表出错：OAuth 服务器。
@@ -2776,13 +2776,13 @@ func (msgs Messages) CfgMcpOAuth() string {
 	return Catalog.Format(msgs.locale, "cfgMcpOAuth", nil)
 }
 
-// CfgMcpNoURL says "配置里没有地址"
+// CfgMcpNoURL says "配置中缺少地址"
 // in the language the app shows.
 //
 // MCP 工具列表出错：没有地址。
 func CfgMcpNoURL() string { return In(i18n.Locale()).CfgMcpNoURL() }
 
-// CfgMcpNoURL says "配置里没有地址"
+// CfgMcpNoURL says "配置中缺少地址"
 // in the language of msgs.
 //
 // MCP 工具列表出错：没有地址。
@@ -2790,13 +2790,13 @@ func (msgs Messages) CfgMcpNoURL() string {
 	return Catalog.Format(msgs.locale, "cfgMcpNoURL", nil)
 }
 
-// CfgMcpEnvUnreadable says "读不了登录环境里的变量"
+// CfgMcpEnvUnreadable says "无法读取登录环境中的变量"
 // in the language the app shows.
 //
 // MCP 工具列表出错：读不了登录环境变量。
 func CfgMcpEnvUnreadable() string { return In(i18n.Locale()).CfgMcpEnvUnreadable() }
 
-// CfgMcpEnvUnreadable says "读不了登录环境里的变量"
+// CfgMcpEnvUnreadable says "无法读取登录环境中的变量"
 // in the language of msgs.
 //
 // MCP 工具列表出错：读不了登录环境变量。
@@ -2804,13 +2804,13 @@ func (msgs Messages) CfgMcpEnvUnreadable() string {
 	return Catalog.Format(msgs.locale, "cfgMcpEnvUnreadable", nil)
 }
 
-// CfgMcpNoCommand says "配置里没有命令"
+// CfgMcpNoCommand says "配置中缺少命令"
 // in the language the app shows.
 //
 // MCP 工具列表出错：没有命令。
 func CfgMcpNoCommand() string { return In(i18n.Locale()).CfgMcpNoCommand() }
 
-// CfgMcpNoCommand says "配置里没有命令"
+// CfgMcpNoCommand says "配置中缺少命令"
 // in the language of msgs.
 //
 // MCP 工具列表出错：没有命令。
@@ -2818,13 +2818,13 @@ func (msgs Messages) CfgMcpNoCommand() string {
 	return Catalog.Format(msgs.locale, "cfgMcpNoCommand", nil)
 }
 
-// CfgMcpCantStart says "启动不了"
+// CfgMcpCantStart says "无法启动"
 // in the language the app shows.
 //
 // MCP 工具列表出错：服务器起不来。
 func CfgMcpCantStart() string { return In(i18n.Locale()).CfgMcpCantStart() }
 
-// CfgMcpCantStart says "启动不了"
+// CfgMcpCantStart says "无法启动"
 // in the language of msgs.
 //
 // MCP 工具列表出错：服务器起不来。
@@ -2832,13 +2832,13 @@ func (msgs Messages) CfgMcpCantStart() string {
 	return Catalog.Format(msgs.locale, "cfgMcpCantStart", nil)
 }
 
-// CfgMcpExited says "服务器进程退出了"
+// CfgMcpExited says "服务器进程已退出"
 // in the language the app shows.
 //
 // MCP 工具列表出错：服务器进程退出。
 func CfgMcpExited() string { return In(i18n.Locale()).CfgMcpExited() }
 
-// CfgMcpExited says "服务器进程退出了"
+// CfgMcpExited says "服务器进程已退出"
 // in the language of msgs.
 //
 // MCP 工具列表出错：服务器进程退出。
@@ -2846,13 +2846,13 @@ func (msgs Messages) CfgMcpExited() string {
 	return Catalog.Format(msgs.locale, "cfgMcpExited", nil)
 }
 
-// CfgMcpTimeout says "服务器没有在 60 秒内回应"
+// CfgMcpTimeout says "服务器在 60 秒内未响应"
 // in the language the app shows.
 //
 // MCP 工具列表出错：超时。
 func CfgMcpTimeout() string { return In(i18n.Locale()).CfgMcpTimeout() }
 
-// CfgMcpTimeout says "服务器没有在 60 秒内回应"
+// CfgMcpTimeout says "服务器在 60 秒内未响应"
 // in the language of msgs.
 //
 // MCP 工具列表出错：超时。
@@ -2860,13 +2860,13 @@ func (msgs Messages) CfgMcpTimeout() string {
 	return Catalog.Format(msgs.locale, "cfgMcpTimeout", nil)
 }
 
-// CfgMcpBadURL says "地址不对"
+// CfgMcpBadURL says "地址无效"
 // in the language the app shows.
 //
 // MCP 工具列表出错：地址不对。
 func CfgMcpBadURL() string { return In(i18n.Locale()).CfgMcpBadURL() }
 
-// CfgMcpBadURL says "地址不对"
+// CfgMcpBadURL says "地址无效"
 // in the language of msgs.
 //
 // MCP 工具列表出错：地址不对。
@@ -2888,13 +2888,13 @@ func (msgs Messages) CfgMcpConnectTimeout() string {
 	return Catalog.Format(msgs.locale, "cfgMcpConnectTimeout", nil)
 }
 
-// CfgMcpNoResult says "服务器的回应里没有这次请求的结果"
+// CfgMcpNoResult says "服务器响应中缺少本次请求的结果"
 // in the language the app shows.
 //
 // MCP 工具列表出错：回应里没有结果。
 func CfgMcpNoResult() string { return In(i18n.Locale()).CfgMcpNoResult() }
 
-// CfgMcpNoResult says "服务器的回应里没有这次请求的结果"
+// CfgMcpNoResult says "服务器响应中缺少本次请求的结果"
 // in the language of msgs.
 //
 // MCP 工具列表出错：回应里没有结果。
@@ -2902,13 +2902,13 @@ func (msgs Messages) CfgMcpNoResult() string {
 	return Catalog.Format(msgs.locale, "cfgMcpNoResult", nil)
 }
 
-// CfgMcpNoEndpoint says "服务器没有给出消息地址"
+// CfgMcpNoEndpoint says "服务器未返回消息地址"
 // in the language the app shows.
 //
 // MCP 工具列表出错：SSE 没给消息地址。
 func CfgMcpNoEndpoint() string { return In(i18n.Locale()).CfgMcpNoEndpoint() }
 
-// CfgMcpNoEndpoint says "服务器没有给出消息地址"
+// CfgMcpNoEndpoint says "服务器未返回消息地址"
 // in the language of msgs.
 //
 // MCP 工具列表出错：SSE 没给消息地址。
@@ -2916,13 +2916,13 @@ func (msgs Messages) CfgMcpNoEndpoint() string {
 	return Catalog.Format(msgs.locale, "cfgMcpNoEndpoint", nil)
 }
 
-// CfgMcpBadEndpoint says "服务器给的消息地址不对"
+// CfgMcpBadEndpoint says "服务器返回的消息地址无效"
 // in the language the app shows.
 //
 // MCP 工具列表出错：SSE 消息地址不对。
 func CfgMcpBadEndpoint() string { return In(i18n.Locale()).CfgMcpBadEndpoint() }
 
-// CfgMcpBadEndpoint says "服务器给的消息地址不对"
+// CfgMcpBadEndpoint says "服务器返回的消息地址无效"
 // in the language of msgs.
 //
 // MCP 工具列表出错：SSE 消息地址不对。
@@ -2930,13 +2930,13 @@ func (msgs Messages) CfgMcpBadEndpoint() string {
 	return Catalog.Format(msgs.locale, "cfgMcpBadEndpoint", nil)
 }
 
-// CfgMcpClosed says "服务器没有回应就断开了"
+// CfgMcpClosed says "服务器未响应即断开连接"
 // in the language the app shows.
 //
 // MCP 工具列表出错：没回应就断开。
 func CfgMcpClosed() string { return In(i18n.Locale()).CfgMcpClosed() }
 
-// CfgMcpClosed says "服务器没有回应就断开了"
+// CfgMcpClosed says "服务器未响应即断开连接"
 // in the language of msgs.
 //
 // MCP 工具列表出错：没回应就断开。
@@ -2958,13 +2958,13 @@ func (msgs Messages) CfgContentTooBig() string {
 	return Catalog.Format(msgs.locale, "cfgContentTooBig", nil)
 }
 
-// CfgCantDelete says "不能删除这个文件"
+// CfgCantDelete says "无法删除该文件"
 // in the language the app shows.
 //
 // 记忆页出错：不能删这个文件。
 func CfgCantDelete() string { return In(i18n.Locale()).CfgCantDelete() }
 
-// CfgCantDelete says "不能删除这个文件"
+// CfgCantDelete says "无法删除该文件"
 // in the language of msgs.
 //
 // 记忆页出错：不能删这个文件。
@@ -2972,13 +2972,13 @@ func (msgs Messages) CfgCantDelete() string {
 	return Catalog.Format(msgs.locale, "cfgCantDelete", nil)
 }
 
-// CfgSettingsInvalid says "~/.claude/settings.json 不是有效的 JSON，先在终端里修好它"
+// CfgSettingsInvalid says "~/.claude/settings.json 不是有效的 JSON，请先在终端中修复"
 // in the language the app shows.
 //
 // 配置页出错：settings.json 坏了。
 func CfgSettingsInvalid() string { return In(i18n.Locale()).CfgSettingsInvalid() }
 
-// CfgSettingsInvalid says "~/.claude/settings.json 不是有效的 JSON，先在终端里修好它"
+// CfgSettingsInvalid says "~/.claude/settings.json 不是有效的 JSON，请先在终端中修复"
 // in the language of msgs.
 //
 // 配置页出错：settings.json 坏了。
@@ -2986,13 +2986,13 @@ func (msgs Messages) CfgSettingsInvalid() string {
 	return Catalog.Format(msgs.locale, "cfgSettingsInvalid", nil)
 }
 
-// CfgSettingsBusy says "settings.json 一直在被改动，稍后再试"
+// CfgSettingsBusy says "settings.json 正在被持续修改，请稍后再试"
 // in the language the app shows.
 //
 // 配置页出错：settings.json 一直在变。
 func CfgSettingsBusy() string { return In(i18n.Locale()).CfgSettingsBusy() }
 
-// CfgSettingsBusy says "settings.json 一直在被改动，稍后再试"
+// CfgSettingsBusy says "settings.json 正在被持续修改，请稍后再试"
 // in the language of msgs.
 //
 // 配置页出错：settings.json 一直在变。
@@ -3000,13 +3000,13 @@ func (msgs Messages) CfgSettingsBusy() string {
 	return Catalog.Format(msgs.locale, "cfgSettingsBusy", nil)
 }
 
-// CfgAgentNotEditable says "不能改这个文件"
+// CfgAgentNotEditable says "无法修改该文件"
 // in the language the app shows.
 //
 // Subagent 页出错：不能改这个文件。
 func CfgAgentNotEditable() string { return In(i18n.Locale()).CfgAgentNotEditable() }
 
-// CfgAgentNotEditable says "不能改这个文件"
+// CfgAgentNotEditable says "无法修改该文件"
 // in the language of msgs.
 //
 // Subagent 页出错：不能改这个文件。
@@ -3014,13 +3014,13 @@ func (msgs Messages) CfgAgentNotEditable() string {
 	return Catalog.Format(msgs.locale, "cfgAgentNotEditable", nil)
 }
 
-// CfgAgentChanged says "这个 Subagent 在你编辑时被改过了（可能是 Claude 改的）。返回列表重新打开再改。"
+// CfgAgentChanged says "该 Subagent 在编辑期间已被修改（可能由 Claude 修改）。请返回列表重新打开后再编辑。"
 // in the language the app shows.
 //
 // Subagent 页出错：编辑期间被改过。
 func CfgAgentChanged() string { return In(i18n.Locale()).CfgAgentChanged() }
 
-// CfgAgentChanged says "这个 Subagent 在你编辑时被改过了（可能是 Claude 改的）。返回列表重新打开再改。"
+// CfgAgentChanged says "该 Subagent 在编辑期间已被修改（可能由 Claude 修改）。请返回列表重新打开后再编辑。"
 // in the language of msgs.
 //
 // Subagent 页出错：编辑期间被改过。
@@ -3028,13 +3028,13 @@ func (msgs Messages) CfgAgentChanged() string {
 	return Catalog.Format(msgs.locale, "cfgAgentChanged", nil)
 }
 
-// CfgDirOrDelete says "建不了目录或删不掉"
+// CfgDirOrDelete says "无法创建或删除目录"
 // in the language the app shows.
 //
 // 配置页出错：建不了目录或删不掉。
 func CfgDirOrDelete() string { return In(i18n.Locale()).CfgDirOrDelete() }
 
-// CfgDirOrDelete says "建不了目录或删不掉"
+// CfgDirOrDelete says "无法创建或删除目录"
 // in the language of msgs.
 //
 // 配置页出错：建不了目录或删不掉。
@@ -3042,13 +3042,13 @@ func (msgs Messages) CfgDirOrDelete() string {
 	return Catalog.Format(msgs.locale, "cfgDirOrDelete", nil)
 }
 
-// CfgReplaceFailed says "换不上新文件"
+// CfgReplaceFailed says "无法替换为新文件"
 // in the language the app shows.
 //
 // 配置页出错：改名换上新文件失败。
 func CfgReplaceFailed() string { return In(i18n.Locale()).CfgReplaceFailed() }
 
-// CfgReplaceFailed says "换不上新文件"
+// CfgReplaceFailed says "无法替换为新文件"
 // in the language of msgs.
 //
 // 配置页出错：改名换上新文件失败。
@@ -3056,13 +3056,13 @@ func (msgs Messages) CfgReplaceFailed() string {
 	return Catalog.Format(msgs.locale, "cfgReplaceFailed", nil)
 }
 
-// CfgTimeout says "等了太久没有结果"
+// CfgTimeout says "等待超时，未返回结果"
 // in the language the app shows.
 //
 // 配置页出错：命令超时。
 func CfgTimeout() string { return In(i18n.Locale()).CfgTimeout() }
 
-// CfgTimeout says "等了太久没有结果"
+// CfgTimeout says "等待超时，未返回结果"
 // in the language of msgs.
 //
 // 配置页出错：命令超时。
@@ -3070,13 +3070,13 @@ func (msgs Messages) CfgTimeout() string {
 	return Catalog.Format(msgs.locale, "cfgTimeout", nil)
 }
 
-// CfgSkillBadName says "名字不对"
+// CfgSkillBadName says "名称无效"
 // in the language the app shows.
 //
 // Skills 页出错：名字不对。
 func CfgSkillBadName() string { return In(i18n.Locale()).CfgSkillBadName() }
 
-// CfgSkillBadName says "名字不对"
+// CfgSkillBadName says "名称无效"
 // in the language of msgs.
 //
 // Skills 页出错：名字不对。
@@ -3084,13 +3084,13 @@ func (msgs Messages) CfgSkillBadName() string {
 	return Catalog.Format(msgs.locale, "cfgSkillBadName", nil)
 }
 
-// CfgSkillNotFound says "找不到这个 Skill，可能已经被删了"
+// CfgSkillNotFound says "未找到该 Skill，可能已被删除"
 // in the language the app shows.
 //
 // Skills 页出错：Skill 不在了。
 func CfgSkillNotFound() string { return In(i18n.Locale()).CfgSkillNotFound() }
 
-// CfgSkillNotFound says "找不到这个 Skill，可能已经被删了"
+// CfgSkillNotFound says "未找到该 Skill，可能已被删除"
 // in the language of msgs.
 //
 // Skills 页出错：Skill 不在了。
@@ -3098,13 +3098,13 @@ func (msgs Messages) CfgSkillNotFound() string {
 	return Catalog.Format(msgs.locale, "cfgSkillNotFound", nil)
 }
 
-// CfgSkillReplaceOld says "换不下原来的 Skill"
+// CfgSkillReplaceOld says "无法移除原有的 Skill"
 // in the language the app shows.
 //
 // 导入 Skill 出错：换不下原来的。
 func CfgSkillReplaceOld() string { return In(i18n.Locale()).CfgSkillReplaceOld() }
 
-// CfgSkillReplaceOld says "换不下原来的 Skill"
+// CfgSkillReplaceOld says "无法移除原有的 Skill"
 // in the language of msgs.
 //
 // 导入 Skill 出错：换不下原来的。
@@ -3112,13 +3112,13 @@ func (msgs Messages) CfgSkillReplaceOld() string {
 	return Catalog.Format(msgs.locale, "cfgSkillReplaceOld", nil)
 }
 
-// CfgSkillReplaceNew says "换不上新的 Skill"
+// CfgSkillReplaceNew says "无法替换为新的 Skill"
 // in the language the app shows.
 //
 // 导入 Skill 出错：换不上新的。
 func CfgSkillReplaceNew() string { return In(i18n.Locale()).CfgSkillReplaceNew() }
 
-// CfgSkillReplaceNew says "换不上新的 Skill"
+// CfgSkillReplaceNew says "无法替换为新的 Skill"
 // in the language of msgs.
 //
 // 导入 Skill 出错：换不上新的。
@@ -3126,7 +3126,7 @@ func (msgs Messages) CfgSkillReplaceNew() string {
 	return Catalog.Format(msgs.locale, "cfgSkillReplaceNew", nil)
 }
 
-// CfgUnknownBehavior says "不认识的权限：{behavior}"
+// CfgUnknownBehavior says "无法识别的权限：{behavior}"
 // in the language the app shows.
 //
 // 工具权限页出错：behavior 不是 allow、ask、deny。
@@ -3134,7 +3134,7 @@ func CfgUnknownBehavior(behavior string) string {
 	return In(i18n.Locale()).CfgUnknownBehavior(behavior)
 }
 
-// CfgUnknownBehavior says "不认识的权限：{behavior}"
+// CfgUnknownBehavior says "无法识别的权限：{behavior}"
 // in the language of msgs.
 //
 // 工具权限页出错：behavior 不是 allow、ask、deny。
@@ -3142,13 +3142,13 @@ func (msgs Messages) CfgUnknownBehavior(behavior string) string {
 	return Catalog.Format(msgs.locale, "cfgUnknownBehavior", map[string]any{"behavior": behavior})
 }
 
-// CfgAgentExists says "已经有一个叫 {name} 的 Subagent 了"
+// CfgAgentExists says "已存在名为 {name} 的 Subagent"
 // in the language the app shows.
 //
 // Subagent 页出错：重名。
 func CfgAgentExists(name string) string { return In(i18n.Locale()).CfgAgentExists(name) }
 
-// CfgAgentExists says "已经有一个叫 {name} 的 Subagent 了"
+// CfgAgentExists says "已存在名为 {name} 的 Subagent"
 // in the language of msgs.
 //
 // Subagent 页出错：重名。
@@ -3156,13 +3156,13 @@ func (msgs Messages) CfgAgentExists(name string) string {
 	return Catalog.Format(msgs.locale, "cfgAgentExists", map[string]any{"name": name})
 }
 
-// CfgDeleteFailed says "删不掉：{reason}"
+// CfgDeleteFailed says "无法删除：{reason}"
 // in the language the app shows.
 //
 // 配置页出错：删文件失败，reason 是 cfgNoPermission 等。
 func CfgDeleteFailed(reason string) string { return In(i18n.Locale()).CfgDeleteFailed(reason) }
 
-// CfgDeleteFailed says "删不掉：{reason}"
+// CfgDeleteFailed says "无法删除：{reason}"
 // in the language of msgs.
 //
 // 配置页出错：删文件失败，reason 是 cfgNoPermission 等。
@@ -3170,14 +3170,14 @@ func (msgs Messages) CfgDeleteFailed(reason string) string {
 	return Catalog.Format(msgs.locale, "cfgDeleteFailed", map[string]any{"reason": reason})
 }
 
-// CfgCompactWindowMin says "上下文窗口最小是 {min}"
+// CfgCompactWindowMin says "上下文窗口最小为 {min}"
 // in the language the app shows.
 //
 // 新对话默认出错：压缩时机的上下文窗口太小，min 如
 // 50K。
 func CfgCompactWindowMin(min string) string { return In(i18n.Locale()).CfgCompactWindowMin(min) }
 
-// CfgCompactWindowMin says "上下文窗口最小是 {min}"
+// CfgCompactWindowMin says "上下文窗口最小为 {min}"
 // in the language of msgs.
 //
 // 新对话默认出错：压缩时机的上下文窗口太小，min 如
@@ -3186,13 +3186,13 @@ func (msgs Messages) CfgCompactWindowMin(min string) string {
 	return Catalog.Format(msgs.locale, "cfgCompactWindowMin", map[string]any{"min": min})
 }
 
-// CfgMcpTypeNoTools says "这种类型（{type}）的服务器看不了工具"
+// CfgMcpTypeNoTools says "不支持查看 {type} 类型服务器的工具"
 // in the language the app shows.
 //
 // MCP 工具列表出错：不支持的服务器类型。
 func CfgMcpTypeNoTools(type_ string) string { return In(i18n.Locale()).CfgMcpTypeNoTools(type_) }
 
-// CfgMcpTypeNoTools says "这种类型（{type}）的服务器看不了工具"
+// CfgMcpTypeNoTools says "不支持查看 {type} 类型服务器的工具"
 // in the language of msgs.
 //
 // MCP 工具列表出错：不支持的服务器类型。
@@ -3200,13 +3200,13 @@ func (msgs Messages) CfgMcpTypeNoTools(type_ string) string {
 	return Catalog.Format(msgs.locale, "cfgMcpTypeNoTools", map[string]any{"type": type_})
 }
 
-// CfgMcpUnauthorized says "服务器要求登录或 Token 不对（HTTP {status}）"
+// CfgMcpUnauthorized says "服务器要求登录或 Token 无效（HTTP {status}）"
 // in the language the app shows.
 //
 // MCP 工具列表出错：401、403。
 func CfgMcpUnauthorized(status string) string { return In(i18n.Locale()).CfgMcpUnauthorized(status) }
 
-// CfgMcpUnauthorized says "服务器要求登录或 Token 不对（HTTP {status}）"
+// CfgMcpUnauthorized says "服务器要求登录或 Token 无效（HTTP {status}）"
 // in the language of msgs.
 //
 // MCP 工具列表出错：401、403。
@@ -3228,14 +3228,14 @@ func (msgs Messages) CfgMcpHTTPStatus(status string) string {
 	return Catalog.Format(msgs.locale, "cfgMcpHTTPStatus", map[string]any{"status": status})
 }
 
-// CfgMcpUnreachable says "连不上：{detail}"
+// CfgMcpUnreachable says "无法连接：{detail}"
 // in the language the app shows.
 //
 // MCP 工具列表出错：连不上，detail
 // 是原因原文（网址已去掉）。
 func CfgMcpUnreachable(detail string) string { return In(i18n.Locale()).CfgMcpUnreachable(detail) }
 
-// CfgMcpUnreachable says "连不上：{detail}"
+// CfgMcpUnreachable says "无法连接：{detail}"
 // in the language of msgs.
 //
 // MCP 工具列表出错：连不上，detail
@@ -3262,14 +3262,14 @@ func (msgs Messages) CfgMcpFailedDetail(reason string, detail string) string {
 	return Catalog.Format(msgs.locale, "cfgMcpFailedDetail", map[string]any{"reason": reason, "detail": detail})
 }
 
-// CfgClaudeExit says "claude 返回了 {code}"
+// CfgClaudeExit says "claude 返回退出码 {code}"
 // in the language the app shows.
 //
 // MCP 页出错：claude mcp 命令没成功，也没输出原因，code
 // 是退出码。
 func CfgClaudeExit(code string) string { return In(i18n.Locale()).CfgClaudeExit(code) }
 
-// CfgClaudeExit says "claude 返回了 {code}"
+// CfgClaudeExit says "claude 返回退出码 {code}"
 // in the language of msgs.
 //
 // MCP 页出错：claude mcp 命令没成功，也没输出原因，code
@@ -3278,13 +3278,13 @@ func (msgs Messages) CfgClaudeExit(code string) string {
 	return Catalog.Format(msgs.locale, "cfgClaudeExit", map[string]any{"code": code})
 }
 
-// CfgFileTooBig says "文件超过 {mib} MiB，请在终端里编辑"
+// CfgFileTooBig says "文件超过 {mib} MiB，请在终端中编辑"
 // in the language the app shows.
 //
 // 配置页出错：文件太大。
 func CfgFileTooBig(mib string) string { return In(i18n.Locale()).CfgFileTooBig(mib) }
 
-// CfgFileTooBig says "文件超过 {mib} MiB，请在终端里编辑"
+// CfgFileTooBig says "文件超过 {mib} MiB，请在终端中编辑"
 // in the language of msgs.
 //
 // 配置页出错：文件太大。
@@ -3292,13 +3292,13 @@ func (msgs Messages) CfgFileTooBig(mib string) string {
 	return Catalog.Format(msgs.locale, "cfgFileTooBig", map[string]any{"mib": mib})
 }
 
-// CfgCantRead says "读不了 {name}"
+// CfgCantRead says "无法读取 {name}"
 // in the language the app shows.
 //
 // 配置页出错：读不了文件。
 func CfgCantRead(name string) string { return In(i18n.Locale()).CfgCantRead(name) }
 
-// CfgCantRead says "读不了 {name}"
+// CfgCantRead says "无法读取 {name}"
 // in the language of msgs.
 //
 // 配置页出错：读不了文件。
@@ -3320,13 +3320,13 @@ func (msgs Messages) CfgWriteFailed(reason string) string {
 	return Catalog.Format(msgs.locale, "cfgWriteFailed", map[string]any{"reason": reason})
 }
 
-// CfgBashFailed says "起不了 bash：{detail}"
+// CfgBashFailed says "无法启动 bash：{detail}"
 // in the language the app shows.
 //
 // 配置页出错：起不了 bash。
 func CfgBashFailed(detail string) string { return In(i18n.Locale()).CfgBashFailed(detail) }
 
-// CfgBashFailed says "起不了 bash：{detail}"
+// CfgBashFailed says "无法启动 bash：{detail}"
 // in the language of msgs.
 //
 // 配置页出错：起不了 bash。
@@ -3334,13 +3334,13 @@ func (msgs Messages) CfgBashFailed(detail string) string {
 	return Catalog.Format(msgs.locale, "cfgBashFailed", map[string]any{"detail": detail})
 }
 
-// CfgMkdirFailed says "建不了目录：{reason}"
+// CfgMkdirFailed says "无法创建目录：{reason}"
 // in the language the app shows.
 //
 // 导入 Skill 出错：建不了目录。
 func CfgMkdirFailed(reason string) string { return In(i18n.Locale()).CfgMkdirFailed(reason) }
 
-// CfgMkdirFailed says "建不了目录：{reason}"
+// CfgMkdirFailed says "无法创建目录：{reason}"
 // in the language of msgs.
 //
 // 导入 Skill 出错：建不了目录。
@@ -3376,13 +3376,13 @@ func (msgs Messages) CfgNoPermission() string {
 	return Catalog.Format(msgs.locale, "cfgNoPermission", nil)
 }
 
-// CfgNoDirectory says "目录不在"
+// CfgNoDirectory says "目录不存在"
 // in the language the app shows.
 //
 // 读写文件没成的原因：目录不在。
 func CfgNoDirectory() string { return In(i18n.Locale()).CfgNoDirectory() }
 
-// CfgNoDirectory says "目录不在"
+// CfgNoDirectory says "目录不存在"
 // in the language of msgs.
 //
 // 读写文件没成的原因：目录不在。
@@ -3404,13 +3404,13 @@ func (msgs Messages) CfgNoSpace() string {
 	return Catalog.Format(msgs.locale, "cfgNoSpace", nil)
 }
 
-// CfgZipTooManyFiles says "ZIP 里的文件太多（超过 {max} 个）"
+// CfgZipTooManyFiles says "ZIP 中的文件过多（超过 {max} 个）"
 // in the language the app shows.
 //
 // 导入 Skill 出错：文件太多。
 func CfgZipTooManyFiles(max string) string { return In(i18n.Locale()).CfgZipTooManyFiles(max) }
 
-// CfgZipTooManyFiles says "ZIP 里的文件太多（超过 {max} 个）"
+// CfgZipTooManyFiles says "ZIP 中的文件过多（超过 {max} 个）"
 // in the language of msgs.
 //
 // 导入 Skill 出错：文件太多。
@@ -3418,13 +3418,13 @@ func (msgs Messages) CfgZipTooManyFiles(max string) string {
 	return Catalog.Format(msgs.locale, "cfgZipTooManyFiles", map[string]any{"max": max})
 }
 
-// CfgZipTooBig says "ZIP 解压后太大（超过 {mib} MiB）"
+// CfgZipTooBig says "ZIP 解压后体积过大（超过 {mib} MiB）"
 // in the language the app shows.
 //
 // 导入 Skill 出错：解压后太大。
 func CfgZipTooBig(mib string) string { return In(i18n.Locale()).CfgZipTooBig(mib) }
 
-// CfgZipTooBig says "ZIP 解压后太大（超过 {mib} MiB）"
+// CfgZipTooBig says "ZIP 解压后体积过大（超过 {mib} MiB）"
 // in the language of msgs.
 //
 // 导入 Skill 出错：解压后太大。
@@ -3432,13 +3432,13 @@ func (msgs Messages) CfgZipTooBig(mib string) string {
 	return Catalog.Format(msgs.locale, "cfgZipTooBig", map[string]any{"mib": mib})
 }
 
-// CfgZipUnsafePath says "ZIP 里有不安全的路径：{name}"
+// CfgZipUnsafePath says "ZIP 中包含不安全的路径：{name}"
 // in the language the app shows.
 //
 // 导入 Skill 出错：路径不安全。
 func CfgZipUnsafePath(name string) string { return In(i18n.Locale()).CfgZipUnsafePath(name) }
 
-// CfgZipUnsafePath says "ZIP 里有不安全的路径：{name}"
+// CfgZipUnsafePath says "ZIP 中包含不安全的路径：{name}"
 // in the language of msgs.
 //
 // 导入 Skill 出错：路径不安全。
@@ -3446,13 +3446,13 @@ func (msgs Messages) CfgZipUnsafePath(name string) string {
 	return Catalog.Format(msgs.locale, "cfgZipUnsafePath", map[string]any{"name": name})
 }
 
-// CfgZipSymlink says "ZIP 里有符号链接，不支持：{name}"
+// CfgZipSymlink says "ZIP 中包含不支持的符号链接：{name}"
 // in the language the app shows.
 //
 // 导入 Skill 出错：有符号链接。
 func CfgZipSymlink(name string) string { return In(i18n.Locale()).CfgZipSymlink(name) }
 
-// CfgZipSymlink says "ZIP 里有符号链接，不支持：{name}"
+// CfgZipSymlink says "ZIP 中包含不支持的符号链接：{name}"
 // in the language of msgs.
 //
 // 导入 Skill 出错：有符号链接。
@@ -3474,7 +3474,7 @@ func (msgs Messages) CfgZipEncrypted(name string) string {
 	return Catalog.Format(msgs.locale, "cfgZipEncrypted", map[string]any{"name": name})
 }
 
-// CfgZipMethod says "不支持这种压缩方式（{method}）：{name}"
+// CfgZipMethod says "不支持该压缩方式（{method}）：{name}"
 // in the language the app shows.
 //
 // 导入 Skill 出错：压缩方式不支持。
@@ -3482,7 +3482,7 @@ func CfgZipMethod(method string, name string) string {
 	return In(i18n.Locale()).CfgZipMethod(method, name)
 }
 
-// CfgZipMethod says "不支持这种压缩方式（{method}）：{name}"
+// CfgZipMethod says "不支持该压缩方式（{method}）：{name}"
 // in the language of msgs.
 //
 // 导入 Skill 出错：压缩方式不支持。
@@ -3504,13 +3504,13 @@ func (msgs Messages) CfgZipCorrupt(name string) string {
 	return Catalog.Format(msgs.locale, "cfgZipCorrupt", map[string]any{"name": name})
 }
 
-// CfgZipFileTooBig says "{name} 太大"
+// CfgZipFileTooBig says "{name} 文件过大"
 // in the language the app shows.
 //
 // 导入 Skill 出错：包里一个文件太大。
 func CfgZipFileTooBig(name string) string { return In(i18n.Locale()).CfgZipFileTooBig(name) }
 
-// CfgZipFileTooBig says "{name} 太大"
+// CfgZipFileTooBig says "{name} 文件过大"
 // in the language of msgs.
 //
 // 导入 Skill 出错：包里一个文件太大。
@@ -3518,13 +3518,13 @@ func (msgs Messages) CfgZipFileTooBig(name string) string {
 	return Catalog.Format(msgs.locale, "cfgZipFileTooBig", map[string]any{"name": name})
 }
 
-// CfgAgentBadName says "名称只能用小写字母、数字和连字符，并以字母或数字开头"
+// CfgAgentBadName says "名称只能包含小写字母、数字和连字符，且须以字母或数字开头"
 // in the language the app shows.
 //
 // Subagent 页出错：名称不对。
 func CfgAgentBadName() string { return In(i18n.Locale()).CfgAgentBadName() }
 
-// CfgAgentBadName says "名称只能用小写字母、数字和连字符，并以字母或数字开头"
+// CfgAgentBadName says "名称只能包含小写字母、数字和连字符，且须以字母或数字开头"
 // in the language of msgs.
 //
 // Subagent 页出错：名称不对。
@@ -3532,13 +3532,13 @@ func (msgs Messages) CfgAgentBadName() string {
 	return Catalog.Format(msgs.locale, "cfgAgentBadName", nil)
 }
 
-// CfgAgentNoDescription says "请写上什么时候用它（description），Claude 靠它决定要不要交给这个 Subagent"
+// CfgAgentNoDescription says "请填写适用场景（description），Claude 会据此决定是否交给该 Subagent"
 // in the language the app shows.
 //
 // Subagent 页出错：没写 description。
 func CfgAgentNoDescription() string { return In(i18n.Locale()).CfgAgentNoDescription() }
 
-// CfgAgentNoDescription says "请写上什么时候用它（description），Claude 靠它决定要不要交给这个 Subagent"
+// CfgAgentNoDescription says "请填写适用场景（description），Claude 会据此决定是否交给该 Subagent"
 // in the language of msgs.
 //
 // Subagent 页出错：没写 description。
@@ -3546,13 +3546,13 @@ func (msgs Messages) CfgAgentNoDescription() string {
 	return Catalog.Format(msgs.locale, "cfgAgentNoDescription", nil)
 }
 
-// CfgRuleEmpty says "规则不能是空的"
+// CfgRuleEmpty says "规则不能为空"
 // in the language the app shows.
 //
 // 工具权限页出错：规则是空的。
 func CfgRuleEmpty() string { return In(i18n.Locale()).CfgRuleEmpty() }
 
-// CfgRuleEmpty says "规则不能是空的"
+// CfgRuleEmpty says "规则不能为空"
 // in the language of msgs.
 //
 // 工具权限页出错：规则是空的。
@@ -3574,13 +3574,13 @@ func (msgs Messages) CfgRuleSpaces() string {
 	return Catalog.Format(msgs.locale, "cfgRuleSpaces", nil)
 }
 
-// CfgRuleNewline says "规则里不能有换行"
+// CfgRuleNewline says "规则中不能包含换行"
 // in the language the app shows.
 //
 // 工具权限页出错：规则里有换行。
 func CfgRuleNewline() string { return In(i18n.Locale()).CfgRuleNewline() }
 
-// CfgRuleNewline says "规则里不能有换行"
+// CfgRuleNewline says "规则中不能包含换行"
 // in the language of msgs.
 //
 // 工具权限页出错：规则里有换行。
@@ -3588,13 +3588,13 @@ func (msgs Messages) CfgRuleNewline() string {
 	return Catalog.Format(msgs.locale, "cfgRuleNewline", nil)
 }
 
-// CfgRuleMalformed says "括号不配对，写成 工具名 或 工具名(参数)"
+// CfgRuleMalformed says "括号不匹配，格式应为 工具名 或 工具名(参数)"
 // in the language the app shows.
 //
 // 工具权限页出错：括号不配对。
 func CfgRuleMalformed() string { return In(i18n.Locale()).CfgRuleMalformed() }
 
-// CfgRuleMalformed says "括号不配对，写成 工具名 或 工具名(参数)"
+// CfgRuleMalformed says "括号不匹配，格式应为 工具名 或 工具名(参数)"
 // in the language of msgs.
 //
 // 工具权限页出错：括号不配对。
@@ -3602,13 +3602,13 @@ func (msgs Messages) CfgRuleMalformed() string {
 	return Catalog.Format(msgs.locale, "cfgRuleMalformed", nil)
 }
 
-// CfgBadPath says "路径不对"
+// CfgBadPath says "路径无效"
 // in the language the app shows.
 //
 // 记忆页出错：路径不对。
 func CfgBadPath() string { return In(i18n.Locale()).CfgBadPath() }
 
-// CfgBadPath says "路径不对"
+// CfgBadPath says "路径无效"
 // in the language of msgs.
 //
 // 记忆页出错：路径不对。
@@ -3616,13 +3616,13 @@ func (msgs Messages) CfgBadPath() string {
 	return Catalog.Format(msgs.locale, "cfgBadPath", nil)
 }
 
-// CfgOnlyMemoryFiles says "只能编辑记忆目录里的 .md 文件"
+// CfgOnlyMemoryFiles says "仅支持编辑记忆目录中的 .md 文件"
 // in the language the app shows.
 //
 // 记忆页出错：不是记忆文件。
 func CfgOnlyMemoryFiles() string { return In(i18n.Locale()).CfgOnlyMemoryFiles() }
 
-// CfgOnlyMemoryFiles says "只能编辑记忆目录里的 .md 文件"
+// CfgOnlyMemoryFiles says "仅支持编辑记忆目录中的 .md 文件"
 // in the language of msgs.
 //
 // 记忆页出错：不是记忆文件。
@@ -3630,13 +3630,13 @@ func (msgs Messages) CfgOnlyMemoryFiles() string {
 	return Catalog.Format(msgs.locale, "cfgOnlyMemoryFiles", nil)
 }
 
-// CfgNotEditable says "不能编辑这个文件"
+// CfgNotEditable says "无法编辑该文件"
 // in the language the app shows.
 //
 // 记忆页出错：不能编辑这个文件。
 func CfgNotEditable() string { return In(i18n.Locale()).CfgNotEditable() }
 
-// CfgNotEditable says "不能编辑这个文件"
+// CfgNotEditable says "无法编辑该文件"
 // in the language of msgs.
 //
 // 记忆页出错：不能编辑这个文件。
@@ -3658,13 +3658,13 @@ func (msgs Messages) ToolBash() string {
 	return Catalog.Format(msgs.locale, "toolBash", nil)
 }
 
-// ToolRead says "读文件，也管按名字找文件和搜内容"
+// ToolRead says "读取文件，同时覆盖按文件名查找和内容搜索"
 // in the language the app shows.
 //
 // 工具权限页 Read 一行的说明。
 func ToolRead() string { return In(i18n.Locale()).ToolRead() }
 
-// ToolRead says "读文件，也管按名字找文件和搜内容"
+// ToolRead says "读取文件，同时覆盖按文件名查找和内容搜索"
 // in the language of msgs.
 //
 // 工具权限页 Read 一行的说明。
@@ -3672,13 +3672,13 @@ func (msgs Messages) ToolRead() string {
 	return Catalog.Format(msgs.locale, "toolRead", nil)
 }
 
-// ToolEdit says "修改文件；带路径的规则也管 Write"
+// ToolEdit says "修改文件；带路径的规则同样适用于 Write"
 // in the language the app shows.
 //
 // 工具权限页 Edit 一行的说明。
 func ToolEdit() string { return In(i18n.Locale()).ToolEdit() }
 
-// ToolEdit says "修改文件；带路径的规则也管 Write"
+// ToolEdit says "修改文件；带路径的规则同样适用于 Write"
 // in the language of msgs.
 //
 // 工具权限页 Edit 一行的说明。
@@ -3742,13 +3742,13 @@ func (msgs Messages) ToolWebSearch() string {
 	return Catalog.Format(msgs.locale, "toolWebSearch", nil)
 }
 
-// ToolAgent says "派出 Subagent（旧名 Task）"
+// ToolAgent says "调用 Subagent（旧名 Task）"
 // in the language the app shows.
 //
 // 工具权限页 Agent 一行的说明。
 func ToolAgent() string { return In(i18n.Locale()).ToolAgent() }
 
-// ToolAgent says "派出 Subagent（旧名 Task）"
+// ToolAgent says "调用 Subagent（旧名 Task）"
 // in the language of msgs.
 //
 // 工具权限页 Agent 一行的说明。
@@ -3770,13 +3770,13 @@ func (msgs Messages) ToolSkill() string {
 	return Catalog.Format(msgs.locale, "toolSkill", nil)
 }
 
-// ToolGlob says "按文件名找文件（Bash 被拒时才有）"
+// ToolGlob says "按文件名查找文件（仅在 Bash 被拒绝时生效）"
 // in the language the app shows.
 //
 // 工具权限页 Glob 一行的说明。
 func ToolGlob() string { return In(i18n.Locale()).ToolGlob() }
 
-// ToolGlob says "按文件名找文件（Bash 被拒时才有）"
+// ToolGlob says "按文件名查找文件（仅在 Bash 被拒绝时生效）"
 // in the language of msgs.
 //
 // 工具权限页 Glob 一行的说明。
@@ -3784,13 +3784,13 @@ func (msgs Messages) ToolGlob() string {
 	return Catalog.Format(msgs.locale, "toolGlob", nil)
 }
 
-// ToolGrep says "在文件里搜内容（Bash 被拒时才有）"
+// ToolGrep says "在文件中搜索内容（仅在 Bash 被拒绝时生效）"
 // in the language the app shows.
 //
 // 工具权限页 Grep 一行的说明。
 func ToolGrep() string { return In(i18n.Locale()).ToolGrep() }
 
-// ToolGrep says "在文件里搜内容（Bash 被拒时才有）"
+// ToolGrep says "在文件中搜索内容（仅在 Bash 被拒绝时生效）"
 // in the language of msgs.
 //
 // 工具权限页 Grep 一行的说明。
@@ -3798,13 +3798,13 @@ func (msgs Messages) ToolGrep() string {
 	return Catalog.Format(msgs.locale, "toolGrep", nil)
 }
 
-// ToolMonitor says "盯着后台命令的输出"
+// ToolMonitor says "监听后台命令的输出"
 // in the language the app shows.
 //
 // 工具权限页 Monitor 一行的说明。
 func ToolMonitor() string { return In(i18n.Locale()).ToolMonitor() }
 
-// ToolMonitor says "盯着后台命令的输出"
+// ToolMonitor says "监听后台命令的输出"
 // in the language of msgs.
 //
 // 工具权限页 Monitor 一行的说明。
@@ -3868,13 +3868,13 @@ func (msgs Messages) ToolCronList() string {
 	return Catalog.Format(msgs.locale, "toolCronList", nil)
 }
 
-// ToolScheduleWakeup says "/loop 里过一会儿再接着做"
+// ToolScheduleWakeup says "在 /loop 中定时唤醒并继续执行"
 // in the language the app shows.
 //
 // 工具权限页 ScheduleWakeup 一行的说明。
 func ToolScheduleWakeup() string { return In(i18n.Locale()).ToolScheduleWakeup() }
 
-// ToolScheduleWakeup says "/loop 里过一会儿再接着做"
+// ToolScheduleWakeup says "在 /loop 中定时唤醒并继续执行"
 // in the language of msgs.
 //
 // 工具权限页 ScheduleWakeup 一行的说明。
@@ -3882,13 +3882,13 @@ func (msgs Messages) ToolScheduleWakeup() string {
 	return Catalog.Format(msgs.locale, "toolScheduleWakeup", nil)
 }
 
-// ToolSendMessage says "给 Subagent 或别的会话发消息"
+// ToolSendMessage says "向 Subagent 或其他会话发送消息"
 // in the language the app shows.
 //
 // 工具权限页 SendMessage 一行的说明。
 func ToolSendMessage() string { return In(i18n.Locale()).ToolSendMessage() }
 
-// ToolSendMessage says "给 Subagent 或别的会话发消息"
+// ToolSendMessage says "向 Subagent 或其他会话发送消息"
 // in the language of msgs.
 //
 // 工具权限页 SendMessage 一行的说明。
@@ -3896,13 +3896,13 @@ func (msgs Messages) ToolSendMessage() string {
 	return Catalog.Format(msgs.locale, "toolSendMessage", nil)
 }
 
-// ToolListAgents says "列出能发消息的 Subagent 和会话"
+// ToolListAgents says "列出可发送消息的 Subagent 和会话"
 // in the language the app shows.
 //
 // 工具权限页 ListAgents 一行的说明。
 func ToolListAgents() string { return In(i18n.Locale()).ToolListAgents() }
 
-// ToolListAgents says "列出能发消息的 Subagent 和会话"
+// ToolListAgents says "列出可发送消息的 Subagent 和会话"
 // in the language of msgs.
 //
 // 工具权限页 ListAgents 一行的说明。
@@ -3910,13 +3910,13 @@ func (msgs Messages) ToolListAgents() string {
 	return Catalog.Format(msgs.locale, "toolListAgents", nil)
 }
 
-// ToolTaskStop says "停掉后台任务"
+// ToolTaskStop says "停止后台任务"
 // in the language the app shows.
 //
 // 工具权限页 TaskStop 一行的说明。
 func ToolTaskStop() string { return In(i18n.Locale()).ToolTaskStop() }
 
-// ToolTaskStop says "停掉后台任务"
+// ToolTaskStop says "停止后台任务"
 // in the language of msgs.
 //
 // 工具权限页 TaskStop 一行的说明。
@@ -3966,13 +3966,13 @@ func (msgs Messages) ToolEnterPlanMode() string {
 	return Catalog.Format(msgs.locale, "toolEnterPlanMode", nil)
 }
 
-// ToolExitPlanMode says "交出计划、退出计划模式"
+// ToolExitPlanMode says "提交计划并退出计划模式"
 // in the language the app shows.
 //
 // 工具权限页 ExitPlanMode 一行的说明。
 func ToolExitPlanMode() string { return In(i18n.Locale()).ToolExitPlanMode() }
 
-// ToolExitPlanMode says "交出计划、退出计划模式"
+// ToolExitPlanMode says "提交计划并退出计划模式"
 // in the language of msgs.
 //
 // 工具权限页 ExitPlanMode 一行的说明。
@@ -3980,13 +3980,13 @@ func (msgs Messages) ToolExitPlanMode() string {
 	return Catalog.Format(msgs.locale, "toolExitPlanMode", nil)
 }
 
-// ToolAskUserQuestion says "向你提选择题"
+// ToolAskUserQuestion says "向你提出选择题"
 // in the language the app shows.
 //
 // 工具权限页 AskUserQuestion 一行的说明。
 func ToolAskUserQuestion() string { return In(i18n.Locale()).ToolAskUserQuestion() }
 
-// ToolAskUserQuestion says "向你提选择题"
+// ToolAskUserQuestion says "向你提出选择题"
 // in the language of msgs.
 //
 // 工具权限页 AskUserQuestion 一行的说明。
@@ -4008,13 +4008,13 @@ func (msgs Messages) ToolUpdateSteps() string {
 	return Catalog.Format(msgs.locale, "toolUpdateSteps", nil)
 }
 
-// ToolToolSearch says "按需加载其余工具，拒绝后都用不了"
+// ToolToolSearch says "按需加载其余工具，拒绝后其余工具均不可用"
 // in the language the app shows.
 //
 // 工具权限页 ToolSearch 一行的说明。
 func ToolToolSearch() string { return In(i18n.Locale()).ToolToolSearch() }
 
-// ToolToolSearch says "按需加载其余工具，拒绝后都用不了"
+// ToolToolSearch says "按需加载其余工具，拒绝后其余工具均不可用"
 // in the language of msgs.
 //
 // 工具权限页 ToolSearch 一行的说明。
@@ -4022,13 +4022,13 @@ func (msgs Messages) ToolToolSearch() string {
 	return Catalog.Format(msgs.locale, "toolToolSearch", nil)
 }
 
-// ToolReportFindings says "按格式汇报代码审查的发现"
+// ToolReportFindings says "按格式汇报代码审查结果"
 // in the language the app shows.
 //
 // 工具权限页 ReportFindings 一行的说明。
 func ToolReportFindings() string { return In(i18n.Locale()).ToolReportFindings() }
 
-// ToolReportFindings says "按格式汇报代码审查的发现"
+// ToolReportFindings says "按格式汇报代码审查结果"
 // in the language of msgs.
 //
 // 工具权限页 ReportFindings 一行的说明。
@@ -4036,13 +4036,13 @@ func (msgs Messages) ToolReportFindings() string {
 	return Catalog.Format(msgs.locale, "toolReportFindings", nil)
 }
 
-// ToolDesignSync says "读写 Claude Design 里的项目文件"
+// ToolDesignSync says "读写 Claude Design 中的项目文件"
 // in the language the app shows.
 //
 // 工具权限页 DesignSync 一行的说明。
 func ToolDesignSync() string { return In(i18n.Locale()).ToolDesignSync() }
 
-// ToolDesignSync says "读写 Claude Design 里的项目文件"
+// ToolDesignSync says "读写 Claude Design 中的项目文件"
 // in the language of msgs.
 //
 // 工具权限页 DesignSync 一行的说明。
@@ -4050,13 +4050,13 @@ func (msgs Messages) ToolDesignSync() string {
 	return Catalog.Format(msgs.locale, "toolDesignSync", nil)
 }
 
-// CfgMcpExists says "已经有一个叫 {name} 的服务器了"
+// CfgMcpExists says "已存在名为 {name} 的服务器"
 // in the language the app shows.
 //
 // MCP 页出错：重名。
 func CfgMcpExists(name string) string { return In(i18n.Locale()).CfgMcpExists(name) }
 
-// CfgMcpExists says "已经有一个叫 {name} 的服务器了"
+// CfgMcpExists says "已存在名为 {name} 的服务器"
 // in the language of msgs.
 //
 // MCP 页出错：重名。
@@ -4106,13 +4106,13 @@ func (msgs Messages) FormMaxLength(n int) string {
 	return Catalog.Format(msgs.locale, "formMaxLength", map[string]any{"n": n})
 }
 
-// FormInteger says "要填整数"
+// FormInteger says "请填写整数"
 // in the language the app shows.
 //
 // MCP 表单一项的错误：不是整数。
 func FormInteger() string { return In(i18n.Locale()).FormInteger() }
 
-// FormInteger says "要填整数"
+// FormInteger says "请填写整数"
 // in the language of msgs.
 //
 // MCP 表单一项的错误：不是整数。
@@ -4120,13 +4120,13 @@ func (msgs Messages) FormInteger() string {
 	return Catalog.Format(msgs.locale, "formInteger", nil)
 }
 
-// FormNumber says "要填数字"
+// FormNumber says "请填写数字"
 // in the language the app shows.
 //
 // MCP 表单一项的错误：不是数字。
 func FormNumber() string { return In(i18n.Locale()).FormNumber() }
 
-// FormNumber says "要填数字"
+// FormNumber says "请填写数字"
 // in the language of msgs.
 //
 // MCP 表单一项的错误：不是数字。
@@ -4162,13 +4162,13 @@ func (msgs Messages) FormMax(max string) string {
 	return Catalog.Format(msgs.locale, "formMax", map[string]any{"max": max})
 }
 
-// FormMinChoices says "至少选 {min} 项"
+// FormMinChoices says "至少选择 {min} 项"
 // in the language the app shows.
 //
 // MCP 表单一项的错误：多选选得太少。
 func FormMinChoices(min string) string { return In(i18n.Locale()).FormMinChoices(min) }
 
-// FormMinChoices says "至少选 {min} 项"
+// FormMinChoices says "至少选择 {min} 项"
 // in the language of msgs.
 //
 // MCP 表单一项的错误：多选选得太少。
@@ -4176,13 +4176,13 @@ func (msgs Messages) FormMinChoices(min string) string {
 	return Catalog.Format(msgs.locale, "formMinChoices", map[string]any{"min": min})
 }
 
-// FormMaxChoices says "最多选 {max} 项"
+// FormMaxChoices says "最多选择 {max} 项"
 // in the language the app shows.
 //
 // MCP 表单一项的错误：多选选得太多。
 func FormMaxChoices(max string) string { return In(i18n.Locale()).FormMaxChoices(max) }
 
-// FormMaxChoices says "最多选 {max} 项"
+// FormMaxChoices says "最多选择 {max} 项"
 // in the language of msgs.
 //
 // MCP 表单一项的错误：多选选得太多。
@@ -4190,13 +4190,13 @@ func (msgs Messages) FormMaxChoices(max string) string {
 	return Catalog.Format(msgs.locale, "formMaxChoices", map[string]any{"max": max})
 }
 
-// ErrNoPrompt says "没有在等这个请求"
+// ErrNoPrompt says "当前未在等待该请求"
 // in the language the app shows.
 //
 // 出错应答：回应的请求已经不在等了。
 func ErrNoPrompt() string { return In(i18n.Locale()).ErrNoPrompt() }
 
-// ErrNoPrompt says "没有在等这个请求"
+// ErrNoPrompt says "当前未在等待该请求"
 // in the language of msgs.
 //
 // 出错应答：回应的请求已经不在等了。
@@ -4204,7 +4204,7 @@ func (msgs Messages) ErrNoPrompt() string {
 	return Catalog.Format(msgs.locale, "errNoPrompt", nil)
 }
 
-// ErrSkillZipTooBig says "文件超过 45 MB，不像是一个 Skill 包"
+// ErrSkillZipTooBig says "文件超过 45 MB，可能不是 Skill 包"
 // in the language the app shows.
 //
 // 导入 Skill
@@ -4212,7 +4212,7 @@ func (msgs Messages) ErrNoPrompt() string {
 // locales.Said）。
 func ErrSkillZipTooBig() string { return In(i18n.Locale()).ErrSkillZipTooBig() }
 
-// ErrSkillZipTooBig says "文件超过 45 MB，不像是一个 Skill 包"
+// ErrSkillZipTooBig says "文件超过 45 MB，可能不是 Skill 包"
 // in the language of msgs.
 //
 // 导入 Skill
@@ -4222,13 +4222,13 @@ func (msgs Messages) ErrSkillZipTooBig() string {
 	return Catalog.Format(msgs.locale, "errSkillZipTooBig", nil)
 }
 
-// ErrAgyUpdating says "这台主机上正在更新 Antigravity"
+// ErrAgyUpdating says "当前主机正在更新 Antigravity"
 // in the language the app shows.
 //
 // 出错应答：已经有一次 agy update 在跑。
 func ErrAgyUpdating() string { return In(i18n.Locale()).ErrAgyUpdating() }
 
-// ErrAgyUpdating says "这台主机上正在更新 Antigravity"
+// ErrAgyUpdating says "当前主机正在更新 Antigravity"
 // in the language of msgs.
 //
 // 出错应答：已经有一次 agy update 在跑。
@@ -4236,13 +4236,13 @@ func (msgs Messages) ErrAgyUpdating() string {
 	return Catalog.Format(msgs.locale, "errAgyUpdating", nil)
 }
 
-// ErrAgyAccountInUse says "正在用这个账号，先换到别的账号或中转再删"
+// ErrAgyAccountInUse says "当前正在使用该账号，请先切换到其他账号或中转后再删除"
 // in the language the app shows.
 //
 // 出错应答：要删的 agy 账号正在用。
 func ErrAgyAccountInUse() string { return In(i18n.Locale()).ErrAgyAccountInUse() }
 
-// ErrAgyAccountInUse says "正在用这个账号，先换到别的账号或中转再删"
+// ErrAgyAccountInUse says "当前正在使用该账号，请先切换到其他账号或中转后再删除"
 // in the language of msgs.
 //
 // 出错应答：要删的 agy 账号正在用。
@@ -4250,7 +4250,7 @@ func (msgs Messages) ErrAgyAccountInUse() string {
 	return Catalog.Format(msgs.locale, "errAgyAccountInUse", nil)
 }
 
-// ErrAgyBlockedElsewhere says "还有 {others, plural, other {# 个别处开着的 Antigravity}}（比如终端里的 agy）{othersBusy, plural, =0 …"
+// ErrAgyBlockedElsewhere says "其他位置还运行着 {others, plural, other {# 个 Antigravity}}（如终端中的 agy）{othersBusy, plural, =0 …"
 // in the language the app shows.
 //
 // 换号被挡住时的说明：Zeta 之外开着 Antigravity。others
@@ -4259,7 +4259,7 @@ func ErrAgyBlockedElsewhere(others int, othersBusy int) string {
 	return In(i18n.Locale()).ErrAgyBlockedElsewhere(others, othersBusy)
 }
 
-// ErrAgyBlockedElsewhere says "还有 {others, plural, other {# 个别处开着的 Antigravity}}（比如终端里的 agy）{othersBusy, plural, =0 …"
+// ErrAgyBlockedElsewhere says "其他位置还运行着 {others, plural, other {# 个 Antigravity}}（如终端中的 agy）{othersBusy, plural, =0 …"
 // in the language of msgs.
 //
 // 换号被挡住时的说明：Zeta 之外开着 Antigravity。others
@@ -4268,7 +4268,7 @@ func (msgs Messages) ErrAgyBlockedElsewhere(others int, othersBusy int) string {
 	return Catalog.Format(msgs.locale, "errAgyBlockedElsewhere", map[string]any{"others": others, "othersBusy": othersBusy})
 }
 
-// ErrAgyBlockedBoth says "另一个 Zeta（{apps}）开着 {count, plural, other {# 个对话}}{busy, plural, =0 {} other {，其中 # …"
+// ErrAgyBlockedBoth says "另一个 Zeta（{apps}）打开了 {count, plural, other {# 个对话}}{busy, plural, =0 {} other {，其中 # …"
 // in the language the app shows.
 //
 // 换号被挡住时的说明：别的 Zeta 包和别处的 Antigravity
@@ -4277,7 +4277,7 @@ func ErrAgyBlockedBoth(apps string, count int, busy int, others int, othersBusy 
 	return In(i18n.Locale()).ErrAgyBlockedBoth(apps, count, busy, others, othersBusy)
 }
 
-// ErrAgyBlockedBoth says "另一个 Zeta（{apps}）开着 {count, plural, other {# 个对话}}{busy, plural, =0 {} other {，其中 # …"
+// ErrAgyBlockedBoth says "另一个 Zeta（{apps}）打开了 {count, plural, other {# 个对话}}{busy, plural, =0 {} other {，其中 # …"
 // in the language of msgs.
 //
 // 换号被挡住时的说明：别的 Zeta 包和别处的 Antigravity
@@ -4302,14 +4302,14 @@ func (msgs Messages) ErrAgyLoginCodeEmpty() string {
 	return Catalog.Format(msgs.locale, "errAgyLoginCodeEmpty", nil)
 }
 
-// ErrHarnessLocked says "对话已经开始，不能再切换引擎"
+// ErrHarnessLocked says "对话已开始，无法再切换引擎"
 // in the language the app shows.
 //
 // 出错应答：已有消息、会话号或运行中进程时调用
 // conv.harness 切换引擎。
 func ErrHarnessLocked() string { return In(i18n.Locale()).ErrHarnessLocked() }
 
-// ErrHarnessLocked says "对话已经开始，不能再切换引擎"
+// ErrHarnessLocked says "对话已开始，无法再切换引擎"
 // in the language of msgs.
 //
 // 出错应答：已有消息、会话号或运行中进程时调用
@@ -4348,13 +4348,13 @@ func (msgs Messages) ToolAgyEdit() string {
 	return Catalog.Format(msgs.locale, "toolAgyEdit", nil)
 }
 
-// ToolAgyGrep says "在文件里搜内容"
+// ToolAgyGrep says "在文件中搜索内容"
 // in the language the app shows.
 //
 // Antigravity 工具权限页 grep_search 一行的说明。
 func ToolAgyGrep() string { return In(i18n.Locale()).ToolAgyGrep() }
 
-// ToolAgyGrep says "在文件里搜内容"
+// ToolAgyGrep says "在文件中搜索内容"
 // in the language of msgs.
 //
 // Antigravity 工具权限页 grep_search 一行的说明。
@@ -4362,13 +4362,13 @@ func (msgs Messages) ToolAgyGrep() string {
 	return Catalog.Format(msgs.locale, "toolAgyGrep", nil)
 }
 
-// ToolAgyGlob says "按文件名找文件"
+// ToolAgyGlob says "按文件名查找文件"
 // in the language the app shows.
 //
 // Antigravity 工具权限页 find_by_name 一行的说明。
 func ToolAgyGlob() string { return In(i18n.Locale()).ToolAgyGlob() }
 
-// ToolAgyGlob says "按文件名找文件"
+// ToolAgyGlob says "按文件名查找文件"
 // in the language of msgs.
 //
 // Antigravity 工具权限页 find_by_name 一行的说明。
@@ -4376,13 +4376,13 @@ func (msgs Messages) ToolAgyGlob() string {
 	return Catalog.Format(msgs.locale, "toolAgyGlob", nil)
 }
 
-// ToolAgyAgent says "派出 Subagent"
+// ToolAgyAgent says "调用 Subagent"
 // in the language the app shows.
 //
 // Antigravity 工具权限页 invoke_subagent 一行的说明。
 func ToolAgyAgent() string { return In(i18n.Locale()).ToolAgyAgent() }
 
-// ToolAgyAgent says "派出 Subagent"
+// ToolAgyAgent says "调用 Subagent"
 // in the language of msgs.
 //
 // Antigravity 工具权限页 invoke_subagent 一行的说明。

@@ -180,15 +180,15 @@ class UpdateHttpTest {
         val why = reason { http().manifest(github.base + manifestPath.removePrefix("/")) }
         val g = UpdateHttp.host(github.base)
         val p = UpdateHttp.host(proxy.base)
-        assertEquals("$g 回了 HTTP 404；$p 回了 HTTP 502", why)
+        assertEquals("$g 返回 HTTP 404；$p 返回 HTTP 502", why)
         // 不是 GitHub 的地址只试它自己
         val other = "http://127.0.0.1:${ServerSocket(0).use { it.localPort }}/update.json"
-        assertEquals("连不上 ${UpdateHttp.host(other)}", reason { http().manifest(other) })
+        assertEquals("无法连接 ${UpdateHttp.host(other)}", reason { http().manifest(other) })
         // 内容不对时说是哪一处给的、哪一项不对
         github.routes[manifestPath] = 200 to manifestJson(github.base, sha = "nope").toByteArray()
         proxy.routes.remove(viaProxy(manifestPath))
         assertEquals(
-            "$g 给的更新清单格式不对：sha256 缺少或不是 64 位小写十六进制；$p 回了 HTTP 404",
+            "来自 $g 的更新清单格式错误：sha256 缺少或不是 64 位小写十六进制；$p 返回 HTTP 404",
             reason { http().manifest(github.base + manifestPath.removePrefix("/")) },
         )
     }
@@ -227,7 +227,7 @@ class UpdateHttpTest {
         // sha256 不对
         github.routes[apkPath] = 200 to apk.copyOf().also { it[0] = (it[0] + 1).toByte() }
         assertEquals(
-            "从 $g 下的文件 sha256 和清单不一致，已删掉；$p 回了 HTTP 404",
+            "从 $g 下载的文件 sha256 与清单不一致，已删除；$p 返回 HTTP 404",
             reason { http().download(m.apkPackage, dest) {} },
         )
         assertEquals(emptyList<String>(), dir.list()!!.toList())
@@ -235,13 +235,13 @@ class UpdateHttpTest {
         github.routes[apkPath] = 200 to apk + ByteArray(10)
         assertTrue(
             reason { http().download(m.apkPackage, dest) {} }
-                .startsWith("从 $g 下的文件比清单写的 ${apk.size} 字节大，已删掉"),
+                .startsWith("从 $g 下载的文件超过清单记录的 ${apk.size} 字节，已删除"),
         )
         // 比清单写的小
         github.routes[apkPath] = 200 to apk.copyOf(1000)
         assertTrue(
             reason { http().download(m.apkPackage, dest) {} }
-                .startsWith("从 $g 下的文件只有 1000 字节，清单写的是 ${apk.size}，已删掉"),
+                .startsWith("从 $g 下载的文件仅 1000 字节，清单记录为 ${apk.size}，已删除"),
         )
         assertEquals(emptyList<String>(), dir.list()!!.toList())
     }

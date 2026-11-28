@@ -73,7 +73,7 @@ func TestParseManifestBad(t *testing.T) {
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			_, err := ParseManifest([]byte(tc.text))
-			if err == nil || !strings.HasPrefix(err.Error(), "更新清单格式不对：") || !strings.Contains(err.Error(), tc.want) {
+			if err == nil || !strings.HasPrefix(err.Error(), "更新清单格式无效：") || !strings.Contains(err.Error(), tc.want) {
 				t.Errorf("error %v, want one about %s", err, tc.want)
 			}
 		})

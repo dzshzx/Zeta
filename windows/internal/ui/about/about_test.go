@@ -159,7 +159,7 @@ func TestAvailable(t *testing.T) {
 
 func TestLicenses(t *testing.T) {
 	_, _, _, tt := newPage(release, update.Status{})
-	for _, s := range []string{"开源许可", "Zeta", "Windows 程序链接的", "github.com/egoist/mygo v0.10.0", "带到主机上的 zeta-helper、claude-switch 链接的"} {
+	for _, s := range []string{"开源许可", "Zeta", "Windows 客户端依赖的组件", "github.com/egoist/mygo v0.10.0", "主机端 zeta-helper 与 claude-switch 依赖的组件"} {
 		if !tt.HasText(s) {
 			t.Errorf("no %q in %q", s, tt.Texts())
 		}

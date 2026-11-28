@@ -365,7 +365,7 @@ class ClaudeCodeQuotaContractTest {
 
             // 开着的进程在 ~/.claude/sessions 里登记着（pid、启动时刻、状态），核心据此说清是谁挡着；claude-switch 也认出它，不让换
             assertEquals(
-                "还有 1 个别处开着的 Claude Code（比如终端里的 claude），先退出它们。",
+                "其他位置还运行着 1 个 Claude Code（如终端中的 claude），请先退出。",
                 accounts().list().blocker,
             )
             assertEquals("claude", accounts().save())

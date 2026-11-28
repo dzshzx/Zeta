@@ -92,7 +92,7 @@ func TestPermissionEditsKeepOtherSettings(t *testing.T) {
 		t.Errorf("settings:\n%s", got)
 	}
 	write(t, path, `{"permissions":"bad"}`)
-	if _, err := c.SetToolPermission("Bash", Allow); err == nil || !strings.Contains(err.Error(), "permissions 不是一个对象") {
+	if _, err := c.SetToolPermission("Bash", Allow); err == nil || !strings.Contains(err.Error(), "permissions 不是对象") {
 		t.Errorf("bad permissions: %v", err)
 	}
 }
@@ -179,7 +179,7 @@ func TestPermissionsViewInClientLanguage(t *testing.T) {
 	if got := locales.Said(RuleProblem("Bash("), "en"); got != "Unbalanced parentheses. Write Tool or Tool(argument)." {
 		t.Errorf("英文的出错：%q", got)
 	}
-	if got := locales.Said(RuleProblem("Bash("), ""); got != "括号不配对，写成 工具名 或 工具名(参数)" {
+	if got := locales.Said(RuleProblem("Bash("), ""); got != "括号不匹配，格式应为 工具名 或 工具名(参数)" {
 		t.Errorf("中文的出错：%q", got)
 	}
 }

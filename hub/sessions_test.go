@@ -139,7 +139,7 @@ func TestDeletingAnActiveSessionIsRefusedByTheCore(t *testing.T) {
 	opened := f.devices.Opened(f.id)
 	var why error
 	f.hub.Delete([]hostlink.Session{find(f.hub, "s1"), find(f.hub, "s3")}, func(err error) { why = err })
-	if !errors.Is(why, ErrActive) || why.Error() != "1 个没成功：对话正在进行，结束后再删" {
+	if !errors.Is(why, ErrActive) || why.Error() != "1 项操作失败：对话正在进行，请结束后再删除" {
 		t.Errorf("原因 %v", why)
 	}
 	if got := f.devices.SessionCalls(); len(got) != 2 {
@@ -168,7 +168,7 @@ func TestFailedDeletesRewatchEachDeviceOnce(t *testing.T) {
 	opened := f.devices.Opened(f.id)
 	var why error
 	f.hub.Delete([]hostlink.Session{find(f.hub, "s1"), find(f.hub, "s2"), find(f.hub, "s3")}, func(err error) { why = err })
-	if why == nil || why.Error() != "3 个没成功：没有权限" || f.devices.Opened(f.id) != opened+1 {
+	if why == nil || why.Error() != "3 项操作失败：没有权限" || f.devices.Opened(f.id) != opened+1 {
 		t.Errorf("原因 %v，重订 %d 次", why, f.devices.Opened(f.id)-opened)
 	}
 }
@@ -345,7 +345,7 @@ func TestHandOver(t *testing.T) {
 	}
 	f.devices.Handoffs["s1"] = `{"handed":false,"status":"stuck"}`
 	f.hub.HandOver()
-	if !strings.Contains(locales.ErrorText(ho.Problem), "没有退出") {
+	if !strings.Contains(locales.ErrorText(ho.Problem), "尚未退出") {
 		t.Errorf("没退：%q", locales.ErrorText(ho.Problem))
 	}
 	f.devices.Handoffs = nil

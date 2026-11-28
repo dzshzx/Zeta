@@ -43,7 +43,7 @@ final class LiveActivities {
             started[key] = nil
             var done = activity.content.state
             done.phase = .finished
-            done.line = String(localized: "答完了")
+            done.line = String(localized: "已回复")
             let content = ActivityContent(state: done, staleDate: nil)
             let until = Date.now.addingTimeInterval(Self.finishedFor)
             let id = activity.id

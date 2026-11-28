@@ -413,7 +413,7 @@ func TestProcessExitWhileBusy(t *testing.T) {
 	if last := turns[len(turns)-1]; last["outcome"] != "interrupted" || h.state(1, "process") != false {
 		t.Fatalf("一轮的结局：%v，process %v", last, h.state(1, "process"))
 	}
-	if got := h.texts(1); got[len(got)-1] != "notice:Claude Code 进程被结束了" {
+	if got := h.texts(1); got[len(got)-1] != "notice:Claude Code 进程已被终止" {
 		t.Fatalf("条目：%v", got)
 	}
 	// 再发一条：起新进程，--resume 接上

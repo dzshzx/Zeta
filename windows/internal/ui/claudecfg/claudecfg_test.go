@@ -160,7 +160,7 @@ func TestClaudeCodeUpdate(t *testing.T) {
 func TestMemoryEditorAsksBeforeOverwriting(t *testing.T) {
 	f := newFixture(t, Options{})
 	f.press("打开记忆")
-	f.see("用户指令", "还没有创建，打开就能写")
+	f.see("用户指令", "尚未创建，打开即可编辑")
 	f.press("打开CLAUDE.md")
 	f.typeInto("CLAUDE.md", "回答用中文")
 	f.click("保存")
@@ -172,7 +172,7 @@ func TestMemoryEditorAsksBeforeOverwriting(t *testing.T) {
 	f.typeInto("CLAUDE.md", "。")
 	f.serve.Write(t, ".claude/CLAUDE.md", "别处改的")
 	f.click("保存")
-	f.see("文件已经变了")
+	f.see("文件已发生变更")
 	f.click("仍然保存")
 	if got := f.serve.Read(".claude/CLAUDE.md"); got != "回答用中文。" {
 		t.Errorf("CLAUDE.md %q", got)
@@ -183,7 +183,7 @@ func TestSkillImportAndReplace(t *testing.T) {
 	pkg := skillZip(t, "---\nname: tidy\ndescription: 整理代码\n---\n正文\n")
 	f := newFixture(t, Options{OpenZip: func() (string, []byte, error) { return "tidy.zip", pkg, nil }})
 	f.press("打开Skills")
-	f.see("还没有 Skill")
+	f.see("暂无 Skill")
 	f.click("选择文件")
 	f.see("已安装")
 	f.click("知道了")
@@ -219,9 +219,9 @@ func TestNewSubagent(t *testing.T) {
 	f.press("打开Subagent")
 	f.press("新建 Subagent")
 	f.typeInto("名称", "code-reviewer")
-	f.typeInto("什么时候用", "改完代码后审查")
+	f.typeInto("适用场景", "改完代码后审查")
 	f.press("全部工具")
-	f.press("读文件")
+	f.press("读取文件")
 	f.typeInto("系统提示词", "你是审查员")
 	f.click("保存")
 	got := f.serve.Read(".claude/agents/code-reviewer.md")
@@ -261,12 +261,12 @@ func TestToolPermissions(t *testing.T) {
 func TestMcpServers(t *testing.T) {
 	f := newFixture(t, Options{})
 	f.press("打开MCP 服务器")
-	f.see("还没有 MCP 服务器")
+	f.see("暂无 MCP 服务器")
 	f.click("添加服务器")
 	f.typeInto("名称", "bad name")
 	f.typeInto("服务器地址", "https://mcp.invalid/mcp")
 	f.click("添加")
-	f.see("名称只能用字母、数字、下划线和连字符")
+	f.see("名称仅支持字母、数字、下划线和连字符")
 
 	f.press("名称")
 	f.tt.Key(ui.Cmd, ui.KeyA)
@@ -283,7 +283,7 @@ func TestMcpServers(t *testing.T) {
 	f.click("删除")
 	f.see("删除服务器")
 	f.press("删除")
-	f.see("还没有 MCP 服务器")
+	f.see("暂无 MCP 服务器")
 }
 
 // 有内容的文件打开时先预览：照聊天里回答的样子排（标题、列表、加粗都排出来），没有输入框；切到编辑改了再切回预览，看到的是改过的。
@@ -317,8 +317,8 @@ func TestMemoryDocumentEmptyStartsEditing(t *testing.T) {
 		t.Fatal("空文件要直接编辑")
 	}
 	f.press("预览")
-	f.see("还没有内容")
-	f.press("还没有内容，去编辑")
+	f.see("暂无内容")
+	f.press("暂无内容，点击编辑")
 	if !f.hasEditor() {
 		t.Fatal("点了要回到编辑")
 	}
@@ -385,13 +385,13 @@ func TestDefaultModelMoreModels(t *testing.T) {
 func TestDefaultModelWhileAskingForModels(t *testing.T) {
 	f := newFixture(t, Options{})
 	f.page.SetModelChoices([]Model{{Value: "opus", Label: "Opus"}, {Value: "haiku", Label: "Haiku"}}, ModelSourceHarness, true)
-	f.see("正在读取这台设备的模型清单。")
+	f.see("正在读取该设备的模型清单。")
 	f.press("默认模型")
 	f.see("Opus", "Haiku")
 	f.tt.Key(0, ui.KeyEscape)
 	f.page.SetModelChoices([]Model{{Value: "opus", Label: "Opus 5.5"}}, ModelSourceHarness, false)
 	f.tt.Frame()
-	if f.tt.HasText("正在读取这台设备的模型清单。") {
+	if f.tt.HasText("正在读取该设备的模型清单。") {
 		t.Fatal("要到了还在说")
 	}
 	f.press("默认模型")

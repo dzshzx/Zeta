@@ -97,7 +97,7 @@ func TestFirstRunAddsADeviceFromTheSSHConfig(t *testing.T) {
 	f := newFixture(t)
 	f.devices.Config = []string{"box", "localhost", "lab"}
 	f.devices.KeyList = []string{"~/.ssh/id_ed25519", "~/.ssh/work"}
-	f.see(t, "还没有设备", "添加设备")
+	f.see(t, "暂无设备", "添加设备")
 	f.click(t, "添加设备")
 	f.see(t, "从 SSH 配置导入", "box", "lab", "自动选择", locales.DevicesFooter())
 	f.notSee(t, "localhost")
@@ -121,12 +121,12 @@ func TestFirstRunAddsADeviceFromTheSSHConfig(t *testing.T) {
 	}
 	// 加过的不再列；侧栏换到它
 	f.see(t, "已添加", "lab")
-	if f.tt.HasText("还没有设备") {
+	if f.tt.HasText("暂无设备") {
 		t.Error("sidebar still empty")
 	}
 	f.devices.Push(x.ID, hostlink.SessionsUpdate{Full: true})
 	f.click(t, "返回应用")
-	f.see(t, "还没有对话")
+	f.see(t, "暂无对话")
 }
 
 func TestManualAddExplainsWhatWentWrong(t *testing.T) {
@@ -145,7 +145,7 @@ func TestManualAddExplainsWhatWentWrong(t *testing.T) {
 	f.app.add.draft = " ssh://zeta@lab:2222/ "
 	f.tt.Frame()
 	f.click(t, "添加")
-	f.see(t, "没有添加「zeta@lab:2222」", "对方拒绝连接（端口上没有 SSH 服务）")
+	f.see(t, "无法添加「zeta@lab:2222」", "对方拒绝连接（端口上没有 SSH 服务）")
 	if len(f.hub.Hosts()) != 0 || f.devices.Probed()[0] != "zeta@lab:2222" {
 		t.Errorf("hosts %v, probed %v", f.hub.Hosts(), f.devices.Probed())
 	}
@@ -199,7 +199,7 @@ func TestHostSwitcherListsAllDevices(t *testing.T) {
 	f.notSee(t, "盒子上的")
 	f.devices.Fail(hosts[1].ID, "连不上「lab」：网络不通")
 	f.tt.Frame()
-	f.see(t, "没读到会话列表：连不上「lab」：网络不通")
+	f.see(t, "无法读取会话列表：连不上「lab」：网络不通")
 }
 
 func TestEditingADevice(t *testing.T) {
@@ -258,9 +258,9 @@ func TestCheckingFindsAChangedHostKey(t *testing.T) {
 	f.app.open(pageDevice)
 	f.tt.Frame()
 	f.click(t, "检查连接")
-	f.see(t, "主机指纹变了", "现在的："+sshlink.Fingerprint(fresh))
-	f.click(t, "改认新的")
-	f.see(t, "已改认新的主机指纹，再检查一次连接")
+	f.see(t, "主机指纹已变更", "当前值："+sshlink.Fingerprint(fresh))
+	f.click(t, "信任新指纹")
+	f.see(t, "已信任新的主机指纹，请重新检查连接")
 	if got, _ := f.hub.Host(x.ID); got.HostKey != fresh {
 		t.Error("new host key not saved")
 	}
@@ -269,13 +269,13 @@ func TestCheckingFindsAChangedHostKey(t *testing.T) {
 	moved.Home = "/srv/box"
 	f.devices.Probes["box"] = hubtest.Probe{Found: moved}
 	f.click(t, "检查连接")
-	f.see(t, "连上了：Claude Code 2.1.330")
+	f.see(t, "连接成功：Claude Code 2.1.330")
 	if got, _ := f.hub.Host(x.ID); got.Home != "/srv/box" || got.DefaultCwd != "/srv/box" {
 		t.Errorf("host %+v", got)
 	}
 	f.devices.Probes["box"] = hubtest.Probe{Err: errors.New("dial tcp: i/o timeout")}
 	f.click(t, "检查连接")
-	f.see(t, "没连上：连接超时")
+	f.see(t, "连接失败：连接超时")
 }
 
 func TestRemovingADevice(t *testing.T) {

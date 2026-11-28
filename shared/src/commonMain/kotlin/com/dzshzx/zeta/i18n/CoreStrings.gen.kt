@@ -36,7 +36,7 @@ object CoreStrings {
     fun stepInterrupted(): String = catalog.say("stepInterrupted")
 
     /**
-     * 「（没有输出）」
+     * 「（无输出）」
      *
      * 输入栏里 ! 命令那一步的结果：命令什么也没输出。
      */
@@ -50,7 +50,7 @@ object CoreStrings {
     fun stepShellExit(output: String, code: String): String = catalog.say("stepShellExit", mapOf("output" to output, "code" to code))
 
     /**
-     * 「（没有输出） 退出码 {code}」
+     * 「（无输出） 退出码 {code}」
      *
      * 输入栏里 ! 命令那一步的结果：没有输出，退出码不为 0。
      */
@@ -92,7 +92,7 @@ object CoreStrings {
     fun noticeAutoCompactedFrom(tokens: String): String = catalog.say("noticeAutoCompactedFrom", mapOf("tokens" to tokens))
 
     /**
-     * 「这一轮没有正常结束（{subtype}）」
+     * 「本轮未正常结束（{subtype}）」
      *
      * 对话里的出错提示：一轮出错结束，Claude Code 没给原因，subtype 是 result 的 subtype 原样。
      */
@@ -127,7 +127,7 @@ object CoreStrings {
     fun turnStopped(): String = catalog.say("turnStopped")
 
     /**
-     * 「出错了」
+     * 「发生错误」
      *
      * 一轮结束的通知：这一轮出错结束。
      */
@@ -148,21 +148,21 @@ object CoreStrings {
     fun noticeStartFailed(reason: String): String = catalog.say("noticeStartFailed", mapOf("reason" to reason))
 
     /**
-     * 「Claude Code 没有启动：进不去工作目录 {cwd}（没有这个目录，或没有权限）。新对话在开始页点工作目录那一行改；默认工作目录在设置里这台设备的页面上改。」
+     * 「Claude Code 无法启动：无法进入工作目录 {cwd}（目录不存在或无权限）。新对话可在开始页点击工作目录修改；默认工作目录可在设置中对应设备页修改。」
      *
      * 对话里的出错提示：Claude Code 进不去工作目录 cwd，告诉用户去哪改。
      */
     fun noticeNoWorkDir(cwd: String): String = catalog.say("noticeNoWorkDir", mapOf("cwd" to cwd))
 
     /**
-     * 「Claude Code 没能启动」
+     * 「Claude Code 未能启动」
      *
      * 对话里的出错提示：新对话的 Claude Code 一启动就退出了，没说原因。
      */
     fun noticeClaudeNotStarted(): String = catalog.say("noticeClaudeNotStarted")
 
     /**
-     * 「Claude Code 进程被结束了」
+     * 「Claude Code 进程已被终止」
      *
      * 对话里的出错提示：Claude Code 进程被信号结束（退出码 143 或 137）。
      */
@@ -190,14 +190,14 @@ object CoreStrings {
     fun noticeHandedToTerminal(): String = catalog.say("noticeHandedToTerminal")
 
     /**
-     * 「没有删除：{reason}」
+     * 「未能删除：{reason}」
      *
      * 对话里的出错提示：删除一轮没成，reason 是原因。
      */
     fun noticeNotDeleted(reason: String): String = catalog.say("noticeNotDeleted", mapOf("reason" to reason))
 
     /**
-     * 「没有发出：{reason}」
+     * 「发送失败：{reason}」
      *
      * 对话里的出错提示：改写、重新生成或分支后的消息没发出去，已放回输入框，reason 是原因。
      */
@@ -211,28 +211,28 @@ object CoreStrings {
     fun noticeCodeRestored(): String = catalog.say("noticeCodeRestored")
 
     /**
-     * 「从这里分支出的新对话，原对话不变。发出消息后保存」
+     * 「已从此处分支出新对话，原对话保持不变。发送消息后保存。」
      *
      * 对话里的灰色提示：分支出的新对话开头的说明。
      */
     fun noticeForkStarted(): String = catalog.say("noticeForkStarted")
 
     /**
-     * 「回答进行中不能直接执行命令，等这一轮结束再发」
+     * 「回答进行中无法直接执行命令，请等待本轮结束后再发送。」
      *
      * 对话里的出错提示：回答进行中用户发了 ! 命令，命令已放回输入框。
      */
     fun noticeShellWhileBusy(): String = catalog.say("noticeShellWhileBusy")
 
     /**
-     * 「上一条 ! 命令还在跑，等它出结果再发」
+     * 「上一条 ! 命令仍在运行，请等待结果返回后再发送。」
      *
      * 对话里的出错提示：上一条 ! 命令还没出结果，这条已放回输入框。
      */
     fun noticeShellRunning(): String = catalog.say("noticeShellRunning")
 
     /**
-     * 「重新接上后台进程失败：{reason}」
+     * 「重新连接后台进程失败：{reason}」
      *
      * 对话里的出错提示：核心重启后接回托管的 Claude Code 进程失败。
      */
@@ -253,14 +253,14 @@ object CoreStrings {
     fun noticeHookContext(event: String, text: String): String = catalog.say("noticeHookContext", mapOf("event" to event, "text" to text))
 
     /**
-     * 「分支没有建成：{reason}」
+     * 「无法创建分支：{reason}」
      *
      * 「没有发出：」后面的原因：分支第一次发消息时剪会话没成，reason 是原因。
      */
     fun forkFailed(reason: String): String = catalog.say("forkFailed", mapOf("reason" to reason))
 
     /**
-     * 「Claude Code 进程退出了」
+     * 「Claude Code 进程已退出」
      *
      * 剪会话或还原代码没成的原因：等应答时进程没了。
      */
@@ -281,98 +281,98 @@ object CoreStrings {
     fun rewindRefusedUnknown(): String = catalog.say("rewindRefusedUnknown")
 
     /**
-     * 「Claude Code 没有说剪没剪」
+     * 「Claude Code 未返回回退结果」
      *
      * 剪会话没成的原因：应答里认不出结果。
      */
     fun rewindNoAnswer(): String = catalog.say("rewindNoAnswer")
 
     /**
-     * 「Claude 还在处理消息，等这一轮结束再试」
+     * 「Claude 正在处理消息，请等待本轮结束后再试」
      *
      * 剪会话没成的原因：Claude Code 正在一轮里。
      */
     fun rewindTurnRunning(): String = catalog.say("rewindTurnRunning")
 
     /**
-     * 「会话记录里找不到这条消息（上下文压缩之前的消息改不了）」
+     * 「会话记录中未找到这条消息（上下文压缩之前的消息无法修改）」
      *
      * 剪会话没成的原因：会话记录里没有这条消息。
      */
     fun rewindTargetNotFound(): String = catalog.say("rewindTargetNotFound")
 
     /**
-     * 「这个会话在别处有了新内容，重新打开它再试」
+     * 「该会话在其他位置有新内容，请重新打开后再试」
      *
      * 剪会话没成的原因：别处给会话加了新内容。
      */
     fun rewindStale(): String = catalog.say("rewindStale")
 
     /**
-     * 「这条消息在工具调用中间，不能从这里改」
+     * 「这条消息位于工具调用过程中，无法从此处修改」
      *
      * 剪会话没成的原因：目标在工具调用中间。
      */
     fun rewindSplitsToolCall(): String = catalog.say("rewindSplitsToolCall")
 
     /**
-     * 「写不进会话记录」
+     * 「无法写入会话记录」
      *
      * 剪会话没成的原因：Claude Code 写不进会话记录。
      */
     fun rewindPersistFailed(): String = catalog.say("rewindPersistFailed")
 
     /**
-     * 「Claude Code 没有剪：{detail}」
+     * 「Claude Code 未执行回退：{detail}」
      *
      * 剪会话没成的原因：Claude Code 给的别的原因，detail 是原文。
      */
     fun rewindNotDone(detail: String): String = catalog.say("rewindNotDone", mapOf("detail" to detail))
 
     /**
-     * 「Claude Code 没有剪：未知原因」
+     * 「Claude Code 未执行回退：未知原因」
      *
      * 剪会话没成的原因：Claude Code 没说为什么。
      */
     fun rewindNotDoneUnknown(): String = catalog.say("rewindNotDoneUnknown")
 
     /**
-     * 「Claude Code 拒绝了：{detail}」
+     * 「Claude Code 拒绝了此次操作：{detail}」
      *
      * 还原代码没成的提示：Claude Code 答了出错，detail 是原文。
      */
     fun restoreRefused(detail: String): String = catalog.say("restoreRefused", mapOf("detail" to detail))
 
     /**
-     * 「Claude Code 拒绝了：未知错误」
+     * 「Claude Code 拒绝了此次操作：未知错误」
      *
      * 还原代码没成的提示：Claude Code 答了出错，没给原文。
      */
     fun restoreRefusedUnknown(): String = catalog.say("restoreRefusedUnknown")
 
     /**
-     * 「Claude Code 没有说还原没还原」
+     * 「Claude Code 未返回还原结果」
      *
      * 还原代码没成的提示：应答里认不出结果。
      */
     fun restoreNoAnswer(): String = catalog.say("restoreNoAnswer")
 
     /**
-     * 「没有还原代码：{detail}」
+     * 「未能还原代码：{detail}」
      *
      * 还原代码没成的提示：detail 是 Claude Code 的原文。
      */
     fun restoreNotDone(detail: String): String = catalog.say("restoreNotDone", mapOf("detail" to detail))
 
     /**
-     * 「没有还原代码：没有这条消息之前的快照」
+     * 「未能还原代码：缺少这条消息之前的快照」
      *
      * 还原代码没成的提示：没有快照。
      */
     fun restoreNoSnapshot(): String = catalog.say("restoreNoSnapshot")
 
     /**
-     * 「MCP 服务器 {server} 需要你去网页上操作」
+     * 「MCP 服务器 {server} 需要你在网页中完成操作」
      *
      * 等你回应的通知：MCP 服务器要用户去网页上做一件事。
      */
@@ -386,7 +386,7 @@ object CoreStrings {
     fun promptMcpForm(server: String): String = catalog.say("promptMcpForm", mapOf("server" to server))
 
     /**
-     * 「Claude 交来了计划，等你审批」
+     * 「Claude 已提交计划，等待审批」
      *
      * 等你回应的通知：计划审批。
      */
@@ -400,7 +400,7 @@ object CoreStrings {
     fun promptQuestion(): String = catalog.say("promptQuestion")
 
     /**
-     * 「Claude 想用 {tool}」
+     * 「Claude 请求使用 {tool}」
      *
      * 等你回应的通知：工具确认，tool 是工具名。
      */
@@ -414,21 +414,21 @@ object CoreStrings {
     fun promptBackgroundSubagent(): String = catalog.say("promptBackgroundSubagent")
 
     /**
-     * 「{behavior, select, deny {一律拒绝} ask {每次都问} other {允许}} {target}{where, select, userSettings {（所有项目）} projectSettings {（这个项目，进 Git）} session {（只在这个对话里）} other {}}」
+     * 「{behavior, select, deny {一律拒绝} ask {每次询问} other {允许}} {target}{where, select, userSettings {（所有项目）} projectSettings {（当前项目，纳入 Git）} session {（仅当前对话）} other {}}」
      *
      * 确认卡「以后不再询问」列的一条：加一条权限规则。behavior 是 allow、ask、deny，target 是工具名和参数，where 是规则记在哪（userSettings、projectSettings、session，别的不说明）。
      */
     fun suggestRule(behavior: String, target: String, where: String): String = catalog.say("suggestRule", mapOf("behavior" to behavior, "target" to target, "where" to where))
 
     /**
-     * 「允许访问 {dir}{where, select, userSettings {（所有项目）} projectSettings {（这个项目，进 Git）} session {（只在这个对话里）} other {}}」
+     * 「允许访问 {dir}{where, select, userSettings {（所有项目）} projectSettings {（当前项目，纳入 Git）} session {（仅当前对话）} other {}}」
      *
      * 确认卡「以后不再询问」列的一条：允许访问一个目录，where 同 suggestRule。
      */
     fun suggestDirectory(dir: String, where: String): String = catalog.say("suggestDirectory", mapOf("dir" to dir, "where" to where))
 
     /**
-     * 「{mode, select, acceptEdits {这个对话里自动接受改动} bypassPermissions {这个对话里完全放行} default {这个对话里逐项确认} plan {这个对话切到计划模式} other {这个对话切到 {mode} 模式}}」
+     * 「{mode, select, acceptEdits {当前对话自动接受编辑} bypassPermissions {当前对话完全放行} default {当前对话逐项确认} plan {当前对话切换到计划模式} other {当前对话切换到 {mode} 模式}}」
      *
      * 确认卡「以后不再询问」列的一条：切换这个对话的权限模式，mode 是 Claude Code 的模式名。
      */
@@ -484,91 +484,91 @@ object CoreStrings {
     fun errConvClosed(): String = catalog.say("errConvClosed")
 
     /**
-     * 「这个对话已经不在核心里了」
+     * 「该对话已不在核心中」
      *
      * 出错应答：客户端指的对话已经不在核心里（客户端据 code 重新打开）。
      */
     fun errConvGone(): String = catalog.say("errConvGone")
 
     /**
-     * 「没有打开这个对话」
+     * 「尚未打开该对话」
      *
      * 出错应答：这条连接没有打开这个对话。
      */
     fun errConvNotOpen(): String = catalog.say("errConvNotOpen")
 
     /**
-     * 「这个会话正被别处的 Claude Code 占着，先把它接过来」
+     * 「该会话正被其他位置的 Claude Code 占用，请先接管会话」
      *
      * 出错应答：发消息时会话正被别处的 Claude Code 占着。
      */
     fun errConvBlocked(): String = catalog.say("errConvBlocked")
 
     /**
-     * 「历史还在载入」
+     * 「历史记录正在加载」
      *
      * 出错应答：历史还没载入完。
      */
     fun errHistoryLoading(): String = catalog.say("errHistoryLoading")
 
     /**
-     * 「等了 30 秒，Claude Code 没有回应」
+     * 「等待 30 秒后 Claude Code 仍无响应」
      *
      * 出错应答：等 Claude Code 的控制应答超时。
      */
     fun errClaudeNoAnswer(): String = catalog.say("errClaudeNoAnswer")
 
     /**
-     * 「这个对话没有开着的 Claude Code 进程」
+     * 「该对话没有运行中的 Claude Code 进程」
      *
      * 出错应答：要问额度等时对话没有进程。
      */
     fun errNoProcess(): String = catalog.say("errNoProcess")
 
     /**
-     * 「Claude Code 没有给额度：{detail}」
+     * 「Claude Code 未返回额度信息：{detail}」
      *
      * 出错应答：问额度时 Claude Code 答了出错，detail 是原文。
      */
     fun errNoQuotaAnswer(detail: String): String = catalog.say("errNoQuotaAnswer", mapOf("detail" to detail))
 
     /**
-     * 「正在等 Claude Code 剪会话，等它剪完再发」
+     * 「正在等待 Claude Code 回退会话，请完成后再发送」
      *
      * 出错应答：正在剪会话时发了消息。
      */
     fun errRewinding(): String = catalog.say("errRewinding")
 
     /**
-     * 「现在不能改：等这一轮结束、回应完等着的请求再试」
+     * 「当前无法修改：请等待本轮结束并回应待处理的请求后再试」
      *
      * 出错应答：现在不能编辑、重新生成、删除或分支。
      */
     fun errRewindNotNow(): String = catalog.say("errRewindNotNow")
 
     /**
-     * 「找不到这条消息」
+     * 「未找到这条消息」
      *
      * 出错应答：要改的消息不在列表里。
      */
     fun errRewindNoTarget(): String = catalog.say("errRewindNoTarget")
 
     /**
-     * 「这条消息 Claude Code 不认得（还没有 uuid），改不了」
+     * 「Claude Code 无法识别这条消息（缺少 uuid），无法修改」
      *
      * 出错应答：要改的消息还没有 uuid。
      */
     fun errRewindUnknownMessage(): String = catalog.say("errRewindUnknownMessage")
 
     /**
-     * 「这个对话还没有会话记录，不能分支」
+     * 「该对话尚无会话记录，无法创建分支」
      *
      * 出错应答：还没有会话记录的对话不能分支。
      */
     fun errForkNoSession(): String = catalog.say("errForkNoSession")
 
     /**
-     * 「不能从这里分支：找不到这一项，或下一轮的消息 Claude Code 不认得」
+     * 「无法从此处创建分支：未找到该项，或 Claude Code 无法识别下一轮消息」
      *
      * 出错应答：分支点不对。
      */
@@ -582,84 +582,84 @@ object CoreStrings {
     fun errNoEarlier(): String = catalog.say("errNoEarlier")
 
     /**
-     * 「正在载入更早的记录」
+     * 「正在加载更早的记录」
      *
      * 出错应答：已经在载入更早的一页。
      */
     fun errEarlierBusy(): String = catalog.say("errEarlierBusy")
 
     /**
-     * 「会话记录在别处改过，重新打开这个对话再看更早的内容」
+     * 「会话记录已在其他位置被修改，请重新打开该对话后再查看更早内容」
      *
      * 出错应答：载入更早的一页时会话记录对不上了。
      */
     fun errEarlierStale(): String = catalog.say("errEarlierStale")
 
     /**
-     * 「没有读到更早的记录：{detail}」
+     * 「读取更早记录失败：{detail}」
      *
      * 出错应答：读更早的一页失败，detail 是原因原文。
      */
     fun errEarlierReadFailed(detail: String): String = catalog.say("errEarlierReadFailed", mapOf("detail" to detail))
 
     /**
-     * 「这个对话里没有这张图」
+     * 「该对话中没有这张图片」
      *
      * 出错应答：按 key 取图时找不到。
      */
     fun errNoImage(): String = catalog.say("errNoImage")
 
     /**
-     * 「取不回原消息里的图片：{reason}」
+     * 「无法获取原消息中的图片：{reason}」
      *
      * 出错应答：重新生成时取不回原消息里的图。
      */
     fun errResendImage(reason: String): String = catalog.say("errResendImage", mapOf("reason" to reason))
 
     /**
-     * 「这条消息没有内容可以重发」
+     * 「这条消息没有可重发的内容」
      *
      * 出错应答：重新生成的那条消息是空的。
      */
     fun errResendEmpty(): String = catalog.say("errResendEmpty")
 
     /**
-     * 「这台主机取不了会话记录里的图片」
+     * 「当前主机不支持获取会话记录中的图片」
      *
      * 取不回图的原因：没有取会话记录里的图的办法。
      */
     fun errSessionImageUnsupported(): String = catalog.say("errSessionImageUnsupported")
 
     /**
-     * 「这张图没有数据」
+     * 「该图片没有数据」
      *
      * 取不回图的原因：图没有数据。
      */
     fun errImageNoData(): String = catalog.say("errImageNoData")
 
     /**
-     * 「图片的数据不是 base64」
+     * 「图片数据不是 base64 格式」
      *
      * 取不回图的原因：数据不是 base64。
      */
     fun errImageNotBase64(): String = catalog.say("errImageNotBase64")
 
     /**
-     * 「认不出图片的格式」
+     * 「无法识别图片格式」
      *
      * 取不回图的原因：认不出格式。
      */
     fun errImageFormat(): String = catalog.say("errImageFormat")
 
     /**
-     * 「这个对话还没有保存，发出第一条消息后再改名」
+     * 「该对话尚未保存，请发送第一条消息后再重命名」
      *
      * 出错应答：还没有会话号的对话不能改名。
      */
     fun errRenameNoSession(): String = catalog.say("errRenameNoSession")
 
     /**
-     * 「找不到这个会话的会话记录，改不了名」
+     * 「未找到该会话的记录文件，无法重命名」
      *
      * 出错应答：改名时找不到会话记录。
      */
@@ -820,56 +820,56 @@ object CoreStrings {
     fun quotaWeekly(): String = catalog.say("quotaWeekly")
 
     /**
-     * 「claude-switch 还没装上」
+     * 「尚未安装 claude-switch」
      *
      * 出错应答（code 是 claude_switch_missing）：这台主机上还没装 claude-switch，客户端会先装上再试。
      */
     fun errSwitchMissing(): String = catalog.say("errSwitchMissing")
 
     /**
-     * 「跑不了 claude-switch：{detail}」
+     * 「无法运行 claude-switch：{detail}」
      *
      * 出错应答：起不了 claude-switch，detail 是原因原文。
      */
     fun errSwitchRun(detail: String): String = catalog.say("errSwitchRun", mapOf("detail" to detail))
 
     /**
-     * 「没有成功（claude-switch 退出码 {code}）」
+     * 「执行失败（claude-switch 退出码 {code}）」
      *
      * 出错应答：claude-switch 没成功也没说原因。
      */
     fun errSwitchFailed(code: String): String = catalog.say("errSwitchFailed", mapOf("code" to code))
 
     /**
-     * 「读不懂 claude-switch 的输出」
+     * 「无法解析 claude-switch 的输出」
      *
      * 出错应答：claude-switch 的输出认不出。
      */
     fun errSwitchOutput(): String = catalog.say("errSwitchOutput")
 
     /**
-     * 「这里的对话进程还没退出」
+     * 「当前应用的对话进程尚未退出」
      *
      * 出错应答（code 是 busy）：换号时本包自己的对话进程还没退出。
      */
     fun errSwitchOwnBusy(): String = catalog.say("errSwitchOwnBusy")
 
     /**
-     * 「另一个 Zeta（{apps}）开着 {count, plural, other {# 个对话}}{busy, plural, =0 {} other {，其中 # 个在进行}}，在那边结束对话或关掉它。」
+     * 「另一个 Zeta（{apps}）打开了 {count, plural, other {# 个对话}}{busy, plural, =0 {} other {，其中 # 个正在进行}}，请先在对应应用中结束对话或关闭应用。」
      *
      * 换号被挡住时的说明：别的 Zeta 包开着对话。apps 是那些包的叫法（zetaRelease 等），count 是几个对话，busy 是其中几个在进行。
      */
     fun errSwitchBlockedZeta(apps: String, count: Int, busy: Int): String = catalog.say("errSwitchBlockedZeta", mapOf("apps" to apps, "count" to count, "busy" to busy))
 
     /**
-     * 「还有 {others, plural, other {# 个别处开着的 Claude Code}}（比如终端里的 claude）{othersBusy, plural, =0 {} other {，其中 # 个在进行}}，先退出它们。」
+     * 「其他位置还运行着 {others, plural, other {# 个 Claude Code}}（如终端中的 claude）{othersBusy, plural, =0 {} other {，其中 # 个正在进行}}，请先退出。」
      *
      * 换号被挡住时的说明：Zeta 之外开着 Claude Code。others 是几个，othersBusy 是其中几个在进行。
      */
     fun errSwitchBlockedElsewhere(others: Int, othersBusy: Int): String = catalog.say("errSwitchBlockedElsewhere", mapOf("others" to others, "othersBusy" to othersBusy))
 
     /**
-     * 「另一个 Zeta（{apps}）开着 {count, plural, other {# 个对话}}{busy, plural, =0 {} other {，其中 # 个在进行}}，在那边结束对话或关掉它；还有 {others, plural, other {# 个别处开着的 Claude Code}}（比如终端里的 claude）{othersBusy, plural, =0 {} other {，其中 # 个在进行}}，先退出它们。」
+     * 「另一个 Zeta（{apps}）打开了 {count, plural, other {# 个对话}}{busy, plural, =0 {} other {，其中 # 个正在进行}}，请先在对应应用中结束对话或关闭应用；其他位置还运行着 {others, plural, other {# 个 Claude Code}}（如终端中的 claude）{othersBusy, plural, =0 {} other {，其中 # 个正在进行}}，请先退出。」
      *
      * 换号被挡住时的说明：两种都有，参数同 errSwitchBlockedZeta 和 errSwitchBlockedElsewhere。
      */
@@ -897,133 +897,133 @@ object CoreStrings {
     fun zetaOther(name: String): String = catalog.say("zetaOther", mapOf("name" to name))
 
     /**
-     * 「这个账号已经不在了」
+     * 「该账号已不存在」
      *
      * 出错应答（code 是 no_account）：要换、要删的账号已经不在了。
      */
     fun errAccountMissing(): String = catalog.say("errAccountMissing")
 
     /**
-     * 「中转名称只能用小写字母、数字和连字符，以字母或数字开头，最长 32 个字符，也不能叫 claude」
+     * 「中转名称只能包含小写字母、数字和连字符，需以字母或数字开头，最长 32 个字符，且不能为 claude」
      *
      * 出错应答：添加中转时名称不合规（claude-switch 的名字规则）。
      */
     fun errRelayName(): String = catalog.say("errRelayName")
 
     /**
-     * 「地址要以 http:// 或 https:// 开头」
+     * 「地址须以 http:// 或 https:// 开头」
      *
      * 出错应答：中转地址不是 http(s) 网址。
      */
     fun errRelayURL(): String = catalog.say("errRelayURL")
 
     /**
-     * 「密钥里不能有空格或换行」
+     * 「密钥中不能包含空格或换行」
      *
      * 出错应答：填的中转密钥中间带空白。
      */
     fun errRelayKey(): String = catalog.say("errRelayKey")
 
     /**
-     * 「这个名称已经有账号或中转在用了」
+     * 「该名称已被其他账号或中转占用」
      *
      * 出错应答：添加中转时名称和已有的账号或中转重名。
      */
     fun errRelayNameTaken(): String = catalog.say("errRelayNameTaken")
 
     /**
-     * 「添加中转要填密钥」
+     * 「添加中转需要填写密钥」
      *
      * 出错应答：添加中转没填密钥。
      */
     fun errRelayKeyRequired(): String = catalog.say("errRelayKeyRequired")
 
     /**
-     * 「这个中转的密钥不是从文件读的，Zeta 改不了；在它的设置文件里改」
+     * 「该中转的密钥并非从文件读取，Zeta 无法修改，请在对应的设置文件中修改。」
      *
      * 出错应答：用户自己放的中转设置文件的 apiKeyHelper 不是 cat 一个家目录里的文件（或密钥写在 env 里），不能改密钥。
      */
     fun errRelayKeyReadOnly(): String = catalog.say("errRelayKeyReadOnly")
 
     /**
-     * 「这个中转已经不在了」
+     * 「该中转已不存在」
      *
      * 出错应答：要改、要删的中转已经不在了。
      */
     fun errRelayMissing(): String = catalog.say("errRelayMissing")
 
     /**
-     * 「正在用这个中转，先换到别的账号或中转再删」
+     * 「当前正在使用该中转，请先切换到其他账号或中转后再删除」
      *
      * 出错应答：要删的中转正在用。
      */
     fun errRelayInUse(): String = catalog.say("errRelayInUse")
 
     /**
-     * 「读不懂这个中转的设置文件」
+     * 「无法解析该中转的设置文件」
      *
      * 出错应答：要改的中转设置文件读不了或不是 JSON 对象。
      */
     fun errRelayUnreadable(): String = catalog.say("errRelayUnreadable")
 
     /**
-     * 「写不了 {path}」
+     * 「无法写入 {path}」
      *
      * 出错应答：中转的设置文件或密钥文件写不了、删不了；path 是文件路径。
      */
     fun errRelayWrite(path: String): String = catalog.say("errRelayWrite", mapOf("path" to path))
 
     /**
-     * 「这台设备正在用中转，没有订阅额度」
+     * 「当前设备正在使用中转，没有订阅额度」
      *
      * 出错应答（code 是 errNoSubscription）：问订阅额度时这台设备在用中转（非账号目标）。
      */
     fun errNoSubscription(): String = catalog.say("errNoSubscription")
 
     /**
-     * 「模型名里不能有空格，最长 200 个字符」
+     * 「模型名称不能包含空格，最长 200 个字符」
      *
      * 出错应答：中转的默认模型名不合规。
      */
     fun errRelayModel(): String = catalog.say("errRelayModel")
 
     /**
-     * 「中转把请求转到了别的地址（{host}），为了不把密钥带过去没有跟过去」
+     * 「中转将请求重定向到了其他地址（{host}），为避免泄露密钥，未跟随重定向」
      *
      * 出错应答：拉模型列表时服务器重定向到别的主机；host 是那个主机。
      */
     fun errModelsRedirect(host: String): String = catalog.say("errModelsRedirect", mapOf("host" to host))
 
     /**
-     * 「先填密钥再获取模型列表」
+     * 「请先填写密钥再获取模型列表」
      *
      * 出错应答：拉模型列表时没填密钥，已保存的中转也读不到密钥文件。
      */
     fun errModelsNoKey(): String = catalog.say("errModelsNoKey")
 
     /**
-     * 「中转拒绝了这个密钥（HTTP {status}），检查密钥」
+     * 「中转拒绝了该密钥（HTTP {status}），请检查密钥是否正确」
      *
      * 出错应答：拉模型列表返回 401 或 403；status 是状态码。
      */
     fun errModelsAuth(status: String): String = catalog.say("errModelsAuth", mapOf("status" to status))
 
     /**
-     * 「这个中转没有模型列表接口（/v1/models 返回 404），可以直接填模型名」
+     * 「该中转未提供模型列表接口（/v1/models 返回 404），可直接填写模型名称」
      *
      * 出错应答：拉模型列表返回 404。
      */
     fun errModelsNotFound(): String = catalog.say("errModelsNotFound")
 
     /**
-     * 「中转返回了 HTTP {status}」
+     * 「中转返回 HTTP {status}」
      *
      * 出错应答：拉模型列表返回别的非 2xx 状态；status 是状态码。
      */
     fun errModelsStatus(status: String): String = catalog.say("errModelsStatus", mapOf("status" to status))
 
     /**
-     * 「模型列表超过 4 MB，没有读完」
+     * 「模型列表超过 4 MB，未能完整读取」
      *
      * 出错应答：拉模型列表的响应太大。
      */
@@ -1037,91 +1037,91 @@ object CoreStrings {
     fun errModelsTimeout(): String = catalog.say("errModelsTimeout")
 
     /**
-     * 「连不上中转：{detail}」
+     * 「无法连接中转：{detail}」
      *
      * 出错应答：拉模型列表时网络出错；detail 是 Go 的原话（有地址，没有密钥）。
      */
     fun errModelsNetwork(detail: String): String = catalog.say("errModelsNetwork", mapOf("detail" to detail))
 
     /**
-     * 「中转返回的不是模型列表（不是带 data 的 JSON）」
+     * 「中转返回的不是模型列表（不是包含 data 字段的 JSON）」
      *
      * 出错应答：拉模型列表的响应不是 JSON 或没有 data。
      */
     fun errModelsNotJSON(): String = catalog.say("errModelsNotJSON")
 
     /**
-     * 「读不懂 ~/.claude.json」
+     * 「无法解析 ~/.claude.json」
      *
      * 出错应答：~/.claude.json 不是有效的 JSON。
      */
     fun errClaudeJSON(): String = catalog.say("errClaudeJSON")
 
     /**
-     * 「登录命令没给出授权网址就退出了」
+     * 「登录命令未输出授权网址即退出」
      *
      * 出错应答：登录命令没给授权网址就退出了。
      */
     fun errLoginNoURL(): String = catalog.say("errLoginNoURL")
 
     /**
-     * 「登录命令 30 秒没给出授权网址」
+     * 「登录命令在 30 秒内未输出授权网址」
      *
      * 出错应答：等授权网址超时。
      */
     fun errLoginURLTimeout(): String = catalog.say("errLoginURLTimeout")
 
     /**
-     * 「登录已经结束了，请重新开始」
+     * 「登录已结束，请重新开始」
      *
      * 出错应答（code 是 no_login）：交授权码时登录已经结束。
      */
     fun errLoginEnded(): String = catalog.say("errLoginEnded")
 
     /**
-     * 「登录命令已经退出了，请重新开始」
+     * 「登录命令已退出，请重新开始」
      *
      * 出错应答（code 是 no_login）：交授权码时登录命令已经退出。
      */
     fun errLoginExited(): String = catalog.say("errLoginExited")
 
     /**
-     * 「交了授权码一分钟没有结果，请重新开始」
+     * 「提交授权码 1 分钟后仍无结果，请重新开始」
      *
      * 出错应答：交了授权码一分钟没结果。
      */
     fun errLoginCodeTimeout(): String = catalog.say("errLoginCodeTimeout")
 
     /**
-     * 「登录没有成功」
+     * 「登录失败」
      *
      * 出错应答：登录命令没成功，也没说原因。
      */
     fun errLoginFailed(): String = catalog.say("errLoginFailed")
 
     /**
-     * 「起不了登录命令：{detail}」
+     * 「无法启动登录命令：{detail}」
      *
      * 出错应答：起不了登录命令，detail 是原因原文。
      */
     fun errLoginStart(detail: String): String = catalog.say("errLoginStart", mapOf("detail" to detail))
 
     /**
-     * 「授权码不完整：要连中间的 # 和它后面的部分一起复制」
+     * 「授权码不完整：请连同中间的 # 及后面的部分一起复制」
      *
      * 出错应答：授权码不完整（要连 # 和后面的一起复制）。
      */
     fun errLoginIncomplete(): String = catalog.say("errLoginIncomplete")
 
     /**
-     * 「授权码没有被接受，可能已经过期或者复制错了。请重新开始登录」
+     * 「授权码未被接受，可能已过期或复制有误，请重新开始登录。」
      *
      * 出错应答：授权码没被接受。
      */
     fun errLoginRejected(): String = catalog.say("errLoginRejected")
 
     /**
-     * 「没有读到输出」
+     * 「未能读取输出」
      *
      * 后台任务页：读后台命令的输出没成，Claude Code 没说原因（conv.task_output 的 error_code）。
      */
@@ -1149,70 +1149,70 @@ object CoreStrings {
     fun elapsedSeconds(s: String): String = catalog.say("elapsedSeconds", mapOf("s" to s))
 
     /**
-     * 「超时没跑完」
+     * 「更新超时，未能完成」
      *
      * 出错应答：claude update 超时没跑完。
      */
     fun errClaudeUpdateTimeout(): String = catalog.say("errClaudeUpdateTimeout")
 
     /**
-     * 「这台主机上正在更新 Claude Code」
+     * 「当前主机正在更新 Claude Code」
      *
      * 出错应答：已经有一次 claude update 在跑。
      */
     fun errClaudeUpdating(): String = catalog.say("errClaudeUpdating")
 
     /**
-     * 「minutes 要是 0～{max} 的整数」
+     * 「minutes 须为 0～{max} 之间的整数」
      *
      * 出错应答：闲置超时的分钟数不对，max 是上限。
      */
     fun errIdleMinutes(max: String): String = catalog.say("errIdleMinutes", mapOf("max" to max))
 
     /**
-     * 「这个会话的记录已经不在了」
+     * 「该会话的记录已不存在」
      *
      * 出错应答（code 是 no_session）：会话记录不在了。
      */
     fun errNoSession(): String = catalog.say("errNoSession")
 
     /**
-     * 「对话正在进行，结束后再删」
+     * 「对话正在进行，请结束后再删除」
      *
      * 出错应答（code 是 active）：要删的会话正在进行。
      */
     fun errSessionActive(): String = catalog.say("errSessionActive")
 
     /**
-     * 「~/.claude.json 太大，读不了」
+     * 「~/.claude.json 文件过大，无法读取」
      *
      * MCP 页出错：~/.claude.json 太大。
      */
     fun cfgClaudeJSONTooBig(): String = catalog.say("cfgClaudeJSONTooBig")
 
     /**
-     * 「名称只能用字母、数字、下划线和连字符」
+     * 「名称只能包含字母、数字、下划线和连字符」
      *
      * MCP 页出错：服务器名称不对。
      */
     fun cfgMcpBadName(): String = catalog.say("cfgMcpBadName")
 
     /**
-     * 「范围不对」
+     * 「范围无效」
      *
      * MCP 页出错：范围参数不对。
      */
     fun cfgMcpBadScope(): String = catalog.say("cfgMcpBadScope")
 
     /**
-     * 「找不到这个服务器，可能已经被删了」
+     * 「未找到该服务器，可能已被删除」
      *
      * MCP 页出错：服务器不在了。
      */
     fun cfgMcpNotFound(): String = catalog.say("cfgMcpNotFound")
 
     /**
-     * 「只能修改用户配置或本地配置里的服务器」
+     * 「仅支持修改用户配置或本地配置中的服务器」
      *
      * MCP 页出错：项目配置里的服务器不能改。
      */
@@ -1233,7 +1233,7 @@ object CoreStrings {
     fun cfgZipInvalid(): String = catalog.say("cfgZipInvalid")
 
     /**
-     * 「包里没有 SKILL.md（应放在根目录或第一层文件夹里）」
+     * 「压缩包中缺少 SKILL.md（应位于根目录或第一层目录中）」
      *
      * 导入 Skill 出错：没有 SKILL.md。
      */
@@ -1247,14 +1247,14 @@ object CoreStrings {
     fun cfgZipSkillNotUTF8(): String = catalog.say("cfgZipSkillNotUTF8")
 
     /**
-     * 「SKILL.md 开头缺少带 description 的前言（--- 包起来的 name、description），Claude 不知道什么时候该用它」
+     * 「SKILL.md 开头缺少含 description 的前言（由 --- 包裹的 name 和 description），Claude 无法判断何时使用该 Skill」
      *
      * 导入 Skill 出错：SKILL.md 没有 description。
      */
     fun cfgZipNoDescription(): String = catalog.say("cfgZipNoDescription")
 
     /**
-     * 「认不出 Skill 的名字：请在 SKILL.md 里写上 name（小写字母、数字和连字符）」
+     * 「无法识别 Skill 名称：请在 SKILL.md 中填写 name（仅限小写字母、数字和连字符）」
      *
      * 导入 Skill 出错：认不出名字。
      */
@@ -1268,77 +1268,77 @@ object CoreStrings {
     fun cfgWriteFailedSpace(): String = catalog.say("cfgWriteFailedSpace")
 
     /**
-     * 「settings.json 里的 permissions 不是一个对象，先在终端里修好它」
+     * 「settings.json 中的 permissions 不是对象，请先在终端中修复」
      *
      * 工具权限页出错：settings.json 的 permissions 不对。
      */
     fun cfgPermissionsInvalid(): String = catalog.say("cfgPermissionsInvalid")
 
     /**
-     * 「这条规则已经被改过了（可能是 Claude 或终端里改的），已重新读取」
+     * 「该规则已被修改（可能由 Claude 或在终端中修改），已重新读取」
      *
      * 工具权限页出错：规则在别处被改过。
      */
     fun cfgRuleChanged(): String = catalog.say("cfgRuleChanged")
 
     /**
-     * 「settings.json 里的 modelSettings 不是对象，先在终端里修好它」
+     * 「settings.json 中的 modelSettings 不是对象，请先在终端中修复」
      *
      * 新对话默认出错：modelSettings 不对。
      */
     fun cfgModelSettingsInvalid(): String = catalog.say("cfgModelSettingsInvalid")
 
     /**
-     * 「这个服务器用 OAuth 登录，Zeta 取不到它的工具」
+     * 「该服务器使用 OAuth 登录，Zeta 无法获取其工具列表」
      *
      * MCP 工具列表出错：OAuth 服务器。
      */
     fun cfgMcpOAuth(): String = catalog.say("cfgMcpOAuth")
 
     /**
-     * 「配置里没有地址」
+     * 「配置中缺少地址」
      *
      * MCP 工具列表出错：没有地址。
      */
     fun cfgMcpNoURL(): String = catalog.say("cfgMcpNoURL")
 
     /**
-     * 「读不了登录环境里的变量」
+     * 「无法读取登录环境中的变量」
      *
      * MCP 工具列表出错：读不了登录环境变量。
      */
     fun cfgMcpEnvUnreadable(): String = catalog.say("cfgMcpEnvUnreadable")
 
     /**
-     * 「配置里没有命令」
+     * 「配置中缺少命令」
      *
      * MCP 工具列表出错：没有命令。
      */
     fun cfgMcpNoCommand(): String = catalog.say("cfgMcpNoCommand")
 
     /**
-     * 「启动不了」
+     * 「无法启动」
      *
      * MCP 工具列表出错：服务器起不来。
      */
     fun cfgMcpCantStart(): String = catalog.say("cfgMcpCantStart")
 
     /**
-     * 「服务器进程退出了」
+     * 「服务器进程已退出」
      *
      * MCP 工具列表出错：服务器进程退出。
      */
     fun cfgMcpExited(): String = catalog.say("cfgMcpExited")
 
     /**
-     * 「服务器没有在 60 秒内回应」
+     * 「服务器在 60 秒内未响应」
      *
      * MCP 工具列表出错：超时。
      */
     fun cfgMcpTimeout(): String = catalog.say("cfgMcpTimeout")
 
     /**
-     * 「地址不对」
+     * 「地址无效」
      *
      * MCP 工具列表出错：地址不对。
      */
@@ -1352,28 +1352,28 @@ object CoreStrings {
     fun cfgMcpConnectTimeout(): String = catalog.say("cfgMcpConnectTimeout")
 
     /**
-     * 「服务器的回应里没有这次请求的结果」
+     * 「服务器响应中缺少本次请求的结果」
      *
      * MCP 工具列表出错：回应里没有结果。
      */
     fun cfgMcpNoResult(): String = catalog.say("cfgMcpNoResult")
 
     /**
-     * 「服务器没有给出消息地址」
+     * 「服务器未返回消息地址」
      *
      * MCP 工具列表出错：SSE 没给消息地址。
      */
     fun cfgMcpNoEndpoint(): String = catalog.say("cfgMcpNoEndpoint")
 
     /**
-     * 「服务器给的消息地址不对」
+     * 「服务器返回的消息地址无效」
      *
      * MCP 工具列表出错：SSE 消息地址不对。
      */
     fun cfgMcpBadEndpoint(): String = catalog.say("cfgMcpBadEndpoint")
 
     /**
-     * 「服务器没有回应就断开了」
+     * 「服务器未响应即断开连接」
      *
      * MCP 工具列表出错：没回应就断开。
      */
@@ -1387,126 +1387,126 @@ object CoreStrings {
     fun cfgContentTooBig(): String = catalog.say("cfgContentTooBig")
 
     /**
-     * 「不能删除这个文件」
+     * 「无法删除该文件」
      *
      * 记忆页出错：不能删这个文件。
      */
     fun cfgCantDelete(): String = catalog.say("cfgCantDelete")
 
     /**
-     * 「~/.claude/settings.json 不是有效的 JSON，先在终端里修好它」
+     * 「~/.claude/settings.json 不是有效的 JSON，请先在终端中修复」
      *
      * 配置页出错：settings.json 坏了。
      */
     fun cfgSettingsInvalid(): String = catalog.say("cfgSettingsInvalid")
 
     /**
-     * 「settings.json 一直在被改动，稍后再试」
+     * 「settings.json 正在被持续修改，请稍后再试」
      *
      * 配置页出错：settings.json 一直在变。
      */
     fun cfgSettingsBusy(): String = catalog.say("cfgSettingsBusy")
 
     /**
-     * 「不能改这个文件」
+     * 「无法修改该文件」
      *
      * Subagent 页出错：不能改这个文件。
      */
     fun cfgAgentNotEditable(): String = catalog.say("cfgAgentNotEditable")
 
     /**
-     * 「这个 Subagent 在你编辑时被改过了（可能是 Claude 改的）。返回列表重新打开再改。」
+     * 「该 Subagent 在编辑期间已被修改（可能由 Claude 修改）。请返回列表重新打开后再编辑。」
      *
      * Subagent 页出错：编辑期间被改过。
      */
     fun cfgAgentChanged(): String = catalog.say("cfgAgentChanged")
 
     /**
-     * 「建不了目录或删不掉」
+     * 「无法创建或删除目录」
      *
      * 配置页出错：建不了目录或删不掉。
      */
     fun cfgDirOrDelete(): String = catalog.say("cfgDirOrDelete")
 
     /**
-     * 「换不上新文件」
+     * 「无法替换为新文件」
      *
      * 配置页出错：改名换上新文件失败。
      */
     fun cfgReplaceFailed(): String = catalog.say("cfgReplaceFailed")
 
     /**
-     * 「等了太久没有结果」
+     * 「等待超时，未返回结果」
      *
      * 配置页出错：命令超时。
      */
     fun cfgTimeout(): String = catalog.say("cfgTimeout")
 
     /**
-     * 「名字不对」
+     * 「名称无效」
      *
      * Skills 页出错：名字不对。
      */
     fun cfgSkillBadName(): String = catalog.say("cfgSkillBadName")
 
     /**
-     * 「找不到这个 Skill，可能已经被删了」
+     * 「未找到该 Skill，可能已被删除」
      *
      * Skills 页出错：Skill 不在了。
      */
     fun cfgSkillNotFound(): String = catalog.say("cfgSkillNotFound")
 
     /**
-     * 「换不下原来的 Skill」
+     * 「无法移除原有的 Skill」
      *
      * 导入 Skill 出错：换不下原来的。
      */
     fun cfgSkillReplaceOld(): String = catalog.say("cfgSkillReplaceOld")
 
     /**
-     * 「换不上新的 Skill」
+     * 「无法替换为新的 Skill」
      *
      * 导入 Skill 出错：换不上新的。
      */
     fun cfgSkillReplaceNew(): String = catalog.say("cfgSkillReplaceNew")
 
     /**
-     * 「不认识的权限：{behavior}」
+     * 「无法识别的权限：{behavior}」
      *
      * 工具权限页出错：behavior 不是 allow、ask、deny。
      */
     fun cfgUnknownBehavior(behavior: String): String = catalog.say("cfgUnknownBehavior", mapOf("behavior" to behavior))
 
     /**
-     * 「已经有一个叫 {name} 的 Subagent 了」
+     * 「已存在名为 {name} 的 Subagent」
      *
      * Subagent 页出错：重名。
      */
     fun cfgAgentExists(name: String): String = catalog.say("cfgAgentExists", mapOf("name" to name))
 
     /**
-     * 「删不掉：{reason}」
+     * 「无法删除：{reason}」
      *
      * 配置页出错：删文件失败，reason 是 cfgNoPermission 等。
      */
     fun cfgDeleteFailed(reason: String): String = catalog.say("cfgDeleteFailed", mapOf("reason" to reason))
 
     /**
-     * 「上下文窗口最小是 {min}」
+     * 「上下文窗口最小为 {min}」
      *
      * 新对话默认出错：压缩时机的上下文窗口太小，min 如 50K。
      */
     fun cfgCompactWindowMin(min: String): String = catalog.say("cfgCompactWindowMin", mapOf("min" to min))
 
     /**
-     * 「这种类型（{type}）的服务器看不了工具」
+     * 「不支持查看 {type} 类型服务器的工具」
      *
      * MCP 工具列表出错：不支持的服务器类型。
      */
     fun cfgMcpTypeNoTools(type: String): String = catalog.say("cfgMcpTypeNoTools", mapOf("type" to type))
 
     /**
-     * 「服务器要求登录或 Token 不对（HTTP {status}）」
+     * 「服务器要求登录或 Token 无效（HTTP {status}）」
      *
      * MCP 工具列表出错：401、403。
      */
@@ -1520,7 +1520,7 @@ object CoreStrings {
     fun cfgMcpHTTPStatus(status: String): String = catalog.say("cfgMcpHTTPStatus", mapOf("status" to status))
 
     /**
-     * 「连不上：{detail}」
+     * 「无法连接：{detail}」
      *
      * MCP 工具列表出错：连不上，detail 是原因原文（网址已去掉）。
      */
@@ -1534,21 +1534,21 @@ object CoreStrings {
     fun cfgMcpFailedDetail(reason: String, detail: String): String = catalog.say("cfgMcpFailedDetail", mapOf("reason" to reason, "detail" to detail))
 
     /**
-     * 「claude 返回了 {code}」
+     * 「claude 返回退出码 {code}」
      *
      * MCP 页出错：claude mcp 命令没成功，也没输出原因，code 是退出码。
      */
     fun cfgClaudeExit(code: String): String = catalog.say("cfgClaudeExit", mapOf("code" to code))
 
     /**
-     * 「文件超过 {mib} MiB，请在终端里编辑」
+     * 「文件超过 {mib} MiB，请在终端中编辑」
      *
      * 配置页出错：文件太大。
      */
     fun cfgFileTooBig(mib: String): String = catalog.say("cfgFileTooBig", mapOf("mib" to mib))
 
     /**
-     * 「读不了 {name}」
+     * 「无法读取 {name}」
      *
      * 配置页出错：读不了文件。
      */
@@ -1562,14 +1562,14 @@ object CoreStrings {
     fun cfgWriteFailed(reason: String): String = catalog.say("cfgWriteFailed", mapOf("reason" to reason))
 
     /**
-     * 「起不了 bash：{detail}」
+     * 「无法启动 bash：{detail}」
      *
      * 配置页出错：起不了 bash。
      */
     fun cfgBashFailed(detail: String): String = catalog.say("cfgBashFailed", mapOf("detail" to detail))
 
     /**
-     * 「建不了目录：{reason}」
+     * 「无法创建目录：{reason}」
      *
      * 导入 Skill 出错：建不了目录。
      */
@@ -1590,7 +1590,7 @@ object CoreStrings {
     fun cfgNoPermission(): String = catalog.say("cfgNoPermission")
 
     /**
-     * 「目录不在」
+     * 「目录不存在」
      *
      * 读写文件没成的原因：目录不在。
      */
@@ -1604,28 +1604,28 @@ object CoreStrings {
     fun cfgNoSpace(): String = catalog.say("cfgNoSpace")
 
     /**
-     * 「ZIP 里的文件太多（超过 {max} 个）」
+     * 「ZIP 中的文件过多（超过 {max} 个）」
      *
      * 导入 Skill 出错：文件太多。
      */
     fun cfgZipTooManyFiles(max: String): String = catalog.say("cfgZipTooManyFiles", mapOf("max" to max))
 
     /**
-     * 「ZIP 解压后太大（超过 {mib} MiB）」
+     * 「ZIP 解压后体积过大（超过 {mib} MiB）」
      *
      * 导入 Skill 出错：解压后太大。
      */
     fun cfgZipTooBig(mib: String): String = catalog.say("cfgZipTooBig", mapOf("mib" to mib))
 
     /**
-     * 「ZIP 里有不安全的路径：{name}」
+     * 「ZIP 中包含不安全的路径：{name}」
      *
      * 导入 Skill 出错：路径不安全。
      */
     fun cfgZipUnsafePath(name: String): String = catalog.say("cfgZipUnsafePath", mapOf("name" to name))
 
     /**
-     * 「ZIP 里有符号链接，不支持：{name}」
+     * 「ZIP 中包含不支持的符号链接：{name}」
      *
      * 导入 Skill 出错：有符号链接。
      */
@@ -1639,7 +1639,7 @@ object CoreStrings {
     fun cfgZipEncrypted(name: String): String = catalog.say("cfgZipEncrypted", mapOf("name" to name))
 
     /**
-     * 「不支持这种压缩方式（{method}）：{name}」
+     * 「不支持该压缩方式（{method}）：{name}」
      *
      * 导入 Skill 出错：压缩方式不支持。
      */
@@ -1653,28 +1653,28 @@ object CoreStrings {
     fun cfgZipCorrupt(name: String): String = catalog.say("cfgZipCorrupt", mapOf("name" to name))
 
     /**
-     * 「{name} 太大」
+     * 「{name} 文件过大」
      *
      * 导入 Skill 出错：包里一个文件太大。
      */
     fun cfgZipFileTooBig(name: String): String = catalog.say("cfgZipFileTooBig", mapOf("name" to name))
 
     /**
-     * 「名称只能用小写字母、数字和连字符，并以字母或数字开头」
+     * 「名称只能包含小写字母、数字和连字符，且须以字母或数字开头」
      *
      * Subagent 页出错：名称不对。
      */
     fun cfgAgentBadName(): String = catalog.say("cfgAgentBadName")
 
     /**
-     * 「请写上什么时候用它（description），Claude 靠它决定要不要交给这个 Subagent」
+     * 「请填写适用场景（description），Claude 会据此决定是否交给该 Subagent」
      *
      * Subagent 页出错：没写 description。
      */
     fun cfgAgentNoDescription(): String = catalog.say("cfgAgentNoDescription")
 
     /**
-     * 「规则不能是空的」
+     * 「规则不能为空」
      *
      * 工具权限页出错：规则是空的。
      */
@@ -1688,35 +1688,35 @@ object CoreStrings {
     fun cfgRuleSpaces(): String = catalog.say("cfgRuleSpaces")
 
     /**
-     * 「规则里不能有换行」
+     * 「规则中不能包含换行」
      *
      * 工具权限页出错：规则里有换行。
      */
     fun cfgRuleNewline(): String = catalog.say("cfgRuleNewline")
 
     /**
-     * 「括号不配对，写成 工具名 或 工具名(参数)」
+     * 「括号不匹配，格式应为 工具名 或 工具名(参数)」
      *
      * 工具权限页出错：括号不配对。
      */
     fun cfgRuleMalformed(): String = catalog.say("cfgRuleMalformed")
 
     /**
-     * 「路径不对」
+     * 「路径无效」
      *
      * 记忆页出错：路径不对。
      */
     fun cfgBadPath(): String = catalog.say("cfgBadPath")
 
     /**
-     * 「只能编辑记忆目录里的 .md 文件」
+     * 「仅支持编辑记忆目录中的 .md 文件」
      *
      * 记忆页出错：不是记忆文件。
      */
     fun cfgOnlyMemoryFiles(): String = catalog.say("cfgOnlyMemoryFiles")
 
     /**
-     * 「不能编辑这个文件」
+     * 「无法编辑该文件」
      *
      * 记忆页出错：不能编辑这个文件。
      */
@@ -1730,14 +1730,14 @@ object CoreStrings {
     fun toolBash(): String = catalog.say("toolBash")
 
     /**
-     * 「读文件，也管按名字找文件和搜内容」
+     * 「读取文件，同时覆盖按文件名查找和内容搜索」
      *
      * 工具权限页 Read 一行的说明。
      */
     fun toolRead(): String = catalog.say("toolRead")
 
     /**
-     * 「修改文件；带路径的规则也管 Write」
+     * 「修改文件；带路径的规则同样适用于 Write」
      *
      * 工具权限页 Edit 一行的说明。
      */
@@ -1772,7 +1772,7 @@ object CoreStrings {
     fun toolWebSearch(): String = catalog.say("toolWebSearch")
 
     /**
-     * 「派出 Subagent（旧名 Task）」
+     * 「调用 Subagent（旧名 Task）」
      *
      * 工具权限页 Agent 一行的说明。
      */
@@ -1786,21 +1786,21 @@ object CoreStrings {
     fun toolSkill(): String = catalog.say("toolSkill")
 
     /**
-     * 「按文件名找文件（Bash 被拒时才有）」
+     * 「按文件名查找文件（仅在 Bash 被拒绝时生效）」
      *
      * 工具权限页 Glob 一行的说明。
      */
     fun toolGlob(): String = catalog.say("toolGlob")
 
     /**
-     * 「在文件里搜内容（Bash 被拒时才有）」
+     * 「在文件中搜索内容（仅在 Bash 被拒绝时生效）」
      *
      * 工具权限页 Grep 一行的说明。
      */
     fun toolGrep(): String = catalog.say("toolGrep")
 
     /**
-     * 「盯着后台命令的输出」
+     * 「监听后台命令的输出」
      *
      * 工具权限页 Monitor 一行的说明。
      */
@@ -1835,28 +1835,28 @@ object CoreStrings {
     fun toolCronList(): String = catalog.say("toolCronList")
 
     /**
-     * 「/loop 里过一会儿再接着做」
+     * 「在 /loop 中定时唤醒并继续执行」
      *
      * 工具权限页 ScheduleWakeup 一行的说明。
      */
     fun toolScheduleWakeup(): String = catalog.say("toolScheduleWakeup")
 
     /**
-     * 「给 Subagent 或别的会话发消息」
+     * 「向 Subagent 或其他会话发送消息」
      *
      * 工具权限页 SendMessage 一行的说明。
      */
     fun toolSendMessage(): String = catalog.say("toolSendMessage")
 
     /**
-     * 「列出能发消息的 Subagent 和会话」
+     * 「列出可发送消息的 Subagent 和会话」
      *
      * 工具权限页 ListAgents 一行的说明。
      */
     fun toolListAgents(): String = catalog.say("toolListAgents")
 
     /**
-     * 「停掉后台任务」
+     * 「停止后台任务」
      *
      * 工具权限页 TaskStop 一行的说明。
      */
@@ -1884,14 +1884,14 @@ object CoreStrings {
     fun toolEnterPlanMode(): String = catalog.say("toolEnterPlanMode")
 
     /**
-     * 「交出计划、退出计划模式」
+     * 「提交计划并退出计划模式」
      *
      * 工具权限页 ExitPlanMode 一行的说明。
      */
     fun toolExitPlanMode(): String = catalog.say("toolExitPlanMode")
 
     /**
-     * 「向你提选择题」
+     * 「向你提出选择题」
      *
      * 工具权限页 AskUserQuestion 一行的说明。
      */
@@ -1905,28 +1905,28 @@ object CoreStrings {
     fun toolUpdateSteps(): String = catalog.say("toolUpdateSteps")
 
     /**
-     * 「按需加载其余工具，拒绝后都用不了」
+     * 「按需加载其余工具，拒绝后其余工具均不可用」
      *
      * 工具权限页 ToolSearch 一行的说明。
      */
     fun toolToolSearch(): String = catalog.say("toolToolSearch")
 
     /**
-     * 「按格式汇报代码审查的发现」
+     * 「按格式汇报代码审查结果」
      *
      * 工具权限页 ReportFindings 一行的说明。
      */
     fun toolReportFindings(): String = catalog.say("toolReportFindings")
 
     /**
-     * 「读写 Claude Design 里的项目文件」
+     * 「读写 Claude Design 中的项目文件」
      *
      * 工具权限页 DesignSync 一行的说明。
      */
     fun toolDesignSync(): String = catalog.say("toolDesignSync")
 
     /**
-     * 「已经有一个叫 {name} 的服务器了」
+     * 「已存在名为 {name} 的服务器」
      *
      * MCP 页出错：重名。
      */
@@ -1954,14 +1954,14 @@ object CoreStrings {
     fun formMaxLength(n: Int): String = catalog.say("formMaxLength", mapOf("n" to n))
 
     /**
-     * 「要填整数」
+     * 「请填写整数」
      *
      * MCP 表单一项的错误：不是整数。
      */
     fun formInteger(): String = catalog.say("formInteger")
 
     /**
-     * 「要填数字」
+     * 「请填写数字」
      *
      * MCP 表单一项的错误：不是数字。
      */
@@ -1982,56 +1982,56 @@ object CoreStrings {
     fun formMax(max: String): String = catalog.say("formMax", mapOf("max" to max))
 
     /**
-     * 「至少选 {min} 项」
+     * 「至少选择 {min} 项」
      *
      * MCP 表单一项的错误：多选选得太少。
      */
     fun formMinChoices(min: String): String = catalog.say("formMinChoices", mapOf("min" to min))
 
     /**
-     * 「最多选 {max} 项」
+     * 「最多选择 {max} 项」
      *
      * MCP 表单一项的错误：多选选得太多。
      */
     fun formMaxChoices(max: String): String = catalog.say("formMaxChoices", mapOf("max" to max))
 
     /**
-     * 「没有在等这个请求」
+     * 「当前未在等待该请求」
      *
      * 出错应答：回应的请求已经不在等了。
      */
     fun errNoPrompt(): String = catalog.say("errNoPrompt")
 
     /**
-     * 「文件超过 45 MB，不像是一个 Skill 包」
+     * 「文件超过 45 MB，可能不是 Skill 包」
      *
      * 导入 Skill 时客户端先拦下的：文件太大（客户端自己出字，按界面语言用 locales.Said）。
      */
     fun errSkillZipTooBig(): String = catalog.say("errSkillZipTooBig")
 
     /**
-     * 「这台主机上正在更新 Antigravity」
+     * 「当前主机正在更新 Antigravity」
      *
      * 出错应答：已经有一次 agy update 在跑。
      */
     fun errAgyUpdating(): String = catalog.say("errAgyUpdating")
 
     /**
-     * 「正在用这个账号，先换到别的账号或中转再删」
+     * 「当前正在使用该账号，请先切换到其他账号或中转后再删除」
      *
      * 出错应答：要删的 agy 账号正在用。
      */
     fun errAgyAccountInUse(): String = catalog.say("errAgyAccountInUse")
 
     /**
-     * 「还有 {others, plural, other {# 个别处开着的 Antigravity}}（比如终端里的 agy）{othersBusy, plural, =0 {} other {，其中 # 个在进行}}，先退出它们。」
+     * 「其他位置还运行着 {others, plural, other {# 个 Antigravity}}（如终端中的 agy）{othersBusy, plural, =0 {} other {，其中 # 个正在进行}}，请先退出。」
      *
      * 换号被挡住时的说明：Zeta 之外开着 Antigravity。others 是几个，othersBusy 是其中几个在进行。
      */
     fun errAgyBlockedElsewhere(others: Int, othersBusy: Int): String = catalog.say("errAgyBlockedElsewhere", mapOf("others" to others, "othersBusy" to othersBusy))
 
     /**
-     * 「另一个 Zeta（{apps}）开着 {count, plural, other {# 个对话}}{busy, plural, =0 {} other {，其中 # 个在进行}}，在那边结束对话或关掉它；还有 {others, plural, other {# 个别处开着的 Antigravity}}（比如终端里的 agy）{othersBusy, plural, =0 {} other {，其中 # 个在进行}}，先退出它们。」
+     * 「另一个 Zeta（{apps}）打开了 {count, plural, other {# 个对话}}{busy, plural, =0 {} other {，其中 # 个正在进行}}，请先在对应应用中结束对话或关闭应用；其他位置还运行着 {others, plural, other {# 个 Antigravity}}（如终端中的 agy）{othersBusy, plural, =0 {} other {，其中 # 个正在进行}}，请先退出。」
      *
      * 换号被挡住时的说明：别的 Zeta 包和别处的 Antigravity 都开着，参数同 errSwitchBlockedZeta 和 errAgyBlockedElsewhere。
      */
@@ -2045,7 +2045,7 @@ object CoreStrings {
     fun errAgyLoginCodeEmpty(): String = catalog.say("errAgyLoginCodeEmpty")
 
     /**
-     * 「对话已经开始，不能再切换引擎」
+     * 「对话已开始，无法再切换引擎」
      *
      * 出错应答：已有消息、会话号或运行中进程时调用 conv.harness 切换引擎。
      */
@@ -2066,21 +2066,21 @@ object CoreStrings {
     fun toolAgyEdit(): String = catalog.say("toolAgyEdit")
 
     /**
-     * 「在文件里搜内容」
+     * 「在文件中搜索内容」
      *
      * Antigravity 工具权限页 grep_search 一行的说明。
      */
     fun toolAgyGrep(): String = catalog.say("toolAgyGrep")
 
     /**
-     * 「按文件名找文件」
+     * 「按文件名查找文件」
      *
      * Antigravity 工具权限页 find_by_name 一行的说明。
      */
     fun toolAgyGlob(): String = catalog.say("toolAgyGlob")
 
     /**
-     * 「派出 Subagent」
+     * 「调用 Subagent」
      *
      * Antigravity 工具权限页 invoke_subagent 一行的说明。
      */

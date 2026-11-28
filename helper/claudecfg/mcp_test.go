@@ -193,7 +193,7 @@ func TestMcpAddTokenRemove(t *testing.T) {
 	if err := c.AddHTTPServer(ctx, "api", "http", "https://a.example.invalid/mcp", token); err != nil {
 		t.Fatal(err)
 	}
-	if err := c.AddHTTPServer(ctx, "api", "http", "https://b.example.invalid", ""); err == nil || !strings.Contains(err.Error(), "已经有") {
+	if err := c.AddHTTPServer(ctx, "api", "http", "https://b.example.invalid", ""); err == nil || !strings.Contains(err.Error(), "已存在") {
 		t.Errorf("duplicate: %v", err)
 	}
 	if err := c.AddHTTPServer(ctx, "bad name", "http", "https://b.example.invalid", ""); err == nil {

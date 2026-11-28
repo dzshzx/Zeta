@@ -423,7 +423,7 @@ func TestEarlierRowClick(t *testing.T) {
 	}
 	ch.Earlier = Earlier{Skipped: 7, Failed: "连接断开了", Retry: true}
 	tt.Frame()
-	mustClick(t, tt, "连接断开了，点按重试")
+	mustClick(t, tt, "连接断开了，点击重试")
 	if loads != 2 {
 		t.Errorf("点重试后载入 %d 次", loads)
 	}
