@@ -4333,3 +4333,59 @@ func ErrAgyNoRewind() string { return In(i18n.Locale()).ErrAgyNoRewind() }
 func (msgs Messages) ErrAgyNoRewind() string {
 	return Catalog.Format(msgs.locale, "errAgyNoRewind", nil)
 }
+
+// ToolAgyEdit says "修改文件"
+// in the language the app shows.
+//
+// Antigravity 工具权限页 edit_file 一行的说明。
+func ToolAgyEdit() string { return In(i18n.Locale()).ToolAgyEdit() }
+
+// ToolAgyEdit says "修改文件"
+// in the language of msgs.
+//
+// Antigravity 工具权限页 edit_file 一行的说明。
+func (msgs Messages) ToolAgyEdit() string {
+	return Catalog.Format(msgs.locale, "toolAgyEdit", nil)
+}
+
+// ToolAgyGrep says "在文件里搜内容"
+// in the language the app shows.
+//
+// Antigravity 工具权限页 grep_search 一行的说明。
+func ToolAgyGrep() string { return In(i18n.Locale()).ToolAgyGrep() }
+
+// ToolAgyGrep says "在文件里搜内容"
+// in the language of msgs.
+//
+// Antigravity 工具权限页 grep_search 一行的说明。
+func (msgs Messages) ToolAgyGrep() string {
+	return Catalog.Format(msgs.locale, "toolAgyGrep", nil)
+}
+
+// ToolAgyGlob says "按文件名找文件"
+// in the language the app shows.
+//
+// Antigravity 工具权限页 find_by_name 一行的说明。
+func ToolAgyGlob() string { return In(i18n.Locale()).ToolAgyGlob() }
+
+// ToolAgyGlob says "按文件名找文件"
+// in the language of msgs.
+//
+// Antigravity 工具权限页 find_by_name 一行的说明。
+func (msgs Messages) ToolAgyGlob() string {
+	return Catalog.Format(msgs.locale, "toolAgyGlob", nil)
+}
+
+// ToolAgyAgent says "派出 Subagent"
+// in the language the app shows.
+//
+// Antigravity 工具权限页 invoke_subagent 一行的说明。
+func ToolAgyAgent() string { return In(i18n.Locale()).ToolAgyAgent() }
+
+// ToolAgyAgent says "派出 Subagent"
+// in the language of msgs.
+//
+// Antigravity 工具权限页 invoke_subagent 一行的说明。
+func (msgs Messages) ToolAgyAgent() string {
+	return Catalog.Format(msgs.locale, "toolAgyAgent", nil)
+}

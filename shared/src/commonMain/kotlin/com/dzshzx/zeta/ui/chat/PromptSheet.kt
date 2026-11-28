@@ -21,6 +21,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.unit.dp
 import com.dzshzx.zeta.core.ElicitationRequest
+import com.dzshzx.zeta.core.Harnesses
 import com.dzshzx.zeta.core.PermissionReply
 import com.dzshzx.zeta.core.PermissionRequest
 import com.dzshzx.zeta.core.Question
@@ -53,6 +54,7 @@ fun PromptSheet(
     prompt: UserPrompt?,
     onReply: (PermissionRequest, PermissionReply) -> Unit,
     onElicit: ElicitAnswer,
+    harness: String = Harnesses.CLAUDE,
 ) {
     // 关闭动画期间仍要显示上一条请求的内容
     val current = rememberRetained(prompt) ?: return
@@ -63,18 +65,23 @@ fun PromptSheet(
             when {
                 current.questions.isNotEmpty() -> QuestionSheet(visible, current, onReply)
                 current.isPlan -> PlanSheet(visible, current, onReply)
-                else -> ToolSheet(visible, current, onReply, current.agentLabelSaid())
+                else -> ToolSheet(visible, current, onReply, current.agentLabelSaid(), harness)
             }
     }
 }
 
-/** TUI 的工具确认：允许、允许并以后不再问（Claude Code 给了建议时）、拒绝（可以写理由让 Claude 换个做法）。 */
+/** TUI 的工具确认：允许、允许并以后不再问（Claude Code 给了建议时）、拒绝（可以写理由让工具换个做法）。 */
+private fun denyHintFor(harness: String): String =
+    if (Harnesses.normalize(harness) == Harnesses.AGY) Strings.composerDenyHintAgy()
+    else Strings.composerDenyHint()
+
 @Composable
 private fun ToolSheet(
     visible: Boolean,
     request: PermissionRequest,
     onReply: (PermissionRequest, PermissionReply) -> Unit,
     agent: String?,
+    harness: String = Harnesses.CLAUDE,
 ) {
     val presentation = presentTool(request.toolName, request.input)
     val always = request.suggestionLinesSaid()
@@ -116,7 +123,7 @@ private fun ToolSheet(
                     value = feedback,
                     onValueChange = { feedback = it },
                     modifier = Modifier.padding(horizontal = DialogContentPadding, vertical = 4.dp),
-                    hint = Strings.composerDenyHint(),
+                    hint = denyHintFor(harness),
                     singleLine = false,
                     maxLines = 4,
                 )

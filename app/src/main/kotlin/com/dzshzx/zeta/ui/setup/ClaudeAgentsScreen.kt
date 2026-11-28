@@ -172,10 +172,13 @@ internal fun ClaudeAgentsScreen(
         },
     ) {
         val list = agents
+        val isAgy = Harnesses.normalize(harness) == Harnesses.AGY
         item(key = "agents") {
             PreferenceGroup(
                 title = Strings.setupAgentsCustom(list?.size ?: 0),
-                footer = Strings.setupAgentsCustomFooter(),
+                footer =
+                    if (isAgy) Strings.setupAgentsAgyCustomFooter()
+                    else Strings.setupAgentsCustomFooter(),
             ) {
                 when {
                     list == null -> item { ConfigLoadingRow() }
@@ -183,7 +186,8 @@ internal fun ClaudeAgentsScreen(
                         item {
                             ConfigEmptyRow(
                                 Strings.setupAgentsNone(),
-                                Strings.setupAgentsNoneSummary(),
+                                if (isAgy) Strings.setupAgentsAgyNoneSummary()
+                                else Strings.setupAgentsNoneSummary(),
                             )
                         }
                     else ->

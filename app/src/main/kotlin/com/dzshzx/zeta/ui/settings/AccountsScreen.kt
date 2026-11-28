@@ -412,9 +412,10 @@ private fun RelaysGroup(
 ) {
     val state = service.state ?: return
     val enabled = service.working == null
+    val isAgy = Harnesses.normalize(service.harness) == Harnesses.AGY
     PreferenceGroup(
         title = Strings.settingsRelaysGroup(),
-        footer = Strings.settingsRelaysFooter(),
+        footer = if (isAgy) Strings.settingsRelaysAgyFooter() else Strings.settingsRelaysFooter(),
     ) {
         state.relays.forEach { relay ->
             item(key = "relay:" + relay.name) {

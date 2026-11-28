@@ -260,6 +260,7 @@ fun ChatScreen(
                     prompt = conversation.pending.takeUnless { paneOpen },
                     onReply = conversation::reply,
                     onElicit = conversation::answerElicitation,
+                    harness = conversation.harness,
                 )
                 ConfirmDialog(
                     show = endSummary != null,
@@ -862,6 +863,7 @@ private fun ConversationInput(
                 sendDraft(text, hub, conversation, draft, actions, follow, openConfig)
             },
             onStop = conversation::interrupt,
+            harness = conversation.harness,
             tools = {
                 PermissionModeChip(
                     mode = conversation.shownPermissionMode,

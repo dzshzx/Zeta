@@ -46,12 +46,12 @@ func agyMcpConfigPath(home string) string {
 var AgyCommonTools = []ToolInfo{
 	tool("run_command", locales.M("toolBash"), "run_command(git push:*)"),
 	tool("read_file", locales.M("toolRead"), "read_file(./.env)"),
-	tool("edit_file", locales.M("toolEdit"), "edit_file(src/**)"),
+	tool("edit_file", locales.M("toolAgyEdit"), "edit_file(src/**)"),
 	tool("write_file", locales.M("toolWrite"), ""),
-	tool("grep_search", locales.M("toolGrep"), ""),
-	tool("find_by_name", locales.M("toolGlob"), ""),
+	tool("grep_search", locales.M("toolAgyGrep"), ""),
+	tool("find_by_name", locales.M("toolAgyGlob"), ""),
 	tool("search_web", locales.M("toolWebSearch"), ""),
-	tool("invoke_subagent", locales.M("toolAgent"), ""),
+	tool("invoke_subagent", locales.M("toolAgyAgent"), ""),
 }
 
 var AgyOtherTools = []ToolInfo{

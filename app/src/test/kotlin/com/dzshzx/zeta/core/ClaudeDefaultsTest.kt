@@ -205,6 +205,10 @@ class ClaudeDefaultsTest {
             "没有设，按 Claude Code 的默认",
             effortSummary(ClaudeDefaults(null, null, emptyMap(), null)),
         )
+        assertEquals(
+            "没有设，按 Antigravity 的默认",
+            effortSummary(ClaudeDefaults(null, null, emptyMap(), null), Harnesses.AGY),
+        )
         assertEquals("高", effortSummary(ClaudeDefaults(null, null, emptyMap(), "high")))
         assertEquals(
             "Opus 5.5 超高，Fable 5.2 高",

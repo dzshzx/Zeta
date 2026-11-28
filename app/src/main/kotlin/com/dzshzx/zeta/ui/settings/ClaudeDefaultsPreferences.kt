@@ -41,9 +41,30 @@ import top.yukonga.miuix.kmp.preference.ArrowPreference
 internal val ClaudeDefaultsFooter: String
     get() = Strings.settingsDefaultsFooter()
 
-/** 还没读到 Claude Code 的设置（环境没就绪、读失败）时三行灰着，写这一句。 */
+/** 还没读到对应工具的设置（环境没就绪、读失败）时三行灰着，写这一句。 */
 private val notRead: String
     get() = Strings.settingsDefaultsNotRead()
+
+private fun notReadFor(harness: String): String =
+    if (Harnesses.normalize(harness) == Harnesses.AGY) Strings.settingsDefaultsAgyNotRead()
+    else notRead
+
+private fun followHarnessLabel(harness: String): String =
+    if (Harnesses.normalize(harness) == Harnesses.AGY) Strings.commonFollowAntigravity()
+    else Strings.commonFollowClaudeCode()
+
+private fun builtinModelLabel(harness: String): String =
+    if (Harnesses.normalize(harness) == Harnesses.AGY) Strings.settingsDefaultsAgyModelBuiltin()
+    else Strings.settingsDefaultsModelBuiltin()
+
+private fun effortFooterFor(harness: String, waiting: Boolean): String =
+    if (Harnesses.normalize(harness) == Harnesses.AGY) {
+        if (waiting) Strings.settingsDefaultsAgyEffortFooterPending()
+        else Strings.settingsDefaultsAgyEffortFooter()
+    } else {
+        if (waiting) Strings.settingsDefaultsEffortFooterPending()
+        else Strings.settingsDefaultsEffortFooter()
+    }
 
 /** 改主机 [backend] 上的一项默认值：在后台写那台的 settings.json，写成了更新 hub，没写成弹一句原因。 */
 @Composable
@@ -95,9 +116,9 @@ internal fun DefaultModelPreference(
         value = defaults?.model?.takeIf { it != Conversation.DEFAULT_MODEL },
         unknown = ::readableModelId,
         followLabel =
-            if (hub.usesRelayModels(backend, harness)) Strings.commonFollowClaudeCode()
-            else Strings.settingsDefaultsModelBuiltin(),
-        summary = notRead.takeIf { defaults == null || changing },
+            if (hub.usesRelayModels(backend, harness)) followHarnessLabel(harness)
+            else builtinModelLabel(harness),
+        summary = notReadFor(harness).takeIf { defaults == null || changing },
         enabled = defaults != null && !changing,
     ) { value ->
         if (hub.modelSelectable(backend, value, harness)) write { setDefaultModel(value) }
@@ -148,7 +169,7 @@ internal fun DefaultPermissionModePreference(
         value = hub.defaultPermissionMode(backend, harness),
         unknown = ::permissionModeLabel,
         followLabel = null,
-        summary = notRead.takeIf { defaults == null },
+        summary = notReadFor(harness).takeIf { defaults == null },
         enabled = defaults != null,
     ) { value ->
         value?.let { mode -> write { setDefaultPermissionMode(mode) } }
@@ -166,7 +187,7 @@ internal fun DefaultEffortEntry(
     val defaults = hub.claudeDefaults(backend, harness)
     ArrowPreference(
         title = Strings.settingsDefaultsEffort(),
-        summary = defaults?.let(::effortSummary) ?: notRead,
+        summary = defaults?.let { effortSummary(it, harness) } ?: notReadFor(harness),
         enabled = defaults != null,
         onClick = onOpen,
     )
@@ -204,18 +225,15 @@ internal fun DefaultEffortScreen(
     }
     MiuixPage(title = Strings.settingsDefaultsEffort(), onBack = onBack) {
         item(key = "efforts") {
-            PreferenceGroup(
-                footer =
-                    if (waiting) Strings.settingsDefaultsEffortFooterPending()
-                    else Strings.settingsDefaultsEffortFooter(),
-            ) {
+            PreferenceGroup(footer = effortFooterFor(harness, waiting)) {
                 if (defaults == null) {
-                    item { ArrowPreference(title = notRead, enabled = false) }
+                    item { ArrowPreference(title = notReadFor(harness), enabled = false) }
                 } else {
                     effortItems(
                         effortRows(models, defaults, relay || isAgy),
                         showOlder,
                         { showOlder = true },
+                        followHarnessLabel(harness),
                         write,
                     )
                 }
@@ -229,6 +247,7 @@ private fun PreferenceGroupScope.effortItems(
     rows: List<EffortRow>,
     showOlder: Boolean,
     onShowOlder: () -> Unit,
+    followLabel: String,
     write: (ClaudeConfigCore.() -> ClaudeDefaults) -> Unit,
 ) {
     val (shown, folded) = rows.partition { showOlder || !it.older }
@@ -238,7 +257,7 @@ private fun PreferenceGroupScope.effortItems(
                 title = row.title,
                 choices = row.choices,
                 value = row.value,
-                followLabel = Strings.commonFollowClaudeCode(),
+                followLabel = followLabel,
             ) { level ->
                 write { setDefaultEffort(row.model, level) }
             }
@@ -309,15 +328,21 @@ internal fun effortRows(
     return rows + others + listOfNotNull(rest)
 }
 
-/** 「Opus 5.5 超高，Fable 5.2 高」；只有顶层的就是那一档，都没设时说由 Claude Code 定。 */
-internal fun effortSummary(defaults: ClaudeDefaults): String {
+/** 「Opus 5.5 超高，Fable 5.2 高」；只有顶层的就是那一档，都没设时说由对应工具定。 */
+internal fun effortSummary(
+    defaults: ClaudeDefaults,
+    harness: String = Harnesses.CLAUDE,
+): String {
     val perModel =
         defaults.efforts.map { (model, level) ->
             Strings.settingsDefaultsModelEffort(readableModelId(model), effortLabel(level) ?: level)
         }
     val rest = defaults.effort?.let { effortLabel(it) ?: it }
+    val unset =
+        if (Harnesses.normalize(harness) == Harnesses.AGY) Strings.settingsDefaultsAgyEffortUnset()
+        else Strings.settingsDefaultsEffortUnset()
     return when {
-        perModel.isEmpty() -> rest ?: Strings.settingsDefaultsEffortUnset()
+        perModel.isEmpty() -> rest ?: unset
         rest == null -> perModel.joinToString(Strings.settingsDefaultsCommaSeparator())
         else ->
             (perModel +

@@ -2358,5 +2358,19 @@
   "settingsHostRules": "Rules and instructions",
   "settingsAccountsAgyFooter": "Accounts, relays, and quota are stored in Antigravity's config directory on this device; idle chat processes are closed before switching.",
   "relayBaseUrlAgyFooter": "Enter a Gemini API compatible base URL, or leave blank to use Google's default endpoint.",
-  "relayBaseUrlOptionalHint": "Leave blank for default endpoint"
+  "relayBaseUrlOptionalHint": "Leave blank for default endpoint",
+  "composerHintIdleAgy": "Give Antigravity a task",
+  "composerDenyHintAgy": "Tell Antigravity what to do instead (optional)",
+  "commonFollowAntigravity": "Antigravity default",
+  "settingsDefaultsAgyFooter": "Used for new conversations on this device. With a relay, the default model is saved in the relay settings. Choices made in a conversation apply only there. Thinking effort is stored per model.",
+  "settingsDefaultsAgyNotRead": "Antigravity settings not loaded yet",
+  "settingsDefaultsAgyModelBuiltin": "Antigravity default",
+  "settingsDefaultsAgyEffortUnset": "Not set; Antigravity decides",
+  "settingsDefaultsAgyEffortFooter": "New conversations on this device use the setting for their model. Choices made in a conversation apply only to it.",
+  "settingsDefaultsAgyEffortFooterPending": "New conversations on this device use the setting for their model. Choices made in a conversation apply only to it. Asking Antigravity for its model list; showing the ones already set for now.",
+  "settingsRelaysAgyFooter": "A relay is an endpoint that speaks the Gemini API protocol with key authentication (the official API or a compatible relay). Tap a row to switch to it, under the same conditions as switching accounts; there is no subscription quota while a relay is in use.",
+  "setupSkillsAgyUserFooter": "Installed in ~/.gemini/config/skills. Turned-off Skills keep their files but Antigravity stops using them. Changes apply to conversations started afterwards.",
+  "setupSkillsAgyNoneSummary": "Import one from a ZIP, or ask Antigravity to write one",
+  "setupAgentsAgyCustomFooter": "Stored in ~/.gemini/config/agents and available to all projects. Antigravity picks one based on its “When to use”, or you can name one in a conversation.",
+  "setupAgentsAgyNoneSummary": "Ask Antigravity to write one, or tap + at the top right"
 }

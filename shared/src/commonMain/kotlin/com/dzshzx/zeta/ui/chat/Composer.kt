@@ -182,6 +182,8 @@ fun Composer(
     voice: HoldToTalk? = null,
     /** 挂在输入框上的焦点，调用方用它把焦点给输入框。 */
     focus: FocusRequester = remember { FocusRequester() },
+    /** 当前对话使用的命令行工具，决定空闲占位文案。 */
+    harness: String = com.dzshzx.zeta.core.Harnesses.CLAUDE,
 ) {
     val colors = MiuixTheme.colorScheme
     val dark = colors.isDark
@@ -224,7 +226,7 @@ fun Composer(
         if (attachments.isNotEmpty() || files.isNotEmpty()) {
             ComposerAttachments(attachments, files, onRemoveAttachment, onRemoveFile)
         }
-        ComposerField(state, talk, busy, enabled, textStyle, focus)
+        ComposerField(state, talk, busy, enabled, textStyle, focus, harness)
         Row(
             modifier = Modifier.fillMaxWidth().padding(top = 2.dp),
             horizontalArrangement = Arrangement.spacedBy(6.dp),
@@ -526,8 +528,13 @@ private fun ComposerField(
     enabled: Boolean,
     textStyle: TextStyle,
     focus: FocusRequester,
+    harness: String = com.dzshzx.zeta.core.Harnesses.CLAUDE,
 ) {
     val colors = MiuixTheme.colorScheme
+    val idleHint =
+        if (com.dzshzx.zeta.core.Harnesses.normalize(harness) == com.dzshzx.zeta.core.Harnesses.AGY)
+            Strings.composerHintIdleAgy()
+        else Strings.composerHintIdle()
     // 配色取回答的 Markdown 样式（它按会变的配色值记忆，切深浅色时跟着换）
     val answer = rememberMarkdownStyle(MarkdownTone.Answer)
     val markdown = remember(answer) { ComposerMarkdownStyle(answer) }
@@ -550,7 +557,7 @@ private fun ComposerField(
                 )
             state.text.isEmpty() ->
                 Text(
-                    text = if (busy) Strings.composerHintBusy() else Strings.composerHintIdle(),
+                    text = if (busy) Strings.composerHintBusy() else idleHint,
                     style = textStyle,
                     color = colors.onSecondaryContainer,
                 )

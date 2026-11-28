@@ -2057,4 +2057,32 @@ object CoreStrings {
      * 出错应答：对 agy 会话调用 conv.rewrite、conv.drop、conv.restore_code 或 conv.fork。
      */
     fun errAgyNoRewind(): String = catalog.say("errAgyNoRewind")
+
+    /**
+     * 「修改文件」
+     *
+     * Antigravity 工具权限页 edit_file 一行的说明。
+     */
+    fun toolAgyEdit(): String = catalog.say("toolAgyEdit")
+
+    /**
+     * 「在文件里搜内容」
+     *
+     * Antigravity 工具权限页 grep_search 一行的说明。
+     */
+    fun toolAgyGrep(): String = catalog.say("toolAgyGrep")
+
+    /**
+     * 「按文件名找文件」
+     *
+     * Antigravity 工具权限页 find_by_name 一行的说明。
+     */
+    fun toolAgyGlob(): String = catalog.say("toolAgyGlob")
+
+    /**
+     * 「派出 Subagent」
+     *
+     * Antigravity 工具权限页 invoke_subagent 一行的说明。
+     */
+    fun toolAgyAgent(): String = catalog.say("toolAgyAgent")
 }

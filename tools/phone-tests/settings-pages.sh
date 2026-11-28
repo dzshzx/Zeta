@@ -65,13 +65,19 @@ link Phone
 step phone
 back
 step settings
-# 设置首页最上面的「手机」，再点主机页里的「默认思考强度」（第一组第二行，读到默认值后才能点）
+# 设置首页最上面的「手机」，再点主机页里的「默认思考强度」（读到默认值后才能点）
 vd tap 365 633 >/dev/null
 sleep 1.5
 step host-phone
-vd tap 365 780 >/dev/null
+wait_text '^默认思考强度$' 10 || { echo "主机页找不到默认思考强度"; vd shot host-effort-missing.png >/dev/null; exit 1; }
+vd tap-text '^默认思考强度$' >/dev/null
 sleep 1.5
 step host-effort
+if vd nodes '^新对话默认工具$' | grep -q .; then
+  echo "点按默认思考强度后仍停留在主机页（可能误点了下拉菜单）"
+  exit 1
+fi
+wait_text '^默认思考强度$' 5 || { echo "未进入默认思考强度子页"; exit 1; }
 back
 step host-phone-again
 back

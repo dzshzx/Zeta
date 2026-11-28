@@ -189,6 +189,7 @@ internal fun ClaudeSkillsScreen(
             UserSkillsGroup(
                 loaded = l != null,
                 skills = skills,
+                isAgy = Harnesses.normalize(harness) == Harnesses.AGY,
                 operating = operating,
                 busy = busy,
                 onToggle = ::toggle,
@@ -267,6 +268,7 @@ private fun ImportGroup(importing: Boolean, enabled: Boolean, onPick: () -> Unit
 private fun UserSkillsGroup(
     loaded: Boolean,
     skills: List<SkillInfo>,
+    isAgy: Boolean,
     operating: Boolean,
     busy: String?,
     onToggle: (SkillInfo, Boolean) -> Unit,
@@ -275,12 +277,18 @@ private fun UserSkillsGroup(
 ) {
     PreferenceGroup(
         title = Strings.setupSkillsUser(skills.size),
-        footer = Strings.setupSkillsUserFooter(),
+        footer = if (isAgy) Strings.setupSkillsAgyUserFooter() else Strings.setupSkillsUserFooter(),
     ) {
         when {
             !loaded -> item { ConfigLoadingRow() }
             skills.isEmpty() ->
-                item { ConfigEmptyRow(Strings.setupSkillsNone(), Strings.setupSkillsNoneSummary()) }
+                item {
+                    ConfigEmptyRow(
+                        Strings.setupSkillsNone(),
+                        if (isAgy) Strings.setupSkillsAgyNoneSummary()
+                        else Strings.setupSkillsNoneSummary(),
+                    )
+                }
             else ->
                 skills.forEach { skill ->
                     item(key = skill.name) {

@@ -183,3 +183,15 @@ func TestPermissionsViewInClientLanguage(t *testing.T) {
 		t.Errorf("中文的出错：%q", got)
 	}
 }
+
+func TestAgyBuiltinToolLabelsHaveNoClaudeWording(t *testing.T) {
+	home := t.TempDir()
+	view := New(home).ForHarness("agy").PermissionsView(nil, "", "", nil)
+	for _, tool := range view.Builtin {
+		for _, forbidden := range []string{"Bash", "Write", "旧名 Task"} {
+			if strings.Contains(tool.Label, forbidden) {
+				t.Errorf("Antigravity 工具 %s 说明不应含 %q：%q", tool.Name, forbidden, tool.Label)
+			}
+		}
+	}
+}

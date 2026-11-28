@@ -7,6 +7,7 @@ import com.dzshzx.zeta.core.FakeCore
 import com.dzshzx.zeta.core.Harnesses
 import com.dzshzx.zeta.core.SessionSummary
 import com.dzshzx.zeta.core.awaitCore
+import com.dzshzx.zeta.core.claude.ClaudeDefaults
 import com.dzshzx.zeta.core.fileChangeOf
 import com.dzshzx.zeta.i18n.Strings
 import com.dzshzx.zeta.shots.Fixtures
@@ -130,6 +131,7 @@ class AgyToolPresentationTest : ShotTest() {
         assertEquals(Harnesses.AGY, opened.str("harness"))
         awaitCore { hub.current.harness == Harnesses.AGY }
         compose.onNodeWithText("Antigravity · 默认").assertExists()
+        compose.onNodeWithText("交给 Antigravity 去完成").assertExists()
     }
 
     @Test
@@ -159,6 +161,11 @@ class AgyToolPresentationTest : ShotTest() {
     @Test
     fun hostSettingsShowsDefaultHarnessAndAntigravityItems() {
         val hub = Fixtures.readyHub(app)
+        hub.updateClaudeDefaults(
+            Backends.LOCAL,
+            ClaudeDefaults(null, null, emptyMap(), null),
+            Harnesses.AGY,
+        )
         compose.setContent {
             ZetaTheme(windowBackdrop = false) {
                 HostSettingsScreen(
@@ -173,5 +180,7 @@ class AgyToolPresentationTest : ShotTest() {
         }
         compose.onNodeWithText("新对话默认工具").assertExists()
         compose.onNodeWithText("Antigravity CLI").assertExists()
+        compose.onNodeWithText("Antigravity 内置的默认").assertExists()
+        compose.onNodeWithText("没有设，按 Antigravity 的默认").assertExists()
     }
 }

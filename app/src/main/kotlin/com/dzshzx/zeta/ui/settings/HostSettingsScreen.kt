@@ -179,7 +179,10 @@ private fun hostDefaultsGroup(
     isAgy: Boolean,
     onOpen: (HostPage) -> Unit,
 ) {
-    PreferenceGroup(title = Strings.settingsHostDefaults(), footer = ClaudeDefaultsFooter) {
+    PreferenceGroup(
+        title = Strings.settingsHostDefaults(),
+        footer = if (isAgy) Strings.settingsDefaultsAgyFooter() else ClaudeDefaultsFooter,
+    ) {
         item { DefaultModelPreference(hub, backend, harness) }
         item {
             DefaultEffortEntry(

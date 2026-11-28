@@ -585,5 +585,13 @@
   "errHarnessLocked": "对话已经开始，不能再切换引擎",
   "@errHarnessLocked": { "description": "出错应答：已有消息、会话号或运行中进程时调用 conv.harness 切换引擎。" },
   "errAgyNoRewind": "Antigravity 会话不支持编辑、撤回、还原代码或分支",
-  "@errAgyNoRewind": { "description": "出错应答：对 agy 会话调用 conv.rewrite、conv.drop、conv.restore_code 或 conv.fork。" }
+  "@errAgyNoRewind": { "description": "出错应答：对 agy 会话调用 conv.rewrite、conv.drop、conv.restore_code 或 conv.fork。" },
+  "toolAgyEdit": "修改文件",
+  "@toolAgyEdit": { "description": "Antigravity 工具权限页 edit_file 一行的说明。" },
+  "toolAgyGrep": "在文件里搜内容",
+  "@toolAgyGrep": { "description": "Antigravity 工具权限页 grep_search 一行的说明。" },
+  "toolAgyGlob": "按文件名找文件",
+  "@toolAgyGlob": { "description": "Antigravity 工具权限页 find_by_name 一行的说明。" },
+  "toolAgyAgent": "派出 Subagent",
+  "@toolAgyAgent": { "description": "Antigravity 工具权限页 invoke_subagent 一行的说明。" }
 }

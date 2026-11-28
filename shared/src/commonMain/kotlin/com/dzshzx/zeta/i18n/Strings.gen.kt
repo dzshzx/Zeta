@@ -16519,4 +16519,102 @@ object Strings {
      * Antigravity 中转编辑页地址输入框的占位提示。
      */
     fun relayBaseUrlOptionalHint(): String = catalog.say("relayBaseUrlOptionalHint")
+
+    /**
+     * 「交给 Antigravity 去完成」
+     *
+     * Antigravity 对话里输入框空闲时的占位提示。
+     */
+    fun composerHintIdleAgy(): String = catalog.say("composerHintIdleAgy")
+
+    /**
+     * 「拒绝时告诉 Antigravity 换个做法（可不填）」
+     *
+     * Antigravity 工具确认弹窗拒绝理由输入框的占位提示。
+     */
+    fun composerDenyHintAgy(): String = catalog.say("composerDenyHintAgy")
+
+    /**
+     * 「跟随 Antigravity」
+     *
+     * Antigravity 下拉选项：不覆盖，按 Antigravity 的默认。
+     */
+    fun commonFollowAntigravity(): String = catalog.say("commonFollowAntigravity")
+
+    /**
+     * 「在这台设备上开新对话时用。使用中转时，默认模型存在中转设置里；对话里选的只管那个对话。思考强度按模型分别存。」
+     *
+     * 设备页 Antigravity 标签下「新对话默认」一组下面的说明。
+     */
+    fun settingsDefaultsAgyFooter(): String = catalog.say("settingsDefaultsAgyFooter")
+
+    /**
+     * 「还没读到 Antigravity 的设置」
+     *
+     * Antigravity 新对话默认的几行灰着时的说明：环境没就绪或读失败。
+     */
+    fun settingsDefaultsAgyNotRead(): String = catalog.say("settingsDefaultsAgyNotRead")
+
+    /**
+     * 「Antigravity 内置的默认」
+     *
+     * Antigravity 默认模型下拉里的第一项：不设，用 Antigravity 内置的默认模型。
+     */
+    fun settingsDefaultsAgyModelBuiltin(): String = catalog.say("settingsDefaultsAgyModelBuiltin")
+
+    /**
+     * 「没有设，按 Antigravity 的默认」
+     *
+     * Antigravity 默认思考强度一行的摘要：哪个模型都没设。
+     */
+    fun settingsDefaultsAgyEffortUnset(): String = catalog.say("settingsDefaultsAgyEffortUnset")
+
+    /**
+     * 「这台设备上的新对话按所用的模型取这里的设置；对话里选的只管那个对话。」
+     *
+     * Antigravity 默认思考强度页下面的说明。
+     */
+    fun settingsDefaultsAgyEffortFooter(): String = catalog.say("settingsDefaultsAgyEffortFooter")
+
+    /**
+     * 「这台设备上的新对话按所用的模型取这里的设置；对话里选的只管那个对话。正在向 Antigravity 要模型清单，先列出已经设过的。」
+     *
+     * Antigravity 默认思考强度页下面的说明，还没拿到模型清单时多一句。
+     */
+    fun settingsDefaultsAgyEffortFooterPending(): String = catalog.say("settingsDefaultsAgyEffortFooterPending")
+
+    /**
+     * 「中转是说 Gemini API 协议、用密钥鉴权的接口（官方 API 或兼容它的中转站）。点一行切换过去，条件同切换账号；在用中转时没有订阅额度。」
+     *
+     * Antigravity 账号与额度页中转分组下面的说明。
+     */
+    fun settingsRelaysAgyFooter(): String = catalog.say("settingsRelaysAgyFooter")
+
+    /**
+     * 「装在 ~/.gemini/config/skills 里。关掉后文件留着，Antigravity 不再用它；改动对之后新开始的对话生效。」
+     *
+     * Antigravity Skills 页「用户安装」一组下面的说明。
+     */
+    fun setupSkillsAgyUserFooter(): String = catalog.say("setupSkillsAgyUserFooter")
+
+    /**
+     * 「从 ZIP 导入，或让 Antigravity 写一个」
+     *
+     * Antigravity Skills 页为空时的提示副标题。
+     */
+    fun setupSkillsAgyNoneSummary(): String = catalog.say("setupSkillsAgyNoneSummary")
+
+    /**
+     * 「存在 ~/.gemini/config/agents，所有项目都能用。Antigravity 按“什么时候用”自己决定交给哪个，你也可以在对话里点名。」
+     *
+     * Antigravity Subagent 页「自定义 Subagent」一组下面的说明。
+     */
+    fun setupAgentsAgyCustomFooter(): String = catalog.say("setupAgentsAgyCustomFooter")
+
+    /**
+     * 「让 Antigravity 写一个，或点右上角 + 新建」
+     *
+     * Antigravity Subagent 页为空时的提示副标题。
+     */
+    fun setupAgentsAgyNoneSummary(): String = catalog.say("setupAgentsAgyNoneSummary")
 }

@@ -12389,5 +12389,61 @@
   "relayBaseUrlOptionalHint": "留空使用官方默认地址",
   "@relayBaseUrlOptionalHint": {
     "description": "Antigravity 中转编辑页地址输入框的占位提示。"
+  },
+  "composerHintIdleAgy": "交给 Antigravity 去完成",
+  "@composerHintIdleAgy": {
+    "description": "Antigravity 对话里输入框空闲时的占位提示。"
+  },
+  "composerDenyHintAgy": "拒绝时告诉 Antigravity 换个做法（可不填）",
+  "@composerDenyHintAgy": {
+    "description": "Antigravity 工具确认弹窗拒绝理由输入框的占位提示。"
+  },
+  "commonFollowAntigravity": "跟随 Antigravity",
+  "@commonFollowAntigravity": {
+    "description": "Antigravity 下拉选项：不覆盖，按 Antigravity 的默认。"
+  },
+  "settingsDefaultsAgyFooter": "在这台设备上开新对话时用。使用中转时，默认模型存在中转设置里；对话里选的只管那个对话。思考强度按模型分别存。",
+  "@settingsDefaultsAgyFooter": {
+    "description": "设备页 Antigravity 标签下「新对话默认」一组下面的说明。"
+  },
+  "settingsDefaultsAgyNotRead": "还没读到 Antigravity 的设置",
+  "@settingsDefaultsAgyNotRead": {
+    "description": "Antigravity 新对话默认的几行灰着时的说明：环境没就绪或读失败。"
+  },
+  "settingsDefaultsAgyModelBuiltin": "Antigravity 内置的默认",
+  "@settingsDefaultsAgyModelBuiltin": {
+    "description": "Antigravity 默认模型下拉里的第一项：不设，用 Antigravity 内置的默认模型。"
+  },
+  "settingsDefaultsAgyEffortUnset": "没有设，按 Antigravity 的默认",
+  "@settingsDefaultsAgyEffortUnset": {
+    "description": "Antigravity 默认思考强度一行的摘要：哪个模型都没设。"
+  },
+  "settingsDefaultsAgyEffortFooter": "这台设备上的新对话按所用的模型取这里的设置；对话里选的只管那个对话。",
+  "@settingsDefaultsAgyEffortFooter": {
+    "description": "Antigravity 默认思考强度页下面的说明。"
+  },
+  "settingsDefaultsAgyEffortFooterPending": "这台设备上的新对话按所用的模型取这里的设置；对话里选的只管那个对话。正在向 Antigravity 要模型清单，先列出已经设过的。",
+  "@settingsDefaultsAgyEffortFooterPending": {
+    "description": "Antigravity 默认思考强度页下面的说明，还没拿到模型清单时多一句。"
+  },
+  "settingsRelaysAgyFooter": "中转是说 Gemini API 协议、用密钥鉴权的接口（官方 API 或兼容它的中转站）。点一行切换过去，条件同切换账号；在用中转时没有订阅额度。",
+  "@settingsRelaysAgyFooter": {
+    "description": "Antigravity 账号与额度页中转分组下面的说明。"
+  },
+  "setupSkillsAgyUserFooter": "装在 ~/.gemini/config/skills 里。关掉后文件留着，Antigravity 不再用它；改动对之后新开始的对话生效。",
+  "@setupSkillsAgyUserFooter": {
+    "description": "Antigravity Skills 页「用户安装」一组下面的说明。"
+  },
+  "setupSkillsAgyNoneSummary": "从 ZIP 导入，或让 Antigravity 写一个",
+  "@setupSkillsAgyNoneSummary": {
+    "description": "Antigravity Skills 页为空时的提示副标题。"
+  },
+  "setupAgentsAgyCustomFooter": "存在 ~/.gemini/config/agents，所有项目都能用。Antigravity 按“什么时候用”自己决定交给哪个，你也可以在对话里点名。",
+  "@setupAgentsAgyCustomFooter": {
+    "description": "Antigravity Subagent 页「自定义 Subagent」一组下面的说明。"
+  },
+  "setupAgentsAgyNoneSummary": "让 Antigravity 写一个，或点右上角 + 新建",
+  "@setupAgentsAgyNoneSummary": {
+    "description": "Antigravity Subagent 页为空时的提示副标题。"
   }
 }
