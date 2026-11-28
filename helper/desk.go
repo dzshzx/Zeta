@@ -282,20 +282,21 @@ func (e *env) isAgyDeskSession(id string) bool {
 	return false
 }
 
-const agyResumeScript = `export PATH="$PATH:$HOME/.local/bin"; agy --conversation "$1"`
+const agyResumeScript = `export PATH="$PATH:$HOME/.local/bin"
+if [ -n "$2" ] && [ -z "${GEMINI_API_KEY:-}" ]; then
+  export GEMINI_API_KEY="$2"
+  [ -n "$3" ] && export GOOGLE_GEMINI_BASE_URL="$3"
+fi
+agy --conversation "$1"`
 
 func runAgyResume(w io.Writer, home, id, cwd string) {
 	shell := os.Getenv("SHELL")
 	if shell == "" {
 		shell = "/bin/bash"
 	}
-	cmd := exec.Command(shell, "-ic", agyResumeScript, "zeta-desk", id)
+	relayEnv := agyacct.ActiveRelayEnv(home)
+	cmd := exec.Command(shell, "-ic", agyResumeScript, "zeta-desk", id, relayEnv["GEMINI_API_KEY"], relayEnv["GOOGLE_GEMINI_BASE_URL"])
 	cmd.Dir = cwd
-	env := os.Environ()
-	for k, v := range agyacct.ActiveRelayEnv(home) {
-		env = append(env, k+"="+v)
-	}
-	cmd.Env = env
 	cmd.Stdin, cmd.Stdout, cmd.Stderr = os.Stdin, os.Stdout, os.Stderr
 	if err := cmd.Run(); err != nil {
 		if _, exited := err.(*exec.ExitError); !exited {

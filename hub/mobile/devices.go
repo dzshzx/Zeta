@@ -6,6 +6,7 @@ import (
 	"time"
 
 	"github.com/dzshzx/Zeta/client/sshlink"
+	"github.com/dzshzx/Zeta/helper/sessionproto"
 	"github.com/dzshzx/Zeta/hub/locales"
 )
 
@@ -29,8 +30,12 @@ type DeviceInfo struct {
 	Off            bool   `json:"off"`
 	DefaultHarness string `json:"default_harness"`
 	// Relay 是在用的中转名（这时不写额度）；Used 是最要紧的额度窗口用了百分之几，没有数、不显示额度时是 -1。
-	Relay string `json:"relay"`
-	Used  int    `json:"used"`
+	Relay       string `json:"relay"`
+	Used        int    `json:"used"`
+	ClaudeRelay string `json:"claude_relay,omitempty"`
+	ClaudeUsed  int    `json:"claude_used"`
+	AgyRelay    string `json:"agy_relay,omitempty"`
+	AgyUsed     int    `json:"agy_used"`
 }
 
 func (c *Core) deviceInfo(x sshlink.Host, now time.Time) DeviceInfo {
@@ -39,19 +44,30 @@ func (c *Core) deviceInfo(x sshlink.Host, now time.Time) DeviceInfo {
 	dh := c.hub.DefaultHarness(x.ID)
 	d := DeviceInfo{ID: x.ID, Name: x.Name(), CustomName: x.CustomName, Original: original.Name(), Target: x.Target,
 		Home: x.Home, DefaultCwd: x.DefaultCwd, Via: x.Via, Hostname: x.Hostname, Fingerprint: x.Fingerprint(), Off: x.Off,
-		DefaultHarness: dh, Used: -1}
+		DefaultHarness: dh, Used: -1, ClaudeUsed: -1, AgyUsed: -1}
 	r := c.hub.Remote(x.ID)
 	if r == nil {
 		return d
 	}
-	q := r.QuotaFor(dh)
-	d.Relay = q.Relay()
-	if s, ok := q.Snapshot(); ok && d.Relay == "" && q.Shown() {
-		if s = s.At(now); !s.Unavailable {
-			if w, ok := s.Headline(); ok {
-				d.Used = w.Percent()
+	readQuota := func(h string) (string, int) {
+		q := r.QuotaFor(h)
+		relay := q.Relay()
+		used := -1
+		if s, ok := q.Snapshot(); ok && relay == "" && q.Shown() {
+			if s = s.At(now); !s.Unavailable {
+				if w, ok := s.Headline(); ok {
+					used = w.Percent()
+				}
 			}
 		}
+		return relay, used
+	}
+	d.ClaudeRelay, d.ClaudeUsed = readQuota(sessionproto.HarnessClaude)
+	d.AgyRelay, d.AgyUsed = readQuota(sessionproto.HarnessAgy)
+	if dh == sessionproto.HarnessAgy {
+		d.Relay, d.Used = d.AgyRelay, d.AgyUsed
+	} else {
+		d.Relay, d.Used = d.ClaudeRelay, d.ClaudeUsed
 	}
 	return d
 }
@@ -96,7 +112,7 @@ func init() {
 	})
 	onLoop("settings.open", func(c *Core, _ none) (any, error) {
 		for _, x := range c.hub.Hosts() {
-			c.refreshDeviceDefault(x.ID)
+			c.refreshDeviceAll(x.ID)
 		}
 		return ok, nil
 	})
@@ -143,13 +159,21 @@ func init() {
 	})
 }
 
+func (c *Core) refreshDeviceAll(id string) {
+	c.refreshDeviceHarness(id, sessionproto.HarnessClaude)
+	c.refreshDeviceHarness(id, sessionproto.HarnessAgy)
+}
+
 func (c *Core) refreshDeviceDefault(id string) {
+	c.refreshDeviceHarness(id, c.hub.DefaultHarness(id))
+}
+
+func (c *Core) refreshDeviceHarness(id, h string) {
 	r := c.hub.Remote(id)
 	if r == nil {
 		return
 	}
-	dh := c.hub.DefaultHarness(id)
-	acct, q := r.AccountsFor(dh), r.QuotaFor(dh)
+	acct, q := r.AccountsFor(h), r.QuotaFor(h)
 	if _, ok := acct.State(); !ok && acct.Working() == "" {
 		acct.Refresh()
 	}

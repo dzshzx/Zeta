@@ -222,7 +222,7 @@ fun Composer(
                 .border(1.dp, talkBorder, shape)
                 .padding(horizontal = 10.dp, vertical = 8.dp),
     ) {
-        ComposerSlash(state, commands, configCommandsEnabled, onSlashTyped)
+        ComposerSlash(state, commands, configCommandsEnabled, harness, onSlashTyped)
         if (attachments.isNotEmpty() || files.isNotEmpty()) {
             ComposerAttachments(attachments, files, onRemoveAttachment, onRemoveFile)
         }
@@ -292,6 +292,7 @@ private fun ComposerSlash(
     state: TextFieldState,
     commands: List<SlashCommand>,
     configCommandsEnabled: Boolean,
+    harness: String = com.dzshzx.zeta.core.Harnesses.CLAUDE,
     onSlashTyped: () -> Unit,
 ) {
     val typed = state.text.toString()
@@ -300,8 +301,8 @@ private fun ComposerSlash(
     LaunchedEffect(slash != null) { if (slash != null) onSlashTyped() }
     if (slash == null) return
     val available =
-        remember(commands, configCommandsEnabled, UiLanguage.current) {
-            ClaudeConfigCommand.suggestions(commands, configCommandsEnabled)
+        remember(commands, configCommandsEnabled, harness, UiLanguage.current) {
+            ClaudeConfigCommand.suggestions(commands, configCommandsEnabled, harness)
         }
     val suggestions =
         remember(slash.prefix, available) { slashSuggestions(slash.prefix, available) }

@@ -154,7 +154,7 @@ internal fun ToolPermissionsScreen(
     var detail by remember { mutableStateOf<ServerView?>(null) }
     var bulk by remember { mutableStateOf<BulkRequest?>(null) }
 
-    LaunchedEffect(reloads) {
+    LaunchedEffect(reloads, harness) {
         scope.runConfig({ client.permissions(query) }) { result ->
             result
                 .onSuccess {
@@ -204,6 +204,7 @@ internal fun ToolPermissionsScreen(
             }
             RuleEditorDialog(
                 draft = editor,
+                isAgy = Harnesses.normalize(harness) == Harnesses.AGY,
                 onDismiss = { editor = null },
                 onSave = { draft, done ->
                     working = true
@@ -576,6 +577,7 @@ private data class RuleDraft(
 @Composable
 private fun RuleEditorDialog(
     draft: RuleDraft?,
+    isAgy: Boolean,
     onDismiss: () -> Unit,
     onSave: (RuleDraft, (String?) -> Unit) -> Unit,
 ) {
@@ -601,49 +603,69 @@ private fun RuleEditorDialog(
         confirmText = if (saving) Strings.setupToolPermSaving() else Strings.setupClaudeSave(),
         confirmEnabled = !saving,
         onConfirm = {
-            val current = shown
-            if (current != null) {
-                saving = true
-                error = null
-                onSave(current.copy(behavior = behavior, rule = text.trim())) { problem ->
-                    saving = false
-                    error = problem
-                }
+            val current = shown ?: return@ConfirmDialog
+            saving = true
+            error = null
+            onSave(current.copy(behavior = behavior, rule = text.trim())) { problem ->
+                saving = false
+                error = problem
             }
         },
         onDismissRequest = { if (!saving) onDismiss() },
     ) {
-        Column(
-            verticalArrangement = Arrangement.spacedBy(12.dp),
+        RuleEditorBody(
+            behavior = behavior,
+            onBehaviorChange = { behavior = it },
+            text = text,
+            onTextChange = { text = it },
+            isAgy = isAgy,
+            saving = saving,
+            error = error,
+        )
+    }
+}
+
+@Composable
+private fun RuleEditorBody(
+    behavior: PermissionBehavior,
+    onBehaviorChange: (PermissionBehavior) -> Unit,
+    text: String,
+    onTextChange: (String) -> Unit,
+    isAgy: Boolean,
+    saving: Boolean,
+    error: String?,
+) {
+    Column(
+        verticalArrangement = Arrangement.spacedBy(12.dp),
+        modifier = Modifier.fillMaxWidth(),
+    ) {
+        val behaviors = PermissionBehavior.entries
+        SegmentedTabs(
+            tabs = behaviors.map(::behaviorLabel),
+            selectedIndex = behaviors.indexOf(behavior),
+            onSelect = { index -> behaviors.getOrNull(index)?.let(onBehaviorChange) },
             modifier = Modifier.fillMaxWidth(),
-        ) {
-            val behaviors = PermissionBehavior.entries
-            SegmentedTabs(
-                tabs = behaviors.map(::behaviorLabel),
-                selectedIndex = behaviors.indexOf(behavior),
-                onSelect = { index -> behaviors.getOrNull(index)?.let { behavior = it } },
-                modifier = Modifier.fillMaxWidth(),
-                enabled = !saving,
-            )
-            DialogTextField(
-                value = text,
-                onValueChange = { text = it },
-                title = Strings.setupToolPermRule(),
-                hint = "Bash(git push:*)",
-                enabled = !saving,
-            )
+            enabled = !saving,
+        )
+        DialogTextField(
+            value = text,
+            onValueChange = onTextChange,
+            title = Strings.setupToolPermRule(),
+            hint = if (isAgy) "command(git status)" else "Bash(git push:*)",
+            enabled = !saving,
+        )
+        Text(
+            text =
+                if (isAgy) Strings.setupToolPermAgyRuleHelp() else Strings.setupToolPermRuleHelp(),
+            style = MiuixTheme.textStyles.footnote1,
+            color = MiuixTheme.colorScheme.onBackgroundVariant,
+        )
+        error?.let {
             Text(
-                text = Strings.setupToolPermRuleHelp(),
-                style = MiuixTheme.textStyles.footnote1,
-                color = MiuixTheme.colorScheme.onBackgroundVariant,
+                text = it,
+                style = MiuixTheme.textStyles.body2,
+                color = MiuixTheme.colorScheme.error,
             )
-            error?.let {
-                Text(
-                    text = it,
-                    style = MiuixTheme.textStyles.body2,
-                    color = MiuixTheme.colorScheme.error,
-                )
-            }
         }
     }
 }

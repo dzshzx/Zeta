@@ -338,86 +338,90 @@ func (msgs Messages) NoticeStartFailed(reason string) string {
 	return Catalog.Format(msgs.locale, "noticeStartFailed", map[string]any{"reason": reason})
 }
 
-// NoticeNoWorkDir says "Claude Code 无法启动：无法进入工作目录 {cwd}…"
+// NoticeNoWorkDir says "{tool} 无法启动：无法进入工作目录 {cwd}…"
 // in the language the app shows.
 //
-// 对话里的出错提示：Claude Code 进不去工作目录
+// 对话里的出错提示：工具进不去工作目录
 // cwd，告诉用户去哪改。
-func NoticeNoWorkDir(cwd string) string { return In(i18n.Locale()).NoticeNoWorkDir(cwd) }
+func NoticeNoWorkDir(tool string, cwd string) string {
+	return In(i18n.Locale()).NoticeNoWorkDir(tool, cwd)
+}
 
-// NoticeNoWorkDir says "Claude Code 无法启动：无法进入工作目录 {cwd}…"
+// NoticeNoWorkDir says "{tool} 无法启动：无法进入工作目录 {cwd}…"
 // in the language of msgs.
 //
-// 对话里的出错提示：Claude Code 进不去工作目录
+// 对话里的出错提示：工具进不去工作目录
 // cwd，告诉用户去哪改。
-func (msgs Messages) NoticeNoWorkDir(cwd string) string {
-	return Catalog.Format(msgs.locale, "noticeNoWorkDir", map[string]any{"cwd": cwd})
+func (msgs Messages) NoticeNoWorkDir(tool string, cwd string) string {
+	return Catalog.Format(msgs.locale, "noticeNoWorkDir", map[string]any{"tool": tool, "cwd": cwd})
 }
 
-// NoticeClaudeNotStarted says "Claude Code 未能启动"
+// NoticeClaudeNotStarted says "{tool} 未能启动"
 // in the language the app shows.
 //
-// 对话里的出错提示：新对话的 Claude Code
+// 对话里的出错提示：新对话的 CLI
 // 一启动就退出了，没说原因。
-func NoticeClaudeNotStarted() string { return In(i18n.Locale()).NoticeClaudeNotStarted() }
+func NoticeClaudeNotStarted(tool string) string {
+	return In(i18n.Locale()).NoticeClaudeNotStarted(tool)
+}
 
-// NoticeClaudeNotStarted says "Claude Code 未能启动"
+// NoticeClaudeNotStarted says "{tool} 未能启动"
 // in the language of msgs.
 //
-// 对话里的出错提示：新对话的 Claude Code
+// 对话里的出错提示：新对话的 CLI
 // 一启动就退出了，没说原因。
-func (msgs Messages) NoticeClaudeNotStarted() string {
-	return Catalog.Format(msgs.locale, "noticeClaudeNotStarted", nil)
+func (msgs Messages) NoticeClaudeNotStarted(tool string) string {
+	return Catalog.Format(msgs.locale, "noticeClaudeNotStarted", map[string]any{"tool": tool})
 }
 
-// NoticeClaudeKilled says "Claude Code 进程已被终止"
+// NoticeClaudeKilled says "{tool} 进程已被终止"
 // in the language the app shows.
 //
-// 对话里的出错提示：Claude Code 进程被信号结束（退出码
-// 143 或 137）。
-func NoticeClaudeKilled() string { return In(i18n.Locale()).NoticeClaudeKilled() }
+// 对话里的出错提示：CLI 进程被信号结束（退出码 143 或
+// 137）。
+func NoticeClaudeKilled(tool string) string { return In(i18n.Locale()).NoticeClaudeKilled(tool) }
 
-// NoticeClaudeKilled says "Claude Code 进程已被终止"
+// NoticeClaudeKilled says "{tool} 进程已被终止"
 // in the language of msgs.
 //
-// 对话里的出错提示：Claude Code 进程被信号结束（退出码
-// 143 或 137）。
-func (msgs Messages) NoticeClaudeKilled() string {
-	return Catalog.Format(msgs.locale, "noticeClaudeKilled", nil)
+// 对话里的出错提示：CLI 进程被信号结束（退出码 143 或
+// 137）。
+func (msgs Messages) NoticeClaudeKilled(tool string) string {
+	return Catalog.Format(msgs.locale, "noticeClaudeKilled", map[string]any{"tool": tool})
 }
 
-// NoticeClaudeExited says "Claude Code 进程已退出（{code}）"
+// NoticeClaudeExited says "{tool} 进程已退出（{code}）"
 // in the language the app shows.
 //
-// 对话里的出错提示：Claude Code 进程意外退出，code
-// 是退出码。
-func NoticeClaudeExited(code string) string { return In(i18n.Locale()).NoticeClaudeExited(code) }
+// 对话里的出错提示：CLI 进程意外退出，code 是退出码。
+func NoticeClaudeExited(tool string, code string) string {
+	return In(i18n.Locale()).NoticeClaudeExited(tool, code)
+}
 
-// NoticeClaudeExited says "Claude Code 进程已退出（{code}）"
+// NoticeClaudeExited says "{tool} 进程已退出（{code}）"
 // in the language of msgs.
 //
-// 对话里的出错提示：Claude Code 进程意外退出，code
-// 是退出码。
-func (msgs Messages) NoticeClaudeExited(code string) string {
-	return Catalog.Format(msgs.locale, "noticeClaudeExited", map[string]any{"code": code})
+// 对话里的出错提示：CLI 进程意外退出，code 是退出码。
+func (msgs Messages) NoticeClaudeExited(tool string, code string) string {
+	return Catalog.Format(msgs.locale, "noticeClaudeExited", map[string]any{"tool": tool, "code": code})
 }
 
-// NoticeClaudeExitedDetail says "Claude Code 进程已退出（{code}）\n{detail}"
+// NoticeClaudeExitedDetail says "{tool} 进程已退出（{code}）\n{detail}"
 // in the language the app shows.
 //
-// 对话里的出错提示：Claude Code 进程意外退出，code
+// 对话里的出错提示：CLI 进程意外退出，code
 // 是退出码，detail 是它最后的标准错误（原文）。
-func NoticeClaudeExitedDetail(code string, detail string) string {
-	return In(i18n.Locale()).NoticeClaudeExitedDetail(code, detail)
+func NoticeClaudeExitedDetail(tool string, code string, detail string) string {
+	return In(i18n.Locale()).NoticeClaudeExitedDetail(tool, code, detail)
 }
 
-// NoticeClaudeExitedDetail says "Claude Code 进程已退出（{code}）\n{detail}"
+// NoticeClaudeExitedDetail says "{tool} 进程已退出（{code}）\n{detail}"
 // in the language of msgs.
 //
-// 对话里的出错提示：Claude Code 进程意外退出，code
+// 对话里的出错提示：CLI 进程意外退出，code
 // 是退出码，detail 是它最后的标准错误（原文）。
-func (msgs Messages) NoticeClaudeExitedDetail(code string, detail string) string {
-	return Catalog.Format(msgs.locale, "noticeClaudeExitedDetail", map[string]any{"code": code, "detail": detail})
+func (msgs Messages) NoticeClaudeExitedDetail(tool string, code string, detail string) string {
+	return Catalog.Format(msgs.locale, "noticeClaudeExitedDetail", map[string]any{"tool": tool, "code": code, "detail": detail})
 }
 
 // NoticeHandedToTerminal says "会话已转到电脑终端继续"

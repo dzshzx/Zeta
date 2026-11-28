@@ -44,29 +44,48 @@ func readWindows(path string) (map[string]int64, error) {
 	return known, nil
 }
 
+// windowKey 把引擎名与模型名拼成缓存键：Claude 沿用裸模型名兼容旧缓存，其余引擎加 "<harness>:" 前缀隔离。
+func windowKey(harness, model string) string {
+	if harness == "" || harness == "claude" || model == "" {
+		return model
+	}
+	return harness + ":" + model
+}
+
 // Window 是以前学到的模型 model 的窗口。w 是 nil 时什么也没有。
 func (w *Windows) Window(model string) (int64, bool) {
+	return w.WindowFor("", model)
+}
+
+// WindowFor 是指定引擎下以前学到的模型 model 的窗口。
+func (w *Windows) WindowFor(harness, model string) (int64, bool) {
 	if w == nil {
 		return 0, false
 	}
 	w.mu.Lock()
 	defer w.mu.Unlock()
-	v, ok := w.known[model]
+	v, ok := w.known[windowKey(harness, model)]
 	return v, ok
 }
 
 // Learn 记下模型 model 的窗口。和记着的一样时什么也不做；不一样时先重读文件（同一台主机上别的核心进程可能刚写过），
 // 并上这一项再整份替换写回。写不成时内存里照样记着，返回原因。
 func (w *Windows) Learn(model string, window int64) error {
+	return w.LearnFor("", model, window)
+}
+
+// LearnFor 记下指定引擎下模型 model 的窗口。
+func (w *Windows) LearnFor(harness, model string, window int64) error {
+	key := windowKey(harness, model)
 	w.mu.Lock()
 	defer w.mu.Unlock()
-	if v, ok := w.known[model]; ok && v == window {
+	if v, ok := w.known[key]; ok && v == window {
 		return nil
 	}
 	if fresh, err := readWindows(w.path); err == nil {
 		w.known = fresh
 	}
-	w.known[model] = window
+	w.known[key] = window
 	return writeAtomic(w.path, w.known)
 }
 

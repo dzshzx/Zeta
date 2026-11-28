@@ -640,7 +640,7 @@ func (m *composer) typed(text string, caret int) SlashView {
 		m.core.hub.RunChat(func(ctx context.Context, conv *chat.Conversation) error { return conv.Prepare(ctx) }, nil)
 	}
 	if typing {
-		out.Commands = append(out.Commands, chat.Suggest(s.Commands, slash.Prefix, chat.SettingsCommands()...)...)
+		out.Commands = append(out.Commands, chat.Suggest(s.Commands, slash.Prefix, chat.SettingsCommandsFor(s.Harness)...)...)
 	}
 	return out
 }
@@ -881,9 +881,10 @@ type Composer struct {
 	TooLarge    bool         `json:"too_large"`
 	Process     bool         `json:"process"`
 	Model       ModelMenu    `json:"model"`
-	// Effort 是这个对话选的思考强度（空是默认），AppliedEffort 是 Claude Code 报的实际生效的。
-	Effort        string `json:"effort"`
-	AppliedEffort string `json:"applied_effort"`
+	// Effort 是这个对话选的思考强度（空是默认），AppliedEffort 是工具报的实际生效的，EffortLevels 是当前模型支持的档位。
+	Effort        string   `json:"effort"`
+	AppliedEffort string   `json:"applied_effort"`
+	EffortLevels  []string `json:"effort_levels,omitempty"`
 	// Mode 是权限模式：选过的，没选过时是进程此刻用的；Modes 是可选的几种（字已按界面语言出好）。
 	Mode     string     `json:"mode"`
 	Modes    []Choice   `json:"modes"`
@@ -969,6 +970,11 @@ func (c *Core) fillComposer(out *Chat, locale string) {
 	if s.Effort != nil {
 		v.Effort = *s.Effort
 	}
+	activeModel := s.ReportedModel
+	if s.Model != nil && *s.Model != "" && *s.Model != chat.DefaultModel {
+		activeModel = *s.Model
+	}
+	v.EffortLevels = chat.EffortLevelsFor(s.Models, activeModel)
 	for _, x := range chat.PermissionModes {
 		v.Modes = append(v.Modes, Choice{Value: x.Value, Name: x.Label()})
 	}

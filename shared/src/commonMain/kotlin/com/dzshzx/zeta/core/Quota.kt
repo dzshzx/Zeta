@@ -201,6 +201,9 @@ object Quota {
     fun money(minor: Double?, currency: String?): String? {
         minor ?: return null
         val amount = String.format(Locale.US, "%.2f", minor / 100)
+        if (currency.equals("credits", ignoreCase = true)) {
+            return Strings.coreCreditsUnit(amount.removeSuffix(".00"))
+        }
         return when (currency?.uppercase()) {
             null,
             "USD" -> "$$amount"

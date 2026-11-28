@@ -59,20 +59,24 @@ private struct DefaultsSection: View {
         Section {
             if let defaults = store.defaults {
                 DefaultModelMenu(store: store, defaults: defaults)
-                NavigationLink {
-                    EffortView(store: store)
-                } label: {
-                    LabeledContent("默认思考强度", value: Self.effortSummary(defaults, store))
+                if !store.isAgy {
+                    NavigationLink {
+                        EffortView(store: store)
+                    } label: {
+                        LabeledContent("默认思考强度", value: Self.effortSummary(defaults, store))
+                    }
                 }
                 Picker("默认权限模式", selection: modeBinding(defaults)) {
                     ForEach(modes(defaults), id: \.self) { Text(ConfigLabels.permissionMode($0)).tag($0) }
                 }
                 .disabled(store.working)
-                Picker("上下文窗口", selection: windowBinding()) {
-                    Text("沿用模型默认窗口").tag(Int64(0))
-                    ForEach(windows(defaults), id: \.self) { Text(ConfigLabels.tokens($0)).tag($0) }
+                if !store.isAgy {
+                    Picker("上下文窗口", selection: windowBinding()) {
+                        Text("沿用模型默认窗口").tag(Int64(0))
+                        ForEach(windows(defaults), id: \.self) { Text(ConfigLabels.tokens($0)).tag($0) }
+                    }
+                    .disabled(store.working)
                 }
-                .disabled(store.working)
             } else if store.defaultsProblem.isEmpty {
                 LoadingRow()
             } else {
@@ -87,7 +91,9 @@ private struct DefaultsSection: View {
         } footer: {
             VStack(alignment: .leading, spacing: 8) {
                 if store.modelsPending { Text("正在加载此设备的模型列表。") }
-                Text("""
+                Text(store.isAgy
+                    ? "用于在此设备发起新对话。使用中转时，默认模型保存在中转设置中；对话内切换的选项仅对当前对话生效。"
+                    : """
                     用于在此设备发起新对话。使用中转时，默认模型保存在中转设置中；对话内切换的选项仅对当前对话生效。\
                     思考强度按模型分别保存。上下文窗口指单次会话的 token 上限，自动压缩以此为基准；若超过模型自身上限，则以模型上限为准。
                     """)
@@ -212,7 +218,9 @@ private struct ClaudeSection: View {
         } header: {
             Text(store.isAgy ? "Antigravity" : "Claude")
         } footer: {
-            Text("仅对 Zeta 在此设备发起的对话生效。闲置超时立即生效，其余设置将在下次启动进程时生效。")
+            Text(store.isAgy
+                ? "闲置超时作用于此设备上托管的进程并立即生效；更新会运行 agy update，不影响进行中的对话。"
+                : "仅对 Zeta 在此设备发起的对话生效。闲置超时立即生效，其余设置将在下次启动进程时生效。")
         }
     }
 

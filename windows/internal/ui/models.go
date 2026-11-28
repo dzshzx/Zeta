@@ -129,7 +129,10 @@ func (s *modelSource) setCatalog(catalog coreapi.ModelCatalog, err error, at tim
 // setHarness 换上 Claude Code 报的清单，清单变了才重新分层。
 func (s *modelSource) setHarness(list []chat.ModelOption) {
 	h := s.harness
-	if slices.Equal(h.list, list) {
+	if slices.EqualFunc(h.list, list, func(a, b chat.ModelOption) bool {
+		return a.Value == b.Value && a.DisplayName == b.DisplayName && a.Description == b.Description &&
+			a.ResolvedModel == b.ResolvedModel && slices.Equal(a.SupportedEffortLevels, b.SupportedEffortLevels)
+	}) {
 		return
 	}
 	h.list = list

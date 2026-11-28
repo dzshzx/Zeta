@@ -148,12 +148,16 @@ func summarizeAgy(agyDir, path string) (summary, bool, error) {
 	if err != nil || !ok {
 		return summary{}, false, err
 	}
+	preview := as.Preview
+	if preview == "" && as.PreviewCode == "previewImage" {
+		preview = imagePreview
+	}
 	return summary{
 		id:       as.ID,
 		file:     as.File,
 		cwd:      as.Cwd,
 		title:    as.Title,
-		preview:  as.Preview,
+		preview:  preview,
 		updated:  as.Updated,
 		created:  as.Created,
 		replied:  as.Replied,

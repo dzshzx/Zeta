@@ -167,15 +167,23 @@ private fun ParkedConversationsGroup(hub: ConversationHub, onOpenConversation: (
             item { BasicComponent(title = Strings.tasksNoParked(), enabled = false) }
         others.forEach { c ->
             item(key = c.key) {
+                val baseSummary =
+                    TaskLabels.conversation(
+                        c.busy,
+                        c.pending != null,
+                        c.backgroundTasks,
+                        hub.platform.unattendedName(c),
+                    )
+                val summary =
+                    if (
+                        com.dzshzx.zeta.core.Harnesses.normalize(c.harness) ==
+                            com.dzshzx.zeta.core.Harnesses.AGY
+                    )
+                        "Antigravity · $baseSummary"
+                    else baseSummary
                 ArrowPreference(
                     title = c.label(),
-                    summary =
-                        TaskLabels.conversation(
-                            c.busy,
-                            c.pending != null,
-                            c.backgroundTasks,
-                            hub.platform.unattendedName(c),
-                        ),
+                    summary = summary,
                     onClick = { onOpenConversation(c.openKey) },
                 )
             }

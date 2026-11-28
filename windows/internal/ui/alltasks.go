@@ -3,6 +3,7 @@ package ui
 import (
 	"time"
 
+	"github.com/dzshzx/Zeta/helper/sessionproto"
 	"github.com/dzshzx/Zeta/helper/tasks"
 	"github.com/dzshzx/Zeta/hub"
 	"github.com/dzshzx/Zeta/windows/internal/locales"
@@ -90,6 +91,9 @@ func (a *App) backgroundChats(c *ui.Context) {
 		for _, b := range chats {
 			s := b.Session
 			summary := conversationState(b.Activity.State == "waiting", b.Activity.State == "answering", b.Activity.Tasks)
+			if sessionproto.NormalizeHarness(s.Harness) == sessionproto.HarnessAgy {
+				summary = "Antigravity · " + summary
+			}
 			if a.hub.AllHosts() {
 				summary = locales.TasksDeviceAndState(a.hub.Name(s.Backend), summary)
 			}

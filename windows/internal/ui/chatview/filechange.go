@@ -69,34 +69,43 @@ const contextLines = 3
 
 // isFileEdit 报告工具会改文件、能画成对比。
 func isFileEdit(name string) bool {
-	return name == "Edit" || name == "MultiEdit" || name == "Write" || name == "edit_file" || name == "write_file"
+	switch name {
+	case "Edit", "MultiEdit", "Write", "edit_file", "write_file", "replace_file_content", "multi_replace_file_content", "write_to_file":
+		return true
+	}
+	return false
 }
 
 func isWriteTool(name string) bool {
-	return name == "Write" || name == "write_file"
+	return name == "Write" || name == "write_file" || name == "write_to_file"
 }
 
 func filePathOf(s items.Step) string {
-	return orDefault(s.Str("file_path"), orDefault(s.Str("Path"), s.Str("path")))
+	return firstNonBlank(s.Str("file_path"), s.Str("Path"), s.Str("TargetFile"), s.Str("path"))
 }
 
 func fileContentOf(s items.Step) (string, bool) {
-	if v, ok := s.Input["content"].(string); ok {
-		return v, true
+	for _, k := range []string{"content", "Content", "CodeContent"} {
+		if v, ok := s.Input[k].(string); ok {
+			return v, true
+		}
 	}
-	v, ok := s.Input["Content"].(string)
-	return v, ok
+	return "", false
 }
 
 func editPairOf(s items.Step) (old, nw string, ok bool) {
-	if old, okOld := s.Input["old_string"].(string); okOld {
-		if nw, okNew := s.Input["new_string"].(string); okNew {
-			return old, nw, true
+	for _, pair := range [][2]string{{"old_string", "new_string"}, {"Target", "Replacement"}, {"TargetContent", "ReplacementContent"}} {
+		if old, okOld := s.Input[pair[0]].(string); okOld {
+			if nw, okNew := s.Input[pair[1]].(string); okNew {
+				return old, nw, true
+			}
 		}
 	}
-	old, okOld := s.Input["Target"].(string)
-	nw, okNew := s.Input["Replacement"].(string)
-	return old, nw, okOld && okNew
+	return "", "", false
+}
+
+func replaceAllOf(s items.Step) bool {
+	return s.Bool("replace_all") || s.Bool("ReplaceAll") || s.Bool("AllowMultiple")
 }
 
 // changeOf 从一次工具调用算出文件改动；不是改文件的工具、参数还没到、或者没改成（失败了照普通步骤显示报错）时返回 nil。
@@ -113,15 +122,15 @@ func changeOf(s items.Step) *fileChange {
 	case isWriteTool(s.Name):
 		// 还不知道是不是新建：先当作整份新内容显示，结果到了再换成真实对比
 		return newFileChange(path, s)
-	case s.Name == "Edit" || s.Name == "edit_file":
+	case s.Name == "Edit" || s.Name == "edit_file" || s.Name == "replace_file_content":
 		old, nw, ok := editPairOf(s)
 		if !ok {
 			return nil
 		}
-		f := &fileChange{path: path, kind: editChange, replaceAll: s.Bool("replace_all")}
+		f := &fileChange{path: path, kind: editChange, replaceAll: replaceAllOf(s)}
 		f.addEdit(old, nw, s.Clipped)
 		return f
-	default: // MultiEdit
+	default: // MultiEdit / multi_replace_file_content
 		return multiEditChange(path, s)
 	}
 }
@@ -136,17 +145,24 @@ func patchFileChange(path string, s items.Step, p *items.Patch) *fileChange {
 	case isWriteTool(s.Name):
 		return &fileChange{path: path, kind: overwriteChange, hunks: p.Hunks, numbered: true}
 	default:
-		return &fileChange{path: path, kind: editChange, hunks: p.Hunks, numbered: true, replaceAll: s.Bool("replace_all")}
+		return &fileChange{path: path, kind: editChange, hunks: p.Hunks, numbered: true, replaceAll: replaceAllOf(s)}
 	}
 }
 
 func multiEditChange(path string, s items.Step) *fileChange {
 	edits, _ := s.Input["edits"].([]any)
+	if len(edits) == 0 {
+		edits, _ = s.Input["ReplacementChunks"].([]any)
+	}
 	f := &fileChange{path: path, kind: editChange}
 	for _, e := range edits {
 		m, _ := e.(map[string]any)
 		old, _ := m["old_string"].(string)
 		nw, _ := m["new_string"].(string)
+		if old == "" && nw == "" {
+			old, _ = m["TargetContent"].(string)
+			nw, _ = m["ReplacementContent"].(string)
+		}
 		f.addEdit(old, nw, s.Clipped)
 	}
 	if len(f.hunks) == 0 {

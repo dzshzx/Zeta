@@ -148,39 +148,39 @@ object CoreStrings {
     fun noticeStartFailed(reason: String): String = catalog.say("noticeStartFailed", mapOf("reason" to reason))
 
     /**
-     * 「Claude Code 无法启动：无法进入工作目录 {cwd}（目录不存在或无权限）。新对话可在开始页点击工作目录修改；默认工作目录可在设置中对应设备页修改。」
+     * 「{tool} 无法启动：无法进入工作目录 {cwd}（目录不存在或无权限）。新对话可在开始页点击工作目录修改；默认工作目录可在设置中对应设备页修改。」
      *
-     * 对话里的出错提示：Claude Code 进不去工作目录 cwd，告诉用户去哪改。
+     * 对话里的出错提示：工具进不去工作目录 cwd，告诉用户去哪改。
      */
-    fun noticeNoWorkDir(cwd: String): String = catalog.say("noticeNoWorkDir", mapOf("cwd" to cwd))
+    fun noticeNoWorkDir(tool: String, cwd: String): String = catalog.say("noticeNoWorkDir", mapOf("tool" to tool, "cwd" to cwd))
 
     /**
-     * 「Claude Code 未能启动」
+     * 「{tool} 未能启动」
      *
-     * 对话里的出错提示：新对话的 Claude Code 一启动就退出了，没说原因。
+     * 对话里的出错提示：新对话的 CLI 一启动就退出了，没说原因。
      */
-    fun noticeClaudeNotStarted(): String = catalog.say("noticeClaudeNotStarted")
+    fun noticeClaudeNotStarted(tool: String): String = catalog.say("noticeClaudeNotStarted", mapOf("tool" to tool))
 
     /**
-     * 「Claude Code 进程已被终止」
+     * 「{tool} 进程已被终止」
      *
-     * 对话里的出错提示：Claude Code 进程被信号结束（退出码 143 或 137）。
+     * 对话里的出错提示：CLI 进程被信号结束（退出码 143 或 137）。
      */
-    fun noticeClaudeKilled(): String = catalog.say("noticeClaudeKilled")
+    fun noticeClaudeKilled(tool: String): String = catalog.say("noticeClaudeKilled", mapOf("tool" to tool))
 
     /**
-     * 「Claude Code 进程已退出（{code}）」
+     * 「{tool} 进程已退出（{code}）」
      *
-     * 对话里的出错提示：Claude Code 进程意外退出，code 是退出码。
+     * 对话里的出错提示：CLI 进程意外退出，code 是退出码。
      */
-    fun noticeClaudeExited(code: String): String = catalog.say("noticeClaudeExited", mapOf("code" to code))
+    fun noticeClaudeExited(tool: String, code: String): String = catalog.say("noticeClaudeExited", mapOf("tool" to tool, "code" to code))
 
     /**
-     * 「Claude Code 进程已退出（{code}） {detail}」
+     * 「{tool} 进程已退出（{code}） {detail}」
      *
-     * 对话里的出错提示：Claude Code 进程意外退出，code 是退出码，detail 是它最后的标准错误（原文）。
+     * 对话里的出错提示：CLI 进程意外退出，code 是退出码，detail 是它最后的标准错误（原文）。
      */
-    fun noticeClaudeExitedDetail(code: String, detail: String): String = catalog.say("noticeClaudeExitedDetail", mapOf("code" to code, "detail" to detail))
+    fun noticeClaudeExitedDetail(tool: String, code: String, detail: String): String = catalog.say("noticeClaudeExitedDetail", mapOf("tool" to tool, "code" to code, "detail" to detail))
 
     /**
      * 「会话已转到电脑终端继续」

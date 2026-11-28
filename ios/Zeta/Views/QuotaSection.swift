@@ -27,7 +27,8 @@ struct QuotaSection: View {
             }
             if let extra = quota.extra {
                 VStack(alignment: .leading) {
-                    LabeledContent("额外用量", value: extra.amount.isEmpty ? String(localized: "已开启") : extra.amount)
+                    let title = extra.isCredits == true ? "AI Credits" : String(localized: "额外用量")
+                    LabeledContent(title, value: extra.amount.isEmpty ? String(localized: "已开启") : extra.amount)
                     if let used = extra.used { ProgressView(value: min(max(used, 0), 1)) }
                 }
             }

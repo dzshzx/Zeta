@@ -101,8 +101,17 @@ const (
 
 // SettingsCommands 是提示里列的那两条，说明按界面语言出。
 func SettingsCommands() []Command {
+	return SettingsCommandsFor("")
+}
+
+// SettingsCommandsFor 按当前对话引擎返回 /config 和 /permissions 的说明。
+func SettingsCommandsFor(harness string) []Command {
+	cfgDesc := locales.ChatSlashConfig()
+	if harness == "agy" {
+		cfgDesc = locales.ChatSlashConfigAgy()
+	}
 	return []Command{
-		{Name: ConfigCommand, Description: locales.ChatSlashConfig()},
+		{Name: ConfigCommand, Description: cfgDesc},
 		{Name: PermissionsCommand, Description: locales.ChatSlashPermissions()},
 	}
 }

@@ -571,16 +571,16 @@ func (msgs Messages) HandoffFailed(error string) string {
 	return Catalog.Format(msgs.locale, "handoffFailed", map[string]any{"error": error})
 }
 
-// HandoffStuck says "另一端的 Claude Code 尚未退出，可以在终端中结束该进程后再试。"
+// HandoffStuck says "另一端的会话进程尚未退出，可以在终端中结束该进程后再试。"
 // in the language the app shows.
 //
-// 别处运行卡片的说明：那边的 Claude Code 卡住没退出。
+// 别处运行卡片的说明：那边的会话进程卡住没退出。
 func HandoffStuck() string { return In(i18n.Locale()).HandoffStuck() }
 
-// HandoffStuck says "另一端的 Claude Code 尚未退出，可以在终端中结束该进程后再试。"
+// HandoffStuck says "另一端的会话进程尚未退出，可以在终端中结束该进程后再试。"
 // in the language of msgs.
 //
-// 别处运行卡片的说明：那边的 Claude Code 卡住没退出。
+// 别处运行卡片的说明：那边的会话进程卡住没退出。
 func (msgs Messages) HandoffStuck() string {
 	return Catalog.Format(msgs.locale, "handoffStuck", nil)
 }
@@ -845,6 +845,20 @@ func (msgs Messages) AccountsRemoveFailed(error string) string {
 	return Catalog.Format(msgs.locale, "accountsRemoveFailed", map[string]any{"error": error})
 }
 
+// AccountsCodeEmpty says "请填写授权码"
+// in the language the app shows.
+//
+// 账号页添加账号：提交了空的授权码。
+func AccountsCodeEmpty() string { return In(i18n.Locale()).AccountsCodeEmpty() }
+
+// AccountsCodeEmpty says "请填写授权码"
+// in the language of msgs.
+//
+// 账号页添加账号：提交了空的授权码。
+func (msgs Messages) AccountsCodeEmpty() string {
+	return Catalog.Format(msgs.locale, "accountsCodeEmpty", nil)
+}
+
 // AccountsCodeIncomplete says "授权码不完整：请连同中间的 # 及后面的部分一起复制"
 // in the language the app shows.
 //
@@ -987,18 +1001,32 @@ func (msgs Messages) AccountsQuotaUnavailable() string {
 	return Catalog.Format(msgs.locale, "accountsQuotaUnavailable", nil)
 }
 
-// AccountsQuotaNotYet says "Claude Code 尚未获取到该账号的额度"
+// AccountsQuotaNotYet says "尚未获取到该账号的额度"
 // in the language the app shows.
 //
-// 额度说明：Claude Code 还没给出额度窗口。
+// 额度说明：CLI 还没给出额度窗口。
 func AccountsQuotaNotYet() string { return In(i18n.Locale()).AccountsQuotaNotYet() }
 
-// AccountsQuotaNotYet says "Claude Code 尚未获取到该账号的额度"
+// AccountsQuotaNotYet says "尚未获取到该账号的额度"
 // in the language of msgs.
 //
-// 额度说明：Claude Code 还没给出额度窗口。
+// 额度说明：CLI 还没给出额度窗口。
 func (msgs Messages) AccountsQuotaNotYet() string {
 	return Catalog.Format(msgs.locale, "accountsQuotaNotYet", nil)
+}
+
+// AccountsCreditsUnit says "{amount} 积分"
+// in the language the app shows.
+//
+// AI Credits 积分数值显示，amount 是数字。
+func AccountsCreditsUnit(amount string) string { return In(i18n.Locale()).AccountsCreditsUnit(amount) }
+
+// AccountsCreditsUnit says "{amount} 积分"
+// in the language of msgs.
+//
+// AI Credits 积分数值显示，amount 是数字。
+func (msgs Messages) AccountsCreditsUnit(amount string) string {
+	return Catalog.Format(msgs.locale, "accountsCreditsUnit", map[string]any{"amount": amount})
 }
 
 // AccountsQuotaUpdated says "{age}更新"
@@ -1433,6 +1461,24 @@ func ChatSlashConfig() string { return In(i18n.Locale()).ChatSlashConfig() }
 // 版），单独发出是打开这台设备的 Claude Code 配置页。
 func (msgs Messages) ChatSlashConfig() string {
 	return Catalog.Format(msgs.locale, "chatSlashConfig", nil)
+}
+
+// ChatSlashConfigAgy says "Antigravity 配置"
+// in the language the app shows.
+//
+// 斜杠命令 /config 在 Antigravity
+// 对话里的说明，单独发出是打开这台设备的 Antigravity
+// 配置页。
+func ChatSlashConfigAgy() string { return In(i18n.Locale()).ChatSlashConfigAgy() }
+
+// ChatSlashConfigAgy says "Antigravity 配置"
+// in the language of msgs.
+//
+// 斜杠命令 /config 在 Antigravity
+// 对话里的说明，单独发出是打开这台设备的 Antigravity
+// 配置页。
+func (msgs Messages) ChatSlashConfigAgy() string {
+	return Catalog.Format(msgs.locale, "chatSlashConfigAgy", nil)
 }
 
 // ChatSlashPermissions says "工具权限"

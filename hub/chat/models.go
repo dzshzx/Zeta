@@ -24,6 +24,30 @@ func SupportsEffort(model, level string) bool {
 	return true
 }
 
+// EffortLevelsFor 返回模型 model 在模型清单 models 下支持的思考强度档位；模型明确不支持思考强度时返回空切片。
+func EffortLevelsFor(models []ModelOption, model string) []string {
+	if model != "" && model != DefaultModel {
+		for _, opt := range models {
+			if opt.Value == model || (opt.ResolvedModel != "" && opt.ResolvedModel == model) {
+				if len(opt.SupportedEffortLevels) > 0 {
+					return slices.Clone(opt.SupportedEffortLevels)
+				}
+				if opt.SupportsEffort != nil && !*opt.SupportsEffort {
+					return nil
+				}
+				break
+			}
+		}
+	}
+	out := make([]string, 0, len(EffortLevels))
+	for _, lv := range EffortLevels {
+		if SupportsEffort(model, lv) {
+			out = append(out, lv)
+		}
+	}
+	return out
+}
+
 // FallbackModels 是 Claude Code 还没报清单时，输入栏和设备设置共用的模型别名。
 var FallbackModels = []ModelOption{
 	{Value: "fable", DisplayName: "Fable"},

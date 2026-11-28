@@ -145,7 +145,10 @@ final class ClaudeConfigStore {
 
     /// 给人看的模型名：清单里有就用清单的，没有按 ID 写。
     func modelName(_ id: String) -> String {
-        if models.source == "relay", let found = models.models.first(where: { $0.id == id }) { return found.label }
+        if models.source == "relay" || isAgy,
+            let found = models.models.first(where: { $0.id == id || $0.value == id }) {
+            return found.label
+        }
         return ConfigLabels.readableModel(id)
     }
 }

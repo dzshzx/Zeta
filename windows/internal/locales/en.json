@@ -1021,10 +1021,11 @@
   "claudecfgAgyWorkspaceRules": "Workspace and rule files",
   "claudecfgAgyWorkspaceRulesFooter": "AGENTS.md (or GEMINI.md) and .md rule files in the selected workspace or global rules folder.",
   "claudecfgAgyRulesFiles": "{count, plural, one {Rule files · #} other {Rule files · #}}",
-  "claudecfgAgySkillsFooter": "Skills in ~/.gemini/config/skills and workspace .agents/skills; toggles are saved to skills.json.",
+  "claudecfgAgySkillsFooter": "Custom skills in ~/.gemini/config/skills. Antigravity doesn't support per-skill toggles; add or remove skills via import or delete.",
+  "claudecfgAgySkillsSyncedFooter": "Read-only skills from workspace .agents/skills, ~/.agents/skills, and enabled plugins.",
   "claudecfgAgyMcpFooter": "Reads and edits MCP servers in ~/.gemini/config/mcp_config.json.",
   "claudecfgAgyAgentsFooter": "Custom subagent definitions (.md) in ~/.gemini/config/agents.",
-  "claudecfgAgyPermRuleHelp": "Enter a tool name such as run_command, or a rule with a pattern such as run_command(git push:*), read_file(./.env) or edit_file(src/**).",
+  "claudecfgAgyPermRuleHelp": "Enter an Antigravity rule such as command(git status), read_file(.env), write_file(src/), or mcp(github/*).",
   "accountsAgyFooter": "Switch or add Google accounts for Antigravity CLI on this device; idle Antigravity conversation processes are closed first.",
   "accountsAgyLoginFooter": "Open the authorization page in your browser to sign in with Google, then paste either the authorization code or the full callback URL (http://localhost:…/oauth-callback?code=…) here.",
   "accountsAgyCode": "Authorization code or callback URL",
@@ -1034,5 +1035,10 @@
   "chatToolManageTask": "Manage background task",
   "chatToolSchedule": "Schedule timer",
   "chatToolSendMessage": "Send agent message",
-  "chatToolWorkflow": "Run workflow"
+  "chatToolWorkflow": "Run workflow",
+  "chatToolSwarm": "Swarm: {title}",
+  "chatToolMcpResource": "MCP resource: {name}",
+  "claudecfgToolSubagent": "Invoke subagent",
+  "claudecfgToolAsk": "Ask user",
+  "claudecfgToolSteps": "Update steps"
 }

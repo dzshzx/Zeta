@@ -12457,7 +12457,7 @@
   "@settingsRelaysAgyFooter": {
     "description": "Antigravity 账号与额度页中转分组下面的说明。"
   },
-  "setupSkillsAgyUserFooter": "安装在 ~/.gemini/config/skills 中。关闭后会保留文件，Antigravity 不再加载；改动对之后的新对话生效。",
+  "setupSkillsAgyUserFooter": "安装在 ~/.gemini/config/skills 中，由 Antigravity 自动按需加载；改动对之后的新对话生效。",
   "@setupSkillsAgyUserFooter": {
     "description": "Antigravity Skills 页「用户安装」一组下面的说明。"
   },
@@ -12480,5 +12480,87 @@
   "settingsBackupAssistantHarness": "数字助理工具",
   "@settingsBackupAssistantHarness": {
     "description": "设置备份与恢复清单里数字助理命令行工具项的名称。"
+  },
+  "coreCreditsUnit": "{amount} 积分",
+  "@coreCreditsUnit": {
+    "description": "Antigravity AI Credits 积分显示格式。",
+    "placeholders": {
+      "amount": {
+        "type": "String",
+        "example": "250"
+      }
+    }
+  },
+  "chatToolSwarm": "协同代理",
+  "@chatToolSwarm": {
+    "description": "Antigravity swarm 工具的标题。"
+  },
+  "chatToolSchedule": "定时提醒",
+  "@chatToolSchedule": {
+    "description": "Antigravity schedule 工具的标题。"
+  },
+  "chatToolSendMessage": "发送代理消息",
+  "@chatToolSendMessage": {
+    "description": "Antigravity send_message 工具的标题。"
+  },
+  "chatToolWorkflow": "运行工作流",
+  "@chatToolWorkflow": {
+    "description": "Antigravity run_workflow 工具的标题。"
+  },
+  "chatToolMcpResource": "MCP 资源",
+  "@chatToolMcpResource": {
+    "description": "Antigravity list_resources / read_resource 工具的标题。"
+  },
+  "setupAgentsToolSubagent": "调用子代理",
+  "@setupAgentsToolSubagent": {
+    "description": "Antigravity Subagent 工具勾选列表里 invoke_subagent 的说明。"
+  },
+  "setupAgentsToolAsk": "向用户提问",
+  "@setupAgentsToolAsk": {
+    "description": "Antigravity Subagent 工具勾选列表里 ask_question 的说明。"
+  },
+  "setupAgentsToolSteps": "更新步骤清单",
+  "@setupAgentsToolSteps": {
+    "description": "Antigravity Subagent 工具勾选列表里 update_steps 的说明。"
+  },
+  "setupToolPermAgyRuleHelp": "写规则模式，如 command(git status)、write_file(src/) 或 mcp(github/*)。",
+  "@setupToolPermAgyRuleHelp": {
+    "description": "Antigravity 工具权限页新增/编辑规则对话框底部的格式说明。"
+  },
+  "setupSkillsAgySyncedFooter": "由已安装的 Antigravity 插件或扩展提供，只能查看。",
+  "@setupSkillsAgySyncedFooter": {
+    "description": "Antigravity Skills 页「已同步/插件」一组下面的说明。"
+  },
+  "coreStorageAgyLogsTitle": "Antigravity 日志",
+  "@coreStorageAgyLogsTitle": {
+    "description": "存储页 Antigravity 组里日志清理项的标题。"
+  },
+  "coreStorageAgyLogsWhat": "Antigravity 运行日志（~/.gemini/antigravity-cli/log）",
+  "@coreStorageAgyLogsWhat": {
+    "description": "存储页清理 Antigravity 日志确认框的「删什么」。"
+  },
+  "coreStorageAgyLogsKept": "会话记录、插件和账号配置均不受影响",
+  "@coreStorageAgyLogsKept": {
+    "description": "存储页清理 Antigravity 日志确认框的「什么不删」。"
+  },
+  "coreStorageAgyOrphanTitle": "Antigravity 孤立数据",
+  "@coreStorageAgyOrphanTitle": {
+    "description": "存储页 Antigravity 组里孤立脑图/会话目录清理项的标题。"
+  },
+  "coreStorageAgyOrphanWhat": "数据库里已不存在对应记录的旧会话目录（~/.gemini/antigravity-cli/brain）",
+  "@coreStorageAgyOrphanWhat": {
+    "description": "存储页清理 Antigravity 孤立数据确认框的「删什么」。"
+  },
+  "coreStorageAgyOrphanKept": "历史列表中的有效会话以及正在运行的会话",
+  "@coreStorageAgyOrphanKept": {
+    "description": "存储页清理 Antigravity 孤立数据确认框的「什么不删」。"
+  },
+  "diagLogAgy": "Antigravity 日志",
+  "@diagLogAgy": {
+    "description": "诊断页 Antigravity 运行日志分组标题和日志类别名。"
+  },
+  "diagAgyEmpty": "还没有 Antigravity 日志",
+  "@diagAgyEmpty": {
+    "description": "诊断页 Antigravity 日志目录为空时的提示。"
   }
 }

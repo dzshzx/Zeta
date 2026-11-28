@@ -60,6 +60,7 @@ var agyCommonTools = []option{
 	{"read_file", locales.ClaudecfgToolRead}, {"edit_file", locales.ClaudecfgToolEdit}, {"write_file", locales.ClaudecfgToolWrite},
 	{"find_by_name", locales.ClaudecfgToolGlob}, {"grep_search", locales.ClaudecfgToolGrep}, {"run_command", locales.ClaudecfgToolBash},
 	{"search_web", locales.ClaudecfgToolWebSearch},
+	{"invoke_subagent", locales.ClaudecfgToolSubagent}, {"ask_question", locales.ClaudecfgToolAsk}, {"update_steps", locales.ClaudecfgToolSteps},
 }
 
 var agentName = regexp.MustCompile(`^[a-z0-9][a-z0-9-]{0,63}$`)

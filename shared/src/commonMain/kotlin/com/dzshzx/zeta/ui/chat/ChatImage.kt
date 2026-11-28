@@ -77,12 +77,18 @@ fun readImage(items: List<ChatItem>, path: String): ImageRef? {
         val steps = (item as? WorkItem)?.steps ?: continue
         for (step in steps.asReversed()) {
             val tool = step as? ToolStep ?: continue
-            if (tool.name != "Read" || tool.images.isEmpty()) continue
-            if (tool.input?.str("file_path") == path) return tool.images.first()
+            if (tool.name !in READ_IMAGE_TOOLS || tool.images.isEmpty()) continue
+            val toolPath =
+                tool.input?.str("file_path")
+                    ?: tool.input?.str("Path")
+                    ?: tool.input?.str("AbsolutePath")
+            if (toolPath == path) return tool.images.first()
         }
     }
     return null
 }
+
+private val READ_IMAGE_TOOLS = setOf("Read", "read_file", "view_file")
 
 /** 取一张图：null 表示还在取。回答里写的图片文件读不到时改取 [readImage] 的那张。 */
 @Composable

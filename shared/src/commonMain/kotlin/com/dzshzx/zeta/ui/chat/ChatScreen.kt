@@ -602,11 +602,14 @@ private fun ChatContent(
                 hub = hub,
                 conversation = conversation,
                 cwd = conversation.cwd,
-                // 登录状态查的是手机上的 Claude Code；远程主机上的登没登录，发了才知道
+                // 登录状态查的是手机上的 CLI；远程主机上的登没登录，发了才知道
                 needsLogin =
                     conversation.backend == Backends.LOCAL &&
-                        conversation.harness == com.dzshzx.zeta.core.Harnesses.CLAUDE &&
-                        hub.platform.local?.loggedOut == true,
+                        if (conversation.harness == com.dzshzx.zeta.core.Harnesses.AGY) {
+                            hub.platform.local?.agyLoggedOut == true
+                        } else {
+                            hub.platform.local?.loggedOut == true
+                        },
                 onLogin = onOpenLogin,
                 onChangeCwd = { hub.startNew(it) },
                 modifier = Modifier.padding(padding),
@@ -870,10 +873,19 @@ private fun ConversationInput(
                     onChange = conversation::choosePermissionMode,
                 )
                 // 载入历史期间不能改：载完要照会话记录恢复思考强度
+                val activeModel =
+                    conversation.model?.takeUnless { it == Conversation.DEFAULT_MODEL }
+                        ?: conversation.reportedModel
+                val allowedEfforts = activeModel?.let { id ->
+                    hub.modelOptions(conversation.backend, conversation.harness)
+                        .firstOrNull { it.value == id || it.resolvedModel == id }
+                        ?.effortLevels
+                }
                 EffortChip(
                     effort = conversation.effort,
                     applied = conversation.usage.appliedEffort,
                     enabled = !conversation.loadingHistory,
+                    allowed = allowedEfforts,
                     onChange = conversation::chooseEffort,
                 )
                 UsageButton(conversation.usage, onClick = { viewingUsage = true })
@@ -1038,8 +1050,12 @@ private fun ChatHeader(conversation: Conversation, host: String?, models: List<M
                     overflow = TextOverflow.Ellipsis,
                 )
                 Row(verticalAlignment = Alignment.CenterVertically) {
+                    val harnessBadge =
+                        if (harness == com.dzshzx.zeta.core.Harnesses.AGY)
+                            com.dzshzx.zeta.core.Harnesses.shortTitle(harness)
+                        else null
                     Text(
-                        text = host?.let { "$it · $modelName" } ?: modelName,
+                        text = listOfNotNull(host, harnessBadge, modelName).joinToString(" · "),
                         style = MiuixTheme.textStyles.footnote2,
                         color = colors.onBackgroundVariant,
                         maxLines = 1,
@@ -1082,7 +1098,7 @@ private fun ChatHeader(conversation: Conversation, host: String?, models: List<M
             }
         }
         AnchoredMenu(
-            show = expanded && models.isNotEmpty(),
+            show = expanded && (models.isNotEmpty() || canSwitchHarness),
             entries = entries,
             onDismiss = { expanded = false },
         )

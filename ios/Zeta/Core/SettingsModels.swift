@@ -18,6 +18,10 @@ struct DeviceInfo: Decodable, Sendable, Identifiable, Hashable {
     /// 在用的中转名；used 是最要紧的额度窗口用了百分之几，没有时是 -1。
     let relay: String
     let used: Int
+    let claudeRelay: String?
+    let claudeUsed: Int?
+    let agyRelay: String?
+    let agyUsed: Int?
     private let rawDefaultHarness: String?
 
     enum CodingKeys: String, CodingKey {
@@ -25,6 +29,10 @@ struct DeviceInfo: Decodable, Sendable, Identifiable, Hashable {
         case customName = "custom_name"
         case defaultCwd = "default_cwd"
         case rawDefaultHarness = "default_harness"
+        case claudeRelay = "claude_relay"
+        case claudeUsed = "claude_used"
+        case agyRelay = "agy_relay"
+        case agyUsed = "agy_used"
     }
 
     /// 这台设备新建对话默认用的工具，缺省回退 "claude"。
@@ -36,6 +44,19 @@ struct DeviceInfo: Decodable, Sendable, Identifiable, Hashable {
     /// 首页那一行右边写的：断开、中转名或额度已用比例。
     var hint: String {
         if off { return String(localized: "已断开") }
+        return Self.formatHint(relay: relay, used: used)
+    }
+
+    /// 指定工具的中转名或额度已用比例。
+    func hint(for harness: String) -> String {
+        if off { return "" }
+        if harness == Harness.agy {
+            return Self.formatHint(relay: agyRelay ?? "", used: agyUsed ?? -1)
+        }
+        return Self.formatHint(relay: claudeRelay ?? "", used: claudeUsed ?? -1)
+    }
+
+    private static func formatHint(relay: String, used: Int) -> String {
         if !relay.isEmpty { return String(localized: "中转 \(relay)") }
         if used >= 0 { return String(localized: "已用 \((Double(used) / 100).formatted(.percent))") }
         return ""
@@ -129,6 +150,12 @@ struct QuotaWindow: Decodable, Sendable, Identifiable {
 struct QuotaExtra: Decodable, Sendable {
     let amount: String
     let used: Double?
+    let isCredits: Bool?
+
+    enum CodingKeys: String, CodingKey {
+        case amount, used
+        case isCredits = "is_credits"
+    }
 }
 
 struct RelayModel: Decodable, Sendable, Identifiable, Hashable {

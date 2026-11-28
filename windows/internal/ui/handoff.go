@@ -49,6 +49,8 @@ func occupantPlace(app, device string, local bool) string {
 		what = "Zeta"
 	case sessionproto.AppZetaDev:
 		what = locales.HandoffAppZetaDev()
+	case sessionproto.AppAgy:
+		what = "Antigravity CLI"
 	case "claude-vscode":
 		what = "VS Code"
 	case "claude-desktop":

@@ -48,7 +48,7 @@ func (a *App) suggestions(p *chatPane, text string, caret int) (chat.Slash, []ch
 	}
 	var local []chat.Command
 	if p.acts.editing == nil {
-		local = chat.SettingsCommands()
+		local = chat.SettingsCommandsFor(p.tool())
 	}
 	return s, chat.Suggest(p.state.Commands, s.Prefix, local...)
 }

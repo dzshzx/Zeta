@@ -43,6 +43,7 @@ data class Occupant(
         const val TERMINAL = "terminal"
         const val ZETA = "zeta"
         const val ZETA_DEV = "zeta-dev"
+        const val AGY = "agy"
 
         /**
          * conv.state 里的 occupant（`{status, waiting_for, hands_over, app, device}`，后两项可省）：`status` 为

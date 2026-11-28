@@ -66,14 +66,14 @@ func agyLook(s items.Step) (toolLook, bool) {
 		cmd := orDefault(s.Str("CommandLine"), s.Str("command"))
 		title := firstNonBlank(s.Str("toolSummary"), s.Str("description"), firstLine(cmd, 80), locales.ChatToolRunCommand())
 		return toolLook{iconTerminal, title, cmd}, true
-	case "read_file", "view_file_outline", "view_code_item", "list_dir":
-		path := firstNonBlank(s.Str("Path"), s.Str("DirectoryPath"), s.Str("File"), s.Str("path"), s.Str("file_path"))
+	case "read_file", "view_file", "view_file_outline", "view_code_item", "list_dir":
+		path := firstNonBlank(s.Str("Path"), s.Str("AbsolutePath"), s.Str("DirectoryPath"), s.Str("File"), s.Str("path"), s.Str("file_path"))
 		return toolLook{iconFile, locales.ChatToolRead(baseName(path)), orDefault(path, inputJSON(s))}, true
-	case "write_file":
-		path := firstNonBlank(s.Str("Path"), s.Str("path"), s.Str("file_path"))
-		content := orDefault(s.Str("Content"), s.Str("content"))
+	case "write_file", "write_to_file":
+		path := firstNonBlank(s.Str("Path"), s.Str("TargetFile"), s.Str("path"), s.Str("file_path"))
+		content := firstNonBlank(s.Str("Content"), s.Str("CodeContent"), s.Str("content"))
 		return toolLook{iconEdit, locales.ChatToolWrite(baseName(path)), path + "\n\n" + content}, true
-	case "edit_file":
+	case "edit_file", "replace_file_content", "multi_replace_file_content":
 		return editLook(s), true
 	case "grep_search":
 		q := firstNonBlank(s.Str("Query"), s.Str("query"), s.Str("pattern"))
@@ -98,23 +98,35 @@ func agyAuxLook(s items.Step) (toolLook, bool) {
 	switch s.Name {
 	case "ask_question":
 		return toolLook{iconQuestion, locales.ChatToolAsk(), inputJSON(s)}, true
+	case "exit_plan_mode":
+		return toolLook{iconChecklist, locales.ChatToolPlan(), orDefault(s.Str("plan"), inputJSON(s))}, true
 	case "update_steps":
 		if steps, ok := s.Input["steps"].([]any); ok {
 			return toolLook{iconChecklist, locales.ChatTodoWriteCount(len(steps)), inputJSON(s)}, true
 		}
 		return toolLook{iconChecklist, locales.ChatTodoWrite(), inputJSON(s)}, true
-	case "manage_task":
+	case "manage_task", "command_status":
 		return toolLook{iconTerminal, locales.ChatToolManageTask(), inputJSON(s)}, true
 	case "schedule":
 		return toolLook{iconChecklist, locales.ChatToolSchedule(), inputJSON(s)}, true
 	case "send_message":
 		return toolLook{iconAgent, locales.ChatToolSendMessage(), inputJSON(s)}, true
+	case "define_subagent", "manage_subagents":
+		return toolLook{iconAgent, locales.ChatToolAgent(firstNonBlank(s.Str("Name"), s.Str("Action"), s.Name)), inputJSON(s)}, true
+	case "swarm":
+		return toolLook{iconAgent, locales.ChatToolSwarm(firstNonBlank(s.Str("title"), s.Str("name"), s.Str("action"))), inputJSON(s)}, true
 	case "run_workflow":
 		return toolLook{iconSparkle, locales.ChatToolWorkflow(), orDefault(s.Str("Description"), inputJSON(s))}, true
+	case "list_resources", "read_resource":
+		return toolLook{iconPlug, locales.ChatToolMcpResource(firstNonBlank(s.Str("ServerName"), s.Str("Uri"))), inputJSON(s)}, true
 	case "call_mcp_tool":
 		srv, tool := s.Str("ServerName"), s.Str("ToolName")
 		if srv == "phone" {
-			return mcpLook(items.Step{Name: "mcp__phone__" + tool, Input: s.Input}), true
+			args := s.Input
+			if inner, ok := s.Input["Arguments"].(map[string]any); ok {
+				args = inner
+			}
+			return mcpLook(items.Step{Name: "mcp__phone__" + tool, Input: args}), true
 		}
 		if srv != "" && tool != "" {
 			return toolLook{iconPlug, srv + " · " + tool, inputJSON(s)}, true
@@ -134,7 +146,7 @@ func firstNonBlank(values ...string) string {
 }
 
 func editLook(s items.Step) toolLook {
-	path := firstNonBlank(s.Str("file_path"), s.Str("notebook_path"), s.Str("Path"), s.Str("path"))
+	path := firstNonBlank(s.Str("file_path"), s.Str("notebook_path"), s.Str("Path"), s.Str("TargetFile"), s.Str("path"))
 	detail := path
 	if old, nw, ok := editPairOf(s); ok {
 		detail += "\n\n- " + old + "\n+ " + nw

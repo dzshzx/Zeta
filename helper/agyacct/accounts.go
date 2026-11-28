@@ -29,6 +29,7 @@ import (
 	"github.com/dzshzx/Zeta/helper/accounts"
 	"github.com/dzshzx/Zeta/helper/agystore"
 	"github.com/dzshzx/Zeta/helper/locales"
+	"github.com/dzshzx/Zeta/helper/sessionproto"
 )
 
 const (
@@ -78,6 +79,8 @@ type diskState struct {
 	Current        string               `json:"current,omitempty"`
 	CurrentRelay   string               `json:"currentRelay,omitempty"`
 	PendingLogin   string               `json:"pendingLogin,omitempty"`
+	PrevAccount    string               `json:"prevAccount,omitempty"`
+	PrevRelay      string               `json:"prevRelay,omitempty"`
 	RelaySetMode   bool                 `json:"relaySetMode,omitempty"`
 	RelaySetModel  bool                 `json:"relaySetModel,omitempty"`
 	RelayPrevModel string               `json:"relayPrevModel,omitempty"`
@@ -141,6 +144,9 @@ func (h *Host) readStateLocked() stateSnapshot {
 	if slices.Contains(relayNames, ds.CurrentRelay) {
 		activeRelay = ds.CurrentRelay
 	}
+	if activeRelay == "" {
+		h.syncRefreshedTokenLocked(&ds, slots)
+	}
 	relays := loadRelays(h.Home, relayNames, activeRelay)
 	cur, list := buildAccountList(h.Home, ds, slots, activeRelay != "")
 	return stateSnapshot{
@@ -193,6 +199,41 @@ func buildAccountList(home string, ds diskState, slots map[string]string, onRela
 	}
 	out = append(out, saved...)
 	return cur, out
+}
+
+// syncRefreshedTokenLocked 在 OAuth 令牌被 agy 自动刷新后保留原账号身份：
+// 当活跃令牌指纹未命中任何已存槽位，但 ds.Current 指向一个已存槽位时，用新的不透明字节覆盖该槽位并迁移套餐缓存键。
+func (h *Host) syncRefreshedTokenLocked(ds *diskState, slots map[string]string) {
+	if ds.Current == "" || ds.PendingLogin != "" {
+		return
+	}
+	oldFP, hasSlot := slots[ds.Current]
+	if !hasSlot {
+		return
+	}
+	activePath := oauthTokenPath(h.Home)
+	fp, ok := fileFingerprint(activePath)
+	if !ok || matchSlot(fp, ds.Current, slots) != "" {
+		return
+	}
+	data, err := os.ReadFile(activePath)
+	if err != nil || len(bytes.TrimSpace(data)) == 0 {
+		return
+	}
+	if err := accounts.WriteFileAtomic(tokenSlotPath(h.Home, ds.Current), data, 0o600); err != nil {
+		return
+	}
+	slots[ds.Current] = fp
+	oldKey, newKey := planKey(oldFP), planKey(fp)
+	if plan := ds.Plans[oldKey]; plan != "" && oldKey != newKey {
+		if ds.Plans == nil {
+			ds.Plans = map[string]string{}
+		}
+		ds.Plans[newKey] = plan
+		delete(ds.Plans, oldKey)
+		_ = saveDiskState(h.Home, *ds)
+	}
+	syncQuotaCache(h.Home)
 }
 
 func matchSlot(fp, preferred string, slots map[string]string) string {
@@ -400,6 +441,8 @@ func (h *Host) activateAccountLocked(name string, ds *diskState) error {
 	ds.Current = name
 	ds.CurrentRelay = ""
 	ds.PendingLogin = ""
+	ds.PrevAccount = ""
+	ds.PrevRelay = ""
 	ds.RelaySetMode = false
 	ds.RelaySetModel = false
 	ds.RelayPrevModel = ""
@@ -421,6 +464,8 @@ func (h *Host) activateRelayLocked(r accounts.Relay, ds *diskState) error {
 	ds.Current = ""
 	ds.CurrentRelay = r.Name
 	ds.PendingLogin = ""
+	ds.PrevAccount = ""
+	ds.PrevRelay = ""
 	ds.RelaySetMode = true
 	if setModel {
 		if !ds.RelaySetModel {
@@ -445,9 +490,12 @@ func (h *Host) PrepareLogin(ctx context.Context) (string, error) {
 	var name string
 	err := withFileLock(h.Home, func() error {
 		snap := h.readStateLocked()
-		if _, err := h.archiveActiveTokenLocked(&snap, ""); err != nil {
+		archived, err := h.archiveActiveTokenLocked(&snap, "")
+		if err != nil {
 			return err
 		}
+		prevAcct := cmp.Or(archived, snap.ds.Current)
+		prevRelay := activeRelayFromState(h.Home, snap.ds)
 		if !accounts.Removed(oauthTokenPath(h.Home)) {
 			return locales.Err("errRelayWrite", "path", oauthTokenPath(h.Home))
 		}
@@ -458,6 +506,8 @@ func (h *Host) PrepareLogin(ctx context.Context) (string, error) {
 		snap.ds.Current = ""
 		snap.ds.CurrentRelay = ""
 		snap.ds.PendingLogin = name
+		snap.ds.PrevAccount = prevAcct
+		snap.ds.PrevRelay = prevRelay
 		snap.ds.RelaySetMode = false
 		snap.ds.RelaySetModel = false
 		snap.ds.RelayPrevModel = ""
@@ -468,6 +518,65 @@ func (h *Host) PrepareLogin(ctx context.Context) (string, error) {
 		return nil
 	})
 	return name, err
+}
+
+// restorePendingLogin 在登录取消或失败且未生成新令牌时，恢复登录前活跃的账号或中转。
+func (h *Host) restorePendingLogin() {
+	_ = withStateLock(h.Home, func() error {
+		snap := h.readStateLocked()
+		if snap.ds.PendingLogin == "" {
+			return nil
+		}
+		if _, hasLive := fileFingerprint(oauthTokenPath(h.Home)); hasLive {
+			return nil
+		}
+		prevAcct, prevRelay := snap.ds.PrevAccount, snap.ds.PrevRelay
+		snap.ds.PendingLogin = ""
+		snap.ds.PrevAccount = ""
+		snap.ds.PrevRelay = ""
+		if prevRelay != "" {
+			if idx := slices.IndexFunc(snap.Relays, func(r accounts.Relay) bool { return r.Name == prevRelay }); idx >= 0 {
+				return h.activateRelayLocked(snap.Relays[idx], &snap.ds)
+			}
+		}
+		if prevAcct != "" {
+			if _, ok := snap.slots[prevAcct]; ok {
+				return h.activateAccountLocked(prevAcct, &snap.ds)
+			}
+		}
+		return saveDiskState(h.Home, snap.ds)
+	})
+}
+
+// Logout 退出当前活跃的 agy 登录或中转，移除活跃令牌并恢复中转前的配置。
+func (h *Host) Logout(ctx context.Context) error {
+	changing.Lock()
+	defer changing.Unlock()
+	if err := h.waitAndCheckIdle(ctx); err != nil {
+		return err
+	}
+	return withFileLock(h.Home, func() error {
+		snap := h.readStateLocked()
+		if !accounts.Removed(oauthTokenPath(h.Home)) {
+			return locales.Err("errRelayWrite", "path", oauthTokenPath(h.Home))
+		}
+		if err := clearRelaySettings(h.Home, snap.ds.RelaySetMode, snap.ds.RelaySetModel, snap.ds.RelayPrevModel); err != nil {
+			return err
+		}
+		snap.ds.Current = ""
+		snap.ds.CurrentRelay = ""
+		snap.ds.PendingLogin = ""
+		snap.ds.PrevAccount = ""
+		snap.ds.PrevRelay = ""
+		snap.ds.RelaySetMode = false
+		snap.ds.RelaySetModel = false
+		snap.ds.RelayPrevModel = ""
+		if err := saveDiskState(h.Home, snap.ds); err != nil {
+			return err
+		}
+		syncQuotaCache(h.Home)
+		return nil
+	})
 }
 
 // Remove 删除一个不在使用中的已保存账号。
@@ -509,6 +618,8 @@ func (h *Host) finishLogin(preferred string) (string, error) {
 		snap.ds.Current = archived
 		snap.ds.CurrentRelay = ""
 		snap.ds.PendingLogin = ""
+		snap.ds.PrevAccount = ""
+		snap.ds.PrevRelay = ""
 		if err := saveDiskState(h.Home, snap.ds); err != nil {
 			return err
 		}
@@ -569,15 +680,20 @@ func procAlive(p procID) bool {
 func (h *Host) procs() []accounts.Proc {
 	seen := map[int]bool{}
 	var out []accounts.Proc
-	for _, holder := range agystore.ActiveHolders(AgyDir(h.Home), "") {
+	agyDir := AgyDir(h.Home)
+	for _, holder := range agystore.ActiveHolders(agyDir, "") {
 		if seen[holder.PID] {
 			continue
 		}
 		seen[holder.PID] = true
+		status := "idle"
+		if agystore.SessionRunStatus(agyDir, holder.Session) == sessionproto.StatusBusy {
+			status = "busy"
+		}
 		out = append(out, accounts.Proc{
 			PID:    holder.PID,
 			Owner:  ownerFromMark(holder.HostMark),
-			Status: "idle",
+			Status: status,
 			Kind:   holder.Entrypoint,
 		})
 	}

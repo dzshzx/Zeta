@@ -18,7 +18,7 @@ func QuotaDetails(c *ui.Context, q *acct.Quota) {
 			ui.Text(c, s.PlanLabel()).FontSize(widget.SizeBodyM).TextColor(k.Tertiary)
 		}
 	})
-	if ok && !s.Unavailable && len(s.Windows) > 0 {
+	if ok && !s.Unavailable && (len(s.Windows) > 0 || (s.Extra != nil && s.Extra.Enabled)) {
 		Windows(c, s, c.Now())
 	}
 	note(c, q.Footnote(c.Now()))

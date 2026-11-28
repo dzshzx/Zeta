@@ -186,13 +186,15 @@ private fun hostDefaultsGroup(
         footer = if (isAgy) Strings.settingsDefaultsAgyFooter() else ClaudeDefaultsFooter,
     ) {
         item { DefaultModelPreference(hub, backend, harness) }
-        item {
-            DefaultEffortEntry(
-                hub,
-                backend,
-                harness,
-                onOpen = { onOpen(HostPage.DefaultEffort) },
-            )
+        if (!isAgy) {
+            item {
+                DefaultEffortEntry(
+                    hub,
+                    backend,
+                    harness,
+                    onOpen = { onOpen(HostPage.DefaultEffort) },
+                )
+            }
         }
         item { DefaultPermissionModePreference(hub, backend, harness) }
         if (!isAgy) item { CompactWindowPreference(hub, backend, harness) }
@@ -211,13 +213,13 @@ private fun hostRuntimeGroup(
     PreferenceGroup(title = Harnesses.shortTitle(harness)) {
         item { AccountsEntry(hub, backend, harness) { onOpen(HostPage.Accounts) } }
         if (isAgy) {
-            item { AgyUpdateRow(hub, backend, ready) }
+            if (backend != Backends.LOCAL) item { AgyUpdateRow(hub, backend, ready) }
         } else {
             item { AutoCompactSwitch(hub, backend) }
             item { CompactTimingPreference(hub, backend) }
             if (backend != Backends.LOCAL) item { ClaudeCodeUpdateRow(hub, backend, ready) }
         }
-        item { AutoTitleSwitch(hub, backend) }
+        if (!isAgy) item { AutoTitleSwitch(hub, backend) }
         item { IdleEndPreference(hub, backend, ready) }
         item { ScheduleEntry(backend) { onOpen(HostPage.Schedules) } }
         item { NotifyTriggerEntry(backend) { onOpen(HostPage.NotifyTriggers) } }

@@ -54,8 +54,11 @@ fun QuotaWindows(snapshot: QuotaSnapshot, now: Long, modifier: Modifier = Modifi
             ?.let { extra ->
                 val used = Quota.money(extra.usedMinor, extra.currency)
                 val limit = Quota.money(extra.limitMinor, extra.currency)
+                val label =
+                    if (extra.currency.equals("credits", ignoreCase = true)) "AI Credits"
+                    else Strings.composerExtraUsage()
                 QuotaLine(
-                    Strings.composerExtraUsage(),
+                    label,
                     listOfNotNull(used, limit).joinToString(" / ").ifBlank {
                         Strings.composerExtraOn()
                     },
@@ -145,7 +148,8 @@ fun quotaFootnote(
         snapshot == null && refreshing -> add(Strings.composerQuotaFetching())
         snapshot == null -> add(Strings.composerQuotaNoData())
         !snapshot.available -> add(Strings.composerQuotaUnavailable())
-        snapshot.windows.isEmpty() -> add(Strings.composerQuotaNotYet())
+        snapshot.windows.isEmpty() && snapshot.extra?.enabled != true ->
+            add(Strings.composerQuotaNotYet())
         else ->
             add(
                 Quota.ageText(snapshot.updatedAt, now).let {

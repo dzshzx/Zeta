@@ -85,7 +85,7 @@ class AccountService(
     private fun localBlocker(): String? =
         when {
             working != null -> Strings.coreAccountsBusy()
-            !hub.canChangeLogin(backend) -> Strings.coreAccountsOwnBusy()
+            !hub.canChangeLogin(backend, harness) -> Strings.coreAccountsOwnBusy()
             login.inProgress -> Strings.coreAccountsLoggingIn()
             else -> null
         }
@@ -145,7 +145,8 @@ class AccountService(
                 when {
                     blocker != null -> fail(blocker)
                     // 这一刻再看一次：查进程的这会儿可能有对话开始了
-                    !hub.closeIdleConversations(backend) -> fail(Strings.coreAccountsOwnBusy())
+                    !hub.closeIdleConversations(backend, harness) ->
+                        fail(Strings.coreAccountsOwnBusy())
                     else -> then()
                 }
             }
@@ -287,7 +288,7 @@ class AccountService(
 
     /** 开始登录前（在主线程上）：本包有对话在进行时不能登录，返回原因；能时关掉闲着的对话进程（它们开着时 claude-switch 不存档）。 */
     internal fun closeForLogin(): String? =
-        if (hub.closeIdleConversations(backend)) null else Strings.coreAccountsOwnBusy()
+        if (hub.closeIdleConversations(backend, harness)) null else Strings.coreAccountsOwnBusy()
 
     /** 单起的问额度的进程和改登录状态不能同时进行（[QuotaService.probeLock]）。 */
     internal val probeLock: Any

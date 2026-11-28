@@ -141,7 +141,10 @@ internal fun DiagnosticsScreen(
             LogFilesGroup(
                 title = Strings.diagStderrTitle(),
                 footer = Strings.diagStderrFooter(DiagScripts.FINISHED_LIMIT),
-                files = current?.files?.filter { it.kind != LogKind.Debug },
+                files =
+                    current?.files?.filter {
+                        it.kind == LogKind.Running || it.kind == LogKind.Finished
+                    },
                 probing = probing,
                 unavailable = Strings.diagStderrUnavailable(),
                 empty = Strings.diagStderrEmpty() to Strings.diagStderrEmptyHint(),
@@ -158,6 +161,19 @@ internal fun DiagnosticsScreen(
                 probing = probing,
                 unavailable = null,
                 empty = Strings.diagDebugEmpty() to null,
+            ) {
+                page = DiagPage.File(it)
+            }
+        }
+        // ~/.gemini/antigravity-cli/log 下的文件
+        item(key = "agy") {
+            LogFilesGroup(
+                title = Strings.diagLogAgy(),
+                footer = Strings.diagDebugFooter(DiagScripts.DEBUG_LIMIT),
+                files = current?.files(LogKind.Agy),
+                probing = probing,
+                unavailable = null,
+                empty = Strings.diagAgyEmpty() to null,
             ) {
                 page = DiagPage.File(it)
             }

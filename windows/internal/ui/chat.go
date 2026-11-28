@@ -315,8 +315,12 @@ func (a *App) chatHeader(c *ui.Context, p *chatPane) {
 		ui.Box(c).Absolute().Left(0).Right(0).Bottom(0).Height(1).Background(k.Divider)
 		ui.Text(c, a.chatTitle(p)).FontSize(widget.SizeBodyM).FontWeight(600).TextColor(k.Text).SingleLine().Ellipsis("…").
 			MaxWidthPercent(100)
+		sub := a.hub.Name(p.src.Backend) + " · " + cwd
+		if p.tool() == sessionproto.HarnessAgy {
+			sub = a.hub.Name(p.src.Backend) + " · Antigravity · " + cwd
+		}
 		if !newChat(p) {
-			ui.Text(c, a.hub.Name(p.src.Backend)+" · "+cwd).FontSize(widget.SizeBodyXS).TextColor(k.Secondary).SingleLine().
+			ui.Text(c, sub).FontSize(widget.SizeBodyXS).TextColor(k.Secondary).SingleLine().
 				Ellipsis("…").MaxWidthPercent(100)
 			return
 		}
@@ -327,7 +331,7 @@ func (a *App) chatHeader(c *ui.Context, p *chatPane) {
 			b.Background(k.Hover)
 		}
 		b.Children(func() {
-			ui.Text(c, a.hub.Name(p.src.Backend)+" · "+cwd).FontSize(widget.SizeBodyXS).TextColor(k.Secondary).SingleLine().
+			ui.Text(c, sub).FontSize(widget.SizeBodyXS).TextColor(k.Secondary).SingleLine().
 				Ellipsis("…").Shrink(1)
 		})
 		b.OnClick(func() { p.cwd.open, p.cwd.value = true, cwd })

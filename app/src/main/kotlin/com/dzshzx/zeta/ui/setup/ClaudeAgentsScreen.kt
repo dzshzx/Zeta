@@ -64,8 +64,21 @@ private val ModelOptions: List<Pair<String, String>>
             "fable" to "Fable",
         )
 
-private fun modelLabel(model: String): String =
-    ModelOptions.firstOrNull { it.first.equals(model, ignoreCase = true) }?.second ?: model
+private val AgyModelOptions: List<Pair<String, String>>
+    get() =
+        listOf(
+            "" to Strings.setupAgentsModelDefault(),
+            "inherit" to Strings.setupAgentsModelInherit(),
+            "flash_lite" to "Flash Lite",
+            "flash" to "Flash",
+            "pro" to "Pro",
+        )
+
+private fun modelOptions(isAgy: Boolean): List<Pair<String, String>> =
+    if (isAgy) AgyModelOptions else ModelOptions
+
+private fun modelLabel(model: String, isAgy: Boolean = false): String =
+    modelOptions(isAgy).firstOrNull { it.first.equals(model, ignoreCase = true) }?.second ?: model
 
 /** 常用的内置工具；别的（比如 MCP 工具 mcp__服务器__工具）写进“其他工具”。 */
 private val CommonTools: List<Pair<String, String>>
@@ -82,6 +95,24 @@ private val CommonTools: List<Pair<String, String>>
             "NotebookEdit" to Strings.setupAgentsToolNotebookEdit(),
             "Skill" to Strings.setupAgentsToolSkill(),
         )
+
+private val AgyCommonTools: List<Pair<String, String>>
+    get() =
+        listOf(
+            "read_file" to Strings.setupAgentsToolRead(),
+            "edit_file" to Strings.setupAgentsToolEdit(),
+            "write_file" to Strings.setupAgentsToolWrite(),
+            "find_by_name" to Strings.setupAgentsToolGlob(),
+            "grep_search" to Strings.setupAgentsToolGrep(),
+            "run_command" to Strings.setupAgentsToolBash(),
+            "search_web" to Strings.setupAgentsToolWebSearch(),
+            "invoke_subagent" to Strings.setupAgentsToolSubagent(),
+            "ask_question" to Strings.setupAgentsToolAsk(),
+            "update_steps" to Strings.setupAgentsToolSteps(),
+        )
+
+private fun commonTools(isAgy: Boolean): List<Pair<String, String>> =
+    if (isAgy) AgyCommonTools else CommonTools
 
 /**
  * “Subagent”：~/.claude/agents 下的每个 .md 是一个自定义 Subagent（前言写 name、description、model、tools，正文是系统提示词）。
@@ -105,7 +136,7 @@ internal fun ClaudeAgentsScreen(
     var editor by remember { mutableStateOf<EditorTarget?>(null) }
     var reloads by remember { mutableStateOf(0) }
 
-    LaunchedEffect(reloads) {
+    LaunchedEffect(reloads, harness) {
         scope.runConfig({ client.agents() }) { result ->
             result
                 .onSuccess { agents = it }
@@ -113,6 +144,7 @@ internal fun ClaudeAgentsScreen(
         }
     }
     val reload: () -> Unit = { reloads++ }
+    val isAgy = Harnesses.normalize(harness) == Harnesses.AGY
 
     val shownAgent = rememberRetained(inspected)
     val shownDeleting = rememberRetained(deleting)
@@ -138,6 +170,7 @@ internal fun ClaudeAgentsScreen(
                 shownAgent?.let { agent ->
                     AgentDetail(
                         agent = agent,
+                        isAgy = isAgy,
                         onEdit = {
                             inspected = null
                             editor = EditorTarget(agent)
@@ -172,7 +205,6 @@ internal fun ClaudeAgentsScreen(
         },
     ) {
         val list = agents
-        val isAgy = Harnesses.normalize(harness) == Harnesses.AGY
         item(key = "agents") {
             PreferenceGroup(
                 title = Strings.setupAgentsCustom(list?.size ?: 0),
@@ -198,7 +230,7 @@ internal fun ClaudeAgentsScreen(
                                     title = agent.name.ifBlank { agent.file },
                                     summary = agent.description.clipLine(90).ifBlank { null },
                                     endActions = {
-                                        modelLabel(agent.model)
+                                        modelLabel(agent.model, isAgy)
                                             .takeIf { it.isNotBlank() }
                                             ?.let { PreferenceValue(it) }
                                     },
@@ -230,7 +262,12 @@ private class EditorTarget(val agent: Subagent?)
 
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
-private fun AgentDetail(agent: Subagent, onEdit: () -> Unit, onDelete: () -> Unit) {
+private fun AgentDetail(
+    agent: Subagent,
+    isAgy: Boolean,
+    onEdit: () -> Unit,
+    onDelete: () -> Unit,
+) {
     val colors = MiuixTheme.colorScheme
     val styles = MiuixTheme.textStyles
     Column(
@@ -252,7 +289,7 @@ private fun AgentDetail(agent: Subagent, onEdit: () -> Unit, onDelete: () -> Uni
         }
         Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
             Text(
-                text = Strings.setupAgentsModelTools(modelLabel(agent.model)),
+                text = Strings.setupAgentsModelTools(modelLabel(agent.model, isAgy)),
                 style = styles.footnote1,
                 color = colors.onBackgroundVariant,
             )
@@ -326,7 +363,8 @@ private fun AgentEditor(
 ) {
     val client = rememberConfigClient(hub, backend, harness)
     val scope = rememberCoroutineScope()
-    val commonNames = CommonTools.map { it.first }.toSet()
+    val isAgy = Harnesses.normalize(harness) == Harnesses.AGY
+    val commonNames = commonTools(isAgy).map { it.first }.toSet()
     var name by remember { mutableStateOf(original?.name.orEmpty()) }
     var description by remember { mutableStateOf(original?.description.orEmpty()) }
     var model by remember { mutableStateOf(original?.model.orEmpty()) }
@@ -343,7 +381,7 @@ private fun AgentEditor(
     val valid = AgentName.matches(name.trim()) && description.isNotBlank()
 
     fun save() {
-        val tools = if (allTools) null else chosenTools(checked, others)
+        val tools = if (allTools) null else chosenTools(checked, others, isAgy)
         val draft = SubagentDraft(name.trim(), description.trim(), model, tools, prompt)
         saving = true
         error = null
@@ -396,10 +434,16 @@ private fun AgentEditor(
             }
         }
         item(key = "model") {
-            AgentModelGroup(model = model, enabled = !saving, onModelChange = { model = it })
+            AgentModelGroup(
+                model = model,
+                isAgy = isAgy,
+                enabled = !saving,
+                onModelChange = { model = it },
+            )
         }
         item(key = "tools") {
             AgentToolsGroup(
+                isAgy = isAgy,
                 allTools = allTools,
                 onAllToolsChange = { allTools = it },
                 checked = checked,
@@ -435,9 +479,9 @@ private fun AgentEditor(
     }
 }
 
-/** 勾选的常用工具（按 [CommonTools] 的顺序）加上「其他工具」里用逗号分开的那些。 */
-private fun chosenTools(checked: Set<String>, others: String): List<String> =
-    CommonTools.map { it.first }.filter { it in checked } +
+/** 勾选的常用工具（按当前 harness 常用工具顺序）加上「其他工具」里用逗号分开的那些。 */
+private fun chosenTools(checked: Set<String>, others: String, isAgy: Boolean): List<String> =
+    commonTools(isAgy).map { it.first }.filter { it in checked } +
         others.split(',', '，').map { it.trim() }.filter { it.isNotEmpty() }
 
 private fun Set<String>.toggled(tool: String, on: Boolean): Set<String> =
@@ -449,13 +493,19 @@ private fun missingFieldHint(name: String): String =
 
 /** 选模型；文件里写的不在选项里时把它加到最后，原样保留。 */
 @Composable
-private fun AgentModelGroup(model: String, enabled: Boolean, onModelChange: (String) -> Unit) {
+private fun AgentModelGroup(
+    model: String,
+    isAgy: Boolean,
+    enabled: Boolean,
+    onModelChange: (String) -> Unit,
+) {
     // “默认”是不写 model：Claude Code 同样让它跟随主对话，只有设了环境变量 CLAUDE_CODE_SUBAGENT_MODEL 时改用那个模型
+    val baseOptions = modelOptions(isAgy)
     PreferenceGroup(footer = Strings.setupAgentsModelFooter()) {
         item {
             val options =
-                if (ModelOptions.any { it.first.equals(model, ignoreCase = true) }) ModelOptions
-                else ModelOptions + (model to model)
+                if (baseOptions.any { it.first.equals(model, ignoreCase = true) }) baseOptions
+                else baseOptions + (model to model)
             DropdownPreference(
                 items = options.map { it.second },
                 selectedIndex = options.indexOfFirst { it.first.equals(model, ignoreCase = true) },
@@ -472,6 +522,7 @@ private fun AgentModelGroup(model: String, enabled: Boolean, onModelChange: (Str
 /** 「工具」一组：全部工具，或者勾选常用工具再补写其他工具。 */
 @Composable
 private fun AgentToolsGroup(
+    isAgy: Boolean,
     allTools: Boolean,
     onAllToolsChange: (Boolean) -> Unit,
     checked: Set<String>,
@@ -497,7 +548,7 @@ private fun AgentToolsGroup(
                 )
             }
             if (!allTools) {
-                CommonTools.forEach { (tool, label) ->
+                commonTools(isAgy).forEach { (tool, label) ->
                     item(key = tool) {
                         CheckboxPreference(
                             title = tool,

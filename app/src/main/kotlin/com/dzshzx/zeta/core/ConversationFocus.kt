@@ -7,8 +7,10 @@ import com.dzshzx.zeta.phone.OverlayFocus
 import com.dzshzx.zeta.phone.OverlayPhase
 import com.dzshzx.zeta.phone.PhoneTools
 import com.dzshzx.zeta.ui.MainActivity
+import com.dzshzx.zeta.ui.chat.phoneToolSuffix
 import com.dzshzx.zeta.ui.chat.toolTitle
 import kotlin.concurrent.thread
+import kotlinx.serialization.json.JsonObject
 
 /**
  * 顶部状态胶囊眼里的一个对话（[OverlayFocus]）：状态全取自对话和它的手机工具，自己不另存，所以都可观察。
@@ -116,19 +118,30 @@ internal class ConversationFocus(private val hub: ConversationHub, val conversat
 
     /** 正在跑的工具：手机工具优先用 PhoneTools 给的说法（能说出点的是哪个控件），对不上就用聊天里的标题。 */
     private fun toolStep(step: ToolStep): Step {
-        if (step.name.startsWith(PHONE_PREFIX)) {
+        val (phoneTool, phoneInput) = resolvePhoneTool(step)
+        if (phoneTool != null) {
             val call = phone.currentCall
             if (call != null && isCurrent(step, call)) return Step(call.text, StepKind.PHONE)
-            return Step(
-                phone.describeCall(step.name.removePrefix(PHONE_PREFIX), step.input),
-                StepKind.PHONE,
-            )
+            return Step(phone.describeCall(phoneTool, phoneInput), StepKind.PHONE)
         }
         return Step(toolTitle(step.name, step.input), StepKind.TOOL)
     }
 
+    private fun resolvePhoneTool(step: ToolStep): Pair<String?, JsonObject?> {
+        phoneToolSuffix(step.name)?.let {
+            return it to step.input
+        }
+        val input = step.input
+        if (step.name == "call_mcp_tool" && input?.str("ServerName") == PhoneTools.SERVER) {
+            val tool = input.str("ToolName")?.takeIf { it.isNotBlank() }
+            val args = (input["Arguments"] as? JsonObject) ?: input
+            return tool to args
+        }
+        return null to null
+    }
+
     private fun isCurrent(step: ToolStep, call: PhoneTools.CallInfo): Boolean =
-        call.toolUseId?.let { it == step.id } ?: (PHONE_PREFIX + call.tool == step.name)
+        call.toolUseId?.let { it == step.id } ?: (resolvePhoneTool(step).first == call.tool)
 
     /** 思考尾句：正在思考时最近一小段可见推理，合并空白、去掉 Markdown 记号。 */
     private fun currentThought(): String {

@@ -170,7 +170,7 @@ private struct RuleEditView: View {
                     ForEach(ConfigLabels.behaviors, id: \.self) { Text(ConfigLabels.behavior($0)).tag($0) }
                 }
                 Section {
-                    let example = store.calls.isAgy ? "run_command(git push:*)" : "Bash(git push:*)"
+                    let example = store.calls.isAgy ? "command(git status)" : "Bash(git push:*)"
                     TextField(text: $text, prompt: Text(verbatim: example)) { Text("规则") }
                         .textInputAutocapitalization(.never)
                         .autocorrectionDisabled()
@@ -178,9 +178,9 @@ private struct RuleEditView: View {
                 } footer: {
                     Text(store.calls.isAgy
                         ? """
-                            格式为 工具名 或 工具名(参数)，\
-                            例如 run_command(npm test:*)、read_file(./.env)、\
-                            edit_file(src/**)、mcp__github（整个服务器）。
+                            按 Antigravity 规则格式填写，\
+                            例如 command(git status)、read_file(.env)、\
+                            write_file(src/)、mcp(github/*)。
                             """
                         : """
                             格式为 工具名 或 工具名(参数)，\

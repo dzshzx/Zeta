@@ -76,6 +76,7 @@ fun occupantPlace(app: String?, device: String?, local: Boolean): String? {
             Occupant.TERMINAL -> Strings.chatAppTerminal()
             Occupant.ZETA -> "Zeta"
             Occupant.ZETA_DEV -> Strings.chatAppZetaDev()
+            Occupant.AGY -> "Antigravity CLI"
             "claude-vscode" -> "VS Code"
             "claude-desktop" -> Strings.chatAppClaudeDesktop()
             else -> return null

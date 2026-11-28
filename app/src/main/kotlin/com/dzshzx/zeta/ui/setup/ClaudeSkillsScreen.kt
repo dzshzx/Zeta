@@ -65,7 +65,7 @@ internal fun ClaudeSkillsScreen(
     var reloads by remember { mutableStateOf(0) }
     val operating = importing || busy != null
 
-    LaunchedEffect(reloads) {
+    LaunchedEffect(reloads, harness) {
         scope.runConfig({ client.skills() }) { result ->
             result
                 .onSuccess { list = it }
@@ -202,6 +202,7 @@ internal fun ClaudeSkillsScreen(
             item(key = "synced") {
                 SyncedSkillsGroup(
                     synced,
+                    isAgy = Harnesses.normalize(harness) == Harnesses.AGY,
                     onDescribe = {
                         describing =
                             it.name to it.description.ifBlank { Strings.setupSkillsNoDescription() }
@@ -294,6 +295,7 @@ private fun UserSkillsGroup(
                     item(key = skill.name) {
                         SkillRow(
                             skill = skill,
+                            isAgy = isAgy,
                             enabled = !operating,
                             working = busy == skill.name,
                             onToggle = { onToggle(skill, it) },
@@ -308,10 +310,15 @@ private fun UserSkillsGroup(
 
 /** 「账号同步」一组：claude.ai 同步下来的 Skill，只能看。 */
 @Composable
-private fun SyncedSkillsGroup(synced: List<SyncedSkill>, onDescribe: (SyncedSkill) -> Unit) {
+private fun SyncedSkillsGroup(
+    synced: List<SyncedSkill>,
+    isAgy: Boolean,
+    onDescribe: (SyncedSkill) -> Unit,
+) {
     PreferenceGroup(
         title = Strings.setupSkillsSynced(synced.size),
-        footer = Strings.setupClaudeManagedOnline(),
+        footer =
+            if (isAgy) Strings.setupSkillsAgySyncedFooter() else Strings.setupClaudeManagedOnline(),
     ) {
         synced.forEach { skill ->
             item(key = skill.name) {
@@ -332,6 +339,7 @@ private fun SyncedSkillsGroup(synced: List<SyncedSkill>, onDescribe: (SyncedSkil
 @Composable
 private fun SkillRow(
     skill: SkillInfo,
+    isAgy: Boolean,
     enabled: Boolean,
     working: Boolean,
     onToggle: (Boolean) -> Unit,
@@ -346,43 +354,57 @@ private fun SkillRow(
             // 说明往往是一大段，列表里只放开头
             else -> skill.description.clipLine(90)
         }
+    val title =
+        skill.title
+            .takeIf { it.isNotBlank() && it != skill.name }
+            ?.let { Strings.setupSkillsTitleWithName(it, skill.name) } ?: skill.name
+    val menu: @Composable () -> Unit = {
+        RowMoreMenu(
+            contentDescription = Strings.setupClaudeMoreFor(skill.name),
+            entries =
+                listOf(
+                    MenuEntry(
+                        items =
+                            listOf(
+                                MenuItem(
+                                    text = Strings.setupSkillsShowDescription(),
+                                    onClick = onDescribe,
+                                ),
+                            ),
+                    ),
+                    MenuEntry(
+                        items =
+                            listOf(
+                                MenuItem(
+                                    text = Strings.setupClaudeDelete(),
+                                    enabled = enabled,
+                                    onClick = { if (enabled) onDelete() },
+                                    alert = true,
+                                ),
+                            ),
+                    ),
+                ),
+        )
+    }
+    if (isAgy) {
+        BasicComponent(
+            title = title,
+            summary = description,
+            endActions = {
+                if (working) InfiniteProgressIndicator(size = 20.dp)
+                menu()
+            },
+            onClick = onDescribe,
+        )
+        return
+    }
     SwitchLoadingPreference(
         checked = skill.enabled,
         onCheckedChange = onToggle,
-        title =
-            skill.title
-                .takeIf { it.isNotBlank() && it != skill.name }
-                ?.let { Strings.setupSkillsTitleWithName(it, skill.name) } ?: skill.name,
+        title = title,
         summary = description,
         isLoading = working,
         enabled = canToggle,
-        endActions = {
-            RowMoreMenu(
-                contentDescription = Strings.setupClaudeMoreFor(skill.name),
-                entries =
-                    listOf(
-                        MenuEntry(
-                            items =
-                                listOf(
-                                    MenuItem(
-                                        text = Strings.setupSkillsShowDescription(),
-                                        onClick = onDescribe,
-                                    ),
-                                ),
-                        ),
-                        MenuEntry(
-                            items =
-                                listOf(
-                                    MenuItem(
-                                        text = Strings.setupClaudeDelete(),
-                                        enabled = enabled,
-                                        onClick = { if (enabled) onDelete() },
-                                        alert = true,
-                                    ),
-                                ),
-                        ),
-                    ),
-            )
-        },
+        endActions = { menu() },
     )
 }

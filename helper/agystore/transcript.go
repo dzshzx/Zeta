@@ -107,6 +107,7 @@ type Timeline struct {
 	Events []map[string]any
 	Owners []any
 	Model  string
+	Effort string
 }
 
 // ExtractUserRequest 从 agy 的 USER_INPUT.content 里取出用户真正输入的话（剥掉 <USER_REQUEST> 与附加元数据块）。
@@ -183,6 +184,15 @@ func ReadTimeline(path string) (*Timeline, error) {
 	tb := &timelineBuilder{
 		tl:          &Timeline{},
 		fullOutputs: loadFullOutputs(path, steps),
+		imagesByIdx: map[int][]SavedImage{},
+	}
+	if agyDir, sid, ok := ParseTranscriptPath(path); ok {
+		zmeta := ReadZetaMeta(agyDir, sid)
+		tb.tl.Model = zmeta.Model
+		tb.tl.Effort = zmeta.Effort
+		for _, img := range ReadUserImages(agyDir, sid) {
+			tb.imagesByIdx[img.Turn] = append(tb.imagesByIdx[img.Turn], img)
+		}
 	}
 	for _, st := range steps {
 		tb.apply(st)
@@ -196,6 +206,8 @@ func ReadTimeline(path string) (*Timeline, error) {
 type timelineBuilder struct {
 	tl           *Timeline
 	fullOutputs  map[int]string
+	imagesByIdx  map[int][]SavedImage
+	userTurn     int
 	pendingCalls []string
 	pendingHooks []map[string]any
 }
@@ -218,11 +230,14 @@ func (tb *timelineBuilder) apply(st rawStep) {
 
 func (tb *timelineBuilder) applyUserInput(st rawStep, owner string) {
 	tb.pendingCalls = nil
+	turn := tb.userTurn
+	tb.userTurn++
 	text := ExtractUserRequest(st.Content)
-	if text == "" {
+	imgs := tb.imagesByIdx[turn]
+	if text == "" && len(imgs) == 0 {
 		return
 	}
-	tb.tl.add(userTextEvent(text, owner), owner)
+	tb.tl.add(userEvent(text, imgs, owner), owner)
 	for _, h := range tb.pendingHooks {
 		tb.tl.add(h, owner)
 	}
@@ -281,13 +296,18 @@ func parseHookStep(st rawStep) map[string]any {
 	}
 }
 
-func userTextEvent(text, owner string) map[string]any {
+func userEvent(text string, imgs []SavedImage, owner string) map[string]any {
+	blocks := make([]any, 0, len(imgs)+1)
+	for _, img := range imgs {
+		blocks = append(blocks, map[string]any{"type": "image", "ref": "agy:" + img.File})
+	}
+	if text != "" {
+		blocks = append(blocks, map[string]any{"type": "text", "text": clipString(text)})
+	}
 	return map[string]any{
-		"type": "user",
-		"uuid": owner,
-		"message": map[string]any{
-			"content": []any{map[string]any{"type": "text", "text": clipString(text)}},
-		},
+		"type":    "user",
+		"uuid":    owner,
+		"message": map[string]any{"content": blocks},
 	}
 }
 
@@ -330,8 +350,9 @@ func stepUsage(st rawStep) map[string]any {
 	if st.InputTokens <= 0 && st.OutputTokens <= 0 && st.CacheReadTokens <= 0 {
 		return nil
 	}
+	inTok := max(int64(0), st.InputTokens-st.CacheReadTokens)
 	return map[string]any{
-		"input_tokens":                st.InputTokens,
+		"input_tokens":                inTok,
 		"output_tokens":               st.OutputTokens,
 		"cache_read_input_tokens":     st.CacheReadTokens,
 		"cache_creation_input_tokens": int64(0),

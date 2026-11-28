@@ -42,7 +42,7 @@ func defaultLoginCommand(home string) *exec.Cmd {
 	if home == "" {
 		home = "/"
 	}
-	cmd := exec.Command("bash", "-lc", `export PATH="$PATH:$HOME/.local/bin"; BROWSER=true exec agy acp --login`)
+	cmd := exec.Command("bash", "-lc", `export PATH="$PATH:$HOME/.local/bin"; BROWSER=true exec "${ZETA_AGY_BIN:-agy}" acp --login`)
 	cmd.Dir = home
 	env := make([]string, 0, len(os.Environ())+2)
 	for _, kv := range os.Environ() {
@@ -73,6 +73,7 @@ type LoginFlow struct {
 
 type loginRun struct {
 	name       string
+	host       *Host
 	cmd        *exec.Cmd
 	stdin      io.WriteCloser
 	url        chan string
@@ -99,8 +100,9 @@ func (f *LoginFlow) Start(ctx context.Context, h *Host) (map[string]string, erro
 	if err != nil {
 		return nil, err
 	}
-	run, err := startAgyLogin(h.Home, name)
+	run, err := startAgyLogin(h, name)
 	if err != nil {
+		h.restorePendingLogin()
 		return nil, err
 	}
 	select {
@@ -108,12 +110,18 @@ func (f *LoginFlow) Start(ctx context.Context, h *Host) (map[string]string, erro
 		f.mu.Lock()
 		f.cur = run
 		f.mu.Unlock()
-		run.life = time.AfterFunc(loginLife, func() { f.end(run) })
+		run.life = time.AfterFunc(loginLife, func() {
+			if f.end(run) {
+				h.restorePendingLogin()
+			}
+		})
 		return map[string]string{"url": u, "name": name}, nil
 	case <-run.done:
+		h.restorePendingLogin()
 		return nil, run.failure(locales.Err("errLoginNoURL"))
 	case <-time.After(loginURLWait):
 		run.kill()
+		h.restorePendingLogin()
 		return nil, locales.Err("errLoginURLTimeout")
 	}
 }
@@ -135,13 +143,19 @@ func (f *LoginFlow) Submit(_ context.Context, h *Host, code string) (map[string]
 	}
 	if _, err := io.WriteString(run.stdin, code+"\n"); err != nil {
 		f.end(run)
+		h.restorePendingLogin()
 		return nil, LoginProblem{CodeNoLogin, locales.Err("errLoginExited")}
 	}
 	if err := f.waitLoginResult(run); err != nil {
+		var lp LoginProblem
+		if !errors.As(err, &lp) || lp.ErrCode != CodeLoginIncomplete {
+			h.restorePendingLogin()
+		}
 		return nil, err
 	}
 	saved, err := h.finishLogin(run.name)
 	if err != nil {
+		h.restorePendingLogin()
 		return nil, err
 	}
 	return map[string]string{"name": saved}, nil
@@ -167,19 +181,20 @@ func (f *LoginFlow) waitLoginResult(run *loginRun) error {
 	return nil
 }
 
-// Cancel 终止正在进行的登录流程。
+// Cancel 终止正在进行的登录流程，并恢复登录前活跃的账号或中转。
 func (f *LoginFlow) Cancel() {
 	f.mu.Lock()
 	run := f.cur
 	f.mu.Unlock()
-	if run != nil {
-		f.end(run)
+	if run != nil && f.end(run) && run.host != nil {
+		run.host.restorePendingLogin()
 	}
 }
 
-func (f *LoginFlow) end(run *loginRun) {
+func (f *LoginFlow) end(run *loginRun) bool {
 	f.mu.Lock()
-	if f.cur == run {
+	wasCur := f.cur == run
+	if wasCur {
 		f.cur = nil
 	}
 	f.mu.Unlock()
@@ -187,10 +202,11 @@ func (f *LoginFlow) end(run *loginRun) {
 		run.life.Stop()
 	}
 	run.kill()
+	return wasCur
 }
 
-func startAgyLogin(home, name string) (*loginRun, error) {
-	cmd := LoginCommandFunc(home)
+func startAgyLogin(h *Host, name string) (*loginRun, error) {
+	cmd := LoginCommandFunc(h.Home)
 	stdin, err := cmd.StdinPipe()
 	if err != nil {
 		return nil, err
@@ -208,6 +224,7 @@ func startAgyLogin(home, name string) (*loginRun, error) {
 	}
 	run := &loginRun{
 		name:       name,
+		host:       h,
 		cmd:        cmd,
 		stdin:      stdin,
 		url:        make(chan string, 1),

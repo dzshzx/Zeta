@@ -16,6 +16,7 @@ struct ComposerState: Decodable, Sendable {
     let model: ModelMenu
     let effort: String
     let appliedEffort: String
+    let effortLevels: [String]?
     let mode: String
     let modes: [Choice]
     let queued: [QueuedMessage]
@@ -28,6 +29,7 @@ struct ComposerState: Decodable, Sendable {
         case usage, quota
         case tooLarge = "too_large"
         case appliedEffort = "applied_effort"
+        case effortLevels = "effort_levels"
     }
 }
 

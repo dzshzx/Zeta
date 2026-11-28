@@ -55,6 +55,7 @@ func released(c *Chat) *Chat {
 	if c.Conv != nil && c.Conv.Session() != "" {
 		s.ID = c.Conv.Session()
 	}
+	s.Harness = c.Harness()
 	return &Chat{Backend: c.Backend, Session: s}
 }
 

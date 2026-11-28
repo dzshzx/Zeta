@@ -845,6 +845,7 @@ class ConversationHub(val platform: HubPlatform) {
                         "",
                         null,
                         backend = backend,
+                        harness = settings.defaultHarness(backend),
                     ),
             )
         }
@@ -892,10 +893,14 @@ class ConversationHub(val platform: HubPlatform) {
      * 主机 [backend] 上换 Claude 账号前：关掉那台上闲着的对话背后的 Claude Code 进程（内容不丢，下次发消息时用 --resume 接上）。
      * 有对话在进行时什么都不做，返回 false。在主线程上调用。
      */
-    fun closeIdleConversations(backend: String): Boolean {
-        if (!canChangeLogin(backend)) return false
-        if (current.backend == backend) current.shutdown()
-        val there = parked.filter { it.backend == backend }
+    fun closeIdleConversations(backend: String, harness: String? = null): Boolean {
+        if (!canChangeLogin(backend, harness)) return false
+        val target = harness?.let(Harnesses::normalize)
+        val matches: (Conversation) -> Boolean = {
+            it.backend == backend && (target == null || Harnesses.normalize(it.harness) == target)
+        }
+        if (matches(current)) current.shutdown()
+        val there = parked.filter(matches)
         there.forEach { it.shutdown() }
         parked.removeAll(there)
         platform.prunePhones()
@@ -903,12 +908,17 @@ class ConversationHub(val platform: HubPlatform) {
     }
 
     /**
-     * 主机 [backend] 上没有对话在进行（手机本机还要没在装、维护环境），能动那台的登录状态。只看那台自己的对话： 经手机 Debian
+     * 主机 [backend] 上指定工具没有对话在进行（手机本机还要没在装、维护环境），能动那台的登录状态。只看那台自己对应工具的对话： 经手机 Debian
      * 连的远程主机用的是它自己的登录，那边的对话不挡手机本机换号。
      */
-    fun canChangeLogin(backend: String): Boolean =
-        liveConversations.none { it.active && it.backend == backend } &&
-            (backend != Backends.LOCAL || platform.local?.working != true)
+    fun canChangeLogin(backend: String, harness: String? = null): Boolean {
+        val target = harness?.let(Harnesses::normalize)
+        return liveConversations.none {
+            it.active &&
+                it.backend == backend &&
+                (target == null || Harnesses.normalize(it.harness) == target)
+        } && (backend != Backends.LOCAL || platform.local?.working != true)
+    }
 
     fun open(summary: SessionSummary) {
         if (current.sessionId == summary.id) return
@@ -1147,7 +1157,13 @@ class ConversationHub(val platform: HubPlatform) {
 
         /** config.models.read 直接报出的模型列表（如 Antigravity CLI 的 `agy models`）。 */
         val sourceOptions by derivedStateOf {
-            source?.models.orEmpty().distinctBy { it.id }.map { ModelOption(it.id, it.title, "") }
+            source
+                ?.models
+                .orEmpty()
+                .distinctBy { it.id }
+                .map {
+                    ModelOption(it.id, it.title, "", resolvedModel = it.id)
+                }
         }
     }
 

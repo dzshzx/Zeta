@@ -5701,9 +5701,13 @@
       }
     }
   },
-  "claudecfgAgySkillsFooter": "~/.gemini/config/skills 与工作区 .agents/skills 下的技能，开关写入 skills.json。",
+  "claudecfgAgySkillsFooter": "~/.gemini/config/skills 下的自定义技能；Antigravity 不支持单个技能的启用开关，增删通过导入或删除完成。",
   "@claudecfgAgySkillsFooter": {
     "description": "Antigravity Skills 页底下的说明。"
+  },
+  "claudecfgAgySkillsSyncedFooter": "来自工作区 .agents/skills、~/.agents/skills 与已启用插件的只读技能。",
+  "@claudecfgAgySkillsSyncedFooter": {
+    "description": "Antigravity Skills 页只读技能一组底下的说明。"
   },
   "claudecfgAgyMcpFooter": "读取和修改 ~/.gemini/config/mcp_config.json 中的 MCP 服务器。",
   "@claudecfgAgyMcpFooter": {
@@ -5713,7 +5717,7 @@
   "@claudecfgAgyAgentsFooter": {
     "description": "Antigravity Subagent 页底下的说明。"
   },
-  "claudecfgAgyPermRuleHelp": "填写工具名（如 run_command），或带前缀匹配的规则，例如 run_command(git push:*)、read_file(./.env)、edit_file(src/**)。",
+  "claudecfgAgyPermRuleHelp": "按 Antigravity 规则格式填写，例如 command(git status)、read_file(.env)、write_file(src/)、mcp(github/*)。",
   "@claudecfgAgyPermRuleHelp": {
     "description": "Antigravity 工具权限添加规则对话框里的格式说明。"
   },
@@ -5756,5 +5760,35 @@
   "chatToolWorkflow": "运行工作流",
   "@chatToolWorkflow": {
     "description": "聊天工具卡片：Antigravity 的 run_workflow 工具标题。"
+  },
+  "chatToolSwarm": "多代理协作：{title}",
+  "@chatToolSwarm": {
+    "description": "聊天工具卡片：Antigravity 的 swarm 工具标题。",
+    "placeholders": {
+      "title": {
+        "type": "String"
+      }
+    }
+  },
+  "chatToolMcpResource": "MCP 资源：{name}",
+  "@chatToolMcpResource": {
+    "description": "聊天工具卡片：Antigravity 的 list_resources / read_resource 工具标题。",
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "claudecfgToolSubagent": "调用子代理",
+  "@claudecfgToolSubagent": {
+    "description": "Antigravity Subagent 工具勾选：invoke_subagent。"
+  },
+  "claudecfgToolAsk": "向用户提问",
+  "@claudecfgToolAsk": {
+    "description": "Antigravity Subagent 工具勾选：ask_question。"
+  },
+  "claudecfgToolSteps": "更新任务步骤",
+  "@claudecfgToolSteps": {
+    "description": "Antigravity Subagent 工具勾选：update_steps。"
   }
 }

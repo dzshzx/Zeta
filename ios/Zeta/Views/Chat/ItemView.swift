@@ -183,7 +183,7 @@ private struct StepView: View {
                 .font(.footnote)
                 .foregroundStyle(.secondary)
                 .lineLimit(1)
-            if showPatch, let patch = step.patch {
+            if showPatch, let patch = step.effectivePatch {
                 Text("+\(patch.added)").font(.caption.monospaced()).foregroundStyle(.green)
                 Text("-\(patch.removed)").font(.caption.monospaced()).foregroundStyle(.red)
             }
@@ -191,17 +191,18 @@ private struct StepView: View {
     }
 
     private var detail: some View {
-        VStack(alignment: .leading, spacing: 8) {
+        let resolvedPatch = step.effectivePatch
+        return VStack(alignment: .leading, spacing: 8) {
             if let cmd = ToolLabels.command(step.input) {
                 DetailBlock(text: cmd)
             }
-            if let patch = step.patch, !patch.hunks.isEmpty {
+            if let patch = resolvedPatch, !patch.hunks.isEmpty {
                 FileChangeView(patch: patch, clipped: step.clipped == true)
             } else if step.clipped == true {
                 Text("参数过长，仅显示部分内容").font(.caption).foregroundStyle(.secondary)
             }
             ForEach(step.images ?? [], id: \.cacheKey) { ChatImageView(image: $0) }
-            if step.patch == nil || step.failed {
+            if resolvedPatch == nil || step.failed {
                 ScrollView(.horizontal) {
                     Text(step.result.isEmpty ? String(localized: "（没有输出）") : String(step.result.prefix(4000)))
                         .font(.caption.monospaced())

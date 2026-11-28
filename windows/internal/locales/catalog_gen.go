@@ -14671,18 +14671,34 @@ func (msgs Messages) ClaudecfgAgyRulesFiles(count int) string {
 	return Catalog.Format(msgs.locale, "claudecfgAgyRulesFiles", map[string]any{"count": count})
 }
 
-// ClaudecfgAgySkillsFooter says "~/.gemini/config/skills 与工作区 .agents/skills 下的技能，开关写入 skills.json。"
+// ClaudecfgAgySkillsFooter says "~/.gemini/config/skills 下的自定义技能；Antigravity …"
 // in the language the app shows.
 //
 // Antigravity Skills 页底下的说明。
 func ClaudecfgAgySkillsFooter() string { return In(i18n.Locale()).ClaudecfgAgySkillsFooter() }
 
-// ClaudecfgAgySkillsFooter says "~/.gemini/config/skills 与工作区 .agents/skills 下的技能，开关写入 skills.json。"
+// ClaudecfgAgySkillsFooter says "~/.gemini/config/skills 下的自定义技能；Antigravity …"
 // in the language of msgs.
 //
 // Antigravity Skills 页底下的说明。
 func (msgs Messages) ClaudecfgAgySkillsFooter() string {
 	return Catalog.Format(msgs.locale, "claudecfgAgySkillsFooter", nil)
+}
+
+// ClaudecfgAgySkillsSyncedFooter says "来自工作区 .agents/skills、~/.agents/skills 与已启用插件的只读技能。"
+// in the language the app shows.
+//
+// Antigravity Skills 页只读技能一组底下的说明。
+func ClaudecfgAgySkillsSyncedFooter() string {
+	return In(i18n.Locale()).ClaudecfgAgySkillsSyncedFooter()
+}
+
+// ClaudecfgAgySkillsSyncedFooter says "来自工作区 .agents/skills、~/.agents/skills 与已启用插件的只读技能。"
+// in the language of msgs.
+//
+// Antigravity Skills 页只读技能一组底下的说明。
+func (msgs Messages) ClaudecfgAgySkillsSyncedFooter() string {
+	return Catalog.Format(msgs.locale, "claudecfgAgySkillsSyncedFooter", nil)
 }
 
 // ClaudecfgAgyMcpFooter says "读取和修改 ~/.gemini/config/mcp_config.json 中的 MCP 服务器。"
@@ -14713,13 +14729,13 @@ func (msgs Messages) ClaudecfgAgyAgentsFooter() string {
 	return Catalog.Format(msgs.locale, "claudecfgAgyAgentsFooter", nil)
 }
 
-// ClaudecfgAgyPermRuleHelp says "填写工具名（如 run_command），或带前缀匹配的规则，例如 run_command(git push:*)、read_file(./.en…"
+// ClaudecfgAgyPermRuleHelp says "按 Antigravity 规则格式填写，例如 command(git status)、read_file(.env)、write_file(src/)、mcp(github/*)。"
 // in the language the app shows.
 //
 // Antigravity 工具权限添加规则对话框里的格式说明。
 func ClaudecfgAgyPermRuleHelp() string { return In(i18n.Locale()).ClaudecfgAgyPermRuleHelp() }
 
-// ClaudecfgAgyPermRuleHelp says "填写工具名（如 run_command），或带前缀匹配的规则，例如 run_command(git push:*)、read_file(./.en…"
+// ClaudecfgAgyPermRuleHelp says "按 Antigravity 规则格式填写，例如 command(git status)、read_file(.env)、write_file(src/)、mcp(github/*)。"
 // in the language of msgs.
 //
 // Antigravity 工具权限添加规则对话框里的格式说明。
@@ -14865,4 +14881,76 @@ func ChatToolWorkflow() string { return In(i18n.Locale()).ChatToolWorkflow() }
 // 聊天工具卡片：Antigravity 的 run_workflow 工具标题。
 func (msgs Messages) ChatToolWorkflow() string {
 	return Catalog.Format(msgs.locale, "chatToolWorkflow", nil)
+}
+
+// ChatToolSwarm says "多代理协作：{title}"
+// in the language the app shows.
+//
+// 聊天工具卡片：Antigravity 的 swarm 工具标题。
+func ChatToolSwarm(title string) string { return In(i18n.Locale()).ChatToolSwarm(title) }
+
+// ChatToolSwarm says "多代理协作：{title}"
+// in the language of msgs.
+//
+// 聊天工具卡片：Antigravity 的 swarm 工具标题。
+func (msgs Messages) ChatToolSwarm(title string) string {
+	return Catalog.Format(msgs.locale, "chatToolSwarm", map[string]any{"title": title})
+}
+
+// ChatToolMcpResource says "MCP 资源：{name}"
+// in the language the app shows.
+//
+// 聊天工具卡片：Antigravity 的 list_resources / read_resource
+// 工具标题。
+func ChatToolMcpResource(name string) string { return In(i18n.Locale()).ChatToolMcpResource(name) }
+
+// ChatToolMcpResource says "MCP 资源：{name}"
+// in the language of msgs.
+//
+// 聊天工具卡片：Antigravity 的 list_resources / read_resource
+// 工具标题。
+func (msgs Messages) ChatToolMcpResource(name string) string {
+	return Catalog.Format(msgs.locale, "chatToolMcpResource", map[string]any{"name": name})
+}
+
+// ClaudecfgToolSubagent says "调用子代理"
+// in the language the app shows.
+//
+// Antigravity Subagent 工具勾选：invoke_subagent。
+func ClaudecfgToolSubagent() string { return In(i18n.Locale()).ClaudecfgToolSubagent() }
+
+// ClaudecfgToolSubagent says "调用子代理"
+// in the language of msgs.
+//
+// Antigravity Subagent 工具勾选：invoke_subagent。
+func (msgs Messages) ClaudecfgToolSubagent() string {
+	return Catalog.Format(msgs.locale, "claudecfgToolSubagent", nil)
+}
+
+// ClaudecfgToolAsk says "向用户提问"
+// in the language the app shows.
+//
+// Antigravity Subagent 工具勾选：ask_question。
+func ClaudecfgToolAsk() string { return In(i18n.Locale()).ClaudecfgToolAsk() }
+
+// ClaudecfgToolAsk says "向用户提问"
+// in the language of msgs.
+//
+// Antigravity Subagent 工具勾选：ask_question。
+func (msgs Messages) ClaudecfgToolAsk() string {
+	return Catalog.Format(msgs.locale, "claudecfgToolAsk", nil)
+}
+
+// ClaudecfgToolSteps says "更新任务步骤"
+// in the language the app shows.
+//
+// Antigravity Subagent 工具勾选：update_steps。
+func ClaudecfgToolSteps() string { return In(i18n.Locale()).ClaudecfgToolSteps() }
+
+// ClaudecfgToolSteps says "更新任务步骤"
+// in the language of msgs.
+//
+// Antigravity Subagent 工具勾选：update_steps。
+func (msgs Messages) ClaudecfgToolSteps() string {
+	return Catalog.Format(msgs.locale, "claudecfgToolSteps", nil)
 }

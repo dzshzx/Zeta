@@ -109,6 +109,8 @@ internal fun AssistantSettingsScreen(
                             hub.settings.assistantHarness = value
                             model = null
                             hub.settings.assistantModel = null
+                            effort = null
+                            hub.settings.assistantEffort = null
                         }
                     }
                 }

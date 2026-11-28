@@ -455,6 +455,11 @@ func (t *Tracker) PrependHistory(history *Tracker) {
 
 // Snapshot 是现在的用量。known 是这台主机上以前学到的各模型窗口，这个对话自己还没拿到窗口时用；可以是 nil。
 func (t *Tracker) Snapshot(known *Windows) Usage {
+	return t.SnapshotFor(known, "")
+}
+
+// SnapshotFor 是指定引擎下现在的用量，查询学到的上下文窗口时按引擎隔离。
+func (t *Tracker) SnapshotFor(known *Windows, harness string) Usage {
 	u := Usage{
 		ContextTokens:    copyPtr(t.contextTokens),
 		ContextEstimated: t.estimated && t.contextTokens != nil,
@@ -465,7 +470,7 @@ func (t *Tracker) Snapshot(known *Windows) Usage {
 		AutoCompact:      copyPtr(t.autoCompact),
 		CompactAt:        compactThreshold(t.reportedThreshold, t.compactPercent),
 	}
-	switch w, ok := known.Window(t.model); {
+	switch w, ok := known.WindowFor(harness, t.model); {
 	case t.claudeWindow != nil:
 		u.ContextWindow = ptr(*t.claudeWindow)
 	case t.model != "" && ok:

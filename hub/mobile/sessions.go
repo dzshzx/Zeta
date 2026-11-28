@@ -36,6 +36,7 @@ type BackgroundChat struct {
 	Title    string `json:"title"`
 	Activity string `json:"activity"`
 	Tasks    int    `json:"tasks"`
+	Harness  string `json:"harness,omitempty"`
 }
 
 // Alert 是一个提醒：Kind 是 finished（答完一轮）、waiting（开始等你回应）、settled（不再等了，撤掉等回应的通知）。
@@ -96,7 +97,7 @@ func (c *Core) side() Side {
 	for _, b := range h.BackgroundChats() {
 		s := b.Session
 		out.Background = append(out.Background, BackgroundChat{Backend: s.Backend, ID: s.ID, Title: hub.SessionLabel(s, i18n.Locale()),
-			Activity: b.Activity.State, Tasks: b.Activity.Tasks})
+			Activity: b.Activity.State, Tasks: b.Activity.Tasks, Harness: s.Harness})
 	}
 	return out
 }

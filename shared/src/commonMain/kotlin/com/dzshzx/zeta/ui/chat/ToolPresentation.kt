@@ -120,13 +120,27 @@ private fun presentAgyTool(
                 s("toolSummary") ?: s("description"),
                 s("CommandLine") ?: s("command"),
             )
-        "read_file" -> presentReadTool(s("Path") ?: s("file_path"))
-        "write_file" -> presentWriteTool(s("Path") ?: s("file_path"), s("Content") ?: s("content"))
-        "edit_file" ->
+        "read_file",
+        "view_file",
+        "view_file_outline",
+        "view_code_item",
+        "list_dir" ->
+            presentReadTool(
+                s("Path") ?: s("AbsolutePath") ?: s("DirectoryPath") ?: s("File") ?: s("file_path"),
+            )
+        "write_file",
+        "write_to_file" ->
+            presentWriteTool(
+                s("Path") ?: s("TargetFile") ?: s("file_path"),
+                s("Content") ?: s("CodeContent") ?: s("content"),
+            )
+        "edit_file",
+        "replace_file_content",
+        "multi_replace_file_content" ->
             presentEditTool(
-                s("Path") ?: s("file_path"),
-                s("Target") ?: s("old_string"),
-                s("Replacement") ?: s("new_string"),
+                s("Path") ?: s("TargetFile") ?: s("file_path"),
+                s("Target") ?: s("TargetContent") ?: s("old_string"),
+                s("Replacement") ?: s("ReplacementContent") ?: s("new_string"),
             )
         "grep_search" ->
             ToolPresentation(
@@ -143,17 +157,84 @@ private fun presentAgyTool(
                 json.value,
             )
         "search_web" -> presentWebSearchTool(s("query") ?: s("Query"), s("domain"))
+        "read_url_content" -> {
+            val url = (s("Url") ?: s("url")).orEmpty()
+            ToolPresentation(
+                ZetaIcons.Globe,
+                Strings.chatToolWebFetch(url.substringAfter("://").substringBefore('/')),
+                url,
+            )
+        }
         "invoke_subagent" ->
             presentSubagentTool(
                 s("Role") ?: s("TypeName") ?: s("Prompt") ?: s("prompt"),
                 s("Prompt") ?: s("prompt"),
                 json,
             )
+        else -> presentAgyAuxTool(name, input, json)
+    }
+}
+
+private fun presentAgyAuxTool(
+    name: String,
+    input: JsonObject?,
+    json: Lazy<String>,
+): ToolPresentation? {
+    fun s(key: String) = input?.str(key)
+    return when (name) {
         "ask_question" -> ToolPresentation(MiuixIcons.ReplyAll, Strings.chatToolAsk(), json.value)
+        "exit_plan_mode" ->
+            ToolPresentation(MiuixIcons.SelectAll, Strings.chatToolPlan(), s("plan") ?: json.value)
         "update_steps" -> presentUpdateStepsTool(input, json)
-        "manage_task" -> presentManageTaskTool(s("Action"), s("TaskId"), json)
+        "manage_task",
+        "command_status" -> presentManageTaskTool(s("Action"), s("TaskId"), json)
+        "define_subagent",
+        "manage_subagents" ->
+            presentSubagentTool(s("Name") ?: s("Action") ?: name, s("Description"), json)
+        "swarm" -> {
+            val detail = firstLine(s("title") ?: s("name") ?: s("action"), 40)
+            val title =
+                if (detail.isEmpty()) Strings.chatToolSwarm()
+                else "${Strings.chatToolSwarm()} · $detail"
+            ToolPresentation(MiuixIcons.MindMap, title, json.value)
+        }
+        "schedule" -> ToolPresentation(MiuixIcons.Timer, Strings.chatToolSchedule(), json.value)
+        "send_message" ->
+            ToolPresentation(MiuixIcons.MindMap, Strings.chatToolSendMessage(), json.value)
+        "run_workflow" ->
+            ToolPresentation(
+                ZetaIcons.Sparkle,
+                Strings.chatToolWorkflow(),
+                s("Description") ?: json.value,
+            )
+        "list_resources",
+        "read_resource" -> {
+            val detail = (s("ServerName") ?: s("Uri")).orEmpty()
+            val title =
+                if (detail.isEmpty()) Strings.chatToolMcpResource()
+                else "${Strings.chatToolMcpResource()} · $detail"
+            ToolPresentation(ZetaIcons.Puzzle, title, json.value)
+        }
+        "call_mcp_tool" -> presentCallMcpTool(input, json.value)
         else -> null
     }
+}
+
+private fun presentCallMcpTool(input: JsonObject?, json: String): ToolPresentation {
+    val srv = input?.str("ServerName").orEmpty()
+    val tool = input?.str("ToolName").orEmpty()
+    if (srv == "phone" && tool.isNotEmpty()) {
+        val inner = (input?.get("Arguments") as? JsonObject) ?: input
+        return presentPhoneTool(tool, inner, json)
+    }
+    val title =
+        when {
+            srv.isNotEmpty() && tool.isNotEmpty() -> "$srv · $tool"
+            tool.isNotEmpty() -> tool
+            srv.isNotEmpty() -> srv
+            else -> Strings.chatToolGeneric()
+        }
+    return ToolPresentation(ZetaIcons.Puzzle, title, json)
 }
 
 private fun presentCommandTool(summary: String?, command: String?): ToolPresentation =

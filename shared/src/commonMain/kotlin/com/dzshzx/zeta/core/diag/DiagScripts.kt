@@ -13,7 +13,10 @@ enum class LogKind(val code: String) {
     Finished("finished"),
 
     /** Claude Code 自己的调试日志（`~/.claude/debug/`）。 */
-    Debug("debug");
+    Debug("debug"),
+
+    /** Antigravity CLI 自己的运行日志（`~/.gemini/antigravity-cli/log/`）。 */
+    Agy("agy");
 
     /** 界面上的名字，按界面语言取。 */
     val label: String
@@ -22,6 +25,7 @@ enum class LogKind(val code: String) {
                 Running -> Strings.diagLogRunning()
                 Finished -> Strings.diagLogFinished()
                 Debug -> Strings.diagLogDebug()
+                Agy -> Strings.diagLogAgy()
             }
 }
 
@@ -43,6 +47,7 @@ data class LinuxProbe(
     val node: String,
     val debian: String,
     val files: List<LogFile>,
+    val agy: String = "",
 ) {
     fun files(kind: LogKind): List<LogFile> = files.filter { it.kind == kind }
 }
@@ -61,6 +66,7 @@ object DiagScripts {
         """
         H="${'$'}HOME/.cache/${'$'}{ZETA_NAME:-zeta}"
         echo "claude=${'$'}(claude --version 2>/dev/null | head -n 1)"
+        echo "agy=${'$'}(agy --version 2>/dev/null | head -n 1)"
         echo "node=${'$'}(node --version 2>/dev/null | head -n 1)"
         echo "debian=${'$'}(cat /etc/debian_version 2>/dev/null)"
         for f in "${'$'}H"/hosts/*/err.log; do
@@ -70,6 +76,7 @@ object DiagScripts {
         done
         find "${'$'}H/stderr" -maxdepth 1 -type f -name '*.log' -printf '%T@\t%s\t%p\n' 2>/dev/null | sort -rn | head -n $FINISHED_LIMIT | sed 's/^/file\tfinished\t/'
         find "${'$'}HOME/.claude/debug" -maxdepth 1 -type f -printf '%T@\t%s\t%p\n' 2>/dev/null | sort -rn | head -n $DEBUG_LIMIT | sed 's/^/file\tdebug\t/'
+        find "${'$'}HOME/.gemini/antigravity-cli/log" -maxdepth 1 -type f -name '*.log' -printf '%T@\t%s\t%p\n' 2>/dev/null | sort -rn | head -n $DEBUG_LIMIT | sed 's/^/file\tagy\t/'
         exit 0
     """
             .trimIndent()
@@ -80,6 +87,7 @@ object DiagScripts {
 
     fun parseProbe(stdout: String): LinuxProbe {
         var claude = ""
+        var agy = ""
         var node = ""
         var debian = ""
         val files = ArrayList<LogFile>()
@@ -87,6 +95,8 @@ object DiagScripts {
             when {
                 line.startsWith("claude=") ->
                     claude = line.removePrefix("claude=").trim().substringBefore(" (")
+                line.startsWith("agy=") ->
+                    agy = line.removePrefix("agy=").trim().substringBefore(" (")
                 line.startsWith("node=") ->
                     node = line.removePrefix("node=").trim().removePrefix("v")
                 line.startsWith("debian=") -> debian = line.removePrefix("debian=").trim()
@@ -97,7 +107,7 @@ object DiagScripts {
             files
                 .distinctBy { it.path }
                 .sortedWith(compareBy<LogFile> { it.kind.ordinal }.thenByDescending { it.modified })
-        return LinuxProbe(claude, node, debian, sorted)
+        return LinuxProbe(claude, node, debian, sorted, agy)
     }
 
     private fun parseFile(line: String): LogFile? {
@@ -111,8 +121,8 @@ object DiagScripts {
     }
 
     /**
-     * 只许读这几处的文件：`~/.claude/debug/` 下的，Zeta 自己（[linuxName]）的 `stderr/` 下的， 和
-     * `hosts/<标识>/err.log`。路径里不能有 `..`。
+     * 只许读这几处的文件：`~/.claude/debug/` 下的，`~/.gemini/antigravity-cli/log/` 下的，Zeta 自己（[linuxName]）的
+     * `stderr/` 下的，和 `hosts/<标识>/err.log`。路径里不能有 `..`。
      */
     fun readable(path: String, home: String, linuxName: String): Boolean {
         if (!path.startsWith("/") || path.split('/').any { it == ".." || it == "." }) return false
@@ -121,6 +131,7 @@ object DiagScripts {
         fun directChild(dir: String) =
             path.startsWith(dir) && path.length > dir.length && '/' !in path.substring(dir.length)
         return directChild("$h/.claude/debug/") ||
+            directChild("$h/.gemini/antigravity-cli/log/") ||
             directChild("${cache}stderr/") ||
             (path.startsWith("${cache}hosts/") &&
                 path.endsWith("/err.log") &&
@@ -167,6 +178,7 @@ object DiagBundle {
                     LogKind.Running -> "claude-stderr/running"
                     LogKind.Finished -> "claude-stderr"
                     LogKind.Debug -> "claude-debug"
+                    LogKind.Agy -> "agy-log"
                 }
             val base =
                 if (file.kind == LogKind.Running)

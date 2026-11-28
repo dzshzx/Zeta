@@ -28,6 +28,9 @@ class EnvController constructor(private val hub: ConversationHub, assets: (Strin
     override val loggedOut: Boolean
         get() = account?.loggedIn == false
 
+    override val agyLoggedOut: Boolean
+        get() = agyAccount?.loggedIn == false
+
     override fun showAccount(email: String, plan: String) {
         account = AccountStatus(loggedIn = true, email = email, plan = plan)
     }
@@ -415,6 +418,15 @@ class EnvController constructor(private val hub: ConversationHub, assets: (Strin
             Strings.coreMaintainLogout(),
             asRoot = false,
             command = "exec claude auth logout",
+        ) {
+            refreshAccount()
+        }
+
+    fun logoutAgy() =
+        runMaintenance(
+            Strings.coreMaintainLogout(),
+            asRoot = false,
+            command = "rm -f \"\$HOME/.gemini/antigravity-cli/antigravity-oauth-token\"",
         ) {
             refreshAccount()
         }

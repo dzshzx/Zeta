@@ -282,7 +282,11 @@ private fun QuotaGroup(quota: QuotaService, now: Long) {
         title = Strings.settingsAccountsQuota(),
         footer = quotaFootnote(snapshot, quota.refreshing, quota.error, now),
     ) {
-        if (snapshot != null && snapshot.available && snapshot.windows.isNotEmpty()) {
+        if (
+            snapshot != null &&
+                snapshot.available &&
+                (snapshot.windows.isNotEmpty() || snapshot.extra?.enabled == true)
+        ) {
             item(key = "windows") {
                 Column(
                     modifier =

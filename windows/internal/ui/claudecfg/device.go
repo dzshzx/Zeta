@@ -88,7 +88,9 @@ func (p *Page) defaultsSection(c *ui.Context) {
 		}
 		disabled := p.working
 		item(l, locales.ClaudecfgDefaultModel(), "", func() { p.modelChoice(c, *d, disabled || p.modelSource == ModelSourceUnknown) })
-		entry(l, "default-effort", locales.ClaudecfgDefaultEffort(), effortSummary(*d), "", true, func() { p.push(viewEffort) })
+		if !p.isAgy() {
+			entry(l, "default-effort", locales.ClaudecfgDefaultEffort(), effortSummary(*d), "", true, func() { p.push(viewEffort) })
+		}
 		p.permissionModeRow(l, *d, disabled)
 		if !p.isAgy() {
 			p.compactWindowRow(l, *d, disabled)

@@ -19,7 +19,10 @@ type Login struct {
 }
 
 // errIncompleteCode 是授权码少了 # 和后半段时说的话（核心对同样的码也这么说）。
-var errIncompleteCode = locales.Err(locales.AccountsCodeIncomplete)
+var (
+	errIncompleteCode = locales.Err(locales.AccountsCodeIncomplete)
+	errEmptyCode      = locales.Err(locales.AccountsCodeEmpty)
+)
 
 // Login 是正在进行的登录；没有时 ok 为 false。
 func (s *Service) Login() (l Login, ok bool) {
@@ -49,7 +52,11 @@ func (s *Service) SubmitCode(code string) {
 		return
 	}
 	code = strings.TrimSpace(code)
-	if code == "" || (s.requireHash && !strings.Contains(code, "#")) {
+	if code == "" {
+		l.Notice = errEmptyCode
+		return
+	}
+	if s.requireHash && !strings.Contains(code, "#") {
 		l.Notice = errIncompleteCode
 		return
 	}

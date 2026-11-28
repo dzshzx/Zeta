@@ -90,6 +90,10 @@ interface LocalEnvironment {
     /** 查过登录状态、手机上的 Claude Code 没登录（聊天页的空对话里给登录入口）。 */
     val loggedOut: Boolean
 
+    /** 查过登录状态、手机上的 Antigravity CLI 没登录。 */
+    val agyLoggedOut: Boolean
+        get() = false
+
     /** 还没检查或没就绪时去检查一次。 */
     fun checkSetup()
 

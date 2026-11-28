@@ -61,6 +61,7 @@ struct HandoffCard: View {
         case "terminal": what = String(localized: "终端")
         case "zeta": what = "Zeta"
         case "zeta-dev": what = String(localized: "Zeta 测试版")
+        case "agy": what = "Antigravity CLI"
         case "claude-vscode": what = "VS Code"
         case "claude-desktop": what = String(localized: "Claude 桌面版")
         default: return String(localized: "会话正在别处运行")

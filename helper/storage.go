@@ -11,6 +11,8 @@ import (
 	"strings"
 	"syscall"
 	"time"
+
+	"github.com/dzshzx/Zeta/helper/agystore"
 )
 
 // 存储：设置里“存储”页的统计和清理
@@ -346,6 +348,7 @@ var storagePlans = []struct {
 		return planNamed(ctx, "telemetry", regexp.MustCompile(`^1p_failed_events\.(`+uuidText+`)\.[0-9a-f-]+\.json$`), false, false)
 	}},
 	{"agy-logs", planAgyLogs},
+	{"agy-orphan", planAgyOrphan},
 	{"apt", planApt},
 	{"npm", planNpm},
 	{"pip", planPip},
@@ -423,7 +426,42 @@ func scanStorage(e *env, keep []string) storageReport {
 		r.Projects = append(r.Projects, storageProject{Dir: project, Bytes: u.bytes, Files: u.files, Sessions: len(sessions),
 			Cwd: projectCwd(path, sessions)})
 	}
+	if p, ok := scanAgyProject(e, ctx); ok {
+		r.Projects = append(r.Projects, p)
+	}
 	return r
+}
+
+const agyStorageProjectDir = "__agy__"
+
+func scanAgyProject(e *env, ctx *storageCtx) (storageProject, bool) {
+	brainRoot := joinPath(e.agy, "brain")
+	convRoot := joinPath(e.agy, "conversations")
+	var totalBytes, totalFiles int64
+	sessions := 0
+	for _, id := range children(brainRoot) {
+		if !agystore.IsSessionID(id) {
+			continue
+		}
+		path := joinPath(brainRoot, id)
+		if !isRealDir(path) {
+			continue
+		}
+		sessions++
+		u := measure(path, ctx.seen)
+		totalBytes += u.bytes
+		totalFiles += u.files
+		for _, suffix := range []string{".db", ".db-wal", ".db-shm", ".pb", ".lock"} {
+			if cu := measure(joinPath(convRoot, id+suffix), ctx.seen); cu.bytes > 0 || cu.files > 0 {
+				totalBytes += cu.bytes
+				totalFiles += cu.files
+			}
+		}
+	}
+	if sessions == 0 {
+		return storageProject{}, false
+	}
+	return storageProject{Dir: agyStorageProjectDir, Bytes: totalBytes, Files: totalFiles, Sessions: sessions, Cwd: "Antigravity"}, true
 }
 
 // safeReport 统计一类；一类没统计成不影响别的。
@@ -504,8 +542,11 @@ func cmdStorageSessions(e *env, o *emitter, project string, keep []string) error
 	return nil
 }
 
-// storageSessions 量 ~/.claude/projects 下的项目目录 project 里每个会话的占用。storage-sessions 和核心的 storage.sessions 共用。
+// storageSessions 量 ~/.claude/projects 下的项目目录 project（或 __agy__ 下的 agy 会话）里每个会话的占用。
 func storageSessions(e *env, project string, keep []string) (projectUsage, error) {
+	if project == agyStorageProjectDir {
+		return storageAgySessions(e, keep), nil
+	}
 	dir, ok := safeChild(e.root, project, true)
 	if !ok {
 		return projectUsage{}, errors.New("no such project")
@@ -536,6 +577,43 @@ func storageSessions(e *env, project string, keep []string) (projectUsage, error
 		}
 	}
 	return u, nil
+}
+
+func storageAgySessions(e *env, keep []string) projectUsage {
+	ctx := newStorageCtx(e, keep)
+	for _, holder := range agystore.ActiveHolders(e.agy, "") {
+		ctx.keep[holder.Session] = true
+	}
+	brainRoot := joinPath(e.agy, "brain")
+	convRoot := joinPath(e.agy, "conversations")
+	u := projectUsage{Sessions: []sessionUsage{}}
+	for _, id := range children(brainRoot) {
+		if !agystore.IsSessionID(id) {
+			continue
+		}
+		dir := joinPath(brainRoot, id)
+		if !isRealDir(dir) {
+			continue
+		}
+		m := measure(dir, ctx.seen)
+		size := m.bytes
+		for _, suffix := range []string{".db", ".db-wal", ".db-shm", ".pb", ".lock"} {
+			size += measure(joinPath(convRoot, id+suffix), ctx.seen).bytes
+		}
+		file := agystore.TranscriptPath(e.agy, id)
+		updated := int64(m.newest * 1000)
+		if lexists(file) {
+			updated = millis(mtimeFollow(file))
+		}
+		u.Sessions = append(u.Sessions, sessionUsage{
+			ID:      id,
+			File:    file,
+			Bytes:   size,
+			Updated: updated,
+			Live:    ctx.keep[id],
+		})
+	}
+	return u
 }
 
 // cleaned 是清掉一类的结果（clean、核心的 storage.clean）：腾出多少字节、删了几项、几项核对不过没删；Busy 不为 null 时那个工具

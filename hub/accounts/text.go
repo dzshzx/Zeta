@@ -47,12 +47,16 @@ func AgeText(at, now time.Time) string {
 	return locales.AccountsAgeDays(minutes / (24 * 60))
 }
 
-// Money 把最小单位的金额写成「$12.34」或「12.34 EUR」；不知道金额时为空。
+// Money 把最小单位的金额写成「$12.34」「12.34 EUR」或积分单位；不知道金额时为空。
 func Money(minor *float64, currency string) string {
 	if minor == nil {
 		return ""
 	}
 	amount := fmt.Sprintf("%.2f", *minor/100)
+	if strings.EqualFold(currency, "credits") {
+		amount = strings.TrimSuffix(amount, ".00")
+		return locales.AccountsCreditsUnit(amount)
+	}
 	if c := strings.ToUpper(currency); c != "" && c != "USD" {
 		return amount + " " + c
 	}

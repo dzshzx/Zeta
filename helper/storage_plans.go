@@ -9,6 +9,8 @@ import (
 	"strings"
 	"syscall"
 	"time"
+
+	"github.com/dzshzx/Zeta/helper/agystore"
 )
 
 // 存储页的各类：每类列出能删的候选，规矩见 storage.go。
@@ -266,6 +268,45 @@ func planAgyLogs(ctx *storageCtx) *plan {
 			p.add(root, name, false, u.bytes, "")
 		}
 	}
+	return p
+}
+
+var (
+	agyConvFile = regexp.MustCompile(`^(` + uuidText + `)(?:\.db(?:-wal|-shm)?|\.pb|\.lock)$`)
+	agyAnnFile  = regexp.MustCompile(`^(` + uuidText + `)\.pbtxt$`)
+	agyLockFile = regexp.MustCompile(`^(` + uuidText + `)\.lock$`)
+)
+
+// planAgyOrphan：已经没有 brain/<id> 目录的 agy 残留文件（conversations/<id>.db*、annotations/<id>.pbtxt、presence/<id>.lock）。
+func planAgyOrphan(ctx *storageCtx) *plan {
+	p := newPlan(ctx)
+	active := map[string]bool{}
+	for id := range ctx.keep {
+		active[id] = true
+	}
+	for _, holder := range agystore.ActiveHolders(ctx.e.agy, "") {
+		active[holder.Session] = true
+	}
+	hasBrain := func(id string) bool {
+		return isRealDir(joinPath(joinPath(ctx.e.agy, "brain"), id))
+	}
+	scanDir := func(sub string, pat *regexp.Regexp) {
+		root := joinPath(ctx.e.agy, sub)
+		for _, name := range children(root) {
+			m := pat.FindStringSubmatch(name)
+			if m == nil || hasBrain(m[1]) {
+				continue
+			}
+			path := joinPath(root, name)
+			u := p.count(path)
+			if !active[m[1]] && ctx.now-u.newest >= freshSeconds {
+				p.add(root, name, isRealDir(path), u.bytes, sub)
+			}
+		}
+	}
+	scanDir("conversations", agyConvFile)
+	scanDir("annotations", agyAnnFile)
+	scanDir("presence", agyLockFile)
 	return p
 }
 

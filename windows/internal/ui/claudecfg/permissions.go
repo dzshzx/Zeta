@@ -381,7 +381,7 @@ func (p *Page) ruleDialog(c *ui.Context, e *ruleEdit) {
 		})
 		placeholder, help := "Bash(git push:*)", locales.ClaudecfgPermRuleHelp()
 		if p.isAgy() {
-			placeholder, help = "run_command(git push:*)", locales.ClaudecfgAgyPermRuleHelp()
+			placeholder, help = "command(git status)", locales.ClaudecfgAgyPermRuleHelp()
 		}
 		widget.LineInput(c.Key("rule"), &e.text, 1).Placeholder(placeholder).Label(locales.ClaudecfgPermRule()).Disabled(e.saving).AutoFocus()
 		ui.Text(c, help).

@@ -128,10 +128,10 @@ func (p *publishedItems) delta(now []*transcript.Item) *itemsMsg {
 func (c *Conversation) usageView() usage.Usage {
 	if c.deps.Windows != nil {
 		if model, window, ok := c.usage.LearnedWindow(); ok {
-			_ = c.deps.Windows.Learn(model, window)
+			_ = c.deps.Windows.LearnFor(c.harness, model, window)
 		}
 	}
-	return c.usage.Snapshot(c.deps.Windows)
+	return c.usage.SnapshotFor(c.deps.Windows, c.harness)
 }
 
 // hostKey 是接着的托管进程的标识（zeta_host.sh 的 key，托管目录 ~/.cache/<ZETA_NAME>/hosts/<key>）；没接着进程时为空。

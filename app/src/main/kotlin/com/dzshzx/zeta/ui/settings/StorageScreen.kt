@@ -310,6 +310,9 @@ internal fun StoragePage(
                 }
             }
         }
+        item(key = "agy") {
+            PreferenceGroup(title = "Antigravity") { kindItems(StorageGroup.Agy, view, onAsk) }
+        }
         item(key = "debian") {
             PreferenceGroup(title = "Debian") { kindItems(StorageGroup.Debian, view, onAsk) }
         }

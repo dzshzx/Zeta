@@ -129,7 +129,11 @@ func (p *Page) syncedSkills(c *ui.Context) {
 	if s.data == nil || len(s.data.Synced) == 0 {
 		return
 	}
-	widget.Group(c, locales.ClaudecfgSkillsSynced(len(s.data.Synced)), locales.ClaudecfgManagedOnClaudeAi(), func(l *widget.List) {
+	footer := locales.ClaudecfgManagedOnClaudeAi()
+	if p.isAgy() {
+		footer = locales.ClaudecfgAgySkillsSyncedFooter()
+	}
+	widget.Group(c, locales.ClaudecfgSkillsSynced(len(s.data.Synced)), footer, func(l *widget.List) {
 		for _, sk := range s.data.Synced {
 			item(l, sk.Name, clipLine(orNone(sk.Description), 90), func() {
 				if !sk.Enabled {
@@ -171,21 +175,23 @@ func (p *Page) skillRow(l *widget.List, sk coreapi.Skill) {
 		}
 		widget.SmallButton(c, locales.ClaudecfgSkillDetails()).Label(locales.ClaudecfgSkillDetailsOf(sk.Name)).OnClick(func() { p.skills.showing = &notice{title: sk.Name, message: description, open: true} })
 		widget.SmallDangerButton(c, locales.CommonDelete()).Label(locales.ClaudecfgDeleteItem(sk.Name)).OnClick(func() { p.skills.deleting = &sk })
-		on := sk.Enabled
-		if widget.Switch(c, &on).Label(locales.ClaudecfgSkillEnableOf(sk.Name)).Changed() {
-			p.async(func(ctx context.Context) func() {
-				err := p.opts.Core.SetSkillEnabled(ctx, sk, on)
-				return func() {
-					if err != nil {
-						title := locales.ClaudecfgSkillDisableFailed()
-						if on {
-							title = locales.ClaudecfgSkillEnableFailed()
+		if !p.isAgy() {
+			on := sk.Enabled
+			if widget.Switch(c, &on).Label(locales.ClaudecfgSkillEnableOf(sk.Name)).Changed() {
+				p.async(func(ctx context.Context) func() {
+					err := p.opts.Core.SetSkillEnabled(ctx, sk, on)
+					return func() {
+						if err != nil {
+							title := locales.ClaudecfgSkillDisableFailed()
+							if on {
+								title = locales.ClaudecfgSkillEnableFailed()
+							}
+							p.failed(title, err)
 						}
-						p.failed(title, err)
+						p.reloadSkills()
 					}
-					p.reloadSkills()
-				}
-			})
+				})
+			}
 		}
 	})
 }

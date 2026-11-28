@@ -167,7 +167,7 @@ func (s searcher) file(path string) (role, snip string, found bool) {
 }
 
 func (s searcher) agyFile(path string) (role, snip string, found bool) {
-	role, text, ok := agystore.SearchTranscript(path, s.needle)
+	role, text, ok := agystore.SearchTranscript(s.ctx, path, s.needle)
 	if !ok || text == "" {
 		return "", "", false
 	}

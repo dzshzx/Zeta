@@ -128,6 +128,7 @@ internal fun AgyGroup(
         onInstall = hub.environment::installAgy,
         onUpdate = hub.environment::updateAgy,
         onOpenLogin = onOpenLogin,
+        onLogout = hub.environment::logoutAgy,
     )
 }
 

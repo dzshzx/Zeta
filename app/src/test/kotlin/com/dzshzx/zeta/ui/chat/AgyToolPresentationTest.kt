@@ -179,8 +179,8 @@ class AgyToolPresentationTest : ShotTest() {
             }
         }
         compose.onNodeWithText("新对话默认工具").assertExists()
-        compose.onNodeWithText("Antigravity CLI").assertExists()
         compose.onNodeWithText("Antigravity 内置默认").assertExists()
-        compose.onNodeWithText("未设置，使用 Antigravity 默认值").assertExists()
+        compose.onNodeWithText("默认权限模式").assertExists()
+        compose.onNodeWithText("默认思考强度").assertDoesNotExist()
     }
 }

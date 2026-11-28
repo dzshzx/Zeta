@@ -7733,6 +7733,96 @@
           }
         }
       }
+    },
+    "查看大纲": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "View outline"
+          }
+        }
+      }
+    },
+    "查看符号": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "View symbol"
+          }
+        }
+      }
+    },
+    "提交计划": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Submit plan"
+          }
+        }
+      }
+    },
+    "多代理协作": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Swarm"
+          }
+        }
+      }
+    },
+    "用于在此设备发起新对话。使用中转时，默认模型保存在中转设置中；对话内切换的选项仅对当前对话生效。": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Used for new conversations on this device. When using a relay, the default model is stored in the relay settings; options changed inside a conversation apply only to that conversation."
+          }
+        }
+      }
+    },
+    "闲置超时作用于此设备上托管的进程并立即生效；更新会运行 agy update，不影响进行中的对话。": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Idle timeout applies immediately to hosted processes on this device; updating runs agy update without affecting conversations in progress."
+          }
+        }
+      }
+    },
+    "来自工作区 .agents/skills、~/.agents/skills 与已启用插件的只读技能，此处仅支持查看。": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Read-only skills from workspace .agents/skills, ~/.agents/skills, and enabled plugins."
+          }
+        }
+      }
+    },
+    "安装在 ~/.gemini/config/skills。Antigravity 不支持单个技能开关，增删通过导入或删除完成。": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Installed in ~/.gemini/config/skills. Antigravity doesn’t support per-skill toggles; add or remove skills via import or delete."
+          }
+        }
+      }
+    },
+    "按 Antigravity 规则格式填写，例如 command(git status)、read_file(.env)、write_file(src/)、mcp(github/*)。": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Enter an Antigravity rule such as command(git status), read_file(.env), write_file(src/), or mcp(github/*)."
+          }
+        }
+      }
     }
   }
 }

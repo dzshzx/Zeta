@@ -66,15 +66,21 @@ fun EffortChip(
     effort: String?,
     applied: String?,
     enabled: Boolean = true,
+    allowed: List<String>? = null,
     onChange: (String?) -> Unit,
 ) {
+    val shownLevels =
+        remember(allowed) {
+            if (allowed == null) EffortLevels else EffortLevels.filter { it.first in allowed }
+        }
+    if (shownLevels.isEmpty()) return
     val choose by rememberUpdatedState(onChange)
     val defaultText =
         if (effort == null && applied != null)
             Strings.composerEffortDefaultApplied(effortLabel(applied).orEmpty())
         else Strings.composerEffortDefault()
     val entries =
-        remember(defaultText, effort) {
+        remember(defaultText, effort, shownLevels) {
             val items =
                 listOf(
                     MenuItem(
@@ -83,7 +89,7 @@ fun EffortChip(
                         onClick = { choose(null) },
                     ),
                 ) +
-                    EffortLevels.map { (value, label) ->
+                    shownLevels.map { (value, label) ->
                         MenuItem(
                             text = label,
                             selected = value == effort,

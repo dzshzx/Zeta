@@ -54,7 +54,7 @@ struct SkillsView: View {
                         : "账号同步 · \(String(synced.count))")
                 } footer: {
                     Text(calls.isAgy
-                        ? "来自 ~/.agents/skills 或 skills.json 声明的目录，此处仅支持查看。"
+                        ? "来自工作区 .agents/skills、~/.agents/skills 与已启用插件的只读技能，此处仅支持查看。"
                         : "在 claude.ai 中管理，此处仅支持查看。")
                 }
             }
@@ -100,19 +100,26 @@ struct SkillsView: View {
             Text("用户安装 · \(String(data?.user.count ?? 0))")
         } footer: {
             Text(calls.isAgy
-                ? "安装在 ~/.gemini/config/skills。关闭后文件仍会保留，但 Antigravity 不再调用；修改对之后新建的对话生效。"
+                ? "安装在 ~/.gemini/config/skills。Antigravity 不支持单个技能开关，增删通过导入或删除完成。"
                 : "安装在 ~/.claude/skills。关闭后文件仍会保留，但 Claude 不再调用；修改对之后新建的对话生效。")
         }
     }
 
+    @ViewBuilder
     private func row(_ skill: Skill) -> some View {
         let title = !skill.title.isEmpty && skill.title != skill.name ? "\(skill.title)（\(skill.name)）" : skill.name
         let summary = skill.valid
             ? ConfigLabels.clip(Self.orNone(skill.description), 90) : String(localized: "缺少 SKILL.md")
         let detail = skill.valid ? Self.orNone(skill.description)
             : String(localized: "此文件夹缺少 SKILL.md，\(Harness.name(calls.harness)) 不会将其识别为 Skill。")
-        return Toggle(isOn: Binding { skill.enabled } set: { setEnabled(skill, $0) }) {
-            TitledRow(title: title, summary: summary)
+        Group {
+            if calls.isAgy {
+                TitledRow(title: title, summary: summary)
+            } else {
+                Toggle(isOn: Binding { skill.enabled } set: { setEnabled(skill, $0) }) {
+                    TitledRow(title: title, summary: summary)
+                }
+            }
         }
         .contextMenu {
             Button("说明", systemImage: "info.circle") { failure = ConfigFailure(title: skill.name, message: detail) }

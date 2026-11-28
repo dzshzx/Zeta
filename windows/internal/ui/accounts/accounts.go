@@ -78,7 +78,7 @@ func (p *Page) quota(c *ui.Context) {
 		return
 	}
 	widget.Group(c, locales.AccountsQuotaTitle(), q.Footnote(c.Now()), func(l *widget.List) {
-		if s, ok := q.Snapshot(); ok && !s.Unavailable && len(s.Windows) > 0 {
+		if s, ok := q.Snapshot(); ok && !s.Unavailable && (len(s.Windows) > 0 || (s.Extra != nil && s.Extra.Enabled)) {
 			l.Custom(func() {
 				ui.Column(c).Grow(1).Padding(4, 0).Children(func() { Windows(c, s, c.Now()) })
 			})
@@ -204,7 +204,11 @@ func Windows(c *ui.Context, s coreapi.QuotaSnapshot, now time.Time) {
 			if value == "" {
 				value = locales.AccountsExtraOn()
 			}
-			line(c, locales.AccountsExtraUsage(), value, e.Used, coreapi.SeverityNormal, "")
+			label := locales.AccountsExtraUsage()
+			if strings.EqualFold(e.Currency, "credits") {
+				label = "AI Credits"
+			}
+			line(c, label, value, e.Used, coreapi.SeverityNormal, "")
 		}
 	})
 }

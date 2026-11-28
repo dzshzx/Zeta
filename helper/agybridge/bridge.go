@@ -352,7 +352,12 @@ func (b *bridge) ensureSession() error {
 	initTitle := b.title
 	b.mu.Unlock()
 
-	agystore.WriteZetaMeta(b.agyDir, res.SessionID, agystore.ZetaMeta{Cwd: b.opts.cwd, Title: initTitle})
+	agystore.WriteZetaMeta(b.agyDir, res.SessionID, agystore.ZetaMeta{
+		Cwd:    b.opts.cwd,
+		Title:  initTitle,
+		Model:  cmp.Or(initModel, b.currentModel),
+		Effort: cmp.Or(initEffort, b.currentEffort),
+	})
 	b.applyInitialOptions(initModel, initEffort, initMode)
 	return nil
 }
@@ -483,6 +488,10 @@ func (b *bridge) setConfigOption(configID, value string) {
 	var res acpConfigUpdate
 	if json.Unmarshal(resRaw, &res) == nil && len(res.ConfigOptions) > 0 {
 		b.applyConfigOptions(res.ConfigOptions)
+		b.mu.Lock()
+		curModel, curEffort := b.currentModel, b.currentEffort
+		b.mu.Unlock()
+		agystore.WriteZetaMeta(b.agyDir, sid, agystore.ZetaMeta{Model: curModel, Effort: curEffort})
 		return
 	}
 	b.mu.Lock()
@@ -494,7 +503,9 @@ func (b *bridge) setConfigOption(configID, value string) {
 	case "mode":
 		b.acpMode = acpModeToZeta(value)
 	}
+	curModel, curEffort := b.currentModel, b.currentEffort
 	b.mu.Unlock()
+	agystore.WriteZetaMeta(b.agyDir, sid, agystore.ZetaMeta{Model: curModel, Effort: curEffort})
 }
 
 func zetaModeToACP(mode string) string {
@@ -957,6 +968,7 @@ func (b *bridge) runPromptTurn(seq int, q queuedPrompt) {
 	}
 
 	blocks := prependPromptContext(q.blocks, notes, sysPrompt)
+	b.savePromptImages(sid, q.blocks)
 	ts := newTurnStream(seq)
 	b.streamM.Lock()
 	b.curStream = ts
@@ -994,6 +1006,34 @@ func (b *bridge) runPromptTurn(seq int, q queuedPrompt) {
 		})
 	}
 	b.emitPromptResult(sid, pr, time.Since(start).Milliseconds())
+}
+
+func (b *bridge) savePromptImages(sid string, blocks []map[string]any) {
+	var imgs []agystore.ImageInput
+	for _, blk := range blocks {
+		if blk["type"] != "image" {
+			continue
+		}
+		data, _ := blk["data"].(string)
+		mt, _ := blk["mimeType"].(string)
+		if data != "" {
+			imgs = append(imgs, agystore.ImageInput{MediaType: mt, Data: data})
+		}
+	}
+	if len(imgs) == 0 {
+		return
+	}
+	turn := 0
+	if tl, err := agystore.ReadTimeline(agystore.TranscriptPath(b.agyDir, sid)); err == nil {
+		for _, ev := range tl.Events {
+			if ev["type"] == "user" {
+				if _, ok := ev["uuid"]; ok {
+					turn++
+				}
+			}
+		}
+	}
+	agystore.SaveUserImages(b.agyDir, sid, turn, imgs)
 }
 
 func prependPromptContext(blocks []map[string]any, notes []string, sysPrompt string) []map[string]any {

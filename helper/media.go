@@ -7,6 +7,8 @@ import (
 	"os"
 	"strconv"
 	"strings"
+
+	"github.com/dzshzx/Zeta/helper/agystore"
 )
 
 var imageTypes = map[string]string{".png": "image/png", ".jpg": "image/jpeg", ".jpeg": "image/jpeg", ".webp": "image/webp",
@@ -30,9 +32,20 @@ type recordImage struct {
 	Data      any `json:"data"`
 }
 
-// sessionImage 按 history 给出的位置（行号.块序号[.内层序号]）取回会话记录 path 里的一张图片。记录只追加不改写，所以行号是稳定的。
+// sessionImage 按 history 给出的位置（行号.块序号[.内层序号]，或 agy 会话的 "agy:<文件名>"）取回会话记录 path 里的一张图片。
 // zeta-helper image 和核心的 sessions.image 都用它。
 func sessionImage(path, position string) (recordImage, error) {
+	if strings.HasPrefix(position, "agy:") {
+		agyDir, sid, ok := agystore.ParseTranscriptPath(path)
+		if !ok {
+			return recordImage{}, errors.New("not an agy transcript")
+		}
+		mt, data, err := agystore.ReadSavedImage(agyDir, sid, position)
+		if err != nil {
+			return recordImage{}, err
+		}
+		return recordImage{MediaType: mt, Data: data}, nil
+	}
 	var index []int
 	for _, part := range strings.Split(position, ".") {
 		n, err := strconv.Atoi(part)

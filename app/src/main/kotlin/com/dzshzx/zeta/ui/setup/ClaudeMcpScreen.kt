@@ -159,7 +159,7 @@ internal fun ClaudeMcpScreen(
     var detail by remember { mutableStateOf<McpServer?>(null) }
     var reloads by remember { mutableStateOf(0) }
 
-    LaunchedEffect(reloads) {
+    LaunchedEffect(reloads, harness) {
         // 配置马上就能读出来；健康检查要逐个连接，慢，分两步
         scope.runConfig({ client.mcpServers(cwd) }) { result ->
             result

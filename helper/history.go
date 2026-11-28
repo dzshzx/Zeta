@@ -72,6 +72,9 @@ type timeline struct {
 	owners []any
 	// 终端里 /model 换模型的各次，按先后；at 是换的时候前面已有几项，被剪掉的部分里的不留
 	switches []modelSwitch
+	// agy 会话从 .zeta_meta.json 恢复的模型与思考强度兜底值
+	metaModel  string
+	metaEffort string
 }
 
 // modelSwitch 是终端里的一次 /model：换成了 name（Claude Code 打出来的显示名，比如 Fable 5.2）。
@@ -119,7 +122,7 @@ func readEvents(path string) (*timeline, error) {
 		if err != nil {
 			return nil, err
 		}
-		return &timeline{events: tl.Events, owners: tl.Owners}, nil
+		return &timeline{events: tl.Events, owners: tl.Owners, metaModel: tl.Model, metaEffort: tl.Effort}, nil
 	}
 	f, err := openFile(path)
 	if err != nil {
@@ -442,7 +445,17 @@ func cmdHistory(e *env, o *emitter, path string, pos historyPos) error {
 	header := obj{"type": "zeta_history", "skipped": start, "anchor": anchor, "todo_seed": todoSeed(t.events[:start])}
 	// 模型和思考强度按整个对话（剪切之后的全部消息）算，不只是这一页
 	if model, effort, ok := lastAnswer(t.events); ok {
+		if effort == nil && t.metaEffort != "" {
+			effort = t.metaEffort
+		}
 		header["model"], header["effort"] = model, effort
+	} else if t.metaModel != "" || t.metaEffort != "" {
+		if t.metaModel != "" {
+			header["model"] = t.metaModel
+		}
+		if t.metaEffort != "" {
+			header["effort"] = t.metaEffort
+		}
 	}
 	if name := t.switchedModel(); name != "" {
 		header["switched_model"] = name

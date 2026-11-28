@@ -232,7 +232,7 @@ func (c *Conversation) carriedUsage() *usage.Carried {
 	if resumed == "" {
 		return &usage.Carried{}
 	}
-	if c.deps.SessionFile == nil {
+	if c.isAgy() || c.deps.SessionFile == nil {
 		return nil
 	}
 	file := c.deps.SessionFile(resumed)
@@ -402,28 +402,32 @@ func (c *Conversation) onExit(p *process, e Exit) {
 		c.turnFinished(outcomeInterrupted)
 	}
 	if wasBusy || e.Code != 0 {
-		c.r.AddNoticeMsg(exitNotice(e, c.session == "", c.cwd), true)
+		c.r.AddNoticeMsg(exitNotice(e, c.session == "", c.cwd, c.isAgy()), true)
 	}
 	c.changed()
 }
 
 // exitNotice 是进程意外退出时列表里的那句。
-func exitNotice(e Exit, fresh bool, cwd string) locales.Msg {
+func exitNotice(e Exit, fresh bool, cwd string, isAgy bool) locales.Msg {
+	tool := "Claude Code"
+	if isAgy {
+		tool = "Antigravity"
+	}
 	detail := strings.TrimSpace(e.Stderr)
 	if n := len([]rune(detail)); n > 600 {
 		detail = string([]rune(detail)[n-600:])
 	}
 	switch {
 	case strings.Contains(detail, cwdProblemMark):
-		return locales.M("noticeNoWorkDir", "cwd", cwd)
+		return locales.M("noticeNoWorkDir", "tool", tool, "cwd", cwd)
 	case e.Code == 1 && detail == "" && fresh:
-		return locales.M("noticeClaudeNotStarted")
+		return locales.M("noticeClaudeNotStarted", "tool", tool)
 	case e.Code == 143 || e.Code == 137:
-		return locales.M("noticeClaudeKilled")
+		return locales.M("noticeClaudeKilled", "tool", tool)
 	case detail != "":
-		return locales.M("noticeClaudeExitedDetail", "code", strconv.Itoa(e.Code), "detail", detail)
+		return locales.M("noticeClaudeExitedDetail", "tool", tool, "code", strconv.Itoa(e.Code), "detail", detail)
 	}
-	return locales.M("noticeClaudeExited", "code", strconv.Itoa(e.Code))
+	return locales.M("noticeClaudeExited", "tool", tool, "code", strconv.Itoa(e.Code))
 }
 
 // cwdProblemMark 是 zeta_host.sh 进不去工作目录时报的那句的开头。

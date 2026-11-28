@@ -140,6 +140,10 @@ internal object Diagnostics {
                 "Claude Code",
                 probe?.claude?.ifEmpty { Strings.diagEnvNotInstalled() } ?: pending,
             ),
+            InfoLine(
+                "Antigravity CLI",
+                probe?.agy?.ifEmpty { Strings.diagEnvNotInstalled() } ?: pending,
+            ),
             InfoLine("Node", probe?.node?.ifEmpty { Strings.diagEnvNotInstalled() } ?: pending),
             // 不自动打开：服务被系统拿掉时只记一笔。在守：服务开过；没在守：服务没开过，或在 Zeta 里关了
             InfoLine(

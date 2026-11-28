@@ -99,6 +99,13 @@ struct Step: Decodable, Sendable, Identifiable {
 
     /// 工具调用给人看的一行：参数里最能说明它在做什么的那项。
     var summary: String { ToolLabels.summary(name: name, input: input) }
+
+    /// 优先用核心返回的 patch；历史记录里未带 patch 时按编辑/写入工具参数合成对比。
+    var effectivePatch: Patch? {
+        if let patch, !patch.hunks.isEmpty { return patch }
+        guard !failed else { return nil }
+        return Patch.synthesize(name: name, input: input)
+    }
 }
 
 /// 改文件工具给出的改动（items.Patch）。
@@ -119,6 +126,35 @@ struct Patch: Decodable, Sendable {
 
     var added: Int { hunks.reduce(0) { $0 + $1.lines.filter { $0.kind == "added" }.count } }
     var removed: Int { hunks.reduce(0) { $0 + $1.lines.filter { $0.kind == "removed" }.count } }
+
+    static func synthesize(name: String, input: JSONValue?) -> Patch? {
+        guard let input else { return nil }
+        switch name {
+        case "edit_file", "replace_file_content", "Edit":
+            let oldText = input["Target"]?.string
+                ?? input["TargetContent"]?.string
+                ?? input["old_string"]?.string
+            let newText = input["Replacement"]?.string
+                ?? input["ReplacementContent"]?.string
+                ?? input["new_string"]?.string
+            guard let oldText, let newText else { return nil }
+            let removed = oldText.split(separator: "\n", omittingEmptySubsequences: false).enumerated()
+                .map { Line(kind: "removed", text: String($0.element), old: $0.offset + 1, new: 0) }
+            let added = newText.split(separator: "\n", omittingEmptySubsequences: false).enumerated()
+                .map { Line(kind: "added", text: String($0.element), old: 0, new: $0.offset + 1) }
+            return Patch(created: false, hunks: [Hunk(lines: removed + added)])
+        case "write_file", "write_to_file", "Write":
+            let content = input["Content"]?.string
+                ?? input["CodeContent"]?.string
+                ?? input["content"]?.string
+            guard let content else { return nil }
+            let added = content.split(separator: "\n", omittingEmptySubsequences: false).prefix(200).enumerated()
+                .map { Line(kind: "added", text: String($0.element), old: 0, new: $0.offset + 1) }
+            return Patch(created: true, hunks: [Hunk(lines: added)])
+        default:
+            return nil
+        }
+    }
 }
 
 struct Prompt: Decodable, Sendable, Identifiable {

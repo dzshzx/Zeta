@@ -3,6 +3,7 @@ package ui
 import (
 	"context"
 	"fmt"
+	"slices"
 	"strconv"
 	"strings"
 
@@ -418,8 +419,16 @@ func effortLabel(v string) string {
 	return v
 }
 
-// effortMenu 是思考强度：「默认」（Claude Code 的设置，实际生效的写在括号里）和几档。
+// effortMenu 是思考强度：「默认」（实际生效的写在括号里）和当前模型支持的档位；模型明确不支持思考强度时隐藏。
 func (a *App) effortMenu(c *ui.Context, p *chatPane) {
+	activeModel := p.state.ReportedModel
+	if p.state.Model != nil && *p.state.Model != "" && *p.state.Model != chat.DefaultModel {
+		activeModel = *p.state.Model
+	}
+	allowed := chat.EffortLevelsFor(p.state.Models, activeModel)
+	if len(allowed) == 0 {
+		return
+	}
 	chosen := ""
 	if p.state.Effort != nil {
 		chosen = *p.state.Effort
@@ -441,6 +450,9 @@ func (a *App) effortMenu(c *ui.Context, p *chatPane) {
 			a.act(func(ctx context.Context, conv *chat.Conversation) error { return conv.SetEffort(ctx, nil) })
 		}
 		for _, l := range effortLevels {
+			if !slices.Contains(allowed, l.value) {
+				continue
+			}
 			if m.Choice(l.label(), l.value == chosen) {
 				value := l.value
 				a.act(func(ctx context.Context, conv *chat.Conversation) error { return conv.SetEffort(ctx, &value) })

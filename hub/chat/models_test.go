@@ -65,7 +65,7 @@ func TestSplitModelsSeriesWithoutAliasAndDuplicates(t *testing.T) {
 func TestSplitModelsAliasesOnly(t *testing.T) {
 	aliases := []ModelOption{{Value: "opus"}, {Value: "sonnet"}, {Value: "haiku"}, {Value: "fable"}}
 	latest, older := SplitModels(aliases)
-	if !slices.Equal(latest, aliases) || len(older) != 0 {
+	if !slices.Equal(values(latest), values(aliases)) || len(older) != 0 {
 		t.Errorf("%q %q", values(latest), values(older))
 	}
 }

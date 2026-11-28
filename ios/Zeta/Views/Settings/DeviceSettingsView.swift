@@ -90,7 +90,7 @@ struct DeviceSettingsView: View {
             NavigationLink {
                 AccountsView(id: id, harness: tool)
             } label: {
-                LabeledContent("账号与额度", value: info.off || tool != info.defaultHarness ? "" : info.hint)
+                LabeledContent("账号与额度", value: info.off ? "" : info.hint(for: tool))
             }
             .disabled(info.off)
             NavigationLink {

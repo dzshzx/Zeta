@@ -180,16 +180,23 @@ struct EffortMenu: View {
         }
     }
 
+    private var availableLevels: [String] {
+        composer.effortLevels ?? Self.levels
+    }
+
+    @ViewBuilder
     var body: some View {
-        Menu {
-            Picker("思考强度", selection: choice) {
-                Text("默认").tag("")
-                ForEach(Self.levels, id: \.self) { level in
-                    Text(Self.name(level)).tag(level)
+        if !availableLevels.isEmpty {
+            Menu {
+                Picker("思考强度", selection: choice) {
+                    Text("默认").tag("")
+                    ForEach(availableLevels, id: \.self) { level in
+                        Text(Self.name(level)).tag(level)
+                    }
                 }
+            } label: {
+                Text(label).font(.footnote).lineLimit(1)
             }
-        } label: {
-            Text(label).font(.footnote).lineLimit(1)
         }
     }
 

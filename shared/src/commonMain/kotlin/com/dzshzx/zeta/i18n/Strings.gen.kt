@@ -16598,7 +16598,7 @@ object Strings {
     fun settingsRelaysAgyFooter(): String = catalog.say("settingsRelaysAgyFooter")
 
     /**
-     * 「安装在 ~/.gemini/config/skills 中。关闭后会保留文件，Antigravity 不再加载；改动对之后的新对话生效。」
+     * 「安装在 ~/.gemini/config/skills 中，由 Antigravity 自动按需加载；改动对之后的新对话生效。」
      *
      * Antigravity Skills 页「用户安装」一组下面的说明。
      */
@@ -16638,4 +16638,137 @@ object Strings {
      * 设置备份与恢复清单里数字助理命令行工具项的名称。
      */
     fun settingsBackupAssistantHarness(): String = catalog.say("settingsBackupAssistantHarness")
+
+    /**
+     * 「{amount} 积分」
+     *
+     * Antigravity AI Credits 积分显示格式。
+     */
+    fun coreCreditsUnit(amount: String): String = catalog.say("coreCreditsUnit", mapOf("amount" to amount))
+
+    /**
+     * 「协同代理」
+     *
+     * Antigravity swarm 工具的标题。
+     */
+    fun chatToolSwarm(): String = catalog.say("chatToolSwarm")
+
+    /**
+     * 「定时提醒」
+     *
+     * Antigravity schedule 工具的标题。
+     */
+    fun chatToolSchedule(): String = catalog.say("chatToolSchedule")
+
+    /**
+     * 「发送代理消息」
+     *
+     * Antigravity send_message 工具的标题。
+     */
+    fun chatToolSendMessage(): String = catalog.say("chatToolSendMessage")
+
+    /**
+     * 「运行工作流」
+     *
+     * Antigravity run_workflow 工具的标题。
+     */
+    fun chatToolWorkflow(): String = catalog.say("chatToolWorkflow")
+
+    /**
+     * 「MCP 资源」
+     *
+     * Antigravity list_resources / read_resource 工具的标题。
+     */
+    fun chatToolMcpResource(): String = catalog.say("chatToolMcpResource")
+
+    /**
+     * 「调用子代理」
+     *
+     * Antigravity Subagent 工具勾选列表里 invoke_subagent 的说明。
+     */
+    fun setupAgentsToolSubagent(): String = catalog.say("setupAgentsToolSubagent")
+
+    /**
+     * 「向用户提问」
+     *
+     * Antigravity Subagent 工具勾选列表里 ask_question 的说明。
+     */
+    fun setupAgentsToolAsk(): String = catalog.say("setupAgentsToolAsk")
+
+    /**
+     * 「更新步骤清单」
+     *
+     * Antigravity Subagent 工具勾选列表里 update_steps 的说明。
+     */
+    fun setupAgentsToolSteps(): String = catalog.say("setupAgentsToolSteps")
+
+    /**
+     * 「写规则模式，如 command(git status)、write_file(src/) 或 mcp(github/ *)。」
+     *
+     * Antigravity 工具权限页新增/编辑规则对话框底部的格式说明。
+     */
+    fun setupToolPermAgyRuleHelp(): String = catalog.say("setupToolPermAgyRuleHelp")
+
+    /**
+     * 「由已安装的 Antigravity 插件或扩展提供，只能查看。」
+     *
+     * Antigravity Skills 页「已同步/插件」一组下面的说明。
+     */
+    fun setupSkillsAgySyncedFooter(): String = catalog.say("setupSkillsAgySyncedFooter")
+
+    /**
+     * 「Antigravity 日志」
+     *
+     * 存储页 Antigravity 组里日志清理项的标题。
+     */
+    fun coreStorageAgyLogsTitle(): String = catalog.say("coreStorageAgyLogsTitle")
+
+    /**
+     * 「Antigravity 运行日志（~/.gemini/antigravity-cli/log）」
+     *
+     * 存储页清理 Antigravity 日志确认框的「删什么」。
+     */
+    fun coreStorageAgyLogsWhat(): String = catalog.say("coreStorageAgyLogsWhat")
+
+    /**
+     * 「会话记录、插件和账号配置均不受影响」
+     *
+     * 存储页清理 Antigravity 日志确认框的「什么不删」。
+     */
+    fun coreStorageAgyLogsKept(): String = catalog.say("coreStorageAgyLogsKept")
+
+    /**
+     * 「Antigravity 孤立数据」
+     *
+     * 存储页 Antigravity 组里孤立脑图/会话目录清理项的标题。
+     */
+    fun coreStorageAgyOrphanTitle(): String = catalog.say("coreStorageAgyOrphanTitle")
+
+    /**
+     * 「数据库里已不存在对应记录的旧会话目录（~/.gemini/antigravity-cli/brain）」
+     *
+     * 存储页清理 Antigravity 孤立数据确认框的「删什么」。
+     */
+    fun coreStorageAgyOrphanWhat(): String = catalog.say("coreStorageAgyOrphanWhat")
+
+    /**
+     * 「历史列表中的有效会话以及正在运行的会话」
+     *
+     * 存储页清理 Antigravity 孤立数据确认框的「什么不删」。
+     */
+    fun coreStorageAgyOrphanKept(): String = catalog.say("coreStorageAgyOrphanKept")
+
+    /**
+     * 「Antigravity 日志」
+     *
+     * 诊断页 Antigravity 运行日志分组标题和日志类别名。
+     */
+    fun diagLogAgy(): String = catalog.say("diagLogAgy")
+
+    /**
+     * 「还没有 Antigravity 日志」
+     *
+     * 诊断页 Antigravity 日志目录为空时的提示。
+     */
+    fun diagAgyEmpty(): String = catalog.say("diagAgyEmpty")
 }

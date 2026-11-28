@@ -150,13 +150,16 @@ func (s State) RunningTasks() int {
 	return n
 }
 
-// ModelOption 是模型菜单里的一项：Claude Code 的 initialize 应答里 models 的一项，原样转来（键是它的驼峰写法）。
+// ModelOption 是模型菜单里的一项：Claude Code 或 Antigravity 的 initialize 应答里 models 的一项，原样转来（键是它的驼峰写法）。
 type ModelOption struct {
 	Value       string `json:"value"`
 	DisplayName string `json:"displayName"`
 	Description string `json:"description"`
 	// ResolvedModel 是这一项现在对应的完整模型 ID，没报时为空。
 	ResolvedModel string `json:"resolvedModel"`
+	// SupportsEffort 与 SupportedEffortLevels 是模型支持的思考强度档位（未报时按默认规则推断）。
+	SupportsEffort        *bool    `json:"supportsEffort,omitempty"`
+	SupportedEffortLevels []string `json:"supportedEffortLevels,omitempty"`
 }
 
 // DefaultModel 是模型菜单里「默认」那一项的值（Claude Code 认的写法）。

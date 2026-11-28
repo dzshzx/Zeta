@@ -197,7 +197,7 @@ func (q *Quota) Footnote(now time.Time) string {
 		text = locales.AccountsQuotaNoData()
 	case s.Unavailable:
 		text = locales.AccountsQuotaUnavailable()
-	case len(s.Windows) == 0:
+	case len(s.Windows) == 0 && (s.Extra == nil || !s.Extra.Enabled):
 		text = locales.AccountsQuotaNotYet()
 	case q.refreshing:
 		text = locales.AccountsQuotaUpdatedRefreshing(AgeText(s.UpdatedAt, now))

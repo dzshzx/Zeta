@@ -51,7 +51,7 @@ func (c *Conversation) Regenerate(ctx context.Context, target string, restoreCod
 func (c *Conversation) Fork(ctx context.Context, last string) (*Conversation, error) {
 	cl := c.client
 	c.mu.Lock()
-	spec := Spec{Cwd: c.state.Cwd, Options: c.spec.Options}
+	spec := Spec{Cwd: c.state.Cwd, Harness: c.state.Harness, Options: c.spec.Options}
 	if spec.Cwd == "" {
 		spec.Cwd = c.spec.Cwd
 	}

@@ -22,26 +22,29 @@ import (
 
 // Summary 是 agy 会话的概要信息，对应 Zeta 列表里的一项。
 type Summary struct {
-	ID       string
-	File     string
-	Cwd      string
-	Title    string
-	Preview  string
-	Updated  int64
-	Created  int64
-	Replied  int64
-	Archived bool
-	Pinned   bool
+	ID          string
+	File        string
+	Cwd         string
+	Title       string
+	Preview     string
+	PreviewCode string
+	Updated     int64
+	Created     int64
+	Replied     int64
+	Archived    bool
+	Pinned      bool
 }
 
-// ZetaMeta 是 Zeta 在 brain/<id>/.zeta_meta.json 里记下的补充元数据（当主机没装 sqlite3 或会话刚建时兜底 cwd 与标题）。
+// ZetaMeta 是 Zeta 在 brain/<id>/.zeta_meta.json 里记下的补充元数据（当主机没装 sqlite3 或会话刚建时兜底 cwd、标题、模型与思考强度）。
 type ZetaMeta struct {
 	Cwd    string `json:"cwd,omitempty"`
 	Title  string `json:"title,omitempty"`
 	Parent string `json:"parent,omitempty"`
+	Model  string `json:"model,omitempty"`
+	Effort string `json:"effort,omitempty"`
 }
 
-// WriteZetaMeta 在会话的 brain 目录存在时记下工作目录和初始标题。
+// WriteZetaMeta 在会话的 brain 目录存在时以原子替换方式合并写入补充元数据。
 func WriteZetaMeta(agyDir, id string, meta ZetaMeta) {
 	if !IsSessionID(id) {
 		return
@@ -61,11 +64,17 @@ func WriteZetaMeta(agyDir, id string, meta ZetaMeta) {
 	if meta.Parent != "" {
 		cur.Parent = meta.Parent
 	}
+	if meta.Model != "" {
+		cur.Model = meta.Model
+	}
+	if meta.Effort != "" {
+		cur.Effort = meta.Effort
+	}
 	b, err := json.Marshal(cur)
 	if err != nil {
 		return
 	}
-	_ = os.WriteFile(path, b, 0o644)
+	_ = writeFileAtomic(path, b, 0o644)
 }
 
 // ReadZetaMeta 读取 brain/<id>/.zeta_meta.json；不存在时返回零值。
@@ -324,15 +333,19 @@ func Summarize(agyDir, path string) (Summary, bool, error) {
 	if err != nil {
 		return Summary{}, false, err
 	}
-	preview, created, headCwd, headReplied := scanHead(head)
+	preview, hasUserInput, created, headCwd, headReplied := scanHead(head)
 	rows := readDBRows(agyDir)
 	row, hasRow := rows[id]
 	if hasRow && row.ParentID != "" {
 		return Summary{}, false, nil
 	}
 	preview = cmp.Or(preview, strings.TrimSpace(row.Preview))
+	previewCode := ""
 	if preview == "" {
-		return Summary{}, false, nil
+		if !hasUserInput {
+			return Summary{}, false, nil
+		}
+		previewCode = "previewImage"
 	}
 	var tailReplied int64
 	if len(tail) > 0 {
@@ -354,16 +367,17 @@ func Summarize(agyDir, path string) (Summary, bool, error) {
 	title := cmp.Or(ann.Title, row.Title, zmeta.Title)
 	cwd := cmp.Or(firstWorkspacePath(row.WorkspaceURIs), zmeta.Cwd, headCwd)
 	return Summary{
-		ID:       id,
-		File:     path,
-		Cwd:      cwd,
-		Title:    title,
-		Preview:  truncateRunes(preview, 200),
-		Updated:  updated,
-		Created:  created,
-		Replied:  replied,
-		Archived: ann.Archived,
-		Pinned:   ann.Pinned,
+		ID:          id,
+		File:        path,
+		Cwd:         cwd,
+		Title:       title,
+		Preview:     truncateRunes(preview, 200),
+		PreviewCode: previewCode,
+		Updated:     updated,
+		Created:     created,
+		Replied:     replied,
+		Archived:    ann.Archived,
+		Pinned:      ann.Pinned,
 	}, true, nil
 }
 
@@ -402,14 +416,15 @@ func readHeadAndTail(path string, limit int64) (head, tail []byte, err error) {
 }
 
 type headState struct {
-	first   string
-	preview string
-	created int64
-	cwd     string
-	replied int64
+	first        string
+	preview      string
+	hasUserInput bool
+	created      int64
+	cwd          string
+	replied      int64
 }
 
-func scanHead(data []byte) (preview string, created int64, cwd string, replied int64) {
+func scanHead(data []byte) (preview string, hasUserInput bool, created int64, cwd string, replied int64) {
 	var hs headState
 	for _, line := range bytes.Split(data, []byte{'\n'}) {
 		line = bytes.TrimSpace(line)
@@ -421,7 +436,7 @@ func scanHead(data []byte) (preview string, created int64, cwd string, replied i
 			hs.observe(st)
 		}
 	}
-	return cmp.Or(hs.preview, hs.first), hs.created, hs.cwd, hs.replied
+	return cmp.Or(hs.preview, hs.first), hs.hasUserInput, hs.created, hs.cwd, hs.replied
 }
 
 func headLineRelevant(line []byte, needPreview bool) bool {
@@ -435,8 +450,11 @@ func (hs *headState) observe(st rawStep) {
 	if hs.created == 0 {
 		hs.created = parseISOMillis(st.CreatedAt)
 	}
-	if st.Type == "USER_INPUT" && hs.preview == "" {
-		hs.observeUserInput(st.Content)
+	if st.Type == "USER_INPUT" {
+		hs.hasUserInput = true
+		if hs.preview == "" {
+			hs.observeUserInput(st.Content)
+		}
 	}
 	if st.Type == "PLANNER_RESPONSE" && len(st.ToolCalls) == 0 && strings.TrimSpace(st.Content) != "" {
 		if ms := parseISOMillis(st.CreatedAt); ms > 0 {
@@ -543,12 +561,15 @@ func execSQLite(dbPath, sql string) {
 	_ = cmd.Run()
 }
 
-// SessionRunStatus 按 conversation_summaries.db 里的 status 与 not_fully_idle 返回 agy 会话的忙闲（StatusBusy 或 StatusIdle）。
+// SessionRunStatus 按 conversation_summaries.db 里的 status 与 not_fully_idle 返回 agy 会话的忙闲；
+// 无记录或 sqlite3 不可用时返回 StatusUnknown，避免误报空闲。
 func SessionRunStatus(agyDir, id string) string {
-	if row, ok := readDBRows(agyDir)[id]; ok {
-		if row.Status == "CASCADE_RUN_STATUS_RUNNING" || bool(row.NotFullyIdle) {
-			return sessionproto.StatusBusy
-		}
+	row, ok := readDBRows(agyDir)[id]
+	if !ok {
+		return sessionproto.StatusUnknown
+	}
+	if row.Status == "CASCADE_RUN_STATUS_RUNNING" || bool(row.NotFullyIdle) {
+		return sessionproto.StatusBusy
 	}
 	return sessionproto.StatusIdle
 }
@@ -595,18 +616,27 @@ func deleteSQLiteSummary(agyDir, id string) {
 	execSQLite(dbPath, sql)
 }
 
-// SearchTranscript 在一份 agy transcript.jsonl 里按小写关键词 needle 搜索第一处用户或模型发言命中。
-func SearchTranscript(path, needle string) (role, text string, ok bool) {
+// SearchTranscript 在一份 agy transcript.jsonl 里按小写关键词 needle 搜索第一处用户或模型发言命中；
+// 用 bufio.Reader 逐行读取（无单行长度上限）并响应 ctx 取消。
+func SearchTranscript(ctx context.Context, path, needle string) (role, text string, ok bool) {
 	f, err := os.Open(path)
 	if err != nil {
 		return "", "", false
 	}
 	defer f.Close()
-	sc := bufio.NewScanner(f)
-	sc.Buffer(make([]byte, 64*1024), 4*1024*1024)
-	for sc.Scan() {
-		if r, txt, hit := matchTranscriptLine(sc.Bytes(), needle); hit {
-			return r, txt, true
+	br := bufio.NewReaderSize(f, 64*1024)
+	for n := 0; ; n++ {
+		if n%256 == 0 && ctx != nil && ctx.Err() != nil {
+			return "", "", false
+		}
+		line, readErr := br.ReadBytes('\n')
+		if len(line) > 0 {
+			if r, txt, hit := matchTranscriptLine(line, needle); hit {
+				return r, txt, true
+			}
+		}
+		if readErr != nil {
+			break
 		}
 	}
 	return "", "", false

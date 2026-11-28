@@ -75,10 +75,11 @@ type WindowView struct {
 	Reset    string  `json:"reset"`
 }
 
-// ExtraView 是开着的额外用量：Amount 是「已用 / 上限」（没有金额时为空），Used 是已用比例（不知道时为 null）。
+// ExtraView 是开着的额外用量：Amount 是「已用 / 上限」（没有金额时为空），Used 是已用比例（不知道时为 null），IsCredits 标记 AI Credits 积分。
 type ExtraView struct {
-	Amount string   `json:"amount"`
-	Used   *float64 `json:"used"`
+	Amount    string   `json:"amount"`
+	Used      *float64 `json:"used"`
+	IsCredits bool     `json:"is_credits,omitempty"`
 }
 
 // DraftView 是添加或编辑中的中转。密钥不交回去：界面自己留着用户填的那份。
@@ -361,7 +362,7 @@ func quotaView(q *accounts.Quota, now time.Time) *QuotaView {
 				amounts = append(amounts, m)
 			}
 		}
-		v.Extra = &ExtraView{Amount: strings.Join(amounts, " / "), Used: e.Used}
+		v.Extra = &ExtraView{Amount: strings.Join(amounts, " / "), Used: e.Used, IsCredits: strings.EqualFold(e.Currency, "credits")}
 	}
 	return v
 }

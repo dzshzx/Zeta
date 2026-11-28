@@ -18,10 +18,11 @@ import kotlinx.serialization.json.put
 /** 像 Claude Code 会话 id 的字符串（zeta-helper 那边同样校验）：存储清理要保护的会话、设置备份里的置顶会话都按它收。 */
 internal val SessionIdPattern = Regex("[0-9a-fA-F-]{8,64}")
 
-/** 存储页的三组。 */
+/** 存储页的四组。 */
 enum class StorageGroup {
     Zeta,
     Claude,
+    Agy,
     Debian,
 }
 
@@ -105,6 +106,20 @@ enum class StorageKind(
         Strings::coreStorageClaudeTelemetryTitle,
         Strings::coreStorageClaudeTelemetryWhat,
         Strings::coreStorageKeptRunningSessions,
+    ),
+    AgyLogs(
+        "agy-logs",
+        StorageGroup.Agy,
+        Strings::coreStorageAgyLogsTitle,
+        Strings::coreStorageAgyLogsWhat,
+        Strings::coreStorageAgyLogsKept,
+    ),
+    AgyOrphan(
+        "agy-orphan",
+        StorageGroup.Agy,
+        Strings::coreStorageAgyOrphanTitle,
+        Strings::coreStorageAgyOrphanWhat,
+        Strings::coreStorageAgyOrphanKept,
     ),
     Apt(
         "apt",
