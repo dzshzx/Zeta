@@ -63,6 +63,7 @@ import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.dzshzx.zeta.core.Harnesses
 import com.dzshzx.zeta.i18n.Strings
 import com.dzshzx.zeta.ui.components.miuix.ZetaIcons
 import kotlinx.coroutines.flow.first
@@ -76,8 +77,9 @@ import top.yukonga.miuix.kmp.basic.Text
 private val StopIconSize = 10.8.dp
 
 /** 输入框空着时的提示（照 Eta 的「发消息问 Eta…」）。 */
-internal val InputHint: String
-    get() = Strings.assistantInputHint()
+internal fun inputHint(harness: String = Harnesses.CLAUDE): String =
+    if (Harnesses.normalize(harness) == Harnesses.AGY) Strings.assistantInputHintAgy()
+    else Strings.assistantInputHint()
 
 /**
  * 输入栏：浮起的胶囊，左边输入框，右边圆形按钮。能发时是主色的发送键，空着时是灰的；这一轮还在进行时（[busy]）是停止键，输入框暂时不能输入。
@@ -95,6 +97,7 @@ internal fun AssistantInputBar(
     onSubmit: () -> Unit,
     onStop: () -> Unit,
     modifier: Modifier = Modifier,
+    harness: String = Harnesses.CLAUDE,
 ) {
     val inputEnabled = !busy && !sending
     val canSubmit = input.text.isNotBlank() && inputEnabled
@@ -145,7 +148,7 @@ internal fun AssistantInputBar(
             keyboardOptions = KeyboardOptions(imeAction = ImeAction.Send),
             onKeyboardAction = { if (canSubmit) onSubmit() },
             decorator = { innerTextField ->
-                HintDecorator(input.text.isEmpty(), colors) { innerTextField() }
+                HintDecorator(input.text.isEmpty(), inputHint(harness), colors) { innerTextField() }
             },
         )
         TrailingButton(busy, canSubmit, colors, onSubmit, onStop)
@@ -154,11 +157,16 @@ internal fun AssistantInputBar(
 
 /** 输入框空着时在它下面垫一行提示。 */
 @Composable
-private fun HintDecorator(empty: Boolean, colors: AssistantColors, field: @Composable () -> Unit) {
+private fun HintDecorator(
+    empty: Boolean,
+    hint: String,
+    colors: AssistantColors,
+    field: @Composable () -> Unit,
+) {
     Box(contentAlignment = Alignment.CenterStart) {
         if (empty) {
             Text(
-                text = InputHint,
+                text = hint,
                 color = colors.inputTertiary,
                 fontSize = 15.5.sp,
                 lineHeight = 22.sp,

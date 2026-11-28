@@ -28,6 +28,7 @@ import androidx.lifecycle.lifecycleScope
 import com.dzshzx.zeta.core.Backends
 import com.dzshzx.zeta.core.Conversation
 import com.dzshzx.zeta.core.ConversationHub
+import com.dzshzx.zeta.core.Harnesses
 import com.dzshzx.zeta.core.Intake
 import com.dzshzx.zeta.core.IntakeSource
 import com.dzshzx.zeta.core.NoticeItem
@@ -108,6 +109,7 @@ class AssistantActivity : ComponentActivity() {
                         autoFocus = onMainScreen,
                         onStop = { chat.conversation?.interrupt() },
                         bottomCornerRadius = bottomCorner,
+                        harness = chat.harness,
                     )
                     // Claude 还没开口时屏幕边缘流光，和 Zeta 操作手机时同一种光（照 Eta 的助理光效）
                     EdgeGlow(
@@ -230,6 +232,10 @@ class AssistantActivity : ComponentActivity() {
 /** 浮窗这一次的状态和发送：带上的屏幕、草稿、发出去以后的那个对话。只在主线程上用。 */
 @Stable
 internal class AssistantChat(private val hub: ConversationHub, val capture: AssistCapture?) {
+    val harness: String =
+        Harnesses.normalize(
+            hub.settings.assistantHarness ?: hub.settings.defaultHarness(Backends.LOCAL),
+        )
     val draft = TextFieldState()
 
     /** 用户没把屏幕内容去掉。 */
@@ -317,8 +323,6 @@ internal class AssistantChat(private val hub: ConversationHub, val capture: Assi
             capture?.settle()
             val shot = capture?.screenshot
             val block = capture?.let { ScreenDigest.contextBlock(it.apps, shot != null) }
-            val harness =
-                hub.settings.assistantHarness ?: hub.settings.defaultHarness(Backends.LOCAL)
             val started =
                 Conversation(
                     hub,

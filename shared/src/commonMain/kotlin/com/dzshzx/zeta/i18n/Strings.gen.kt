@@ -16638,4 +16638,25 @@ object Strings {
      * 设置备份与恢复清单里数字助理命令行工具项的名称。
      */
     fun settingsBackupAssistantHarness(): String = catalog.say("settingsBackupAssistantHarness")
+
+    /**
+     * 「问问 Antigravity」
+     *
+     * Antigravity 模式下数字助理浮窗输入框空着时的占位提示。
+     */
+    fun assistantInputHintAgy(): String = catalog.say("assistantInputHintAgy")
+
+    /**
+     * 「设为默认后，系统助理入口会唤起 Zeta 浮窗，附带当前屏幕向 Antigravity 提问。在 HyperOS 上长按电源键唤起还需启用 LSPosed 模块，详见诊断页。」
+     *
+     * 数字助理页在 Antigravity 模式下「默认数字助理」一组下面的说明。
+     */
+    fun settingsAssistantFooterAgy(): String = catalog.say("settingsAssistantFooterAgy")
+
+    /**
+     * 「选择「跟随 Antigravity」时与新对话一致，使用 Antigravity 设置中的默认值（可在设置首页查看）。单独指定不会影响普通新对话。」
+     *
+     * 数字助理页在 Antigravity 模式下「数字助理的对话」一组下面的说明；「跟随 Antigravity」是选项 commonFollowAntigravity 的字。
+     */
+    fun settingsAssistantConversationsFooterAgy(): String = catalog.say("settingsAssistantConversationsFooterAgy")
 }

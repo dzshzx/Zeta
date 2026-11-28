@@ -2,6 +2,7 @@ package com.dzshzx.zeta.core
 
 import android.app.Application
 import androidx.test.core.app.ApplicationProvider
+import com.dzshzx.zeta.assistant.inputHint
 import com.dzshzx.zeta.core.claude.ClaudeConfigCore
 import com.dzshzx.zeta.core.notify.NotifyRules
 import com.dzshzx.zeta.core.notify.RuleDraft
@@ -9,6 +10,7 @@ import com.dzshzx.zeta.core.schedule.ScheduleRecords
 import com.dzshzx.zeta.core.schedule.ScheduleRule
 import com.dzshzx.zeta.core.schedule.Schedules
 import com.dzshzx.zeta.core.schedule.TaskDraft
+import com.dzshzx.zeta.i18n.Strings
 import com.dzshzx.zeta.shots.Fixtures
 import com.dzshzx.zeta.ui.setup.applyProbedHost
 import com.dzshzx.zeta.ui.setup.probeSummary
@@ -373,6 +375,11 @@ class AgySupportTest {
         assertNull(settings.assistantHarness)
         settings.assistantHarness = Harnesses.AGY
         assertEquals(Harnesses.AGY, settings.assistantHarness)
+
+        assertTrue(inputHint(Harnesses.CLAUDE).contains("Claude"))
+        assertTrue(inputHint(Harnesses.AGY).contains("Antigravity"))
+        assertTrue(Strings.settingsAssistantFooterAgy().contains("Antigravity"))
+        assertTrue(Strings.settingsAssistantConversationsFooterAgy().contains("Antigravity"))
     }
 
     private fun runAsset(name: String, vararg args: String): String {
