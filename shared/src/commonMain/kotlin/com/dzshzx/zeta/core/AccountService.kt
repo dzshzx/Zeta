@@ -13,7 +13,11 @@ import kotlin.concurrent.thread
  * Code 登录状态，两个 Zeta 包和终端里的 claude 共用这一份，所以只在没有别的 Claude Code 进程开着时做：claude-switch 自己会拒绝，这里先看一遍核心给的
  * blocker，是为了说清是谁挡着。
  */
-class AccountService(private val hub: ConversationHub, private val backend: String) {
+class AccountService(
+    private val hub: ConversationHub,
+    private val backend: String,
+    val harness: String = Harnesses.CLAUDE,
+) {
     private val main = MainHandler()
 
     /** 经那台的核心管账号；测试里换成对着临时 HOME 上真核心的。 */
@@ -31,10 +35,11 @@ class AccountService(private val hub: ConversationHub, private val backend: Stri
                 hub.shell(backend)
                     ?: throw ServeError(hub.unavailable(backend) ?: Strings.coreNoLinuxEnv())
             },
+            harness = Harnesses.normalize(harness),
         )
 
     /** 这台设备的模型来源、清单和新对话默认；测试与 [core] 一起接到临时 HOME。 */
-    var config = ClaudeConfigCore.of(hub, backend)
+    var config = ClaudeConfigCore.of(hub, backend, harness)
 
     var state by mutableStateOf<AccountsState?>(null)
         private set
@@ -158,15 +163,19 @@ class AccountService(private val hub: ConversationHub, private val backend: Stri
      */
     fun switched() {
         hub.accountSourceChanged(backend, this)
-        hub.quota(backend).forget()
+        hub.quota(backend, harness).forget()
         refresh { listed ->
             // 读到账号以后再问额度：换到中转时没有订阅额度，不单起 Claude Code 去问（QuotaService.refresh 看它的 relay）
-            val quota = hub.quota(backend)
+            val quota = hub.quota(backend, harness)
             if (listed != null) quota.noteRelay(listed.relay?.name)
             quota.refresh(force = true)
             // 环境那份账号状态（聊天页的登录提示、手机设备页的账号入口读它）是手机本机的
             if (backend != Backends.LOCAL) return@refresh
             val local = hub.platform.local ?: return@refresh
+            if (Harnesses.normalize(harness) != Harnesses.CLAUDE) {
+                local.refreshAccount()
+                return@refresh
+            }
             listed?.relay?.let {
                 local.showRelay(it.name, it.baseUrl)
                 return@refresh
@@ -234,9 +243,11 @@ class AccountService(private val hub: ConversationHub, private val backend: Stri
      */
     internal fun loggedOut() {
         hub.accountSourceChanged(backend, this)
-        hub.quota(backend).forget()
+        hub.quota(backend, harness).forget()
         refresh()
-        if (backend == Backends.LOCAL) hub.platform.local?.showLoggedOut()
+        if (backend == Backends.LOCAL && Harnesses.normalize(harness) == Harnesses.CLAUDE) {
+            hub.platform.local?.showLoggedOut()
+        }
     }
 
     /** 删掉一个不在用的号的存档与记录（claude-switch remove）。只删这台主机上的这一份：那个账号在服务端仍是登录状态。 */
@@ -280,7 +291,7 @@ class AccountService(private val hub: ConversationHub, private val backend: Stri
 
     /** 单起的问额度的进程和改登录状态不能同时进行（[QuotaService.probeLock]）。 */
     internal val probeLock: Any
-        get() = hub.quota(backend).probeLock
+        get() = hub.quota(backend, harness).probeLock
 }
 
 sealed interface LoginState {
@@ -351,15 +362,17 @@ class LoginFlow internal constructor(private val service: AccountService) {
     /** 把授权码交给核心里在等的登录命令。在主线程上调用。 */
     fun submit(code: String) {
         val waiting = state as? LoginState.WaitingCode ?: return
-        // 授权码是“两段中间夹一个 #”，少了后半段登录命令不会收（核心也会退回，这里先拦下省一趟）
-        if ('#' !in code) {
+        val trimmed = code.trim()
+        val isClaude = Harnesses.normalize(service.harness) == Harnesses.CLAUDE
+        // Claude Code 授权码是“两段中间夹一个 #”；Antigravity 接受纯授权码或完整回调 URL，不要求带 #
+        if (trimmed.isEmpty() || (isClaude && '#' !in trimmed)) {
             state = waiting.copy(notice = Strings.coreAccountsCodeIncomplete())
             return
         }
         val mine = generation
         state = LoginState.Verifying
         service.background("zeta-login") { core ->
-            val done = runCatching { core.loginCode(code.trim()) }
+            val done = runCatching { core.loginCode(trimmed) }
             service.post {
                 if (mine != generation) return@post
                 done

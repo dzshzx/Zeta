@@ -2,6 +2,7 @@ package main
 
 import (
 	"bytes"
+	"context"
 	"encoding/json"
 	"errors"
 	"io/fs"
@@ -11,9 +12,12 @@ import (
 	"sync"
 	"time"
 
+	"github.com/dzshzx/Zeta/helper/agyacct"
+	"github.com/dzshzx/Zeta/helper/claudecfg"
 	"github.com/dzshzx/Zeta/helper/conv"
 	"github.com/dzshzx/Zeta/helper/core"
 	"github.com/dzshzx/Zeta/helper/host"
+	"github.com/dzshzx/Zeta/helper/sessionproto"
 	ctxusage "github.com/dzshzx/Zeta/helper/usage"
 )
 
@@ -32,20 +36,45 @@ func newConversations(e *env, quota *quotaWatch) *conversations {
 	if err != nil {
 		log.Print(err)
 	}
+	claudeDefault := (&defaultModeCache{path: e.claude + "/settings.json"}).get
+	agyDefault := (&defaultModeCache{path: e.agy + "/settings.json", parse: claudecfg.AgyDefaultModeFromSettings}).get
+	claudeQuota := newQuotaSink(e, func() { quota.changedFor(sessionproto.HarnessClaude) })
+	agyQuota := newAgyQuotaSink(e, func() { quota.changedFor(sessionproto.HarnessAgy) })
 	h.m = conv.NewManager(conv.Deps{
-		Start:         startHost(e),
-		Attach:        attachHost(e),
-		SessionFile:   func(session string) string { return sessionFile(e, session) },
-		HostOutput:    func(key string) string { return joinPath(joinPath(e.hosts, key), "out.jsonl") },
-		Subagent:      func(args ...string) ([]byte, error) { return subagentOutput(e, args) },
-		History:       func(args ...string) ([]byte, error) { return historyOutput(e, args) },
-		DefaultMode:   (&defaultModeCache{path: e.claude + "/settings.json"}).get,
+		Start:       startHost(e),
+		Attach:      attachHost(e),
+		SessionFile: func(session string) string { return sessionFile(e, session) },
+		SessionHarness: func(session string) string {
+			if e.isAgyDeskSession(session) {
+				return sessionproto.HarnessAgy
+			}
+			return sessionproto.HarnessClaude
+		},
+		HostOutput:  func(key string) string { return joinPath(joinPath(e.hosts, key), "out.jsonl") },
+		Subagent:    func(args ...string) ([]byte, error) { return subagentOutput(e, args) },
+		History:     func(args ...string) ([]byte, error) { return historyOutput(e, args) },
+		DefaultMode: claudeDefault,
+		DefaultModeFor: func(harness string) string {
+			if sessionproto.NormalizeHarness(harness) == sessionproto.HarnessAgy {
+				return agyDefault()
+			}
+			return claudeDefault()
+		},
 		Windows:       windows,
 		SessionTitles: func(cwd string) []string { return sessionTitles(e, cwd) },
 		Occupant:      e.occupancy,
 		Handoff:       e.handOff,
 		EndHosted:     func(session string) bool { return stopOwnHosts(e, session) > 0 },
-		Quota:         newQuotaSink(e, quota.changed),
+		Quota:         claudeQuota,
+		QuotaFor: func(harness string) conv.Quota {
+			if sessionproto.NormalizeHarness(harness) == sessionproto.HarnessAgy {
+				return agyQuota
+			}
+			return claudeQuota
+		},
+		QueryAgyQuota: func() (json.RawMessage, error) {
+			return agyacct.QueryUsageJSON(context.Background(), e.home)
+		},
 		Desk: func(session, cwd string) {
 			if _, err := deskOpen(e, session, cwd); err != nil {
 				log.Print("开 tmux 窗口：", err)
@@ -215,7 +244,8 @@ func subagentOutput(e *env, args []string) ([]byte, error) {
 // defaultModeCache 读这台主机上 Claude Code 设置里的默认权限模式（~/.claude/settings.json 的 permissions.defaultMode），没设时为空。
 // 每次推 conv.state 都要它（mode.shown），所以记着上次读到的，文件的大小和修改时刻没变就不重读。
 type defaultModeCache struct {
-	path string
+	path  string
+	parse func([]byte) string
 
 	mu   sync.Mutex
 	read bool
@@ -240,6 +270,10 @@ func (c *defaultModeCache) get() string {
 	if err != nil {
 		c.read = false
 		return ""
+	}
+	if c.parse != nil {
+		c.mode = c.parse(data)
+		return c.mode
 	}
 	var s struct {
 		Permissions struct {

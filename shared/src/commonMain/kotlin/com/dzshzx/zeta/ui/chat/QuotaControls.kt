@@ -15,6 +15,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.dzshzx.zeta.core.Harnesses
 import com.dzshzx.zeta.core.Quota
 import com.dzshzx.zeta.core.QuotaSeverity
 import com.dzshzx.zeta.core.QuotaSnapshot
@@ -163,10 +164,11 @@ fun QuotaDialogSection(
     hub: com.dzshzx.zeta.core.ConversationHub,
     backend: String,
     visible: Boolean,
+    harness: String = Harnesses.CLAUDE,
 ) {
-    val quota = hub.quota(backend)
+    val quota = hub.quota(backend, harness)
     val now = rememberNow()
-    LaunchedEffect(visible) { if (visible) quota.refresh() }
+    LaunchedEffect(visible, harness) { if (visible) quota.refresh() }
     // 在用中转时没有订阅额度：只说一句，不显示窗口、套餐和更新时间
     quota.relay?.let { relay ->
         QuotaNote(Strings.settingsAccountsQuotaRelay(relay), Modifier.padding(bottom = 8.dp))

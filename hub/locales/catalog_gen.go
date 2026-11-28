@@ -125,16 +125,18 @@ func (msgs Messages) HostProbeNotConnected() string {
 	return Catalog.Format(msgs.locale, "hostProbeNotConnected", nil)
 }
 
-// HostProbeNoClaude says "那台设备上找不到 claude（登录 shell 的 PATH 里和 ~/.local/bin 都没有）"
+// HostProbeNoClaude says "那台设备上未找到 Claude Code（claude）或 Antigravity CLI（agy）（登录 shell 的 PATH 里和 ~/.local/…"
 // in the language the app shows.
 //
-// 添加设备、检查连接时的结果：那边没装 Claude Code。
+// 添加设备、检查连接时的结果：那边既没装 Claude Code
+// 也没装 Antigravity CLI。
 func HostProbeNoClaude() string { return In(i18n.Locale()).HostProbeNoClaude() }
 
-// HostProbeNoClaude says "那台设备上找不到 claude（登录 shell 的 PATH 里和 ~/.local/bin 都没有）"
+// HostProbeNoClaude says "那台设备上未找到 Claude Code（claude）或 Antigravity CLI（agy）（登录 shell 的 PATH 里和 ~/.local/…"
 // in the language of msgs.
 //
-// 添加设备、检查连接时的结果：那边没装 Claude Code。
+// 添加设备、检查连接时的结果：那边既没装 Claude Code
+// 也没装 Antigravity CLI。
 func (msgs Messages) HostProbeNoClaude() string {
 	return Catalog.Format(msgs.locale, "hostProbeNoClaude", nil)
 }

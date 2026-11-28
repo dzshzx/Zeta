@@ -29,6 +29,8 @@ import com.dzshzx.zeta.core.EnvController
 import com.dzshzx.zeta.core.EnvHealth
 import com.dzshzx.zeta.core.EnvInstaller
 import com.dzshzx.zeta.core.EnvStatus
+import com.dzshzx.zeta.core.Harnesses
+import com.dzshzx.zeta.core.InstallCli
 import com.dzshzx.zeta.core.InstallStep
 import com.dzshzx.zeta.core.LinuxEnv
 import com.dzshzx.zeta.core.LinuxEnvConfig
@@ -39,6 +41,7 @@ import com.dzshzx.zeta.core.environment
 import com.dzshzx.zeta.core.formatBytes
 import com.dzshzx.zeta.core.optionalName
 import com.dzshzx.zeta.i18n.Strings
+import com.dzshzx.zeta.ui.components.SlideInPage
 import com.dzshzx.zeta.ui.components.miuix.ConfirmDialog
 import com.dzshzx.zeta.ui.components.miuix.DropdownValuePreference
 import com.dzshzx.zeta.ui.components.miuix.FieldGroup
@@ -90,6 +93,7 @@ internal fun LinuxScreen(
     var lastRemoving by remember { mutableStateOf("go") }
     removing?.let { lastRemoving = it }
     var filesPage by rememberSaveable { mutableStateOf<LinuxFilesPage?>(null) }
+    var agyLogin by rememberSaveable { mutableStateOf(false) }
     val own = hub.environment.ownStatus
     val maintenance = hub.environment.maintenance
     val current = env?.rootfs ?: hub.environment.rootfsHint
@@ -165,6 +169,7 @@ internal fun LinuxScreen(
                 onOpenSsh = onOpenSsh,
                 onOpenImage = onOpenImage,
                 onOpenLogin = onOpenLogin,
+                onOpenAgyLogin = { agyLogin = true },
                 onLogout = { confirmLogout = true },
             )
         }
@@ -176,6 +181,14 @@ internal fun LinuxScreen(
         }
     }
     LinuxFilesPages(hub, page = filesPage.takeIf { ready }, onClose = { filesPage = null })
+    SlideInPage(agyLogin, onBack = { agyLogin = false }) {
+        LoginScreen(
+            hub = hub,
+            backend = Backends.LOCAL,
+            harness = Harnesses.AGY,
+            onBack = { agyLogin = false },
+        )
+    }
 }
 
 /** 环境可用后，体检结果和 SSH 状态还没有的先查一次。 */
@@ -319,6 +332,7 @@ private fun LazyListScope.readyItems(
     onOpenSsh: () -> Unit,
     onOpenImage: () -> Unit,
     onOpenLogin: () -> Unit,
+    onOpenAgyLogin: () -> Unit,
     onLogout: () -> Unit,
 ) {
     val health = hub.environment.health
@@ -366,6 +380,9 @@ private fun LazyListScope.readyItems(
     }
     item(key = "claude") {
         ClaudeGroup(hub, health, maintenanceRunning, onOpenLogin = onOpenLogin, onLogout = onLogout)
+    }
+    item(key = "agy") {
+        AgyGroup(hub, health, maintenanceRunning, onOpenLogin = onOpenAgyLogin)
     }
 }
 
@@ -471,6 +488,7 @@ private fun ClaudeGroup(
     onLogout: () -> Unit,
 ) {
     val account = hub.environment.account
+    val missing = health != null && health.claude.isBlank()
     PreferenceGroup(title = "Claude Code") {
         item {
             ValueRow(
@@ -478,45 +496,45 @@ private fun ClaudeGroup(
                 health?.claude?.ifBlank { Strings.setupNotInstalled() } ?: "…",
             )
         }
-        item {
-            BasicComponent(
-                title = Strings.setupUpdate(),
-                // 运行 claude update
-                summary = Strings.setupUpdateLatest(),
-                enabled = !maintenanceRunning,
-                onClick = hub.environment::updateClaude,
-            )
-        }
-        item {
-            ArrowPreference(
-                title = Strings.setupAccount(),
-                summary = accountSummary(account),
-                onClick = onOpenLogin,
-            )
-        }
-        // 在用中转时没有登录着的账号，退出登录无从谈起；换回账号在账号页
-        if (account?.loggedIn == true && account.relay == null) {
+        if (missing) {
             item {
                 BasicComponent(
-                    title = Strings.setupLogout(),
+                    title = Strings.setupInstallNow(),
+                    summary = Strings.setupInstallNowSummary(),
                     enabled = !maintenanceRunning,
-                    onClick = onLogout,
+                    onClick = hub.environment::installClaude,
                 )
+            }
+        } else {
+            item {
+                BasicComponent(
+                    title = Strings.setupUpdate(),
+                    // 运行 claude update
+                    summary = Strings.setupUpdateLatest(),
+                    enabled = !maintenanceRunning,
+                    onClick = hub.environment::updateClaude,
+                )
+            }
+            item {
+                ArrowPreference(
+                    title = Strings.setupAccount(),
+                    summary = cliAccountSummary(account),
+                    onClick = onOpenLogin,
+                )
+            }
+            // 在用中转时没有登录着的账号，退出登录无从谈起；换回账号在账号页
+            if (account?.loggedIn == true && account.relay == null) {
+                item {
+                    BasicComponent(
+                        title = Strings.setupLogout(),
+                        enabled = !maintenanceRunning,
+                        onClick = onLogout,
+                    )
+                }
             }
         }
     }
 }
-
-private fun accountSummary(account: AccountStatus?): String =
-    when {
-        account == null -> Strings.setupQuerying()
-        account.relay != null -> Strings.settingsAccountsRelayEntry(account.relay)
-        !account.loggedIn -> Strings.setupNotLoggedIn()
-        else ->
-            listOfNotNull(account.email, account.plan).joinToString(" · ").ifBlank {
-                Strings.setupLoggedIn()
-            }
-    }
 
 /** 正在做或刚做完的维护（修复、更新、装卸可选工具、SSH 的操作）：做完了点一下收起。 */
 @Composable
@@ -543,6 +561,8 @@ internal fun EnvInstallScreen(hub: ConversationHub, onBack: () -> Unit, onOpenLo
     val installer = hub.environment.installer
     val own = hub.environment.ownStatus
     var userName by rememberSaveable { mutableStateOf("zeta") }
+    var cli by rememberSaveable { mutableStateOf(InstallCli.Claude) }
+    var agyLogin by rememberSaveable { mutableStateOf(false) }
     var editingName by remember { mutableStateOf(false) }
     var nameDraft by remember { mutableStateOf("") }
     val existingUser = own?.user
@@ -571,33 +591,21 @@ internal fun EnvInstallScreen(hub: ConversationHub, onBack: () -> Unit, onOpenLo
         },
     ) {
         item(key = "prepare") {
-            PreferenceGroup(
-                title = Strings.setupInstallPrepare(),
-                // 装在 LinuxEnv.OWN_BASE
-                footer = Strings.setupInstallPrepareFooter(),
-            ) {
-                item {
-                    ValueRow(
-                        Strings.setupUserName(),
-                        existingUser ?: userName,
-                        summary = Strings.setupUserNameSummary(),
-                        // 已有用户、正在装或装完时只读
-                        onClick =
-                            if (existingUser == null && !installer.running && !complete) {
-                                {
-                                    nameDraft = userName
-                                    editingName = true
-                                }
-                            } else {
-                                null
-                            },
-                    )
-                }
-            }
+            InstallPrepareGroup(
+                shownUser = existingUser ?: userName,
+                editable = !installer.running && !complete,
+                canEditUser = existingUser == null && !installer.running && !complete,
+                cli = cli,
+                onEditUser = {
+                    nameDraft = userName
+                    editingName = true
+                },
+                onSelectCli = { cli = it },
+            )
         }
         item(key = "steps") {
             PreferenceGroup(title = Strings.setupInstallSteps()) {
-                for (step in InstallStep.entries) {
+                for (step in cli.steps()) {
                     item(key = step) { InstallStepRow(step, installer, complete) }
                 }
             }
@@ -608,11 +616,53 @@ internal fun EnvInstallScreen(hub: ConversationHub, onBack: () -> Unit, onOpenLo
         item(key = "actions") {
             InstallActions(
                 hub = hub,
+                cli = cli,
                 complete = complete,
                 startEnabled = nameValid || existingUser != null,
-                onStart = { installer.start(existingUser ?: userName) },
-                onOpenLogin = onOpenLogin,
+                onStart = { installer.start(existingUser ?: userName, cli) },
+                onOpenLogin = { if (cli == InstallCli.Agy) agyLogin = true else onOpenLogin() },
                 onBack = onBack,
+            )
+        }
+    }
+    SlideInPage(agyLogin, onBack = { agyLogin = false }) {
+        LoginScreen(
+            hub = hub,
+            backend = Backends.LOCAL,
+            harness = Harnesses.AGY,
+            onBack = { agyLogin = false },
+        )
+    }
+}
+
+@Composable
+private fun InstallPrepareGroup(
+    shownUser: String,
+    editable: Boolean,
+    canEditUser: Boolean,
+    cli: InstallCli,
+    onEditUser: () -> Unit,
+    onSelectCli: (InstallCli) -> Unit,
+) {
+    PreferenceGroup(
+        title = Strings.setupInstallPrepare(),
+        // 装在 LinuxEnv.OWN_BASE
+        footer = Strings.setupInstallPrepareFooter(),
+    ) {
+        item {
+            ValueRow(
+                Strings.setupUserName(),
+                shownUser,
+                summary = Strings.setupUserNameSummary(),
+                // 已有用户、正在装或装完时只读
+                onClick = if (canEditUser) onEditUser else null,
+            )
+        }
+        item {
+            InstallCliRow(
+                cli = cli,
+                enabled = editable,
+                onSelect = onSelectCli,
             )
         }
     }
@@ -663,6 +713,7 @@ private fun installStepValue(
 @Composable
 private fun InstallActions(
     hub: ConversationHub,
+    cli: InstallCli,
     complete: Boolean,
     startEnabled: Boolean,
     onStart: () -> Unit,
@@ -670,6 +721,11 @@ private fun InstallActions(
     onBack: () -> Unit,
 ) {
     val installer = hub.environment.installer
+    val signedIn =
+        if (cli == InstallCli.Agy) hub.environment.agyAccount?.loggedIn == true
+        else hub.environment.account?.loggedIn == true
+    val signInLabel =
+        if (cli == InstallCli.Agy) Strings.setupSignInAgy() else Strings.setupSignInClaude()
     Column(
         modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 12.dp),
         verticalArrangement = Arrangement.spacedBy(10.dp),
@@ -688,8 +744,8 @@ private fun InstallActions(
                         onClick = { hub.environment.redetect(LinuxEnv.OWN_ROOTFS) },
                         enabled = hub.environment.canSwitchEnvironment,
                     )
-                } else if (hub.environment.account?.loggedIn != true) {
-                    PrimaryButton(text = Strings.setupSignInClaude(), onClick = onOpenLogin)
+                } else if (!signedIn) {
+                    PrimaryButton(text = signInLabel, onClick = onOpenLogin)
                 }
                 TextButton(
                     text = Strings.setupFinish(),
@@ -710,13 +766,19 @@ private fun InstallActions(
     }
 }
 
-/** 主机 [backend] 上登录 Claude 账号：打开授权页，把页面给的授权码贴回来。登录命令由那台的核心跑（[com.dzshzx.zeta.core.LoginFlow]）。 */
+/** 主机 [backend] 上登录账号：打开授权页，把页面给的授权码或回调网址贴回来。登录命令由那台的核心跑（[com.dzshzx.zeta.core.LoginFlow]）。 */
 @Composable
-internal fun LoginScreen(hub: ConversationHub, backend: String, onBack: () -> Unit) {
+internal fun LoginScreen(
+    hub: ConversationHub,
+    backend: String,
+    onBack: () -> Unit,
+    harness: String = Harnesses.CLAUDE,
+) {
     val context = LocalContext.current
-    val flow = hub.accounts(backend).login
+    val isAgy = Harnesses.normalize(harness) == Harnesses.AGY
+    val flow = hub.accounts(backend, harness).login
     val state = flow.state
-    val account = loginAccount(hub, backend)
+    val account = loginAccount(hub, backend, harness)
     var code by remember { mutableStateOf("") }
     val leave = {
         flow.cancel()
@@ -726,7 +788,10 @@ internal fun LoginScreen(hub: ConversationHub, backend: String, onBack: () -> Un
     val statusTitle =
         if (backend == Backends.LOCAL) Strings.setupLoginStatus()
         else Strings.setupLoginStatusOn(hub.backendName(backend))
-    MiuixPage(title = Strings.setupSignInClaude(), onBack = leave) {
+    MiuixPage(
+        title = if (isAgy) Strings.setupSignInAgy() else Strings.setupSignInClaude(),
+        onBack = leave,
+    ) {
         item(key = "status") { LoginStatusGroup(account, statusTitle) }
         when (state) {
             LoginState.Idle,
@@ -753,6 +818,7 @@ internal fun LoginScreen(hub: ConversationHub, backend: String, onBack: () -> Un
                 loginCodeItems(
                     state = state,
                     code = code,
+                    isAgy = isAgy,
                     onCodeChange = {
                         code = it
                         flow.clearNotice()
@@ -773,10 +839,18 @@ internal fun LoginScreen(hub: ConversationHub, backend: String, onBack: () -> Un
 
 /** 登录页顶部「当前状态」读的账号：手机本机的是环境检查时查到的，远程主机的看那台的账号清单（没读过就读一次）。 */
 @Composable
-private fun loginAccount(hub: ConversationHub, backend: String): AccountStatus? {
-    if (backend == Backends.LOCAL) return hub.environment.account
-    val service = hub.accounts(backend)
-    LaunchedEffect(backend) { if (service.state == null) service.refresh() }
+private fun loginAccount(
+    hub: ConversationHub,
+    backend: String,
+    harness: String,
+): AccountStatus? {
+    val isAgy = Harnesses.normalize(harness) == Harnesses.AGY
+    if (backend == Backends.LOCAL && !isAgy) return hub.environment.account
+    if (backend == Backends.LOCAL && hub.environment.agyAccount != null) {
+        return hub.environment.agyAccount
+    }
+    val service = hub.accounts(backend, harness)
+    LaunchedEffect(backend, harness) { if (service.state == null) service.refresh() }
     return service.state?.let { listed ->
         listed.relay?.let { AccountStatus.relay(it.name, it.baseUrl) }
             ?: AccountStatus(
@@ -819,6 +893,7 @@ private fun LoginStatusGroup(account: AccountStatus?, title: String) {
 private fun LazyListScope.loginCodeItems(
     state: LoginState,
     code: String,
+    isAgy: Boolean,
     onCodeChange: (String) -> Unit,
     onOpen: (String) -> Unit,
     onCopy: (String) -> Unit,
@@ -828,7 +903,8 @@ private fun LazyListScope.loginCodeItems(
     item(key = "step1") {
         PreferenceGroup(
             title = Strings.setupLoginStep1(),
-            footer = Strings.setupLoginStep1Footer(),
+            footer =
+                if (isAgy) Strings.setupLoginStep1AgyFooter() else Strings.setupLoginStep1Footer(),
         ) {
             item {
                 ArrowPreference(
@@ -852,7 +928,8 @@ private fun LazyListScope.loginCodeItems(
             TextField(
                 value = code,
                 onValueChange = onCodeChange,
-                label = Strings.setupLoginCodeHint(),
+                label =
+                    if (isAgy) Strings.setupLoginCodeAgyHint() else Strings.setupLoginCodeHint(),
                 enabled = state is LoginState.WaitingCode,
                 showClearButton = true,
                 singleLine = true,

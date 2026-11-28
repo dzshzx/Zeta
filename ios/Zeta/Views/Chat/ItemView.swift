@@ -133,7 +133,8 @@ private struct WorkView: View {
     private var title: String {
         if let running = steps.last(where: \.isRunning) {
             if running.isThinking { return String(localized: "正在思考") }
-            return running.summary.isEmpty ? running.name : "\(running.name) · \(running.summary)"
+            let name = ToolLabels.title(running.name)
+            return running.summary.isEmpty ? name : "\(name) · \(running.summary)"
         }
         let tools = steps.filter { !$0.isThinking }.count
         return tools == 0 ? String(localized: "思考") : String(localized: "\(tools) 次工具调用")
@@ -143,22 +144,15 @@ private struct WorkView: View {
 private struct StepView: View {
     let step: Step
 
-    /// 发起子代理的那一步（Task 是 Agent 的旧名）：点了进子代理页，不在原地展开（同桌面版）。
-    private var isSubagent: Bool { step.name == "Agent" || step.name == "Task" }
+    /// 发起子代理的那一步（Task 是 Agent 的旧名，invoke_subagent 是 agy 的）：点了进子代理页，不在原地展开（同桌面版）。
+    private var isSubagent: Bool { ToolLabels.isSubagent(step.name) }
 
     var body: some View {
         if isSubagent {
             NavigationLink {
                 SubagentView(toolUseID: step.id)
             } label: {
-                HStack(spacing: 6) {
-                    status
-                    Text(step.name).font(.footnote.bold())
-                    Text(step.summary)
-                        .font(.footnote)
-                        .foregroundStyle(.secondary)
-                        .lineLimit(1)
-                }
+                stepLabel(showPatch: false)
             }
             .accessibilityHint(Text("查看子代理的步骤"))
         } else if step.isThinking {
@@ -173,24 +167,34 @@ private struct StepView: View {
             DisclosureGroup {
                 detail
             } label: {
-                HStack(spacing: 6) {
-                    status
-                    Text(step.name).font(.footnote.bold())
-                    Text(step.summary)
-                        .font(.footnote)
-                        .foregroundStyle(.secondary)
-                        .lineLimit(1)
-                    if let patch = step.patch {
-                        Text("+\(patch.added)").font(.caption.monospaced()).foregroundStyle(.green)
-                        Text("-\(patch.removed)").font(.caption.monospaced()).foregroundStyle(.red)
-                    }
-                }
+                stepLabel(showPatch: true)
+            }
+        }
+    }
+
+    private func stepLabel(showPatch: Bool) -> some View {
+        HStack(spacing: 6) {
+            status
+            Image(systemName: ToolLabels.icon(step.name))
+                .font(.caption)
+                .foregroundStyle(.secondary)
+            Text(ToolLabels.title(step.name)).font(.footnote.bold())
+            Text(step.summary)
+                .font(.footnote)
+                .foregroundStyle(.secondary)
+                .lineLimit(1)
+            if showPatch, let patch = step.patch {
+                Text("+\(patch.added)").font(.caption.monospaced()).foregroundStyle(.green)
+                Text("-\(patch.removed)").font(.caption.monospaced()).foregroundStyle(.red)
             }
         }
     }
 
     private var detail: some View {
         VStack(alignment: .leading, spacing: 8) {
+            if let cmd = ToolLabels.command(step.input) {
+                DetailBlock(text: cmd)
+            }
             if let patch = step.patch, !patch.hunks.isEmpty {
                 FileChangeView(patch: patch, clipped: step.clipped == true)
             } else if step.clipped == true {

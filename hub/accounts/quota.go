@@ -171,6 +171,18 @@ func (q *Quota) switched() {
 	q.Refresh(true)
 }
 
+// ApplyState 收下核心推送的 quota.snapshot（界面线程上）。
+func (q *Quota) ApplyState(st coreapi.QuotaState) {
+	q.follow(st.Relay)
+	if st.Relay != "" {
+		return
+	}
+	if st.Snapshot != nil {
+		q.snapshot = st.Snapshot
+	}
+	q.err, q.stale = nil, false
+}
+
 // errTimedOut 是向 Claude Code 要额度等太久了。
 var errTimedOut = locales.Err(locales.AccountsQuotaTimedOut)
 

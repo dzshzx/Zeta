@@ -245,23 +245,33 @@ class ConversationHub(val platform: HubPlatform) {
      */
     private val modelStates = mutableStateMapOf<String, ModelState>()
 
+    private fun stateKey(backend: String, harness: String = Harnesses.CLAUDE): String =
+        if (Harnesses.normalize(harness) == Harnesses.AGY) "$backend#${Harnesses.AGY}" else backend
+
+    private fun hostOfKey(key: String): String = key.substringBefore('#')
+
     /** 设备 [backend] 的模型状态，没有就建一个（从启动起就没作废过的那一份，见 [ModelState.initial]）。在主线程上调用。 */
-    private fun modelState(backend: String): ModelState =
-        modelStates.getOrPut(backend) { ModelState(initial = true) }
+    private fun modelState(backend: String, harness: String = Harnesses.CLAUDE): ModelState =
+        modelStates.getOrPut(stateKey(backend, harness)) { ModelState(initial = true) }
 
     /** 主机 [backend] 上新对话的默认值；还没读到时为 null。 */
-    fun claudeDefaults(backend: String): ClaudeDefaults? = modelStates[backend]?.defaults
+    fun claudeDefaults(backend: String, harness: String = Harnesses.CLAUDE): ClaudeDefaults? =
+        modelStates[stateKey(backend, harness)]?.defaults
 
     /**
      * 主机 [backend] 上 Claude Code 的默认权限模式（settings.json 没设时是逐项确认）；还没读到时为 null。
      * 核心还没推来对话的状态（新对话还没打开）、或核心读不到默认值时，输入栏显示它（[Conversation.shownPermissionMode]）。
      */
-    fun defaultPermissionMode(backend: String): String? =
-        claudeDefaults(backend)?.let { it.permissionMode ?: "default" }
+    fun defaultPermissionMode(backend: String, harness: String = Harnesses.CLAUDE): String? =
+        claudeDefaults(backend, harness)?.let { it.permissionMode ?: "default" }
 
     /** 读到或改了主机 [backend] 上 Claude Code 的默认值；正在读的那次作废。在主线程上调用。 */
-    fun updateClaudeDefaults(backend: String, defaults: ClaudeDefaults) {
-        val state = modelState(backend)
+    fun updateClaudeDefaults(
+        backend: String,
+        defaults: ClaudeDefaults,
+        harness: String = Harnesses.CLAUDE,
+    ) {
+        val state = modelState(backend, harness)
         state.readingDefaults = null
         state.defaults = defaults
     }
@@ -270,15 +280,20 @@ class ConversationHub(val platform: HubPlatform) {
      * 重读主机 [backend] 上的模型来源和 Claude Code 的默认值：侧栏正看着的那台在环境就绪时、换过去时读（输入栏要显示它的默认权限模式），
      * 设置首页上还没读过的主机读一次，打开一台主机的页面时重读那台（默认值可能在终端里改过）。那台正在读就不再读；读不到就照旧。在主线程上调用。
      */
-    fun refreshClaudeDefaults(backend: String) {
-        refreshModelOptions(backend)
-        readClaudeDefaults(backend)
+    fun refreshClaudeDefaults(
+        backend: String,
+        harness: String = settings.defaultHarness(backend),
+    ) {
+        refreshModelOptions(backend, harness)
+        readClaudeDefaults(backend, harness)
     }
 
-    private fun readClaudeDefaults(backend: String) {
-        if (modelStates[backend]?.readingDefaults != null || shell(backend) == null) return
+    private fun readClaudeDefaults(backend: String, harness: String = Harnesses.CLAUDE) {
+        val key = stateKey(backend, harness)
+        if (modelStates[key]?.readingDefaults != null || shell(backend) == null) return
         readOnce(
             backend,
+            harness,
             "zeta-defaults",
             ClaudeConfigCore::defaults,
             ModelState::readingDefaults,
@@ -293,19 +308,21 @@ class ConversationHub(val platform: HubPlatform) {
      */
     private fun <T : Any> readOnce(
         backend: String,
+        harness: String,
         name: String,
         read: (ClaudeConfigCore) -> T,
         pending: KMutableProperty1<ModelState, Any?>,
         accept: ModelState.(T) -> Unit,
     ) {
-        val state = modelState(backend)
+        val key = stateKey(backend, harness)
+        val state = modelState(backend, harness)
         val request = Any()
         pending.set(state, request)
-        val config = accounts(backend).config
+        val config = accounts(backend, harness).config
         thread(name = name, isDaemon = true) {
             val result = runCatching { read(config) }.getOrNull()
             main.post {
-                if (modelStates[backend] === state && pending.get(state) === request) {
+                if (modelStates[key] === state && pending.get(state) === request) {
                     pending.set(state, null)
                     if (result != null) state.accept(result)
                 }
@@ -335,7 +352,7 @@ class ConversationHub(val platform: HubPlatform) {
         val there = liveConversations.filter { it.backend == host.id }
         openedFromActivity.removeAll(there.mapNotNullTo(HashSet()) { it.sessionId })
         releaseHost(host.id)
-        quotas.remove(host.id)?.close()
+        quotas.keys.filter { hostOfKey(it) == host.id }.forEach { quotas.remove(it)?.close() }
         if (host.via == RemoteHost.Via.Debian) closeDebianMasters(listOf(host.target))
     }
 
@@ -345,7 +362,17 @@ class ConversationHub(val platform: HubPlatform) {
         val shown = current
         val session = shown.sessionId ?: return
         if (shown.backend == id)
-            replaceCurrent(Conversation(this, shown.cwd, session, shown.title, null, backend = id))
+            replaceCurrent(
+                Conversation(
+                    this,
+                    shown.cwd,
+                    session,
+                    shown.title,
+                    null,
+                    backend = id,
+                    harness = shown.harness,
+                ),
+            )
     }
 
     /** 远程主机 [id] 上的对话 Zeta 都放开（进程留给那台的闲置超时），断开对话用的 serve 连接：改连法、断开时。 */
@@ -406,10 +433,14 @@ class ConversationHub(val platform: HubPlatform) {
      * Claude Code 升级而变，按模型存的默认思考强度要以正开着的进程报的为准。还没起过进程的主机没有，见 [modelOptions]；删主机时一起删。 截图和测试经它直接摆出清单。
      */
     var models: Map<String, List<ModelOption>>
-        get() = modelStates.mapValues { it.value.harness }.filterValues { it.isNotEmpty() }
+        get() =
+            modelStates
+                .filterKeys { '#' !in it }
+                .mapValues { it.value.harness }
+                .filterValues { it.isNotEmpty() }
         set(value) {
-            modelStates.forEach { (backend, state) ->
-                if (backend !in value) state.harness = emptyList()
+            modelStates.forEach { (key, state) ->
+                if ('#' !in key && key !in value) state.harness = emptyList()
             }
             value.forEach { (backend, list) -> modelState(backend).harness = list }
         }
@@ -418,81 +449,130 @@ class ConversationHub(val platform: HubPlatform) {
      * 设备 [backend] 模型状态现在的版本：会话打开时在请求线程上记下它（[rememberHarnessModels]），状态作废后旧会话随后推来的清单不能填回去。 还没有状态时是
      * null，见 [isCurrentModelEpoch]。
      */
-    fun modelEpoch(backend: String): Any? = modelStates[backend]
+    fun modelEpoch(backend: String, harness: String = Harnesses.CLAUDE): Any? =
+        modelStates[stateKey(backend, harness)]
 
     /** 先前记下的版本 [epoch]（[modelEpoch]）还是设备 [backend] 现在的：状态没作废过。 */
-    fun isCurrentModelEpoch(backend: String, epoch: Any?): Boolean {
-        val state = modelStates[backend]
+    fun isCurrentModelEpoch(
+        backend: String,
+        epoch: Any?,
+        harness: String = Harnesses.CLAUDE,
+    ): Boolean {
+        val state = modelStates[stateKey(backend, harness)]
         return state === epoch || (epoch == null && state?.initial != false)
     }
 
-    fun usesRelayModels(backend: String): Boolean = modelStates[backend]?.source?.relay != null
+    fun usesRelayModels(backend: String, harness: String = Harnesses.CLAUDE): Boolean =
+        modelStates[stateKey(backend, harness)]?.source?.relay != null
 
-    fun modelSourceChanging(backend: String): Boolean = modelStates[backend]?.changing == true
+    fun modelSourceChanging(backend: String, harness: String = Harnesses.CLAUDE): Boolean =
+        modelStates[stateKey(backend, harness)]?.changing == true
 
     /** 还没读过设备 [backend] 的模型来源时读一次；读过就沿用，来源变没变由聊天页进入时的 [refreshClaudeDefaults] 核对。 */
-    fun ensureModelSource(backend: String) {
-        if (modelStates[backend]?.source == null) refreshModelOptions(backend)
+    fun ensureModelSource(backend: String, harness: String = Harnesses.CLAUDE) {
+        if (modelStates[stateKey(backend, harness)]?.source == null)
+            refreshModelOptions(backend, harness)
     }
 
-    fun defaultModel(backend: String): String? = modelStates[backend]?.defaultModel
+    fun defaultModel(backend: String, harness: String = Harnesses.CLAUDE): String? =
+        modelStates[stateKey(backend, harness)]?.defaultModel
 
     /** 设备上实际报的清单。不把订阅别名当作中转的模型。 */
-    fun reportedModelOptions(backend: String): List<ModelOption> {
-        val state = modelStates[backend] ?: return emptyList()
+    fun reportedModelOptions(
+        backend: String,
+        harness: String = Harnesses.CLAUDE,
+    ): List<ModelOption> {
+        val state = modelStates[stateKey(backend, harness)] ?: return emptyList()
         return when {
             state.changing -> emptyList()
             state.source?.relay != null -> state.relayOptions
-            else -> state.harness
+            state.harness.isNotEmpty() -> state.harness
+            Harnesses.normalize(harness) == Harnesses.AGY -> state.sourceOptions
+            else -> emptyList()
         }
     }
 
-    fun modelOptions(backend: String): List<ModelOption> {
-        val reported = reportedModelOptions(backend)
-        return if (usesRelayModels(backend) || modelSourceChanging(backend)) reported
-        else reported.ifEmpty { FallbackModels }
+    fun modelOptions(backend: String, harness: String = Harnesses.CLAUDE): List<ModelOption> {
+        val normalized = Harnesses.normalize(harness)
+        val reported = reportedModelOptions(backend, normalized)
+        return when {
+            usesRelayModels(backend, normalized) || modelSourceChanging(backend, normalized) ->
+                reported
+            reported.isEmpty() -> fallbackModels(normalized)
+            normalized == Harnesses.AGY &&
+                reported.none { it.value == Conversation.DEFAULT_MODEL } ->
+                AgyFallbackModels + reported
+            else -> reported
+        }
     }
 
     /** 设备 [backend] 上能选模型 [value]（null 是跟随默认）：来源不在切换中，选的在它现在的清单（[modelOptions]）里。 */
-    fun modelSelectable(backend: String, value: String?): Boolean =
-        !modelSourceChanging(backend) &&
-            (value == null || modelOptions(backend).any { it.value == value })
+    fun modelSelectable(
+        backend: String,
+        value: String?,
+        harness: String = Harnesses.CLAUDE,
+    ): Boolean =
+        !modelSourceChanging(backend, harness) &&
+            (value == null || modelOptions(backend, harness).any { it.value == value })
 
-    fun refreshModelOptions(backend: String) {
-        if (modelStates[backend]?.readingSource != null || !usable(backend)) return
-        readOnce(backend, "zeta-models", ClaudeConfigCore::modelSource, ModelState::readingSource) {
-            acceptModelSource(backend, this, it)
+    fun refreshModelOptions(backend: String, harness: String = Harnesses.CLAUDE) {
+        val key = stateKey(backend, harness)
+        if (modelStates[key]?.readingSource != null || !usable(backend)) return
+        readOnce(
+            backend,
+            harness,
+            "zeta-models",
+            ClaudeConfigCore::modelSource,
+            ModelState::readingSource,
+        ) {
+            acceptModelSource(backend, harness, this, it)
         }
     }
 
     /** 读到了设备 [backend] 的模型来源 [source]：和 [state] 原来的不是同一个中转时，原来的清单、默认值都不能沿用，换新状态重读默认值。 */
-    private fun acceptModelSource(backend: String, state: ModelState, source: ModelSource) {
+    private fun acceptModelSource(
+        backend: String,
+        harness: String,
+        state: ModelState,
+        source: ModelSource,
+    ) {
+        val key = stateKey(backend, harness)
         val previous = state.source
         val target =
             if (previous != null && previous.relay != source.relay)
-                ModelState().also { modelStates[backend] = it }
+                ModelState().also { modelStates[key] = it }
             else state
         target.source = source
         target.sourceChanged = false
-        if (target !== state) readClaudeDefaults(backend)
+        if (target !== state) readClaudeDefaults(backend, harness)
     }
 
     /** 切换账号/中转或修改正在用的中转后，两种清单及默认值都不能沿用。 */
     internal fun accountSourceChanged(backend: String, service: AccountService) {
-        if (accountServices[backend] === service) resetModels(backend)
+        val key = stateKey(backend, service.harness)
+        if (accountServices[key] === service) resetModels(backend, service.harness)
     }
 
     /** 设备 [backend] 的模型来源变了：状态整个换成新的（读到新来源前算切换中），[reread] 时马上重读。在主线程上调用。 */
-    private fun resetModels(backend: String, reread: Boolean = true) {
+    private fun resetModels(
+        backend: String,
+        harness: String = Harnesses.CLAUDE,
+        reread: Boolean = true,
+    ) {
         if (backend !in backends) return
-        modelStates[backend] = ModelState(sourceChanged = true)
-        if (reread) refreshClaudeDefaults(backend)
+        modelStates[stateKey(backend, harness)] = ModelState(sourceChanged = true)
+        if (reread) refreshClaudeDefaults(backend, harness)
     }
 
-    internal fun rememberHarnessModels(backend: String, epoch: Any?, reported: List<ModelOption>) {
-        if (backend !in backends || !isCurrentModelEpoch(backend, epoch)) return
-        if (usesRelayModels(backend) || reported.isEmpty()) return
-        val state = modelState(backend)
+    internal fun rememberHarnessModels(
+        backend: String,
+        epoch: Any?,
+        reported: List<ModelOption>,
+        harness: String = Harnesses.CLAUDE,
+    ) {
+        if (backend !in backends || !isCurrentModelEpoch(backend, epoch, harness)) return
+        if (usesRelayModels(backend, harness) || reported.isEmpty()) return
+        val state = modelState(backend, harness)
         if (state.harness != reported) state.harness = reported
     }
 
@@ -522,12 +602,20 @@ class ConversationHub(val platform: HubPlatform) {
     private val accountServices = HashMap<String, AccountService>()
 
     /** 主机 [backend] 上登录着的账号的订阅额度（那台上的对话共用）：各台登录的可能是不同的账号，各记各的。在主线程上调用。 */
-    fun quota(backend: String): QuotaService =
-        quotas.getOrPut(backend) { QuotaService(this, backend) }
+    fun quota(backend: String, harness: String = Harnesses.CLAUDE): QuotaService {
+        val normalized = Harnesses.normalize(harness)
+        return quotas.getOrPut(stateKey(backend, normalized)) {
+            QuotaService(this, backend, normalized)
+        }
+    }
 
-    /** 主机 [backend] 上 claude-switch 管着的 Claude 账号，和切换账号。在主线程上调用。 */
-    fun accounts(backend: String): AccountService =
-        accountServices.getOrPut(backend) { AccountService(this, backend) }
+    /** 主机 [backend] 上的账号与中转服务。在主线程上调用。 */
+    fun accounts(backend: String, harness: String = Harnesses.CLAUDE): AccountService {
+        val normalized = Harnesses.normalize(harness)
+        return accountServices.getOrPut(stateKey(backend, normalized)) {
+            AccountService(this, backend, normalized)
+        }
+    }
 
     private var shown by mutableStateOf(false)
 
@@ -586,7 +674,15 @@ class ConversationHub(val platform: HubPlatform) {
     private val main = MainHandler()
 
     private fun blank(backend: String = this.backend, cwd: String = defaultCwd(backend)) =
-        Conversation(this, cwd, sessionId = null, title = "", historyFile = null, backend = backend)
+        Conversation(
+            this,
+            cwd,
+            sessionId = null,
+            title = "",
+            historyFile = null,
+            backend = backend,
+            harness = settings.defaultHarness(backend),
+        )
 
     /** 不在眼前时答完了一轮、用户还没点开看的会话；只记在内存里，应用进程结束就没了。 */
     private val unread = mutableStateListOf<String>()
@@ -676,14 +772,18 @@ class ConversationHub(val platform: HubPlatform) {
         val before = settings.remoteHosts.associateBy { it.id }
         settings.remoteHosts = hosts
         // 删掉的设备的模型状态在 onRemoteHostsChanged 里删；新加的从一份新状态开始，不认还没状态时打开的会话
-        hosts.filter { it.id !in before }.forEach { modelStates[it.id] = ModelState() }
+        hosts
+            .filter { it.id !in before }
+            .forEach {
+                Harnesses.ALL.forEach { h -> modelStates[stateKey(it.id, h)] = ModelState() }
+            }
         hosts
             .filter { host ->
                 before[host.id]?.let {
                     it.connected != host.connected || it.target != host.target || it.via != host.via
                 } == true
             }
-            .forEach { resetModels(it.id) }
+            .forEach { host -> Harnesses.ALL.forEach { h -> resetModels(host.id, h) } }
         onRemoteHostsChanged()
     }
 
@@ -700,11 +800,14 @@ class ConversationHub(val platform: HubPlatform) {
             if (current.backend !in ids) current = blank()
             platform.prunePhones()
         }
-        modelStates.keys.retainAll(ids)
-        quotas.filterKeys { it !in ids }.values.forEach(QuotaService::close)
-        quotas.keys.retainAll(ids)
-        accountServices.keys.retainAll(ids)
-        settings.remoteClaude = settings.remoteClaude.filterKeys { HostKeys.hostOf(it) in ids }
+        modelStates.keys.retainAll { hostOfKey(it) in ids }
+        quotas.filterKeys { hostOfKey(it) !in ids }.values.forEach(QuotaService::close)
+        quotas.keys.retainAll { hostOfKey(it) in ids }
+        accountServices.keys.retainAll { hostOfKey(it) in ids }
+        settings.remoteClaude =
+            settings.remoteClaude.filterKeys {
+                HostKeys.hostOf(it) == Backends.LOCAL || HostKeys.hostOf(it) in ids
+            }
         platform.hostsRemoved(ids)
         ssh.retain(
             settings.remoteHosts
@@ -771,7 +874,9 @@ class ConversationHub(val platform: HubPlatform) {
      * 直连的主机上的对话不受影响。在主线程上调用。
      */
     fun dropConversations() {
-        backends.filter(::needsDebian).forEach { resetModels(it, reread = false) }
+        backends.filter(::needsDebian).forEach { id ->
+            Harnesses.ALL.forEach { h -> resetModels(id, h, reread = false) }
+        }
         val dropped = liveConversations.filter { needsDebian(it.backend) }
         dropped.forEach { it.leave() }
         parked.removeAll(dropped)
@@ -821,6 +926,7 @@ class ConversationHub(val platform: HubPlatform) {
             summary.title.ifBlank { summary.shownPreview.take(40) },
             summary.file,
             backend = summary.backend,
+            harness = summary.harness,
         )
 
     /**
@@ -839,6 +945,7 @@ class ConversationHub(val platform: HubPlatform) {
                 historyFile = null,
                 backend = source.backend,
                 fork = Conversation.Fork(source, turnItemId),
+                harness = source.harness,
             ),
         )
     }
@@ -1037,6 +1144,11 @@ class ConversationHub(val platform: HubPlatform) {
                 .filterNot { it.id == Conversation.DEFAULT_MODEL }
                 .distinctBy { it.id }
                 .map { ModelOption(it.id, it.title, "") }
+        }
+
+        /** config.models.read 直接报出的模型列表（如 Antigravity CLI 的 `agy models`）。 */
+        val sourceOptions by derivedStateOf {
+            source?.models.orEmpty().distinctBy { it.id }.map { ModelOption(it.id, it.title, "") }
         }
     }
 

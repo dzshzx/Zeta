@@ -35,7 +35,10 @@ struct BackgroundTasksView: View {
                 ForEach(chats, id: \.key) { chat in
                     Button { open(.session(backend: chat.backend, id: chat.id)) } label: {
                         VStack(alignment: .leading, spacing: 2) {
-                            Text(chat.title.isEmpty ? chat.id : chat.title).lineLimit(1)
+                            HStack(spacing: 4) {
+                                Text(chat.title.isEmpty ? chat.id : chat.title).lineLimit(1)
+                                if chat.isAgy { HarnessBadge() }
+                            }
                             Text(describe(chat)).font(.caption).foregroundStyle(.secondary)
                         }
                     }

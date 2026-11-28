@@ -6,6 +6,7 @@ import (
 	"errors"
 	"os"
 	"os/exec"
+	"regexp"
 	"strings"
 	"sync"
 	"time"
@@ -87,6 +88,73 @@ func systemClaudeUpdateMethod(e *env, _ oneShotParams) (any, error) {
 	}
 	lines := strings.Split(out, "\n")
 	reply := versionReply(claudeVersion(e))
+	reply["before"] = versionReply(before)["version"]
+	reply["ok"] = code == 0
+	reply["output"] = strings.Join(lines[max(0, len(lines)-claudeOutputLines):], "\n")
+	return reply, nil
+}
+
+var (
+	agyUpdating sync.Mutex
+	agySemverRe = regexp.MustCompile(`\d+\.\d+\.\d+(?:[-+][A-Za-z0-9._-]+)?`)
+)
+
+func agyCommand(e *env, timeout time.Duration, args ...string) (string, int, error) {
+	ctx, cancel := context.WithTimeout(context.Background(), timeout)
+	defer cancel()
+	cmd := exec.CommandContext(ctx, "bash", append([]string{"-lc", `PATH="$PATH:$HOME/.local/bin"; exec "${ZETA_AGY_BIN:-agy}" "$@"`, "zeta-agy"}, args...)...)
+	home := e.home
+	if home == "" {
+		home = "/"
+	}
+	cmd.Dir = home
+	cmd.Env = append(os.Environ(), "HOME="+home)
+	var out bytes.Buffer
+	cmd.Stdout, cmd.Stderr = &out, &out
+	err := cmd.Run()
+	text := strings.TrimSpace(out.String())
+	if ctx.Err() != nil {
+		return text, -1, locales.Err("errClaudeUpdateTimeout")
+	}
+	var exit *exec.ExitError
+	if errors.As(err, &exit) {
+		return text, exit.ExitCode(), nil
+	}
+	return text, 0, err
+}
+
+func agyVersion(e *env) string {
+	out, code, err := agyCommand(e, claudeVersionTimeout, "--version")
+	if err != nil || code != 0 || out == "" {
+		return ""
+	}
+	if m := agySemverRe.FindString(out); m != "" {
+		return m
+	}
+	for _, field := range strings.Fields(out) {
+		if strings.ToLower(field) != "agy" {
+			return strings.Trim(field, "(),")
+		}
+	}
+	return ""
+}
+
+func systemAgyMethod(e *env, _ oneShotParams) (any, error) {
+	return versionReply(agyVersion(e)), nil
+}
+
+func systemAgyUpdateMethod(e *env, _ oneShotParams) (any, error) {
+	if !agyUpdating.TryLock() {
+		return nil, locales.Err("errAgyUpdating")
+	}
+	defer agyUpdating.Unlock()
+	before := agyVersion(e)
+	out, code, err := agyCommand(e, claudeUpdateTimeout, "update")
+	if err != nil {
+		return nil, err
+	}
+	lines := strings.Split(out, "\n")
+	reply := versionReply(agyVersion(e))
 	reply["before"] = versionReply(before)["version"]
 	reply["ok"] = code == 0
 	reply["output"] = strings.Join(lines[max(0, len(lines)-claudeOutputLines):], "\n")

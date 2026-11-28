@@ -648,8 +648,8 @@ fun workIcon(running: WorkStep?): ImageVector =
         else -> ZetaIcons.Lightbulb
     }
 
-/** 发起子代理的工具。Task 是 Agent 的旧名。 */
-private val SubagentTools = setOf("Agent", "Task")
+/** 发起子代理的工具。Task 是 Agent 的旧名，invoke_subagent 是 Antigravity 的子代理工具。 */
+private val SubagentTools = setOf("Agent", "Task", "invoke_subagent")
 
 @Composable
 fun WorkStepRow(step: WorkStep, onOpenSubagent: ((String) -> Unit)?) {

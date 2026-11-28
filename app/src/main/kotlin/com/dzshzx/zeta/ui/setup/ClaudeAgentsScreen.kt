@@ -19,6 +19,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.dzshzx.zeta.core.ConversationHub
+import com.dzshzx.zeta.core.Harnesses
 import com.dzshzx.zeta.core.claude.Subagent
 import com.dzshzx.zeta.core.claude.SubagentDraft
 import com.dzshzx.zeta.core.clipLine
@@ -88,8 +89,13 @@ private val CommonTools: List<Pair<String, String>>
  * 自带的 general-purpose、Explore、Plan 等不在这个目录里，这里不列出。
  */
 @Composable
-internal fun ClaudeAgentsScreen(hub: ConversationHub, backend: String, onBack: () -> Unit) {
-    val client = rememberConfigClient(hub, backend)
+internal fun ClaudeAgentsScreen(
+    hub: ConversationHub,
+    backend: String,
+    onBack: () -> Unit,
+    harness: String = Harnesses.CLAUDE,
+) {
+    val client = rememberConfigClient(hub, backend, harness)
     val scope = rememberCoroutineScope()
     var agents by remember { mutableStateOf<List<Subagent>?>(null) }
     var notice by remember { mutableStateOf<ConfigNotice?>(null) }
@@ -205,6 +211,7 @@ internal fun ClaudeAgentsScreen(hub: ConversationHub, backend: String, onBack: (
         AgentEditor(
             hub = hub,
             backend = backend,
+            harness = harness,
             original = target.agent,
             onBack = { editor = null },
             onSaved = {
@@ -308,11 +315,12 @@ private val AgentName = Regex("[a-z0-9][a-z0-9-]{0,63}")
 private fun AgentEditor(
     hub: ConversationHub,
     backend: String,
+    harness: String,
     original: Subagent?,
     onBack: () -> Unit,
     onSaved: () -> Unit,
 ) {
-    val client = rememberConfigClient(hub, backend)
+    val client = rememberConfigClient(hub, backend, harness)
     val scope = rememberCoroutineScope()
     val commonNames = CommonTools.map { it.first }.toSet()
     var name by remember { mutableStateOf(original?.name.orEmpty()) }

@@ -226,6 +226,7 @@ func withBackend(u hostlink.SessionsUpdate, id string) hostlink.SessionsUpdate {
 	for i := range u.Upsert {
 		u.Upsert[i].Backend = id
 		s := &u.Upsert[i]
+		s.Harness = hostlink.NormalizeHarness(s.Harness)
 		s.Created = cmp.Or(s.Created, s.Updated)
 		s.Replied = cmp.Or(s.Replied, s.Created)
 		s.Rank = cmp.Or(s.Rank, float64(s.Created))

@@ -18,11 +18,19 @@ struct DeviceInfo: Decodable, Sendable, Identifiable, Hashable {
     /// 在用的中转名；used 是最要紧的额度窗口用了百分之几，没有时是 -1。
     let relay: String
     let used: Int
+    private let rawDefaultHarness: String?
 
     enum CodingKeys: String, CodingKey {
         case id, name, original, target, home, via, hostname, fingerprint, off, relay, used
         case customName = "custom_name"
         case defaultCwd = "default_cwd"
+        case rawDefaultHarness = "default_harness"
+    }
+
+    /// 这台设备新建对话默认用的工具，缺省回退 "claude"。
+    var defaultHarness: String {
+        guard let rawDefaultHarness, !rawDefaultHarness.isEmpty else { return Harness.claude }
+        return rawDefaultHarness
     }
 
     /// 首页那一行右边写的：断开、中转名或额度已用比例。

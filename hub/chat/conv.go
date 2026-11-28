@@ -9,6 +9,7 @@ import (
 
 	"github.com/dzshzx/Zeta/helper/coreapi"
 	"github.com/dzshzx/Zeta/helper/locales"
+	"github.com/dzshzx/Zeta/helper/sessionproto"
 	"github.com/dzshzx/Zeta/hub/chat/items"
 )
 
@@ -88,8 +89,20 @@ const (
 )
 
 func newConversation(client *Client, name string, spec Spec) *Conversation {
-	return &Conversation{client: client, name: name, api: client.api.Conv(name), spec: spec, watched: map[Target]any{},
-		wake: make(chan struct{})}
+	h := sessionproto.NormalizeHarness(spec.Harness)
+	if spec.Choices.Harness != nil {
+		h = sessionproto.NormalizeHarness(*spec.Choices.Harness)
+	}
+	spec.Harness = h
+	return &Conversation{client: client, name: name, api: client.api.Conv(name), spec: spec,
+		state: State{Harness: h}, watched: map[Target]any{}, wake: make(chan struct{})}
+}
+
+// CanSwitchHarness 报告这个对话是否尚未开始，仍可切换 CLI 工具。
+func (c *Conversation) CanSwitchHarness() bool {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	return c.state.CanSwitchHarness() && len(c.items) == 0
 }
 
 // Name 是这个对话在这条连接上的名字（conv）。
@@ -119,12 +132,20 @@ func (c *Conversation) open(ctx context.Context) error {
 	if c.state.Session != "" {
 		spec.Session = c.state.Session
 	}
+	if c.state.Harness != "" {
+		spec.Harness = c.state.Harness
+	}
 	key := ""
 	if c.forked && spec.Session == "" {
 		key = c.state.Key
 	}
 	c.mu.Unlock()
-	open := coreapi.OpenSpec{Session: spec.Session, File: spec.File, Key: key, Cwd: spec.Cwd, Title: spec.Title, Options: spec.Options, Choices: spec.Choices}
+	harness := ""
+	if sessionproto.NormalizeHarness(spec.Harness) == sessionproto.HarnessAgy {
+		harness = sessionproto.HarnessAgy
+	}
+	open := coreapi.OpenSpec{Session: spec.Session, File: spec.File, Key: key, Cwd: spec.Cwd, Title: spec.Title,
+		Harness: harness, Options: spec.Options, Choices: spec.Choices}
 	if err := c.api.Open(ctx, open); err != nil {
 		return err
 	}
@@ -197,6 +218,7 @@ func (c *Conversation) applyItems(line []byte) bool {
 	defer c.mu.Unlock()
 	if msg.Full {
 		c.items = msg.Items
+		c.state.hasItems = len(c.items) > 0
 		c.pending.Items = []ItemsChange{msg}
 		return true
 	}
@@ -208,6 +230,7 @@ func (c *Conversation) applyItems(line []byte) bool {
 		return false
 	}
 	c.items = next
+	c.state.hasItems = len(c.items) > 0
 	c.pending.Items = append(c.pending.Items, msg)
 	return true
 }

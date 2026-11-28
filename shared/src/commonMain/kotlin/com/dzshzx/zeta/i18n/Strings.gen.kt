@@ -5517,7 +5517,7 @@ object Strings {
     fun coreHostOffNote(): String = catalog.say("coreHostOffNote")
 
     /**
-     * 「那台设备上找不到 claude（登录 shell 的 PATH 里和 ~/.local/bin 都没有）」
+     * 「那台设备上找不到 claude 或 agy（登录 shell 的 PATH 里和 ~/.local/bin 都没有）」
      *
      * 检查远程设备时没找到 claude。 ¦
      */
@@ -16344,4 +16344,179 @@ object Strings {
      * 磁盘镜像转换的复制不到一分钟就做完。
      */
     fun setupImageLeftUnderMinute(): String = catalog.say("setupImageLeftUnderMinute")
+
+    /**
+     * 「安装 Antigravity CLI」
+     *
+     * 安装向导里安装 Antigravity CLI 那一步的标题。
+     */
+    fun coreInstallAgy(): String = catalog.say("coreInstallAgy")
+
+    /**
+     * 「安装 Claude Code」
+     *
+     * 在已有 Linux 环境里补装 Claude Code 时的维护卡片标题。
+     */
+    fun coreMaintainInstallClaude(): String = catalog.say("coreMaintainInstallClaude")
+
+    /**
+     * 「安装 Antigravity CLI」
+     *
+     * 在已有 Linux 环境里安装 Antigravity CLI 时的维护卡片标题。
+     */
+    fun coreMaintainInstallAgy(): String = catalog.say("coreMaintainInstallAgy")
+
+    /**
+     * 「更新 Antigravity CLI」
+     *
+     * 在 Linux 环境里更新 Antigravity CLI 时的维护卡片标题。
+     */
+    fun coreMaintainUpdateAgy(): String = catalog.say("coreMaintainUpdateAgy")
+
+    /**
+     * 「命令行工具」
+     *
+     * 安装向导里选择安装 Claude Code、Antigravity CLI 或两者都装的一行标题。
+     */
+    fun setupInstallCli(): String = catalog.say("setupInstallCli")
+
+    /**
+     * 「装好后也能在“Linux 环境”里补装另一个」
+     *
+     * 安装向导命令行工具选择行下面的小字说明。
+     */
+    fun setupInstallCliSummary(): String = catalog.say("setupInstallCliSummary")
+
+    /**
+     * 「两者都装」
+     *
+     * 安装向导同时安装 Claude Code 与 Antigravity CLI 的选项。
+     */
+    fun setupInstallCliBoth(): String = catalog.say("setupInstallCliBoth")
+
+    /**
+     * 「安装」
+     *
+     * Linux 环境页里未安装的 CLI（Claude Code 或 Antigravity CLI）的安装入口标题。
+     */
+    fun setupInstallNow(): String = catalog.say("setupInstallNow")
+
+    /**
+     * 「下载并运行官方安装脚本」
+     *
+     * Linux 环境页里安装 CLI 一行下面的说明。
+     */
+    fun setupInstallNowSummary(): String = catalog.say("setupInstallNowSummary")
+
+    /**
+     * 「登录 Antigravity 账号」
+     *
+     * Antigravity Google OAuth 登录页标题与安装完成后的登录按钮。
+     */
+    fun setupSignInAgy(): String = catalog.say("setupSignInAgy")
+
+    /**
+     * 「在浏览器里登录 Google 账号并同意授权，把跳转后的完整网址或授权码粘贴到下面。」
+     *
+     * Antigravity 登录页第一步下面的说明。
+     */
+    fun setupLoginStep1AgyFooter(): String = catalog.say("setupLoginStep1AgyFooter")
+
+    /**
+     * 「粘贴回调网址或授权码」
+     *
+     * Antigravity 登录页第二步输入框的占位提示。
+     */
+    fun setupLoginCodeAgyHint(): String = catalog.say("setupLoginCodeAgyHint")
+
+    /**
+     * 「切换工具」
+     *
+     * 新对话中切换 Claude Code 与 Antigravity 的无障碍说明。
+     */
+    fun chatSwitchHarness(): String = catalog.say("chatSwitchHarness")
+
+    /**
+     * 「更新步骤清单」
+     *
+     * Antigravity 的 update_steps 工具不带条目数时的一行标题。
+     */
+    fun chatToolUpdateSteps(): String = catalog.say("chatToolUpdateSteps")
+
+    /**
+     * 「更新步骤清单（{count} 项）」
+     *
+     * Antigravity 的 update_steps 工具带条目数时的一行标题。
+     */
+    fun chatToolUpdateStepsCount(count: Int): String = catalog.say("chatToolUpdateStepsCount", mapOf("count" to count))
+
+    /**
+     * 「管理后台任务」
+     *
+     * Antigravity 的 manage_task 工具没有具体动作时的一行标题。
+     */
+    fun chatToolManageTask(): String = catalog.say("chatToolManageTask")
+
+    /**
+     * 「后台任务：{action}」
+     *
+     * Antigravity 的 manage_task 工具带动作和任务编号时的一行标题。
+     */
+    fun chatToolManageTaskAction(action: String): String = catalog.say("chatToolManageTaskAction", mapOf("action" to action))
+
+    /**
+     * 「新对话默认工具」
+     *
+     * 设备设置页选择这台设备上新建对话默认使用 Claude Code 还是 Antigravity。
+     */
+    fun settingsHostDefaultHarness(): String = catalog.say("settingsHostDefaultHarness")
+
+    /**
+     * 「新建对话时默认使用的工具，未发送前仍可在对话页切换」
+     *
+     * 设备设置页“新对话默认工具”下面的说明。
+     */
+    fun settingsHostDefaultHarnessSummary(): String = catalog.say("settingsHostDefaultHarnessSummary")
+
+    /**
+     * 「Antigravity 配置」
+     *
+     * 设备设置页管理 Antigravity 规则、Skills、MCP、Subagent 与工具权限的分组标题。
+     */
+    fun settingsHostAgyConfig(): String = catalog.say("settingsHostAgyConfig")
+
+    /**
+     * 「改的是这台设备上 Antigravity CLI 自己的配置（~/.gemini），那边终端里的 agy 同样生效。」
+     *
+     * 设备设置页 Antigravity 配置分组下面的说明。
+     */
+    fun settingsHostAgyConfigFooter(): String = catalog.say("settingsHostAgyConfigFooter")
+
+    /**
+     * 「规则与指令」
+     *
+     * Antigravity 配置分组下对应规则文件与全局指令的入口标题。
+     */
+    fun settingsHostRules(): String = catalog.say("settingsHostRules")
+
+    /**
+     * 「账号、中转和额度保存在这台设备的 Antigravity 配置目录里，切换前会先结束空闲的对话进程。」
+     *
+     * Antigravity 账号与额度页账号分组下面的说明。
+     */
+    fun settingsAccountsAgyFooter(): String = catalog.say("settingsAccountsAgyFooter")
+
+    /**
+     * 「填写 Gemini API 兼容中转地址；留空则直连 Google 官方地址。」
+     *
+     * Antigravity 中转编辑页地址输入框下面的说明。
+     */
+    fun relayBaseUrlAgyFooter(): String = catalog.say("relayBaseUrlAgyFooter")
+
+    /**
+     * 「留空使用官方默认地址」
+     *
+     * Antigravity 中转编辑页地址输入框的占位提示。
+     */
+    fun relayBaseUrlOptionalHint(): String = catalog.say("relayBaseUrlOptionalHint")
 }

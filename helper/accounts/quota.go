@@ -85,9 +85,11 @@ func (w Window) LabelIn(lang string) string {
 	return locales.Msg{Key: w.LabelCode, Args: map[string]any{"scope": w.Scope}}.In(lang)
 }
 
-// labelOf 是窗口的名字：5 小时、每周 · 全部模型、每周 · Opus……；名字就是服务器给的原文时 Key 为空，raw 是它。
+// labelOf 是窗口的名字：5 小时、5 小时 · Gemini、每周 · 全部模型、每周 · Opus……；名字就是服务器给的原文时 Key 为空，raw 是它。
 func labelOf(w Window) (said locales.Msg, raw string) {
 	switch {
+	case (w.Group == "session" || strings.HasPrefix(w.Kind, "session")) && w.Scope != "":
+		return locales.M("quotaSessionScoped", "scope", w.Scope), ""
 	case w.Kind == "session" || (w.Group == "session" && w.Scope == ""):
 		return locales.M("quotaSession"), ""
 	case w.Kind == "weekly_all":

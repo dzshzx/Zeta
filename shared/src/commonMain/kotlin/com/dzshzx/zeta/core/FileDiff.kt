@@ -84,7 +84,9 @@ data class FileChange(
 }
 
 /** 会改文件、能画成对比的工具。 */
-val FileEditTools = setOf("Edit", "MultiEdit", "Write")
+val FileEditTools = setOf("Edit", "MultiEdit", "Write", "edit_file", "write_file")
+
+private val WriteToolNames = setOf("Write", "write_file")
 
 /** zeta-helper 截断过长字符串时加的尾巴（不分语言）；只在步骤标着 clipped 时去掉它，不靠它认截断。 */
 private const val ClipMarker = "\n…"
@@ -100,63 +102,86 @@ fun fileChangeOf(
     clipped: Boolean = false,
 ): FileChange? {
     if (name !in FileEditTools || input == null) return null
-    val path = input.str("file_path") ?: return null
+    val path = input.str("file_path") ?: input.str("Path") ?: return null
     if (patch != null && (patch.hunks.isNotEmpty() || patch.created)) {
-        return when {
-            name == "Write" && patch.created -> writeAsNewFile(path, input, clipped)
-            name == "Write" ->
-                FileChange(path, FileChange.Kind.Overwrite, patch.hunks, numbered = true)
-            else ->
-                FileChange(
-                    path,
-                    FileChange.Kind.Edit,
-                    patch.hunks,
-                    numbered = true,
-                    replaceAll = input.bool("replace_all") == true,
-                )
-        }
+        return patchedFileChange(name, path, input, patch, clipped)
     }
     return when (name) {
         // 还不知道是不是新建：先当作整份新内容显示，结果到了再换成真实对比
-        "Write" -> writeAsNewFile(path, input, clipped)
-        "Edit" -> {
-            val old = unclip(input.str("old_string") ?: return null, clipped)
-            val new = unclip(input.str("new_string") ?: return null, clipped)
-            FileChange(
-                path,
-                FileChange.Kind.Edit,
-                LineDiff.hunks(old.first, new.first),
-                numbered = false,
-                truncated = old.second || new.second,
-                replaceAll = input.bool("replace_all") == true,
-            )
-        }
-        "MultiEdit" -> {
-            var truncated = false
-            val hunks =
-                (input["edits"] as? JsonArray).orEmpty().flatMap { element ->
-                    val edit = element as? JsonObject ?: return@flatMap emptyList()
-                    val old = unclip(edit.str("old_string").orEmpty(), clipped)
-                    val new = unclip(edit.str("new_string").orEmpty(), clipped)
-                    truncated = truncated || old.second || new.second
-                    LineDiff.hunks(old.first, new.first)
-                }
-            if (hunks.isEmpty()) null
-            else
-                FileChange(
-                    path,
-                    FileChange.Kind.Edit,
-                    hunks,
-                    numbered = false,
-                    truncated = truncated,
-                )
-        }
+        "Write",
+        "write_file" -> writeAsNewFile(path, input, clipped)
+        "Edit",
+        "edit_file" -> singleEditChange(path, input, clipped, name == "edit_file")
+        "MultiEdit" -> multiEditChange(path, input, clipped)
         else -> null
     }
 }
 
+private fun patchedFileChange(
+    name: String,
+    path: String,
+    input: JsonObject,
+    patch: EditPatch,
+    clipped: Boolean,
+): FileChange? =
+    when {
+        name in WriteToolNames && patch.created -> writeAsNewFile(path, input, clipped)
+        name in WriteToolNames ->
+            FileChange(path, FileChange.Kind.Overwrite, patch.hunks, numbered = true)
+        else ->
+            FileChange(
+                path,
+                FileChange.Kind.Edit,
+                patch.hunks,
+                numbered = true,
+                replaceAll = name == "edit_file" || input.bool("replace_all") == true,
+            )
+    }
+
+private fun singleEditChange(
+    path: String,
+    input: JsonObject,
+    clipped: Boolean,
+    defaultReplaceAll: Boolean,
+): FileChange? {
+    val oldRaw = input.str("old_string") ?: input.str("Target") ?: return null
+    val newRaw = input.str("new_string") ?: input.str("Replacement") ?: return null
+    val old = unclip(oldRaw, clipped)
+    val new = unclip(newRaw, clipped)
+    return FileChange(
+        path,
+        FileChange.Kind.Edit,
+        LineDiff.hunks(old.first, new.first),
+        numbered = false,
+        truncated = old.second || new.second,
+        replaceAll = defaultReplaceAll || input.bool("replace_all") == true,
+    )
+}
+
+private fun multiEditChange(path: String, input: JsonObject, clipped: Boolean): FileChange? {
+    var truncated = false
+    val hunks =
+        (input["edits"] as? JsonArray).orEmpty().flatMap { element ->
+            val edit = element as? JsonObject ?: return@flatMap emptyList()
+            val old = unclip(edit.str("old_string").orEmpty(), clipped)
+            val new = unclip(edit.str("new_string").orEmpty(), clipped)
+            truncated = truncated || old.second || new.second
+            LineDiff.hunks(old.first, new.first)
+        }
+    return if (hunks.isEmpty()) null
+    else
+        FileChange(
+            path,
+            FileChange.Kind.Edit,
+            hunks,
+            numbered = false,
+            truncated = truncated,
+        )
+}
+
 private fun writeAsNewFile(path: String, input: JsonObject, clipped: Boolean): FileChange? {
-    val (content, truncated) = unclip(input.str("content") ?: return null, clipped)
+    val raw = input.str("content") ?: input.str("Content") ?: return null
+    val (content, truncated) = unclip(raw, clipped)
     val lines = splitLines(content)
     val hunk =
         DiffHunk(

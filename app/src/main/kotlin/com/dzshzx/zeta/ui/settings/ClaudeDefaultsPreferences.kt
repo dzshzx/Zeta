@@ -12,6 +12,7 @@ import androidx.compose.ui.platform.LocalContext
 import com.dzshzx.zeta.core.Conversation
 import com.dzshzx.zeta.core.ConversationHub
 import com.dzshzx.zeta.core.EffortLevels
+import com.dzshzx.zeta.core.Harnesses
 import com.dzshzx.zeta.core.ModelOption
 import com.dzshzx.zeta.core.claude.ClaudeConfigCore
 import com.dzshzx.zeta.core.claude.ClaudeDefaults
@@ -49,18 +50,19 @@ private val notRead: String
 private fun rememberDefaultsWriter(
     hub: ConversationHub,
     backend: String,
+    harness: String = Harnesses.CLAUDE,
 ): (ClaudeConfigCore.() -> ClaudeDefaults) -> Unit {
-    val client = rememberConfigClient(hub, backend)
+    val client = rememberConfigClient(hub, backend, harness)
     val scope = rememberCoroutineScope()
     val context = LocalContext.current
     return { change ->
-        val epoch = hub.modelEpoch(backend)
+        val epoch = hub.modelEpoch(backend, harness)
         scope.runConfig({ client.change() }) { result ->
             result
                 .onSuccess {
-                    if (hub.isCurrentModelEpoch(backend, epoch) && backend in hub.backends)
-                        hub.updateClaudeDefaults(backend, it)
-                    else if (backend in hub.backends) hub.refreshClaudeDefaults(backend)
+                    if (hub.isCurrentModelEpoch(backend, epoch, harness) && backend in hub.backends)
+                        hub.updateClaudeDefaults(backend, it, harness)
+                    else if (backend in hub.backends) hub.refreshClaudeDefaults(backend, harness)
                 }
                 .onFailure {
                     Toast.makeText(
@@ -76,11 +78,15 @@ private fun rememberDefaultsWriter(
 
 /** 「默认模型」由核心按来源写入；跟随是清除当前来源的覆盖。 */
 @Composable
-internal fun DefaultModelPreference(hub: ConversationHub, backend: String) {
-    val write = rememberDefaultsWriter(hub, backend)
-    val defaults = hub.claudeDefaults(backend)
-    val changing = hub.modelSourceChanging(backend)
-    val choices = modelChoices(hub.modelOptions(backend))
+internal fun DefaultModelPreference(
+    hub: ConversationHub,
+    backend: String,
+    harness: String = Harnesses.CLAUDE,
+) {
+    val write = rememberDefaultsWriter(hub, backend, harness)
+    val defaults = hub.claudeDefaults(backend, harness)
+    val changing = hub.modelSourceChanging(backend, harness)
+    val choices = modelChoices(hub.modelOptions(backend, harness))
     FollowDropdownPreference(
         title = Strings.settingsDefaultsModel(),
         // 「默认」就是不设，和跟随那一项合成一项
@@ -89,12 +95,12 @@ internal fun DefaultModelPreference(hub: ConversationHub, backend: String) {
         value = defaults?.model?.takeIf { it != Conversation.DEFAULT_MODEL },
         unknown = ::readableModelId,
         followLabel =
-            if (hub.usesRelayModels(backend)) Strings.commonFollowClaudeCode()
+            if (hub.usesRelayModels(backend, harness)) Strings.commonFollowClaudeCode()
             else Strings.settingsDefaultsModelBuiltin(),
         summary = notRead.takeIf { defaults == null || changing },
         enabled = defaults != null && !changing,
     ) { value ->
-        if (hub.modelSelectable(backend, value)) write { setDefaultModel(value) }
+        if (hub.modelSelectable(backend, value, harness)) write { setDefaultModel(value) }
     }
 }
 
@@ -107,9 +113,13 @@ internal val CompactWindows: List<Long> =
  * （终端里改的）时照样列出来。已经在跑的对话下次起进程时生效。
  */
 @Composable
-internal fun CompactWindowPreference(hub: ConversationHub, backend: String) {
-    val write = rememberDefaultsWriter(hub, backend)
-    val defaults = hub.claudeDefaults(backend)
+internal fun CompactWindowPreference(
+    hub: ConversationHub,
+    backend: String,
+    harness: String = Harnesses.CLAUDE,
+) {
+    val write = rememberDefaultsWriter(hub, backend, harness)
+    val defaults = hub.claudeDefaults(backend, harness)
     FollowDropdownPreference(
         title = Strings.settingsDefaultsContextWindow(),
         choices = CompactWindows.map { it.toString() to formatTokens(it) },
@@ -125,13 +135,17 @@ internal fun CompactWindowPreference(hub: ConversationHub, backend: String) {
 
 /** 「默认权限模式」：settings.json 的 permissions.defaultMode。 */
 @Composable
-internal fun DefaultPermissionModePreference(hub: ConversationHub, backend: String) {
-    val write = rememberDefaultsWriter(hub, backend)
-    val defaults = hub.claudeDefaults(backend)
+internal fun DefaultPermissionModePreference(
+    hub: ConversationHub,
+    backend: String,
+    harness: String = Harnesses.CLAUDE,
+) {
+    val write = rememberDefaultsWriter(hub, backend, harness)
+    val defaults = hub.claudeDefaults(backend, harness)
     FollowDropdownPreference(
         title = Strings.settingsDefaultsMode(),
         choices = PermissionModes,
-        value = hub.defaultPermissionMode(backend),
+        value = hub.defaultPermissionMode(backend, harness),
         unknown = ::permissionModeLabel,
         followLabel = null,
         summary = notRead.takeIf { defaults == null },
@@ -143,8 +157,13 @@ internal fun DefaultPermissionModePreference(hub: ConversationHub, backend: Stri
 
 /** 「默认思考强度」：摘要列出各模型的设置，点开逐个模型改（[DefaultEffortScreen]）。 */
 @Composable
-internal fun DefaultEffortEntry(hub: ConversationHub, backend: String, onOpen: () -> Unit) {
-    val defaults = hub.claudeDefaults(backend)
+internal fun DefaultEffortEntry(
+    hub: ConversationHub,
+    backend: String,
+    harness: String = Harnesses.CLAUDE,
+    onOpen: () -> Unit,
+) {
+    val defaults = hub.claudeDefaults(backend, harness)
     ArrowPreference(
         title = Strings.settingsDefaultsEffort(),
         summary = defaults?.let(::effortSummary) ?: notRead,
@@ -159,16 +178,29 @@ internal fun DefaultEffortEntry(hub: ConversationHub, backend: String, onOpen: (
  * 里已有的模型；当前对话也在这台主机上时，同时让它把进程起好来要清单（和输入斜杠命令时一样，不产生请求）。 没设过的旧版本模型收在「更多模型」一行后面，点了才列出来。
  */
 @Composable
-internal fun DefaultEffortScreen(hub: ConversationHub, backend: String, onBack: () -> Unit) {
-    val write = rememberDefaultsWriter(hub, backend)
-    val defaults = hub.claudeDefaults(backend)
-    val models = hub.reportedModelOptions(backend)
-    val relay = hub.usesRelayModels(backend)
+internal fun DefaultEffortScreen(
+    hub: ConversationHub,
+    backend: String,
+    onBack: () -> Unit,
+    harness: String = Harnesses.CLAUDE,
+) {
+    val write = rememberDefaultsWriter(hub, backend, harness)
+    val defaults = hub.claudeDefaults(backend, harness)
+    val models = hub.reportedModelOptions(backend, harness)
+    val relay = hub.usesRelayModels(backend, harness)
+    val isAgy = Harnesses.normalize(harness) == Harnesses.AGY
     val waiting = models.isEmpty() && !relay
     var showOlder by remember { mutableStateOf(false) }
-    val changing = hub.modelSourceChanging(backend)
-    LaunchedEffect(hub, backend, waiting, changing) {
-        if (waiting && !changing && hub.current.backend == backend) hub.current.prepare()
+    val changing = hub.modelSourceChanging(backend, harness)
+    LaunchedEffect(hub, backend, harness, waiting, changing) {
+        if (
+            waiting &&
+                !changing &&
+                hub.current.backend == backend &&
+                hub.current.harness == Harnesses.normalize(harness)
+        ) {
+            hub.current.prepare()
+        }
     }
     MiuixPage(title = Strings.settingsDefaultsEffort(), onBack = onBack) {
         item(key = "efforts") {
@@ -181,7 +213,7 @@ internal fun DefaultEffortScreen(hub: ConversationHub, backend: String, onBack: 
                     item { ArrowPreference(title = notRead, enabled = false) }
                 } else {
                     effortItems(
-                        effortRows(models, defaults, relay),
+                        effortRows(models, defaults, relay || isAgy),
                         showOlder,
                         { showOlder = true },
                         write,

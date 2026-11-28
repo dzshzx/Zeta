@@ -1,9 +1,14 @@
 package main
 
 import (
+	"maps"
+	"os"
+
 	"github.com/dzshzx/Zeta/helper/accounts"
+	"github.com/dzshzx/Zeta/helper/agyacct"
 	"github.com/dzshzx/Zeta/helper/conv"
 	"github.com/dzshzx/Zeta/helper/host"
+	"github.com/dzshzx/Zeta/helper/sessionproto"
 )
 
 // 对话（helper/conv）经 helper/host 起和接托管进程：这里把两边接起来。核心就在主机上，环境（HOME、ZETA_NAME）是自己的。
@@ -14,7 +19,8 @@ func (l hostLink) Stop() { l.Link.Stop() }
 
 func startHost(e *env) func(conv.StartOptions, conv.Events) (conv.Link, error) {
 	return func(o conv.StartOptions, ev conv.Events) (conv.Link, error) {
-		l, err := host.Start(host.StartOptions{Key: o.Key, Cwd: o.Cwd, Title: o.Title, Args: launchArgs(e.home, o.Args), Env: o.Env,
+		args, env := prepareHostLaunch(e, o)
+		l, err := host.Start(host.StartOptions{Key: o.Key, Cwd: o.Cwd, Title: o.Title, Args: args, Env: env,
 			OnJoin: o.OnJoin})
 		if err != nil {
 			return nil, err
@@ -22,6 +28,29 @@ func startHost(e *env) func(conv.StartOptions, conv.Events) (conv.Link, error) {
 		go pump(l, ev)
 		return hostLink{l}, nil
 	}
+}
+
+func prepareHostLaunch(e *env, o conv.StartOptions) ([]string, map[string]string) {
+	if o.Harness != sessionproto.HarnessAgy {
+		return launchArgs(e.home, o.Args), o.Env
+	}
+	env := maps.Clone(o.Env)
+	if env == nil {
+		env = map[string]string{}
+	}
+	env["ZETA_HARNESS"] = sessionproto.HarnessAgy
+	if exe, err := os.Executable(); err == nil && exe != "" {
+		env["ZETA_HELPER_BIN"] = exe
+	}
+	if e.agy != "" {
+		env["ZETA_AGY_DIR"] = e.agy
+	}
+	for k, v := range agyacct.ActiveRelayEnv(e.home) {
+		if env[k] == "" {
+			env[k] = v
+		}
+	}
+	return o.Args, env
 }
 
 // launchArgs 是交给 claude 的参数：切换记录指着中转（claude-switch 的非账号目标）时前面加上 --settings <那份设置>，

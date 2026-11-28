@@ -9,6 +9,8 @@ import (
 	"slices"
 	"strings"
 	"sync"
+
+	"github.com/dzshzx/Zeta/helper/sessionproto"
 )
 
 // 斜杠命令（conv.state 的 commands）：Claude Code 在 initialize 的应答里给，核心滤掉 __ 开头的内部命令，按工作目录记下这台主机上
@@ -48,20 +50,39 @@ func (s *CommandStore) load() {
 	}
 }
 
-// Recall 是工作目录 cwd 上次拿到的命令；没有时用这台主机上最近拿到的那份（用户级的命令和技能各目录都一样），都没有时为 nil。
+const agyCommandPrefix = "agy\x00"
+
+func commandBucketKey(harness, cwd string) string {
+	if sessionproto.NormalizeHarness(harness) == sessionproto.HarnessAgy {
+		return agyCommandPrefix + cwd
+	}
+	return cwd
+}
+
+func sameCommandHarness(bucketKey, harness string) bool {
+	isAgy := sessionproto.NormalizeHarness(harness) == sessionproto.HarnessAgy
+	return strings.HasPrefix(bucketKey, agyCommandPrefix) == isAgy
+}
+
+// Recall 是工作目录 cwd 上次拿到的 Claude 斜杠命令。
 func (s *CommandStore) Recall(cwd string) json.RawMessage {
+	return s.RecallFor(sessionproto.HarnessClaude, cwd)
+}
+
+// RecallFor 是引擎 harness 在工作目录 cwd 上次拿到的命令；没有时用同一引擎最近拿到的那份。
+func (s *CommandStore) RecallFor(harness, cwd string) json.RawMessage {
 	if s == nil {
 		return nil
 	}
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	s.load()
-	if e := s.byCwd[cwd]; e != nil {
+	if e := s.byCwd[commandBucketKey(harness, cwd)]; e != nil {
 		return e.Commands
 	}
 	var newest *commandEntry
-	for _, e := range s.byCwd {
-		if newest == nil || e.Seq > newest.Seq {
+	for k, e := range s.byCwd {
+		if sameCommandHarness(k, harness) && (newest == nil || e.Seq > newest.Seq) {
 			newest = e
 		}
 	}
@@ -71,11 +92,17 @@ func (s *CommandStore) Recall(cwd string) json.RawMessage {
 	return newest.Commands
 }
 
-// Remember 记下工作目录 cwd 刚拿到的命令 list，写进文件；和记着的一样时不写。
+// Remember 记下工作目录 cwd 刚拿到的 Claude 斜杠命令 list。
 func (s *CommandStore) Remember(cwd string, list json.RawMessage) {
+	s.RememberFor(sessionproto.HarnessClaude, cwd, list)
+}
+
+// RememberFor 记下引擎 harness 在工作目录 cwd 刚拿到的命令 list，写进文件；和记着的一样时不写。
+func (s *CommandStore) RememberFor(harness, cwd string, list json.RawMessage) {
 	if s == nil || len(list) == 0 {
 		return
 	}
+	key := commandBucketKey(harness, cwd)
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	s.load()
@@ -83,10 +110,10 @@ func (s *CommandStore) Remember(cwd string, list json.RawMessage) {
 	for _, e := range s.byCwd {
 		newest = max(newest, e.Seq)
 	}
-	if e := s.byCwd[cwd]; e != nil && bytes.Equal(e.Commands, list) && e.Seq == newest {
+	if e := s.byCwd[key]; e != nil && bytes.Equal(e.Commands, list) && e.Seq == newest {
 		return
 	}
-	s.byCwd[cwd] = &commandEntry{Commands: list, Seq: newest + 1}
+	s.byCwd[key] = &commandEntry{Commands: list, Seq: newest + 1}
 	for len(s.byCwd) > commandsKept {
 		oldest := ""
 		for k, e := range s.byCwd {

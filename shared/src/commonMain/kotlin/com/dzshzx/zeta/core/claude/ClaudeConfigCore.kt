@@ -1,6 +1,7 @@
 package com.dzshzx.zeta.core.claude
 
 import com.dzshzx.zeta.core.ConversationHub
+import com.dzshzx.zeta.core.Harnesses
 import com.dzshzx.zeta.core.ServeError
 import com.dzshzx.zeta.core.arr
 import com.dzshzx.zeta.core.bool
@@ -31,13 +32,22 @@ import kotlinx.serialization.json.putJsonObject
  * 出错时抛 [ServeError]，message 是核心给的中文说明（不含 Token）。全是阻塞调用，别在主线程上用。
  */
 class ClaudeConfigCore(
+    val harness: String = Harnesses.CLAUDE,
     /** 发一个请求：方法、参数、最多等多久；ok 时返回 result（同 [com.dzshzx.zeta.core.ServeRequests.call]）。 */
     private val call: (method: String, params: JsonObject, timeoutMs: Long) -> JsonElement?,
 ) {
+    constructor(
+        call: (method: String, params: JsonObject, timeoutMs: Long) -> JsonElement?,
+    ) : this(Harnesses.CLAUDE, call)
+
     companion object {
-        /** 主机 [backend] 上的 Claude Code 配置。 */
-        fun of(hub: ConversationHub, backend: String) =
-            ClaudeConfigCore { method, params, timeoutMs ->
+        /** 主机 [backend] 上指定 [harness] 的配置。 */
+        fun of(
+            hub: ConversationHub,
+            backend: String,
+            harness: String = Harnesses.CLAUDE,
+        ) =
+            ClaudeConfigCore(Harnesses.normalize(harness)) { method, params, timeoutMs ->
                 hub.callCore(backend, method, params, timeoutMs)
             }
 
@@ -57,7 +67,15 @@ class ClaudeConfigCore(
         method: String,
         timeoutMs: Long = TIMEOUT_MS,
         params: JsonObjectBuilder.() -> Unit = {},
-    ): JsonElement? = call(method, buildJsonObject(params), timeoutMs)
+    ): JsonElement? =
+        call(
+            method,
+            buildJsonObject {
+                if (Harnesses.normalize(harness) == Harnesses.AGY) put("harness", Harnesses.AGY)
+                params()
+            },
+            timeoutMs,
+        )
 
     private fun result(
         method: String,

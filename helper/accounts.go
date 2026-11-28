@@ -1,6 +1,7 @@
 package main
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
 	"errors"
@@ -10,7 +11,11 @@ import (
 	"time"
 
 	"github.com/dzshzx/Zeta/helper/accounts"
+	"github.com/dzshzx/Zeta/helper/agyacct"
+	"github.com/dzshzx/Zeta/helper/sessionproto"
 )
+
+var agyLogins agyacct.LoginFlow
 
 // 核心的账号与额度：accounts.* 和 quota.* 方法都从 handleAccounts 进（挂在核心上，见 corehandlers.go），方法与参数见 docs/core.md「账号与额度」。
 //
@@ -22,6 +27,8 @@ const accountsTimeout = 2 * time.Minute
 
 // accountsParams 是请求里和 id、method 平级的参数；整行交来也行，多的键不管。
 type accountsParams struct {
+	// Harness 是目标引擎（claude 或 agy），缺省为 claude。
+	Harness string `json:"harness"`
 	// Name 是 accounts.switch、accounts.remove 的账号名，accounts.switch、accounts.relay_save、accounts.relay_remove 的中转名。
 	Name string `json:"name"`
 	// Program 是 claude-switch 相对家目录的路径（客户端带的版本，同 HelperProgram.relativePath）；不给时在 ~/.cache/<包>/bin 下找。
@@ -57,11 +64,18 @@ func handleAccounts(ctx context.Context, e *env, method, lang string, params jso
 			return nil, errors.New("bad params: " + err.Error())
 		}
 	}
+	harness := sessionproto.NormalizeHarness(p.Harness)
 	if strings.HasPrefix(method, "quota.") {
+		if harness == sessionproto.HarnessAgy {
+			return handleAgyQuota(ctx, e, method, p)
+		}
 		return handleQuota(e, method, p)
 	}
 	if !strings.HasPrefix(method, "accounts.") {
 		return nil, errors.New("unknown method: " + method)
+	}
+	if harness == sessionproto.HarnessAgy {
+		return handleAgyAccounts(ctx, e, method, lang, p)
 	}
 	if method == "accounts.login_cancel" { // 不用 claude-switch：这台上没装它时也要能取消
 		logins.cancel()
@@ -138,29 +152,122 @@ func handleQuota(e *env, method string, p accountsParams) (any, error) {
 	if relay := accounts.CurrentRelay(e.home); relay != "" {
 		switch method {
 		case "quota.get":
-			return map[string]any{"snapshot": nil, "relay": relay}, nil
+			return map[string]any{"harness": sessionproto.HarnessClaude, "snapshot": nil, "relay": relay}, nil
 		case "quota.usage":
-			return map[string]any{"snapshot": nil, "fresh": false, "relay": relay}, nil
+			return map[string]any{"harness": sessionproto.HarnessClaude, "snapshot": nil, "fresh": false, "relay": relay}, nil
 		case "quota.event":
-			return map[string]any{"snapshot": nil, "changed": false, "relay": relay}, nil
+			return map[string]any{"harness": sessionproto.HarnessClaude, "snapshot": nil, "changed": false, "relay": relay}, nil
 		}
 	}
 	switch method {
 	case "quota.get":
 		snap, err := store.Get()
-		return map[string]any{"snapshot": snap, "relay": ""}, err
+		return map[string]any{"harness": sessionproto.HarnessClaude, "snapshot": snap, "relay": ""}, err
 	case "quota.usage":
 		snap, fresh, err := store.Usage(p.Response, now)
 		if err != nil {
 			return nil, err
 		}
-		return map[string]any{"snapshot": snap, "fresh": fresh}, nil
+		return map[string]any{"harness": sessionproto.HarnessClaude, "snapshot": snap, "fresh": fresh}, nil
 	case "quota.event":
 		snap, changed, err := store.Event(p.Info, now)
 		if err != nil {
 			return nil, err
 		}
-		return map[string]any{"snapshot": snap, "changed": changed}, nil
+		return map[string]any{"harness": sessionproto.HarnessClaude, "snapshot": snap, "changed": changed}, nil
+	}
+	return nil, errors.New("unknown method: " + method)
+}
+
+func handleAgyAccounts(ctx context.Context, e *env, method, lang string, p accountsParams) (any, error) {
+	if method == "accounts.login_cancel" {
+		agyLogins.Cancel()
+		return struct{}{}, nil
+	}
+	ctx, cancel := context.WithTimeout(ctx, accountsTimeout)
+	defer cancel()
+	h := &agyacct.Host{Home: e.home, Lang: lang, Package: e.name, EndIdle: func() { endIdleHosted(e) }}
+	var (
+		result any
+		err    error
+	)
+	switch method {
+	case "accounts.list":
+		result, err = h.List(ctx)
+	case "accounts.switch":
+		err = h.Switch(ctx, p.Name)
+		result = struct{}{}
+	case "accounts.save":
+		var name string
+		name, err = h.Save(ctx)
+		result = map[string]string{"name": name}
+	case "accounts.prepare_login":
+		var name string
+		name, err = h.PrepareLogin(ctx)
+		result = map[string]string{"name": name}
+	case "accounts.login_start":
+		result, err = agyLogins.Start(ctx, h)
+	case "accounts.login_code":
+		result, err = agyLogins.Submit(ctx, h, p.Code)
+	case "accounts.remove":
+		err = h.Remove(ctx, p.Name)
+		result = struct{}{}
+	case "accounts.relay_save":
+		err = h.SaveRelay(ctx, accounts.RelayInput{Name: p.Name, BaseURL: p.BaseURL, Key: p.Key, Model: p.Model, Create: p.Create})
+		result = struct{}{}
+	case "accounts.relay_remove":
+		err = h.RemoveRelay(ctx, p.Name)
+		result = struct{}{}
+	case "accounts.relay_models":
+		var models []accounts.RelayModel
+		models, err = h.RelayModels(ctx, accounts.ModelsQuery{Name: p.Name, BaseURL: p.BaseURL, Key: p.Key})
+		result = map[string]any{"models": models}
+	default:
+		return nil, errors.New("unknown method: " + method)
+	}
+	if err != nil {
+		return nil, accountsError(err)
+	}
+	return result, nil
+}
+
+func handleAgyQuota(ctx context.Context, e *env, method string, p accountsParams) (any, error) {
+	store := agyacct.QuotaStore{Home: e.home}
+	now := time.Now()
+	if relay := agyacct.CurrentRelay(e.home); relay != "" {
+		switch method {
+		case "quota.get":
+			return map[string]any{"harness": sessionproto.HarnessAgy, "snapshot": nil, "relay": relay}, nil
+		case "quota.usage":
+			return map[string]any{"harness": sessionproto.HarnessAgy, "snapshot": nil, "fresh": false, "relay": relay}, nil
+		case "quota.event":
+			return map[string]any{"harness": sessionproto.HarnessAgy, "snapshot": nil, "changed": false, "relay": relay}, nil
+		}
+	}
+	switch method {
+	case "quota.get":
+		snap, err := store.Get()
+		return map[string]any{"harness": sessionproto.HarnessAgy, "snapshot": snap, "relay": ""}, err
+	case "quota.usage":
+		raw := p.Response
+		if len(bytes.TrimSpace(raw)) == 0 {
+			var err error
+			raw, err = agyacct.QueryUsageJSON(ctx, e.home)
+			if err != nil {
+				return nil, err
+			}
+		}
+		snap, fresh, err := store.Usage(raw, now)
+		if err != nil {
+			return nil, err
+		}
+		return map[string]any{"harness": sessionproto.HarnessAgy, "snapshot": snap, "fresh": fresh}, nil
+	case "quota.event":
+		snap, changed, err := store.Event(p.Info, now)
+		if err != nil {
+			return nil, err
+		}
+		return map[string]any{"harness": sessionproto.HarnessAgy, "snapshot": snap, "changed": changed}, nil
 	}
 	return nil, errors.New("unknown method: " + method)
 }
@@ -224,6 +331,64 @@ func (q *quotaSink) Usage(response json.RawMessage) {
 	}
 	if _, _, err := q.store.Usage(response, q.now()); err != nil {
 		log.Print("存额度（get_usage）：", err)
+	} else {
+		q.stored()
+	}
+}
+
+type agyQuotaSink struct {
+	home    string
+	store   agyacct.QuotaStore
+	now     func() time.Time
+	changed func()
+
+	mu        sync.Mutex
+	lastAsked time.Time
+}
+
+func newAgyQuotaSink(e *env, changed func()) *agyQuotaSink {
+	return &agyQuotaSink{home: e.home, store: agyacct.QuotaStore{Home: e.home}, now: time.Now, changed: changed}
+}
+
+func (q *agyQuotaSink) stored() {
+	if q.changed != nil {
+		q.changed()
+	}
+}
+
+func (q *agyQuotaSink) Subscribed() bool { return agyacct.CurrentRelay(q.home) == "" }
+
+func (q *agyQuotaSink) RateLimit(info json.RawMessage) {
+	if !q.Subscribed() {
+		return
+	}
+	if _, changed, err := q.store.Event(info, q.now()); err != nil {
+		log.Print("存 agy 额度（rate_limit_event）：", err)
+	} else if changed {
+		q.stored()
+	}
+}
+
+func (q *agyQuotaSink) ClaimQuery() bool {
+	if !q.Subscribed() {
+		return false
+	}
+	q.mu.Lock()
+	defer q.mu.Unlock()
+	now := q.now()
+	if !q.lastAsked.IsZero() && now.Sub(q.lastAsked) < autoQuotaEvery {
+		return false
+	}
+	q.lastAsked = now
+	return true
+}
+
+func (q *agyQuotaSink) Usage(response json.RawMessage) {
+	if !q.Subscribed() {
+		return
+	}
+	if _, _, err := q.store.Usage(response, q.now()); err != nil {
+		log.Print("存 agy 额度（get_usage）：", err)
 	} else {
 		q.stored()
 	}

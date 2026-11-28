@@ -17,9 +17,27 @@ data class EnvStatus(
     val gid: Int = 0,
     val home: String? = null,
     val claude: Boolean = false,
+    val agy: Boolean = false,
 ) {
     val complete: Boolean
-        get() = base && tools && user != null && claude
+        get() = base && tools && user != null && (claude || agy)
+}
+
+enum class InstallCli {
+    Claude,
+    Agy,
+    Both;
+
+    fun steps(): List<InstallStep> = buildList {
+        add(InstallStep.Check)
+        add(InstallStep.Download)
+        add(InstallStep.Extract)
+        add(InstallStep.Image)
+        add(InstallStep.Tools)
+        add(InstallStep.User)
+        if (this@InstallCli != Agy) add(InstallStep.Claude)
+        if (this@InstallCli != Claude) add(InstallStep.Agy)
+    }
 }
 
 enum class InstallStep(private val titleText: () -> String) {
@@ -29,7 +47,8 @@ enum class InstallStep(private val titleText: () -> String) {
     Image(Strings::coreInstallImage),
     Tools(Strings::coreInstallTools),
     User(Strings::coreInstallUser),
-    Claude(Strings::coreInstallClaude);
+    Claude(Strings::coreInstallClaude),
+    Agy(Strings::coreInstallAgy);
 
     /** 安装页上这一步的名字。 */
     val title: String
@@ -44,6 +63,7 @@ data class EnvHealth(
     val freeBytes: Long,
     val debian: String,
     val claude: String,
+    val agy: String = "",
     /** 可选工具的版本，没装是空的。 */
     val uv: String = "",
     val node: String = "",
@@ -154,6 +174,7 @@ class EnvInstaller(private val hub: ConversationHub, private val assets: (String
                 "base" -> status = status.copy(base = value == "1")
                 "tools" -> status = status.copy(tools = value == "1")
                 "claude" -> status = status.copy(claude = value == "1")
+                "agy" -> status = status.copy(agy = value == "1")
                 "user" ->
                     value
                         .split(":")
@@ -172,7 +193,7 @@ class EnvInstaller(private val hub: ConversationHub, private val assets: (String
         return status
     }
 
-    fun start(userName: String) {
+    fun start(userName: String, cli: InstallCli = InstallCli.Claude) {
         if (running) return
         running = true
         cancelled = false
@@ -183,7 +204,7 @@ class EnvInstaller(private val hub: ConversationHub, private val assets: (String
         hub.onActivityChanged()
         thread(name = "zeta-install", isDaemon = true) {
             val failure = runCatching {
-                install(userName)
+                install(userName, cli)
             }
                 .fold({ it }, { it.message ?: Strings.coreInstallInterrupted() })
             main.post {
@@ -193,6 +214,9 @@ class EnvInstaller(private val hub: ConversationHub, private val assets: (String
                     finished = true
                     step = null
                     detail = ""
+                    if (cli == InstallCli.Agy && !hub.settings.hasDefaultHarness(Backends.LOCAL)) {
+                        hub.settings.setDefaultHarness(Backends.LOCAL, Harnesses.AGY)
+                    }
                 } else if (!cancelled) {
                     error = failure
                 }
@@ -208,7 +232,7 @@ class EnvInstaller(private val hub: ConversationHub, private val assets: (String
     }
 
     /** 返回 null 表示全部完成，否则是失败原因。 */
-    private fun install(userName: String): String? {
+    private fun install(userName: String, cli: InstallCli): String? {
         val base = LinuxEnv.OWN_BASE
         val rootfs = LinuxEnv.OWN_ROOTFS
         val artifact =
@@ -260,14 +284,29 @@ class EnvInstaller(private val hub: ConversationHub, private val assets: (String
             }
         val ready = status(base)
         val user = ready.user ?: return Strings.coreInstallNoUser()
-        if (ready.claude) {
-            markDone(InstallStep.Claude)
-        } else {
-            val home = ready.home ?: "/home/$user"
-            val config = LinuxEnvConfig(rootfs, user, ready.uid, ready.gid, home, home)
-            runDebian(InstallStep.Claude, config, "claude")?.let {
-                return it
-            }
+        val home = ready.home ?: "/home/$user"
+        val config = LinuxEnvConfig(rootfs, user, ready.uid, ready.gid, home, home)
+        return installCliSteps(cli, ready, config)
+    }
+
+    private fun installCliSteps(
+        cli: InstallCli,
+        ready: EnvStatus,
+        config: LinuxEnvConfig,
+    ): String? {
+        if (cli != InstallCli.Agy) {
+            if (ready.claude) markDone(InstallStep.Claude)
+            else
+                runDebian(InstallStep.Claude, config, "claude")?.let {
+                    return it
+                }
+        }
+        if (cli != InstallCli.Claude) {
+            if (ready.agy) markDone(InstallStep.Agy)
+            else
+                runDebian(InstallStep.Agy, config, "install-agy")?.let {
+                    return it
+                }
         }
         return null
     }
@@ -363,12 +402,14 @@ class EnvInstaller(private val hub: ConversationHub, private val assets: (String
     fun health(config: LinuxEnvConfig): EnvHealth? {
         val script =
             """
-            for c in bash git rg fd curl jq sudo claude; do command -v ${'$'}c >/dev/null 2>&1 || echo "missing=${'$'}c"; done
+            for c in bash git rg fd curl jq sudo; do command -v ${'$'}c >/dev/null 2>&1 || echo "missing=${'$'}c"; done
+            command -v claude >/dev/null 2>&1 || command -v agy >/dev/null 2>&1 || [ -x "${'$'}HOME/.local/bin/agy" ] || echo "missing=claude"
             [ -d "${'$'}1" ] && [ -w "${'$'}1" ] && echo workspace=1
-            getent hosts api.anthropic.com >/dev/null 2>&1 && echo network=1
+            { getent hosts api.anthropic.com >/dev/null 2>&1 || getent hosts antigravity.google >/dev/null 2>&1; } && echo network=1
             echo "free=${'$'}(df -k / | awk 'NR==2 {print ${'$'}4}')"
             echo "debian=${'$'}(cat /etc/debian_version 2>/dev/null)"
             echo "claude=${'$'}(claude --version 2>/dev/null | head -n 1)"
+            echo "agy=${'$'}({ agy --version 2>/dev/null || "${'$'}HOME/.local/bin/agy" --version 2>/dev/null; } | head -n 1)"
             echo "uv=${'$'}(uv --version 2>/dev/null | head -n 1)"
             echo "node=${'$'}(node --version 2>/dev/null | head -n 1)"
             echo "go=${'$'}(go env GOVERSION 2>/dev/null | head -n 1)"
@@ -409,6 +450,7 @@ class EnvInstaller(private val hub: ConversationHub, private val assets: (String
             freeBytes = (value("free").toLongOrNull() ?: 0L) * 1024,
             debian = value("debian"),
             claude = value("claude").substringBefore(" ("),
+            agy = value("agy").removePrefix("agy ").substringBefore(" (").trim(),
             uv = value("uv").removePrefix("uv ").substringBefore(" ("),
             node = value("node").removePrefix("v"),
             go = value("go").removePrefix("go"),

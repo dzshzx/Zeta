@@ -24,7 +24,7 @@ import (
 // 清单的一项是 sessionproto.Todo，客户端照它解。
 
 // todoTools 是清单工具。
-var todoTools = map[string]bool{"TodoWrite": true, "TaskCreate": true, "TaskUpdate": true}
+var todoTools = map[string]bool{"TodoWrite": true, "TaskCreate": true, "TaskUpdate": true, "update_steps": true}
 
 // createdID 认 TaskCreate 的结果里给的编号。
 var createdID = regexp.MustCompile(`^Task #(\S+) created successfully`)
@@ -98,7 +98,38 @@ func (b *todoBoard) apply(s *transcript.Step) {
 		b.update(input)
 	case "TodoWrite":
 		b.written = todoWrite(input)
+	case "update_steps":
+		b.written = updateSteps(input)
 	}
+}
+
+func updateSteps(input map[string]any) []sessionproto.Todo {
+	all, _ := input["steps"].([]any)
+	list := []sessionproto.Todo{}
+	for i, v := range all {
+		item, _ := v.(map[string]any)
+		title := or(str(item, "title"), str(item, "content"))
+		if title == "" {
+			continue
+		}
+		list = append(list, sessionproto.Todo{
+			Key:        "step-" + strconv.Itoa(i),
+			Content:    title,
+			ActiveForm: title,
+			Status:     agyStepStatus(str(item, "status")),
+		})
+	}
+	return list
+}
+
+func agyStepStatus(s string) string {
+	switch s {
+	case "done", "skipped", sessionproto.TodoCompleted:
+		return sessionproto.TodoCompleted
+	case sessionproto.TodoInProgress:
+		return sessionproto.TodoInProgress
+	}
+	return sessionproto.TodoPending
 }
 
 func todoWrite(input map[string]any) []sessionproto.Todo {

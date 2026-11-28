@@ -14,7 +14,7 @@ struct ChatView: View {
     }
 
     private func subtitle(_ chat: ChatState) -> String {
-        [chat.device, chat.cwd].filter { !$0.isEmpty }.joined(separator: " · ")
+        [chat.isAgy ? "agy" : "", chat.device, chat.cwd].filter { !$0.isEmpty }.joined(separator: " · ")
     }
 
     @ViewBuilder

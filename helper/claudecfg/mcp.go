@@ -93,6 +93,9 @@ func (s *Store) mcpEntries(cwd string) []mcpEntry {
 }
 
 func (s *Store) scanMcp(cwd string) ([]mcpEntry, error) {
+	if s.IsAgy() {
+		return s.scanAgyMcp(cwd)
+	}
 	cwd = cmp.Or(cwd, s.Home())
 	claudeJSON, size, _ := readHead(s.Home()+"/.claude.json", 16<<20)
 	if int64(len(claudeJSON)) < size {
@@ -386,6 +389,9 @@ func mcpTarget(e mcpEntry) string {
 
 // McpStatus 逐个连接做健康检查（claude mcp list），可能要十几秒；它会把配置里的 stdio 服务器都起一遍（和每次开对话时一样）。
 func (s *Store) McpStatus(ctx context.Context, cwd string) (McpStatus, error) {
+	if s.IsAgy() {
+		return s.agyMcpStatus(ctx, cwd)
+	}
 	cwd = cmp.Or(cwd, s.Home())
 	entries, err := s.scanMcp(cwd)
 	if err != nil {
@@ -456,6 +462,9 @@ func secretsOf(cfg *object) []string {
 }
 
 func (s *Store) addJSON(ctx context.Context, cwd, scope, name string, cfg *object) error {
+	if s.IsAgy() {
+		return s.addAgyJSON(scope, name, cfg)
+	}
 	_, err := s.claude(ctx, defaultTimeout, cwd, []string{"mcp", "add-json", "-s", scope, name, "-"}, []byte(compactJSON(cfg)), secretsOf(cfg))
 	return err
 }
@@ -520,6 +529,9 @@ func (s *Store) RemoveMcp(ctx context.Context, scope, name, cwd string) error {
 	if !slices.Contains(mcpScopes, scope) {
 		return locales.Err("cfgMcpBadScope")
 	}
+	if s.IsAgy() {
+		return s.removeAgyMcp(scope, name)
+	}
 	_, err := s.claude(ctx, defaultTimeout, cmp.Or(cwd, s.Home()), []string{"mcp", "remove", "-s", scope, name}, nil, nil)
 	return err
 }
@@ -542,6 +554,9 @@ func (s *Store) entry(scope, name, cwd string) (mcpEntry, error) {
 func (s *Store) SetMcpToken(ctx context.Context, scope, name, cwd, token string) error {
 	if scope != "user" && scope != "local" {
 		return locales.Err("cfgMcpNotEditable")
+	}
+	if s.IsAgy() {
+		return s.setAgyMcpToken(scope, name, cwd, token)
 	}
 	cwd = cmp.Or(cwd, s.Home())
 	original, err := s.entry(scope, name, cwd)

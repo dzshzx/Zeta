@@ -26,7 +26,11 @@ sealed interface AppPage {
 
     /** 对话所在设备的设置；[permissionsCwd] 非空时打开工具权限页。 */
     @Serializable
-    data class ClaudeConfig(val backend: String, val permissionsCwd: String? = null) : AppPage
+    data class ClaudeConfig(
+        val backend: String,
+        val permissionsCwd: String? = null,
+        val harness: String = com.dzshzx.zeta.core.Harnesses.CLAUDE,
+    ) : AppPage
 
     @Serializable data object Linux : AppPage
 

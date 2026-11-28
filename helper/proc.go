@@ -86,7 +86,47 @@ func claudeArgv(pid int, known bool) ([][]byte, bool) {
 			return argv, true
 		}
 	}
+	if isAgyArgv(argv) {
+		return argv, true
+	}
 	return nil, false
+}
+
+// isAgyArgv 识别活着的 agy 会话进程（交互式 agy、agy acp，或 zeta-helper agy-bridge），排除短命令与 -p 单次调用。
+func isAgyArgv(argv [][]byte) bool {
+	var clean []string
+	for _, a := range argv {
+		if len(a) > 0 {
+			clean = append(clean, decodeString(a))
+		}
+	}
+	if len(clean) == 0 {
+		return false
+	}
+	if len(clean) >= 2 && clean[1] == "agy-bridge" {
+		return true
+	}
+	if baseName(clean[0]) != "agy" {
+		return false
+	}
+	if len(clean) >= 2 {
+		switch clean[1] {
+		case "mcp", "models", "update", "--version", "-v", "--help", "-h":
+			return false
+		case "acp":
+			return !hasArg(clean[2:], "--login")
+		}
+	}
+	return !hasArg(clean[1:], "-p")
+}
+
+func hasArg(args []string, target string) bool {
+	for _, a := range args {
+		if a == target {
+			return true
+		}
+	}
+	return false
 }
 
 // procExecing：命令行读出来是空的进程 pid 还不能算结束了。进程 exec 时内核先换上新的内存、再设参数区，

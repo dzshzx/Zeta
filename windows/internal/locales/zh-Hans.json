@@ -5638,5 +5638,115 @@
   "accountsRelayUrlNote": "要是 Anthropic Messages 协议的接入点；OpenAI 协议的上游请经能翻译的中转接入。",
   "@accountsRelayUrlNote": {
     "description": "中转编辑页：地址输入框下面的说明。"
+  },
+  "composerHarness": "对话工具",
+  "@composerHarness": {
+    "description": "新对话输入栏里切换 Claude Code 与 Antigravity 的按钮读屏名字。"
+  },
+  "sidebarAgyBadge": "Antigravity 对话",
+  "@sidebarAgyBadge": {
+    "description": "侧栏会话行上 agy 标记的读屏说明。"
+  },
+  "deviceDefaultHarness": "默认对话工具",
+  "@deviceDefaultHarness": {
+    "description": "设备设置页里选择这台设备新建对话默认用哪个命令行工具的一行标题。"
+  },
+  "deviceDefaultHarnessSummary": "在这台设备上新建对话时默认使用的命令行工具",
+  "@deviceDefaultHarnessSummary": {
+    "description": "设备设置页「新对话默认工具」一行的副标题说明。"
+  },
+  "deviceToolSwitch": "切换配置与账号的工具",
+  "@deviceToolSwitch": {
+    "description": "设备设置页切换 Claude Code 与 Antigravity 配置区的分段控件读屏名字。"
+  },
+  "claudecfgAgyConfigTitle": "Antigravity 配置",
+  "@claudecfgAgyConfigTitle": {
+    "description": "设备设置页 Antigravity 配置入口一组的标题。"
+  },
+  "claudecfgAgyConfigFooter": "读取和修改那台设备上的 ~/.gemini/config 与 ~/.gemini/antigravity-cli 配置。",
+  "@claudecfgAgyConfigFooter": {
+    "description": "设备设置页 Antigravity 配置入口一组底下的说明。"
+  },
+  "claudecfgAgyFooter": "闲置超时对这台设备上托管的进程生效；更新在那台主机上运行 agy update，进行中的对话不受影响。",
+  "@claudecfgAgyFooter": {
+    "description": "设备设置页 Antigravity 运行与版本更新一组底下的说明。"
+  },
+  "claudecfgAgyRules": "规则与指令",
+  "@claudecfgAgyRules": {
+    "description": "Antigravity 配置里的规则与全局指令入口和子页标题。"
+  },
+  "claudecfgAgyInstructionsFooter": "~/.gemini/config/rules/AGENTS.md，每次 Antigravity 对话都会载入的全局指令。",
+  "@claudecfgAgyInstructionsFooter": {
+    "description": "Antigravity 规则页里全局指令一组底下的说明。"
+  },
+  "claudecfgAgyWorkspaceRules": "工作区与规则文件",
+  "@claudecfgAgyWorkspaceRules": {
+    "description": "Antigravity 规则页里选择工作区或全局规则目录一组的标题。"
+  },
+  "claudecfgAgyWorkspaceRulesFooter": "所选工作区的 AGENTS.md（或 GEMINI.md）及规则目录下的 .md 规则文件。",
+  "@claudecfgAgyWorkspaceRulesFooter": {
+    "description": "Antigravity 规则页里工作区与规则文件一组底下的说明。"
+  },
+  "claudecfgAgyRulesFiles": "规则文件 · {count}",
+  "@claudecfgAgyRulesFiles": {
+    "description": "Antigravity 规则页里规则文件列表一组的标题，count 是文件数。",
+    "placeholders": {
+      "count": {
+        "type": "int",
+        "example": "3"
+      }
+    }
+  },
+  "claudecfgAgySkillsFooter": "~/.gemini/config/skills 与工作区 .agents/skills 下的技能，开关写入 skills.json。",
+  "@claudecfgAgySkillsFooter": {
+    "description": "Antigravity Skills 页底下的说明。"
+  },
+  "claudecfgAgyMcpFooter": "读取和修改 ~/.gemini/config/mcp_config.json 中的 MCP 服务器。",
+  "@claudecfgAgyMcpFooter": {
+    "description": "Antigravity MCP 服务器页底下的说明。"
+  },
+  "claudecfgAgyAgentsFooter": "~/.gemini/config/agents 下的自定义子代理定义（.md）。",
+  "@claudecfgAgyAgentsFooter": {
+    "description": "Antigravity Subagent 页底下的说明。"
+  },
+  "claudecfgAgyPermRuleHelp": "写工具名（如 run_command），或带前缀匹配的写法，如 run_command(git push:*)、read_file(./.env)、edit_file(src/**)。",
+  "@claudecfgAgyPermRuleHelp": {
+    "description": "Antigravity 工具权限添加规则对话框里的格式说明。"
+  },
+  "accountsAgyFooter": "切换或添加这台设备上 Antigravity CLI 的 Google 登录账号；切换前会先收起闲置的 Antigravity 对话进程。",
+  "@accountsAgyFooter": {
+    "description": "Antigravity 账号与额度页里账号一组底下的说明。"
+  },
+  "accountsAgyLoginFooter": "在浏览器中打开授权页面登录 Google 账号，完成后粘贴页面给出的授权码或完整回调网址（http://localhost:…/oauth-callback?code=…）。",
+  "@accountsAgyLoginFooter": {
+    "description": "Antigravity 添加账号时登录卡片底下的说明。"
+  },
+  "accountsAgyCode": "授权码或回调网址",
+  "@accountsAgyCode": {
+    "description": "Antigravity 登录输入框的占位字和读屏名字。"
+  },
+  "accountsAgyRelaysFooter": "使用 Gemini API Key 与自定义接入地址运行 Antigravity CLI；点击一行切换，使用中转时不显示订阅额度。",
+  "@accountsAgyRelaysFooter": {
+    "description": "Antigravity 账号页中转一组底下的说明。"
+  },
+  "accountsAgyRelayUrlNote": "填写兼容 Gemini API 的接入地址，配合 Gemini API Key 使用。",
+  "@accountsAgyRelayUrlNote": {
+    "description": "Antigravity 中转编辑页地址输入框底下的说明。"
+  },
+  "chatToolManageTask": "管理后台任务",
+  "@chatToolManageTask": {
+    "description": "聊天工具卡片：Antigravity 的 manage_task 工具标题。"
+  },
+  "chatToolSchedule": "定时调度",
+  "@chatToolSchedule": {
+    "description": "聊天工具卡片：Antigravity 的 schedule 工具标题。"
+  },
+  "chatToolSendMessage": "发送代理消息",
+  "@chatToolSendMessage": {
+    "description": "聊天工具卡片：Antigravity 的 send_message 工具标题。"
+  },
+  "chatToolWorkflow": "运行工作流",
+  "@chatToolWorkflow": {
+    "description": "聊天工具卡片：Antigravity 的 run_workflow 工具标题。"
   }
 }

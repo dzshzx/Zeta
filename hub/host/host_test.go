@@ -51,6 +51,10 @@ func (b *box) fakeClaude(t *testing.T) {
 	b.file(t, ".local/bin/claude", "#!/bin/sh\necho '2.1.330 (Claude Code)'\n", 0o755)
 }
 
+func (b *box) fakeAgy(t *testing.T) {
+	b.file(t, ".local/bin/agy", "#!/bin/sh\necho 'agy version 0.2.0'\n", 0o755)
+}
+
 // session 写一份最简单的会话记录。
 func (b *box) session(t *testing.T, id, text string) {
 	b.file(t, ".claude/projects/-w/"+id+".jsonl", `{"type":"user","cwd":"/w/proj","message":{"content":"`+text+`"}}`+"\n", 0o644)
@@ -85,8 +89,34 @@ func TestProbeReportsTheDevice(t *testing.T) {
 func TestProbeExplainsAMissingClaude(t *testing.T) {
 	b := newBox(t)
 	_, err := Probe(b.links, b.host.Target, "", "")
-	if err == nil || !strings.Contains(err.Error(), "找不到 claude") {
+	if err == nil || !strings.Contains(err.Error(), "未找到 Claude Code") {
 		t.Errorf("err %v", err)
+	}
+}
+
+func TestProbeSupportsAntigravity(t *testing.T) {
+	b := newBox(t)
+	b.fakeAgy(t)
+	f, err := Probe(b.links, b.host.Target, "", "")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if f.Claude != "" || f.Agy != "0.2.0" || f.DefaultHarness() != "agy" || strings.Join(f.InstalledHarnesses(), ",") != "agy" {
+		t.Fatalf("agy only: %+v", f)
+	}
+	if !strings.HasPrefix(f.Summary(), "Antigravity 0.2.0 · Linux ") {
+		t.Errorf("summary %q", f.Summary())
+	}
+	b.fakeClaude(t)
+	f, err = Probe(b.links, b.host.Target, "", "")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if f.Claude != "2.1.330" || f.Agy != "0.2.0" || f.DefaultHarness() != "claude" || strings.Join(f.InstalledHarnesses(), ",") != "claude,agy" {
+		t.Fatalf("both: %+v", f)
+	}
+	if !strings.HasPrefix(f.Summary(), "Claude Code 2.1.330 · Antigravity 0.2.0 · Linux ") {
+		t.Errorf("summary %q", f.Summary())
 	}
 }
 
@@ -100,7 +130,7 @@ func TestParseProbe(t *testing.T) {
 		{Code: sshlink.ConnectionFailed, Stderr: "x\nbroken pipe\n"}:                                     "broken pipe",
 		{Stdout: "zeta_home /h\nzeta_claude 2\nzeta_system Darwin arm64\n"}:                              "这台是 Darwin arm64",
 		{Stdout: "zeta_home /h\nzeta_claude 2\nzeta_system Linux riscv64\n"}:                             "这台是 Linux riscv64",
-		{Stdout: "zeta_home /h\nzeta_claude \nzeta_system Linux x86_64\n"}:                               "找不到 claude",
+		{Stdout: "zeta_home /h\nzeta_claude \nzeta_system Linux x86_64\n"}:                               "未找到 Claude Code",
 		{Stdout: "zeta_home \nzeta_claude 2\nzeta_system Linux x86_64\n", Stderr: "bash: no such thing"}: "bash: no such thing",
 	} {
 		if _, err := parseProbe(*r); err == nil || !strings.Contains(err.Error(), want) {

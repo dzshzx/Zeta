@@ -15,6 +15,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import com.dzshzx.zeta.core.ConversationHub
+import com.dzshzx.zeta.core.Harnesses
 import com.dzshzx.zeta.core.claude.BulkChange
 import com.dzshzx.zeta.core.claude.BulkPair
 import com.dzshzx.zeta.core.claude.ClaudeConfigCore
@@ -132,8 +133,9 @@ internal fun ToolPermissionsScreen(
     backend: String,
     onBack: () -> Unit,
     cwd: String = hub.defaultCwd(backend),
+    harness: String = Harnesses.CLAUDE,
 ) {
-    val client = rememberConfigClient(hub, backend)
+    val client = rememberConfigClient(hub, backend, harness)
     val scope = rememberCoroutineScope()
     val phoneTools = remember { PhoneToolCatalog.labels }
     // 这一页另要核心算手机工具 phone 整体和它每个工具的状态

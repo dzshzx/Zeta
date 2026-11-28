@@ -1,6 +1,7 @@
 package com.dzshzx.zeta.core.conv
 
 import androidx.compose.runtime.Immutable
+import com.dzshzx.zeta.core.Harnesses
 import com.dzshzx.zeta.core.PermissionReply
 import com.dzshzx.zeta.core.ServeError
 import com.dzshzx.zeta.core.ServeRequests
@@ -75,6 +76,7 @@ data class ConvSpec(
     val file: String? = null,
     val cwd: String = "",
     val title: String = "",
+    val harness: String = Harnesses.CLAUDE,
     val options: ConvOptions = ConvOptions(),
     val choices: ConvChoices = ConvChoices(),
 )
@@ -85,12 +87,14 @@ data class ConvSpec(
  */
 @Immutable
 data class ConvChoices(
+    val harness: String? = null,
     val model: String? = null,
     val effort: String? = null,
     val mode: String? = null,
     val hint: String? = null,
 ) {
     fun json(): JsonObject = buildJsonObject {
+        harness?.let { put("harness", it) }
         model?.let { put("model", it) }
         effort?.let { put("effort", it) }
         mode?.let { put("mode", it) }
@@ -246,6 +250,28 @@ class ConvClient(private val link: ServeRequests, internal val listener: ConvLis
     fun updateClaude(): ClaudeUpdate {
         val reply =
             link.call("system.claude_update", JsonObject(emptyMap()), CLAUDE_UPDATE_TIMEOUT_MS)
+                as? JsonObject ?: throw ServeError(Strings.coreConvNoUpdateReply())
+        return ClaudeUpdate(
+            ok = reply.bool("ok") == true,
+            before = reply.str("before"),
+            version = reply.str("version"),
+            output = reply.str("output").orEmpty(),
+        )
+    }
+
+    /** 这台主机上 Antigravity CLI 的版本（system.agy），没装时为 null。问不成时抛 [ServeError]。阻塞。 */
+    fun agyVersion(): String? =
+        (link.call("system.agy", JsonObject(emptyMap()), HOST_CALL_TIMEOUT_MS) as? JsonObject)
+            ?.str("version")
+            ?.ifBlank { null }
+
+    /**
+     * 在这台主机上更新 Antigravity CLI（system.agy_update），最多等 [CLAUDE_UPDATE_TIMEOUT_MS]。没跑成时抛
+     * [ServeError]。阻塞。
+     */
+    fun updateAgy(): ClaudeUpdate {
+        val reply =
+            link.call("system.agy_update", JsonObject(emptyMap()), CLAUDE_UPDATE_TIMEOUT_MS)
                 as? JsonObject ?: throw ServeError(Strings.coreConvNoUpdateReply())
         return ClaudeUpdate(
             ok = reply.bool("ok") == true,

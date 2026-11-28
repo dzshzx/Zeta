@@ -39,6 +39,11 @@ var agentModels = []option{
 	{"opus", fixed("Opus")}, {"haiku", fixed("Haiku")}, {"fable", fixed("Fable")},
 }
 
+var agyAgentModels = []option{
+	{"", locales.ClaudecfgAgentModelDefault}, {"inherit", locales.ClaudecfgAgentModelInherit},
+	{"flash_lite", fixed("Flash Lite")}, {"flash", fixed("Flash")}, {"pro", fixed("Pro")},
+}
+
 // fixed 是不分语言的说法（模型名）。
 func fixed(s string) func() string { return func() string { return s } }
 
@@ -50,10 +55,30 @@ var commonTools = []option{
 	{"NotebookEdit", locales.ClaudecfgToolNotebookEdit}, {"Skill", locales.ClaudecfgToolSkill},
 }
 
+var agyCommonTools = []option{
+	{"read_file", locales.ClaudecfgToolRead}, {"edit_file", locales.ClaudecfgToolEdit}, {"write_file", locales.ClaudecfgToolWrite},
+	{"find_by_name", locales.ClaudecfgToolGlob}, {"grep_search", locales.ClaudecfgToolGrep}, {"run_command", locales.ClaudecfgToolBash},
+	{"search_web", locales.ClaudecfgToolWebSearch},
+}
+
 var agentName = regexp.MustCompile(`^[a-z0-9][a-z0-9-]{0,63}$`)
 
-func agentModelLabel(model string) string {
-	for _, m := range agentModels {
+func (p *Page) agentToolList() []option {
+	if p.isAgy() {
+		return agyCommonTools
+	}
+	return commonTools
+}
+
+func (p *Page) agentModelList() []option {
+	if p.isAgy() {
+		return agyAgentModels
+	}
+	return agentModels
+}
+
+func (p *Page) agentModelLabel(model string) string {
+	for _, m := range p.agentModelList() {
 		if strings.EqualFold(m.value, model) {
 			return m.label()
 		}
@@ -61,11 +86,11 @@ func agentModelLabel(model string) string {
 	return model
 }
 
-func isCommonTool(name string) bool {
-	return slices.ContainsFunc(commonTools, func(t option) bool { return t.value == name })
+func isInToolList(list []option, name string) bool {
+	return slices.ContainsFunc(list, func(t option) bool { return t.value == name })
 }
 
-func draftOf(a *coreapi.Subagent) agentDraft {
+func draftOfTools(a *coreapi.Subagent, list []option) agentDraft {
 	d := agentDraft{allTools: true, checked: map[string]bool{}}
 	if a == nil {
 		return d
@@ -74,7 +99,7 @@ func draftOf(a *coreapi.Subagent) agentDraft {
 	d.allTools = a.Tools == nil
 	var others []string
 	for _, t := range a.Tools {
-		if isCommonTool(t) {
+		if isInToolList(list, t) {
 			d.checked[t] = true
 		} else {
 			others = append(others, t)
@@ -85,12 +110,12 @@ func draftOf(a *coreapi.Subagent) agentDraft {
 }
 
 // tools 是要写进文件的工具：勾选的常用工具按固定顺序，再加“其他工具”里用逗号分开的；nil 是全部工具。
-func (d agentDraft) tools() []string {
+func (d agentDraft) tools(list []option) []string {
 	if d.allTools {
 		return nil
 	}
 	out := []string{}
-	for _, t := range commonTools {
+	for _, t := range list {
 		if d.checked[t.value] {
 			out = append(out, t.value)
 		}
@@ -139,6 +164,9 @@ func (p *Page) agentsPage(c *ui.Context) {
 	})
 	body(c, "agents", func() {
 		footer := locales.ClaudecfgAgentsFooter()
+		if p.isAgy() {
+			footer = locales.ClaudecfgAgyAgentsFooter()
+		}
 		widget.Group(c, locales.ClaudecfgAgentsCount(len(a.list)), footer, func(l *widget.List) {
 			switch {
 			case !a.loaded:
@@ -153,7 +181,7 @@ func (p *Page) agentsPage(c *ui.Context) {
 					name = ag.File
 				}
 				ui.Column(c.Key(ag.File)).Children(func() {
-					entry(l, ag.File, name, clipLine(ag.Description, 90), agentModelLabel(ag.Model), true, func() { p.openAgent(&ag) })
+					entry(l, ag.File, name, clipLine(ag.Description, 90), p.agentModelLabel(ag.Model), true, func() { p.openAgent(&ag) })
 				})
 			}
 		})
@@ -161,14 +189,14 @@ func (p *Page) agentsPage(c *ui.Context) {
 }
 
 func (p *Page) openAgent(a *coreapi.Subagent) {
-	p.agents.editing, p.agents.draft, p.agents.problem = a, draftOf(a), ""
+	p.agents.editing, p.agents.draft, p.agents.problem = a, draftOfTools(a, p.agentToolList()), ""
 	p.push(viewAgent)
 }
 
 func (p *Page) saveAgent() {
 	a := &p.agents
 	d := a.draft
-	draft := coreapi.SubagentDraft{Name: strings.TrimSpace(d.name), Description: strings.TrimSpace(d.description), Model: d.model, Tools: d.tools(), Prompt: d.prompt}
+	draft := coreapi.SubagentDraft{Name: strings.TrimSpace(d.name), Description: strings.TrimSpace(d.description), Model: d.model, Tools: d.tools(p.agentToolList()), Prompt: d.prompt}
 	original := a.editing
 	a.saving, a.problem = true, ""
 	p.async(func(ctx context.Context) func() {
@@ -189,7 +217,8 @@ func (p *Page) agentPage(c *ui.Context) {
 	a := &p.agents
 	d := &a.draft
 	missing := d.missing()
-	dirty := a.editing == nil || !agentDraftEqual(*d, draftOf(a.editing))
+	toolsList := p.agentToolList()
+	dirty := a.editing == nil || !agentDraftEqual(*d, draftOfTools(a.editing, toolsList), toolsList)
 	title := locales.ClaudecfgAgentNew()
 	if a.editing != nil {
 		title = locales.ClaudecfgAgentEdit()
@@ -240,9 +269,9 @@ func (p *Page) agentPage(c *ui.Context) {
 	p.agentDialogs(c)
 }
 
-func agentDraftEqual(a, b agentDraft) bool {
+func agentDraftEqual(a, b agentDraft, list []option) bool {
 	return a.name == b.name && a.description == b.description && a.model == b.model && a.prompt == b.prompt &&
-		slices.Equal(a.tools(), b.tools())
+		slices.Equal(a.tools(list), b.tools(list))
 }
 
 // agentModelSection 选模型；文件里写的不在选项里时加在最后，原样保留。
@@ -250,7 +279,7 @@ func (p *Page) agentModelSection(c *ui.Context) {
 	d := &p.agents.draft
 	values := []string{}
 	labels := []string{}
-	for _, m := range agentModels {
+	for _, m := range p.agentModelList() {
 		values, labels = append(values, m.value), append(labels, m.label())
 	}
 	selected := slices.IndexFunc(values, func(v string) bool { return strings.EqualFold(v, d.model) })
@@ -276,7 +305,7 @@ func (p *Page) agentToolsSection(c *ui.Context) {
 		if d.allTools {
 			return
 		}
-		for _, tool := range commonTools {
+		for _, tool := range p.agentToolList() {
 			on := d.checked[tool.value]
 			row := widget.Row{Key: "tool-" + tool.value, Title: tool.label(), Summary: tool.value, End: func() { widget.MarkLook(c, widget.MarkCheck, on) }}
 			if !saving {

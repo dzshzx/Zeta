@@ -89,10 +89,25 @@ type Occupancy struct {
 
 // Occupancy.App 的取值里 Zeta 自己认的几个。
 const (
-	AppTerminal = "terminal" // 终端里的 Claude Code（登记的 entrypoint 是 cli）
+	AppTerminal = "terminal" // 终端里的 CLI（Claude Code 登记的 entrypoint 是 cli，或终端里的 agy）
+	AppAgy      = "agy"      // Antigravity 桌面端或后台服务占着会话
 	AppZeta     = "zeta"     // Zeta 正式版（和桌面版同一个包）托管的
 	AppZetaDev  = "zeta-dev" // Zeta 测试版托管的
 )
+
+// Harness 是会话和配置所属的 CLI 工具：Claude Code（默认）或 Antigravity CLI（agy）。
+const (
+	HarnessClaude = "claude"
+	HarnessAgy    = "agy"
+)
+
+// NormalizeHarness 把空串或不认识的值归一到默认的 claude，旧客户端不传 harness 时保持兼容。
+func NormalizeHarness(h string) string {
+	if strings.EqualFold(strings.TrimSpace(h), HarnessAgy) {
+		return HarnessAgy
+	}
+	return HarnessClaude
+}
 
 // Handoff 是把会话从别处接过来的结果：conv.handoff、sessions.handoff 的 result。
 type Handoff struct {

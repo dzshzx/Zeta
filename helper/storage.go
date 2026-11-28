@@ -345,6 +345,7 @@ var storagePlans = []struct {
 	{"claude-telemetry", func(ctx *storageCtx) *plan {
 		return planNamed(ctx, "telemetry", regexp.MustCompile(`^1p_failed_events\.(`+uuidText+`)\.[0-9a-f-]+\.json$`), false, false)
 	}},
+	{"agy-logs", planAgyLogs},
 	{"apt", planApt},
 	{"npm", planNpm},
 	{"pip", planPip},

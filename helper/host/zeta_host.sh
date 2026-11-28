@@ -116,6 +116,10 @@ stat_of() {
 held_elsewhere() {
   local f pid m
   local -a STAT
+  if [ "${ZETA_HARNESS:-claude}" = agy ]; then
+    held_elsewhere_agy "$1"
+    return $?
+  fi
   while read -r f; do
     pid=${f##*/}
     pid=${pid%.json}
@@ -126,6 +130,29 @@ held_elsewhere() {
     [ "${m%%/*}" = "${ZETA_NAME:-zeta}" ] && [ "$(host_session "${D%/*}/${m#*/}")" = "$1" ] && continue
     return 0
   done < <(grep -lsF "\"sessionId\":\"$1\"" "$HOME"/.claude/sessions/*.json)
+  return 1
+}
+
+held_elsewhere_agy() {
+  local agy_dir="${ZETA_AGY_DIR:-$HOME/.gemini/antigravity-cli}"
+  local lock_path="$agy_dir/presence/$1.lock"
+  local resolved fd pid target m
+  local -a STAT
+  resolved=$(readlink -f "$lock_path" 2>/dev/null) || resolved="$lock_path"
+  for fd in /proc/[0-9]*/fd/*; do
+    [ -L "$fd" ] || continue
+    target=$(readlink "$fd" 2>/dev/null) || continue
+    target=${target% (deleted)}
+    [ "$target" = "$lock_path" ] || [ "$target" = "$resolved" ] || continue
+    pid=${fd#/proc/}
+    pid=${pid%%/*}
+    [ "$pid" = "$$" ] && continue
+    stat_of "$pid" || continue
+    [ "${STAT[0]}" = Z ] && continue
+    m=$(host_mark "$pid")
+    [ "${m%%/*}" = "${ZETA_NAME:-zeta}" ] && [ "$(host_session "${D%/*}/${m#*/}")" = "$1" ] && continue
+    return 0
+  done
   return 1
 }
 
@@ -211,6 +238,13 @@ pump() {
 hosted_claude() {
   local n=${1%/hosts/*} f
   local -a files=()
+  if [ "$(cat "$1/harness" 2>/dev/null)" = agy ]; then
+    grep -lszxF "ZETA_HOST=${n##*/}/${1##*/}" /proc/[0-9]*/environ 2>/dev/null | while read -r f; do
+      f=${f#/proc/}
+      echo "${f%/environ}"
+    done
+    return 0
+  fi
   for f in "$HOME"/.claude/sessions/*.json; do
     f=${f##*/}
     f=${f%.json}
@@ -313,21 +347,27 @@ elif [ "$mode" = start ]; then
   : > "$D/out.jsonl"
   printf '%s' "$cwd" > "$D/cwd"
   printf '%s' "$title" > "$D/title"
+  printf '%s' "${ZETA_HARNESS:-claude}" > "$D/harness"
   [ -n "$resume" ] && printf '%s' "$resume" > "$D/session"
-  # Claude Code 对新模型默认不开任务清单工具（TaskCreate、TaskUpdate 等），聊天页的任务清单面板靠它们，这里打开。
-  # 环境变量或 settings.json 的 env 里明确设过的照那边的。
-  export CLAUDE_CODE_ENABLE_TODO_TOOLS="${CLAUDE_CODE_ENABLE_TODO_TOOLS:-1}"
-  # 起哪个程序：正式版（ZETA_NAME=zeta）永远是真的 claude，参数原样。
-  # 只有测试版在设备测试里放了剧本时换成按剧本回话的假 Claude（tools/fake-claude；vd fake 放进来，vd stop 删掉）。
-  # 测试版起真的 claude 时新开、没指定模型的对话补 Haiku 5.5，规则见 AGENTS.md「真跑用 Haiku 5.5」。走中转（核心带了 --settings，
-  # 见 helper/hostlink.go 的 launchArgs）时不补：用中转自己的默认模型，中转上也未必有这个模型。
-  # 只补 --model，不设 ANTHROPIC_MODEL：接着旧会话时那个变量让请求换成它、init 却还报记录里的模型（2.1.330 实测）。
-  run=claude
-  if [ "${ZETA_NAME:-zeta}" = zeta-dev ]; then
-    if [ -f "$HOME/.config/zeta-dev/fake-claude/scenario.jsonl" ]; then
-      run="$HOME/.config/zeta-dev/fake-claude/fake-claude.sh"
-    elif [ -z "$resume" ] && [ $fork = 0 ] && [ $model = 0 ] && [ $relay = 0 ]; then
-      set -- "$@" --model claude-haiku-5-5
+  if [ "${ZETA_HARNESS:-claude}" = agy ]; then
+    run="${ZETA_HELPER_BIN:-$HOME/.cache/${ZETA_NAME:-zeta}/bin/zeta-helper}"
+    set -- agy-bridge "$@"
+  else
+    # Claude Code 对新模型默认不开任务清单工具（TaskCreate、TaskUpdate 等），聊天页的任务清单面板靠它们，这里打开。
+    # 环境变量或 settings.json 的 env 里明确设过的照那边的。
+    export CLAUDE_CODE_ENABLE_TODO_TOOLS="${CLAUDE_CODE_ENABLE_TODO_TOOLS:-1}"
+    # 起哪个程序：正式版（ZETA_NAME=zeta）永远是真的 claude，参数原样。
+    # 只有测试版在设备测试里放了剧本时换成按剧本回话的假 Claude（tools/fake-claude；vd fake 放进来，vd stop 删掉）。
+    # 测试版起真的 claude 时新开、没指定模型的对话补 Haiku 5.5，规则见 AGENTS.md「真跑用 Haiku 5.5」。走中转（核心带了 --settings，
+    # 见 helper/hostlink.go 的 launchArgs）时不补：用中转自己的默认模型，中转上也未必有这个模型。
+    # 只补 --model，不设 ANTHROPIC_MODEL：接着旧会话时那个变量让请求换成它、init 却还报记录里的模型（2.1.330 实测）。
+    run=claude
+    if [ "${ZETA_NAME:-zeta}" = zeta-dev ]; then
+      if [ -f "$HOME/.config/zeta-dev/fake-claude/scenario.jsonl" ]; then
+        run="$HOME/.config/zeta-dev/fake-claude/fake-claude.sh"
+      elif [ -z "$resume" ] && [ $fork = 0 ] && [ $model = 0 ] && [ $relay = 0 ]; then
+        set -- "$@" --model claude-haiku-5-5
+      fi
     fi
   fi
   # 管道用读写方式打开并一直持有：写的一方来来去去，Claude Code 都不会读到“输入结束”。

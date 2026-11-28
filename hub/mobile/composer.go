@@ -29,6 +29,7 @@ import (
 	"github.com/dzshzx/Zeta/client/drafts"
 	"github.com/dzshzx/Zeta/client/hostlink"
 	"github.com/dzshzx/Zeta/helper/coreapi"
+	"github.com/dzshzx/Zeta/helper/sessionproto"
 	"github.com/dzshzx/Zeta/helper/tasks"
 	"github.com/dzshzx/Zeta/helper/usage"
 	"github.com/dzshzx/Zeta/hub"
@@ -652,8 +653,9 @@ const (
 	modelsRetry   = 30 * time.Second
 )
 
-// modelSource 是一台设备的模型来源：生效中转的目录（config.models.read）和 Claude Code 报的清单。账号设置换了版本就换新的。
+// modelSource 是一台设备一个工具（claude 或 agy）的模型来源：生效中转的目录（config.models.read）和工具报的清单。账号设置换了版本就换新的。
 type modelSource struct {
+	tool     string
 	revision uint64
 	ready    bool
 	pending  bool
@@ -662,11 +664,14 @@ type modelSource struct {
 	harness  []chat.ModelOption
 }
 
-func (m *composer) source(backend string, r *hub.Remote) *modelSource {
-	s := m.models[backend]
-	if s == nil || s.revision != r.Accounts.ModelRevision() {
-		s = &modelSource{revision: r.Accounts.ModelRevision()}
-		m.models[backend] = s
+func (m *composer) source(backend, tool string, r *hub.Remote) *modelSource {
+	h := sessionproto.NormalizeHarness(tool)
+	key := backend + ":" + h
+	acct := r.AccountsFor(h)
+	s := m.models[key]
+	if s == nil || s.revision != acct.ModelRevision() {
+		s = &modelSource{tool: h, revision: acct.ModelRevision()}
+		m.models[key] = s
 	}
 	ttl := modelsTTL
 	if !s.ready || s.catalog.Relay != "" && len(s.catalog.Models) == 0 {
@@ -676,7 +681,7 @@ func (m *composer) source(backend string, r *hub.Remote) *modelSource {
 		return s
 	}
 	s.pending = true
-	core, c := r.Core, m.core
+	core, c := r.CoreFor(h), m.core
 	go func() {
 		ctx, cancel := context.WithTimeout(context.Background(), modelsTimeout)
 		defer cancel()
@@ -689,17 +694,16 @@ func (m *composer) source(backend string, r *hub.Remote) *modelSource {
 	return s
 }
 
-// choices 同桌面版：中转只有它报的具体 ID；Claude Code 是它报的清单分好的两层，还没报时是常用的别名。
+// choices 同桌面版：中转只有它报的具体 ID；否则是工具报的清单分好的两层，还没报时是后备清单。
 func (s *modelSource) choices() (latest, older []chat.ModelOption) {
 	if !s.ready {
 		return nil, nil
 	}
-	return modelOptions(s.catalog, s.harness)
+	return modelOptions(s.catalog, s.harness, s.tool)
 }
 
-// modelOptions 是可选的模型（输入栏和设置的默认模型共用，同桌面版 modelSource.choices）：有生效中转时只有它报的具体 ID
-// （对应的完整 ID 就是它自己）；没有时是 Claude Code 报的清单 harness 分好的两层，还没报时是常用的别名。
-func modelOptions(catalog coreapi.ModelCatalog, harness []chat.ModelOption) (latest, older []chat.ModelOption) {
+// modelOptions 是可选的模型（输入栏和设置的默认模型共用，同桌面版 modelSource.choices）。
+func modelOptions(catalog coreapi.ModelCatalog, harness []chat.ModelOption, tool string) (latest, older []chat.ModelOption) {
 	switch {
 	case catalog.Relay != "":
 		for _, x := range catalog.Models {
@@ -707,7 +711,7 @@ func modelOptions(catalog coreapi.ModelCatalog, harness []chat.ModelOption) (lat
 		}
 		return latest, nil
 	case len(harness) == 0:
-		return chat.FallbackModels, nil
+		return chat.FallbackModelsFor(tool), nil
 	}
 	return chat.SplitModels(harness)
 }
@@ -736,12 +740,13 @@ func (m *composer) modelMenu(backend string, s chat.State) ModelMenu {
 	if r == nil {
 		return out
 	}
-	src := m.source(backend, r)
+	h := sessionproto.NormalizeHarness(s.Harness)
+	src := m.source(backend, h, r)
 	if src.ready && src.catalog.Relay == "" && len(s.Models) > 0 {
 		src.harness = s.Models
 	}
 	latest, older := src.choices()
-	out.Available = src.ready && r.Accounts.Working() == ""
+	out.Available = src.ready && r.AccountsFor(h).Working() == ""
 	out.Harness = out.Available && src.catalog.Relay == ""
 	reported := s.ReportedModel
 	if src.catalog.Relay != "" && (!s.Process || reported == "") {
@@ -756,16 +761,17 @@ func (m *composer) modelMenu(backend string, s chat.State) ModelMenu {
 			out.ChosenName = chat.ModelName(out.Chosen, latest, older)
 		}
 	}
-	add := func(list []chat.ModelOption) []Choice {
-		out := []Choice{}
-		for _, o := range list {
-			if o.Value != chat.DefaultModel {
-				out = append(out, Choice{Value: o.Value, Name: o.Name()})
-			}
+	out.Latest, out.Older = nonDefaultChoices(latest), nonDefaultChoices(older)
+	return out
+}
+
+func nonDefaultChoices(list []chat.ModelOption) []Choice {
+	out := []Choice{}
+	for _, o := range list {
+		if o.Value != chat.DefaultModel {
+			out = append(out, Choice{Value: o.Value, Name: o.Name()})
 		}
-		return out
 	}
-	out.Latest, out.Older = add(latest), add(older)
 	return out
 }
 
@@ -967,8 +973,10 @@ func (c *Core) fillComposer(out *Chat, locale string) {
 		v.Modes = append(v.Modes, Choice{Value: x.Value, Name: x.Label()})
 	}
 	// 在用中转、还不知道时没有额度一节（accounts.Quota.Shown）
-	if r := c.hub.Remote(ch.Backend); r != nil && r.Quota.Shown() {
-		v.Quota = quotaView(r.Quota, time.Now())
+	if r := c.hub.Remote(ch.Backend); r != nil {
+		if q := r.QuotaFor(s.Harness); q.Shown() {
+			v.Quota = quotaView(q, time.Now())
+		}
 	}
 	out.Composer = v
 }
@@ -1026,6 +1034,9 @@ type (
 	choiceParams struct {
 		// Value 是选的；null 回到默认。
 		Value *string `json:"value"`
+	}
+	harnessValueParams struct {
+		Value string `json:"value"`
 	}
 	cancelParams struct {
 		UUID   string `json:"uuid"`
@@ -1100,10 +1111,13 @@ func init() {
 	onLoop("composer.quota", func(c *Core, p forceParams) (any, error) {
 		if ch := c.hub.Chat(); ch != nil {
 			if r := c.hub.Remote(ch.Backend); r != nil {
-				r.Quota.Refresh(p.Force)
+				r.QuotaFor(ch.Harness()).Refresh(p.Force)
 			}
 		}
 		return ok, nil
+	})
+	inChat("composer.harness", func(p harnessValueParams) (convDo, error) {
+		return func(ctx context.Context, conv *chat.Conversation) error { return conv.SetHarness(ctx, p.Value) }, nil
 	})
 	inChat("composer.model", func(p choiceParams) (convDo, error) {
 		return func(ctx context.Context, conv *chat.Conversation) error { return conv.SetModel(ctx, p.Value) }, nil

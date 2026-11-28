@@ -1,6 +1,6 @@
 # iOS 版
 
-`ios/` 是 iPhone 和 iPad 上的 Zeta：经 Zeta 自带的 SSH 直连 Linux 设备，在上面用 Claude Code。和远程主机有关的功能同手机版（会话管理、对话与各种确认、输入栏、后台任务与子代理、账号与额度和中转、Claude Code 配置、诊断、通知；手机版的超级岛在这里是灵动岛），差别见最后「现在没有的」；依赖手机本机环境的（Debian 环境、手机工具、悬浮层、语音与数字助理、定时任务、通知触发、存储与备份）不做。界面用 iOS 27 SDK 自带的 SwiftUI 组件，最低系统 iOS 27。
+`ios/` 是 iPhone 和 iPad 上的 Zeta：经 Zeta 自带的 SSH 直连 Linux 设备，在上面用 Claude Code 与 Antigravity CLI（`agy`）。和远程主机有关的功能同手机版（双工具统一会话列表管理、新对话工具切换、对话与各种确认、输入栏、后台任务与子代理、双工具账号与额度和中转、Claude Code 与 Antigravity 配置、诊断、通知；手机版的超级岛在这里是灵动岛），差别见最后「现在没有的」；依赖手机本机环境的（Debian 环境、手机工具、悬浮层、语音与数字助理、定时任务、通知触发、存储与备份）不做。界面用 iOS 27 SDK 自带的 SwiftUI 组件，最低系统 iOS 27。
 
 ## 结构
 
@@ -41,7 +41,7 @@ Swift 经三个 C 函数调核心（`hub/cmd/zeta-ios`）：
 | `key` | | `{public, imported, version}`：在用的那把的公钥（authorized_keys 格式）、是不是导入的、版本名 |
 | `importkey` | `key`、`passphrase` | 换用导入的私钥，答同 `key`，另有 `pem`：去掉密码的 OpenSSH 格式，界面存进钥匙串；认不出、没填密码时出错，不换 |
 | `resetkey` | | 换回 Zeta 自己的密钥，答同 `key` |
-| `state` | | 界面要画的全部（`mobile.State`）：设备、会话列表、聊天页；聊天页的 `items` 是上次 `state` 以后条目的变化（同桌面版的 `Take`），换了对话时第一项是整份 |
+| `state` | | 界面要画的全部（`mobile.State`）：设备、会话列表（每项带 `harness`: `"claude"` \| `"agy"`）、聊天页（带 `harness` 和新对话未开始时的 `can_switch_harness`）；聊天页的 `items` 是上次 `state` 以后条目的变化（同桌面版的 `Take`），换了对话时第一项是整份 |
 | `resync` | | 下一次 `state` 整份交聊天页的条目（界面套变化对不上时） |
 | `probe` | `target` | 连一次查到的：`{token, summary, hostname, fingerprint}`；阻塞，最多约 45 秒 |
 | `add` | `token` | 添加探测过的设备 |
@@ -51,10 +51,10 @@ Swift 经三个 C 函数调核心（`hub/cmd/zeta-ios`）：
 | `open`、`new`、`close` | `backend`、`id`；`backend` | 点开会话、新对话、关掉聊天页 |
 | `interrupt`、`earlier` | | 对聊天页的对话停止、载入更早的（发消息经输入栏的 `composer.send`） |
 | `answer` | `request_id`、`reply` | 回应确认或提问，`reply` 是 `helper/prompt` 的 Reply |
-| `core` | `backend`、`method`、`params` | 把 `method` 转给设备 `backend` 的核心，结果原样交回（`AppModel.device`）；只转 `config.*`、`diag.*`、`system.*`（各方法见 `docs/core.md`），对话、会话列表、账号这些有中枢自己的状态，走中枢的方法；阻塞，最多 60 秒，要连 MCP 服务器或跑 claude update 的几个（`routes.go` 的 `slowMethods`）等 3 到 6 分钟 |
+| `core` | `backend`、`method`、`params` | 把 `method` 转给设备 `backend` 的核心，结果原样交回（`AppModel.device`）；只转 `config.*`、`diag.*`、`system.*`（各方法见 `docs/core.md`；`config.*` 的 `params` 传 `"harness": "agy"` 即读写 Antigravity 配置，`system.agy`、`system.agy_update` 查与更新 Antigravity CLI），对话、会话列表、账号这些有中枢自己的状态，走中枢的方法；阻塞，最多 60 秒，要连 MCP 服务器或跑 claude / agy update 的几个（`routes.go` 的 `slowMethods`）等 3 到 6 分钟 |
 | `claudecfg.local` | `backend` | 客户端本地存的这台的 `{autoCompact, compactPercent, compactPercents, autoTitle}`（`hub/claudecfg`，0 是 Claude Code 自己的压缩时机），和这台的默认工作目录 `cwd` |
 | `claudecfg.setlocal` | `backend`，`autoCompact`、`compactPercent`、`autoTitle` 给哪个改哪个 | 同 `claudecfg.local` |
-| `claudecfg.models` | `backend` | 默认模型下拉的清单 `{source, models: [{value, label, id, older}]}`：`source` 是 `relay`（中转报的具体 ID）、`harness`（Claude Code 报的清单分好两层，`older` 的收进「更多模型」；聊天页开着这台的对话、报过清单就用它，不然开一个不发消息的对话去要，要不到时是常用的别名）或 `unknown`（读不到、账号在切换，默认模型不能改）；阻塞，最多约 1 分钟 |
+| `claudecfg.models` | `backend`、可选 `harness`（`"claude"` \| `"agy"`） | 默认模型下拉的清单 `{source, models: [{value, label, id, older}]}`：`source` 是 `relay`（中转报的具体 ID）、`harness`（Claude Code 或 Antigravity 报的清单分好两层，`older` 的收进「更多模型」）或 `unknown`（读不到、账号在切换，默认模型不能改）；阻塞，最多约 1 分钟 |
 | `pin`、`rename` | `backend`、`id`；`rename` 另有 `title` | 置顶或取消、改名（中枢的 TogglePin、Rename） |
 | `archive`、`delete`、`end` | `sessions`（`[{backend, id}]`），`archive` 另有 `archived` | 归档或取消、删除、结束 Claude Code 进程（Zeta 的经 `sessions.end`，别处运行的经 `sessions.end_elsewhere`）；没成的原因在下一次 `state` 的 `side.failed` |
 | `export` | `sessions` | `{name, content}`：导出成的 Markdown；阻塞，等各台答来 |
@@ -69,7 +69,8 @@ Swift 经三个 C 函数调核心（`hub/cmd/zeta-ios`）：
 | `composer.send` | `text` | 发输入框里的字和传好了的附件，答 `{sent, open}`；还有在传的、没东西可发时不发；没发出去时字和附件放回输入栏；单独是 `/config`、`/permissions` 时不发，`open` 是 `config` 或 `permissions`，界面打开那一页 |
 | `composer.attach` | `files`（`[{path}]`） | 收 App 临时目录里选好的文件：传到对话所在的设备上，图片另做缩小图；收不了的原因放进 `composer.problems` |
 | `composer.remove`、`composer.problems` | `id`；无 | 移除一个待发的附件（在传的取消；这份草稿自己传好的那份从设备上删掉）；清掉没收进来的原因 |
-| `composer.model`、`composer.effort`、`composer.mode` | `value`（省掉是回到默认） | 这个对话的模型、思考强度、权限模式 |
+| `composer.harness` | `value`（`"claude"` \| `"agy"`） | 切换当前尚未开始的新对话所用的工具 |
+| `composer.model`、`composer.effort`、`composer.mode` | `value`（省掉是回到默认） | 这个对话的模型、思考强度（含 `xhigh` 超高档）、权限模式 |
 | `composer.steer`、`composer.cancel`、`composer.compact` | 无；`uuid`、`recall` | 立即插话；撤回一条排队的（`recall` 时放回输入框）；压缩上下文 |
 | `composer.quota` | `force` | 让对话所在设备的订阅额度刷新（不够新才问，`force` 时一定问） |
 | `composer.flush` | | 马上把草稿写盘（退到后台时）；阻塞 |
@@ -85,20 +86,20 @@ Swift 经三个 C 函数调核心（`hub/cmd/zeta-ios`）：
 | `math` | `tex`、`display` | 排一条公式（`hub/mathtex`，同桌面版的 RaTeX）：`{items, width, height, depth}`，坐标以 em 为单位，`items` 每项的 `kind` 是 0 字（`font`、`char`、`scale`）、1 横线、2 矩形、3 路径（`commands`），`defaultInk` 为真时用正文的颜色，否则用 `color`（RGBA）；排不出时出错；阻塞 |
 | `math.fonts` | | 画公式用的 KaTeX 字体：`[{id, data}]`（TTF，base64）；阻塞 |
 | `math.source` | `text` | 哪些算公式照手机版（`mathtex.Source`）：答 `{text}`，配上的单个 $ 换成 `\(` `\)`，不算块公式的 `\[` 换成 `&#91;`；不算变化 |
-| `core` | `backend`、`method`、`params` | 把 `method` 转给设备 `backend` 的核心，结果原样交回（`AppModel.device`）；只转 `config.*`、`diag.*`、`system.*`（各方法见 `docs/core.md`），对话、会话列表、账号这些有中枢自己的状态，走中枢的方法；阻塞，最多 60 秒 |
-| `devices` | | 设置里的各台（`DeviceInfo`）：名字、地址、家目录、默认工作目录、连法、指纹、「连接」，和首页那一行右边写的（在用的中转名 `relay`，或最要紧的额度窗口已用百分比 `used`，没有时 -1） |
+| `devices` | | 设置里的各台（`DeviceInfo`）：名字、地址、家目录、默认工作目录、新对话默认工具 `default_harness`、连法、指纹、「连接」，和首页那一行右边写的（在用的中转名 `relay`，或最要紧的额度窗口已用百分比 `used`，没有时 -1） |
 | `settings.open` | | 打开设置时让各台还没读过的账号、额度读一遍 |
 | `device.rename` | `id`、`name` | 改名，空是用设备自己的名字；和别的设备重名时出错 |
+| `device.setharness` | `id`、`harness`（`"claude"` \| `"agy"`） | 改这台设备新建对话默认用的工具 |
 | `device.checkcwd` | `id`、`path` | 改默认工作目录：先到设备上核对，进得去就存；答 `{path, problem, unchecked, off}`（进不去的原因、连不上的原因、「连接」关着），后两种不存；阻塞 |
 | `device.setcwd` | `id`、`path` | 核对不了时用户选「仍然保存」 |
 | `prefs`、`prefs.set` | `auto_load_remote_images` | 「常规」里存在设置文件的几项 |
-| `accounts` | `id` | 一台的账号页（`mobile.Accounts`）：账号、中转、正在做的事、出错、谁挡着换号、正在进行的登录、在用的中转；订阅额度只在中枢说显示（`Quota.Shown`）时有，正在编辑的中转草稿 |
-| `accounts.open`、`accounts.refresh` | `id`（`refresh` 另有 `force`） | 读一遍账号和额度；`force` 时向 Claude Code 要最新的额度 |
-| `accounts.switch`、`accounts.remove`、`accounts.save` | `id`、`name` | 切换、删除账号，记下在用的登录 |
-| `accounts.login`、`accounts.code`、`accounts.cancel` | `id`（`code` 另有 `code`） | 添加账号：核心在设备上起登录命令，`accounts` 的 `login.url` 是授权网址；交回授权码；取消 |
-| `accounts.dismiss` | `id` | 清掉上一件事的出错 |
-| `relay.switch`、`relay.remove` | `id`、`name` | 切到中转、删除中转 |
-| `relay.edit`、`relay.draft`、`relay.fetch`、`relay.save`、`relay.close` | `id`、`name`（`draft` 另有 `base_url`、`key`、`model`） | 中转的草稿留在核心里：开始添加（`name` 空）或编辑、改字段（名称只在添加时改）、拉模型列表、保存（成了草稿的 `saved` 为真）、关掉 |
+| `accounts` | `id`、可选 `harness` | 一台的账号页（`mobile.Accounts`，默认 `"claude"`）：账号、中转、正在做的事、出错、谁挡着换号、正在进行的登录、在用的中转；订阅额度只在中枢说显示（`Quota.Shown`）时有，正在编辑的中转草稿 |
+| `accounts.open`、`accounts.refresh` | `id`、可选 `harness`（`refresh` 另有 `force`） | 读一遍账号和额度；`force` 时向对应工具要最新的额度 |
+| `accounts.switch`、`accounts.remove`、`accounts.save` | `id`、`name`、可选 `harness` | 切换、删除账号，记下在用的登录 |
+| `accounts.login`、`accounts.code`、`accounts.cancel` | `id`、可选 `harness`（`code` 另有 `code`） | 添加账号：核心在设备上起登录命令，`accounts` 的 `login.url` 是授权网址；交回授权码（`"agy"` 的 Google OAuth 也支持贴整条回调网址）；取消 |
+| `accounts.dismiss` | `id`、可选 `harness` | 清掉上一件事的出错 |
+| `relay.switch`、`relay.remove` | `id`、`name`、可选 `harness` | 切到中转、删除中转 |
+| `relay.edit`、`relay.draft`、`relay.fetch`、`relay.save`、`relay.close` | `id`、`name`、可选 `harness`（`draft` 另有 `base_url`、`key`、`model`；`close` 无参数） | 中转的草稿留在核心里（`"agy"` 用于配置 Gemini API Key 与可选地址）：开始添加（`name` 空）或编辑、改字段（名称只在添加时改）、拉模型列表、保存（成了草稿的 `saved` 为真）、关掉 |
 | `diaglog`、`diaglog.clear` | `topic`、`level` | Zeta 自己的运行日志（`hub/runlog`，设置目录的 `diag/` 下）按类别、轻重筛，新的在前；清空 |
 | `diag.export` | `header`、`env` | 打诊断包（`hub/diagbundle`，同桌面版），写进临时目录，答 `{path}`；阻塞 |
 | `about`、`license` | `file`（`license`） | 版本、源码的 tag 或提交和链接、开源许可清单（`ios`、`host` 两组）；一项许可的全文 |
@@ -119,7 +120,7 @@ Swift 经三个 C 函数调核心（`hub/cmd/zeta-ios`）：
 
 ## 会话列表、后台任务与通知
 
-- 会话列表（`Views/Sidebar/`）：行尾标核心报的忙闲（`state` 会话行的 `activity`、`tasks`：等你回应、在回答、后台任务在跑、有新回答），已结束的标题灰。右滑置顶，左滑归档、删除，长按有置顶、改名、归档、结束、导出、删除；删除、结束先确认。导出交回的 Markdown 存进临时目录，用系统分享面板交出去。顶栏「更多」里选排序、进多选（List 的 EditMode，底栏批量结束、归档、删除）、看已归档；手动排序时编辑状态下拖动行（`move`）。`.searchable` 的字交给 `search`。
+- 会话列表（`Views/Sidebar/`）：Antigravity 会话标 `agy`；行尾标核心报的忙闲（`state` 会话行的 `activity`、`tasks`：等你回应、在回答、后台任务在跑、有新回答），已结束的标题灰。右滑置顶，左滑归档、删除，长按有置顶、改名、归档、结束、导出、删除；删除、结束先确认。导出交回的 Markdown 存进临时目录，用系统分享面板交出去。顶栏「更多」里选排序、进多选（List 的 EditMode，底栏批量结束、归档、删除）、看已归档；手动排序时编辑状态下拖动行（`move`）。`.searchable` 的字交给 `search`。
 - 后台任务面板（`Views/Tasks/`）：会话列表顶上一行进，行尾是后台对话加当前对话在跑的任务的个数；上面是后台对话（`side.background`，点了切过去），下面是聊天页这个对话的后台任务，点进去看详情和子代理页。聊天页输入栏上方是任务清单条和后台任务条（`ChatTaskBar`）。详情页、子代理页打开时 `watch`，每次 `state` 变了重取 `taskoutput`、`subagent`，离开时停止看着。
 - 通知（`Core/Notifier.swift`，照桌面版）：App 不在前台，或在前台但聊天页开着的不是那个会话时（banner），聊天页的对话答完一轮（`chat.finished`）、来了确认或提问，别的会话照 `side.alerts` 答完一轮或开始等你时发一条；每个会话一个编号（`zeta-<设备>/<会话>`），后一条换掉前一条，点了打开那个会话；聊天页对话的工具确认（不是提问、计划、MCP 表单）通知上有「允许」「拒绝」：允许要先解锁，都不把 App 叫到前台，请求还在等就经 `answer` 回应、再申请一段后台时间，已经不在了就打开那个会话；等你回应的那条在请求处理掉后撤掉。第一次要发时请求通知权限。每件事（开始在跑、等你、答完、不再等）也交给 `Notifier.onEvent`。退到后台时聊天页的对话在跑就申请一段后台时间（`beginBackgroundTask`），答完或系统收回时结束；系统给多久不由 App 定，之后 SSH 断开，回到前台再重连。
 ## 输入栏
@@ -129,7 +130,8 @@ Swift 经三个 C 函数调核心（`hub/cmd/zeta-ios`）：
 - 输入框里的字归 Swift 管，每改一次经 `composer.draft` 交给核心；核心改了字（撤回的消息放回来、没发出去放回来、换了对话恢复草稿）时 `rev` 加一，界面见 `rev` 变了才换上 `text`。光标都按 UTF-16 算。
 - 草稿按会话号存（还没开始的新对话共用一份，拿到会话号时挪过去），存在设置目录的 `zeta_drafts.json`，格式和上限见 `client/drafts`，和桌面版、手机版一样；停下约一秒存一次，换对话、退到后台时马上存。
 - 附件：相册里选图（PhotosPicker）、选文件（fileImporter），Swift 写进 App 临时目录（每个一个单独的目录，文件名就是传上去的名字；相册的 HEIC 等核心解不开的先转成 JPEG），把路径交给 `composer.attach`；传到设备、缩小图、大小上限都照 `hub/attach`。PhotosPicker 在 App 之外的进程里选，不要相册权限。有相机的设备上「+」里有拍照（`UIImagePickerController`，要相机权限），拍的存成 JPEG 同样交给 `composer.attach`。
-- 模型菜单照桌面版：在用中转时只列中转报的，否则是 Claude Code 报的清单分两层（`chat.SplitModels`，旧版本收进「更多模型」），还没报时是常用的别名。
+- 新对话工具切换：`chat.can_switch_harness` 为真（尚未发消息、未起进程）时，输入栏上方显示紧凑的 Claude Code / Antigravity 胶囊菜单，点击调 `composer.harness`。
+- 模型菜单照桌面版：在用中转时只列中转报的，否则是当前工具报的清单分两层（`chat.SplitModels`，旧版本收进「更多模型」），还没报时是常用的别名。思考强度支持 `low`、`medium`、`high`、`xhigh`（超高）、`max`。
 - 斜杠命令：光标前的词以 / 开头（句中也算）时在输入栏上方提示，选了只换掉那个词；同桌面版另有 Zeta 的两条设置命令（核心列在 Claude Code 的命令后面）：单独发 `/config` 打开这台设备的 Claude Code 配置页，`/permissions` 按对话的工作目录打开工具权限页，都不发给 Claude Code。
 - 排队：回答中发的消息进核心的队列，输入栏上方列出，点正文撤回到输入框，删除键撤回不要，「立即插话」把排队的送进这一轮。
 - 常用指令：「+」菜单里列出，点了填进输入框（空着就换上，有字插在光标处），「管理常用指令」里新建、编辑、删除、排序。消息上的「收藏为常用指令」调 `AppModel.savePrompt`（已有同样内容的不加）。
@@ -147,15 +149,15 @@ Swift 经三个 C 函数调核心（`hub/cmd/zeta-ios`）：
 
 首页照手机版：常规、设备（每台一行，右边写那台的额度已用比例，在用中转时写「中转 名字」，「连接」关着写已断开）、密钥（公钥的复制分享、导入私钥）、诊断、关于。页面都在 `ios/Zeta/Views/Settings/`，读的是上面那组方法；`AppModel.revision` 每取到一次 `state` 加一，各页按它重读自己的那份。
 
-- 设备页：最上面「连接」开关；名字、地址、默认工作目录（改时照桌面版先核对，连不上或「连接」关着时问仍然保存还是取消）；「账号与额度」和「Claude Code 配置」两行（「连接」关着时灰着）；主机指纹；删除。
-- 账号与额度：账号和中转的逻辑都在中枢的 `hub.Remote(id).Accounts`、`.Quota`，界面只画核心给的。切换账号、中转先确认；添加账号时显示授权网址（在 Safari 里打开）和填授权码的框；中转的名称加好以后不能改，密钥遮着、能显示，Zeta 改不了的（`keyEditable` 为假）灰着说明。在用中转时没有订阅额度一组。
+- 设备页：最上面「连接」开关；名字、地址、默认工作目录（改时照桌面版先核对，连不上或「连接」关着时问仍然保存还是取消）、新对话默认工具（`device.setharness`）；分段切换管理 **Claude Code** 与 **Antigravity**，进入对应工具的「账号与额度」和配置页（「连接」关着时灰着）；主机指纹；删除。
+- 账号与额度：账号和中转的逻辑都在中枢里按 `harness` 分开管，界面只画核心给的。切换账号、中转先确认；添加账号时显示授权网址（在 Safari 里打开）和填授权码的框（Antigravity 的 Google OAuth 同时支持粘贴授权码或整条回调网址）；中转的名称加好以后不能改，密钥遮着、能显示（Antigravity 用于配置 Gemini API Key 与可选 Base URL），Zeta 改不了的（`keyEditable` 为假）灰着说明。在用中转时没有订阅额度一组。
 - 诊断：运行日志、环境（版本、系统、机型、各台怎么连）、各台设备上的日志（核心的 `diag.files`、`diag.tail`，经 `core` 转发，看最后 64 KB，能复制、刷新），导出诊断包后用分享面板交出去。
 - 关于：版本、源码、鸣谢（只列 iOS 版用到的）、开源许可（`hub/assets` 里的全文：Zeta 自己的、App 链接的 `ios` 一组、带到设备上的 `host` 一组）。
 - 常规：「自动加载网络图片」（`autoLoadRemoteImages`，存进 `hub/settings`）；界面语言跟随系统，一行跳到系统设置里本 App 的语言；外观跟随系统。
 
-## Claude Code 配置
+## 工具配置（Claude Code 与 Antigravity）
 
-设备页上「Claude Code 配置」一行进去（`ClaudeConfigView(backend:)`，`ios/Zeta/Views/ClaudeConfig/`），行为同桌面版 `windows/internal/ui/claudecfg/`：新对话默认（默认模型、默认思考强度、默认权限模式、上下文窗口）、Claude 一组（自动压缩、压缩时机、自动标题、闲置超时、那台的 Claude Code 版本和「更新」）、记忆与 CLAUDE.md、Skills、MCP 服务器、Subagent、工具权限。那台主机上的配置经 `core` 转给核心的 `config.*`、`system.*`，解析、校验和改写都在核心，Swift 只按 `helper/coreapi/config.go` 的结果画；工具权限每行的状态、一键开关会加删的规则也由核心算好。只有自动压缩、压缩时机、自动标题存在这台手机上（`claudecfg.local`）。记忆页的文件有内容时打开先预览，能切到编辑；预览照聊天里回答的样子排（`MarkdownView`，去掉开头的 --- 前言块）。Skill 从「文件」里选 ZIP 导入，最大 45 MB。
+设备页上点「Claude Code 配置」或「Antigravity 配置」进去（`ClaudeConfigView(backend:harness:)`，`ios/Zeta/Views/ClaudeConfig/`），行为同桌面版 `windows/internal/ui/claudecfg/`：新对话默认（默认模型、默认思考强度、默认权限模式、上下文窗口）、运行时与 CLI 一组（Claude Code 的自动压缩、压缩时机、自动标题；共用的闲置超时；对应工具的 CLI 版本和「更新」，分别调 `system.claude` / `system.claude_update` 与 `system.agy` / `system.agy_update`）、记忆/规则（Claude Code 为 `~/.claude/CLAUDE.md` 与自动记忆，Antigravity 为全局规则 `~/.gemini/config/rules/AGENTS.md`、工作区 `AGENTS.md` 与 `.agents/rules`）、Skills、MCP 服务器、Subagent、工具权限。那台主机上的配置经 `core` 转给核心的 `config.*`（带 `harness` 参数）、`system.*`，解析、校验和改写都在核心，Swift 只按 `helper/coreapi/config.go` 的结果画；工具权限每行的状态、一键开关会加删的规则也由核心算好。只有自动压缩、压缩时机、自动标题存在这台手机上（`claudecfg.local`）。记忆与规则文件有内容时打开先预览，能切到编辑；预览照聊天里回答的样子排（`MarkdownView`，去掉开头的 --- 前言块）。Skill 从「文件」里选 ZIP 导入，最大 45 MB。
 
 ## 构建与测试
 

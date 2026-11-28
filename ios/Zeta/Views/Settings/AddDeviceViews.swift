@@ -31,7 +31,10 @@ struct AddDeviceView: View {
                 }
                 .disabled(probing || target.trimmingCharacters(in: .whitespaces).isEmpty)
             } footer: {
-                Text("先把设置里 Zeta 的公钥加进那台设备的 ~/.ssh/authorized_keys。设备要是 arm64 或 x86-64 的 Linux，装着 bash 和 Claude Code。")
+                Text("""
+                    先把设置里 Zeta 的公钥加进那台设备的 ~/.ssh/authorized_keys。\
+                    设备要是 arm64 或 x86-64 的 Linux，装着 bash，以及 Claude Code 或 Antigravity CLI。
+                    """)
             }
             if let problem {
                 Section {

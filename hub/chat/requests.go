@@ -97,6 +97,24 @@ func (c *Conversation) SetMode(ctx context.Context, value *string) error {
 	return c.do(func(v coreapi.Conv) error { return v.SetMode(ctx, value) })
 }
 
+// SetHarness 切换尚未开始的新对话所用的 CLI 工具（"claude" 或 "agy"），并记录进 Choices.Harness。
+func (c *Conversation) SetHarness(ctx context.Context, value string) error {
+	h := sessionproto.NormalizeHarness(value)
+	if err := c.do(func(v coreapi.Conv) error { return v.SetHarness(ctx, h) }); err != nil {
+		return err
+	}
+	c.mu.Lock()
+	c.spec.Harness = h
+	c.spec.Choices.Harness = &h
+	if c.state.Session == "" {
+		c.state.Harness = h
+	}
+	c.mu.Unlock()
+	c.changed()
+	c.client.notify()
+	return nil
+}
+
 // keepChoice 把选的 value 记进 spec 的 Choices 里的 field：nil（回到默认）记成空串。
 func (c *Conversation) keepChoice(field **string, value *string) {
 	v := ""

@@ -57,11 +57,15 @@ func (s *Store) PermissionsView(rs Rules, cwd, server string, tools []string) Pe
 	for _, r := range rs {
 		v.Rules = append(v.Rules, RuleView{r, RuleMalformed(r.Text)})
 	}
-	for i, t := range append(slices.Clone(CommonTools), OtherTools...) {
-		st := rs.Tool(t.Name)
-		v.Builtin = append(v.Builtin, ToolView{ToolInfo: t.in(s.lang), Rule: t.Name, Own: st.Behavior, More: i >= len(CommonTools), State: st})
+	common, other, group := CommonTools, OtherTools, BuiltinGroup()
+	if s.IsAgy() {
+		common, other, group = AgyCommonTools, AgyOtherTools, AgyBuiltinGroup()
 	}
-	v.BuiltinBulk = bulkPair(rs, BuiltinGroup())
+	for i, t := range append(slices.Clone(common), other...) {
+		st := rs.Tool(t.Name)
+		v.Builtin = append(v.Builtin, ToolView{ToolInfo: t.in(s.lang), Rule: t.Name, Own: st.Behavior, More: i >= len(common), State: st})
+	}
+	v.BuiltinBulk = bulkPair(rs, group)
 	var seen []string
 	for _, e := range s.mcpEntries(cwd) {
 		if slices.Contains(seen, e.name) {

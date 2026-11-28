@@ -38,8 +38,8 @@ func (c *Conversation) markRounds() {
 		}
 		if start >= 0 {
 			items[start].SetRound(transcript.Round{
-				Rewindable: rewindable(items[start]),
-				Forkable:   c.session != "" && cuttableAt(items, i),
+				Rewindable: !c.isAgy() && rewindable(items[start]),
+				Forkable:   !c.isAgy() && c.session != "" && cuttableAt(items, i),
 				Last:       roundLast(items[start+1 : i]),
 			})
 		}

@@ -349,6 +349,7 @@ func (s QuotaSnapshot) Headline() (w QuotaWindow, ok bool) {
 // 这台设备在用中转（claude-switch 的非账号目标），没有订阅额度，Snapshot 一定为 nil：客户端据 Subscribed 决定显不显示额度，
 // 不在各个界面自己猜。
 type QuotaState struct {
+	Harness  string         `json:"harness,omitempty"`
 	Snapshot *QuotaSnapshot `json:"snapshot"`
 	Relay    string         `json:"relay"`
 }

@@ -19,7 +19,8 @@ type State struct {
 	Session string `json:"session"`
 	Title   string `json:"title"`
 	Cwd     string `json:"cwd"`
-	// Process：接着 Claude Code 进程。
+	Harness string `json:"harness"`
+	// Process：接着 Claude Code 或 Antigravity 进程。
 	Process bool `json:"process"`
 	// Busy：在回答。
 	Busy bool `json:"busy"`
@@ -64,6 +65,13 @@ type State struct {
 	// LastActivity 是核心记的最近一次有动静的时刻（主机的 Unix 毫秒，取整到秒）：发出消息、一轮开始、输出改了条目、重试、压缩时更新。
 	// 界面只看它变没变（主机和这台电脑的钟可能对不上），算「已等待 N 秒」。
 	LastActivity int64 `json:"last_activity"`
+
+	hasItems bool `json:"-"`
+}
+
+// CanSwitchHarness 报告这个对话是否尚未开始（没有会话号、未起进程、无消息条目），仍可在输入栏切换 CLI 工具。
+func (s State) CanSwitchHarness() bool {
+	return s.Session == "" && !s.Process && !s.Busy && !s.LoadingHistory && s.Earlier == 0 && !s.hasItems
 }
 
 // Mode 是权限模式：User 是用户选的，Process 是进程此刻实际在用的（计划模式批准后等会变）。
@@ -78,7 +86,9 @@ var stateFields = func() map[string]int {
 	m := make(map[string]int, t.NumField())
 	for i := range t.NumField() {
 		name, _, _ := strings.Cut(t.Field(i).Tag.Get("json"), ",")
-		m[name] = i
+		if name != "" && name != "-" {
+			m[name] = i
+		}
 	}
 	return m
 }()
@@ -86,13 +96,14 @@ var stateFields = func() map[string]int {
 // applyState 把一条 conv.state 推送 line 合到 s 上，返回新的一份：full 时从零值解，否则先把增量里出现的字段清成零值
 // （切片、指针、结构体都换成新解出来的，不往旧的里面写：旧的那份界面可能还拿着），再只解这一行。
 func applyState(s State, line []byte, full bool) (State, error) {
+	var present map[string]json.RawMessage
+	if err := json.Unmarshal(line, &present); err != nil {
+		return State{}, err
+	}
+	prevHarness, prevItems := s.Harness, s.hasItems
 	if full {
 		s = State{}
 	} else {
-		var present map[string]json.RawMessage
-		if err := json.Unmarshal(line, &present); err != nil {
-			return State{}, err
-		}
 		v := reflect.ValueOf(&s).Elem()
 		for name := range present {
 			if i, ok := stateFields[name]; ok {
@@ -101,6 +112,12 @@ func applyState(s State, line []byte, full bool) (State, error) {
 		}
 	}
 	err := json.Unmarshal(line, &s)
+	s.hasItems = prevItems
+	if _, has := present["harness"]; has || s.Harness != "" {
+		s.Harness = sessionproto.NormalizeHarness(s.Harness)
+	} else {
+		s.Harness = sessionproto.NormalizeHarness(prevHarness)
+	}
 	return s, err
 }
 

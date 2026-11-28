@@ -6,8 +6,8 @@ import SwiftUI
 struct SubagentView: View {
     @Environment(AppModel.self) private var model
     let toolUseID: String
-    /// 回到所属对话：关掉任务面板。
-    let openChat: () -> Void
+    /// 回到所属对话：关掉任务面板；从对话条目里直接打开时为 nil。
+    var openChat: (() -> Void)?
 
     @State private var page: SubagentPage?
     @State private var failed = ""
@@ -68,10 +68,14 @@ struct SubagentView: View {
             LabeledContent("状态") { Text(stateText).foregroundStyle(stateColor) }
             if let task { TaskElapsedRow(task: task) }
             facts
-            Button(action: openChat) {
-                LabeledContent("所属对话", value: model.state.chat?.title ?? "")
+            if let openChat {
+                Button(action: openChat) {
+                    LabeledContent("所属对话", value: model.state.chat?.title ?? "")
+                }
+                .foregroundStyle(.primary)
+            } else if let chatTitle = model.state.chat?.title, !chatTitle.isEmpty {
+                LabeledContent("所属对话", value: chatTitle)
             }
-            .foregroundStyle(.primary)
             if let task, task.running { StopTaskButton(task: task) }
         }
     }

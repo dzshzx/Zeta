@@ -40,6 +40,12 @@ struct ComposerView: View {
             if !slash.isEmpty {
                 SlashList(commands: slash, pick: complete)
             }
+            if chat.canSwitchHarness == true {
+                HStack {
+                    HarnessMenu(harness: chat.harness)
+                    Spacer()
+                }
+            }
             panel
         }
         .onChange(of: state?.rev ?? -1, initial: true) { _, rev in adopt(rev) }
@@ -67,7 +73,7 @@ struct ComposerView: View {
             .ignoresSafeArea()
         }
         .sheet(item: $settingsPage) { page in
-            ChatSettingsSheet(page: page, backend: chat.backend, cwd: chat.cwd)
+            ChatSettingsSheet(page: page, backend: chat.backend, cwd: chat.cwd, harness: chat.harness)
         }
         .sheet(isPresented: $managingPrompts) {
             SavedPromptsView(draft: text, insert: insert)
@@ -217,15 +223,16 @@ private struct ChatSettingsSheet: View {
     let page: SettingsPage
     let backend: String
     let cwd: String
+    let harness: String
 
     var body: some View {
         NavigationStack {
             Group {
                 switch page {
                 case .config:
-                    ClaudeConfigView(backend: backend)
+                    ClaudeConfigView(backend: backend, harness: harness)
                 case .permissions:
-                    PermissionsView(calls: ConfigCalls(model: model, backend: backend), cwd: cwd)
+                    PermissionsView(calls: ConfigCalls(model: model, backend: backend, harness: harness), cwd: cwd)
                 }
             }
             .toolbar {

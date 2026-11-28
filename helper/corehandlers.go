@@ -112,18 +112,19 @@ type accountsHandler struct {
 }
 
 func (h accountsHandler) Request(c *core.Client, r core.Request) (any, error) {
+	var hdr struct {
+		Watch   *bool  `json:"watch"`
+		Harness string `json:"harness"`
+	}
+	_ = json.Unmarshal(r.Raw, &hdr)
 	if r.Method == "quota.watch" {
 		// 不带 watch 时是订阅，同 conv.activity
-		var p struct {
-			Watch *bool `json:"watch"`
-		}
-		_ = json.Unmarshal(r.Raw, &p)
-		h.quota.watch(c, p.Watch == nil || *p.Watch)
+		h.quota.watchFor(c, hdr.Harness, hdr.Watch == nil || *hdr.Watch)
 		return nil, nil
 	}
 	v, err := handleAccounts(context.Background(), h.e, r.Method, c.Lang(), r.Raw)
 	if err == nil && changesQuota[r.Method] {
-		h.quota.changed()
+		h.quota.changedFor(hdr.Harness)
 	}
 	return v, err
 }
@@ -132,13 +133,13 @@ func (h accountsHandler) Request(c *core.Client, r core.Request) (any, error) {
 var changesQuota = map[string]bool{
 	"quota.usage": true, "quota.event": true,
 	"accounts.switch": true, "accounts.prepare_login": true, "accounts.save": true, "accounts.remove": true,
-	"accounts.login_start": true, "accounts.login_code": true,
+	"accounts.login_start": true, "accounts.login_code": true, "accounts.relay_save": true,
 }
 
 func (h accountsHandler) Gone(c *core.Client) { h.quota.gone(c) }
 
 // Idle：有登录在等授权码时不算闲着，核心不因闲置退出、丢下它。
-func (accountsHandler) Idle() bool { return !logins.active() }
+func (accountsHandler) Idle() bool { return !logins.active() && !agyLogins.Active() }
 
 // configHandler 做 config.*：读写这台主机上 Claude Code 自己的配置（见 docs/core.md「Claude Code 配置」、config.go）。
 type configHandler struct{ store *claudecfg.Store }

@@ -19,6 +19,7 @@ import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.ui.unit.dp
 import com.dzshzx.zeta.core.AccountService
 import com.dzshzx.zeta.core.ClaudeRelay
+import com.dzshzx.zeta.core.Harnesses
 import com.dzshzx.zeta.core.RelayDraft
 import com.dzshzx.zeta.core.RelayModel
 import com.dzshzx.zeta.i18n.CoreStrings
@@ -94,7 +95,13 @@ private class RelayEditor(val service: AccountService, val original: ClaudeRelay
     val fetch = ModelFetch()
 
     val problem: String?
-        get() = draft.problem(create, service.state?.names.orEmpty(), keyEditable)
+        get() =
+            draft.problem(
+                create,
+                service.state?.names.orEmpty(),
+                keyEditable,
+                service.harness,
+            )
 
     val canSave: Boolean
         get() = problem == null && !saving && draft != initial
@@ -153,8 +160,9 @@ internal fun RelayScreen(
         dialogs = { RelayDialogs(editor, onBack) },
     ) {
         item(key = "name") { NameField(draft, editor.create, editor::update) }
-        item(key = "url") { UrlField(draft, editor::update) }
-        item(key = "key") { KeyField(draft, original, editor::update) }
+        val isAgy = Harnesses.normalize(service.harness) == Harnesses.AGY
+        item(key = "url") { UrlField(draft, isAgy, editor::update) }
+        item(key = "key") { KeyField(draft, original, isAgy, editor::update) }
         item(key = "model") {
             ModelGroup(
                 service,
@@ -202,14 +210,17 @@ private fun RelayDialogs(editor: RelayEditor, onBack: () -> Unit) {
     )
 }
 
-/** 地址：要说 Anthropic Messages（Claude Code 会说的唯一协议），框下说明 OpenAI 上游怎么接。 */
+/** 地址：Claude 要说 Anthropic Messages，Antigravity 为 Gemini API 兼容地址（可留空用官方地址）。 */
 @Composable
-private fun UrlField(draft: RelayDraft, update: (RelayDraft) -> Unit) {
-    FieldGroup(title = Strings.relayBaseUrl(), footer = Strings.relayBaseUrlFooter()) {
+private fun UrlField(draft: RelayDraft, isAgy: Boolean, update: (RelayDraft) -> Unit) {
+    FieldGroup(
+        title = Strings.relayBaseUrl(),
+        footer = if (isAgy) Strings.relayBaseUrlAgyFooter() else Strings.relayBaseUrlFooter(),
+    ) {
         TextField(
             value = draft.baseUrl,
             onValueChange = { update(draft.copy(baseUrl = it.trim())) },
-            label = "https://",
+            label = if (isAgy) Strings.relayBaseUrlOptionalHint() else "https://",
             singleLine = true,
             keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Uri),
         )
@@ -248,7 +259,12 @@ private fun NameField(draft: RelayDraft, create: Boolean, update: (RelayDraft) -
 
 /** 密钥：默认遮着，右边的按钮切换显示。修改时留空表示不改；不是从文件读的密钥 Zeta 改不了，框禁用并说明。 */
 @Composable
-private fun KeyField(draft: RelayDraft, original: ClaudeRelay?, update: (RelayDraft) -> Unit) {
+private fun KeyField(
+    draft: RelayDraft,
+    original: ClaudeRelay?,
+    isAgy: Boolean,
+    update: (RelayDraft) -> Unit,
+) {
     var visible by remember { mutableStateOf(false) }
     val editable = original?.keyEditable ?: true
     FieldGroup(
@@ -258,7 +274,12 @@ private fun KeyField(draft: RelayDraft, original: ClaudeRelay?, update: (RelayDr
         TextField(
             value = draft.key,
             onValueChange = { update(draft.copy(key = it.trim())) },
-            label = if (original?.hasKey == true) Strings.relayKeyKeep() else "sk-…",
+            label =
+                when {
+                    original?.hasKey == true -> Strings.relayKeyKeep()
+                    isAgy -> "AIza…"
+                    else -> "sk-…"
+                },
             enabled = editable,
             singleLine = true,
             keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password),
@@ -289,10 +310,11 @@ private fun ModelGroup(
                 keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Ascii),
             )
         }
-        val canFetch =
-            !fetch.fetching &&
-                RelayDraft.validBaseUrl(draft.baseUrl) &&
-                (draft.key.isNotBlank() || savedKey)
+        val isAgy = Harnesses.normalize(service.harness) == Harnesses.AGY
+        val urlReady =
+            if (isAgy) draft.baseUrl.isBlank() || RelayDraft.validBaseUrl(draft.baseUrl)
+            else RelayDraft.validBaseUrl(draft.baseUrl)
+        val canFetch = !fetch.fetching && urlReady && (draft.key.isNotBlank() || savedKey)
         PreferenceGroup(footer = fetch.error ?: Strings.relayModelFooter()) {
             item {
                 BasicComponent(

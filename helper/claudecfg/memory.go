@@ -55,6 +55,9 @@ type Memory struct {
 
 // Memory 读记忆页：cwd 是默认工作目录（空是家目录），project 是要看的项目（空或不在列表里时选第一个）。
 func (s *Store) Memory(cwd, project string) Memory {
+	if s.IsAgy() {
+		return s.agyMemory(cwd, project)
+	}
 	home := s.Home()
 	cwd = cmp.Or(cwd, home)
 	ms := memorySettingsOf(s.lenientSettings())
@@ -229,6 +232,9 @@ func sampleCwd(raw string) string {
 }
 
 func (s *Store) checkEditable(path string) error {
+	if s.IsAgy() {
+		return s.checkAgyEditable(path)
+	}
 	custom := customMemoryDir(memorySettingsOf(s.lenientSettings()).customDir, s.Home())
 	return editableProblem(path, s.Home(), custom)
 }
@@ -263,7 +269,7 @@ func (s *Store) DeleteMemory(path string) error {
 		return err
 	}
 	name := baseName(path)
-	if name == "MEMORY.md" || path == instructions(s.Home()) {
+	if name == "MEMORY.md" || path == instructions(s.Home()) || (s.IsAgy() && (name == "AGENTS.md" || name == "GEMINI.md")) {
 		return locales.Err("cfgCantDelete")
 	}
 	if err := os.Remove(path); err != nil && !os.IsNotExist(err) {

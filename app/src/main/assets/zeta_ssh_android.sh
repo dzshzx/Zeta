@@ -1,3 +1,5 @@
+#!/system/bin/sh
+# shellcheck disable=SC2015,SC2016
 # Zeta 的 SSH 服务在 Android 一侧的部分（root，管理器自带的 BusyBox ash）。
 # 装包和配置在 Debian 里面做，见 zeta_setup_debian.sh 的 ssh-setup / ssh-status / ssh-addkey。
 #

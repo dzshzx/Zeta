@@ -37,10 +37,20 @@ type Skills struct {
 	Synced []SyncedSkill `json:"synced"`
 }
 
+func (s *Store) skillsRoot() string {
+	if s.IsAgy() {
+		return agySkillsDir(s.Home())
+	}
+	return s.claudeDir() + "/skills"
+}
+
 // Skills 读 Skills 页。
 func (s *Store) Skills() Skills {
+	if s.IsAgy() {
+		return s.agySkills()
+	}
 	settings := s.lenientSettings()
-	root := s.claudeDir() + "/skills"
+	root := s.skillsRoot()
 	entries, _ := os.ReadDir(root)
 	out := Skills{User: []Skill{}, Synced: []SyncedSkill{}}
 	for _, e := range entries {
@@ -125,7 +135,7 @@ func (s *Store) DeleteSkill(name string) error {
 	if err := checkSkillName(name); err != nil {
 		return err
 	}
-	path := s.claudeDir() + "/skills/" + name
+	path := s.skillsRoot() + "/" + name
 	st, err := os.Lstat(path)
 	switch {
 	case err != nil:
@@ -165,7 +175,7 @@ func (s *Store) ImportSkill(fileName string, zipData []byte, replace bool) (Skil
 	if err != nil {
 		return SkillImport{}, err
 	}
-	root := s.claudeDir() + "/skills"
+	root := s.skillsRoot()
 	dest := root + "/" + pkg.name
 	_, statErr := os.Lstat(dest)
 	if statErr == nil && !replace {
@@ -179,7 +189,7 @@ func (s *Store) ImportSkill(fileName string, zipData []byte, replace bool) (Skil
 	if err := os.MkdirAll(root, 0o777); err != nil {
 		return SkillImport{}, locales.Err("cfgMkdirFailed", "reason", pathReason(err))
 	}
-	stage, err := os.MkdirTemp(s.claudeDir(), ".zeta-skill-")
+	stage, err := os.MkdirTemp(filepath.Dir(root), ".zeta-skill-")
 	if err != nil {
 		return SkillImport{}, locales.Err("cfgMkdirFailed", "reason", pathReason(err))
 	}

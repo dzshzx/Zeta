@@ -2,6 +2,7 @@ package com.dzshzx.zeta.ui.chat
 
 import androidx.compose.ui.graphics.vector.ImageVector
 import com.dzshzx.zeta.core.ToolStep
+import com.dzshzx.zeta.core.arr
 import com.dzshzx.zeta.core.str
 import com.dzshzx.zeta.i18n.Strings
 import com.dzshzx.zeta.ui.components.miuix.ZetaIcons
@@ -30,62 +31,54 @@ private fun firstLine(text: String?, limit: Int = 80): String =
         ?.let { if (it.length > limit) it.take(limit) + "…" else it }
         .orEmpty()
 
+/** 识别 `mcp__phone__*` 与 `mcp_phone_*` 两种手机工具名前缀，返回去掉前缀后的工具名；不是手机工具时为 null。 */
+fun phoneToolSuffix(name: String): String? =
+    when {
+        name.startsWith("mcp__phone__") -> name.removePrefix("mcp__phone__")
+        name.startsWith("mcp_phone_") -> name.removePrefix("mcp_phone_")
+        else -> null
+    }
+
 /** 一次工具调用在列表里怎么显示：图标、一行标题、展开后的细节。 */
 fun presentTool(name: String, input: JsonObject?): ToolPresentation {
-    fun s(key: String) = input?.str(key)
     // 只有一部分工具的细节是整份输入；写文件这类的输入里带着整个文件，用不到就不格式化
-    val json by lazy {
+    val json = lazy {
         input
             ?.let { runCatching { pretty.encodeToString(JsonObject.serializer(), it) }.getOrNull() }
             .orEmpty()
     }
+    return presentClaudeTool(name, input, json)
+        ?: presentAgyTool(name, input, json)
+        ?: presentMcpOrGenericTool(name, input, json.value)
+}
+
+private fun presentClaudeTool(
+    name: String,
+    input: JsonObject?,
+    json: Lazy<String>,
+): ToolPresentation? {
+    fun s(key: String) = input?.str(key)
     return when (name) {
-        "Bash" ->
-            ToolPresentation(
-                ZetaIcons.Terminal,
-                s("description")?.takeIf { it.isNotBlank() }
-                    ?: firstLine(s("command")).ifEmpty { Strings.chatToolRunCommand() },
-                s("command").orEmpty(),
-            )
-        "Read" ->
-            ToolPresentation(
-                MiuixIcons.File,
-                Strings.chatToolRead(baseName(s("file_path"))),
-                s("file_path").orEmpty(),
-            )
-        "Write" ->
-            ToolPresentation(
-                MiuixIcons.Edit,
-                Strings.chatToolWrite(baseName(s("file_path"))),
-                s("file_path").orEmpty() + "\n\n" + s("content").orEmpty(),
-            )
+        "Bash" -> presentCommandTool(s("description"), s("command"))
+        "Read" -> presentReadTool(s("file_path"))
+        "Write" -> presentWriteTool(s("file_path"), s("content"))
         "Edit",
         "MultiEdit",
         "NotebookEdit" ->
-            ToolPresentation(
-                MiuixIcons.Edit,
-                Strings.chatToolEdit(baseName(s("file_path") ?: s("notebook_path"))),
-                (s("file_path") ?: s("notebook_path")).orEmpty() +
-                    (s("old_string")?.let { "\n\n- $it\n+ ${s("new_string").orEmpty()}" } ?: ""),
-            )
+            presentEditTool(s("file_path") ?: s("notebook_path"), s("old_string"), s("new_string"))
         "Grep" ->
             ToolPresentation(
                 ZetaIcons.SearchText,
                 Strings.chatToolGrep(firstLine(s("pattern"), 40)),
-                json,
+                json.value,
             )
         "Glob" ->
             ToolPresentation(
                 ZetaIcons.SearchText,
                 Strings.chatToolGlob(firstLine(s("pattern"), 40)),
-                json,
+                json.value,
             )
-        "WebSearch" ->
-            ToolPresentation(
-                ZetaIcons.Globe,
-                Strings.chatToolWebSearch(firstLine(s("query"), 50)),
-                s("query").orEmpty(),
-            )
+        "WebSearch" -> presentWebSearchTool(s("query"), null)
         "WebFetch" ->
             ToolPresentation(
                 ZetaIcons.Globe,
@@ -95,36 +88,174 @@ fun presentTool(name: String, input: JsonObject?): ToolPresentation {
                 s("url").orEmpty() + "\n\n" + s("prompt").orEmpty(),
             )
         "Task",
-        "Agent" ->
-            ToolPresentation(
-                MiuixIcons.MindMap,
-                Strings.chatToolAgent(firstLine(s("description") ?: s("prompt"), 50)),
-                s("prompt").orEmpty(),
-            )
+        "Agent" -> presentSubagentTool(s("description") ?: s("prompt"), s("prompt"), json)
         "TodoWrite",
         "TaskCreate",
         "TaskUpdate",
         "TaskList",
-        "TaskGet" -> ToolPresentation(MiuixIcons.SelectAll, todoToolTitle(name, input), json)
-        "AskUserQuestion" -> ToolPresentation(MiuixIcons.ReplyAll, Strings.chatToolAsk(), json)
+        "TaskGet" -> ToolPresentation(MiuixIcons.SelectAll, todoToolTitle(name, input), json.value)
+        "AskUserQuestion" ->
+            ToolPresentation(MiuixIcons.ReplyAll, Strings.chatToolAsk(), json.value)
         "ExitPlanMode" ->
-            ToolPresentation(MiuixIcons.SelectAll, Strings.chatToolPlan(), s("plan") ?: json)
+            ToolPresentation(MiuixIcons.SelectAll, Strings.chatToolPlan(), s("plan") ?: json.value)
         "Skill" ->
             ToolPresentation(
                 ZetaIcons.Sparkle,
                 Strings.chatToolSkill((s("skill") ?: s("command")).orEmpty()),
+                json.value,
+            )
+        else -> null
+    }
+}
+
+private fun presentAgyTool(
+    name: String,
+    input: JsonObject?,
+    json: Lazy<String>,
+): ToolPresentation? {
+    fun s(key: String) = input?.str(key)
+    return when (name) {
+        "run_command" ->
+            presentCommandTool(
+                s("toolSummary") ?: s("description"),
+                s("CommandLine") ?: s("command"),
+            )
+        "read_file" -> presentReadTool(s("Path") ?: s("file_path"))
+        "write_file" -> presentWriteTool(s("Path") ?: s("file_path"), s("Content") ?: s("content"))
+        "edit_file" ->
+            presentEditTool(
+                s("Path") ?: s("file_path"),
+                s("Target") ?: s("old_string"),
+                s("Replacement") ?: s("new_string"),
+            )
+        "grep_search" ->
+            ToolPresentation(
+                ZetaIcons.SearchText,
+                Strings.chatToolGrep(firstLine(s("Query") ?: s("pattern"), 40)),
+                json.value,
+            )
+        "find_by_name" ->
+            ToolPresentation(
+                ZetaIcons.SearchText,
+                Strings.chatToolGlob(
+                    firstLine(s("Pattern") ?: s("pattern") ?: baseName(s("SearchDirectory")), 40),
+                ),
+                json.value,
+            )
+        "search_web" -> presentWebSearchTool(s("query") ?: s("Query"), s("domain"))
+        "invoke_subagent" ->
+            presentSubagentTool(
+                s("Role") ?: s("TypeName") ?: s("Prompt") ?: s("prompt"),
+                s("Prompt") ?: s("prompt"),
                 json,
             )
-        else ->
-            if (name.startsWith("mcp__phone__")) {
-                presentPhoneTool(name.removePrefix("mcp__phone__"), input, json)
-            } else if (name.startsWith("mcp__")) {
-                val parts = name.removePrefix("mcp__").split("__", limit = 2)
-                ToolPresentation(ZetaIcons.Puzzle, parts.joinToString(" · "), json)
-            } else {
-                ToolPresentation(ZetaIcons.Wrench, name.ifBlank { Strings.chatToolGeneric() }, json)
-            }
+        "ask_question" -> ToolPresentation(MiuixIcons.ReplyAll, Strings.chatToolAsk(), json.value)
+        "update_steps" -> presentUpdateStepsTool(input, json)
+        "manage_task" -> presentManageTaskTool(s("Action"), s("TaskId"), json)
+        else -> null
     }
+}
+
+private fun presentCommandTool(summary: String?, command: String?): ToolPresentation =
+    ToolPresentation(
+        ZetaIcons.Terminal,
+        summary?.takeIf { it.isNotBlank() }
+            ?: firstLine(command).ifEmpty { Strings.chatToolRunCommand() },
+        command.orEmpty(),
+    )
+
+private fun presentReadTool(path: String?): ToolPresentation =
+    ToolPresentation(
+        MiuixIcons.File,
+        Strings.chatToolRead(baseName(path)),
+        path.orEmpty(),
+    )
+
+private fun presentWriteTool(path: String?, content: String?): ToolPresentation =
+    ToolPresentation(
+        MiuixIcons.Edit,
+        Strings.chatToolWrite(baseName(path)),
+        path.orEmpty() + "\n\n" + content.orEmpty(),
+    )
+
+private fun presentEditTool(path: String?, oldText: String?, newText: String?): ToolPresentation =
+    ToolPresentation(
+        MiuixIcons.Edit,
+        Strings.chatToolEdit(baseName(path)),
+        path.orEmpty() + (oldText?.let { "\n\n- $it\n+ ${newText.orEmpty()}" } ?: ""),
+    )
+
+private fun presentWebSearchTool(query: String?, domain: String?): ToolPresentation =
+    ToolPresentation(
+        ZetaIcons.Globe,
+        Strings.chatToolWebSearch(firstLine(query, 50)),
+        listOfNotNull(query?.takeIf { it.isNotBlank() }, domain?.takeIf { it.isNotBlank() })
+            .joinToString("\n"),
+    )
+
+private fun presentSubagentTool(
+    label: String?,
+    prompt: String?,
+    json: Lazy<String>,
+): ToolPresentation =
+    ToolPresentation(
+        MiuixIcons.MindMap,
+        Strings.chatToolAgent(firstLine(label, 50)),
+        prompt.orEmpty().ifEmpty { json.value },
+    )
+
+private fun presentUpdateStepsTool(input: JsonObject?, json: Lazy<String>): ToolPresentation {
+    val steps = input?.arr("steps")?.mapNotNull { it as? JsonObject }.orEmpty()
+    val title =
+        if (steps.isNotEmpty()) Strings.chatToolUpdateStepsCount(steps.size)
+        else Strings.chatToolUpdateSteps()
+    val detail =
+        steps
+            .takeIf { it.isNotEmpty() }
+            ?.joinToString("\n") { step ->
+                val mark =
+                    when (step.str("status")) {
+                        "done",
+                        "completed" -> "[x]"
+                        "in_progress" -> "[~]"
+                        else -> "[ ]"
+                    }
+                "$mark ${step.str("title").orEmpty()}"
+            } ?: json.value
+    return ToolPresentation(MiuixIcons.SelectAll, title, detail)
+}
+
+private fun presentManageTaskTool(
+    action: String?,
+    taskId: String?,
+    json: Lazy<String>,
+): ToolPresentation {
+    val summary =
+        listOfNotNull(action?.takeIf { it.isNotBlank() }, taskId?.takeIf { it.isNotBlank() })
+            .joinToString(" ")
+    val title =
+        if (summary.isNotEmpty()) Strings.chatToolManageTaskAction(summary)
+        else Strings.chatToolManageTask()
+    return ToolPresentation(MiuixIcons.Timer, title, json.value)
+}
+
+private fun presentMcpOrGenericTool(
+    name: String,
+    input: JsonObject?,
+    json: String,
+): ToolPresentation {
+    phoneToolSuffix(name)?.let { tool ->
+        return presentPhoneTool(tool, input, json)
+    }
+    if (name.startsWith("mcp__")) {
+        val parts = name.removePrefix("mcp__").split("__", limit = 2)
+        return ToolPresentation(ZetaIcons.Puzzle, parts.joinToString(" · "), json)
+    }
+    if (name.startsWith("mcp_")) {
+        val parts = name.removePrefix("mcp_").split("_", limit = 2)
+        return ToolPresentation(ZetaIcons.Puzzle, parts.joinToString(" · "), json)
+    }
+    return ToolPresentation(ZetaIcons.Wrench, name.ifBlank { Strings.chatToolGeneric() }, json)
 }
 
 /** 手机工具：标题用手机工具目录里那一句（[ChatPlatform.phoneToolTitle]，和顶部胶囊同一处），这里只挑图标。 */

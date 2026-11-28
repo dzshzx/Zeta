@@ -9,6 +9,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/dzshzx/Zeta/helper/agystore"
 	"github.com/dzshzx/Zeta/helper/conv"
 	"github.com/dzshzx/Zeta/helper/core"
 	"github.com/dzshzx/Zeta/helper/locales"
@@ -263,7 +264,25 @@ func (h sessionOps) deleteSession(q sessionParams) (any, error) {
 		}
 		deleted = append(deleted, d)
 	}
+	if len(deleted) == 0 && h.e.hasAgySessionData(q.Session) {
+		had, err := agystore.Delete(h.e.agy, q.Session)
+		if err != nil {
+			return nil, err
+		}
+		deleted = append(deleted, deletedRecord{File: agystore.TranscriptPath(h.e.agy, q.Session), Dir: had})
+	}
 	return obj{"deleted": deleted, "closed": deskClose([]string{q.Session})}, nil
+}
+
+func (e *env) hasAgySessionData(id string) bool {
+	if !agystore.IsSessionID(id) {
+		return false
+	}
+	if lexists(joinPath(joinPath(e.agy, "brain"), id)) || lexists(agystore.AnnotationPath(e.agy, id)) {
+		return true
+	}
+	base := joinPath(joinPath(e.agy, "conversations"), id)
+	return lexists(base+".db") || lexists(base+".pb")
 }
 
 // end 结束本包占着会话 session 的 Claude Code 进程（等于终端里 /exit），等它退出再答，好让马上推的列表项里 live 已经是假。

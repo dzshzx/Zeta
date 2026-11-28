@@ -9,6 +9,7 @@ import (
 	"strconv"
 	"strings"
 
+	"github.com/dzshzx/Zeta/helper/agystore"
 	ctxusage "github.com/dzshzx/Zeta/helper/usage"
 )
 
@@ -20,34 +21,46 @@ import (
 // 核心把它算进那一轮（helper/usage 的 ObserveHistory）。只读这一页用到的子代理记录，里面也只解 assistant 行。
 // 每个调用只出现在一条回答里，所以一次 history 里同一份记录只读一遍，不另外缓存。
 
-// subagentUsages 是一个会话的子代理：发起它的调用 → 记录文件。
-type subagentUsages map[string]string
+// subagentUsages 是一个会话的子代理：Claude 按记录文件路径记，agy 按预统计的各模型 token 数记。
+type subagentUsages struct {
+	claude map[string]string
+	agy    map[string]map[string][3]int64
+}
 
 // newSubagentUsages 读会话记录 path 的会话目录（sessionDir）里 subagents 下各子代理的 meta（只认真实路径在会话目录里的）；
-// 没有时为 nil。
+// 对 agy 会话则汇总其子会话 transcript 的 token 数。
 func newSubagentUsages(e *env, path string) subagentUsages {
+	if agyDir, _, ok := agyDirFromTranscript(path); ok {
+		return subagentUsages{agy: agystore.ChildTokenModels(agyDir, path)}
+	}
 	session, ok := e.sessionDir(path)
 	if !ok {
-		return nil
+		return subagentUsages{}
 	}
 	dir := joinPath(session, "subagents")
 	if !isDirFollow(dir) || !strings.HasPrefix(realPath(dir), session+"/") {
-		return nil
+		return subagentUsages{}
 	}
-	s := subagentUsages{}
+	s := map[string]string{}
 	_ = eachSubagent(dir, func(_, file string, meta obj) bool {
 		if toolUse := asString(meta["toolUseId"]); toolUse != "" {
 			s[toolUse] = file
 		}
 		return true
 	})
-	return s
+	return subagentUsages{claude: s}
 }
 
 // event 是发起子代理的调用 toolUse 后面跟的那一行；子代理没有用量时是 nil。
 func (s subagentUsages) event(toolUse string) obj {
 	models := map[string]ctxusage.Tokens{}
-	s.total(toolUse, models, map[string]bool{})
+	if totals, ok := s.agy[toolUse]; ok {
+		for m, v := range totals {
+			models[m] = ctxusage.Tokens{Input: v[0], Output: v[1], CacheRead: v[2]}
+		}
+	} else {
+		s.total(toolUse, models, map[string]bool{})
+	}
 	if len(models) == 0 {
 		return nil
 	}
@@ -60,7 +73,7 @@ func (s subagentUsages) event(toolUse string) obj {
 
 // total 把调用 toolUse 发起的子代理连同它的子代理各模型的 token 数加进 into。seen 防着记录里绕回来。
 func (s subagentUsages) total(toolUse string, into map[string]ctxusage.Tokens, seen map[string]bool) {
-	file, ok := s[toolUse]
+	file, ok := s.claude[toolUse]
 	if !ok || seen[toolUse] {
 		return
 	}
@@ -158,6 +171,10 @@ func (s subagentUsages) subagentCalls(e obj) []string {
 
 // isCall：这个内容块是发起了子代理（登记过）的工具调用。
 func (s subagentUsages) isCall(kind, id string) bool {
-	_, ok := s[id]
-	return ok && kind == "tool_use"
+	if kind != "tool_use" {
+		return false
+	}
+	_, inClaude := s.claude[id]
+	_, inAgy := s.agy[id]
+	return inClaude || inAgy
 }

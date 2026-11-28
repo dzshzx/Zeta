@@ -792,6 +792,13 @@ object CoreStrings {
     fun quotaSession(): String = catalog.say("quotaSession")
 
     /**
+     * 「5 小时 · {scope}」
+     *
+     * 额度窗口的名字：5 小时里按模型组分的，scope 是模型组名（如 Gemini）。
+     */
+    fun quotaSessionScoped(scope: String): String = catalog.say("quotaSessionScoped", mapOf("scope" to scope))
+
+    /**
      * 「每周 · 全部模型」
      *
      * 额度窗口的名字：每周、全部模型。
@@ -1891,6 +1898,13 @@ object CoreStrings {
     fun toolAskUserQuestion(): String = catalog.say("toolAskUserQuestion")
 
     /**
+     * 「更新步骤进度清单」
+     *
+     * 工具权限页 update_steps 一行的说明。
+     */
+    fun toolUpdateSteps(): String = catalog.say("toolUpdateSteps")
+
+    /**
      * 「按需加载其余工具，拒绝后都用不了」
      *
      * 工具权限页 ToolSearch 一行的说明。
@@ -1994,4 +2008,53 @@ object CoreStrings {
      * 导入 Skill 时客户端先拦下的：文件太大（客户端自己出字，按界面语言用 locales.Said）。
      */
     fun errSkillZipTooBig(): String = catalog.say("errSkillZipTooBig")
+
+    /**
+     * 「这台主机上正在更新 Antigravity」
+     *
+     * 出错应答：已经有一次 agy update 在跑。
+     */
+    fun errAgyUpdating(): String = catalog.say("errAgyUpdating")
+
+    /**
+     * 「正在用这个账号，先换到别的账号或中转再删」
+     *
+     * 出错应答：要删的 agy 账号正在用。
+     */
+    fun errAgyAccountInUse(): String = catalog.say("errAgyAccountInUse")
+
+    /**
+     * 「还有 {others, plural, other {# 个别处开着的 Antigravity}}（比如终端里的 agy）{othersBusy, plural, =0 {} other {，其中 # 个在进行}}，先退出它们。」
+     *
+     * 换号被挡住时的说明：Zeta 之外开着 Antigravity。others 是几个，othersBusy 是其中几个在进行。
+     */
+    fun errAgyBlockedElsewhere(others: Int, othersBusy: Int): String = catalog.say("errAgyBlockedElsewhere", mapOf("others" to others, "othersBusy" to othersBusy))
+
+    /**
+     * 「另一个 Zeta（{apps}）开着 {count, plural, other {# 个对话}}{busy, plural, =0 {} other {，其中 # 个在进行}}，在那边结束对话或关掉它；还有 {others, plural, other {# 个别处开着的 Antigravity}}（比如终端里的 agy）{othersBusy, plural, =0 {} other {，其中 # 个在进行}}，先退出它们。」
+     *
+     * 换号被挡住时的说明：别的 Zeta 包和别处的 Antigravity 都开着，参数同 errSwitchBlockedZeta 和 errAgyBlockedElsewhere。
+     */
+    fun errAgyBlockedBoth(apps: String, count: Int, busy: Int, others: Int, othersBusy: Int): String = catalog.say("errAgyBlockedBoth", mapOf("apps" to apps, "count" to count, "busy" to busy, "others" to others, "othersBusy" to othersBusy))
+
+    /**
+     * 「请粘贴授权码或回调网址」
+     *
+     * 出错应答（code 是 login_incomplete）：交授权码时输入为空。
+     */
+    fun errAgyLoginCodeEmpty(): String = catalog.say("errAgyLoginCodeEmpty")
+
+    /**
+     * 「对话已经开始，不能再切换引擎」
+     *
+     * 出错应答：已有消息、会话号或运行中进程时调用 conv.harness 切换引擎。
+     */
+    fun errHarnessLocked(): String = catalog.say("errHarnessLocked")
+
+    /**
+     * 「Antigravity 会话不支持编辑、撤回、还原代码或分支」
+     *
+     * 出错应答：对 agy 会话调用 conv.rewrite、conv.drop、conv.restore_code 或 conv.fork。
+     */
+    fun errAgyNoRewind(): String = catalog.say("errAgyNoRewind")
 }

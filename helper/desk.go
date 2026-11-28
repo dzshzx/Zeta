@@ -12,6 +12,8 @@ import (
 	"time"
 
 	"github.com/dzshzx/Zeta/helper/accounts"
+	"github.com/dzshzx/Zeta/helper/agyacct"
+	"github.com/dzshzx/Zeta/helper/sessionproto"
 )
 
 // 电脑那边的「Zeta」tmux 会话：Zeta 在远程主机上起的对话，每个在 tmux 会话 zeta 里有一个窗口（窗口名是标题），
@@ -180,12 +182,17 @@ func cmdDesk(e *env, w io.Writer, id, cwd string) error {
 			fmt.Fprintln(w, "这个会话已经删除或很久没用，窗口关掉。")
 			return nil
 		}
+		isAgy := e.isAgyDeskSession(id)
 		if title := titles.read(file); title != shown || prompt {
 			if title != shown {
 				renameOwnWindow(deskTitle(title, id))
 			}
 			shown, prompt = title, false
-			fmt.Fprintf(w, "\n%s\n按回车在终端里接管会话（claude --resume %s）；Ctrl+C 关掉这个窗口。\n", deskHeader(title, id), id)
+			cliHint := "claude --resume " + id
+			if isAgy {
+				cliHint = "agy --conversation " + id
+			}
+			fmt.Fprintf(w, "\n%s\n按回车在终端里接管会话（%s）；Ctrl+C 关掉这个窗口。\n", deskHeader(title, id), cliHint)
 		}
 		entered, eof := waitEnter(deskTick)
 		if eof {
@@ -195,7 +202,11 @@ func cmdDesk(e *env, w io.Writer, id, cwd string) error {
 			continue
 		}
 		signal.Notify(interrupts, syscall.SIGINT)
-		runResume(w, id, cwd, accounts.Settings(e.home))
+		if e.isAgyDeskSession(id) {
+			runAgyResume(w, e.home, id, cwd)
+		} else {
+			runResume(w, id, cwd, accounts.Settings(e.home))
+		}
 		signal.Stop(interrupts)
 		prompt = true
 	}
@@ -253,4 +264,39 @@ const resumeScript = `if [ -n "$2" ] && [ -z "${ANTHROPIC_BASE_URL:-}" ]; then c
 // resumeArgs 是 runResume 交给 shell 的参数。
 func resumeArgs(id, settings string) []string {
 	return []string{"-ic", resumeScript, "zeta-desk", id, settings}
+}
+
+func (e *env) isAgyDeskSession(id string) bool {
+	if e.hasAgySessionData(id) {
+		return true
+	}
+	for _, key := range globNames(e.hosts, true, nil) {
+		dir := joinPath(e.hosts, key)
+		if readText(joinPath(dir, "harness")) == sessionproto.HarnessAgy && hostSessionNow(dir) == id {
+			return true
+		}
+	}
+	return false
+}
+
+const agyResumeScript = `export PATH="$PATH:$HOME/.local/bin"; agy --conversation "$1"`
+
+func runAgyResume(w io.Writer, home, id, cwd string) {
+	shell := os.Getenv("SHELL")
+	if shell == "" {
+		shell = "/bin/bash"
+	}
+	cmd := exec.Command(shell, "-ic", agyResumeScript, "zeta-desk", id)
+	cmd.Dir = cwd
+	env := os.Environ()
+	for k, v := range agyacct.ActiveRelayEnv(home) {
+		env = append(env, k+"="+v)
+	}
+	cmd.Env = env
+	cmd.Stdin, cmd.Stdout, cmd.Stderr = os.Stdin, os.Stdout, os.Stderr
+	if err := cmd.Run(); err != nil {
+		if _, exited := err.(*exec.ExitError); !exited {
+			fmt.Fprintf(w, "起不了 agy：%v\n", err)
+		}
+	}
 }

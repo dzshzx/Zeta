@@ -8,6 +8,7 @@ import com.dzshzx.zeta.core.CodeRewind
 import com.dzshzx.zeta.core.ContextLevel
 import com.dzshzx.zeta.core.ElicitField
 import com.dzshzx.zeta.core.ElicitationRequest
+import com.dzshzx.zeta.core.Harnesses
 import com.dzshzx.zeta.core.ModelOption
 import com.dzshzx.zeta.core.Occupant
 import com.dzshzx.zeta.core.PermissionRequest
@@ -107,6 +108,8 @@ data class ConvState(
     val modelFromSession: Boolean = false,
     /** 接着的托管进程的标识（托管目录 hosts/<它>），没接着进程时为 null。 */
     val hostKey: String? = null,
+    /** 这个对话用的命令行工具（[Harnesses.CLAUDE] 或 [Harnesses.AGY]）。 */
+    val harness: String = Harnesses.CLAUDE,
 ) {
     /** 等待指示旁的一句用界面语言说出来；没有时是空串。 */
     fun statusSaid(): String = coreSaid(statusCode, statusArgs, status)
@@ -185,6 +188,7 @@ private val fieldReaders: Map<String, FieldReader> =
             },
         "model_from_session" to { s, v -> s.copy(modelFromSession = v.flag()) },
         "host_key" to { s, v -> s.copy(hostKey = v.text()) },
+        "harness" to { s, v -> s.copy(harness = Harnesses.normalize(v.text())) },
     )
 
 /** 把一条 conv.state 里的字段放进 [base]（整份时 [base] 是空的 [ConvState]）。type、conv、full 这几个键不是字段，读的时候跳过。 */

@@ -112,6 +112,7 @@
   "exportToolInput": "Input: {detail}",
   "exportToolResult": "Result: {detail}",
   "quotaSession": "5-hour",
+  "quotaSessionScoped": "5-hour · {scope}",
   "quotaWeeklyAll": "Weekly · All models",
   "quotaWeeklyScoped": "Weekly · {scope}",
   "quotaWeekly": "Weekly",
@@ -269,6 +270,7 @@
   "toolEnterPlanMode": "Enter plan mode",
   "toolExitPlanMode": "Present the plan and exit plan mode",
   "toolAskUserQuestion": "Ask you multiple-choice questions",
+  "toolUpdateSteps": "Update the live step checklist",
   "toolToolSearch": "Load other tools on demand; denying it disables them all",
   "toolReportFindings": "Report code review findings in a fixed format",
   "toolDesignSync": "Read and write project files in Claude Design",
@@ -283,5 +285,12 @@
   "formMinChoices": "Choose at least {min}",
   "formMaxChoices": "Choose at most {max}",
   "errNoPrompt": "This request isn't pending",
-  "errSkillZipTooBig": "The file is over 45 MB, which is too large for a Skill package"
+  "errSkillZipTooBig": "The file is over 45 MB, which is too large for a Skill package",
+  "errAgyUpdating": "Antigravity is already being updated on this host",
+  "errAgyAccountInUse": "This account is in use. Switch to another account or relay before removing it",
+  "errAgyBlockedElsewhere": "{others, plural, one {# Antigravity session is} other {# Antigravity sessions are}} open elsewhere (such as agy in a terminal){othersBusy, plural, =0 {} one {, # in progress} other {, # in progress}}. Exit them first.",
+  "errAgyBlockedBoth": "Another Zeta ({apps}) has {count, plural, one {# conversation} other {# conversations}} open{busy, plural, =0 {} one {, # in progress} other {, # in progress}}. End them there or close it. {others, plural, one {# Antigravity session is} other {# Antigravity sessions are}} also open elsewhere (such as agy in a terminal){othersBusy, plural, =0 {} one {, # in progress} other {, # in progress}}. Exit them first.",
+  "errAgyLoginCodeEmpty": "Paste the authorization code or callback URL",
+  "errHarnessLocked": "The conversation has already started, so the harness can't be switched",
+  "errAgyNoRewind": "Antigravity sessions don't support editing, dropping turns, code restore, or branching"
 }

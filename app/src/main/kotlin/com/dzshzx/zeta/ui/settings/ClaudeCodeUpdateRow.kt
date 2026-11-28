@@ -24,14 +24,43 @@ import top.yukonga.miuix.kmp.icon.extended.Update
  */
 @Composable
 internal fun ClaudeCodeUpdateRow(hub: ConversationHub, backend: String, ready: Boolean) {
-    var version by remember(backend) { mutableStateOf<String?>(null) }
-    var loaded by remember(backend) { mutableStateOf(false) }
-    var updating by remember(backend) { mutableStateOf(false) }
-    var note by remember(backend) { mutableStateOf<String?>(null) }
+    CliUpdateRow(
+        title = "Claude Code",
+        key = "$backend:claude",
+        ready = ready,
+        loadVersion = { hub.convLinks.claudeVersion(backend) },
+        runUpdate = { hub.convLinks.updateClaude(backend) },
+    )
+}
+
+/** 主机页「Antigravity CLI」：右边是那台主机上的版本，点按一键更新（system.agy、system.agy_update）。 */
+@Composable
+internal fun AgyUpdateRow(hub: ConversationHub, backend: String, ready: Boolean) {
+    CliUpdateRow(
+        title = "Antigravity CLI",
+        key = "$backend:agy",
+        ready = ready,
+        loadVersion = { hub.convLinks.agyVersion(backend) },
+        runUpdate = { hub.convLinks.updateAgy(backend) },
+    )
+}
+
+@Composable
+private fun CliUpdateRow(
+    title: String,
+    key: String,
+    ready: Boolean,
+    loadVersion: () -> String?,
+    runUpdate: () -> ClaudeUpdate,
+) {
+    var version by remember(key) { mutableStateOf<String?>(null) }
+    var loaded by remember(key) { mutableStateOf(false) }
+    var updating by remember(key) { mutableStateOf(false) }
+    var note by remember(key) { mutableStateOf<String?>(null) }
     val scope = rememberCoroutineScope()
-    LaunchedEffect(backend, ready) {
+    LaunchedEffect(key, ready) {
         if (ready) {
-            scope.runConfig({ hub.convLinks.claudeVersion(backend) }) { result ->
+            scope.runConfig(loadVersion) { result ->
                 result
                     .onSuccess { version = it }
                     .onFailure { note = Strings.settingsClaudeUpdateVersionFailed(it.problem()) }
@@ -41,7 +70,7 @@ internal fun ClaudeCodeUpdateRow(hub: ConversationHub, backend: String, ready: B
     }
     val usable = ready && loaded && !updating
     BasicComponent(
-        title = "Claude Code",
+        title = title,
         summary =
             if (updating) Strings.settingsClaudeUpdateUpdating()
             else note ?: Strings.settingsClaudeUpdateHint(),
@@ -55,7 +84,7 @@ internal fun ClaudeCodeUpdateRow(hub: ConversationHub, backend: String, ready: B
         enabled = usable,
         onClick = {
             updating = true
-            scope.runConfig({ hub.convLinks.updateClaude(backend) }) { result ->
+            scope.runConfig(runUpdate) { result ->
                 updating = false
                 result
                     .onSuccess {
@@ -68,7 +97,7 @@ internal fun ClaudeCodeUpdateRow(hub: ConversationHub, backend: String, ready: B
     )
 }
 
-/** 更新完的一句话：成了说新旧版本，没成说 claude update 输出的最后一行。 */
+/** 更新完的一句话：成了说新旧版本，没成说输出里的最后一行。 */
 internal fun updateNote(u: ClaudeUpdate): String {
     val after = u.version
     return when {

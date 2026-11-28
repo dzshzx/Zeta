@@ -6,6 +6,7 @@ import (
 	"strings"
 	"unicode/utf8"
 
+	"github.com/dzshzx/Zeta/helper/agystore"
 	"github.com/dzshzx/Zeta/helper/locales"
 )
 
@@ -23,10 +24,19 @@ type exportBlock struct {
 }
 
 // toolDetailKeys 是各工具调用的一行摘要取哪个参数：命令、路径、关键词之类，照 Eta 导出里的“参数”。
-var toolDetailKeys = map[string][]string{"Bash": {"command"}, "Read": {"file_path"}, "Write": {"file_path"}, "Edit": {"file_path"},
+var toolDetailKeys = map[string][]string{
+	"Bash": {"command"}, "Read": {"file_path"}, "Write": {"file_path"}, "Edit": {"file_path"},
 	"MultiEdit": {"file_path"}, "NotebookEdit": {"notebook_path"}, "Grep": {"pattern"},
 	"Glob": {"pattern"}, "WebSearch": {"query"}, "WebFetch": {"url"}, "Task": {"description", "prompt"},
-	"Agent": {"description", "prompt"}, "Skill": {"skill", "command"}}
+	"Agent": {"description", "prompt"}, "Skill": {"skill", "command"},
+	"run_command": {"CommandLine", "command"}, "read_file": {"Path", "file_path"},
+	"write_file": {"Path", "file_path"}, "edit_file": {"Path", "file_path", "Target"},
+	"grep_search": {"Query", "SearchPath"}, "find_by_name": {"Pattern", "SearchDirectory"},
+	"list_dir": {"DirectoryPath", "Path"}, "search_web": {"query", "Query"},
+	"read_url_content": {"Url", "url"}, "invoke_subagent": {"Role", "Prompt"},
+	"send_message": {"Recipient", "Message"}, "run_workflow": {"Description", "ScriptPath"},
+	"manage_task": {"Action", "TaskId"}, "schedule": {"Prompt"},
+}
 
 func cmdExport(e *env, o *emitter, paths []string) {
 	for _, path := range paths {
@@ -77,6 +87,9 @@ func (r *exportReader) add(b exportBlock) {
 }
 
 func exportBlocks(path string) ([]exportBlock, map[string]obj, error) {
+	if _, _, ok := agyDirFromTranscript(path); ok {
+		return exportAgyBlocks(path)
+	}
 	f, err := openFile(path)
 	if err != nil {
 		return nil, nil, err
@@ -99,6 +112,21 @@ func exportBlocks(path string) ([]exportBlock, map[string]obj, error) {
 		}
 	}
 	return r.blocks, r.results, lr.err
+}
+
+func exportAgyBlocks(path string) ([]exportBlock, map[string]obj, error) {
+	tl, err := agystore.ReadTimeline(path)
+	if err != nil {
+		return nil, nil, err
+	}
+	r := &exportReader{results: map[string]obj{}}
+	for i, ev := range tl.Events {
+		if i < len(tl.Owners) {
+			r.row = tl.Owners[i]
+		}
+		r.record(ev, nil)
+	}
+	return r.blocks, r.results, nil
 }
 
 func (r *exportReader) record(o obj, line []byte) {

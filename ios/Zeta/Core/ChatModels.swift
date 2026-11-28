@@ -34,7 +34,9 @@ struct Item: Decodable, Sendable, Identifiable {
     /// 能拿来查找的字：正文，工作组里是各步的思考、工具名、参数摘要和结果。
     var searchable: String {
         guard let steps else { return text }
-        return steps.map { [$0.text, $0.name, $0.summary, $0.result].joined(separator: "\n") }.joined(separator: "\n")
+        return steps.map {
+            [$0.text, $0.name, ToolLabels.title($0.name), $0.summary, $0.result].joined(separator: "\n")
+        }.joined(separator: "\n")
     }
 }
 
@@ -96,7 +98,7 @@ struct Step: Decodable, Sendable, Identifiable {
     var failed: Bool { status == "failed" }
 
     /// 工具调用给人看的一行：参数里最能说明它在做什么的那项。
-    var summary: String { input?.summary ?? "" }
+    var summary: String { ToolLabels.summary(name: name, input: input) }
 }
 
 /// 改文件工具给出的改动（items.Patch）。

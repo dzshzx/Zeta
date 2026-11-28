@@ -102,6 +102,8 @@ var (
 // forkPlan 从条目 last 所在那一轮的末尾分支：那一轮之后的内容丢掉。
 func (c *Conversation) forkPlan(client int, last string) (*forkPlan, error) {
 	switch {
+	case c.isAgy():
+		return nil, locales.Err("errAgyNoRewind")
 	case c.session == "":
 		return nil, errForkNoSession
 	case !c.canRewind():

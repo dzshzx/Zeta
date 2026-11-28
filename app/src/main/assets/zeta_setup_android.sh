@@ -1,3 +1,5 @@
+#!/system/bin/sh
+# shellcheck disable=SC2016
 # Zeta 安装 Debian 环境时在 Android 一侧执行的部分（root，管理器自带的 BusyBox ash）。
 # 做法照 Eta：下载 proot-distro 发布的固定版本 Debian rootfs，校验后解压，写好 DNS 和 apt 源。
 # 之后的步骤（装工具、建用户、装 Claude Code）在 Debian 里面做，见 zeta_setup_debian.sh。
@@ -31,6 +33,7 @@ status)
     [ "$uid" -ge 1000 ] 2>/dev/null && [ "$uid" -lt 60000 ] || continue
     echo "user=$name:$uid:$gid:$home"
     { [ -e "$R$home/.local/bin/claude" ] || [ -L "$R$home/.local/bin/claude" ]; } && echo "claude=1" || echo "claude=0"
+    { [ -e "$R$home/.local/bin/agy" ] || [ -L "$R$home/.local/bin/agy" ] || [ -x "$R/usr/local/bin/agy" ] || [ -x "$R/usr/bin/agy" ]; } && echo "agy=1" || echo "agy=0"
     break
   done < "$R/etc/passwd"
   ;;

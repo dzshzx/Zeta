@@ -51,3 +51,16 @@ type ClaudeUpdate struct {
 func (cl *Client) UpdateClaude(ctx context.Context) (ClaudeUpdate, error) {
 	return get[ClaudeUpdate](ctx, cl.c, "system.claude_update", nil)
 }
+
+// AgyVersion 是这台主机上 Antigravity CLI 的版本（agy --version 的版本号），没装或跑不起来时为空串（system.agy）。
+func (cl *Client) AgyVersion(ctx context.Context) (string, error) {
+	r, err := get[struct {
+		Version string `json:"version"`
+	}](ctx, cl.c, "system.agy", nil)
+	return r.Version, err
+}
+
+// UpdateAgy 在这台主机上跑 agy update（最多 5 分钟）；同一个核心里已经在跑时出错（system.agy_update）。
+func (cl *Client) UpdateAgy(ctx context.Context) (ClaudeUpdate, error) {
+	return get[ClaudeUpdate](ctx, cl.c, "system.agy_update", nil)
+}

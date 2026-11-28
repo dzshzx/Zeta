@@ -34,9 +34,11 @@ type Conversation struct {
 	in   chan func()
 	quit chan struct{}
 	once sync.Once
+	bg   sync.WaitGroup
 
 	cwd     string
 	title   string
+	harness string
 	session string
 	file    string // 会话记录，载入历史用
 
@@ -136,6 +138,7 @@ type Spec struct {
 	File     string // 会话记录，载入历史用
 	Cwd      string
 	Title    string
+	Harness  string
 	Blocked  bool                    // 打开时会话正被 Zeta 之外的进程占着：输入栏先锁着，等 conv.handoff 或那边自己退出
 	Occupant *sessionproto.Occupancy // Blocked 时已经查到的那边的样子
 	attach   *Hosted                 // 接回的托管进程（Manager.Adopt）
@@ -143,16 +146,17 @@ type Spec struct {
 
 // New 建一个对话并开始它的 goroutine；有会话记录时先在后台载入历史。
 func New(id string, spec Spec, deps Deps, send Send) *Conversation {
+	harness := sessionproto.NormalizeHarness(spec.Harness)
 	c := &Conversation{
 		ID: id, deps: deps, send: send, in: make(chan func(), 256), quit: make(chan struct{}),
-		cwd: spec.Cwd, title: spec.Title, session: spec.Session, file: spec.File, openedSession: spec.Session,
+		cwd: spec.Cwd, title: spec.Title, harness: harness, session: spec.Session, file: spec.File, openedSession: spec.Session,
 		r: transcript.New(""), recalling: map[string]bool{}, shellCommands: map[string]bool{}, contextNotes: map[string]bool{},
 		options: map[int]Options{}, holders: map[int]string{},
 		usage: usage.New(), tasks: tasks.New(),
 	}
-	c.modes.claudeDefault = deps.DefaultMode
+	c.modes.claudeDefault = c.defaultModeFunc()
 	// 还没起进程时先给这台主机上记着的斜杠命令，起了进程换成它报的
-	c.commands = deps.Commands.Recall(spec.Cwd)
+	c.commands = deps.Commands.RecallFor(harness, spec.Cwd)
 	if spec.Blocked {
 		c.block(spec.Occupant)
 	}
@@ -299,4 +303,27 @@ func (c *Conversation) stateDelta() map[string]json.RawMessage {
 func raw(v any) json.RawMessage {
 	b, _ := json.Marshal(v)
 	return b
+}
+
+func (c *Conversation) isAgy() bool {
+	return c.harness == sessionproto.HarnessAgy
+}
+
+func (c *Conversation) quotaSink() Quota {
+	if c.deps.QuotaFor != nil {
+		return c.deps.QuotaFor(c.harness)
+	}
+	return c.deps.Quota
+}
+
+func (c *Conversation) defaultModeFunc() func() string {
+	return func() string {
+		if c.deps.DefaultModeFor != nil {
+			return c.deps.DefaultModeFor(c.harness)
+		}
+		if c.deps.DefaultMode != nil {
+			return c.deps.DefaultMode()
+		}
+		return ""
+	}
 }

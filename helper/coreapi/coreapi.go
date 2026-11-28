@@ -11,6 +11,9 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"strings"
+
+	"github.com/dzshzx/Zeta/helper/sessionproto"
 )
 
 // Caller 发一个请求、拿回应答的 result。client/hostlink 的 Serve 连接就是一个。
@@ -27,7 +30,40 @@ type Client struct{ c Caller }
 func New(c Caller) *Client { return &Client{c: c} }
 
 // Caller 是 New 给的那条连接。
-func (cl *Client) Caller() Caller { return cl.c }
+func (cl *Client) Caller() Caller {
+	if hc, ok := cl.c.(harnessCaller); ok {
+		return hc.c
+	}
+	return cl.c
+}
+
+type harnessCaller struct {
+	c       Caller
+	harness string
+}
+
+func (h harnessCaller) Call(ctx context.Context, method string, p map[string]any) (json.RawMessage, error) {
+	if h.harness != "" && h.harness != sessionproto.HarnessClaude &&
+		(strings.HasPrefix(method, "config.") || strings.HasPrefix(method, "accounts.") || strings.HasPrefix(method, "quota.")) {
+		cp := make(map[string]any, len(p)+1)
+		for k, v := range p {
+			cp[k] = v
+		}
+		cp["harness"] = h.harness
+		p = cp
+	}
+	return h.c.Call(ctx, method, p)
+}
+
+// WithHarness 返回配置（config.*）、账号（accounts.*）和额度（quota.*）请求针对指定 harness（"claude" 或 "agy"）的 Client。
+func (cl *Client) WithHarness(harness string) *Client {
+	h := sessionproto.NormalizeHarness(harness)
+	base := cl.Caller()
+	if h == sessionproto.HarnessClaude {
+		return &Client{c: base}
+	}
+	return &Client{c: harnessCaller{c: base, harness: h}}
+}
 
 // params 是一个请求的参数。
 type params = map[string]any

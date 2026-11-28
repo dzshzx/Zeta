@@ -200,6 +200,9 @@ func (a *App) currentSession() hostlink.Session {
 		if p.state.Cwd != "" {
 			s.Cwd = p.state.Cwd
 		}
+		if p.state.Harness != "" {
+			s.Harness = p.state.Harness
+		}
 	}
 	return s
 }
@@ -261,7 +264,8 @@ func (a *App) sessionRow(c *ui.Context, s hostlink.Session, snippet string, mova
 				highlighted(c, snippet, needle, widget.SizeBodyXS, 0, k.Secondary).MaxLines(2).Ellipsis("…")
 			}
 		})
-		// 行尾只放小图标（参考 ChatGPT 客户端，不每行写一串字）：读屏和测试照旧读到它们的字，说明在悬停卡片里
+		// 行尾只放小图标或简洁工具标签：读屏和测试照旧读到它们的字，说明在悬停卡片里
+		agyBadge(c, s.Harness)
 		if a.hub.AllHosts() {
 			ui.Text(c, a.hub.Name(s.Backend)).FontSize(widget.SizeBodyXS).TextColor(k.Tertiary).SingleLine().Shrink(0)
 		}
@@ -287,6 +291,17 @@ func (a *App) sessionRow(c *ui.Context, s hostlink.Session, snippet string, mova
 			widget.FlatButtonOf(c, more, widget.IconMore, locales.SidebarRowActions(), 24, 16)
 		}
 		line.draw(c)
+	})
+}
+
+func agyBadge(c *ui.Context, harness string) {
+	if hostlink.NormalizeHarness(harness) != hostlink.HarnessAgy {
+		return
+	}
+	k := widget.Of(c)
+	widget.Surface{Shape: widget.Rounded(5, 0), Fill: k.Chip}.Paint(ui.Box(c)).Padding(1, 5).Shrink(0).
+		Label(locales.SidebarAgyBadge()).Children(func() {
+		ui.Text(c, "agy").FontSize(widget.SizeBodyXS).FontWeight(widget.Medium).TextColor(k.Secondary).SingleLine()
 	})
 }
 
@@ -337,6 +352,9 @@ func (a *App) rowCard(c *ui.Context, row ui.Element, s hostlink.Session, draft s
 				})
 				line(widget.IconFolder, s.Place(), k.Secondary)
 				line(widget.IconServer, a.hub.Name(s.Backend), k.Secondary)
+				if hostlink.NormalizeHarness(s.Harness) == hostlink.HarnessAgy {
+					line(widget.IconTerminal, "Antigravity CLI", k.Secondary)
+				}
 				switch {
 				case s.External:
 					line(widget.IconTerminal, locales.SidebarRunningElsewhere(), k.Secondary)

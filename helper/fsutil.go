@@ -9,6 +9,8 @@ import (
 	"sort"
 	"strings"
 	"syscall"
+
+	"github.com/dzshzx/Zeta/helper/agystore"
 )
 
 // joinPath 接上一段路径：后一段是绝对路径时取它，前一段以斜杠结尾时不再加斜杠。不做别的规整，
@@ -214,7 +216,30 @@ func globNames(dir string, dirsOnly bool, match func(string) bool) []string {
 	return out
 }
 
-// sessionFiles 是全部会话记录 ~/.claude/projects/*/*.jsonl，顺序同目录本身。
+const agyTranscriptSuffix = "/.system_generated/logs/transcript.jsonl"
+
+func agyDirFromTranscript(p string) (agyDir, id string, ok bool) {
+	clean := normPath(p)
+	rest, has := strings.CutSuffix(clean, agyTranscriptSuffix)
+	if !has {
+		return "", "", false
+	}
+	id = baseName(rest)
+	brainDir := dirName(rest)
+	if baseName(brainDir) != "brain" || !agystore.IsSessionID(id) {
+		return "", "", false
+	}
+	return dirName(brainDir), id, true
+}
+
+func sessionIDOfPath(p string) string {
+	if _, id, ok := agyDirFromTranscript(p); ok {
+		return id
+	}
+	return dropRunes(baseName(p), 6)
+}
+
+// sessionFiles 是全部会话记录（~/.claude/projects/*/*.jsonl 与 agy 顶层 transcript.jsonl）。
 func (e *env) sessionFiles() []string {
 	var files []string
 	for _, project := range globNames(e.root, true, nil) {
@@ -223,10 +248,11 @@ func (e *env) sessionFiles() []string {
 			files = append(files, joinPath(dir, name))
 		}
 	}
+	files = append(files, agystore.ListedTranscriptFiles(e.agy)...)
 	return files
 }
 
-// sessionFilesNamed 是各项目里叫 <id>.jsonl 的记录（存在就算，包括断了的链接）。
+// sessionFilesNamed 是各项目里叫 <id>.jsonl 的记录（存在就算，包括断了的链接）以及对应的 agy transcript.jsonl。
 func (e *env) sessionFilesNamed(id string) []string {
 	var files []string
 	for _, project := range globNames(e.root, true, nil) {
@@ -235,14 +261,22 @@ func (e *env) sessionFilesNamed(id string) []string {
 			files = append(files, p)
 		}
 	}
+	if agystore.IsSessionID(id) {
+		if ap := agystore.TranscriptPath(e.agy, id); lexists(ap) {
+			files = append(files, ap)
+		}
+	}
 	return files
 }
 
-// sessionIDs 是全部会话记录的 id（文件名去掉 .jsonl）。
+// sessionIDs 是全部会话记录的 id（Claude 与 agy）。
 func (e *env) sessionIDs() map[string]bool {
 	ids := map[string]bool{}
 	for _, p := range e.sessionFiles() {
-		ids[dropRunes(baseName(p), 6)] = true
+		ids[sessionIDOfPath(p)] = true
+	}
+	for id := range agystore.SessionIDs(e.agy) {
+		ids[id] = true
 	}
 	return ids
 }
@@ -331,10 +365,14 @@ func (e *env) sessionDir(p string) (string, bool) {
 	return real, true
 }
 
-// insideRoot：真实路径在 ~/.claude/projects 里、以 .jsonl 结尾。命令行给的会话记录都先过这一关。
+// insideRoot：真实路径在 ~/.claude/projects 里（以 .jsonl 结尾），或是 e.agy 下的有效会话 transcript.jsonl。
 func (e *env) insideRoot(p string) bool {
 	real := realPath(p)
-	return strings.HasPrefix(real, realPath(e.root)+"/") && strings.HasSuffix(real, ".jsonl")
+	if strings.HasPrefix(real, realPath(e.root)+"/") && strings.HasSuffix(real, ".jsonl") {
+		return true
+	}
+	agyDir, _, ok := agyDirFromTranscript(real)
+	return ok && agyDir == realPath(e.agy)
 }
 
 // removeTree 删一个真目录和里面的一切，不跟进符号链接（os.RemoveAll 按文件描述符逐层删）；能删多少删多少，不报错。

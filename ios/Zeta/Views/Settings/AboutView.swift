@@ -9,8 +9,11 @@ struct AboutView: View {
     private static let credits: [Credit] = [
         Credit(name: "Eta", summary: "Zeta 的参考来源，功能和交互照它设计（GPL-3.0）", url: "https://github.com/Mangi-11/Eta"),
         Credit(
-            name: "Claude Code", summary: "Anthropic 的编程 agent，Zeta 是它的客户端",
+            name: "Claude Code", summary: "Anthropic 的编程 agent，Zeta 支持它",
             url: "https://github.com/anthropics/claude-code"),
+        Credit(
+            name: "Antigravity CLI", summary: "Google DeepMind 的编程 agent，Zeta 支持它",
+            url: "https://antigravity.google"),
         Credit(name: "Go x/crypto", summary: "连设备用的 SSH（BSD-3-Clause）", url: "https://github.com/golang/crypto"),
         Credit(name: "Go x/text", summary: "界面文字的多语言（BSD-3-Clause）", url: "https://github.com/golang/text"),
         Credit(name: "mygo", summary: "和桌面版共用的文字表格式与取字（MIT）", url: "https://github.com/egoist/mygo"),

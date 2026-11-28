@@ -50,6 +50,8 @@ import (
 	"syscall"
 	"time"
 
+	"github.com/dzshzx/Zeta/helper/agyacct"
+	"github.com/dzshzx/Zeta/helper/agybridge"
 	"github.com/dzshzx/Zeta/helper/core"
 )
 
@@ -61,7 +63,7 @@ const usageText = "usage: list | history <file> [<end> <anchor|-> [all]]" +
 	" | subagent <offset> <line> <tool_use> <agent|-> <session>…" +
 	" | occupant <id> | handoff <id> | session-start" +
 	" | desk <id> <cwd> | desk-open <id> <cwd> | desk-close <id>…" +
-	" | phone-mcp <package> [<client key>] | serve | core | core-takeover"
+	" | phone-mcp <package> [<client key>] | agy-bridge [flags] | mcp-sock <sock> | serve | core | core-takeover"
 
 var (
 	sessionIDPattern   = regexp.MustCompile(`^[0-9a-fA-F-]{8,64}$`)
@@ -72,9 +74,19 @@ var (
 )
 
 func main() {
-	// phone-mcp 一直转发到连接断开，输出不能等到退出再写，不走 run 的缓冲
+	agybridge.UsageQueryFunc = agyacct.QueryUsageJSON
+	// phone-mcp、agy-bridge、mcp-sock 一直转发到连接断开，输出不能等到退出再写，不走 run 的缓冲
 	if len(os.Args) > 1 && os.Args[1] == "phone-mcp" {
 		os.Exit(runPhoneMCP(realPhoneBridge, os.Args[2:], os.Stdin, os.Stdout, os.Stderr))
+	}
+	if len(os.Args) > 1 && os.Args[1] == "agy-bridge" {
+		os.Exit(agybridge.Run(os.Args[2:], os.Stdin, os.Stdout, os.Stderr))
+	}
+	if len(os.Args) > 1 && os.Args[1] == "mcp-sock" {
+		if len(os.Args) < 3 {
+			os.Exit(1)
+		}
+		os.Exit(agybridge.RunMCPSock(os.Args[2], os.Stdin, os.Stdout))
 	}
 	// serve 一直跑到客户端走了，输出边推边写
 	if len(os.Args) == 2 && os.Args[1] == "serve" {

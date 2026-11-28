@@ -49,7 +49,7 @@ func (s *Service) SubmitCode(code string) {
 		return
 	}
 	code = strings.TrimSpace(code)
-	if !strings.Contains(code, "#") {
+	if code == "" || (s.requireHash && !strings.Contains(code, "#")) {
 		l.Notice = errIncompleteCode
 		return
 	}

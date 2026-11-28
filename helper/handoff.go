@@ -232,15 +232,33 @@ func cmdSessionStart(e *env, o *emitter, in io.Reader) error {
 		return nil
 	}
 	input, _ := parseObject(data)
-	id := asString(input["session_id"])
-	if !isSessionID(id) || asString(input["source"]) != "resume" {
+	id, resumeCmd := sessionStartTarget(input)
+	if id == "" {
 		return nil
 	}
 	if _, busy := e.releaseSession(id, 0); busy {
 		o.out(obj{"systemMessage": "Zeta 一侧仍在执行此会话的本轮回答。请等它结束后再在这里发送消息，否则两侧会同时写入同一份会话记录；" +
-			"结束后重新执行一次 claude --resume，Zeta 一侧即会退出。"})
+			"结束后重新执行一次 " + resumeCmd + "，Zeta 一侧即会退出。"})
 	}
 	return nil
+}
+
+func sessionStartTarget(input obj) (id, resumeCmd string) {
+	if sid := asString(input["session_id"]); sid != "" {
+		if !isSessionID(sid) || asString(input["source"]) != "resume" {
+			return "", ""
+		}
+		return sid, "claude --resume"
+	}
+	cid := asString(input["conversationId"])
+	if cid == "" {
+		cid = asString(input["conversation_id"])
+	}
+	src := asString(input["source"])
+	if !isSessionID(cid) || (src != "" && src != "resume") {
+		return "", ""
+	}
+	return cid, "agy --conversation"
 }
 
 // ancestors 是进程 pid 往上的各级父进程（不含 pid 自己），按 /proc/<pid>/stat 的第 4 项一级级找到 1 为止。

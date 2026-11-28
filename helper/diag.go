@@ -56,7 +56,10 @@ func (e *env) diagCache() string { return filepath.Dir(e.hosts) }
 func diagFilesMethod(e *env, _ oneShotParams) (any, error) {
 	files := diagRunningFiles(e)
 	files = append(files, newestFiles(diagFinished, e.diagCache()+"/stderr", ".log", diagFinishedLimit)...)
-	files = append(files, newestFiles(diagDebug, e.claude+"/debug", "", diagDebugLimit)...)
+	debug := newestFiles(diagDebug, e.claude+"/debug", "", diagDebugLimit)
+	debug = append(debug, newestFiles(diagDebug, e.agy+"/log", ".log", diagDebugLimit)...)
+	sortNewest(debug)
+	files = append(files, debug...)
 	return diagFilesReply{Files: files}, nil
 }
 
@@ -159,7 +162,7 @@ func diagReadable(e *env, path string) bool {
 		rest, ok := strings.CutPrefix(path, dir+"/")
 		return ok && rest != "" && !strings.Contains(rest, "/")
 	}
-	if child(e.claude+"/debug") || child(e.diagCache()+"/stderr") {
+	if child(e.claude+"/debug") || child(e.diagCache()+"/stderr") || (child(e.agy+"/log") && strings.HasSuffix(path, ".log")) {
 		return true
 	}
 	rest, ok := strings.CutPrefix(path, e.hosts+"/")

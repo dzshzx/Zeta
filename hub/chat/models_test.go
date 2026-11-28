@@ -100,9 +100,28 @@ func TestModelFullID(t *testing.T) {
 		{ModelOption{Value: "claude-opus-5-5[1m]", ResolvedModel: "claude-opus-5-5"}, "claude-opus-5-5[1m]"},
 		{ModelOption{Value: "haiku"}, ""},
 		{ModelOption{Value: "claude-foo"}, ""},
+		{ModelOption{Value: "gemini-4-neon-high"}, "gemini-4-neon-high"},
+		{ModelOption{Value: "claude-opus-4-6-thinking"}, "claude-opus-4-6-thinking"},
 	} {
 		if got := c.m.FullID(); got != c.want {
 			t.Errorf("%+v.FullID() = %q，要 %q", c.m, got, c.want)
 		}
+	}
+}
+
+func TestSplitModelsAndEffortForAgy(t *testing.T) {
+	latest, older := SplitModels(FallbackAgyModels)
+	want := []string{"gemini-3.1-pro-high", "gemini-3-flash", "claude-opus-4-6-thinking", "claude-sonnet-4-6", "gpt-oss-120b-medium"}
+	if !slices.Equal(values(latest), want) || len(older) != 0 {
+		t.Fatalf("agy split: latest=%q older=%q", values(latest), values(older))
+	}
+	if ModelName("gemini-3.1-pro-high", latest) != "Gemini 3.1 Pro (High)" {
+		t.Errorf("display name: %q", ModelName("gemini-3.1-pro-high", latest))
+	}
+	if !SupportsEffort("gemini-4-neon-high", "xhigh") || !SupportsEffort("claude-opus-4-6-thinking", "xhigh") {
+		t.Error("xhigh should be supported on non-haiku models")
+	}
+	if SupportsEffort("claude-haiku-4-5", "xhigh") || SupportsEffort("haiku", "max") || SupportsEffort("opus", "unknown") {
+		t.Error("unexpected effort support")
 	}
 }

@@ -202,9 +202,15 @@ func (w *sessionWatch) readEvents(events chan<- bool) {
 // 找不到已有上级的（家目录本身都没有）记进 blind。
 func (w *sessionWatch) wantedDirs() map[string]uint32 {
 	e := w.e
-	dirs := []string{e.root, e.sessions, dirName(e.archive)}
+	dirs := []string{e.root, e.sessions, dirName(e.archive), e.agy, joinPath(e.agy, "brain"),
+		joinPath(e.agy, "annotations"), joinPath(e.agy, "presence")}
 	for _, project := range globNames(e.root, true, nil) {
 		dirs = append(dirs, joinPath(e.root, project))
+	}
+	brainRoot := joinPath(e.agy, "brain")
+	for _, id := range globNames(brainRoot, true, nil) {
+		bdir := joinPath(brainRoot, id)
+		dirs = append(dirs, bdir, joinPath(bdir, ".system_generated/logs"))
 	}
 	want := map[string]uint32{}
 	for _, d := range dirs {

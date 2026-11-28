@@ -135,8 +135,8 @@ func (c *Conversation) handle(p *process, e event, line []byte) bool {
 		}
 	case "rate_limit_event":
 		// 模型请求的响应头里带着 5 小时和每周窗口的数，变了 Claude Code 就发一条（子代理的请求也算）
-		if c.deps.Quota != nil && len(e.RateLimitInfo) > 0 {
-			c.deps.Quota.RateLimit(e.RateLimitInfo)
+		if q := c.quotaSink(); q != nil && len(e.RateLimitInfo) > 0 {
+			q.RateLimit(e.RateLimitInfo)
 		}
 	}
 	return false

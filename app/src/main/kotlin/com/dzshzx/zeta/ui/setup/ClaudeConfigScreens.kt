@@ -45,6 +45,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.dzshzx.zeta.core.ConversationHub
+import com.dzshzx.zeta.core.Harnesses
 import com.dzshzx.zeta.core.claude.ClaudeConfigCore
 import com.dzshzx.zeta.core.claude.TextDocument
 import com.dzshzx.zeta.i18n.Strings
@@ -76,8 +77,11 @@ import top.yukonga.miuix.kmp.utils.overScrollVertical
 
 /** 主机 [backend] 上 Claude Code 自己的配置（~/.claude）的读写口子（经那台的核心），设置里各主机页面下的几页都用它。 */
 @Composable
-internal fun rememberConfigClient(hub: ConversationHub, backend: String): ClaudeConfigCore =
-    remember(hub, backend) { ClaudeConfigCore.of(hub, backend) }
+internal fun rememberConfigClient(
+    hub: ConversationHub,
+    backend: String,
+    harness: String = Harnesses.CLAUDE,
+): ClaudeConfigCore = remember(hub, backend, harness) { ClaudeConfigCore.of(hub, backend, harness) }
 
 /** 在后台线程跑一个阻塞的配置操作，回到主线程交结果。 */
 internal fun <T> CoroutineScope.runConfig(block: () -> T, done: (Result<T>) -> Unit) {

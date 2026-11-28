@@ -63,6 +63,12 @@ class ConvLinks(private val hub: ConversationHub) {
     /** 在主机 [backend] 上跑 claude update。没跑成时抛 [ServeError]。阻塞几分钟，别在主线程上调。 */
     fun updateClaude(backend: String): ClaudeUpdate = borrow(backend) { it.updateClaude() }
 
+    /** 主机 [backend] 上 Antigravity CLI 的版本，没装时为 null。问不成时抛 [ServeError]。阻塞，别在主线程上调。 */
+    fun agyVersion(backend: String): String? = borrow(backend) { it.agyVersion() }
+
+    /** 在主机 [backend] 上更新 Antigravity CLI。没跑成时抛 [ServeError]。阻塞几分钟，别在主线程上调。 */
+    fun updateAgy(backend: String): ClaudeUpdate = borrow(backend) { it.updateAgy() }
+
     /**
      * 结束主机 [backend] 上本包占着会话 [session]
      * 的进程（sessions.end），等它退出：对话没拿着核心里的那份时结束对话用（[Conversation.shutdown]）。 没成时抛

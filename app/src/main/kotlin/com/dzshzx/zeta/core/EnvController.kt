@@ -74,6 +74,9 @@ class EnvController constructor(private val hub: ConversationHub, assets: (Strin
     /** 当前环境里 Claude Code 的登录状态；null 表示还没查过。 */
     var account by mutableStateOf<AccountStatus?>(null)
 
+    /** 当前环境里 Antigravity CLI 的登录状态；null 表示还没查过。 */
+    var agyAccount by mutableStateOf<AccountStatus?>(null)
+
     var health by mutableStateOf<EnvHealth?>(null)
 
     var healthChecking by mutableStateOf(false)
@@ -97,29 +100,7 @@ class EnvController constructor(private val hub: ConversationHub, assets: (Strin
         setup = SetupState.Checking
         thread(name = "zeta-setup", isDaemon = true) {
             val saved = settings.env
-            val state =
-                when {
-                    !LinuxEnv.hasRoot() -> SetupState.NoRoot
-                    // 环境可能已经不在了（比如被删掉），不能只凭存下来的设置就当它可用
-                    saved != null ->
-                        if (LinuxEnv.exists(saved.rootfs)) SetupState.Ready
-                        else SetupState.NoEnvironment
-                    else ->
-                        LinuxEnv.detect(rootfsHint)?.let { detected ->
-                            // 默认工作目录：第一次配环境时是用户的家目录（detect 给的）；重新检测前设过的，新环境里还有这个目录就不变
-                            val kept = keptCwd?.takeIf { cwd ->
-                                cwd != detected.defaultCwd &&
-                                    runCatching {
-                                            LinuxEnv.run(detected, "[ -d ${LinuxEnv.quote(cwd)} ]")
-                                                .exitCode == 0
-                                        }
-                                        .getOrDefault(false)
-                            }
-                            settings.env =
-                                if (kept != null) detected.copy(defaultCwd = kept) else detected
-                            SetupState.Ready
-                        } ?: SetupState.NoEnvironment
-                }
+            val state = detectSetupState(saved)
             val own = installer.status()
             DiagEvents.setupChecked(
                 state.name,
@@ -129,14 +110,42 @@ class EnvController constructor(private val hub: ConversationHub, assets: (Strin
             main.post {
                 setup = state
                 ownStatus = own
-                if (state == SetupState.Ready) {
-                    // 顺带把磁盘上的镜像脚本换成这个版本的
-                    image.refresh()
-                    refreshAccount()
-                    hub.onEnvironmentReady()
-                }
+                if (state == SetupState.Ready) onSetupReady(own)
             }
         }
+    }
+
+    private fun detectSetupState(saved: LinuxEnvConfig?): SetupState =
+        when {
+            !LinuxEnv.hasRoot() -> SetupState.NoRoot
+            // 环境可能已经不在了（比如被删掉），不能只凭存下来的设置就当它可用
+            saved != null ->
+                if (LinuxEnv.exists(saved.rootfs)) SetupState.Ready else SetupState.NoEnvironment
+            else -> detectFreshEnv()
+        }
+
+    private fun detectFreshEnv(): SetupState {
+        val detected = LinuxEnv.detect(rootfsHint) ?: return SetupState.NoEnvironment
+        // 默认工作目录：第一次配环境时是用户的家目录（detect 给的）；重新检测前设过的，新环境里还有这个目录就不变
+        val kept = keptCwd?.takeIf { cwd ->
+            cwd != detected.defaultCwd &&
+                runCatching {
+                        LinuxEnv.run(detected, "[ -d ${LinuxEnv.quote(cwd)} ]").exitCode == 0
+                    }
+                    .getOrDefault(false)
+        }
+        settings.env = if (kept != null) detected.copy(defaultCwd = kept) else detected
+        return SetupState.Ready
+    }
+
+    private fun onSetupReady(own: EnvStatus) {
+        if (own.agy && !own.claude && !settings.hasDefaultHarness(Backends.LOCAL)) {
+            settings.setDefaultHarness(Backends.LOCAL, Harnesses.AGY)
+        }
+        // 顺带把磁盘上的镜像脚本换成这个版本的
+        image.refresh()
+        refreshAccount()
+        hub.onEnvironmentReady()
     }
 
     /** 换一个 rootfs（或原地重来）：丢掉已保存的环境，重新检查 root 并识别用户，默认工作目录在那边还有就留着。有对话在进行时只记下路径。 */
@@ -146,6 +155,7 @@ class EnvController constructor(private val hub: ConversationHub, assets: (Strin
         settings.env?.let { keptCwd = it.defaultCwd }
         settings.env = null
         account = null
+        agyAccount = null
         health = null
         ssh = null
         hub.dropConversations()
@@ -170,23 +180,42 @@ class EnvController constructor(private val hub: ConversationHub, assets: (Strin
 
     override fun refreshAccount() {
         val config = settings.env ?: return
-        val accounts = hub.accounts(Backends.LOCAL)
         thread(name = "zeta-account", isDaemon = true) {
-            val result =
-                runCatching { LinuxEnv.run(config, "exec claude auth status", timeoutMs = 60_000) }
-                    .getOrNull() ?: return@thread
-            val o = runCatching {
-                json.parseToJsonElement(result.stdout) as? JsonObject
+            val shown = readClaudeAccount(config)
+            val agyShown = readAgyAccount()
+            main.post {
+                if (settings.env?.rootfs == config.rootfs) {
+                    if (shown != null) account = shown
+                    if (agyShown != null) agyAccount = agyShown
+                }
             }
-                .getOrNull()
-            // 问核心列的账号：登录着时取它的套餐展示名（auth status 只有订阅类型，分不出 Max 与 Ultra）；在用中转时 claude-switch
-            // 已退出登录，auth status（不带中转的设置）说没登录，要看核心是不是在用中转
-            val listed = if (o == null) null else runCatching { accounts.core.list() }.getOrNull()
-            val status = o?.let { AccountStatus.fromAuthStatus(it, listed?.current) }
-            val relay = if (status?.loggedIn == false) listed?.relay else null
-            val shown = relay?.let { AccountStatus.relay(it.name, it.baseUrl) } ?: status
-            main.post { if (settings.env?.rootfs == config.rootfs) account = shown }
         }
+    }
+
+    private fun readClaudeAccount(config: LinuxEnvConfig): AccountStatus? {
+        val accounts = hub.accounts(Backends.LOCAL, Harnesses.CLAUDE)
+        val result =
+            runCatching { LinuxEnv.run(config, "exec claude auth status", timeoutMs = 60_000) }
+                .getOrNull() ?: return null
+        val o =
+            runCatching { json.parseToJsonElement(result.stdout) as? JsonObject }.getOrNull()
+                ?: return null
+        val listed = runCatching { accounts.core.list() }.getOrNull()
+        val status = AccountStatus.fromAuthStatus(o, listed?.current)
+        val relay = if (!status.loggedIn) listed?.relay else null
+        return relay?.let { AccountStatus.relay(it.name, it.baseUrl) } ?: status
+    }
+
+    private fun readAgyAccount(): AccountStatus? {
+        val state =
+            runCatching { hub.accounts(Backends.LOCAL, Harnesses.AGY).core.list() }.getOrNull()
+                ?: return null
+        return state.relay?.let { AccountStatus.relay(it.name, it.baseUrl) }
+            ?: AccountStatus(
+                loggedIn = state.loggedIn,
+                email = state.current?.email?.ifBlank { null },
+                plan = state.current?.plan?.ifBlank { null },
+            )
     }
 
     fun checkHealth() {
@@ -249,6 +278,44 @@ class EnvController constructor(private val hub: ConversationHub, assets: (Strin
         ) {
             checkHealth()
         }
+
+    fun installClaude() =
+        runMaintenance(
+            Strings.coreMaintainInstallClaude(),
+            asRoot = false,
+            command = installer.optionalCommand("claude"),
+        ) {
+            refreshOwnStatus()
+            checkHealth()
+            refreshAccount()
+        }
+
+    fun installAgy() =
+        runMaintenance(
+            Strings.coreMaintainInstallAgy(),
+            asRoot = false,
+            command = installer.optionalCommand("install-agy"),
+        ) {
+            refreshOwnStatus()
+            checkHealth()
+            refreshAccount()
+        }
+
+    fun updateAgy() =
+        runMaintenance(
+            Strings.coreMaintainUpdateAgy(),
+            asRoot = false,
+            command = installer.optionalCommand("install-agy"),
+        ) {
+            checkHealth()
+        }
+
+    private fun refreshOwnStatus() {
+        thread(isDaemon = true) {
+            val own = installer.status()
+            main.post { ownStatus = own }
+        }
+    }
 
     fun refreshSsh() {
         val config = settings.env ?: return

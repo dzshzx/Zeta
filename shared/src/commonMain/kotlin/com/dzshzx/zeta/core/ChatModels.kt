@@ -248,6 +248,13 @@ val FallbackModels: List<ModelOption>
             ModelOption("haiku", "Haiku", ""),
         )
 
+/** 还没拿到 Antigravity CLI 的模型清单时先给的默认项。 */
+val AgyFallbackModels: List<ModelOption>
+    get() = listOf(ModelOption(Conversation.DEFAULT_MODEL, Strings.coreModelDefault(), ""))
+
+fun fallbackModels(harness: String): List<ModelOption> =
+    if (Harnesses.normalize(harness) == Harnesses.AGY) AgyFallbackModels else FallbackModels
+
 /**
  * 选择器里模型 [value] 这一项的名字，模型菜单、设置页用它：默认模型（null 或 "default"）写明它现在指向哪个，比如「默认（Opus 5.5）」， 清单 [models]
  * 还没报它指向谁时只写「默认」；别的项清单里有显示名的用它，完整 ID 写成「Opus 5.5」，别的原样。
@@ -371,6 +378,8 @@ data class SessionSummary(
     val created: Long = updated,
     /** 最新回答时间（毫秒）：最后一次回答完的时刻，工具结果和正在进行的一轮不改它；还没回答过时同 [created]。默认同 [updated]，同 [created]。 */
     val replied: Long = updated,
+    /** 这条会话由哪个工具托管（[Harnesses.CLAUDE] 或 [Harnesses.AGY]）。 */
+    val harness: String = Harnesses.CLAUDE,
 ) {
     /** 预览用界面语言说出来：核心写的按种类码出字，用户原话照原样。 */
     val shownPreview: String
@@ -421,6 +430,7 @@ fun sessionSummaryOf(o: JsonObject, backend: String): SessionSummary? {
         backend = backend,
         // 核心没给这一项时（比它旧）当作还在运行，不把整个列表都灰掉
         live = o.bool("live") != false,
+        harness = Harnesses.normalize(o.str("harness")),
     )
 }
 

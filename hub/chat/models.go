@@ -5,7 +5,24 @@ import (
 	"slices"
 	"strconv"
 	"strings"
+
+	"github.com/dzshzx/Zeta/helper/sessionproto"
 )
+
+// EffortLevels 是对话与配置页共用的思考强度档位（含 Antigravity CLI 与最新模型支持的 xhigh）。
+var EffortLevels = []string{"low", "medium", "high", "xhigh", "max"}
+
+// SupportsEffort 报告模型是否支持指定思考强度档位。
+func SupportsEffort(model, level string) bool {
+	if !slices.Contains(EffortLevels, level) {
+		return false
+	}
+	m := strings.ToLower(strings.TrimSpace(model))
+	if strings.Contains(m, "haiku") && (level == "xhigh" || level == "max") {
+		return false
+	}
+	return true
+}
 
 // FallbackModels 是 Claude Code 还没报清单时，输入栏和设备设置共用的模型别名。
 var FallbackModels = []ModelOption{
@@ -13,6 +30,23 @@ var FallbackModels = []ModelOption{
 	{Value: "opus", DisplayName: "Opus"},
 	{Value: "sonnet", DisplayName: "Sonnet"},
 	{Value: "haiku", DisplayName: "Haiku"},
+}
+
+// FallbackAgyModels 是 Antigravity CLI 还没报清单时的默认候选模型。
+var FallbackAgyModels = []ModelOption{
+	{Value: "gemini-3.1-pro-high", DisplayName: "Gemini 3.1 Pro (High)", ResolvedModel: "gemini-3.1-pro-high"},
+	{Value: "gemini-3-flash", DisplayName: "Gemini 3 Flash", ResolvedModel: "gemini-3-flash"},
+	{Value: "claude-opus-4-6-thinking", DisplayName: "Claude Opus 4.6 (Thinking)", ResolvedModel: "claude-opus-4-6-thinking"},
+	{Value: "claude-sonnet-4-6", DisplayName: "Claude Sonnet 4.6", ResolvedModel: "claude-sonnet-4-6"},
+	{Value: "gpt-oss-120b-medium", DisplayName: "GPT-OSS 120B (Medium)", ResolvedModel: "gpt-oss-120b-medium"},
+}
+
+// FallbackModelsFor 返回指定 harness 还没报模型清单时的后备模型列表。
+func FallbackModelsFor(harness string) []ModelOption {
+	if sessionproto.NormalizeHarness(harness) == sessionproto.HarnessAgy {
+		return FallbackAgyModels
+	}
+	return FallbackModels
 }
 
 // SplitModels 是模型菜单怎么分两层（同手机版 ChatModels.kt 的 modelMenu，用例同 ModelMenuTest）：和 Claude 应用一样只直接列
@@ -101,13 +135,24 @@ func newestUncovered(info []modelInfo) map[string]int {
 	return newest
 }
 
-// FullID 是这一项对应的完整模型 ID：value 本身是完整 ID 时就是它，别名（opus）是 Claude Code 报的 resolvedModel；
-// 都没有（「默认」没报指向谁、认不出的写法）时为空。
+// FullID 是这一项对应的完整模型 ID：value 本身是完整 ID（含非 claude-* 的具体模型 ID）时就是它，别名（opus）是报的 resolvedModel；
+// 都没有（「默认」没报指向谁、认不出的别名）时为空。
 func (m ModelOption) FullID() string {
 	if _, _, ok := modelSeries(m.Value); ok {
 		return m.Value
 	}
-	return m.ResolvedModel
+	if m.ResolvedModel != "" {
+		return m.ResolvedModel
+	}
+	if base, ok := strings.CutSuffix(m.Value, "-thinking"); ok {
+		if _, _, ok := modelSeries(base); ok {
+			return m.Value
+		}
+	}
+	if !strings.HasPrefix(m.Value, "claude-") && strings.ContainsAny(m.Value, "-.0123456789") {
+		return m.Value
+	}
+	return ""
 }
 
 var fullModelID = regexp.MustCompile(`^claude-([a-z]+)-(\d+(?:-\d{1,2})*)(?:-\d{8})?(\[1m\])?$`)

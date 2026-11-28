@@ -6,7 +6,7 @@
   "hostDirDenied": "No permission to enter {path} on “{host}”",
   "hostProbeTimeout": "Connection timed out",
   "hostProbeNotConnected": "Couldn't connect",
-  "hostProbeNoClaude": "Can't find claude on that device (not in the login shell's PATH or ~/.local/bin)",
+  "hostProbeNoClaude": "Can't find Claude Code (claude) or Antigravity CLI (agy) on that device (not in the login shell's PATH or ~/.local/bin)",
   "hostProbeUnknownSystem": "an unknown system",
   "hostProbeUnsupported": "Zeta's session reader runs only on arm64 or x86-64 Linux; this device runs {system}",
   "hostProgramMissing": "This program isn't bundled with the desktop app",

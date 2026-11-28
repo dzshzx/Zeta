@@ -35,11 +35,17 @@ type pendingRewind struct {
 
 // canRewind：现在能编辑、重新生成、删除一轮、还原代码或分支。这一轮已经结束，也没有别的事在等。
 func (c *Conversation) canRewind() bool {
+	if c.isAgy() {
+		return false
+	}
 	return !c.busy && len(c.prompts) == 0 && c.rewind == nil && !c.loadingHistory && !c.blocked && len(c.queued) == 0
 }
 
 // rewindTarget 是条目 id 为 target 的那条用户消息在列表里的位置和 uuid；现在不能改、找不到或它没有 uuid 时报错。
 func (c *Conversation) rewindTarget(target string) (int, string, error) {
+	if c.isAgy() {
+		return 0, "", locales.Err("errAgyNoRewind")
+	}
 	if !c.canRewind() {
 		return 0, "", errNotNow
 	}

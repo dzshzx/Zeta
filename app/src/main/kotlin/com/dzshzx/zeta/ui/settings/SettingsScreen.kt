@@ -234,9 +234,12 @@ private fun SettingsHome(
 private fun HostEntry(hub: ConversationHub, backend: String, onOpen: () -> Unit) {
     val host = hub.remoteHost(backend)
     val usable = hub.usable(backend)
-    val defaults = hub.claudeDefaults(backend)
-    LaunchedEffect(backend, usable) {
-        if (usable && hub.claudeDefaults(backend) == null) hub.refreshClaudeDefaults(backend)
+    val harness = hub.settings.defaultHarness(backend)
+    val defaults = hub.claudeDefaults(backend, harness)
+    LaunchedEffect(backend, harness, usable) {
+        if (usable && hub.claudeDefaults(backend, harness) == null) {
+            hub.refreshClaudeDefaults(backend, harness)
+        }
     }
     val problem =
         when {
@@ -261,7 +264,9 @@ private fun HostEntry(hub: ConversationHub, backend: String, onOpen: () -> Unit)
                             if (problem.second) MiuixTheme.colorScheme.error else Color.Unspecified,
                     )
                 defaults != null ->
-                    PreferenceValue(hostDefaultsSummary(defaults, hub.modelOptions(backend)))
+                    PreferenceValue(
+                        hostDefaultsSummary(defaults, hub.modelOptions(backend, harness)),
+                    )
             }
         },
         onClick = onOpen,

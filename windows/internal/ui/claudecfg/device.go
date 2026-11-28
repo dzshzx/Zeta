@@ -13,17 +13,25 @@ import (
 	"github.com/egoist/mygo/ui"
 )
 
-// Sections 是设备页上的三组：新对话默认、Claude（自动压缩、压缩时机、自动标题、闲置超时）、Claude Code 配置的入口。
+// Sections 是设备页上的三组：新对话默认、CLI 运行与版本更新、配置的入口。
 func (p *Page) Sections(c *ui.Context) {
 	p.defaultsSection(c)
-	p.claudeSection(c)
-	widget.Group(c, locales.ClaudecfgConfigTitle(), locales.ClaudecfgConfigFooter(), func(l *widget.List) {
+	if p.isAgy() {
+		p.agySection(c)
+	} else {
+		p.claudeSection(c)
+	}
+	title, footer, memLabel := locales.ClaudecfgConfigTitle(), locales.ClaudecfgConfigFooter(), locales.ClaudecfgMemory()
+	if p.isAgy() {
+		title, footer, memLabel = locales.ClaudecfgAgyConfigTitle(), locales.ClaudecfgAgyConfigFooter(), locales.ClaudecfgAgyRules()
+	}
+	widget.Group(c, title, footer, func(l *widget.List) {
 		for _, e := range []struct {
 			key, label string
 			v          view
 			open       func()
 		}{
-			{"memory", locales.ClaudecfgMemory(), viewMemory, p.openMemory},
+			{"memory", memLabel, viewMemory, p.openMemory},
 			{"skills", "Skills", viewSkills, p.openSkills},
 			{"mcp", locales.ClaudecfgMcpServers(), viewMcp, p.openMcp},
 			{"agents", locales.ClaudecfgSubagents(), viewAgents, p.openAgents},
@@ -82,7 +90,9 @@ func (p *Page) defaultsSection(c *ui.Context) {
 		item(l, locales.ClaudecfgDefaultModel(), "", func() { p.modelChoice(c, *d, disabled || p.modelSource == ModelSourceUnknown) })
 		entry(l, "default-effort", locales.ClaudecfgDefaultEffort(), effortSummary(*d), "", true, func() { p.push(viewEffort) })
 		p.permissionModeRow(l, *d, disabled)
-		p.compactWindowRow(l, *d, disabled)
+		if !p.isAgy() {
+			p.compactWindowRow(l, *d, disabled)
+		}
 	})
 }
 
@@ -252,6 +262,13 @@ func (p *Page) claudeSection(c *ui.Context) {
 	})
 }
 
+func (p *Page) agySection(c *ui.Context) {
+	widget.Group(c, "Antigravity", locales.ClaudecfgAgyFooter(), func(l *widget.List) {
+		p.idleRow(l)
+		p.claudeRow(l)
+	})
+}
+
 // idleRow 是「闲置超时」：存着的值不在几档里时（在别的客户端上设的）也列出来；还没读到时灰着。
 func (p *Page) idleRow(l *widget.List) {
 	c := l.Context()
@@ -300,7 +317,7 @@ func (p *Page) effortRows(d coreapi.Defaults) []effortRow {
 	var rows []effortRow
 	// 中转的 ID 没有统一写法，用它报的名字；Claude Code 的完整 ID 按 ID 写（别名和 [1m] 可能对应同一个 ID，它们的名字代表不了这个 ID）。
 	name := func(id string) string {
-		if p.modelSource != ModelSourceHarness {
+		if p.modelSource != ModelSourceHarness || p.isAgy() {
 			if i := slices.IndexFunc(p.models, func(m Model) bool { return m.ID == id }); i >= 0 {
 				return p.models[i].Label
 			}

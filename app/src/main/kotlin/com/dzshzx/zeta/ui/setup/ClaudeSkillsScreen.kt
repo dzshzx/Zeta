@@ -15,6 +15,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import com.dzshzx.zeta.core.ConversationHub
+import com.dzshzx.zeta.core.Harnesses
 import com.dzshzx.zeta.core.claude.ClaudeConfigCore
 import com.dzshzx.zeta.core.claude.SkillImport
 import com.dzshzx.zeta.core.claude.SkillInfo
@@ -45,8 +46,13 @@ private class PickedZip(val name: String, val bytes: ByteArray)
  * ~/.claude/skills/synced，由 Claude Code 从 claude.ai 拉下来，这里只列出；标“已停用”的是 skillOverrides 里关掉了。
  */
 @Composable
-internal fun ClaudeSkillsScreen(hub: ConversationHub, backend: String, onBack: () -> Unit) {
-    val client = rememberConfigClient(hub, backend)
+internal fun ClaudeSkillsScreen(
+    hub: ConversationHub,
+    backend: String,
+    onBack: () -> Unit,
+    harness: String = Harnesses.CLAUDE,
+) {
+    val client = rememberConfigClient(hub, backend, harness)
     val scope = rememberCoroutineScope()
     val context = LocalContext.current
     var list by remember { mutableStateOf<SkillList?>(null) }

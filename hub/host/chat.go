@@ -26,7 +26,7 @@ func (d *Devices) OpenChat(h sshlink.Host, push func(line []byte), hello func(ho
 		Lang:   i18n.Locale,
 		Hello:  hello,
 		Message: func(kind string, line []byte) {
-			if strings.HasPrefix(kind, "conv.") || kind == "sessions.match" {
+			if strings.HasPrefix(kind, "conv.") || kind == "sessions.match" || kind == "quota.snapshot" {
 				push(line)
 			}
 		},

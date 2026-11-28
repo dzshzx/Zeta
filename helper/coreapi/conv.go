@@ -142,9 +142,10 @@ type OpenSpec struct {
 	// Session 是接着的会话号，新对话为空；File 是它的会话记录（可省，核心按会话号找）。
 	Session, File string
 	// Key 是 conv.state 的 key：重新打开核心里的那个对话（还没有会话号的分支断线重连时用）。
-	Key   string
-	Cwd   string
-	Title string
+	Key     string
+	Cwd     string
+	Title   string
+	Harness string
 	// Options 总是发。
 	Options Options
 	// Choices 是用户在这个对话里选过的，没选过的不发（见 Choices）。
@@ -155,9 +156,10 @@ type OpenSpec struct {
 // 客户端记着，每次打开都带上。还没有会话号的对话，核心收掉它、换了核心或选的那次请求没送到时，靠它补回来；有了会话号核心就不看了。
 // nil 是没选过，空串是选回默认。
 type Choices struct {
-	Model  *string `json:"model,omitempty"`
-	Effort *string `json:"effort,omitempty"`
-	Mode   *string `json:"mode,omitempty"`
+	Model   *string `json:"model,omitempty"`
+	Effort  *string `json:"effort,omitempty"`
+	Mode    *string `json:"mode,omitempty"`
+	Harness *string `json:"harness,omitempty"`
 }
 
 // Open 打开这个对话（conv.open）；接着推来整份的 conv.state 和 conv.items，可能比应答先到。
@@ -167,7 +169,7 @@ func (v Conv) Open(ctx context.Context, s OpenSpec) error {
 	if s.Choices != (Choices{}) {
 		p["choices"] = s.Choices
 	}
-	for k, val := range map[string]string{"session": s.Session, "file": s.File, "key": s.Key, "cwd": s.Cwd, "title": s.Title} {
+	for k, val := range map[string]string{"session": s.Session, "file": s.File, "key": s.Key, "cwd": s.Cwd, "title": s.Title, "harness": s.Harness} {
 		if val != "" {
 			p[k] = val
 		}
@@ -238,6 +240,11 @@ func (v Conv) SetEffort(ctx context.Context, value *string) error {
 // SetMode 只管这个对话的权限模式（conv.mode）；nil 回到默认。
 func (v Conv) SetMode(ctx context.Context, value *string) error {
 	return call(ctx, v.c, "conv.mode", v.p(params{"value": value}))
+}
+
+// SetHarness 切换尚未开始的新对话所用的 CLI 工具（conv.harness）："claude" 或 "agy"。已有会话号或消息时出错。
+func (v Conv) SetHarness(ctx context.Context, value string) error {
+	return call(ctx, v.c, "conv.harness", v.p(params{"value": value}))
 }
 
 // Preset 给这个对话预设模型、思考强度，hint 追加进 --append-system-prompt，下次起进程时生效；空的那项照旧（conv.preset）。

@@ -153,10 +153,14 @@ object RemoteHosts {
         """
         printf 'zeta_home %s\n' "${'$'}HOME"
         printf 'zeta_claude %s\n' "${'$'}(claude --version 2>/dev/null | head -n 1)"
+        printf 'zeta_agy %s\n' "${'$'}({ agy --version 2>/dev/null || "${'$'}HOME/.local/bin/agy" --version 2>/dev/null; } | head -n 1)"
         printf 'zeta_system %s\n' "${'$'}(uname -sm 2>/dev/null)"
         printf 'zeta_hostname %s\n' "${'$'}(uname -n 2>/dev/null)"
         """
             .trimIndent()
+
+    private fun extractVersion(raw: String): String =
+        Regex("""\d+\.\d+[\w.-]*""").find(raw)?.value ?: raw.trim()
 
     /**
      * 连一次 [target] 查到的情况。直连的 [Ok.hostKey] 是对方的主机公钥（base64），加主机时记下；[Ok.hostname] 是它报的主机名，查不到时为 null。
@@ -168,6 +172,7 @@ object RemoteHosts {
             val system: String,
             val hostKey: String? = null,
             val hostname: String? = null,
+            val agy: String = "",
         ) : Probe
 
         data class Failed(val reason: String) : Probe
@@ -187,13 +192,14 @@ object RemoteHosts {
                         line.substringAfter(' ', "").trim()
                 }
         val home = values["home"].orEmpty()
-        val claude = values["claude"].orEmpty()
+        val claude = values["claude"].orEmpty().substringBefore(" (").trim()
+        val agy = extractVersion(values["agy"].orEmpty())
         val system = values["system"].orEmpty()
         return when {
             result.timedOut -> Probe.Failed(Strings.coreConnectionTimeout())
             result.exitCode == RemoteShell.CONNECTION_FAILED || home.isEmpty() ->
                 Probe.Failed(sshProblem(result.stderr))
-            claude.isEmpty() -> Probe.Failed(Strings.coreHostNoClaude())
+            claude.isEmpty() && agy.isEmpty() -> Probe.Failed(Strings.coreHostNoClaude())
             !helperRuns(system) ->
                 Probe.Failed(
                     Strings.coreHostUnsupported(system.ifEmpty { Strings.coreHostUnknownSystem() }),
@@ -201,10 +207,11 @@ object RemoteHosts {
             else ->
                 Probe.Ok(
                     home,
-                    claude.substringBefore(" ("),
+                    claude,
                     system,
                     hostKey,
                     values["hostname"]?.ifEmpty { null },
+                    agy,
                 )
         }
     }

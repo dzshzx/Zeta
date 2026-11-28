@@ -137,6 +137,7 @@ var slowMethods = map[string]time.Duration{
 	"config.mcp.remove":    3 * time.Minute,
 	"config.mcp.setToken":  3 * time.Minute,
 	"system.claude_update": 6 * time.Minute,
+	"system.agy_update":    6 * time.Minute,
 }
 
 type coreParams struct {

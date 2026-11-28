@@ -12,14 +12,20 @@ import (
 func (p *Page) login(c *ui.Context, l acct.Login) {
 	svc := p.Accounts
 	idle := svc.Working() == ""
-	widget.Group(c, locales.AccountsLoginTitle(), locales.AccountsLoginFooter(), func(list *widget.List) {
+	footer := locales.AccountsLoginFooter()
+	codeLabel := locales.AccountsCode()
+	if p.isAgy() {
+		footer = locales.AccountsAgyLoginFooter()
+		codeLabel = locales.AccountsAgyCode()
+	}
+	widget.Group(c, locales.AccountsLoginTitle(), footer, func(list *widget.List) {
 		list.Custom(func() {
 			ui.Column(c).Grow(1).Gap(10).Padding(4, 0).Children(func() {
 				ui.Row(c).Gap(8).Children(func() {
 					widget.SmallPrimaryButton(c, locales.AccountsOpenAuthPage()).OnClick(func() { c.OpenURL(l.URL) })
 					widget.SmallButton(c, locales.AccountsCopyUrl()).OnClick(func() { c.Services().WriteClipboard(l.URL) })
 				})
-				in := widget.LineInput(c, &p.code, 1).Placeholder(locales.AccountsCode()).Label(locales.AccountsCode()).Disabled(!idle)
+				in := widget.LineInput(c, &p.code, 1).Placeholder(codeLabel).Label(codeLabel).Disabled(!idle)
 				if in.Submitted() {
 					svc.SubmitCode(p.code)
 				}

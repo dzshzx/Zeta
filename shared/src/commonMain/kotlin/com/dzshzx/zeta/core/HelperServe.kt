@@ -61,6 +61,7 @@ class HelperServe(
      * 界面现在的语言，和 [device] 一起在 core.client 里报（docs/i18n.md）：核心给这条连接的应答按它出字。换语言后 [introduceAll] 再报一次。
      */
     private val lang: () -> String = { UiLanguage.current },
+    private val subscriptionParams: Map<String, JsonObject> = emptyMap(),
 ) : ServeRequests {
     /** 起好的 serve 进程和结束它的办法（连同那边派生的进程）。 */
     class Opened(val process: Process, val kill: (Process) -> Unit)
@@ -247,7 +248,9 @@ class HelperServe(
     private fun greet(process: Process) {
         // 排在能 call 之前：这条连接上的第一条消息就记在这台设备名下、按这个语言出字
         send(process, "core.client", introduction())
-        subscriptions.forEach { send(process, it) }
+        subscriptions.forEach {
+            send(process, it, subscriptionParams[it] ?: JsonObject(emptyMap()))
+        }
         startPings(process)
         synchronized(lock) {
             if (!closed) ready = process

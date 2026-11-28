@@ -50,12 +50,21 @@ data class RelayDraft(
     /**
      * 草稿哪里不对，没问题时为 null。[create] 是添加；[taken] 是这台上已有的账号名和中转名（添加时不能重名）； [keyEditable] 为假时不看密钥（密钥框禁用）。
      */
-    fun problem(create: Boolean, taken: Collection<String>, keyEditable: Boolean = true): String? {
+    fun problem(
+        create: Boolean,
+        taken: Collection<String>,
+        keyEditable: Boolean = true,
+        harness: String = Harnesses.CLAUDE,
+    ): String? {
         val name = name.trim()
+        val isAgy = Harnesses.normalize(harness) == Harnesses.AGY
+        val reserved = if (isAgy) name == Harnesses.AGY else name == BUILTIN
+        val badUrl =
+            if (isAgy) baseUrl.isNotBlank() && !validBaseUrl(baseUrl) else !validBaseUrl(baseUrl)
         return when {
-            create && (!NAME.matches(name) || name == BUILTIN) -> CoreStrings.errRelayName()
+            create && (!NAME.matches(name) || reserved) -> CoreStrings.errRelayName()
             create && name in taken -> CoreStrings.errRelayNameTaken()
-            !validBaseUrl(baseUrl) -> CoreStrings.errRelayURL()
+            badUrl -> CoreStrings.errRelayURL()
             keyEditable && key.any { it.isWhitespace() } -> CoreStrings.errRelayKey()
             create && key.isBlank() -> CoreStrings.errRelayKeyRequired()
             model.trim().length > MAX_MODEL || model.trim().any { it.isWhitespace() } ->

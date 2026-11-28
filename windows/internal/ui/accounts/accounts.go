@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/dzshzx/Zeta/helper/coreapi"
+	"github.com/dzshzx/Zeta/helper/sessionproto"
 	acct "github.com/dzshzx/Zeta/hub/accounts"
 	"github.com/dzshzx/Zeta/windows/internal/locales"
 	"github.com/dzshzx/Zeta/windows/internal/ui/widget"
@@ -21,6 +22,7 @@ import (
 type Page struct {
 	Accounts *acct.Service
 	Quota    *acct.Quota
+	Harness  string
 
 	code string // 登录时输入框里的授权码
 
@@ -92,10 +94,18 @@ func (p *Page) quota(c *ui.Context) {
 	})
 }
 
+func (p *Page) isAgy() bool {
+	return sessionproto.NormalizeHarness(p.Harness) == sessionproto.HarnessAgy
+}
+
 func (p *Page) accounts(c *ui.Context) {
 	svc := p.Accounts
 	st, loaded := svc.State()
-	widget.Group(c, locales.AccountsTitle(), locales.AccountsFooter(), func(l *widget.List) {
+	footer := locales.AccountsFooter()
+	if p.isAgy() {
+		footer = locales.AccountsAgyFooter()
+	}
+	widget.Group(c, locales.AccountsTitle(), footer, func(l *widget.List) {
 		switch {
 		case !loaded:
 			l.Message(locales.CommonLoading())

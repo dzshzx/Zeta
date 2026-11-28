@@ -11,6 +11,7 @@ import kotlin.concurrent.thread
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonElement
 import kotlinx.serialization.json.JsonObject
+import kotlinx.serialization.json.JsonPrimitive
 import kotlinx.serialization.json.buildJsonObject
 import kotlinx.serialization.json.put
 import kotlinx.serialization.json.putJsonObject
@@ -24,12 +25,18 @@ import kotlinx.serialization.json.putJsonObject
  * [usageAnswered] 回来），没有就单起一个只答这一个问题的 Claude Code（[QuotaProbe]）；应答原样交给核心的 `quota.usage`。
  * 推来的数另存一份在应用自己的 SharedPreferences 里（核心给的原文），下次打开先显示它；换账号时清掉。
  */
-class QuotaService(private val hub: ConversationHub, private val backend: String) {
+class QuotaService(
+    private val hub: ConversationHub,
+    private val backend: String,
+    val harness: String = Harnesses.CLAUDE,
+) {
+    private val normalizedHarness = Harnesses.normalize(harness)
+    private val isAgy = normalizedHarness == Harnesses.AGY
     private val prefs = hub.platform.prefs("quota")
 
-    /** 存上次的数用的键：各台主机分开（[HostKeys]）。 */
-    private val key = HostKeys.key(backend, KEY)
-    private val relayKey = HostKeys.key(backend, RELAY_KEY)
+    /** 存上次的数用的键：各台主机与各工具分开（[HostKeys]）。 */
+    private val key = HostKeys.key(backend, if (isAgy) "agy_$KEY" else KEY)
+    private val relayKey = HostKeys.key(backend, if (isAgy) "agy_$RELAY_KEY" else RELAY_KEY)
     private val main = MainHandler()
 
     /**
@@ -95,9 +102,21 @@ class QuotaService(private val hub: ConversationHub, private val backend: String
 
     private fun connect(): HelperServe {
         lateinit var self: HelperServe
+        val watchParams =
+            if (isAgy) {
+                mapOf(
+                    "quota.watch" to
+                        buildJsonObject {
+                            put("watch", true)
+                            put("harness", Harnesses.AGY)
+                        },
+                )
+            } else {
+                emptyMap()
+            }
         self =
             HelperServe(
-                name = "quota-$backend",
+                name = if (isAgy) "quota-$backend-agy" else "quota-$backend",
                 open = {
                     val shell =
                         hub.shell(backend)
@@ -107,9 +126,13 @@ class QuotaService(private val hub: ConversationHub, private val backend: String
                     }
                 },
                 subscriptions = listOf("quota.watch"),
+                subscriptionParams = watchParams,
                 onHello = hub.helloFrom(backend),
                 onMessage = { o ->
-                    if (o.str("type") == "quota.snapshot") {
+                    if (
+                        o.str("type") == "quota.snapshot" &&
+                            Harnesses.normalize(o.str("harness")) == normalizedHarness
+                    ) {
                         val pushed = o["snapshot"] as? JsonObject
                         val relay = o.str("relay")
                         main.post { if (serve === self) received(pushed, relay) }
@@ -171,8 +194,15 @@ class QuotaService(private val hub: ConversationHub, private val backend: String
     }
 
     /** 把 get_usage 的应答 [response] 交给核心（quota.usage），返回它的结果 `{snapshot, fresh}`。阻塞。 */
-    private fun usage(link: HelperServe, response: JsonElement): JsonObject? =
-        link.call("quota.usage", JsonObject(mapOf("response" to response))) as? JsonObject
+    private fun usage(link: HelperServe, response: JsonElement): JsonObject? {
+        val params =
+            if (isAgy) {
+                JsonObject(mapOf("response" to response, "harness" to JsonPrimitive(Harnesses.AGY)))
+            } else {
+                JsonObject(mapOf("response" to response))
+            }
+        return link.call("quota.usage", params) as? JsonObject
+    }
 
     /** 问 get_usage、交给核心这一趟做完了（主线程上）。 */
     private fun answered(result: Result<JsonObject?>) {
@@ -218,11 +248,26 @@ class QuotaService(private val hub: ConversationHub, private val backend: String
         main.removeCallbacks(giveUp)
         main.postDelayed(giveUp, 60_000)
         // 借这台上开着的对话进程问（当前的优先，再是后台的），应答交给 usageAnswered；都没有进程才单起一个
-        if (hub.liveConversations.any { it.backend == backend && it.queryQuota() }) return
+        if (
+            hub.liveConversations.any {
+                it.backend == backend && it.harness == normalizedHarness && it.queryQuota()
+            }
+        )
+            return
         val cwd = hub.defaultCwd(backend)
         thread(name = "zeta-quota", isDaemon = true) {
             val result = runCatching {
-                usage(link, synchronized(probeLock) { QuotaProbe.query(shell, cwd) })
+                if (isAgy) {
+                    link.call(
+                        "quota.get",
+                        buildJsonObject {
+                            put("harness", Harnesses.AGY)
+                            put("refresh", true)
+                        },
+                    ) as? JsonObject
+                } else {
+                    usage(link, synchronized(probeLock) { QuotaProbe.query(shell, cwd) })
+                }
             }
             main.post { answered(result) }
         }

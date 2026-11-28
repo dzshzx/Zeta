@@ -155,6 +155,9 @@ func (p *Page) mcpPage(c *ui.Context) {
 	})
 	body(c, "mcp", func() {
 		footer := locales.ClaudecfgMcpFooter()
+		if p.isAgy() {
+			footer = locales.ClaudecfgAgyMcpFooter()
+		}
 		if m.statusErr != "" {
 			footer += "\n\n" + locales.ClaudecfgMcpStatusFailed(m.statusErr)
 		}

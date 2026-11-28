@@ -6,6 +6,19 @@ import (
 )
 
 // Session 是会话列表里的一项：zeta-helper list、lookup 的一行，serve 推来的 zeta_sessions 里的一项（字段见 helper/sessions.go）。
+const (
+	HarnessClaude = "claude"
+	HarnessAgy    = "agy"
+)
+
+// NormalizeHarness 归一化会话与请求里的 harness 标识：未传或未知时默认为 "claude"。
+func NormalizeHarness(h string) string {
+	if strings.EqualFold(strings.TrimSpace(h), HarnessAgy) {
+		return HarnessAgy
+	}
+	return HarnessClaude
+}
+
 type Session struct {
 	ID      string `json:"id"`
 	File    string `json:"file"`
@@ -15,6 +28,7 @@ type Session struct {
 	// PreviewCode 是 Preview 是核心写的占位（只发了图时的「[图片]」）时它的种类码（核心文字表的键，docs/i18n.md），
 	// 界面按自己的语言出字；预览是用户原话时为空
 	PreviewCode string  `json:"preview_code"`
+	Harness     string  `json:"harness"`
 	Updated     int64   `json:"updated"`  // 毫秒
 	Created     int64   `json:"created"`  // 发起时间（毫秒）：记录里第一条带时刻的
 	Replied     int64   `json:"replied"`  // 最新回答时间（毫秒）：最后一次回答完的时刻，还没回答过时同 Created
@@ -61,6 +75,7 @@ func (s *Session) UnmarshalJSON(data []byte) error {
 		return err
 	}
 	*s = Session(v.plain)
+	s.Harness = NormalizeHarness(s.Harness)
 	s.Ended = v.Live != nil && !*v.Live
 	if json.Unmarshal(v.Cwd, &s.Cwd) != nil && len(v.Cwd) > 0 && string(v.Cwd) != "null" {
 		s.Cwd = string(v.Cwd)

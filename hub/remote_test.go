@@ -143,7 +143,7 @@ func TestAccountsSeeOwnConversations(t *testing.T) {
 	f.hub.NewChat()
 	f.take()
 	f.replay("turn")
-	convs := deviceConvs{f.hub.Remote(f.id).conn, f.hub.run}
+	convs := deviceConvs{conn: f.hub.Remote(f.id).conn, run: f.hub.run}
 	if convs.Busy() {
 		t.Fatal("答完了还算忙")
 	}

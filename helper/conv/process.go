@@ -119,6 +119,9 @@ const imagesHint = "When the user attaches image files ([Attached file: ...] lin
 // launchArgs 是起 Claude Code 进程的参数。没指定模型时不带 --model：接着已有会话时 Claude Code 照记录用原来的模型；
 // 终端里换过模型、之后还没有回答的指定换成的那个。
 func (c *Conversation) launchArgs(mode string, o Options) []string {
+	if c.isAgy() {
+		return c.agyLaunchArgs(mode, o)
+	}
 	args := []string{"-p", "--input-format", "stream-json", "--output-format", "stream-json", "--verbose",
 		"--include-partial-messages", "--permission-prompt-tool", "stdio"}
 	// 接着原会话；分支则从原会话复制出新会话（发出第一条消息时才写出记录）
@@ -145,6 +148,40 @@ func (c *Conversation) launchArgs(mode string, o Options) []string {
 	// 手机工具：一个不开端口的 MCP 服务器，消息走控制通道，由声明了 phone 的客户端应答
 	if o.MCPConfig != "" && c.phoneHolder() {
 		args = append(args, "--mcp-config", o.MCPConfig)
+	}
+	return args
+}
+
+// agyLaunchArgs 生成传给 agy-bridge 的启动参数（不含 Claude 专用的 imagesHint）。
+func (c *Conversation) agyLaunchArgs(mode string, o Options) []string {
+	var args []string
+	if c.cwd != "" {
+		args = append(args, "--cwd", c.cwd)
+	}
+	if c.session != "" {
+		args = append(args, "--resume", c.session)
+	}
+	model := c.switchedInTerminal
+	if c.model != nil {
+		model = *c.model
+	}
+	if model != "" {
+		args = append(args, "--model", model)
+	}
+	if mode != "" {
+		args = append(args, "--permission-mode", mode)
+	}
+	if c.effort != "" {
+		args = append(args, "--effort", c.effort)
+	}
+	if strings.TrimSpace(c.title) != "" {
+		args = append(args, "--title", c.title)
+	}
+	if prompt := strings.TrimSpace(o.SystemPrompt + " " + c.launchHint); prompt != "" {
+		args = append(args, "--append-system-prompt", prompt)
+	}
+	if c.phoneHolder() {
+		args = append(args, "--phone-mcp")
 	}
 	return args
 }
@@ -176,16 +213,18 @@ func (c *Conversation) ensureProcess(mode string) *process {
 	for k, v := range o.Env {
 		env[k] = v
 	}
-	for k, v := range codeRewindEnv {
-		env[k] = v
+	if !c.isAgy() {
+		for k, v := range codeRewindEnv {
+			env[k] = v
+		}
 	}
 	p := newProcess()
 	var join [][]byte
 	for _, body := range c.joinRequests(mode) {
 		join = append(join, p.requestLine(body, nil))
 	}
-	link, err := c.deps.Start(StartOptions{Key: newUUID(), Cwd: c.cwd, Title: c.title, Args: c.launchArgs(mode, o), Env: env,
-		OnJoin: join}, c.events(p))
+	link, err := c.deps.Start(StartOptions{Key: newUUID(), Cwd: c.cwd, Title: c.title, Harness: c.harness,
+		Args: c.launchArgs(mode, o), Env: env, OnJoin: join}, c.events(p))
 	if err != nil {
 		c.r.AddNoticeMsg(locales.M("noticeStartFailed", "reason", locales.ErrArg(err)), true)
 		c.changed()
@@ -242,7 +281,7 @@ func (c *Conversation) processStarted(p *process, carried *usage.Carried, compac
 // autoQueryQuota：起进程时顺便问一次订阅额度，应答交给 Deps.Quota 存起来，客户端不用再问。多久问一次由 Deps.Quota 定；
 // 答的是错误（比如这种登录没有额度可查）时不算数。
 func (c *Conversation) autoQueryQuota(p *process) {
-	q := c.deps.Quota
+	q := c.quotaSink()
 	if q == nil || !q.ClaimQuery() {
 		return
 	}
@@ -268,7 +307,7 @@ func (c *Conversation) initialized(r controlResponse) {
 		}
 		if len(body.Commands) > 0 {
 			c.commands = visibleCommands(body.Commands)
-			c.deps.Commands.Remember(c.cwd, c.commands)
+			c.deps.Commands.RememberFor(c.harness, c.cwd, c.commands)
 		}
 		if body.CurrentPermissionMode != "" {
 			c.modes.reportedAtStart(body.CurrentPermissionMode)

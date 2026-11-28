@@ -4,6 +4,7 @@ import androidx.compose.runtime.Immutable
 import com.dzshzx.zeta.core.ChatItem
 import com.dzshzx.zeta.core.CodeRewind
 import com.dzshzx.zeta.core.HandoffResult
+import com.dzshzx.zeta.core.Harnesses
 import com.dzshzx.zeta.core.PermissionReply
 import com.dzshzx.zeta.core.ServeError
 import com.dzshzx.zeta.core.arr
@@ -128,6 +129,7 @@ internal constructor(
     private fun openParams(): JsonObject {
         val session = view.state.session ?: spec.session
         val key = view.state.key.takeIf { opened && !gone && it.isNotEmpty() }
+        val effectiveHarness = Harnesses.normalize(spec.choices.harness ?: spec.harness)
         return JsonObject(
             buildMap {
                 put("conv", JsonPrimitive(name))
@@ -138,6 +140,9 @@ internal constructor(
                     ?.let { put("file", JsonPrimitive(it)) }
                 if (spec.cwd.isNotEmpty()) put("cwd", JsonPrimitive(spec.cwd))
                 if (spec.title.isNotEmpty()) put("title", JsonPrimitive(spec.title))
+                if (effectiveHarness != Harnesses.CLAUDE || spec.choices.harness != null) {
+                    put("harness", JsonPrimitive(effectiveHarness))
+                }
                 put("options", spec.options.json())
                 spec.choices.json().takeIf { it.isNotEmpty() }?.let { put("choices", it) }
             },
@@ -384,6 +389,19 @@ internal constructor(
         return errors
             .mapNotNull { (k, v) -> (v as? JsonPrimitive)?.let { k to it.content } }
             .toMap()
+    }
+
+    /** 切换尚未开始的新对话所用的工具（conv.harness）。 */
+    fun setHarness(value: String) {
+        val normalized = Harnesses.normalize(value)
+        synchronized(client.lock) {
+            spec =
+                spec.copy(
+                    harness = normalized,
+                    choices = spec.choices.copy(harness = normalized),
+                )
+        }
+        request("conv.harness", mapOf("value" to JsonPrimitive(normalized)))
     }
 
     /** 只管这个对话的模型；null 回到默认。 */

@@ -16,6 +16,7 @@ type Hosted struct {
 	Key     string `json:"key"`
 	Cwd     string `json:"cwd"`
 	Title   string `json:"title"`
+	Harness string `json:"harness"`
 	Session string `json:"session"`
 	File    string `json:"file"`
 	// Lines 是输出日志已有的行数，接上时从下一行读起
@@ -47,7 +48,7 @@ func (m *Manager) Adopt(hosted []Hosted) {
 			continue
 		}
 		m.seq++
-		c := New("c"+strconv.Itoa(m.seq), Spec{Session: h.Session, File: h.File, Cwd: h.Cwd, Title: h.Title, attach: &h}, m.deps, m.send)
+		c := New("c"+strconv.Itoa(m.seq), Spec{Session: h.Session, File: h.File, Cwd: h.Cwd, Title: h.Title, Harness: h.Harness, attach: &h}, m.deps, m.send)
 		m.all[c] = true
 		if h.Session != "" {
 			m.bySession[h.Session] = c

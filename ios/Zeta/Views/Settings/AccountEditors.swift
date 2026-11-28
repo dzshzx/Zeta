@@ -1,14 +1,17 @@
 import SwiftUI
 import UIKit
 
-/// 添加账号（同桌面版的登录）：核心在设备上起登录命令、给出授权网址；在 Safari 里打开它授权，把页面给的授权码贴回来。
+/// 添加账号（同桌面版的登录）：核心在设备上起登录命令、给出授权网址；在 Safari 里打开它授权，把授权码或回调网址贴回来。
 struct LoginSheet: View {
     @Environment(AppModel.self) private var model
     @Environment(\.openURL) private var openURL
     let id: String
+    var harness = Harness.claude
     let login: LoginState?
     let working: String
     @State private var code = ""
+
+    private var isAgy: Bool { harness == Harness.agy }
 
     var body: some View {
         NavigationStack {
@@ -23,24 +26,31 @@ struct LoginSheet: View {
                     } header: {
                         Text("授权网址")
                     } footer: {
-                        Text("打开后用要添加的账号登录并授权，页面会给出一段授权码。")
+                        Text(isAgy
+                            ? "打开后用 Google 账号登录并授权；完成后复制页面给出的授权码，或复制跳转后的整条回调网址。"
+                            : "打开后用要添加的账号登录并授权，页面会给出一段授权码。")
                     }
                     Section {
-                        TextField("授权码", text: $code, axis: .vertical)
+                        TextField(isAgy ? String(localized: "授权码或回调网址") : String(localized: "授权码"),
+                                  text: $code, axis: .vertical)
                             .textInputAutocapitalization(.never)
                             .autocorrectionDisabled()
                             .font(.body.monospaced())
-                        Button("提交") { model.perform("accounts.code", ["id": id, "code": code]) }
-                            .disabled(!working.isEmpty || code.trimmingCharacters(in: .whitespaces).isEmpty)
+                        Button("提交") {
+                            model.perform("accounts.code", ["id": id, "harness": harness, "code": code])
+                        }
+                        .disabled(!working.isEmpty || code.trimmingCharacters(in: .whitespaces).isEmpty)
                     } header: {
-                        Text("授权码")
+                        Text(isAgy ? "授权码或回调网址" : "授权码")
                     } footer: {
                         if !login.notice.isEmpty {
                             Text(login.notice).foregroundStyle(.red)
                         } else if !working.isEmpty {
                             Text(working)
                         } else {
-                            Text("把授权页给的整段码贴在这里，中间有一个 #。")
+                            Text(isAgy
+                                ? "粘贴授权码，或粘贴包含 code= 的整条回调网址（http://localhost…）。"
+                                : "把授权页给的整段码贴在这里，中间有一个 #。")
                         }
                     }
                 }
@@ -49,7 +59,9 @@ struct LoginSheet: View {
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
-                    Button("取消", role: .cancel) { model.perform("accounts.cancel", ["id": id]) }
+                    Button("取消", role: .cancel) {
+                        model.perform("accounts.cancel", ["id": id, "harness": harness])
+                    }
                 }
             }
         }
@@ -72,6 +84,7 @@ struct RelayEditor: View {
     @Environment(AppModel.self) private var model
     @Environment(\.dismiss) private var dismiss
     let id: String
+    var harness = Harness.claude
     let start: RelayEditing
     let draft: RelayDraft?
     let working: String
@@ -81,14 +94,23 @@ struct RelayEditor: View {
     @State private var defaultModel = ""
     @State private var showKey = false
 
+    private var isAgy: Bool { harness == Harness.agy }
+
     var body: some View {
         NavigationStack {
             Form {
                 Section {
                     TextField("名称", text: $name).disabled(!start.create)
-                    TextField("地址（https://…）", text: $baseUrl).keyboardType(.URL)
+                    TextField(
+                        isAgy ? String(localized: "地址（可选，https://…）") : String(localized: "地址（https://…）"),
+                        text: $baseUrl
+                    )
+                    .keyboardType(.URL)
                 } footer: {
-                    if !start.create { Text("名称加好以后不能改。") }
+                    VStack(alignment: .leading, spacing: 4) {
+                        if !start.create { Text("名称加好以后不能改。") }
+                        if isAgy { Text("不填地址时直接连 Google 官方 Gemini 接口；走自定义接入点时再填地址。") }
+                    }
                 }
                 .textInputAutocapitalization(.never)
                 .autocorrectionDisabled()
@@ -135,7 +157,9 @@ struct RelayEditor: View {
             Text("密钥")
         } footer: {
             if !keyEditable {
-                Text("这个中转的密钥不是 Zeta 存的，要在设备上的 claude-switch 配置里改。")
+                Text(isAgy
+                    ? "这个中转的密钥不是 Zeta 存的，要在设备上的配置里改。"
+                    : "这个中转的密钥不是 Zeta 存的，要在设备上的 claude-switch 配置里改。")
             }
         }
     }
@@ -154,7 +178,7 @@ struct RelayEditor: View {
                 }
             }
             Button {
-                model.perform("relay.fetch", ["id": id])
+                model.perform("relay.fetch", ["id": id, "harness": harness])
             } label: {
                 HStack {
                     Text("获取模型列表")
@@ -182,7 +206,7 @@ struct RelayEditor: View {
             Button("取消", role: .cancel) { dismiss() }
         }
         ToolbarItem(placement: .confirmationAction) {
-            Button("保存") { model.perform("relay.save", ["id": id]) }
+            Button("保存") { model.perform("relay.save", ["id": id, "harness": harness]) }
                 .disabled(draft?.ready != true || !working.isEmpty)
         }
     }
@@ -192,11 +216,12 @@ struct RelayEditor: View {
 
     private var keyPlaceholder: String {
         if !start.create, draft?.hasKey == true { return String(localized: "已存着，空着不改") }
-        return String(localized: "API 密钥")
+        return isAgy ? String(localized: "Gemini API 密钥") : String(localized: "API 密钥")
     }
 
     private func push() {
         model.perform(
-            "relay.draft", ["id": id, "name": name, "base_url": baseUrl, "key": key, "model": defaultModel])
+            "relay.draft",
+            ["id": id, "harness": harness, "name": name, "base_url": baseUrl, "key": key, "model": defaultModel])
     }
 }

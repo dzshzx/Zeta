@@ -38,9 +38,23 @@ struct SessionRow: Decodable, Sendable, Hashable {
     let activity: String
     let tasks: Int
     let snippet: String
-    /// 存着的没发出的草稿的一行预览，没有时为空。
-    var draft: String = ""
+    private let rawDraft: String?
+    private let rawHarness: String?
 
+    enum CodingKeys: String, CodingKey {
+        case backend, id, title, place, updated, pinned, external, ended, archived, activity, tasks, snippet
+        case rawDraft = "draft"
+        case rawHarness = "harness"
+    }
+
+    /// 存着的没发出的草稿的一行预览，没有时为空。
+    var draft: String { rawDraft ?? "" }
+    /// 会话所属的工具，缺省回退 "claude"。
+    var harness: String {
+        guard let rawHarness, !rawHarness.isEmpty else { return Harness.claude }
+        return rawHarness
+    }
+    var isAgy: Bool { harness == Harness.agy }
     /// 在各台设备之间不重的键。
     var key: String { backend + "/" + id }
     var updatedAt: Date { Date(timeIntervalSince1970: TimeInterval(updated) / 1000) }
@@ -70,6 +84,8 @@ struct ChatState: Decodable, Sendable {
     let todos: [Todo]
     let process: Bool
     let finished: [String]
+    private let rawHarness: String?
+    let canSwitchHarness: Bool?
     // 聊天页的操作要的（ChatModels.swift）；旧核心没有时为 nil
     let canRewind: Bool?
     let rewinding: Bool?
@@ -79,10 +95,18 @@ struct ChatState: Decodable, Sendable {
     let handoffProblem: String?
     let autoImages: Bool?
 
+    var harness: String {
+        guard let rawHarness, !rawHarness.isEmpty else { return Harness.claude }
+        return rawHarness
+    }
+    var isAgy: Bool { harness == Harness.agy }
+
     enum CodingKeys: String, CodingKey {
         case backend, session, title, device, cwd, opening, problem, connected, busy, blocked, status, model, earlier
         case prompts, items, failed, composer
         case tasks, todos, process, finished
+        case rawHarness = "harness"
+        case canSwitchHarness = "can_switch_harness"
         case linkProblem = "link_problem"
         case canRewind = "can_rewind", earlierLoading = "earlier_loading", handoffProblem = "handoff_problem"
         case autoImages = "auto_images"
@@ -145,9 +169,23 @@ enum JSONValue: Decodable, Sendable, Hashable {
         if case .string(let text) = self { text } else { nil }
     }
 
+    var int: Int? {
+        if case .number(let num) = self { Int(exactly: num) } else { nil }
+    }
+
+    var array: [JSONValue]? {
+        if case .array(let items) = self { items } else { nil }
+    }
+
+    private static let summaryKeys = [
+        "description", "toolSummary", "command", "CommandLine", "file_path", "Path", "path",
+        "Pattern", "pattern", "Query", "query", "SearchPath", "SearchDirectory", "url", "Uri",
+        "Role", "Name", "Description", "Prompt", "prompt", "skill", "Action", "Recipient"
+    ]
+
     /// 参数里最能说明在做什么的一项，按这个先后找。
     var summary: String? {
-        for key in ["description", "command", "file_path", "path", "pattern", "url", "query", "prompt", "skill"] {
+        for key in Self.summaryKeys {
             if let text = self[key]?.string, !text.isEmpty { return text }
         }
         return nil

@@ -56,6 +56,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.focus.FocusRequester
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.input.nestedscroll.NestedScrollConnection
 import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.text.font.FontWeight
@@ -171,8 +172,8 @@ fun ChatScreen(
     val listState = remember(conversation) { LazyListState() }
     // 对话能不能显示：要靠 Debian 的主机等它就绪，直连的远程主机不用
     val usable = hub.usable(conversation.backend)
-    LaunchedEffect(hub, conversation.backend, usable) {
-        if (usable) hub.refreshClaudeDefaults(conversation.backend)
+    LaunchedEffect(hub, conversation.backend, conversation.harness, usable) {
+        if (usable) hub.refreshClaudeDefaults(conversation.backend, conversation.harness)
     }
     val pageBackdrop = rememberPageBackdrop()
     // 结束确认框的说明，打开时定下（框开着时对话闲下来，说明也不跟着变）；null 是没开着
@@ -191,7 +192,7 @@ fun ChatScreen(
                         hub.backendName(conversation.backend).takeIf {
                             conversation.backend != Backends.LOCAL
                         },
-                    models = hub.modelOptions(conversation.backend),
+                    models = hub.modelOptions(conversation.backend, conversation.harness),
                     backdrop = pageBackdrop,
                     listState = listState.takeIf { usable },
                     onOpenPane = onOpenPane,
@@ -598,10 +599,13 @@ private fun ChatContent(
         items.isEmpty() ->
             EmptyState(
                 hub = hub,
+                conversation = conversation,
                 cwd = conversation.cwd,
                 // 登录状态查的是手机上的 Claude Code；远程主机上的登没登录，发了才知道
                 needsLogin =
-                    conversation.backend == Backends.LOCAL && hub.platform.local?.loggedOut == true,
+                    conversation.backend == Backends.LOCAL &&
+                        conversation.harness == com.dzshzx.zeta.core.Harnesses.CLAUDE &&
+                        hub.platform.local?.loggedOut == true,
                 onLogin = onOpenLogin,
                 onChangeCwd = { hub.startNew(it) },
                 modifier = Modifier.padding(padding),
@@ -891,7 +895,14 @@ private fun ConversationInput(
             canCompact = !conversation.busy && !conversation.loadingHistory && items.isNotEmpty(),
             onCompact = conversation::compact,
             onDismissRequest = { viewingUsage = false },
-            quota = { QuotaDialogSection(hub, conversation.backend, visible = viewingUsage) },
+            quota = {
+                QuotaDialogSection(
+                    hub,
+                    conversation.backend,
+                    visible = viewingUsage,
+                    harness = conversation.harness,
+                )
+            },
         )
     }
 }
@@ -987,11 +998,21 @@ private fun ChatHeader(conversation: Conversation, host: String?, models: List<M
     val colors = MiuixTheme.colorScheme
     val selected = conversation.selectedModelForMenu()
     val modelName = conversation.shownModelName(models)
+    val harness = conversation.harness
+    val canSwitchHarness = conversation.canSwitchHarness
     var expanded by remember(conversation) { mutableStateOf(false) }
     val entries =
-        remember(models, selected, conversation) {
+        remember(models, selected, harness, canSwitchHarness, conversation) {
             val choices = modelChoices(models)
-            choiceEntries(choices.latest, choices.older, selected, conversation::chooseListedModel)
+            val modelMenu =
+                choiceEntries(
+                    choices.latest,
+                    choices.older,
+                    selected,
+                    conversation::chooseListedModel,
+                )
+            if (!canSwitchHarness) modelMenu
+            else harnessMenuEntries(harness, conversation::setHarness) + modelMenu
         }
     val source = remember { MutableInteractionSource() }
     Box {
@@ -1044,7 +1065,7 @@ private fun ChatHeader(conversation: Conversation, host: String?, models: List<M
                         .padding(start = 12.dp, end = 8.dp, top = 6.dp, bottom = 6.dp),
             ) {
                 Text(
-                    text = "Claude · $modelName",
+                    text = "${com.dzshzx.zeta.core.Harnesses.shortTitle(harness)} · $modelName",
                     style = MiuixTheme.textStyles.button,
                     color = colors.onBackground,
                     maxLines = 1,
@@ -1124,9 +1145,24 @@ private fun overflowEntries(
         ),
     )
 
+private fun harnessMenuEntries(current: String, onSelect: (String) -> Unit): List<MenuEntry> =
+    listOf(
+        MenuEntry(
+            items =
+                com.dzshzx.zeta.core.Harnesses.ALL.map { h ->
+                    MenuItem(
+                        text = com.dzshzx.zeta.core.Harnesses.title(h),
+                        selected = current == h,
+                        onClick = { onSelect(h) },
+                    )
+                },
+        ),
+    )
+
 @Composable
 private fun EmptyState(
     hub: ConversationHub,
+    conversation: Conversation,
     cwd: String,
     needsLogin: Boolean,
     onLogin: () -> Unit,
@@ -1136,7 +1172,6 @@ private fun EmptyState(
     val colors = MiuixTheme.colorScheme
     var editingCwd by remember { mutableStateOf(false) }
     var cwdDraft by remember { mutableStateOf(cwd) }
-    val scope = rememberCoroutineScope()
     // 键盘弹出后地方不够时内容照原样排、能上下滚，不让 Column 把下面的登录提示压扁；地方够时照旧居中（底下留 56）
     BoxWithConstraints(modifier = modifier.fillMaxSize()) {
         Column(
@@ -1153,7 +1188,14 @@ private fun EmptyState(
                 style = MiuixTheme.textStyles.title2,
                 color = colors.onBackground,
             )
-            Spacer(Modifier.height(8.dp))
+            Spacer(Modifier.height(10.dp))
+            if (conversation.canSwitchHarness) {
+                HarnessSwitcher(
+                    harness = conversation.harness,
+                    onSelect = conversation::setHarness,
+                    modifier = Modifier.padding(bottom = 6.dp),
+                )
+            }
             // 加过远程主机时：这个新对话开在哪台主机上，点开换一台
             HostSwitcher(hub, modifier = Modifier.padding(bottom = 4.dp))
             Row(
@@ -1199,29 +1241,86 @@ private fun EmptyState(
             }
         }
     }
-    TextInputDialog(
+    CwdEditDialog(
+        hub = hub,
         show = editingCwd,
+        cwd = cwd,
+        draft = cwdDraft,
+        onDraftChange = { cwdDraft = it },
+        onDismiss = { editingCwd = false },
+        onChangeCwd = {
+            editingCwd = false
+            onChangeCwd(it)
+        },
+    )
+}
+
+@Composable
+private fun CwdEditDialog(
+    hub: ConversationHub,
+    show: Boolean,
+    cwd: String,
+    draft: String,
+    onDraftChange: (String) -> Unit,
+    onDismiss: () -> Unit,
+    onChangeCwd: (String) -> Unit,
+) {
+    val scope = rememberCoroutineScope()
+    TextInputDialog(
+        show = show,
         title = Strings.chatCwdTitle(),
         summary =
             if (hub.backend == Backends.LOCAL) Strings.chatCwdLocal()
             else Strings.chatCwdRemote(hub.backendName(hub.backend)),
-        value = cwdDraft,
-        onValueChange = { cwdDraft = it },
+        value = draft,
+        onValueChange = onDraftChange,
         label = "/workspace",
         confirmText = Strings.chatOk(),
-        confirmEnabled = cwdDraft.trim().startsWith("/"),
+        confirmEnabled = draft.trim().startsWith("/"),
         onConfirm = {
-            val path = cwdDraft.trim()
+            val path = draft.trim()
             val backend = hub.current.backend
             // 先看那台上进不进得去：进不去就留着对话框让用户改，不然发出消息才知道起不来
             scope.launch {
                 val problem = withContext(Dispatchers.IO) { CwdProblem.check(hub, backend, path) }
                 if (problem == null) {
-                    editingCwd = false
-                    if (path != cwd) onChangeCwd(path)
+                    if (path != cwd) onChangeCwd(path) else onDismiss()
                 } else hub.platform.toast(problem)
             }
         },
-        onDismissRequest = { editingCwd = false },
+        onDismissRequest = onDismiss,
     )
+}
+
+/** 尚未开始的新对话上直观切换 Claude Code 与 Antigravity 的胶囊控件。 */
+@Composable
+private fun HarnessSwitcher(
+    harness: String,
+    onSelect: (String) -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    val colors = MiuixTheme.colorScheme
+    Row(
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(2.dp),
+        modifier = modifier.clip(CircleShape).background(colors.fill4, CircleShape).padding(3.dp),
+    ) {
+        com.dzshzx.zeta.core.Harnesses.ALL.forEach { item ->
+            val active = item == harness
+            Text(
+                text = com.dzshzx.zeta.core.Harnesses.title(item),
+                style = MiuixTheme.textStyles.footnote1,
+                fontWeight = if (active) FontWeight.SemiBold else FontWeight.Normal,
+                color = if (active) colors.onBackground else colors.onBackgroundVariant,
+                modifier =
+                    Modifier.clip(CircleShape)
+                        .background(
+                            if (active) colors.surfaceContainer else Color.Transparent,
+                            CircleShape,
+                        )
+                        .clickable { onSelect(item) }
+                        .padding(horizontal = 12.dp, vertical = 5.dp),
+            )
+        }
+    }
 }

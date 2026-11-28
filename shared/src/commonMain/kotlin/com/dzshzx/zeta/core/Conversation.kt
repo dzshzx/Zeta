@@ -61,6 +61,8 @@ class Conversation(
     val backend: String = Backends.LOCAL,
     /** 从别的对话分支出来的新对话：核心那边由 conv.fork 打开。 */
     private val fork: Fork? = null,
+    /** 新建对话初始选的工具（[Harnesses.CLAUDE] 或 [Harnesses.AGY]）。 */
+    harness: String = Harnesses.CLAUDE,
 ) {
     /** 分支的来处：从 [source] 的条目 [last] 所在那一轮之后分支。 */
     class Fork(val source: Conversation, val last: String)
@@ -70,6 +72,7 @@ class Conversation(
 
     private val initialCwd = cwd
     private val initialSession = sessionId
+    private var initialHarness by mutableStateOf(Harnesses.normalize(harness))
 
     /** 核心推来的、合并到现在的样子（[mirror] 换掉它）。 */
     var view by mutableStateOf(ConvView())
@@ -186,6 +189,14 @@ class Conversation(
     val notStarted: Boolean
         get() = sessionId == null && items.isEmpty() && !active
 
+    /** 这个对话用的命令行工具（[Harnesses.CLAUDE] 或 [Harnesses.AGY]）。 */
+    val harness: String
+        get() = if (everOpened) state.harness else initialHarness
+
+    /** 尚未开始的新对话（无会话号、无消息条目、无运行中进程）可以切换工具。 */
+    val canSwitchHarness: Boolean
+        get() = sessionId == null && items.isEmpty() && !isProcessAlive && !active
+
     /** 打开、登记这个对话用的标识：会话号，新对话还没有会话号时用 [key]。 */
     val openKey: String
         get() = sessionId ?: key
@@ -211,7 +222,7 @@ class Conversation(
      * 换成它指向的那个。那台还没起过进程、清单没到时，默认模型说不出是哪个，才写「默认」。
      */
     fun shownModelName(models: List<ModelOption>): String =
-        modelName(shownModel ?: hub.defaultModel(backend) ?: DEFAULT_MODEL, models)
+        modelName(shownModel ?: hub.defaultModel(backend, harness) ?: DEFAULT_MODEL, models)
             ?: Strings.coreModelDefault()
 
     /** 用户在这个对话里的权限模式；null 是还没选过、也还没报过。 */
@@ -220,7 +231,7 @@ class Conversation(
 
     /** 输入栏显示的权限模式：核心算好的（这个对话的，没有时是 Claude Code 设置里的默认）。核心还没推来（新对话还没打开）、 或它读不到默认值时，用这边读到的那台主机的默认。 */
     val shownPermissionMode: String?
-        get() = state.mode.shown.ifEmpty { null } ?: hub.defaultPermissionMode(backend)
+        get() = state.mode.shown.ifEmpty { null } ?: hub.defaultPermissionMode(backend, harness)
 
     /** 进程现在用的权限模式。 */
     val processMode: String?
@@ -328,7 +339,7 @@ class Conversation(
             return it
         }
         main.post { opening = true }
-        val modelEpoch = hub.modelEpoch(backend)
+        val modelEpoch = hub.modelEpoch(backend, harness)
         val opened =
             try {
                 forkResult() ?: hub.convLinks.open(this, spec())
@@ -383,6 +394,7 @@ class Conversation(
             file = historyFile?.takeIf { session == initialSession },
             cwd = cwd,
             title = title,
+            harness = harness,
             options = options(),
             choices = choices,
         )
@@ -392,11 +404,12 @@ class Conversation(
     private fun options(): ConvOptions {
         val claude = hub.settings.claude(backend)
         val phone = phoneSession
+        val phoneEnabled = hub.settings.phoneTools
         return ConvOptions(
             env = AutoCompact.env(claude.autoCompact, claude.autoCompactPercent),
             systemPrompt = hub.platform.clientHint,
-            mcpConfig = phone?.mcpConfig?.takeIf { hub.settings.phoneTools },
-            phone = phone != null,
+            mcpConfig = phone?.mcpConfig?.takeIf { phoneEnabled },
+            phone = phone != null && (harness == Harnesses.CLAUDE || phoneEnabled),
             autoTitle = claude.autoTitle,
             compactPercent = claude.autoCompactPercent?.takeIf { claude.autoCompact } ?: 0,
             desk = backend != Backends.LOCAL,
@@ -670,7 +683,18 @@ class Conversation(
 
     /** 接着 [other] 里还没送出去的选择：还没开始的新对话按新的默认工作目录重建时（[ConversationHub.renewBlank]）。 */
     internal fun takeChoicesFrom(other: Conversation) {
+        initialHarness = other.initialHarness
         choices = other.choices
+    }
+
+    /** 切换尚未开始的新对话所用的工具（[Harnesses.CLAUDE] 或 [Harnesses.AGY]）。 */
+    fun setHarness(value: String) {
+        val normalized = Harnesses.normalize(value)
+        if (!canSwitchHarness || normalized == harness) return
+        initialHarness = normalized
+        hub.refreshClaudeDefaults(backend, normalized)
+        hub.ensureModelSource(backend, normalized)
+        choose(choices.copy(harness = normalized, model = "")) { it.setHarness(normalized) }
     }
 
     /** 用户在这个对话里选了模型（[value] 是选择器里的值，null 或 "default" 是默认模型），只管这个对话。 */
@@ -681,14 +705,15 @@ class Conversation(
         model
             ?: when {
                 modelFromSession -> null
-                hub.usesRelayModels(backend) -> reportedModel ?: hub.defaultModel(backend)
+                hub.usesRelayModels(backend, harness) ->
+                    reportedModel ?: hub.defaultModel(backend, harness)
                 else -> DEFAULT_MODEL
             }
 
-    internal fun ensureModelOptions() = hub.ensureModelSource(backend)
+    internal fun ensureModelOptions() = hub.ensureModelSource(backend, harness)
 
     internal fun chooseListedModel(value: String) {
-        if (hub.modelSelectable(backend, value)) chooseModel(value)
+        if (hub.modelSelectable(backend, value, harness)) chooseModel(value)
     }
 
     /** 思考强度：只管这个对话，null 回到 Claude Code 自己的设置。 */
@@ -791,10 +816,12 @@ class Conversation(
     /** 借这个对话开着的进程问一次所在主机的订阅额度，应答交给那台的 QuotaService；没有进程时返回 false。 */
     fun queryQuota(): Boolean {
         val target = core?.takeIf { isProcessAlive } ?: return false
+        val targetHarness = harness
         thread(name = "zeta-quota", isDaemon = true) {
             val response = runCatching { target.quota() }.getOrNull() ?: return@thread
             main.post {
-                hub.quota(backend).usageAnswered(JsonObject(mapOf("response" to response)))
+                hub.quota(backend, targetHarness)
+                    .usageAnswered(JsonObject(mapOf("response" to response)))
             }
         }
         return true
@@ -900,9 +927,15 @@ class Conversation(
         if (next.connected && !before.connected && !next.state.busy) turnRunning = false
         followSession()
         followTitle(before.state, next.state)
-        if (!released && (lastLink !== link || before.state.models != next.state.models)) {
+        if (
+            !released &&
+                (lastLink !== link ||
+                    before.state.models != next.state.models ||
+                    before.state.harness != next.state.harness)
+        ) {
             lastLink = link
-            hub.rememberHarnessModels(backend, link?.modelEpoch, next.state.models)
+            val epoch = if (before.state.harness != next.state.harness) null else link?.modelEpoch
+            hub.rememberHarnessModels(backend, epoch, next.state.models, next.state.harness)
         }
         noticeChanges(before.state, next.state, before.connected != next.connected)
     }

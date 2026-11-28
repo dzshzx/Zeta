@@ -379,8 +379,12 @@ func (p *Page) ruleDialog(c *ui.Context, e *ruleEdit) {
 		labeled(c, locales.ClaudecfgPermList(), func() {
 			choice(c, "list", locales.ClaudecfgPermList(), labels, selected, e.saving, func(i int) { e.behavior = behaviors[i] })
 		})
-		widget.LineInput(c.Key("rule"), &e.text, 1).Placeholder("Bash(git push:*)").Label(locales.ClaudecfgPermRule()).Disabled(e.saving).AutoFocus()
-		ui.Text(c, locales.ClaudecfgPermRuleHelp()).
+		placeholder, help := "Bash(git push:*)", locales.ClaudecfgPermRuleHelp()
+		if p.isAgy() {
+			placeholder, help = "run_command(git push:*)", locales.ClaudecfgAgyPermRuleHelp()
+		}
+		widget.LineInput(c.Key("rule"), &e.text, 1).Placeholder(placeholder).Label(locales.ClaudecfgPermRule()).Disabled(e.saving).AutoFocus()
+		ui.Text(c, help).
 			FontSize(widget.SizeBodyXS).LineHeight(1.4).TextColor(widget.Of(c).Secondary)
 		if e.problem != "" {
 			problemText(c, e.problem)

@@ -23,15 +23,16 @@ import (
 type ChatLink struct {
 	Host string
 
-	devices *Devices
-	wire    sync.Mutex
-	mu      sync.Mutex
-	calls   []Call
-	onCall  func(Call) (json.RawMessage, error)
-	push    func([]byte)
-	hello   func(hostlink.Hello)
-	problem func(string)
-	closed  bool
+	devices      *Devices
+	wire         sync.Mutex
+	mu           sync.Mutex
+	calls        []Call
+	quotaWatches []Call
+	onCall       func(Call) (json.RawMessage, error)
+	push         func([]byte)
+	hello        func(hostlink.Hello)
+	problem      func(string)
+	closed       bool
 	// pushed 是推过几行（在 wire 锁里加），看 conv.prepare 的应答里推没推东西。
 	pushed int
 }
@@ -76,6 +77,11 @@ func (l *ChatLink) Call(_ context.Context, method string, params map[string]any)
 		return l.devices.answerSessions(l, Call{Method: method, Params: params})
 	}
 	c := Call{Method: method, Params: params}
+	if method == "quota.watch" {
+		l.quotaWatches = append(l.quotaWatches, c)
+		l.mu.Unlock()
+		return json.RawMessage(`{}`), nil
+	}
 	if method != "system.cpu" { // 输入栏的负载标识隔几秒问一次，不记，免得各测试核对的请求清单里混进它
 		l.calls = append(l.calls, c)
 	}
@@ -133,6 +139,13 @@ func (l *ChatLink) Methods() []string {
 		out = append(out, c.Method)
 	}
 	return out
+}
+
+// QuotaWatches 返回到现在收到的全部 quota.watch 订阅请求。
+func (l *ChatLink) QuotaWatches() []Call {
+	l.mu.Lock()
+	defer l.mu.Unlock()
+	return slices.Clone(l.quotaWatches)
 }
 
 // Push 推来一行（serve 原样转来的核心推送）。

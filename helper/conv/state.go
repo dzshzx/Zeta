@@ -21,6 +21,7 @@ func (c *Conversation) stateFields() map[string]json.RawMessage {
 	}
 	return map[string]json.RawMessage{
 		"key":             raw(c.ID),
+		"harness":         raw(c.harness),
 		"session":         raw(c.session),
 		"title":           raw(c.title),
 		"cwd":             raw(c.cwd),

@@ -28,6 +28,7 @@ import androidx.compose.foundation.lazy.LazyListScope
 import androidx.compose.foundation.lazy.LazyListState
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.LaunchedEffect
@@ -64,9 +65,11 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.text.withStyle
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import com.dzshzx.zeta.core.AppPackage
 import com.dzshzx.zeta.core.Backends
 import com.dzshzx.zeta.core.ConversationHub
+import com.dzshzx.zeta.core.Harnesses
 import com.dzshzx.zeta.core.SessionSort
 import com.dzshzx.zeta.core.SessionStatus
 import com.dzshzx.zeta.core.SessionSummary
@@ -1298,20 +1301,42 @@ private fun RowScope.SessionRowText(
                 if (ended) stateDescription = Strings.sidebarEnded()
             },
     ) {
-        Text(
-            text =
-                if (highlight.isEmpty()) AnnotatedString(title)
-                else highlighted(title, highlight, colors.primary),
-            style =
-                MiuixTheme.textStyles.body1.copy(
-                    fontWeight = if (selected) FontWeight.Medium else FontWeight.Normal,
-                ),
-            color = if (ended) colors.onSurfaceVariantActions else colors.onBackground,
-            maxLines = 1,
-            overflow = TextOverflow.Ellipsis,
-        )
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Text(
+                text =
+                    if (highlight.isEmpty()) AnnotatedString(title)
+                    else highlighted(title, highlight, colors.primary),
+                style =
+                    MiuixTheme.textStyles.body1.copy(
+                        fontWeight = if (selected) FontWeight.Medium else FontWeight.Normal,
+                    ),
+                color = if (ended) colors.onSurfaceVariantActions else colors.onBackground,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+                modifier = Modifier.weight(1f, fill = false),
+            )
+            Harnesses.badge(session.harness)?.let { badge ->
+                Spacer(Modifier.width(6.dp))
+                SessionHarnessBadge(badge, ended)
+            }
+        }
         SessionSubtitle(session, draft, snippet, highlight)
     }
+}
+
+@Composable
+private fun SessionHarnessBadge(label: String, ended: Boolean) {
+    val colors = MiuixTheme.colorScheme
+    val shape = RoundedCornerShape(5.dp)
+    Text(
+        text = label,
+        style = MiuixTheme.textStyles.footnote2.copy(fontSize = 10.5.sp),
+        color = if (ended) colors.onSurfaceVariantActions else colors.onBackgroundVariant,
+        modifier =
+            Modifier.clip(shape)
+                .background(colors.onBackground.copy(alpha = 0.07f), shape)
+                .padding(horizontal = 5.dp, vertical = 1.dp),
+    )
 }
 
 /** 标题下面的一行：搜到的片段、没发出的草稿，或者工作目录。 */

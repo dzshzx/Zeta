@@ -21,8 +21,9 @@ func (cl *Client) UnwatchSessions(ctx context.Context) error {
 
 // SessionSummary 是会话列表里的一项：sessions.lookup 的每一项，和 zeta_sessions 推送里 upsert 的一项相同。
 type SessionSummary struct {
-	ID   string `json:"id"`
-	File string `json:"file"`
+	ID      string `json:"id"`
+	File    string `json:"file"`
+	Harness string `json:"harness"`
 	// Cwd 照会话记录原样：一般是字符串，也可能是 null 或别的值
 	Cwd     any    `json:"cwd"`
 	Title   string `json:"title"`

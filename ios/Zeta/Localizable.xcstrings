@@ -2241,6 +2241,12 @@
             "state": "translated",
             "value": "Scope"
           }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "范围"
+          }
         }
       }
     },
@@ -3079,7 +3085,13 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Rule"
+            "value": "Rules"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "规则"
           }
         }
       }
@@ -6610,6 +6622,1158 @@
           "stringUnit": {
             "state": "translated",
             "value": "Runs RaTeX’s WebAssembly (Apache-2.0)"
+          }
+        }
+      }
+    },
+    "%lld 个步骤": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%lld steps"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%lld 个步骤"
+          }
+        }
+      }
+    },
+    "运行命令": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Run Command"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "运行命令"
+          }
+        }
+      }
+    },
+    "读取文件": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Read File"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "读取文件"
+          }
+        }
+      }
+    },
+    "编辑文件": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Edit File"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "编辑文件"
+          }
+        }
+      }
+    },
+    "写入文件": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Write File"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "写入文件"
+          }
+        }
+      }
+    },
+    "搜索内容": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Search Content"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "搜索内容"
+          }
+        }
+      }
+    },
+    "查找文件": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Find Files"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "查找文件"
+          }
+        }
+      }
+    },
+    "列出目录": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "List Directory"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "列出目录"
+          }
+        }
+      }
+    },
+    "网页搜索": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Web Search"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "网页搜索"
+          }
+        }
+      }
+    },
+    "读取网页": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Read Web Page"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "读取网页"
+          }
+        }
+      }
+    },
+    "调用子代理": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Subagent"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "调用子代理"
+          }
+        }
+      }
+    },
+    "定义子代理": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Define Subagent"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "定义子代理"
+          }
+        }
+      }
+    },
+    "管理子代理": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Manage Subagents"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "管理子代理"
+          }
+        }
+      }
+    },
+    "发送消息": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Send Message"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "发送消息"
+          }
+        }
+      }
+    },
+    "提问": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ask Question"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "提问"
+          }
+        }
+      }
+    },
+    "更新步骤": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Update Steps"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "更新步骤"
+          }
+        }
+      }
+    },
+    "管理任务": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Manage Task"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "管理任务"
+          }
+        }
+      }
+    },
+    "命令状态": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Command Status"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "命令状态"
+          }
+        }
+      }
+    },
+    "定时计划": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Schedule"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "定时计划"
+          }
+        }
+      }
+    },
+    "运行工作流": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Run Workflow"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "运行工作流"
+          }
+        }
+      }
+    },
+    "MCP 工具": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "MCP Tool"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "MCP 工具"
+          }
+        }
+      }
+    },
+    "列出资源": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "List Resources"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "列出资源"
+          }
+        }
+      }
+    },
+    "读取资源": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Read Resource"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "读取资源"
+          }
+        }
+      }
+    },
+    "对话工具": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Agent Tool"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "对话工具"
+          }
+        }
+      }
+    },
+    "添加一台装了 Claude Code 或 Antigravity 的 Linux 设备，经 SSH 在上面开对话。": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Add a Linux device with Claude Code or Antigravity installed to start conversations over SSH."
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "添加一台装了 Claude Code 或 Antigravity 的 Linux 设备，经 SSH 在上面开对话。"
+          }
+        }
+      }
+    },
+    "Antigravity": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Antigravity"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Antigravity"
+          }
+        }
+      }
+    },
+    "新对话默认工具": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Default Tool for New Chats"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "新对话默认工具"
+          }
+        }
+      }
+    },
+    "管理的工具": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Tool"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "管理的工具"
+          }
+        }
+      }
+    },
+    "Antigravity 配置": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Antigravity Configuration"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Antigravity 配置"
+          }
+        }
+      }
+    },
+    "工具与账号": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Tools & Accounts"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "工具与账号"
+          }
+        }
+      }
+    },
+    "打开「连接」后才能看账号和配置。": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Turn on Connect to view accounts and configuration."
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "打开「连接」后才能看账号和配置。"
+          }
+        }
+      }
+    },
+    "Antigravity 账号与额度": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Antigravity Accounts & Quota"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Antigravity 账号与额度"
+          }
+        }
+      }
+    },
+    "这台设备上的 Antigravity 改用这个中转的 Gemini API 密钥和地址；闲着的对话进程会先结束。": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Antigravity on this device will use this relay’s Gemini API key and URL; idle conversation processes will end first."
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "这台设备上的 Antigravity 改用这个中转的 Gemini API 密钥和地址；闲着的对话进程会先结束。"
+          }
+        }
+      }
+    },
+    "切到中转后，这台设备上的 Antigravity 使用这里填的 Gemini API 密钥（与可选地址）访问模型，没有订阅额度。": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "When using a relay, Antigravity on this device accesses models with the Gemini API key (and optional URL) set here, without subscription quota."
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "切到中转后，这台设备上的 Antigravity 使用这里填的 Gemini API 密钥（与可选地址）访问模型，没有订阅额度。"
+          }
+        }
+      }
+    },
+    "打开后用 Google 账号登录并授权；完成后复制页面给出的授权码，或复制跳转后的整条回调网址。": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Open the link to sign in with Google and authorize; then copy the authorization code or the full callback URL after redirect."
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "打开后用 Google 账号登录并授权；完成后复制页面给出的授权码，或复制跳转后的整条回调网址。"
+          }
+        }
+      }
+    },
+    "授权码或回调网址": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Authorization Code or Callback URL"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "授权码或回调网址"
+          }
+        }
+      }
+    },
+    "粘贴授权码，或粘贴包含 code= 的整条回调网址（http://localhost…）。": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Paste the authorization code, or paste the full callback URL containing code= (http://localhost…)."
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "粘贴授权码，或粘贴包含 code= 的整条回调网址（http://localhost…）。"
+          }
+        }
+      }
+    },
+    "地址（可选，https://…）": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "URL (optional, https://…)"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "地址（可选，https://…）"
+          }
+        }
+      }
+    },
+    "不填地址时直接连 Google 官方 Gemini 接口；走自定义接入点时再填地址。": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Leave the URL blank to connect directly to Google’s official Gemini API; enter a URL only for a custom endpoint."
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "不填地址时直接连 Google 官方 Gemini 接口；走自定义接入点时再填地址。"
+          }
+        }
+      }
+    },
+    "这个中转的密钥不是 Zeta 存的，要在设备上的配置里改。": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "This relay’s key isn’t stored by Zeta; change it in the configuration on the device."
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "这个中转的密钥不是 Zeta 存的，要在设备上的配置里改。"
+          }
+        }
+      }
+    },
+    "Gemini API 密钥": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Gemini API Key"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Gemini API 密钥"
+          }
+        }
+      }
+    },
+    "agy update 出错了": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "agy update failed"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "agy update 出错了"
+          }
+        }
+      }
+    },
+    "改的是这台设备上 Antigravity 自己的配置（~/.gemini），那边终端里的 agy 同样生效。": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Edits Antigravity’s own configuration (~/.gemini) on this device; agy in a terminal there uses the same settings."
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "改的是这台设备上 Antigravity 自己的配置（~/.gemini），那边终端里的 agy 同样生效。"
+          }
+        }
+      }
+    },
+    "还没读到 Antigravity 的设置": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Couldn’t load Antigravity settings"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "还没读到 Antigravity 的设置"
+          }
+        }
+      }
+    },
+    "没有设，按 Antigravity 的默认": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Not set; uses Antigravity’s default"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "没有设，按 Antigravity 的默认"
+          }
+        }
+      }
+    },
+    "Antigravity 内置的默认": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Antigravity built-in default"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Antigravity 内置的默认"
+          }
+        }
+      }
+    },
+    "Antigravity CLI": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Antigravity CLI"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Antigravity CLI"
+          }
+        }
+      }
+    },
+    "跟随 Antigravity": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Follow Antigravity"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "跟随 Antigravity"
+          }
+        }
+      }
+    },
+    "这台设备上的新对话按所用的模型取这里的设置；没单独设的模型用「其他模型」那一档。": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "New conversations on this device use the setting for their model here; models without their own setting use “Other models”."
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "这台设备上的新对话按所用的模型取这里的设置；没单独设的模型用「其他模型」那一档。"
+          }
+        }
+      }
+    },
+    "全局规则": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Global Rules"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "全局规则"
+          }
+        }
+      }
+    },
+    "~/.gemini/config/rules/AGENTS.md 里是所有工作区通用的全局规则。改动对之后新开始的对话生效。": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "~/.gemini/config/rules/AGENTS.md holds global rules shared across all workspaces. Changes apply to conversations started afterwards."
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "~/.gemini/config/rules/AGENTS.md 里是所有工作区通用的全局规则。改动对之后新开始的对话生效。"
+          }
+        }
+      }
+    },
+    "工作区与规则目录": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Workspace & Rule Directories"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "工作区与规则目录"
+          }
+        }
+      }
+    },
+    "工作区根目录的 AGENTS.md（或 GEMINI.md）和 .agents/rules 下的 .md 规则文件。": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "AGENTS.md (or GEMINI.md) at the workspace root and .md rule files under .agents/rules."
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "工作区根目录的 AGENTS.md（或 GEMINI.md）和 .agents/rules 下的 .md 规则文件。"
+          }
+        }
+      }
+    },
+    "写给这个工作区的项目规则与约定": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Project rules and conventions for this workspace"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "写给这个工作区的项目规则与约定"
+          }
+        }
+      }
+    },
+    "工作区根规则": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Workspace root rules"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "工作区根规则"
+          }
+        }
+      }
+    },
+    "工作区根规则，还没有": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Workspace root rules (not created yet)"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "工作区根规则，还没有"
+          }
+        }
+      }
+    },
+    "规则文件 · %@": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Rule files · %@"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "规则文件 · %@"
+          }
+        }
+      }
+    },
+    "这个目录还没有规则文件": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "No rule files in this directory yet"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "这个目录还没有规则文件"
+          }
+        }
+      }
+    },
+    "目录下的 .md 规则文件会列在这里": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Markdown (.md) rule files in this directory appear here"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "目录下的 .md 规则文件会列在这里"
+          }
+        }
+      }
+    },
+    "编辑期间这个文件被改过了。保存会用你的版本覆盖。": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "This file changed while you were editing it. Saving will overwrite it with your version."
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "编辑期间这个文件被改过了。保存会用你的版本覆盖。"
+          }
+        }
+      }
+    },
+    "删除这个规则文件": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Delete Rule File"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "删除这个规则文件"
+          }
+        }
+      }
+    },
+    "删除 %@？删了就找不回来。": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Delete %@? This can’t be undone."
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "删除 %@？删了就找不回来。"
+          }
+        }
+      }
+    },
+    "其他目录 · %@": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Other directories · %@"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "其他目录 · %@"
+          }
+        }
+      }
+    },
+    "来自 ~/.agents/skills 或 skills.json 声明的目录，这里只能看。": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Loaded from ~/.agents/skills or directories declared in skills.json; read-only here."
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "来自 ~/.agents/skills 或 skills.json 声明的目录，这里只能看。"
+          }
+        }
+      }
+    },
+    "装在 ~/.gemini/config/skills 里。关掉后文件留着，Antigravity 不再用它；改动对之后新开始的对话生效。": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Installed in ~/.gemini/config/skills. Turning one off keeps its files, and Antigravity stops using it; changes apply to conversations started afterwards."
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "装在 ~/.gemini/config/skills 里。关掉后文件留着，Antigravity 不再用它；改动对之后新开始的对话生效。"
+          }
+        }
+      }
+    },
+    "这个文件夹里没有 SKILL.md，%@ 不会把它当成 Skill。": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "This folder has no SKILL.md, so %@ won’t treat it as a Skill."
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "这个文件夹里没有 SKILL.md，%@ 不会把它当成 Skill。"
+          }
+        }
+      }
+    },
+    "存在 ~/.gemini/config/agents，所有项目都能用。Antigravity 按“什么时候用”自己决定交给哪个，你也可以在对话里点名。": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Stored in ~/.gemini/config/agents and available in all projects. Antigravity picks one from “When to use”, or you can name it in chat."
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "存在 ~/.gemini/config/agents，所有项目都能用。Antigravity 按“什么时候用”自己决定交给哪个，你也可以在对话里点名。"
+          }
+        }
+      }
+    },
+    "%@ · 括号不配对，%@ 认不出这条": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%@ · Unbalanced parentheses; %@ can’t read this rule"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%@ · 括号不配对，%@ 认不出这条"
+          }
+        }
+      }
+    },
+    "写成 工具名 或 工具名(参数)。比如 run_command(npm test:*)、read_file(./.env)、edit_file(src/**)、mcp__github（整个服务器）。": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Write Tool or Tool(specifier), e.g. run_command(npm test:*), read_file(./.env), edit_file(src/**), mcp__github (whole server)."
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "写成 工具名 或 工具名(参数)。比如 run_command(npm test:*)、read_file(./.env)、edit_file(src/**)、mcp__github（整个服务器）。"
+          }
+        }
+      }
+    },
+    "先把设置里 Zeta 的公钥加进那台设备的 ~/.ssh/authorized_keys。设备要是 arm64 或 x86-64 的 Linux，装着 bash，以及 Claude Code 或 Antigravity CLI。": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "First add Zeta’s public key from Settings to ~/.ssh/authorized_keys on the device. It must be arm64 or x86-64 Linux with bash and either Claude Code or Antigravity CLI installed."
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "先把设置里 Zeta 的公钥加进那台设备的 ~/.ssh/authorized_keys。设备要是 arm64 或 x86-64 的 Linux，装着 bash，以及 Claude Code 或 Antigravity CLI。"
+          }
+        }
+      }
+    },
+    "Anthropic 的编程 agent，Zeta 支持它": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Anthropic’s coding agent, supported by Zeta"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Anthropic 的编程 agent，Zeta 支持它"
+          }
+        }
+      }
+    },
+    "Google DeepMind 的编程 agent，Zeta 支持它": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Google DeepMind’s coding agent, supported by Zeta"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Google DeepMind 的编程 agent，Zeta 支持它"
           }
         }
       }

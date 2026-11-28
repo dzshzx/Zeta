@@ -55,7 +55,11 @@ func (c *Conversation) block(known *sessionproto.Occupancy) {
 		return
 	}
 	c.watchingOccupant = true
-	go c.followOccupant(c.session, known != nil)
+	c.bg.Add(1)
+	go func() {
+		defer c.bg.Done()
+		c.followOccupant(c.session, known != nil)
+	}()
 }
 
 // unblock：会话接过来了（或那边自己退出了），解开输入栏。还在盯着的那份下次查到时自己停下。

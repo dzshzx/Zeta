@@ -7,6 +7,8 @@ import (
 	"sort"
 	"strings"
 	"time"
+
+	"github.com/dzshzx/Zeta/helper/agystore"
 )
 
 // 子代理
@@ -64,6 +66,9 @@ func (e *env) findSubagent(toolUse, hint string, sessions []string) (agent, path
 		if err != nil || found {
 			return agent, path, meta, found, err
 		}
+	}
+	if f, ok := agystore.FindSubagent(e.agy, toolUse, hint, sessions); ok {
+		return f.AgentID, f.Path, f.Meta, true, nil
 	}
 	return "", "", nil, false, nil
 }
@@ -221,7 +226,13 @@ func cmdSubagent(e *env, o *emitter, req subagentRequest, chunk int) error {
 	if err != nil {
 		return err
 	}
-	events, next := subagentEvents(read.data, read.line)
+	var events []obj
+	var next int64
+	if _, _, isAgy := agyDirFromTranscript(path); isAgy {
+		events, next = agystore.SubagentChunkEvents(read.data, read.line)
+	} else {
+		events, next = subagentEvents(read.data, read.line)
+	}
 	skipped := max(0, len(events)-maxEvents)
 	o.out(obj{"type": "zeta_subagent", "file": path, "agent_id": agent, "meta": pickKeys(meta, subagentMetaKeys),
 		"offset": read.offset + int64(len(read.data)), "line": next, "more": read.full, "skipped": skipped, "reset": reset,

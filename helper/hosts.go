@@ -8,11 +8,17 @@ import (
 	"strings"
 	"syscall"
 	"time"
+
+	"github.com/dzshzx/Zeta/helper/agystore"
+	"github.com/dzshzx/Zeta/helper/sessionproto"
 )
 
-// 托管的后台对话（~/.cache/<name>/hosts/<key>）：zeta_host.sh 起的 Claude Code 进程，输出追加在 out.jsonl。
+// 托管的后台对话（~/.cache/<name>/hosts/<key>）：zeta_host.sh 起的 Claude Code 或 agy-bridge 进程，输出追加在 out.jsonl。
 
-var taskTools = map[string]bool{"Bash": true, "Monitor": true, "Agent": true, "Task": true}
+var taskTools = map[string]bool{
+	"Bash": true, "Monitor": true, "Agent": true, "Task": true,
+	"run_command": true, "invoke_subagent": true, "run_workflow": true,
+}
 
 const maxTaskCalls = 64 // 记着最近这么多个发起后台任务的工具调用
 
@@ -62,8 +68,9 @@ func (e *env) hostItem(dir string, pid int, scan hostScan) obj {
 	if len(files) > 0 {
 		file = files[0]
 	}
+	harness := sessionproto.NormalizeHarness(readText(joinPath(dir, "harness")))
 	return obj{"key": baseName(dir), "pid": pid, "cwd": readText(joinPath(dir, "cwd")), "title": title,
-		"session": scan.session, "file": file, "lines": scan.lines, "busy": scan.busy, "pending": scan.pending,
+		"harness": harness, "session": scan.session, "file": file, "lines": scan.lines, "busy": scan.busy, "pending": scan.pending,
 		"mode": scan.mode, "user_mode": readText(joinPath(dir, userModeFile)), "tasks": scan.tasks, "task_events": scan.events}
 }
 
@@ -163,6 +170,12 @@ type titleFollower struct {
 
 // read 读到 path 现在为止的标题；path 是空串或读不了时给出上次读到的。
 func (t *titleFollower) read(path string) string {
+	if agyDir, _, ok := agyDirFromTranscript(path); ok {
+		if s, ok, err := agystore.Summarize(agyDir, path); err == nil && ok {
+			return s.Title
+		}
+		return ""
+	}
 	if path != t.path {
 		*t = titleFollower{path: path}
 	}

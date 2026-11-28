@@ -7,6 +7,7 @@ import (
 	"time"
 	"unicode/utf8"
 
+	"github.com/dzshzx/Zeta/helper/agystore"
 	"github.com/dzshzx/Zeta/helper/locales"
 )
 
@@ -132,7 +133,7 @@ func searchSessions(ctx context.Context, e *env, query, lang string, found func(
 		done.Scanned++
 		if role, snip, ok := s.file(path); ok {
 			done.Matched++
-			found(searchMatch{ID: dropRunes(baseName(path), 6), Role: role, Snippet: snip})
+			found(searchMatch{ID: sessionIDOfPath(path), Role: role, Snippet: snip})
 		}
 	}
 	if ctx.Err() != nil {
@@ -144,6 +145,9 @@ func searchSessions(ctx context.Context, e *env, query, lang string, found func(
 
 // file 在一份记录里找第一处命中；搜索该停时不再往下读，当没找到。
 func (s searcher) file(path string) (role, snip string, found bool) {
+	if _, _, ok := agyDirFromTranscript(path); ok {
+		return s.agyFile(path)
+	}
 	f, err := openFile(path)
 	if err != nil {
 		return "", "", false
@@ -160,6 +164,16 @@ func (s searcher) file(path string) (role, snip string, found bool) {
 		}
 	}
 	return "", "", false
+}
+
+func (s searcher) agyFile(path string) (role, snip string, found bool) {
+	role, text, ok := agystore.SearchTranscript(path, s.needle)
+	if !ok || text == "" {
+		return "", "", false
+	}
+	lower := strings.ToLower(text)
+	at := max(0, strings.Index(lower, s.needle))
+	return role, snippet(text, utf8.RuneCountInString(lower[:at]), runeLen(s.needle)), true
 }
 
 func (s searcher) line(line []byte) (role, snip string, found bool) {

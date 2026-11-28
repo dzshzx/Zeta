@@ -274,7 +274,7 @@ private fun ZetaApp(hub: ConversationHub, conversationRequests: Int) {
             paneOpen = paneOpen,
             onOpenClaudeConfig = { conversation, command ->
                 val cwd = conversation.cwd.takeIf { command == ClaudeConfigCommand.Permissions }
-                pages.open(AppPage.ClaudeConfig(conversation.backend, cwd))
+                pages.open(AppPage.ClaudeConfig(conversation.backend, cwd, conversation.harness))
             },
         )
     }
@@ -353,7 +353,7 @@ private fun ClaudeConfigPage(
     val close = { pages.close(page) }
     val cwd = page.permissionsCwd
     if (cwd != null) {
-        ToolPermissionsScreen(hub, page.backend, onBack = close, cwd = cwd)
+        ToolPermissionsScreen(hub, page.backend, onBack = close, cwd = cwd, harness = page.harness)
     } else {
         HostSettingsScreen(
             hub = hub,
@@ -361,6 +361,7 @@ private fun ClaudeConfigPage(
             onBack = close,
             onOpenLinux = { pages.open(AppPage.Linux) },
             onShowChat = onShowChat,
+            initialHarness = page.harness,
         )
     }
 }

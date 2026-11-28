@@ -6,6 +6,7 @@ import (
 	"time"
 
 	"github.com/dzshzx/Zeta/helper/coreapi"
+	"github.com/dzshzx/Zeta/helper/sessionproto"
 	"github.com/dzshzx/Zeta/hub"
 	"github.com/dzshzx/Zeta/hub/accounts"
 	"github.com/dzshzx/Zeta/hub/locales"
@@ -99,31 +100,37 @@ type DraftView struct {
 	Saved bool `json:"saved"`
 }
 
-// relayDraft 是账号页上正在添加或编辑的那个中转（同一时刻只有一个），记着是哪台设备的。
+// relayDraft 是账号页上正在添加或编辑的那个中转（同一时刻只有一个），记着是哪台设备和哪个工具的。
 type relayDraft struct {
-	device string
-	d      *accounts.RelayDraft
-	saved  bool
+	device  string
+	harness string
+	d       *accounts.RelayDraft
+	saved   bool
 }
 
 type (
 	deviceParams struct {
-		ID string `json:"id"`
+		ID      string `json:"id"`
+		Harness string `json:"harness"`
 	}
 	refreshParams struct {
-		ID    string `json:"id"`
-		Force bool   `json:"force"`
+		ID      string `json:"id"`
+		Harness string `json:"harness"`
+		Force   bool   `json:"force"`
 	}
 	accountParams struct {
-		ID   string `json:"id"`
-		Name string `json:"name"`
+		ID      string `json:"id"`
+		Harness string `json:"harness"`
+		Name    string `json:"name"`
 	}
 	codeParams struct {
-		ID   string `json:"id"`
-		Code string `json:"code"`
+		ID      string `json:"id"`
+		Harness string `json:"harness"`
+		Code    string `json:"code"`
 	}
 	relayDraftParams struct {
 		ID      string `json:"id"`
+		Harness string `json:"harness"`
 		Name    string `json:"name"`
 		BaseURL string `json:"base_url"`
 		Key     string `json:"key"`
@@ -141,22 +148,33 @@ func (c *Core) loopRemote(id string) (*hub.Remote, error) {
 	return r, nil
 }
 
-// onRemote 登记一个对设备 id 的账号做的事（核心 goroutine 上，很快返回；结果在之后的 accounts 里）。
-func onRemote[P interface{ device() string }](name string, f func(c *Core, r *hub.Remote, p P) error) {
+type remoteTarget interface {
+	device() string
+	tool() string
+}
+
+// onRemote 登记一个对设备 id 指定工具的账号做的事（核心 goroutine 上，很快返回；结果在之后的 accounts 里）。
+func onRemote[P remoteTarget](name string, f func(c *Core, svc *accounts.Service, q *accounts.Quota, h string, p P) error) {
 	onLoop(name, func(c *Core, p P) (any, error) {
 		r, err := c.loopRemote(p.device())
 		if err != nil {
 			return nil, err
 		}
-		return ok, f(c, r, p)
+		h := sessionproto.NormalizeHarness(p.tool())
+		return ok, f(c, r.AccountsFor(h), r.QuotaFor(h), h, p)
 	})
 }
 
 func (p deviceParams) device() string     { return p.ID }
+func (p deviceParams) tool() string       { return p.Harness }
 func (p refreshParams) device() string    { return p.ID }
+func (p refreshParams) tool() string      { return p.Harness }
 func (p accountParams) device() string    { return p.ID }
+func (p accountParams) tool() string      { return p.Harness }
 func (p codeParams) device() string       { return p.ID }
+func (p codeParams) tool() string         { return p.Harness }
 func (p relayDraftParams) device() string { return p.ID }
+func (p relayDraftParams) tool() string   { return p.Harness }
 
 func init() {
 	reading("accounts", func(c *Core, p deviceParams) (any, error) {
@@ -164,83 +182,84 @@ func init() {
 		if err != nil {
 			return nil, err
 		}
-		return c.accountsView(p.ID, r, time.Now()), nil
+		h := sessionproto.NormalizeHarness(p.Harness)
+		return c.accountsView(p.ID, h, r, time.Now()), nil
 	})
 	// accounts.open：打开账号页时读一遍账号和额度（额度够新就只读主机上存着的）。
-	onRemote("accounts.open", func(c *Core, r *hub.Remote, _ deviceParams) error {
-		if r.Accounts.Working() == "" {
-			r.Accounts.Refresh()
+	onRemote("accounts.open", func(_ *Core, svc *accounts.Service, q *accounts.Quota, _ string, _ deviceParams) error {
+		if svc.Working() == "" {
+			svc.Refresh()
 		}
-		r.Quota.Refresh(false)
+		q.Refresh(false)
 		return nil
 	})
-	onRemote("accounts.refresh", func(c *Core, r *hub.Remote, p refreshParams) error {
-		if r.Accounts.Working() == "" {
-			r.Accounts.Refresh()
+	onRemote("accounts.refresh", func(_ *Core, svc *accounts.Service, q *accounts.Quota, _ string, p refreshParams) error {
+		if svc.Working() == "" {
+			svc.Refresh()
 		}
-		r.Quota.Refresh(p.Force)
+		q.Refresh(p.Force)
 		return nil
 	})
-	onRemote("accounts.dismiss", func(c *Core, r *hub.Remote, _ deviceParams) error {
-		r.Accounts.DismissProblem()
+	onRemote("accounts.dismiss", func(_ *Core, svc *accounts.Service, _ *accounts.Quota, _ string, _ deviceParams) error {
+		svc.DismissProblem()
 		return nil
 	})
-	onRemote("accounts.switch", func(c *Core, r *hub.Remote, p accountParams) error {
-		a, err := account(r, p.Name)
+	onRemote("accounts.switch", func(_ *Core, svc *accounts.Service, _ *accounts.Quota, _ string, p accountParams) error {
+		a, err := account(svc, p.Name)
 		if err == nil {
-			r.Accounts.Switch(a)
+			svc.Switch(a)
 		}
 		return err
 	})
-	onRemote("accounts.remove", func(c *Core, r *hub.Remote, p accountParams) error {
-		a, err := account(r, p.Name)
+	onRemote("accounts.remove", func(_ *Core, svc *accounts.Service, _ *accounts.Quota, _ string, p accountParams) error {
+		a, err := account(svc, p.Name)
 		if err == nil {
-			r.Accounts.Remove(a)
+			svc.Remove(a)
 		}
 		return err
 	})
-	onRemote("accounts.save", func(c *Core, r *hub.Remote, _ deviceParams) error {
-		r.Accounts.Save()
+	onRemote("accounts.save", func(_ *Core, svc *accounts.Service, _ *accounts.Quota, _ string, _ deviceParams) error {
+		svc.Save()
 		return nil
 	})
-	onRemote("accounts.login", func(c *Core, r *hub.Remote, _ deviceParams) error {
-		r.Accounts.StartLogin()
+	onRemote("accounts.login", func(_ *Core, svc *accounts.Service, _ *accounts.Quota, _ string, _ deviceParams) error {
+		svc.StartLogin()
 		return nil
 	})
-	onRemote("accounts.code", func(c *Core, r *hub.Remote, p codeParams) error {
-		r.Accounts.SubmitCode(p.Code)
+	onRemote("accounts.code", func(_ *Core, svc *accounts.Service, _ *accounts.Quota, _ string, p codeParams) error {
+		svc.SubmitCode(p.Code)
 		return nil
 	})
-	onRemote("accounts.cancel", func(c *Core, r *hub.Remote, _ deviceParams) error {
-		r.Accounts.CancelLogin()
+	onRemote("accounts.cancel", func(_ *Core, svc *accounts.Service, _ *accounts.Quota, _ string, _ deviceParams) error {
+		svc.CancelLogin()
 		return nil
 	})
-	onRemote("relay.switch", func(c *Core, r *hub.Remote, p accountParams) error {
-		x, err := relay(r, p.Name)
+	onRemote("relay.switch", func(_ *Core, svc *accounts.Service, _ *accounts.Quota, _ string, p accountParams) error {
+		x, err := relay(svc, p.Name)
 		if err == nil {
-			r.Accounts.SwitchRelay(x)
+			svc.SwitchRelay(x)
 		}
 		return err
 	})
-	onRemote("relay.remove", func(c *Core, r *hub.Remote, p accountParams) error {
-		r.Accounts.RemoveRelay(p.Name, nil)
+	onRemote("relay.remove", func(_ *Core, svc *accounts.Service, _ *accounts.Quota, _ string, p accountParams) error {
+		svc.RemoveRelay(p.Name, nil)
 		return nil
 	})
 	// relay.edit 开始添加（name 空）或编辑中转 name：草稿留在核心里，之后 relay.draft 改、relay.fetch、relay.save。
-	onRemote("relay.edit", func(c *Core, r *hub.Remote, p accountParams) error {
+	onRemote("relay.edit", func(c *Core, svc *accounts.Service, _ *accounts.Quota, h string, p accountParams) error {
 		d := accounts.NewRelayDraft()
 		if p.Name != "" {
-			x, err := relay(r, p.Name)
+			x, err := relay(svc, p.Name)
 			if err != nil {
 				return err
 			}
 			d = accounts.EditRelayDraft(x)
 		}
-		c.relay = &relayDraft{device: p.ID, d: d}
+		c.relay = &relayDraft{device: p.ID, harness: h, d: d}
 		return nil
 	})
-	onRemote("relay.draft", func(c *Core, r *hub.Remote, p relayDraftParams) error {
-		d, err := c.draft(p.ID)
+	onRemote("relay.draft", func(c *Core, _ *accounts.Service, _ *accounts.Quota, h string, p relayDraftParams) error {
+		d, err := c.draft(p.ID, h)
 		if err != nil {
 			return err
 		}
@@ -250,17 +269,17 @@ func init() {
 		d.d.BaseURL, d.d.Key, d.d.Model = p.BaseURL, p.Key, p.Model
 		return nil
 	})
-	onRemote("relay.fetch", func(c *Core, r *hub.Remote, p deviceParams) error {
-		d, err := c.draft(p.ID)
+	onRemote("relay.fetch", func(c *Core, svc *accounts.Service, _ *accounts.Quota, h string, p deviceParams) error {
+		d, err := c.draft(p.ID, h)
 		if err == nil {
-			r.Accounts.FetchRelayModels(d.d)
+			svc.FetchRelayModels(d.d)
 		}
 		return err
 	})
-	onRemote("relay.save", func(c *Core, r *hub.Remote, p deviceParams) error {
-		d, err := c.draft(p.ID)
+	onRemote("relay.save", func(c *Core, svc *accounts.Service, _ *accounts.Quota, h string, p deviceParams) error {
+		d, err := c.draft(p.ID, h)
 		if err == nil && d.d.Ready() {
-			r.Accounts.SaveRelay(d.d, func() { d.saved = true })
+			svc.SaveRelay(d.d, func() { d.saved = true })
 		}
 		return err
 	})
@@ -270,17 +289,17 @@ func init() {
 	})
 }
 
-// draft 是设备 id 上正在编辑的中转。
-func (c *Core) draft(id string) (*relayDraft, error) {
-	if c.relay == nil || c.relay.device != id {
+// draft 是设备 id 工具 h 上正在编辑的中转。
+func (c *Core) draft(id, h string) (*relayDraft, error) {
+	if c.relay == nil || c.relay.device != id || c.relay.harness != h {
 		return nil, locales.Err(locales.MobileRelayDraftGone)
 	}
 	return c.relay, nil
 }
 
 // account 是读到的账号里叫 name 的那个。
-func account(r *hub.Remote, name string) (coreapi.Account, error) {
-	st, _ := r.Accounts.State()
+func account(svc *accounts.Service, name string) (coreapi.Account, error) {
+	st, _ := svc.State()
 	i := slices.IndexFunc(st.Accounts, func(a coreapi.Account) bool { return a.Name == name })
 	if name == "" || i < 0 {
 		return coreapi.Account{}, locales.Err(locales.MobileAccountGone)
@@ -289,8 +308,8 @@ func account(r *hub.Remote, name string) (coreapi.Account, error) {
 }
 
 // relay 是读到的中转里叫 name 的那个。
-func relay(r *hub.Remote, name string) (coreapi.Relay, error) {
-	st, _ := r.Accounts.State()
+func relay(svc *accounts.Service, name string) (coreapi.Relay, error) {
+	st, _ := svc.State()
 	i := slices.IndexFunc(st.Relays, func(x coreapi.Relay) bool { return x.Name == name })
 	if i < 0 {
 		return coreapi.Relay{}, locales.Err(locales.MobileAccountGone)
@@ -298,10 +317,11 @@ func relay(r *hub.Remote, name string) (coreapi.Relay, error) {
 	return st.Relays[i], nil
 }
 
-func (c *Core) accountsView(id string, r *hub.Remote, now time.Time) Accounts {
-	out := Accounts{Accounts: []AccountRow{}, Relays: []coreapi.Relay{}, Working: r.Accounts.Working(),
-		Problem: r.Accounts.Problem(), Relay: r.Quota.Relay()}
-	if st, loaded := r.Accounts.State(); loaded {
+func (c *Core) accountsView(id, h string, r *hub.Remote, now time.Time) Accounts {
+	svc, q := r.AccountsFor(h), r.QuotaFor(h)
+	out := Accounts{Accounts: []AccountRow{}, Relays: []coreapi.Relay{}, Working: svc.Working(),
+		Problem: svc.Problem(), Relay: q.Relay()}
+	if st, loaded := svc.State(); loaded {
 		out.Loaded, out.Blocker = true, st.Blocker
 		out.Unsaved = st.Current != nil && st.Current.Name == ""
 		for _, a := range st.Accounts {
@@ -315,13 +335,13 @@ func (c *Core) accountsView(id string, r *hub.Remote, now time.Time) Accounts {
 			out.Relay = x.Name
 		}
 	}
-	if l, ok := r.Accounts.Login(); ok {
+	if l, ok := svc.Login(); ok {
 		out.Login = &LoginState{URL: l.URL, Notice: locales.ErrorText(l.Notice)}
 	}
-	if r.Quota.Shown() && out.Relay == "" {
-		out.Quota = quotaView(r.Quota, now)
+	if q.Shown() && out.Relay == "" {
+		out.Quota = quotaView(q, now)
 	}
-	if d := c.relay; d != nil && d.device == id {
+	if d := c.relay; d != nil && d.device == id && d.harness == h {
 		out.Draft = draftView(d)
 	}
 	return out

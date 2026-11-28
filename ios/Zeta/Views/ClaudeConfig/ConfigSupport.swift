@@ -1,16 +1,23 @@
 import SwiftUI
 
-/// 一台设备的 Claude Code 配置的请求：config.*、system.* 经核心桥 core 转给那台的核心，慢的（要跑 claude、连 MCP 服务器）
-/// 核心桥对它们等得更久。都在后台线程上等。
+/// 一台设备的工具配置的请求：config.*、system.* 经核心桥 core 转给那台的核心（config.* 带上 harness），
+/// 慢的（要跑 claude / agy、连 MCP 服务器）核心桥对它们等得更久。都在后台线程上等。
 @MainActor
 struct ConfigCalls {
     let model: AppModel
     let backend: String
+    var harness = Harness.claude
+
+    var isAgy: Bool { harness == Harness.agy }
 
     func get<T: Decodable & Sendable>(
         _ method: String, _ params: [String: any Sendable] = [:], as type: T.Type
     ) async throws -> T {
-        try await model.device(backend, method, params, as: type)
+        var all = params
+        if method.hasPrefix("config."), all["harness"] == nil {
+            all["harness"] = harness
+        }
+        return try await model.device(backend, method, all, as: type)
     }
 
     func run(_ method: String, _ params: [String: any Sendable] = [:]) async throws {

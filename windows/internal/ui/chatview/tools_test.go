@@ -29,6 +29,34 @@ func TestToolTitles(t *testing.T) {
 	}
 }
 
+func TestAgyToolTitlesAndSubagent(t *testing.T) {
+	cases := map[string]string{
+		`{"kind":"tool","id":"1","name":"run_command","input":{"CommandLine":"go test ./...","toolSummary":"运行测试"}}`: "运行测试",
+		`{"kind":"tool","id":"1","name":"run_command","input":{"CommandLine":"git status\nmore"}}`:                   "git status",
+		`{"kind":"tool","id":"1","name":"read_file","input":{"Path":"/w/dir/main.go"}}`:                              "读取 main.go",
+		`{"kind":"tool","id":"1","name":"write_file","input":{"Path":"/w/dir/new.go","Content":"package x"}}`:        "写入 new.go",
+		`{"kind":"tool","id":"1","name":"edit_file","input":{"Path":"/w/dir/a.go","Target":"x","Replacement":"y"}}`:  "编辑 a.go",
+		`{"kind":"tool","id":"1","name":"grep_search","input":{"Query":"NormalizeHarness"}}`:                         "搜索 NormalizeHarness",
+		`{"kind":"tool","id":"1","name":"find_by_name","input":{"Pattern":"*_test.go"}}`:                             "查找文件 *_test.go",
+		`{"kind":"tool","id":"1","name":"search_web","input":{"query":"golang context"}}`:                            "搜索网页：golang context",
+		`{"kind":"tool","id":"1","name":"read_url_content","input":{"Url":"https://pkg.go.dev/context"}}`:            "读取网页 pkg.go.dev",
+		`{"kind":"tool","id":"1","name":"invoke_subagent","input":{"Role":"代码审查","Prompt":"检查改动"}}`:                  "子代理：代码审查",
+		`{"kind":"tool","id":"1","name":"ask_question","input":{"questions":[]}}`:                                    "向你提问",
+		`{"kind":"tool","id":"1","name":"update_steps","input":{"steps":[{},{},{}]}}`:                                "更新任务清单（3 项）",
+		`{"kind":"tool","id":"1","name":"manage_task","input":{"Action":"list"}}`:                                    "管理后台任务",
+		`{"kind":"tool","id":"1","name":"call_mcp_tool","input":{"ServerName":"phone","ToolName":"tap"}}`:            "手机 · tap",
+		`{"kind":"tool","id":"1","name":"call_mcp_tool","input":{"ServerName":"docs","ToolName":"search"}}`:          "docs · search",
+	}
+	for js, want := range cases {
+		if got := lookOf(step(t, js)).title; got != want {
+			t.Errorf("%s：标题 %q，应为 %q", js, got, want)
+		}
+	}
+	if !isSubagent("invoke_subagent") || !isSubagent("Agent") || isSubagent("run_command") {
+		t.Error("isSubagent")
+	}
+}
+
 func TestStepDetail(t *testing.T) {
 	look := toolLook{detail: "  ls  "}
 	if got := stepDetail(look, "\n结果\n"); got != "ls\n\n结果" {

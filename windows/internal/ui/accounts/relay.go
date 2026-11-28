@@ -64,7 +64,11 @@ func (p *Page) relays(c *ui.Context) {
 		return
 	}
 	idle := svc.Working() == ""
-	widget.Group(c, locales.AccountsRelaysTitle(), locales.AccountsRelaysFooter(), func(l *widget.List) {
+	footer := locales.AccountsRelaysFooter()
+	if p.isAgy() {
+		footer = locales.AccountsAgyRelaysFooter()
+	}
+	widget.Group(c, locales.AccountsRelaysTitle(), footer, func(l *widget.List) {
 		for _, r := range st.Relays {
 			row := widget.Row{Key: "relay:" + r.Name, Title: r.Name, Summary: relaySummary(r), End: func() {
 				widget.SmallButton(c.Key("edit:"+r.Name), locales.CommonEdit()).Disabled(!idle).
@@ -115,7 +119,11 @@ func (p *Page) editor(c *ui.Context, d *acct.RelayDraft) {
 		} else {
 			l.Row(widget.Row{Title: locales.AccountsRelayName(), Summary: locales.AccountsRelayNameFixed(), Value: d.Name})
 		}
-		field(l, locales.AccountsRelayUrl(), locales.AccountsRelayUrlNote(), func() {
+		urlNote := locales.AccountsRelayUrlNote()
+		if p.isAgy() {
+			urlNote = locales.AccountsAgyRelayUrlNote()
+		}
+		field(l, locales.AccountsRelayUrl(), urlNote, func() {
 			widget.LineInput(c.Key("relay-url"), &d.BaseURL, 1).Placeholder("https://").Label(locales.AccountsRelayUrl())
 		})
 		p.keyField(l, d)

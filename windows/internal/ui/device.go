@@ -8,31 +8,41 @@ import (
 	clientlocales "github.com/dzshzx/Zeta/hub/locales"
 
 	"github.com/dzshzx/Zeta/client/sshlink"
+	"github.com/dzshzx/Zeta/helper/sessionproto"
 	"github.com/dzshzx/Zeta/hub"
 	"github.com/dzshzx/Zeta/hub/host"
 	"github.com/dzshzx/Zeta/windows/internal/locales"
+	"github.com/dzshzx/Zeta/windows/internal/ui/claudecfg"
 	"github.com/dzshzx/Zeta/windows/internal/ui/widget"
 	"github.com/egoist/mygo/ui"
 )
 
 // editing 是一台设备的页面上的状态。
 type editing struct {
-	loaded     bool          // 已加载设备首页；直达子页时不读首页数据
-	remote     *hub.Remote   // 配置页绑定的设备连接
-	models     *modelSource  // 配置页显示的模型来源
-	probed     *modelSource  // 本次打开首页已经向 Claude Code 要过清单的来源
-	fed        *modelFeed    // 上次交给配置页的模型来源
-	name       string        // 名称输入框
-	cwd        string        // 默认工作目录输入框
-	checking   bool          // 正在检查连接
-	check      func() string // 上次检查的结果（显示时出字），没有时为 nil
-	changing   bool          // 正在试着改用另一把私钥
-	changedKey string        // 检查时发现对方现在的主机公钥（和记下的不一样），等用户决定认不认
-	trusting   bool          // 正问着认不认新的指纹
-	removing   bool          // 正问着删不删
-	cutting    bool          // 正问着断不断开（那台上有对话在进行）
-	naming     bool          // 正在改名（对话框开着）
-	moving     bool          // 正在改默认工作目录（对话框开着）
+	loaded       bool            // 已加载设备首页；直达子页时不读首页数据
+	tool         string          // 当前正在查看/编辑的工具（"claude" 或 "agy"）
+	cfgClaude    *claudecfg.Page // Claude Code 配置页实例
+	cfgAgy       *claudecfg.Page // Antigravity 配置页实例
+	loadedClaude bool
+	loadedAgy    bool
+	remote       *hub.Remote   // 配置页绑定的设备连接
+	models       *modelSource  // Claude 配置页显示的模型来源
+	probed       *modelSource  // 本次打开首页已经向 Claude Code 要过清单的来源
+	fed          *modelFeed    // 上次交给 Claude 配置页的模型来源
+	modelsAgy    *modelSource  // Antigravity 配置页显示的模型来源
+	probedAgy    *modelSource  // 本次打开首页已经向 Antigravity 要过清单的来源
+	fedAgy       *modelFeed    // 上次交给 Antigravity 配置页的模型来源
+	name         string        // 名称输入框
+	cwd          string        // 默认工作目录输入框
+	checking     bool          // 正在检查连接
+	check        func() string // 上次检查的结果（显示时出字），没有时为 nil
+	changing     bool          // 正在试着改用另一把私钥
+	changedKey   string        // 检查时发现对方现在的主机公钥（和记下的不一样），等用户决定认不认
+	trusting     bool          // 正问着认不认新的指纹
+	removing     bool          // 正问着删不删
+	cutting      bool          // 正问着断不断开（那台上有对话在进行）
+	naming       bool          // 正在改名（对话框开着）
+	moving       bool          // 正在改默认工作目录（对话框开着）
 	// 改默认工作目录时先到设备上核对（moveCwd）：verifying 是正在核对，cwdProblem 是 cwdChecked 那个目录进不去的原因；
 	// 核对不了（连不上）时 unchecked 问用户仍然保存 pendingCwd 吗，uncheckedWhy 是连不上的原因。cwdRound 每开一次对话框、
 	// 每核对一次加一，对不上的结果是过时的，不用。
@@ -45,30 +55,80 @@ type editing struct {
 	cwdRound     int
 }
 
+func (e *editing) toolModelState(tool string) (**modelSource, **modelSource, **modelFeed) {
+	if sessionproto.NormalizeHarness(tool) == sessionproto.HarnessAgy {
+		return &e.modelsAgy, &e.probedAgy, &e.fedAgy
+	}
+	return &e.models, &e.probed, &e.fed
+}
+
+func (a *App) editTool(id string) string {
+	if a.edit.tool != "" {
+		return sessionproto.NormalizeHarness(a.edit.tool)
+	}
+	return a.hub.DefaultHarness(id)
+}
+
 // startEditing 打开一台设备的页面：输入框里放上现在的值。
 func (a *App) startEditing() {
 	x, _ := a.hub.Host(a.device)
-	a.edit = editing{name: x.CustomName, cwd: x.DefaultCwd}
+	a.edit = editing{name: x.CustomName, cwd: x.DefaultCwd, tool: a.hub.DefaultHarness(x.ID)}
 	a.acct = nil
 	a.startDeviceConfig(x)
 }
 
-func (a *App) loadDeviceHome(x sshlink.Host) {
-	if a.edit.loaded {
+func (a *App) ensureActiveCfgLoaded() {
+	if a.cfg == nil {
 		return
 	}
-	a.edit.loaded = true
-	if a.cfg != nil {
+	if a.cfg == a.edit.cfgAgy {
+		if !a.edit.loadedAgy {
+			a.edit.loadedAgy = true
+			a.cfg.Load()
+		}
+		return
+	}
+	if !a.edit.loadedClaude {
+		a.edit.loadedClaude = true
 		a.cfg.Load()
 	}
-	a.async(func() func() {
-		keys := a.hub.Keys()
-		return func() { a.add.keys = keys }
-	})
 }
 
-// devicePage 是一台设备：连接（名称、地址、SSH 密钥、指纹、家目录、默认工作目录）、账号与额度的入口、检查连接，那台上的 Claude Code
-// （新对话默认、自动压缩与标题、Claude Code 配置的入口，点进去换成那一页），删除。
+func (a *App) selectDeviceTool(x sshlink.Host, tool string) {
+	h := sessionproto.NormalizeHarness(tool)
+	a.edit.tool = h
+	if h == sessionproto.HarnessAgy {
+		a.cfg = a.edit.cfgAgy
+	} else {
+		a.cfg = a.edit.cfgClaude
+	}
+	if a.edit.loaded {
+		a.ensureActiveCfgLoaded()
+		if r := a.hub.Remote(x.ID); r != nil {
+			acct, q := r.AccountsFor(h), r.QuotaFor(h)
+			if _, ok := acct.State(); !ok && acct.Working() == "" {
+				acct.Refresh()
+			}
+			if _, ok := q.Snapshot(); !ok && !q.Refreshing() {
+				q.Refresh(false)
+			}
+		}
+	}
+}
+
+func (a *App) loadDeviceHome(x sshlink.Host) {
+	if !a.edit.loaded {
+		a.edit.loaded = true
+		a.async(func() func() {
+			keys := a.hub.Keys()
+			return func() { a.add.keys = keys }
+		})
+	}
+	a.ensureActiveCfgLoaded()
+}
+
+// devicePage 是一台设备：连接（名称、地址、SSH 密钥、指纹、家目录、默认工作目录、新对话默认工具）、检查连接、
+// Claude Code / Antigravity 工具切换与各自的账号额度及配置、删除。
 func (a *App) devicePage(c *ui.Context) {
 	x, ok := a.hub.Host(a.device)
 	if !ok {
@@ -91,7 +151,6 @@ func (a *App) devicePage(c *ui.Context) {
 	widget.Header(c, x.Name(), nil)
 	widget.Body(c, "device", func() {
 		a.connectionSection(c, x)
-		a.accountsEntry(c, x)
 		widget.Group(c, "", clientlocales.Now(a.edit.check), func(l *widget.List) {
 			title := locales.DeviceCheck()
 			if a.edit.checking {
@@ -103,6 +162,8 @@ func (a *App) devicePage(c *ui.Context) {
 			}
 			l.Row(row)
 		})
+		a.deviceToolSwitchRow(c, x)
+		a.accountsEntry(c, x)
 		if a.cfg != nil {
 			a.cfg.Sections(c)
 		}
@@ -111,6 +172,25 @@ func (a *App) devicePage(c *ui.Context) {
 		})
 	})
 	a.deviceDialogs(c, x)
+}
+
+func (a *App) deviceToolSwitchRow(c *ui.Context, x sshlink.Host) {
+	if a.edit.remote == nil {
+		return
+	}
+	idx := 0
+	if a.editTool(x.ID) == sessionproto.HarnessAgy {
+		idx = 1
+	}
+	ui.Row(c).FillWidth().Justify(ui.Start).Padding(4, 16, 0, 16).Children(func() {
+		if widget.Segmented(c, "device-tool", locales.DeviceToolSwitch(), &idx, "Claude Code", "Antigravity") {
+			next := sessionproto.HarnessClaude
+			if idx == 1 {
+				next = sessionproto.HarnessAgy
+			}
+			a.selectDeviceTool(x, next)
+		}
+	})
 }
 
 // connectionSection 是「连接」开关、名称、地址、私钥、指纹、家目录、默认工作目录。
@@ -146,13 +226,33 @@ func (a *App) connectionSection(c *ui.Context, x sshlink.Host) {
 			a.edit.verifying, a.edit.cwdProblem = false, ""
 			a.edit.cwdRound++
 		}})
+		a.defaultHarnessRow(c, l, x)
 	})
 }
 
-// accountsEntry 是进这台账号与额度页的一行，右边同设置侧栏这台的提示；「连接」关着时点不进去。
+func (a *App) defaultHarnessRow(c *ui.Context, l *widget.List, x sshlink.Host) {
+	cur := a.hub.DefaultHarness(x.ID)
+	l.Row(widget.Row{Title: locales.DeviceDefaultHarness(), Summary: locales.DeviceDefaultHarnessSummary(), End: func() {
+		widget.MenuButton(c.Key("default-harness"), func(t ui.Element) {
+			widget.Dropdown(c, t, harnessDisplayName(cur))
+			t.Label(locales.DeviceDefaultHarness())
+		}, func(m *widget.Menu) {
+			for _, h := range []string{sessionproto.HarnessClaude, sessionproto.HarnessAgy} {
+				if m.Choice(harnessDisplayName(h), h == cur) && h != cur {
+					if err := a.hub.SetDefaultHarness(x.ID, h); err != nil {
+						a.say(locales.CommonSaveFailed(), err.Error())
+					}
+				}
+			}
+		})
+	}})
+}
+
+// accountsEntry 是进这台账号与额度页的一行，右边显示当前所选工具的额度或中转提示；「连接」关着时点不进去。
 func (a *App) accountsEntry(c *ui.Context, x sshlink.Host) {
+	tool := a.editTool(x.ID)
 	widget.Group(c, "", "", func(l *widget.List) {
-		row := widget.Row{Title: locales.SettingsAccounts(), Value: a.accountsHint(c, x)}
+		row := widget.Row{Title: locales.SettingsAccounts(), Value: a.accountsHintFor(c, x, tool)}
 		if a.hub.Remote(x.ID) != nil {
 			row.Arrow = true
 			row.OnClick = a.openAccounts

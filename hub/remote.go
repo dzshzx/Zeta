@@ -1,6 +1,8 @@
 package hub
 
 import (
+	"bytes"
+	"cmp"
 	"context"
 	"encoding/json"
 	"log"
@@ -8,20 +10,49 @@ import (
 
 	"github.com/dzshzx/Zeta/client/hostlink"
 	"github.com/dzshzx/Zeta/helper/coreapi"
+	"github.com/dzshzx/Zeta/helper/sessionproto"
 	"github.com/dzshzx/Zeta/hub/accounts"
 	"github.com/dzshzx/Zeta/hub/chat"
+	"github.com/dzshzx/Zeta/hub/chat/items"
 	"github.com/dzshzx/Zeta/hub/claudecfg"
 	"github.com/dzshzx/Zeta/hub/settings"
 )
 
-// Remote 是设置里一台设备上经它的 serve 做的几样：核心的请求（Claude Code 配置 config.*、闲置超时 system.* 等）、账号与额度（accounts.*、quota.*）。
-// 请求走这台给对话用的那条 serve 连接（chatConn），不另开。账号和额度的状态留在这里，换页回来还在。
+// Remote 是设置里一台设备上经它的 serve 做的几样：核心的请求（Claude Code / Antigravity 配置 config.*、闲置超时 system.* 等）、
+// 账号与额度（accounts.*、quota.*）。请求走这台给对话用的那条 serve 连接（chatConn），不另开。
 type Remote struct {
-	Core     *coreapi.Client
-	Accounts *accounts.Service
-	Quota    *accounts.Quota
+	Core        *coreapi.Client
+	Accounts    *accounts.Service
+	Quota       *accounts.Quota
+	AgyCore     *coreapi.Client
+	AgyAccounts *accounts.Service
+	AgyQuota    *accounts.Quota
 
 	conn *chatConn
+}
+
+// CoreFor 返回这台设备上对应 harness（"claude" 或 "agy"）的 coreapi.Client。
+func (r *Remote) CoreFor(harness string) *coreapi.Client {
+	if sessionproto.NormalizeHarness(harness) == sessionproto.HarnessAgy {
+		return r.AgyCore
+	}
+	return r.Core
+}
+
+// AccountsFor 返回这台设备上对应 harness 的账号服务。
+func (r *Remote) AccountsFor(harness string) *accounts.Service {
+	if sessionproto.NormalizeHarness(harness) == sessionproto.HarnessAgy {
+		return r.AgyAccounts
+	}
+	return r.Accounts
+}
+
+// QuotaFor 返回这台设备上对应 harness 的额度状态。
+func (r *Remote) QuotaFor(harness string) *accounts.Quota {
+	if sessionproto.NormalizeHarness(harness) == sessionproto.HarnessAgy {
+		return r.AgyQuota
+	}
+	return r.Quota
 }
 
 // Remote 是设备 id 的那几样；没有这台、或它的「连接」关着时是 nil。连接换过（改了连法、第一次就没连上被丢掉）时按新的连接重建。主线程上调用。
@@ -36,13 +67,19 @@ func (h *Hub) Remote(id string) *Remote {
 	conn := h.chatConn(id)
 	caller := &remoteCaller{conn: conn, dead: func() { h.post(func() { h.dropDeadConn(id, conn) }) }}
 	core := coreapi.New(caller)
+	agyCore := core.WithHarness(sessionproto.HarnessAgy)
 	loop := accounts.Loop{Run: h.run, Post: h.post}
-	q := accounts.NewQuota(core, usageSource{conn}, loop, nil)
+	cwd := cmp.Or(x.DefaultCwd, x.Home)
+	q := accounts.NewQuota(core, usageSource{conn: conn, harness: sessionproto.HarnessClaude, cwd: cwd}, loop, nil)
+	aq := accounts.NewQuota(agyCore, usageSource{conn: conn, harness: sessionproto.HarnessAgy, cwd: cwd}, loop, nil)
 	r := &Remote{
-		Core:     core,
-		Accounts: accounts.NewService(core, h.devices.ClaudeSwitch(x), deviceConvs{conn, h.run}, q, loop),
-		Quota:    q,
-		conn:     conn,
+		Core:        core,
+		Accounts:    accounts.NewService(core, h.devices.ClaudeSwitch(x), deviceConvs{conn, h.run, sessionproto.HarnessClaude}, q, loop),
+		Quota:       q,
+		AgyCore:     agyCore,
+		AgyAccounts: accounts.NewAgyService(agyCore, deviceConvs{conn, h.run, sessionproto.HarnessAgy}, aq, loop),
+		AgyQuota:    aq,
+		conn:        conn,
 	}
 	h.remotes[id] = r
 	return r
@@ -63,28 +100,75 @@ func (c *remoteCaller) Call(ctx context.Context, method string, params map[strin
 	return raw, err
 }
 
-// usageSource 借这台上本客户端开着进程的对话问额度（conv.quota）；都没开着进程时是 accounts.ErrNoProcess。
-type usageSource struct{ conn *chatConn }
+// usageSource 借这台上本客户端开着进程的对话问额度（conv.quota）；agy 无活跃进程时开一个临时对话去查。
+type usageSource struct {
+	conn    *chatConn
+	harness string
+	cwd     string
+}
 
 func (s usageSource) Usage(ctx context.Context) (json.RawMessage, error) {
+	target := sessionproto.NormalizeHarness(s.harness)
 	for _, conv := range s.conn.client.Conversations() {
-		if conv.State().Process {
+		st := conv.State()
+		if st.Process && sessionproto.NormalizeHarness(st.Harness) == target {
 			return conv.Quota(ctx)
 		}
+	}
+	if target == sessionproto.HarnessAgy {
+		return s.tempAgyUsage(ctx)
 	}
 	return nil, accounts.ErrNoProcess
 }
 
-// deviceConvs 是本客户端在这台上的对话（accounts.Conversations）：换号、记下账号前看忙不忙，闲着的进程收掉。
+func (s usageSource) tempAgyUsage(ctx context.Context) (json.RawMessage, error) {
+	conv, err := s.conn.client.Open(ctx, chat.Spec{Cwd: s.cwd, Harness: sessionproto.HarnessAgy})
+	if err != nil {
+		return nil, err
+	}
+	defer func() {
+		done, cancel := context.WithTimeout(context.WithoutCancel(ctx), closeTimeout)
+		defer cancel()
+		_ = conv.End(done)
+		_ = conv.Close(done)
+	}()
+	if err := conv.Prepare(ctx); err != nil {
+		return nil, err
+	}
+	for _, it := range conv.Items() {
+		if it.Kind == items.Notice && it.Code == "noticeStartFailed" {
+			return nil, accounts.ErrNoProcess
+		}
+	}
+	raw, err := conv.Quota(ctx)
+	if err != nil {
+		return nil, err
+	}
+	trimmed := bytes.TrimSpace(raw)
+	if len(trimmed) == 0 || string(trimmed) == "{}" || string(trimmed) == "null" {
+		return nil, accounts.ErrNoProcess
+	}
+	return raw, nil
+}
+
+// deviceConvs 是本客户端在这台上对应 harness 的对话（accounts.Conversations）：换号、记下账号前看忙不忙，闲着的进程收掉。
 type deviceConvs struct {
-	conn *chatConn
-	run  func(func())
+	conn    *chatConn
+	run     func(func())
+	harness string
+}
+
+func (d deviceConvs) matches(st chat.State) bool {
+	if d.harness == "" {
+		return true
+	}
+	return sessionproto.NormalizeHarness(st.Harness) == sessionproto.NormalizeHarness(d.harness)
 }
 
 func (d deviceConvs) Busy() bool {
 	for _, conv := range d.conn.client.Conversations() {
 		st := conv.State()
-		if st.Busy || len(st.Prompts) > 0 || st.RunningTasks() > 0 {
+		if d.matches(st) && (st.Busy || len(st.Prompts) > 0 || st.RunningTasks() > 0) {
 			return true
 		}
 	}
@@ -96,7 +180,8 @@ func (d deviceConvs) CloseIdle() bool {
 		return false
 	}
 	for _, conv := range d.conn.client.Conversations() {
-		if !conv.State().Process {
+		st := conv.State()
+		if !d.matches(st) || !st.Process {
 			continue
 		}
 		d.run(func() {
@@ -108,6 +193,16 @@ func (d deviceConvs) CloseIdle() bool {
 		})
 	}
 	return true
+}
+
+// DefaultHarness 是设备 backend 上新对话默认用的 CLI 工具（"claude" 或 "agy"）。
+func (h *Hub) DefaultHarness(backend string) string {
+	return claudecfg.DeviceSettings(h.settings.Store(), backend).DefaultHarness()
+}
+
+// SetDefaultHarness 设设备 backend 上新对话默认用的 CLI 工具（"claude" 或 "agy"）。
+func (h *Hub) SetDefaultHarness(backend, harness string) error {
+	return claudecfg.DeviceSettings(h.settings.Store(), backend).SetDefaultHarness(harness)
 }
 
 // options 是在设备 backend 上起 Claude Code 进程用的设置：那台的自动标题、自动压缩和压缩时机（设置里各台各设各的，

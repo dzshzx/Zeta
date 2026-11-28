@@ -11,6 +11,7 @@ import (
 	clientlocales "github.com/dzshzx/Zeta/hub/locales"
 
 	"github.com/dzshzx/Zeta/helper/coreapi"
+	"github.com/dzshzx/Zeta/helper/sessionproto"
 	"github.com/dzshzx/Zeta/hub"
 	"github.com/dzshzx/Zeta/hub/chat"
 	"github.com/dzshzx/Zeta/hub/chat/items"
@@ -336,6 +337,22 @@ func (a *App) chatHeader(c *ui.Context, p *chatPane) {
 // newChat：窗格里是还没发过消息的新对话（没有会话号），这时还能换工作目录。
 func newChat(p *chatPane) bool {
 	return p.src.Session.ID == "" && p.state.Session == "" && !p.src.Opening
+}
+
+// tool 返回这个窗格当前使用的 CLI 工具（"claude" 或 "agy"）。
+func (p *chatPane) tool() string {
+	if p != nil && p.state.Harness != "" {
+		return sessionproto.NormalizeHarness(p.state.Harness)
+	}
+	if p != nil && p.src != nil {
+		return p.src.Harness()
+	}
+	return sessionproto.HarnessClaude
+}
+
+// canSwitchHarness 报告当前是否处于尚未开始的新对话，可在输入栏切换 CLI 工具。
+func (p *chatPane) canSwitchHarness() bool {
+	return p != nil && p.src != nil && p.src.Conv != nil && emptyChat(p) && p.state.CanSwitchHarness() && p.src.Conv.CanSwitchHarness()
 }
 
 // cwdDialog 是新对话换工作目录的对话框：确定后在那个目录重开新对话（进不去时输入栏上方说原因）。

@@ -27,9 +27,16 @@ func parseSettings(text []byte, exists bool) (*object, error) {
 	return o, nil
 }
 
+func (s *Store) settingsFile() string {
+	if s.IsAgy() {
+		return agySettingsPath(s.Home())
+	}
+	return settingsPath(s.Home())
+}
+
 // lenientSettings 读的时候宽松一些：坏了也只当没设。
 func (s *Store) lenientSettings() *object {
-	data, _, ok := readHead(settingsPath(s.Home()), MaxText)
+	data, _, ok := readHead(s.settingsFile(), MaxText)
 	o, err := parseSettings(data, ok)
 	if err != nil {
 		return newObject()
@@ -38,7 +45,7 @@ func (s *Store) lenientSettings() *object {
 }
 
 func (s *Store) readSettings() (*object, error) {
-	doc, err := load(settingsPath(s.Home()), MaxText)
+	doc, err := load(s.settingsFile(), MaxText)
 	if err != nil {
 		return nil, err
 	}
@@ -53,7 +60,7 @@ func (s *Store) updateSettings(edit func(*object) error) (*object, error) {
 	// 本进程里的改动一个一个来（serve 并发处理请求），撞车只会来自 Claude Code 这类别的进程
 	settingsMu.Lock()
 	defer settingsMu.Unlock()
-	path := settingsPath(s.Home())
+	path := s.settingsFile()
 	for range 3 {
 		doc, err := load(path, MaxText)
 		if err != nil {

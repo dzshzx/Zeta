@@ -44,7 +44,7 @@ class AndroidChatPlatform : ChatPlatform {
 
     @Composable
     override fun ToolStepAction(step: ToolStep) {
-        if (step.name == "mcp__phone__" + BrowserTools.NAME) BrowserStepButton()
+        if (phoneToolSuffix(step.name) == BrowserTools.NAME) BrowserStepButton()
     }
 
     @Composable override fun ReadAloudButton(answer: AnswerItem) = PhoneReadAloudButton(answer)

@@ -105,7 +105,11 @@ func (p *Page) skillsPage(c *ui.Context) {
 
 func (p *Page) userSkills(c *ui.Context) {
 	s := &p.skills
-	widget.Group(c, locales.ClaudecfgSkillsUser(p.userSkillCount()), locales.ClaudecfgSkillsUserFooter(), func(l *widget.List) {
+	footer := locales.ClaudecfgSkillsUserFooter()
+	if p.isAgy() {
+		footer = locales.ClaudecfgAgySkillsFooter()
+	}
+	widget.Group(c, locales.ClaudecfgSkillsUser(p.userSkillCount()), footer, func(l *widget.List) {
 		switch {
 		case s.data == nil:
 			loadingRow(l, locales.CommonLoading())

@@ -21,6 +21,7 @@ import com.dzshzx.zeta.core.AttachedPaths
 import com.dzshzx.zeta.core.Backends
 import com.dzshzx.zeta.core.ConversationHub
 import com.dzshzx.zeta.core.CwdProblem
+import com.dzshzx.zeta.core.Harnesses
 import com.dzshzx.zeta.core.RemoteHost
 import com.dzshzx.zeta.core.RemoteHosts
 import com.dzshzx.zeta.core.ssh.SshKey
@@ -171,13 +172,13 @@ fun RemoteHostsScreen(hub: ConversationHub, onBack: () -> Unit) {
     }
 }
 
-/** 连上了：记下这台主机；当前对话的主机用不了时（手机本机没配好），直接用上加的这台。返回给用户看的结果。 */
-private fun addProbedHost(
+/** 连上了：记下这台主机；当前对话的主机用不了时（手机本机没配好），直接用上加的这台。 */
+fun applyProbedHost(
     hub: ConversationHub,
     target: String,
     via: RemoteHost.Via,
     probe: RemoteHosts.Probe.Ok,
-): ProbeNotice {
+): RemoteHost {
     val host =
         RemoteHost(
             Backends.newId(),
@@ -190,7 +191,22 @@ private fun addProbedHost(
             probe.hostname,
         )
     hub.updateRemoteHosts(hub.settings.remoteHosts + host)
+    if (probe.claude.isEmpty() && probe.agy.isNotEmpty()) {
+        hub.settings.setDefaultHarness(host.id, Harnesses.AGY)
+        if (hub.current.backend == host.id) hub.renewBlank()
+    }
     if (!hub.usable(hub.current.backend)) hub.selectBackend(host.id)
+    return host
+}
+
+/** 连上了：记下这台主机，返回给用户看的结果。 */
+private fun addProbedHost(
+    hub: ConversationHub,
+    target: String,
+    via: RemoteHost.Via,
+    probe: RemoteHosts.Probe.Ok,
+): ProbeNotice {
+    val host = applyProbedHost(hub, target, via, probe)
     val fingerprint =
         host.fingerprint?.let { "\n" + Strings.setupRemoteFingerprintLine(it) }.orEmpty()
     return ProbeNotice(
@@ -388,9 +404,12 @@ private fun SshConfigHostsScreen(
     }
 }
 
-private fun probeSummary(probe: RemoteHosts.Probe.Ok): String =
-    listOf("Claude Code ${probe.claude}", probe.system)
-        .filter { it.isNotBlank() }
+fun probeSummary(probe: RemoteHosts.Probe.Ok): String =
+    listOfNotNull(
+            probe.claude.takeIf { it.isNotBlank() }?.let { "Claude Code $it" },
+            probe.agy.takeIf { it.isNotBlank() }?.let { "Antigravity $it" },
+            probe.system.takeIf { it.isNotBlank() },
+        )
         .joinToString(" · ")
 
 /**

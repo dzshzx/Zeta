@@ -49,9 +49,13 @@ struct SkillsView: View {
                         }
                     }
                 } header: {
-                    Text("账号同步 · \(String(synced.count))")
+                    Text(calls.isAgy
+                        ? "其他目录 · \(String(synced.count))"
+                        : "账号同步 · \(String(synced.count))")
                 } footer: {
-                    Text("在 claude.ai 上管理，这里只能看。")
+                    Text(calls.isAgy
+                        ? "来自 ~/.agents/skills 或 skills.json 声明的目录，这里只能看。"
+                        : "在 claude.ai 上管理，这里只能看。")
                 }
             }
         }
@@ -95,7 +99,9 @@ struct SkillsView: View {
         } header: {
             Text("用户安装 · \(String(data?.user.count ?? 0))")
         } footer: {
-            Text("装在 ~/.claude/skills 里。关掉后文件留着，Claude 不再用它；改动对之后新开始的对话生效。")
+            Text(calls.isAgy
+                ? "装在 ~/.gemini/config/skills 里。关掉后文件留着，Antigravity 不再用它；改动对之后新开始的对话生效。"
+                : "装在 ~/.claude/skills 里。关掉后文件留着，Claude 不再用它；改动对之后新开始的对话生效。")
         }
     }
 
@@ -104,7 +110,7 @@ struct SkillsView: View {
         let summary = skill.valid
             ? ConfigLabels.clip(Self.orNone(skill.description), 90) : String(localized: "缺少 SKILL.md")
         let detail = skill.valid ? Self.orNone(skill.description)
-            : String(localized: "这个文件夹里没有 SKILL.md，Claude Code 不会把它当成 Skill。")
+            : String(localized: "这个文件夹里没有 SKILL.md，\(Harness.name(calls.harness)) 不会把它当成 Skill。")
         return Toggle(isOn: Binding { skill.enabled } set: { setEnabled(skill, $0) }) {
             TitledRow(title: title, summary: summary)
         }

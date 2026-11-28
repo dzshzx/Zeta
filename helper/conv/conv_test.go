@@ -112,6 +112,18 @@ func newHarness(t *testing.T) *harness {
 		defer h.mu.Unlock()
 		h.client(client).receive(t, m)
 	})
+	t.Cleanup(func() {
+		h.m.mu.Lock()
+		all := make([]*Conversation, 0, len(h.m.all))
+		for c := range h.m.all {
+			all = append(all, c)
+		}
+		h.m.mu.Unlock()
+		for _, c := range all {
+			c.close()
+			c.bg.Wait()
+		}
+	})
 	return h
 }
 

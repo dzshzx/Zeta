@@ -394,6 +394,9 @@ func (h *Hub) AddHost(target, key string, f host.Found) (sshlink.Host, error) {
 	if first {
 		logSave(h.settings.SetBackend(x.ID))
 	}
+	if f.DefaultHarness() == hostlink.HarnessAgy {
+		logSave(h.SetDefaultHarness(x.ID, hostlink.HarnessAgy))
+	}
 	h.Refresh()
 	return x, nil
 }

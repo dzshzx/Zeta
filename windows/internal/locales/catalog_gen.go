@@ -14462,3 +14462,379 @@ func AccountsRelayUrlNote() string { return In(i18n.Locale()).AccountsRelayUrlNo
 func (msgs Messages) AccountsRelayUrlNote() string {
 	return Catalog.Format(msgs.locale, "accountsRelayUrlNote", nil)
 }
+
+// ComposerHarness says "对话工具"
+// in the language the app shows.
+//
+// 新对话输入栏里切换 Claude Code 与 Antigravity
+// 的按钮读屏名字。
+func ComposerHarness() string { return In(i18n.Locale()).ComposerHarness() }
+
+// ComposerHarness says "对话工具"
+// in the language of msgs.
+//
+// 新对话输入栏里切换 Claude Code 与 Antigravity
+// 的按钮读屏名字。
+func (msgs Messages) ComposerHarness() string {
+	return Catalog.Format(msgs.locale, "composerHarness", nil)
+}
+
+// SidebarAgyBadge says "Antigravity 对话"
+// in the language the app shows.
+//
+// 侧栏会话行上 agy 标记的读屏说明。
+func SidebarAgyBadge() string { return In(i18n.Locale()).SidebarAgyBadge() }
+
+// SidebarAgyBadge says "Antigravity 对话"
+// in the language of msgs.
+//
+// 侧栏会话行上 agy 标记的读屏说明。
+func (msgs Messages) SidebarAgyBadge() string {
+	return Catalog.Format(msgs.locale, "sidebarAgyBadge", nil)
+}
+
+// DeviceDefaultHarness says "默认对话工具"
+// in the language the app shows.
+//
+// 设备设置页里选择这台设备新建对话默认用哪个命令行工具的一行标题。
+func DeviceDefaultHarness() string { return In(i18n.Locale()).DeviceDefaultHarness() }
+
+// DeviceDefaultHarness says "默认对话工具"
+// in the language of msgs.
+//
+// 设备设置页里选择这台设备新建对话默认用哪个命令行工具的一行标题。
+func (msgs Messages) DeviceDefaultHarness() string {
+	return Catalog.Format(msgs.locale, "deviceDefaultHarness", nil)
+}
+
+// DeviceDefaultHarnessSummary says "在这台设备上新建对话时默认使用的命令行工具"
+// in the language the app shows.
+//
+// 设备设置页「新对话默认工具」一行的副标题说明。
+func DeviceDefaultHarnessSummary() string { return In(i18n.Locale()).DeviceDefaultHarnessSummary() }
+
+// DeviceDefaultHarnessSummary says "在这台设备上新建对话时默认使用的命令行工具"
+// in the language of msgs.
+//
+// 设备设置页「新对话默认工具」一行的副标题说明。
+func (msgs Messages) DeviceDefaultHarnessSummary() string {
+	return Catalog.Format(msgs.locale, "deviceDefaultHarnessSummary", nil)
+}
+
+// DeviceToolSwitch says "切换配置与账号的工具"
+// in the language the app shows.
+//
+// 设备设置页切换 Claude Code 与 Antigravity
+// 配置区的分段控件读屏名字。
+func DeviceToolSwitch() string { return In(i18n.Locale()).DeviceToolSwitch() }
+
+// DeviceToolSwitch says "切换配置与账号的工具"
+// in the language of msgs.
+//
+// 设备设置页切换 Claude Code 与 Antigravity
+// 配置区的分段控件读屏名字。
+func (msgs Messages) DeviceToolSwitch() string {
+	return Catalog.Format(msgs.locale, "deviceToolSwitch", nil)
+}
+
+// ClaudecfgAgyConfigTitle says "Antigravity 配置"
+// in the language the app shows.
+//
+// 设备设置页 Antigravity 配置入口一组的标题。
+func ClaudecfgAgyConfigTitle() string { return In(i18n.Locale()).ClaudecfgAgyConfigTitle() }
+
+// ClaudecfgAgyConfigTitle says "Antigravity 配置"
+// in the language of msgs.
+//
+// 设备设置页 Antigravity 配置入口一组的标题。
+func (msgs Messages) ClaudecfgAgyConfigTitle() string {
+	return Catalog.Format(msgs.locale, "claudecfgAgyConfigTitle", nil)
+}
+
+// ClaudecfgAgyConfigFooter says "读取和修改那台设备上的 ~/.gemini/config 与 ~/.gemini/antigravity-cli 配置。"
+// in the language the app shows.
+//
+// 设备设置页 Antigravity 配置入口一组底下的说明。
+func ClaudecfgAgyConfigFooter() string { return In(i18n.Locale()).ClaudecfgAgyConfigFooter() }
+
+// ClaudecfgAgyConfigFooter says "读取和修改那台设备上的 ~/.gemini/config 与 ~/.gemini/antigravity-cli 配置。"
+// in the language of msgs.
+//
+// 设备设置页 Antigravity 配置入口一组底下的说明。
+func (msgs Messages) ClaudecfgAgyConfigFooter() string {
+	return Catalog.Format(msgs.locale, "claudecfgAgyConfigFooter", nil)
+}
+
+// ClaudecfgAgyFooter says "闲置超时对这台设备上托管的进程生效；更新在那台主机上运行 agy update…"
+// in the language the app shows.
+//
+// 设备设置页 Antigravity 运行与版本更新一组底下的说明。
+func ClaudecfgAgyFooter() string { return In(i18n.Locale()).ClaudecfgAgyFooter() }
+
+// ClaudecfgAgyFooter says "闲置超时对这台设备上托管的进程生效；更新在那台主机上运行 agy update…"
+// in the language of msgs.
+//
+// 设备设置页 Antigravity 运行与版本更新一组底下的说明。
+func (msgs Messages) ClaudecfgAgyFooter() string {
+	return Catalog.Format(msgs.locale, "claudecfgAgyFooter", nil)
+}
+
+// ClaudecfgAgyRules says "规则与指令"
+// in the language the app shows.
+//
+// Antigravity 配置里的规则与全局指令入口和子页标题。
+func ClaudecfgAgyRules() string { return In(i18n.Locale()).ClaudecfgAgyRules() }
+
+// ClaudecfgAgyRules says "规则与指令"
+// in the language of msgs.
+//
+// Antigravity 配置里的规则与全局指令入口和子页标题。
+func (msgs Messages) ClaudecfgAgyRules() string {
+	return Catalog.Format(msgs.locale, "claudecfgAgyRules", nil)
+}
+
+// ClaudecfgAgyInstructionsFooter says "~/.gemini/config/rules/AGENTS.md，每次 Antigravity 对话都会载入的全局指令。"
+// in the language the app shows.
+//
+// Antigravity 规则页里全局指令一组底下的说明。
+func ClaudecfgAgyInstructionsFooter() string {
+	return In(i18n.Locale()).ClaudecfgAgyInstructionsFooter()
+}
+
+// ClaudecfgAgyInstructionsFooter says "~/.gemini/config/rules/AGENTS.md，每次 Antigravity 对话都会载入的全局指令。"
+// in the language of msgs.
+//
+// Antigravity 规则页里全局指令一组底下的说明。
+func (msgs Messages) ClaudecfgAgyInstructionsFooter() string {
+	return Catalog.Format(msgs.locale, "claudecfgAgyInstructionsFooter", nil)
+}
+
+// ClaudecfgAgyWorkspaceRules says "工作区与规则文件"
+// in the language the app shows.
+//
+// Antigravity
+// 规则页里选择工作区或全局规则目录一组的标题。
+func ClaudecfgAgyWorkspaceRules() string { return In(i18n.Locale()).ClaudecfgAgyWorkspaceRules() }
+
+// ClaudecfgAgyWorkspaceRules says "工作区与规则文件"
+// in the language of msgs.
+//
+// Antigravity
+// 规则页里选择工作区或全局规则目录一组的标题。
+func (msgs Messages) ClaudecfgAgyWorkspaceRules() string {
+	return Catalog.Format(msgs.locale, "claudecfgAgyWorkspaceRules", nil)
+}
+
+// ClaudecfgAgyWorkspaceRulesFooter says "所选工作区的 AGENTS.md（或 GEMINI.md）及规则目录下的 .md 规则文件。"
+// in the language the app shows.
+//
+// Antigravity 规则页里工作区与规则文件一组底下的说明。
+func ClaudecfgAgyWorkspaceRulesFooter() string {
+	return In(i18n.Locale()).ClaudecfgAgyWorkspaceRulesFooter()
+}
+
+// ClaudecfgAgyWorkspaceRulesFooter says "所选工作区的 AGENTS.md（或 GEMINI.md）及规则目录下的 .md 规则文件。"
+// in the language of msgs.
+//
+// Antigravity 规则页里工作区与规则文件一组底下的说明。
+func (msgs Messages) ClaudecfgAgyWorkspaceRulesFooter() string {
+	return Catalog.Format(msgs.locale, "claudecfgAgyWorkspaceRulesFooter", nil)
+}
+
+// ClaudecfgAgyRulesFiles says "规则文件 · {count}"
+// in the language the app shows.
+//
+// Antigravity 规则页里规则文件列表一组的标题，count
+// 是文件数。
+func ClaudecfgAgyRulesFiles(count int) string { return In(i18n.Locale()).ClaudecfgAgyRulesFiles(count) }
+
+// ClaudecfgAgyRulesFiles says "规则文件 · {count}"
+// in the language of msgs.
+//
+// Antigravity 规则页里规则文件列表一组的标题，count
+// 是文件数。
+func (msgs Messages) ClaudecfgAgyRulesFiles(count int) string {
+	return Catalog.Format(msgs.locale, "claudecfgAgyRulesFiles", map[string]any{"count": count})
+}
+
+// ClaudecfgAgySkillsFooter says "~/.gemini/config/skills 与工作区 .agents/skills 下的技能，开关写入 skills.json。"
+// in the language the app shows.
+//
+// Antigravity Skills 页底下的说明。
+func ClaudecfgAgySkillsFooter() string { return In(i18n.Locale()).ClaudecfgAgySkillsFooter() }
+
+// ClaudecfgAgySkillsFooter says "~/.gemini/config/skills 与工作区 .agents/skills 下的技能，开关写入 skills.json。"
+// in the language of msgs.
+//
+// Antigravity Skills 页底下的说明。
+func (msgs Messages) ClaudecfgAgySkillsFooter() string {
+	return Catalog.Format(msgs.locale, "claudecfgAgySkillsFooter", nil)
+}
+
+// ClaudecfgAgyMcpFooter says "读取和修改 ~/.gemini/config/mcp_config.json 中的 MCP 服务器。"
+// in the language the app shows.
+//
+// Antigravity MCP 服务器页底下的说明。
+func ClaudecfgAgyMcpFooter() string { return In(i18n.Locale()).ClaudecfgAgyMcpFooter() }
+
+// ClaudecfgAgyMcpFooter says "读取和修改 ~/.gemini/config/mcp_config.json 中的 MCP 服务器。"
+// in the language of msgs.
+//
+// Antigravity MCP 服务器页底下的说明。
+func (msgs Messages) ClaudecfgAgyMcpFooter() string {
+	return Catalog.Format(msgs.locale, "claudecfgAgyMcpFooter", nil)
+}
+
+// ClaudecfgAgyAgentsFooter says "~/.gemini/config/agents 下的自定义子代理定义（.md）。"
+// in the language the app shows.
+//
+// Antigravity Subagent 页底下的说明。
+func ClaudecfgAgyAgentsFooter() string { return In(i18n.Locale()).ClaudecfgAgyAgentsFooter() }
+
+// ClaudecfgAgyAgentsFooter says "~/.gemini/config/agents 下的自定义子代理定义（.md）。"
+// in the language of msgs.
+//
+// Antigravity Subagent 页底下的说明。
+func (msgs Messages) ClaudecfgAgyAgentsFooter() string {
+	return Catalog.Format(msgs.locale, "claudecfgAgyAgentsFooter", nil)
+}
+
+// ClaudecfgAgyPermRuleHelp says "写工具名（如 run_command），或带前缀匹配的写法，如 run_command(git push:*)、read_file(./.env)、e…"
+// in the language the app shows.
+//
+// Antigravity 工具权限添加规则对话框里的格式说明。
+func ClaudecfgAgyPermRuleHelp() string { return In(i18n.Locale()).ClaudecfgAgyPermRuleHelp() }
+
+// ClaudecfgAgyPermRuleHelp says "写工具名（如 run_command），或带前缀匹配的写法，如 run_command(git push:*)、read_file(./.env)、e…"
+// in the language of msgs.
+//
+// Antigravity 工具权限添加规则对话框里的格式说明。
+func (msgs Messages) ClaudecfgAgyPermRuleHelp() string {
+	return Catalog.Format(msgs.locale, "claudecfgAgyPermRuleHelp", nil)
+}
+
+// AccountsAgyFooter says "切换或添加这台设备上 Antigravity CLI 的 Google 登录账号；切换前会先收起闲置的 Antigravity …"
+// in the language the app shows.
+//
+// Antigravity 账号与额度页里账号一组底下的说明。
+func AccountsAgyFooter() string { return In(i18n.Locale()).AccountsAgyFooter() }
+
+// AccountsAgyFooter says "切换或添加这台设备上 Antigravity CLI 的 Google 登录账号；切换前会先收起闲置的 Antigravity …"
+// in the language of msgs.
+//
+// Antigravity 账号与额度页里账号一组底下的说明。
+func (msgs Messages) AccountsAgyFooter() string {
+	return Catalog.Format(msgs.locale, "accountsAgyFooter", nil)
+}
+
+// AccountsAgyLoginFooter says "在浏览器中打开授权页面登录 Google …"
+// in the language the app shows.
+//
+// Antigravity 添加账号时登录卡片底下的说明。
+func AccountsAgyLoginFooter() string { return In(i18n.Locale()).AccountsAgyLoginFooter() }
+
+// AccountsAgyLoginFooter says "在浏览器中打开授权页面登录 Google …"
+// in the language of msgs.
+//
+// Antigravity 添加账号时登录卡片底下的说明。
+func (msgs Messages) AccountsAgyLoginFooter() string {
+	return Catalog.Format(msgs.locale, "accountsAgyLoginFooter", nil)
+}
+
+// AccountsAgyCode says "授权码或回调网址"
+// in the language the app shows.
+//
+// Antigravity 登录输入框的占位字和读屏名字。
+func AccountsAgyCode() string { return In(i18n.Locale()).AccountsAgyCode() }
+
+// AccountsAgyCode says "授权码或回调网址"
+// in the language of msgs.
+//
+// Antigravity 登录输入框的占位字和读屏名字。
+func (msgs Messages) AccountsAgyCode() string {
+	return Catalog.Format(msgs.locale, "accountsAgyCode", nil)
+}
+
+// AccountsAgyRelaysFooter says "使用 Gemini API Key 与自定义接入地址运行 Antigravity CLI…"
+// in the language the app shows.
+//
+// Antigravity 账号页中转一组底下的说明。
+func AccountsAgyRelaysFooter() string { return In(i18n.Locale()).AccountsAgyRelaysFooter() }
+
+// AccountsAgyRelaysFooter says "使用 Gemini API Key 与自定义接入地址运行 Antigravity CLI…"
+// in the language of msgs.
+//
+// Antigravity 账号页中转一组底下的说明。
+func (msgs Messages) AccountsAgyRelaysFooter() string {
+	return Catalog.Format(msgs.locale, "accountsAgyRelaysFooter", nil)
+}
+
+// AccountsAgyRelayUrlNote says "填写兼容 Gemini API 的接入地址，配合 Gemini API Key 使用。"
+// in the language the app shows.
+//
+// Antigravity 中转编辑页地址输入框底下的说明。
+func AccountsAgyRelayUrlNote() string { return In(i18n.Locale()).AccountsAgyRelayUrlNote() }
+
+// AccountsAgyRelayUrlNote says "填写兼容 Gemini API 的接入地址，配合 Gemini API Key 使用。"
+// in the language of msgs.
+//
+// Antigravity 中转编辑页地址输入框底下的说明。
+func (msgs Messages) AccountsAgyRelayUrlNote() string {
+	return Catalog.Format(msgs.locale, "accountsAgyRelayUrlNote", nil)
+}
+
+// ChatToolManageTask says "管理后台任务"
+// in the language the app shows.
+//
+// 聊天工具卡片：Antigravity 的 manage_task 工具标题。
+func ChatToolManageTask() string { return In(i18n.Locale()).ChatToolManageTask() }
+
+// ChatToolManageTask says "管理后台任务"
+// in the language of msgs.
+//
+// 聊天工具卡片：Antigravity 的 manage_task 工具标题。
+func (msgs Messages) ChatToolManageTask() string {
+	return Catalog.Format(msgs.locale, "chatToolManageTask", nil)
+}
+
+// ChatToolSchedule says "定时调度"
+// in the language the app shows.
+//
+// 聊天工具卡片：Antigravity 的 schedule 工具标题。
+func ChatToolSchedule() string { return In(i18n.Locale()).ChatToolSchedule() }
+
+// ChatToolSchedule says "定时调度"
+// in the language of msgs.
+//
+// 聊天工具卡片：Antigravity 的 schedule 工具标题。
+func (msgs Messages) ChatToolSchedule() string {
+	return Catalog.Format(msgs.locale, "chatToolSchedule", nil)
+}
+
+// ChatToolSendMessage says "发送代理消息"
+// in the language the app shows.
+//
+// 聊天工具卡片：Antigravity 的 send_message 工具标题。
+func ChatToolSendMessage() string { return In(i18n.Locale()).ChatToolSendMessage() }
+
+// ChatToolSendMessage says "发送代理消息"
+// in the language of msgs.
+//
+// 聊天工具卡片：Antigravity 的 send_message 工具标题。
+func (msgs Messages) ChatToolSendMessage() string {
+	return Catalog.Format(msgs.locale, "chatToolSendMessage", nil)
+}
+
+// ChatToolWorkflow says "运行工作流"
+// in the language the app shows.
+//
+// 聊天工具卡片：Antigravity 的 run_workflow 工具标题。
+func ChatToolWorkflow() string { return In(i18n.Locale()).ChatToolWorkflow() }
+
+// ChatToolWorkflow says "运行工作流"
+// in the language of msgs.
+//
+// 聊天工具卡片：Antigravity 的 run_workflow 工具标题。
+func (msgs Messages) ChatToolWorkflow() string {
+	return Catalog.Format(msgs.locale, "chatToolWorkflow", nil)
+}

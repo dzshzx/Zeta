@@ -9,6 +9,7 @@ import (
 	clientlocales "github.com/dzshzx/Zeta/hub/locales"
 
 	"github.com/dzshzx/Zeta/helper/coreapi"
+	"github.com/dzshzx/Zeta/helper/sessionproto"
 	"github.com/dzshzx/Zeta/helper/usage"
 	"github.com/dzshzx/Zeta/hub/chat"
 	"github.com/dzshzx/Zeta/windows/internal/locales"
@@ -52,30 +53,37 @@ func (a *App) composer(c *ui.Context, p *chatPane) {
 			})
 		insertPending(in, p)
 		slashInsert(c, in, p)
-		ui.Row(c).Gap(6).AlignItems(ui.Center).Children(func() {
-			if ready {
-				a.attachMenu(c)
+		a.composerToolbar(c, p, ready)
+	})
+}
+
+func (a *App) composerToolbar(c *ui.Context, p *chatPane, ready bool) {
+	ui.Row(c).Gap(6).AlignItems(ui.Center).Children(func() {
+		if ready {
+			a.attachMenu(c)
+		}
+		if p.src.Conv != nil {
+			a.modeMenu(c, p)
+		}
+		ui.Spacer(c)
+		if p.src.Conv != nil {
+			if p.canSwitchHarness() {
+				a.harnessMenu(c, p)
 			}
-			if p.src.Conv != nil {
-				a.modeMenu(c, p)
-			}
-			ui.Spacer(c)
-			if p.src.Conv != nil {
-				a.modelMenu(c, p)
-				a.effortMenu(c, p)
-				a.hostLoadChip(c, p)
-				a.usageButton(c, p)
-			}
-			if p.state.Busy {
-				widget.StopButton(c, locales.CommonStop()).OnClick(func() {
-					a.act(func(ctx context.Context, conv *chat.Conversation) error { return conv.Interrupt(ctx) })
-				})
-			}
-			widget.SendButton(c, locales.ComposerSend(), ready && sendable(p, p.draft)).OnClick(func() {
-				if a.send(p.draft) {
-					p.draft = ""
-				}
+			a.modelMenu(c, p)
+			a.effortMenu(c, p)
+			a.hostLoadChip(c, p)
+			a.usageButton(c, p)
+		}
+		if p.state.Busy {
+			widget.StopButton(c, locales.CommonStop()).OnClick(func() {
+				a.act(func(ctx context.Context, conv *chat.Conversation) error { return conv.Interrupt(ctx) })
 			})
+		}
+		widget.SendButton(c, locales.ComposerSend(), ready && sendable(p, p.draft)).OnClick(func() {
+			if a.send(p.draft) {
+				p.draft = ""
+			}
 		})
 	})
 }
@@ -294,10 +302,39 @@ func modeIcon(k *widget.Colors, mode string) (*ui.SVG, ui.Color) {
 	return widget.IconShieldDefault, ui.Color{}
 }
 
-// modelMenu 按对话所在设备列模型。中转只列具体 ID；Claude Code 的「默认」别名不代表中转默认值。
+func harnessDisplayName(h string) string {
+	if sessionproto.NormalizeHarness(h) == sessionproto.HarnessAgy {
+		return "Antigravity"
+	}
+	return "Claude Code"
+}
+
+// harnessMenu 在尚未开始的新对话输入栏中提供 Claude Code / Antigravity 工具切换。
+func (a *App) harnessMenu(c *ui.Context, p *chatPane) {
+	cur := p.tool()
+	widget.MenuButton(c.Key("harness"), func(t ui.Element) {
+		widget.ToolPill(c, t, widget.IconTerminal, harnessDisplayName(cur), ui.Color{})
+		t.Label(locales.ComposerHarness())
+	}, func(m *widget.Menu) {
+		for _, h := range []string{sessionproto.HarnessClaude, sessionproto.HarnessAgy} {
+			if m.Choice(harnessDisplayName(h), h == cur) && h != cur {
+				a.setChatHarness(p, h)
+			}
+		}
+	})
+}
+
+func (a *App) setChatHarness(p *chatPane, h string) {
+	h = sessionproto.NormalizeHarness(h)
+	p.harness = nil
+	p.src.Session.Harness = h
+	a.act(func(ctx context.Context, conv *chat.Conversation) error { return conv.SetHarness(ctx, h) })
+}
+
+// modelMenu 按对话所在设备与工具列模型。中转只列具体 ID；Claude Code 的「默认」别名不代表中转默认值。
 func (a *App) modelMenu(c *ui.Context, p *chatPane) {
 	id := p.src.Backend
-	s := a.modelSource(id, a.hub.Remote(id), p.harness == nil)
+	s := a.modelSourceFor(id, p.tool(), a.hub.Remote(id), p.harness == nil)
 	s.useConversation(p)
 	latest, older := s.choices()
 	available := s.available()
@@ -435,7 +472,7 @@ func (a *App) usageButton(c *ui.Context, p *chatPane) {
 	button := widget.Ring(c, ui.ButtonBase(c.Key("usage")), label, fraction, contextColor(widget.Of(c), u.Level)).OnClick(func() {
 		p.usage = !p.usage
 		if r := a.hub.Remote(p.src.Backend); p.usage && r != nil {
-			r.Quota.Refresh(false)
+			r.QuotaFor(p.tool()).Refresh(false)
 		}
 	})
 	ui.Popover(c.Key("usage-panel"), button, &p.usage, func() {
@@ -471,9 +508,11 @@ func contextColor(k *widget.Colors, l usage.Level) ui.Color {
 
 // usageDetails 是用量弹出框的内容。
 func (a *App) usageDetails(c *ui.Context, p *chatPane) {
-	if r := a.hub.Remote(p.src.Backend); r != nil && r.Quota.Shown() { // 在用中转、还不知道时没有这一节
-		uiacct.QuotaDetails(c, r.Quota)
-		ui.Divider(c)
+	if r := a.hub.Remote(p.src.Backend); r != nil {
+		if q := r.QuotaFor(p.tool()); q.Shown() { // 在用中转、还不知道时没有这一节
+			uiacct.QuotaDetails(c, q)
+			ui.Divider(c)
+		}
 	}
 	u := p.state.Usage
 	t := c.Theme()

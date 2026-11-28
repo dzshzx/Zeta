@@ -15,6 +15,7 @@ import (
 	"syscall"
 	"unicode/utf8"
 
+	"github.com/dzshzx/Zeta/helper/agystore"
 	"github.com/dzshzx/Zeta/helper/locales"
 	"github.com/dzshzx/Zeta/helper/sessionproto"
 )
@@ -23,21 +24,25 @@ const listLimit = 100 // list、search 只看最新的这么多个会话
 
 // summary 是会话列表里的一项。
 type summary struct {
-	id      string
-	file    string
-	cwd     any
-	title   string
-	preview string
-	updated int64
-	created int64 // 发起时间：记录里第一条带时刻的（毫秒）；没有时同 updated
-	replied int64 // 最后一次回答完的时刻（isReply，毫秒）；还没回答过时是 0，列表项里的 replied 这时用 created
+	id       string
+	file     string
+	cwd      any
+	title    string
+	preview  string
+	updated  int64
+	created  int64 // 发起时间：记录里第一条带时刻的（毫秒）；没有时同 updated
+	replied  int64 // 最后一次回答完的时刻（isReply，毫秒）；还没回答过时是 0，列表项里的 replied 这时用 created
+	harness  string
+	archived bool
+	pinned   bool
 }
 
 // item 是列表里的这一项（zeta_sessions 的 upsert、sessions.lookup 的每一项），带上 marks 里它的标记。
 func (s summary) item(marks sessionMarks) obj {
 	return obj{"id": s.id, "file": s.file, "cwd": s.cwd, "title": s.title, "preview": s.preview, "preview_code": s.previewCode(), "updated": s.updated,
 		"created": s.created, "replied": cmp.Or(s.replied, s.created), "rank": s.rank(marks),
-		"external": marks.external[s.id], "archived": marks.archived[s.id], "pinned": marks.pinned[s.id],
+		"harness":  cmp.Or(s.harness, sessionproto.HarnessClaude),
+		"external": marks.external[s.id], "archived": marks.archived[s.id] || s.archived, "pinned": marks.pinned[s.id] || s.pinned,
 		"live": marks.live[s.id]}
 }
 
@@ -92,6 +97,9 @@ func summarizeAfter(path string, known replyMark) (summary, bool, error) {
 
 // scanSummary 读头尾得出概要；known 不为 nil 时再定下 replied（findReply）。
 func scanSummary(path string, known *replyMark) (summary, bool, error) {
+	if agyDir, _, ok := agyDirFromTranscript(path); ok {
+		return summarizeAgy(agyDir, path)
+	}
 	f, err := openFile(path)
 	if err != nil {
 		return summary{}, false, err
@@ -131,7 +139,28 @@ func scanSummary(path string, known *replyMark) (summary, bool, error) {
 	updated := millis(mtimeOf(fi))
 	created := cmp.Or(s.created, updated)
 	return summary{id: dropRunes(baseName(path), 6), file: path, cwd: orValue(s.cwd, ""), title: title,
-		preview: runePrefix(preview, 200), updated: updated, created: created, replied: s.replied}, true, nil
+		preview: runePrefix(preview, 200), updated: updated, created: created, replied: s.replied,
+		harness: sessionproto.HarnessClaude}, true, nil
+}
+
+func summarizeAgy(agyDir, path string) (summary, bool, error) {
+	as, ok, err := agystore.Summarize(agyDir, path)
+	if err != nil || !ok {
+		return summary{}, false, err
+	}
+	return summary{
+		id:       as.ID,
+		file:     as.File,
+		cwd:      as.Cwd,
+		title:    as.Title,
+		preview:  as.Preview,
+		updated:  as.Updated,
+		created:  as.Created,
+		replied:  as.Replied,
+		harness:  sessionproto.HarnessAgy,
+		archived: as.Archived,
+		pinned:   as.Pinned,
+	}, true, nil
 }
 
 // head 从头逐行读到第一句真正的话；首句是斜杠命令时接着找，读过 liteBytes 就停。返回读到哪里（最后读的那行的末尾）。
@@ -312,7 +341,7 @@ func listedFiles(e *env, pinned map[string]bool) []string {
 	files = files[:min(len(files), listLimit)]
 	listed := make(map[string]bool, len(files))
 	for _, path := range files {
-		listed[dropRunes(baseName(path), 6)] = true
+		listed[sessionIDOfPath(path)] = true
 	}
 	var far []string
 	for id := range pinned {
@@ -509,6 +538,9 @@ func renameSession(path, title string) (string, error) {
 	if title == "" {
 		return "", errors.New("empty title")
 	}
+	if agyDir, id, ok := agyDirFromTranscript(path); ok {
+		return title, agystore.Rename(agyDir, id, title)
+	}
 	f, err := openFile(path)
 	if err != nil {
 		return "", err
@@ -571,6 +603,10 @@ type deletedRecord struct {
 // deleteRecord 删会话记录 path 和它的同名目录（工具结果、子代理记录等）。目录用 removeTree，删到符号链接只删链接本身，不跟进去。
 // 记录已经不在不算出错。zeta-helper delete 和核心的 sessions.delete 都用它。
 func deleteRecord(e *env, path string) (deletedRecord, error) {
+	if _, id, ok := agyDirFromTranscript(path); ok {
+		had, err := agystore.Delete(e.agy, id)
+		return deletedRecord{File: path, Dir: had}, err
+	}
 	dir, hasDir := e.sessionDir(path)
 	if err := unlinkFile(path); err != nil && !isNotExist(err) {
 		return deletedRecord{}, err
@@ -695,6 +731,29 @@ func (e *env) registrations(withHost bool) []registered {
 		out = append(out, registered{pid: pid, start: started, session: info["sessionId"],
 			status: asString(info["status"]), waiting: asString(info["waitingFor"]), host: host,
 			entrypoint: asString(info["entrypoint"])})
+	}
+	return append(out, e.agyRegistrations(withHost)...)
+}
+
+func (e *env) agyRegistrations(withHost bool) []registered {
+	var out []registered
+	for _, h := range agystore.ActiveHolders(e.agy, "") {
+		var host string
+		if withHost {
+			host, _ = e.hostDirOf(h.PID, h.Session)
+		}
+		ep := h.Entrypoint
+		if host == "" && ep != "cli" {
+			ep = sessionproto.AppAgy
+		}
+		out = append(out, registered{
+			pid:        h.PID,
+			start:      h.Start,
+			session:    h.Session,
+			status:     sessionproto.StatusIdle,
+			host:       host,
+			entrypoint: ep,
+		})
 	}
 	return out
 }

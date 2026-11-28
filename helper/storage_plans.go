@@ -248,6 +248,27 @@ func planPip(ctx *storageCtx) *plan {
 	return planHomeCache(ctx, ctx.e.home+"/.cache/pip", nil, func() bool { return ctx.runningTool(isPip, 0) }, "pip")
 }
 
+// planAgyLogs：Antigravity CLI 的运行日志（~/.gemini/antigravity-cli/log/*.log 普通文件，跳过符号链接；绝不触碰会话数据）。
+func planAgyLogs(ctx *storageCtx) *plan {
+	p := newPlan(ctx)
+	root := joinPath(ctx.e.agy, "log")
+	for _, name := range children(root) {
+		if !strings.HasSuffix(name, ".log") {
+			continue
+		}
+		path := joinPath(root, name)
+		fi, err := os.Lstat(path)
+		if err != nil || !fi.Mode().IsRegular() {
+			continue
+		}
+		u := p.count(path)
+		if ctx.now-u.newest >= freshSeconds {
+			p.add(root, name, false, u.bytes, "")
+		}
+	}
+	return p
+}
+
 // planApt：apt 下载的软件包和包索引缓存（apt-get clean 删的那些）。要 root 删，由应用以 root 执行 apt-get clean，这里只统计。
 func planApt(ctx *storageCtx) *plan {
 	p := newPlan(ctx)

@@ -80,6 +80,7 @@ class AccountsCore(
     private val call: (method: String, params: JsonObject, timeoutMs: Long) -> JsonElement?,
     /** 那台主机的 Linux shell，装 claude-switch 用；用不了时抛出原因。 */
     private val shell: () -> LinuxShell,
+    val harness: String = Harnesses.CLAUDE,
 ) {
     fun list(): AccountsState = parse(request("accounts.list"))
 
@@ -151,6 +152,13 @@ class AccountsCore(
         requestWith(method, args.associate { it.first to JsonPrimitive(it.second) })
 
     private fun requestWith(method: String, args: Map<String, JsonPrimitive>): JsonElement? {
+        if (Harnesses.normalize(harness) == Harnesses.AGY) {
+            return call(
+                method,
+                JsonObject(args + ("harness" to JsonPrimitive(Harnesses.AGY))),
+                TIMEOUT_MS,
+            )
+        }
         val params = JsonObject(args + ("program" to JsonPrimitive(program.relativePath)))
         return try {
             call(method, params, TIMEOUT_MS)

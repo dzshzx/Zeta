@@ -125,7 +125,9 @@ struct PermissionsView: View {
                 } label: {
                     TitledRow(
                         title: rule.rule,
-                        summary: rule.malformed ? String(localized: "\(table) · 括号不配对，Claude Code 认不出这条") : table)
+                        summary: rule.malformed
+                            ? String(localized: "\(table) · 括号不配对，\(Harness.name(store.calls.harness)) 认不出这条")
+                            : table)
                 }
                 .foregroundStyle(.primary)
                 .disabled(store.working)
@@ -168,16 +170,23 @@ private struct RuleEditView: View {
                     ForEach(ConfigLabels.behaviors, id: \.self) { Text(ConfigLabels.behavior($0)).tag($0) }
                 }
                 Section {
-                    TextField(text: $text, prompt: Text(verbatim: "Bash(git push:*)")) { Text("规则") }
+                    let example = store.calls.isAgy ? "run_command(git push:*)" : "Bash(git push:*)"
+                    TextField(text: $text, prompt: Text(verbatim: example)) { Text("规则") }
                         .textInputAutocapitalization(.never)
                         .autocorrectionDisabled()
                         .font(.body.monospaced())
                 } footer: {
-                    Text("""
-                        写成 工具名 或 工具名(参数)。\
-                        比如 Bash(npm run test:*)、Read(./.env)、\
-                        Edit(src/**)、WebFetch(domain:github.com)、mcp__github（整个服务器）。
-                        """)
+                    Text(store.calls.isAgy
+                        ? """
+                            写成 工具名 或 工具名(参数)。\
+                            比如 run_command(npm test:*)、read_file(./.env)、\
+                            edit_file(src/**)、mcp__github（整个服务器）。
+                            """
+                        : """
+                            写成 工具名 或 工具名(参数)。\
+                            比如 Bash(npm run test:*)、Read(./.env)、\
+                            Edit(src/**)、WebFetch(domain:github.com)、mcp__github（整个服务器）。
+                            """)
                 }
                 if !problem.isEmpty {
                     Section { Text(problem).foregroundStyle(.red) }

@@ -224,6 +224,20 @@ class Settings(private val prefs: PrefStore, private val owner: Any) {
     /** 主机 [backend] 上 Zeta 起的对话的自动压缩、压缩时机和自动标题。 */
     fun claude(backend: String) = HostClaude(this, backend)
 
+    /** 主机 [hostId] 上新建对话默认用的命令行工具（[Harnesses.CLAUDE] 或 [Harnesses.AGY]）。 */
+    fun defaultHarness(hostId: String): String =
+        Harnesses.normalize(remoteClaude[HostKeys.key(hostId, HARNESS_ITEM)])
+
+    /** 主机 [hostId] 是否显式记过默认工具。 */
+    fun hasDefaultHarness(hostId: String): Boolean =
+        HostKeys.key(hostId, HARNESS_ITEM) in remoteClaude
+
+    /** 设置主机 [hostId] 上新建对话默认用的命令行工具。 */
+    fun setDefaultHarness(hostId: String, harness: String) {
+        remoteClaude =
+            remoteClaude + (HostKeys.key(hostId, HARNESS_ITEM) to Harnesses.normalize(harness))
+    }
+
     /** 每天最多自动检查一次新版本：手机正式版在回到前台时（app 的 core/update/AppUpdates.kt，只有正式发版证书签的包才查）。 */
     var autoUpdateCheck: Boolean by pref("autoUpdateCheck", true)
 
@@ -272,6 +286,7 @@ class Settings(private val prefs: PrefStore, private val owner: Any) {
     companion object {
         /** 设置文件的名字（shared_prefs/zeta.xml）。别处要往里存东西的（各个 [PrefsListStore]、闹钟登记、无障碍守护）也用它。 */
         const val FILE = "zeta"
+        private const val HARNESS_ITEM = "harness"
 
         @Volatile private var shared: Settings? = null
 

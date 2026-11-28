@@ -7,6 +7,7 @@ import (
 	"strings"
 
 	"github.com/dzshzx/Zeta/helper/accounts"
+	"github.com/dzshzx/Zeta/helper/agyacct"
 	"github.com/dzshzx/Zeta/helper/claudecfg"
 )
 
@@ -71,6 +72,14 @@ func handleConfigAt(ctx context.Context, s *claudecfg.Store, method string, para
 	if !ok {
 		return nil, errors.New("unknown method: " + method)
 	}
+	if len(params) > 0 {
+		var hdr struct {
+			Harness string `json:"harness"`
+		}
+		if json.Unmarshal(params, &hdr) == nil && hdr.Harness != "" {
+			s = s.ForHarness(hdr.Harness)
+		}
+	}
 	return f(ctx, s, params)
 }
 
@@ -97,6 +106,9 @@ type valueParams struct {
 }
 
 func readModelCatalog(ctx context.Context, s *claudecfg.Store) (any, error) {
+	if s.IsAgy() {
+		return readAgyModelCatalog(ctx, s)
+	}
 	out, err := accounts.ReadModelCatalog(ctx, s.Home())
 	if err == nil && out.Relay != "" && out.Model == "" {
 		// 用户级设置读不到时仍可列出中转，只是没有可继承的模型。
@@ -106,12 +118,40 @@ func readModelCatalog(ctx context.Context, s *claudecfg.Store) (any, error) {
 	return out, err
 }
 
+func readAgyModelCatalog(ctx context.Context, s *claudecfg.Store) (any, error) {
+	out, err := agyacct.ReadModelCatalog(ctx, s.Home())
+	if err != nil {
+		return nil, err
+	}
+	d, _ := s.Defaults()
+	if out.Relay != "" {
+		if out.Model == "" {
+			out.Model = d.Model
+		}
+		return out, nil
+	}
+	items := s.ReadAgyModels(ctx)
+	models := make([]accounts.RelayModel, len(items))
+	for i, it := range items {
+		models[i] = accounts.RelayModel{ID: it.ID, DisplayName: it.DisplayName}
+	}
+	return accounts.ModelCatalog{Relay: "", Model: d.Model, Models: models}, nil
+}
+
 func readDefaults(ctx context.Context, s *claudecfg.Store) (any, error) {
 	return withEffectiveModel(ctx, s, s.Defaults)
 }
 
 func withEffectiveModel(ctx context.Context, s *claudecfg.Store, defaults func() (claudecfg.Defaults, error)) (any, error) {
-	model, err := accounts.RelayDefaultModel(ctx, s.Home())
+	var (
+		model string
+		err   error
+	)
+	if s.IsAgy() {
+		model = agyacct.RelayDefaultModel(s.Home())
+	} else {
+		model, err = accounts.RelayDefaultModel(ctx, s.Home())
+	}
 	if err != nil {
 		return nil, err
 	}
@@ -128,7 +168,12 @@ func setDefaultModel(ctx context.Context, s *claudecfg.Store, p valueParams) (an
 	if err != nil {
 		return nil, err
 	}
-	changed, err := accounts.SetRelayDefaultModel(ctx, s.Home(), p.Value)
+	var changed bool
+	if s.IsAgy() {
+		changed, err = agyacct.SetRelayDefaultModel(s.Home(), p.Value)
+	} else {
+		changed, err = accounts.SetRelayDefaultModel(ctx, s.Home(), p.Value)
+	}
 	if err != nil {
 		return nil, err
 	}

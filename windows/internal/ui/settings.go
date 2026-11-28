@@ -7,6 +7,7 @@ import (
 
 	"github.com/dzshzx/Zeta/client/sshlink"
 	"github.com/dzshzx/Zeta/helper/coreapi"
+	"github.com/dzshzx/Zeta/helper/sessionproto"
 	"github.com/dzshzx/Zeta/hub"
 	acct "github.com/dzshzx/Zeta/hub/accounts"
 	"github.com/dzshzx/Zeta/hub/appversion"
@@ -31,11 +32,13 @@ func (a *App) startSettings() {
 		if r == nil {
 			continue
 		}
-		if _, ok := r.Accounts.State(); !ok && r.Accounts.Working() == "" {
-			r.Accounts.Refresh()
+		dh := a.hub.DefaultHarness(x.ID)
+		acctSvc, q := r.AccountsFor(dh), r.QuotaFor(dh)
+		if _, ok := acctSvc.State(); !ok && acctSvc.Working() == "" {
+			acctSvc.Refresh()
 		}
-		if _, ok := r.Quota.Snapshot(); !ok && !r.Quota.Refreshing() {
-			r.Quota.Refresh(false)
+		if _, ok := q.Snapshot(); !ok && !q.Refreshing() {
+			q.Refresh(false)
 		}
 	}
 }
@@ -109,17 +112,21 @@ func (a *App) settingsCategories(c *ui.Context) {
 	widget.NavItem(c, widget.IconInfo, locales.SettingsAbout(), hint, a.page == pageAbout).OnClick(func() { a.open(pageAbout) })
 }
 
-// accountsHint 是一台设备在设置侧栏和设备页「账号与额度」一行右边写的：最要紧的额度窗口用了多少，在用中转时是中转名（不写额度），
-// 「连接」关着时是已断开。
+// accountsHint 是一台设备在设置侧栏右边写的：按该设备默认工具显示额度比例或中转名，「连接」关着时是已断开。
 func (a *App) accountsHint(c *ui.Context, x sshlink.Host) string {
+	return a.accountsHintFor(c, x, a.hub.DefaultHarness(x.ID))
+}
+
+func (a *App) accountsHintFor(c *ui.Context, x sshlink.Host, tool string) string {
 	r := a.hub.Remote(x.ID)
 	if r == nil {
 		return offLabel(x)
 	}
-	if relay := r.Quota.Relay(); relay != "" {
+	q := r.QuotaFor(tool)
+	if relay := q.Relay(); relay != "" {
 		return locales.SettingsAccountsRelay(relay)
 	}
-	if h, ok := headline(r.Quota, c.Now()); ok {
+	if h, ok := headline(q, c.Now()); ok {
 		return locales.SettingsQuotaUsed(h.Percent())
 	}
 	return ""
@@ -264,10 +271,11 @@ func (a *App) subPage(c *ui.Context, title, key string, back, fn func()) {
 	widget.Body(c, key, fn)
 }
 
-// openAccounts 在设备页里打开 a.device 那台的账号与额度；「连接」关着（没有 serve 连接）时不开。
+// openAccounts 在设备页里打开 a.device 那台当前工具的账号与额度；「连接」关着（没有 serve 连接）时不开。
 func (a *App) openAccounts() {
 	if r := a.hub.Remote(a.device); r != nil {
-		a.acct = &uiacct.Page{Accounts: r.Accounts, Quota: r.Quota}
+		tool := a.editTool(a.device)
+		a.acct = &uiacct.Page{Accounts: r.AccountsFor(tool), Quota: r.QuotaFor(tool), Harness: tool}
 	}
 }
 
@@ -299,7 +307,7 @@ func (a *App) aboutPage(c *ui.Context) {
 	})
 }
 
-// openChatDeviceSettings 从对话打开它所在设备的设置，不用侧栏所选的设备。
+// openChatDeviceSettings 从对话打开它所在设备与对应工具的设置，不用侧栏所选的设备。
 func (a *App) openChatDeviceSettings(p *chatPane, permissions bool) bool {
 	x, ok := a.hub.Host(p.src.Backend)
 	if !ok || (permissions && x.Off) {
@@ -307,35 +315,49 @@ func (a *App) openChatDeviceSettings(p *chatPane, permissions bool) bool {
 	}
 	a.device = x.ID
 	a.open(pageDevice)
-	if permissions {
+	a.selectDeviceTool(x, p.tool())
+	if permissions && a.cfg != nil {
 		a.cfg.OpenPermissions(cmp.Or(a.chatCwd(p), x.DefaultCwd))
 	}
 	return true
 }
 
-// startDeviceConfig 打开设备页时建那台的 Claude Code 配置部分，数据等显示对应页面时再读。
+// startDeviceConfig 打开设备页时建那台的 Claude Code 与 Antigravity 配置部分，数据等显示对应页面时再读。
 func (a *App) startDeviceConfig(x sshlink.Host) {
-	a.edit.loaded = false
+	a.edit.loaded, a.edit.loadedClaude, a.edit.loadedAgy = false, false, false
 	a.edit.models, a.edit.probed, a.edit.fed = nil, nil, nil
+	a.edit.modelsAgy, a.edit.probedAgy, a.edit.fedAgy = nil, nil, nil
 	r := a.hub.Remote(x.ID)
 	a.edit.remote = r
 	if r == nil {
 		delete(a.modelLists, x.ID)
-		a.cfg = nil
+		delete(a.modelLists, modelListKey(x.ID, sessionproto.HarnessAgy))
+		a.edit.cfgClaude, a.edit.cfgAgy, a.cfg = nil, nil, nil
 		return
 	}
-	a.cfg = claudecfg.New(claudecfg.Options{
-		Core:   r.Core,
-		Cwd:    x.DefaultCwd,
-		Device: cfg.DeviceSettings(a.hub.Settings().Store(), x.ID),
-		Run:    a.run,
-		Post:   a.post,
-		OnDefaultModel: func(model string) {
-			if s := a.modelLists[x.ID]; s.current(r) {
-				s.catalog.Model = model
-			}
-		},
-	})
+	makeCfg := func(tool string) *claudecfg.Page {
+		listKey := modelListKey(x.ID, tool)
+		return claudecfg.New(claudecfg.Options{
+			Core:    r.CoreFor(tool),
+			Harness: tool,
+			Cwd:     x.DefaultCwd,
+			Device:  cfg.DeviceSettings(a.hub.Settings().Store(), x.ID),
+			Run:     a.run,
+			Post:    a.post,
+			OnDefaultModel: func(model string) {
+				if s := a.modelLists[listKey]; s.current(r) {
+					s.catalog.Model = model
+				}
+			},
+		})
+	}
+	a.edit.cfgClaude = makeCfg(sessionproto.HarnessClaude)
+	a.edit.cfgAgy = makeCfg(sessionproto.HarnessAgy)
+	if a.editTool(x.ID) == sessionproto.HarnessAgy {
+		a.cfg = a.edit.cfgAgy
+	} else {
+		a.cfg = a.edit.cfgClaude
+	}
 }
 
 // defaultAbout 是没给关于页时用的：本程序的版本，不查更新（测试里；窗口由入口换成接了自动更新的）。

@@ -1,11 +1,13 @@
 import SwiftUI
 
-/// 一台设备的页面（同手机版的主机页）：「连接」开关；名字、默认工作目录；账号与额度、Claude Code 配置；主机指纹；删除。
+/// 一台设备的页面（同手机版的主机页）：「连接」开关；名字、默认工作目录、新对话默认工具；
+/// 切换管理 Claude Code 与 Antigravity 的账号与额度、配置；主机指纹；删除。
 struct DeviceSettingsView: View {
     @Environment(AppModel.self) private var model
     @Environment(\.dismiss) private var dismiss
     let id: String
     @State private var info: DeviceInfo?
+    @State private var selectedHarness: String?
     @State private var naming = false
     @State private var nameText = ""
     @State private var movingCwd = false
@@ -61,28 +63,55 @@ struct DeviceSettingsView: View {
                 LabeledContent("默认工作目录", value: info.defaultCwd.isEmpty ? info.home : info.defaultCwd)
             }
             .tint(.primary)
-        }
-        Section {
-            NavigationLink {
-                AccountsView(id: id)
-            } label: {
-                LabeledContent("账号与额度", value: info.off ? "" : info.hint)
+            Picker("新对话默认工具", selection: defaultHarnessBinding(info)) {
+                ForEach(Harness.all, id: \.self) { item in
+                    Text(Harness.name(item)).tag(item)
+                }
             }
-            .disabled(info.off)
-            NavigationLink {
-                ClaudeConfigView(backend: id)
-            } label: {
-                Text("Claude Code 配置")
-            }
-            .disabled(info.off)
-        } footer: {
-            if info.off { Text("打开「连接」后才能看账号和 Claude Code 配置。") }
         }
+        harnessSection(info)
         Section("主机指纹") {
             Text(info.fingerprint).font(.caption.monospaced()).textSelection(.enabled)
         }
         Section {
             Button("删除设备", role: .destructive) { removing = true }
+        }
+    }
+
+    private func harnessSection(_ info: DeviceInfo) -> some View {
+        let tool = selectedHarness ?? info.defaultHarness
+        return Section {
+            Picker("管理的工具", selection: Binding { tool } set: { selectedHarness = $0 }) {
+                ForEach(Harness.all, id: \.self) { item in
+                    Text(Harness.name(item)).tag(item)
+                }
+            }
+            .pickerStyle(.segmented)
+            NavigationLink {
+                AccountsView(id: id, harness: tool)
+            } label: {
+                LabeledContent("账号与额度", value: info.off || tool != info.defaultHarness ? "" : info.hint)
+            }
+            .disabled(info.off)
+            NavigationLink {
+                ClaudeConfigView(backend: id, harness: tool)
+            } label: {
+                Text(tool == Harness.agy ? "Antigravity 配置" : "Claude Code 配置")
+            }
+            .disabled(info.off)
+        } header: {
+            Text("工具与账号")
+        } footer: {
+            if info.off { Text("打开「连接」后才能看账号和配置。") }
+        }
+    }
+
+    private func defaultHarnessBinding(_ info: DeviceInfo) -> Binding<String> {
+        Binding {
+            info.defaultHarness
+        } set: { next in
+            model.perform("device.setharness", ["id": id, "harness": next])
+            if selectedHarness == nil { selectedHarness = next }
         }
     }
 

@@ -4,6 +4,8 @@ import (
 	"fmt"
 	"reflect"
 	"strings"
+
+	"github.com/dzshzx/Zeta/helper/agystore"
 )
 
 // 历史
@@ -23,7 +25,7 @@ const (
 
 var (
 	usageKeys = []string{"input_tokens", "output_tokens", "cache_read_input_tokens", "cache_creation_input_tokens"}
-	todoTools = map[string]bool{"TodoWrite": true, "TaskCreate": true, "TaskUpdate": true}
+	todoTools = map[string]bool{"TodoWrite": true, "TaskCreate": true, "TaskUpdate": true, "update_steps": true}
 )
 
 // rewindCut 认 Claude Code 剪会话（改写、删除之前的消息，stream-json 的 rewind_conversation 或终端里的 /rewind）时
@@ -112,6 +114,13 @@ type historyReader struct {
 }
 
 func readEvents(path string) (*timeline, error) {
+	if _, _, ok := agyDirFromTranscript(path); ok {
+		tl, err := agystore.ReadTimeline(path)
+		if err != nil {
+			return nil, err
+		}
+		return &timeline{events: tl.Events, owners: tl.Owners}, nil
+	}
 	f, err := openFile(path)
 	if err != nil {
 		return nil, err

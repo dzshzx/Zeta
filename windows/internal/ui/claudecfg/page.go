@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/dzshzx/Zeta/helper/coreapi"
+	"github.com/dzshzx/Zeta/helper/sessionproto"
 	cfg "github.com/dzshzx/Zeta/hub/claudecfg"
 	"github.com/dzshzx/Zeta/windows/internal/locales"
 	"github.com/dzshzx/Zeta/windows/internal/ui/widget"
@@ -16,11 +17,12 @@ import (
 
 // Options 是嵌进来时要给的。
 type Options struct {
-	Core   *coreapi.Client // 这台设备的核心：Claude Code 配置（config.*）、闲置超时（system.idle）
-	Cwd    string          // 这台设备的默认工作目录（记忆的默认项目、MCP 的本地配置按它找），空是那边的家目录
-	Device cfg.Device      // 这台设备的自动压缩、自动标题（客户端本地存的）
-	Run    func(func())    // 在后台跑
-	Post   func(func())    // 交回主线程跑（窗口的 Update）
+	Core    *coreapi.Client // 这台设备的核心：配置（config.*）、闲置超时（system.idle）
+	Harness string          // "claude"（默认）或 "agy"
+	Cwd     string          // 这台设备的默认工作目录（记忆的默认项目、MCP 的本地配置按它找），空是那边的家目录
+	Device  cfg.Device      // 这台设备的自动压缩、自动标题（客户端本地存的）
+	Run     func(func())    // 在后台跑
+	Post    func(func())    // 交回主线程跑（窗口的 Update）
 	// OpenZip 让用户选一个 Skill 的 ZIP，返回文件名和内容；取消时 name 为空。nil 时用系统的文件对话框。
 	OpenZip        func() (name string, data []byte, err error)
 	OnDefaultModel func(string) // 成功保存默认模型后通知聊天菜单；可以为 nil
@@ -137,6 +139,10 @@ func (p *Page) RefreshDefaults() {
 
 // Open 是有子页在显示：设备页这时改画 SubPage。
 func (p *Page) Open() bool { return len(p.stack) > 0 }
+
+func (p *Page) isAgy() bool {
+	return sessionproto.NormalizeHarness(p.opts.Harness) == sessionproto.HarnessAgy
+}
 
 // timeout 是一次操作最多等多久（健康检查、取工具清单要跑 claude 或连服务器，那边自己也有时限）。
 const timeout = 3 * time.Minute

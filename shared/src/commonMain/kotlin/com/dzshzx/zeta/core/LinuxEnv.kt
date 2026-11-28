@@ -266,8 +266,8 @@ object LinuxEnv {
         .getOrDefault(false)
 
     /**
-     * 从 rootfs 的 passwd 里找出装了 Claude Code 的普通用户（家目录下有 .claude），找不到就取第一个普通用户。 返回 null 表示 rootfs
-     * 不存在或里面没有普通用户。
+     * 从 rootfs 的 passwd 里找出装了 Claude Code 或 Antigravity CLI 的普通用户（家目录下有 .claude / .gemini），
+     * 找不到就取第一个普通用户。返回 null 表示 rootfs 不存在或里面没有普通用户。
      */
     fun detect(rootfs: String): LinuxEnvConfig? {
         val script =
@@ -276,7 +276,8 @@ object LinuxEnv {
                 quote(
                     "R=\$1; [ -r \"\$R/etc/passwd\" ] || exit 3; " +
                         "while IFS=: read -r n p u g c h s; do [ \"\$u\" -ge 1000 ] 2>/dev/null && [ \"\$u\" -lt 60000 ] && " +
-                        "{ [ -d \"\$R\$h/.claude\" ] && echo \"C:\$n:\$u:\$g:\$h\" || echo \"U:\$n:\$u:\$g:\$h\"; }; done < \"\$R/etc/passwd\"; exit 0",
+                        "{ { [ -d \"\$R\$h/.claude\" ] || [ -d \"\$R\$h/.gemini\" ] || [ -e \"\$R\$h/.local/bin/claude\" ] || [ -e \"\$R\$h/.local/bin/agy\" ]; } " +
+                        "&& echo \"C:\$n:\$u:\$g:\$h\" || echo \"U:\$n:\$u:\$g:\$h\"; }; done < \"\$R/etc/passwd\"; exit 0",
                 ) +
                 " zeta " +
                 quote(rootfs)

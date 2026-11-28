@@ -102,6 +102,9 @@ func describe(items []*transcript.Item) string {
 
 // requestTitle：一轮正常结束后，新对话请 Claude Code 起标题。
 func (c *Conversation) requestTitle() {
+	if c.isAgy() {
+		return
+	}
 	p := c.proc
 	if p == nil {
 		return

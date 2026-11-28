@@ -5,6 +5,8 @@ import (
 	"context"
 	"fmt"
 
+	"github.com/dzshzx/Zeta/helper/coreapi"
+	"github.com/dzshzx/Zeta/helper/sessionproto"
 	"github.com/dzshzx/Zeta/hub/chat"
 	cfg "github.com/dzshzx/Zeta/hub/claudecfg"
 )
@@ -24,6 +26,7 @@ type claudeLocal struct {
 
 type backendParams struct {
 	Backend string `json:"backend"`
+	Harness string `json:"harness"`
 }
 
 type setLocalParams struct {
@@ -81,12 +84,13 @@ func init() {
 		}
 		return c.claudeLocal(p.Backend)
 	})
-	blocking("claudecfg.models", func(c *Core, p backendParams) (any, error) { return c.modelChoices(p.Backend) })
+	blocking("claudecfg.models", func(c *Core, p backendParams) (any, error) { return c.modelChoices(p.Backend, p.Harness) })
 }
 
-// modelChoices 照桌面版（models.go 的 choices、deviceModelChoices）：有生效中转时是中转报的具体 ID；没有时是 Claude Code 报的
-// 清单分好的两层（聊天页开着这台的对话、报过清单就用它，不然开一个不发消息的对话去要），要不到时是常用的别名。
-func (c *Core) modelChoices(backend string) (modelChoices, error) {
+// modelChoices 照桌面版（models.go 的 choices、deviceModelChoices）：有生效中转时是中转报的具体 ID；没有时是对应 harness 报的
+// 清单分好的两层（聊天页开着这台的同 harness 对话、报过清单就用它，不然开一个不发消息的对话去要），要不到时是后备清单。
+func (c *Core) modelChoices(backend, harness string) (modelChoices, error) {
+	h := sessionproto.NormalizeHarness(harness)
 	r, err := c.remote(backend)
 	if err != nil {
 		return modelChoices{}, err
@@ -94,7 +98,7 @@ func (c *Core) modelChoices(backend string) (modelChoices, error) {
 	unknown := modelChoices{Source: "unknown", Models: []ModelChoice{}}
 	ctx, cancel := context.WithTimeout(context.Background(), modelsTimeout)
 	defer cancel()
-	catalog, err := r.Core.ModelCatalog(ctx)
+	catalog, err := r.CoreFor(h).ModelCatalog(ctx)
 	if err != nil && catalog.Relay == "" {
 		return unknown, nil
 	}
@@ -102,9 +106,12 @@ func (c *Core) modelChoices(backend string) (modelChoices, error) {
 	var reported []chat.ModelOption
 	var cwd string
 	c.Do(func() {
-		working = r.Accounts.Working() != ""
+		working = r.AccountsFor(h).Working() != ""
 		if ch := c.hub.Chat(); ch != nil && ch.Backend == backend && ch.Conv != nil {
-			reported = ch.Conv.State().Models
+			st := ch.Conv.State()
+			if sessionproto.NormalizeHarness(st.Harness) == h {
+				reported = st.Models
+			}
 		}
 		if x, ok := c.hub.Host(backend); ok {
 			cwd = cmp.Or(x.DefaultCwd, x.Home)
@@ -114,20 +121,24 @@ func (c *Core) modelChoices(backend string) (modelChoices, error) {
 		return unknown, nil
 	}
 	if catalog.Relay != "" {
-		out := modelChoices{Source: "relay", Models: []ModelChoice{}}
-		latest, _ := modelOptions(catalog, nil)
-		for _, o := range latest {
-			out.Models = append(out.Models, ModelChoice{Value: o.Value, Label: o.Name(), ID: o.FullID()})
-		}
-		return out, nil
+		return relayChoices(catalog, h), nil
 	}
 	if len(reported) == 0 {
-		if list, err := r.Models(ctx, cwd); err == nil {
+		if list, err := r.ModelsFor(ctx, cwd, h); err == nil {
 			reported = list
 		}
 	}
-	latest, older := modelOptions(catalog, reported)
+	latest, older := modelOptions(catalog, reported, h)
 	return modelChoices{Source: "harness", Models: harnessChoices(latest, older)}, nil
+}
+
+func relayChoices(catalog coreapi.ModelCatalog, h string) modelChoices {
+	out := modelChoices{Source: "relay", Models: []ModelChoice{}}
+	latest, _ := modelOptions(catalog, nil, h)
+	for _, o := range latest {
+		out.Models = append(out.Models, ModelChoice{Value: o.Value, Label: o.Name(), ID: o.FullID()})
+	}
+	return out
 }
 
 func harnessChoices(latest, older []chat.ModelOption) []ModelChoice {

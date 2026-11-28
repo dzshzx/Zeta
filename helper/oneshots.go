@@ -37,6 +37,8 @@ var oneShots = map[string]func(e *env, p oneShotParams) (any, error){
 	"system.set_idle":      systemSetIdleMethod,
 	"system.claude":        systemClaudeMethod,
 	"system.claude_update": systemClaudeUpdateMethod,
+	"system.agy":           systemAgyMethod,
+	"system.agy_update":    systemAgyUpdateMethod,
 	"diag.files":           diagFilesMethod,
 	"diag.tail":            diagTailMethod,
 }

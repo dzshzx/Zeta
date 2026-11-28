@@ -7,6 +7,8 @@ import (
 	"slices"
 	"strconv"
 	"strings"
+
+	"github.com/dzshzx/Zeta/helper/sessionproto"
 )
 
 // Prefs 是客户端本地存的设置（%APPDATA%\Zeta 下的设置文件，格式见 settings 包），方法和 *settings.Store 的一样，
@@ -29,6 +31,7 @@ const (
 	prefAutoCompact    = "autoCompact"
 	prefCompactPercent = "autoCompactPercent"
 	prefAutoTitle      = "autoTitle"
+	prefDefaultHarness = "defaultHarness"
 	// 压缩时机明确设成 Claude Code 自己的默认点时存的值
 	compactDefaultPoint = "default"
 )
@@ -117,3 +120,14 @@ func (d Device) AutoTitle() bool { return d.boolean(prefAutoTitle, true) }
 
 // SetAutoTitle 打开或关掉自动标题。
 func (d Device) SetAutoTitle(on bool) error { return d.store(prefAutoTitle, strconv.FormatBool(on)) }
+
+// DefaultHarness 是这台设备上新对话默认用的 CLI 工具（"claude" 或 "agy"，没设过时是 "claude"）。
+func (d Device) DefaultHarness() string {
+	v, _ := d.get(prefDefaultHarness)
+	return sessionproto.NormalizeHarness(v)
+}
+
+// SetDefaultHarness 设这台设备上新对话默认用的 CLI 工具（"claude" 或 "agy"）。
+func (d Device) SetDefaultHarness(h string) error {
+	return d.store(prefDefaultHarness, sessionproto.NormalizeHarness(h))
+}

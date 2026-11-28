@@ -22,6 +22,9 @@ const maxResultRunes = 3000
 
 // lookOf 照工具名挑标题和说明，和手机版列表里的说法一样。
 func lookOf(s items.Step) toolLook {
+	if look, ok := agyLook(s); ok {
+		return look
+	}
 	switch s.Name {
 	case "Bash":
 		title := s.Str("description")
@@ -57,11 +60,84 @@ func lookOf(s items.Step) toolLook {
 	return mcpLook(s)
 }
 
+func agyLook(s items.Step) (toolLook, bool) {
+	switch s.Name {
+	case "run_command":
+		cmd := orDefault(s.Str("CommandLine"), s.Str("command"))
+		title := firstNonBlank(s.Str("toolSummary"), s.Str("description"), firstLine(cmd, 80), locales.ChatToolRunCommand())
+		return toolLook{iconTerminal, title, cmd}, true
+	case "read_file", "view_file_outline", "view_code_item", "list_dir":
+		path := firstNonBlank(s.Str("Path"), s.Str("DirectoryPath"), s.Str("File"), s.Str("path"), s.Str("file_path"))
+		return toolLook{iconFile, locales.ChatToolRead(baseName(path)), orDefault(path, inputJSON(s))}, true
+	case "write_file":
+		path := firstNonBlank(s.Str("Path"), s.Str("path"), s.Str("file_path"))
+		content := orDefault(s.Str("Content"), s.Str("content"))
+		return toolLook{iconEdit, locales.ChatToolWrite(baseName(path)), path + "\n\n" + content}, true
+	case "edit_file":
+		return editLook(s), true
+	case "grep_search":
+		q := firstNonBlank(s.Str("Query"), s.Str("query"), s.Str("pattern"))
+		return toolLook{iconSearch, locales.ChatToolGrep(firstLine(q, 40)), inputJSON(s)}, true
+	case "find_by_name":
+		p := firstNonBlank(s.Str("Pattern"), s.Str("pattern"))
+		return toolLook{iconSearch, locales.ChatToolGlob(firstLine(p, 40)), inputJSON(s)}, true
+	case "search_web":
+		q := firstNonBlank(s.Str("query"), s.Str("Query"))
+		return toolLook{iconGlobe, locales.ChatToolWebSearch(firstLine(q, 50)), q}, true
+	case "read_url_content":
+		url := firstNonBlank(s.Str("Url"), s.Str("url"))
+		return toolLook{iconGlobe, locales.ChatToolWebFetch(hostOf(url)), url}, true
+	case "invoke_subagent":
+		task := firstNonBlank(s.Str("Role"), s.Str("description"), s.Str("TypeName"), s.Str("Prompt"), s.Str("prompt"))
+		return toolLook{iconAgent, locales.ChatToolAgent(firstLine(task, 50)), orDefault(s.Str("Prompt"), s.Str("prompt"))}, true
+	}
+	return agyAuxLook(s)
+}
+
+func agyAuxLook(s items.Step) (toolLook, bool) {
+	switch s.Name {
+	case "ask_question":
+		return toolLook{iconQuestion, locales.ChatToolAsk(), inputJSON(s)}, true
+	case "update_steps":
+		if steps, ok := s.Input["steps"].([]any); ok {
+			return toolLook{iconChecklist, locales.ChatTodoWriteCount(len(steps)), inputJSON(s)}, true
+		}
+		return toolLook{iconChecklist, locales.ChatTodoWrite(), inputJSON(s)}, true
+	case "manage_task":
+		return toolLook{iconTerminal, locales.ChatToolManageTask(), inputJSON(s)}, true
+	case "schedule":
+		return toolLook{iconChecklist, locales.ChatToolSchedule(), inputJSON(s)}, true
+	case "send_message":
+		return toolLook{iconAgent, locales.ChatToolSendMessage(), inputJSON(s)}, true
+	case "run_workflow":
+		return toolLook{iconSparkle, locales.ChatToolWorkflow(), orDefault(s.Str("Description"), inputJSON(s))}, true
+	case "call_mcp_tool":
+		srv, tool := s.Str("ServerName"), s.Str("ToolName")
+		if srv == "phone" {
+			return mcpLook(items.Step{Name: "mcp__phone__" + tool, Input: s.Input}), true
+		}
+		if srv != "" && tool != "" {
+			return toolLook{iconPlug, srv + " · " + tool, inputJSON(s)}, true
+		}
+		return toolLook{iconPlug, firstNonBlank(tool, srv, locales.ChatToolGeneric()), inputJSON(s)}, true
+	}
+	return toolLook{}, false
+}
+
+func firstNonBlank(values ...string) string {
+	for _, v := range values {
+		if strings.TrimSpace(v) != "" {
+			return v
+		}
+	}
+	return ""
+}
+
 func editLook(s items.Step) toolLook {
-	path := orDefault(s.Str("file_path"), s.Str("notebook_path"))
+	path := firstNonBlank(s.Str("file_path"), s.Str("notebook_path"), s.Str("Path"), s.Str("path"))
 	detail := path
-	if old, ok := s.Input["old_string"].(string); ok {
-		detail += "\n\n- " + old + "\n+ " + s.Str("new_string")
+	if old, nw, ok := editPairOf(s); ok {
+		detail += "\n\n- " + old + "\n+ " + nw
 	}
 	return toolLook{iconEdit, locales.ChatToolEdit(baseName(path)), detail}
 }

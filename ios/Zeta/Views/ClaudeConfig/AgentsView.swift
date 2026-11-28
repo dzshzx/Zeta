@@ -33,7 +33,9 @@ struct AgentsView: View {
             } header: {
                 Text("自定义 Subagent · \(String(list.count))")
             } footer: {
-                Text("存在 ~/.claude/agents，所有项目都能用。Claude 按“什么时候用”自己决定交给哪个，你也可以在对话里点名。")
+                Text(calls.isAgy
+                    ? "存在 ~/.gemini/config/agents，所有项目都能用。Antigravity 按“什么时候用”自己决定交给哪个，你也可以在对话里点名。"
+                    : "存在 ~/.claude/agents，所有项目都能用。Claude 按“什么时候用”自己决定交给哪个，你也可以在对话里点名。")
             }
         }
         .navigationTitle("Subagent")
@@ -75,30 +77,39 @@ struct AgentDraft: Equatable {
 
     /// 模型的选项：不写时跟随主对话的模型。
     static let models = ["", "inherit", "sonnet", "opus", "haiku", "fable"]
+    static let agyModels = ["", "inherit", "flash_lite", "flash", "pro"]
 
     /// 常用的内置工具；别的（比如 MCP 工具）写进「其他工具」。
     static let commonTools = [
         "Read", "Edit", "Write", "Glob", "Grep", "Bash", "WebFetch", "WebSearch", "NotebookEdit", "Skill"
     ]
+    static let agyTools = [
+        "read_file", "edit_file", "write_file", "find_by_name", "grep_search",
+        "run_command", "search_web", "invoke_subagent", "ask_question", "update_steps"
+    ]
+
+    static func builtinTools(isAgy: Bool) -> [String] { isAgy ? agyTools : commonTools }
 
     init() {}
 
-    init(_ agent: Subagent) {
+    init(_ agent: Subagent, isAgy: Bool = false) {
+        let builtins = Self.builtinTools(isAgy: isAgy)
         name = agent.name
         description = agent.description
         model = agent.model
         prompt = agent.prompt
         allTools = agent.tools == nil
         let tools = agent.tools ?? []
-        checked = Set(tools.filter(Self.commonTools.contains))
-        others = tools.filter { !Self.commonTools.contains($0) }.joined(separator: ", ")
+        checked = Set(tools.filter(builtins.contains))
+        others = tools.filter { !builtins.contains($0) }.joined(separator: ", ")
     }
 
     /// 要写进文件的工具：勾选的常用工具按固定顺序，再加「其他工具」里逗号分开的；nil 是全部工具。
-    var tools: [String]? {
+    func selectedTools(isAgy: Bool) -> [String]? {
         guard !allTools else { return nil }
+        let builtins = Self.builtinTools(isAgy: isAgy)
         let extra = others.split { $0 == "," || $0 == "，" }.map { $0.trimmingCharacters(in: .whitespaces) }
-        return Self.commonTools.filter(checked.contains) + extra.filter { !$0.isEmpty }
+        return builtins.filter(checked.contains) + extra.filter { !$0.isEmpty }
     }
 
     /// 保存前还差什么；不差时为空。
@@ -112,31 +123,34 @@ struct AgentDraft: Equatable {
         return ""
     }
 
-    func same(as other: AgentDraft) -> Bool {
+    func same(as other: AgentDraft, isAgy: Bool) -> Bool {
         name == other.name && description == other.description && model == other.model && prompt == other.prompt
-            && tools == other.tools
+            && selectedTools(isAgy: isAgy) == other.selectedTools(isAgy: isAgy)
     }
 
-    var params: [String: any Sendable] {
+    func params(isAgy: Bool) -> [String: any Sendable] {
         var out: [String: any Sendable] = [
             "name": name.trimmingCharacters(in: .whitespaces),
             "description": description.trimmingCharacters(in: .whitespacesAndNewlines),
             "model": model, "prompt": prompt
         ]
-        if let tools { out["tools"] = tools }
+        if let tools = selectedTools(isAgy: isAgy) { out["tools"] = tools }
         return out
     }
 
     static func modelLabel(_ model: String) -> String {
-        switch model.lowercased() {
-        case "": String(localized: "默认")
-        case "inherit": String(localized: "跟随主对话")
-        case "sonnet": "Sonnet"
-        case "opus": "Opus"
-        case "haiku": "Haiku"
-        case "fable": "Fable"
-        default: model
-        }
+        let labels = [
+            "": String(localized: "默认"),
+            "inherit": String(localized: "跟随主对话"),
+            "sonnet": "Sonnet",
+            "opus": "Opus",
+            "haiku": "Haiku",
+            "fable": "Fable",
+            "flash_lite": "Flash Lite",
+            "flash": "Flash",
+            "pro": "Pro"
+        ]
+        return labels[model.lowercased()] ?? model
     }
 
     static func toolLabel(_ tool: String) -> String {
@@ -152,7 +166,7 @@ struct AgentDraft: Equatable {
             "NotebookEdit": String(localized: "编辑 Jupyter 笔记本"),
             "Skill": String(localized: "使用 Skill")
         ]
-        return labels[tool] ?? tool
+        return labels[tool] ?? ToolLabels.title(tool)
     }
 }
 
@@ -172,7 +186,7 @@ struct AgentEditView: View {
 
     private var dirty: Bool {
         guard let original else { return !draft.name.isEmpty || !draft.description.isEmpty || !draft.prompt.isEmpty }
-        return !draft.same(as: AgentDraft(original))
+        return !draft.same(as: AgentDraft(original, isAgy: calls.isAgy), isAgy: calls.isAgy)
     }
 
     var body: some View {
@@ -217,7 +231,7 @@ struct AgentEditView: View {
         .navigationBarBackButtonHidden(dirty)
         .toolbar { toolbar }
         .onAppear {
-            if !started, let original { draft = AgentDraft(original) }
+            if !started, let original { draft = AgentDraft(original, isAgy: calls.isAgy) }
             started = true
         }
         .confirmationDialog("放弃未保存的更改？", isPresented: $leaving, titleVisibility: .visible) {
@@ -234,17 +248,19 @@ struct AgentEditView: View {
     private var originalName: String { original?.name ?? "" }
 
     private var modelValues: [String] {
-        AgentDraft.models.contains { $0.caseInsensitiveCompare(draft.model) == .orderedSame } ? AgentDraft.models
-            : AgentDraft.models + [draft.model]
+        let base = calls.isAgy ? AgentDraft.agyModels : AgentDraft.models
+        return base.contains { $0.caseInsensitiveCompare(draft.model) == .orderedSame } ? base
+            : base + [draft.model]
     }
 
     private var toolsSection: some View {
-        Section {
+        let builtins = AgentDraft.builtinTools(isAgy: calls.isAgy)
+        return Section {
             Toggle(isOn: $draft.allTools) {
                 TitledRow(title: String(localized: "全部工具"), summary: String(localized: "包括 MCP 工具"))
             }
             if !draft.allTools {
-                ForEach(AgentDraft.commonTools, id: \.self) { tool in
+                ForEach(builtins, id: \.self) { tool in
                     Button {
                         draft.checked.formSymmetricDifference([tool])
                     } label: {
@@ -301,7 +317,7 @@ struct AgentEditView: View {
     }
 
     private func save() {
-        var params: [String: any Sendable] = ["draft": draft.params]
+        var params: [String: any Sendable] = ["draft": draft.params(isAgy: calls.isAgy)]
         if let original { params["original"] = original.params }
         saving = true
         problem = ""

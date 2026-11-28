@@ -144,7 +144,7 @@ struct SessionListView: View {
             ContentUnavailableView {
                 Label("还没有设备", systemImage: "desktopcomputer")
             } description: {
-                Text("添加一台装了 Claude Code 的 Linux 设备，经 SSH 在上面开对话。")
+                Text("添加一台装了 Claude Code 或 Antigravity 的 Linux 设备，经 SSH 在上面开对话。")
             } actions: {
                 Button("添加设备") { settingsShown = true }
                     .buttonStyle(.glassProminent)
@@ -292,6 +292,9 @@ struct SessionRowView: View {
                     Text(row.title)
                         .lineLimit(1)
                         .foregroundStyle(row.ended ? .secondary : .primary)
+                    if row.isAgy {
+                        HarnessBadge()
+                    }
                     if row.external {
                         Image(systemName: "terminal")
                             .font(.caption)
@@ -369,4 +372,17 @@ struct ActivityMark: View {
 extension SessionRow {
     /// 交给核心的会话（backend、id）。
     var ref: [String: String] { ["backend": backend, "id": id] }
+}
+
+/// 会话列表里 Antigravity 会话的小标签。
+struct HarnessBadge: View {
+    var body: some View {
+        Text(verbatim: "agy")
+            .font(.caption2.weight(.semibold))
+            .foregroundStyle(.secondary)
+            .padding(.horizontal, 5)
+            .padding(.vertical, 1)
+            .background(.quaternary, in: .capsule)
+            .accessibilityLabel("Antigravity")
+    }
 }

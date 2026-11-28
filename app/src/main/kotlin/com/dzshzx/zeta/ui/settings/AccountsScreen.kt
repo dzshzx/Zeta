@@ -21,6 +21,7 @@ import com.dzshzx.zeta.core.Backends
 import com.dzshzx.zeta.core.ClaudeAccount
 import com.dzshzx.zeta.core.ClaudeRelay
 import com.dzshzx.zeta.core.ConversationHub
+import com.dzshzx.zeta.core.Harnesses
 import com.dzshzx.zeta.core.QuotaService
 import com.dzshzx.zeta.core.SetupState
 import com.dzshzx.zeta.core.environment
@@ -53,11 +54,21 @@ private class EntryAccount(val loggedIn: Boolean, val email: String?, val relay:
 
 /** 主机 [backend] 上登录着的账号：手机本机的是环境检查时查到的，远程主机的看那台的账号清单（没读过就读一次）。 */
 @Composable
-private fun entryAccount(hub: ConversationHub, backend: String, ready: Boolean): EntryAccount? {
-    if (backend == Backends.LOCAL)
+private fun entryAccount(
+    hub: ConversationHub,
+    backend: String,
+    harness: String,
+    ready: Boolean,
+): EntryAccount? {
+    val isAgy = Harnesses.normalize(harness) == Harnesses.AGY
+    if (backend == Backends.LOCAL && !isAgy)
         return hub.environment.account?.let { EntryAccount(it.loggedIn, it.email, it.relay) }
-    val service = hub.accounts(backend)
-    LaunchedEffect(backend, ready) { if (ready && service.state == null) service.refresh() }
+    if (backend == Backends.LOCAL && isAgy && hub.environment.agyAccount != null)
+        return hub.environment.agyAccount?.let { EntryAccount(it.loggedIn, it.email, it.relay) }
+    val service = hub.accounts(backend, harness)
+    LaunchedEffect(backend, harness, ready) {
+        if (ready && service.state == null) service.refresh()
+    }
     return service.state?.let {
         EntryAccount(
             it.loggedIn || it.relay != null,
@@ -81,15 +92,20 @@ private fun entrySummary(backend: String, ready: Boolean, account: EntryAccount?
 
 /** 各台设备页上的入口：那台上当前的账号，和最要紧的一个额度窗口。 */
 @Composable
-internal fun AccountsEntry(hub: ConversationHub, backend: String, onOpen: () -> Unit) {
+internal fun AccountsEntry(
+    hub: ConversationHub,
+    backend: String,
+    harness: String = Harnesses.CLAUDE,
+    onOpen: () -> Unit,
+) {
     val ready =
         if (backend == Backends.LOCAL)
             hub.environment.setup == SetupState.Ready && hub.settings.env != null
         else hub.usable(backend)
     val now = rememberNow()
-    val account = entryAccount(hub, backend, ready)
-    val quota = hub.quota(backend)
-    LaunchedEffect(backend, ready) { if (ready) quota.watch() }
+    val account = entryAccount(hub, backend, harness, ready)
+    val quota = hub.quota(backend, harness)
+    LaunchedEffect(backend, harness, ready) { if (ready) quota.watch() }
     val headline = quota.snapshot?.current(now)?.headline
     // 摘要只放账号，最要紧的额度窗口用了多少放右侧（按紧张程度上色）；是哪个窗口点进去看，摘要才不折行
     ArrowPreference(
@@ -121,16 +137,21 @@ internal fun AccountsEntry(hub: ConversationHub, backend: String, onOpen: () -> 
  * claude-b、claude-c 这样。移除只删那台设备上的存档和记录，服务器上的登录还在。
  */
 @Composable
-internal fun AccountsScreen(hub: ConversationHub, backend: String, onBack: () -> Unit) {
-    val service = hub.accounts(backend)
-    val quota = hub.quota(backend)
+internal fun AccountsScreen(
+    hub: ConversationHub,
+    backend: String,
+    onBack: () -> Unit,
+    harness: String = Harnesses.CLAUDE,
+) {
+    val service = hub.accounts(backend, harness)
+    val quota = hub.quota(backend, harness)
     val now = rememberNow()
     var adding by remember { mutableStateOf(false) }
     var confirming by remember { mutableStateOf<ClaudeAccount?>(null) }
     var removing by remember { mutableStateOf<ClaudeAccount?>(null) }
     var switchingRelay by remember { mutableStateOf<ClaudeRelay?>(null) }
     var editing by remember { mutableStateOf<RelayEdit?>(null) }
-    LaunchedEffect(Unit) {
+    LaunchedEffect(harness) {
         service.refresh()
         quota.refresh()
     }
@@ -195,7 +216,12 @@ internal fun AccountsScreen(hub: ConversationHub, backend: String, onBack: () ->
             }
         }
         SlideInPage(adding) {
-            LoginScreen(hub = hub, backend = backend, onBack = { adding = false })
+            LoginScreen(
+                hub = hub,
+                backend = backend,
+                harness = harness,
+                onBack = { adding = false },
+            )
         }
         SlideInPage(editing, onBack = { editing = null }) {
             RelayScreen(service = service, original = it.relay, onBack = { editing = null })
@@ -288,9 +314,11 @@ private fun AccountsGroup(
 ) {
     val state = service.state
     val working = service.working
+    val isAgy = Harnesses.normalize(service.harness) == Harnesses.AGY
     PreferenceGroup(
         title = Strings.settingsAccountsGroup(),
-        footer = Strings.settingsAccountsFooter(),
+        footer =
+            if (isAgy) Strings.settingsAccountsAgyFooter() else Strings.settingsAccountsFooter(),
     ) {
         when {
             state == null -> item { BasicComponent(title = Strings.settingsAccountsLoading()) }

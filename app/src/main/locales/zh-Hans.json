@@ -4478,7 +4478,7 @@
   "@coreHostOffNote": {
     "description": "「连接」关着的远程设备怎样。 ¦"
   },
-  "coreHostNoClaude": "那台设备上找不到 claude（登录 shell 的 PATH 里和 ~/.local/bin 都没有）",
+  "coreHostNoClaude": "那台设备上找不到 claude 或 agy（登录 shell 的 PATH 里和 ~/.local/bin 都没有）",
   "@coreHostNoClaude": {
     "description": "检查远程设备时没找到 claude。 ¦"
   },
@@ -12279,5 +12279,115 @@
   "setupImageLeftUnderMinute": "约剩不到 1 分钟",
   "@setupImageLeftUnderMinute": {
     "description": "磁盘镜像转换的复制不到一分钟就做完。"
+  },
+  "coreInstallAgy": "安装 Antigravity CLI",
+  "@coreInstallAgy": {
+    "description": "安装向导里安装 Antigravity CLI 那一步的标题。"
+  },
+  "coreMaintainInstallClaude": "安装 Claude Code",
+  "@coreMaintainInstallClaude": {
+    "description": "在已有 Linux 环境里补装 Claude Code 时的维护卡片标题。"
+  },
+  "coreMaintainInstallAgy": "安装 Antigravity CLI",
+  "@coreMaintainInstallAgy": {
+    "description": "在已有 Linux 环境里安装 Antigravity CLI 时的维护卡片标题。"
+  },
+  "coreMaintainUpdateAgy": "更新 Antigravity CLI",
+  "@coreMaintainUpdateAgy": {
+    "description": "在 Linux 环境里更新 Antigravity CLI 时的维护卡片标题。"
+  },
+  "setupInstallCli": "命令行工具",
+  "@setupInstallCli": {
+    "description": "安装向导里选择安装 Claude Code、Antigravity CLI 或两者都装的一行标题。"
+  },
+  "setupInstallCliSummary": "装好后也能在“Linux 环境”里补装另一个",
+  "@setupInstallCliSummary": {
+    "description": "安装向导命令行工具选择行下面的小字说明。"
+  },
+  "setupInstallCliBoth": "两者都装",
+  "@setupInstallCliBoth": {
+    "description": "安装向导同时安装 Claude Code 与 Antigravity CLI 的选项。"
+  },
+  "setupInstallNow": "安装",
+  "@setupInstallNow": {
+    "description": "Linux 环境页里未安装的 CLI（Claude Code 或 Antigravity CLI）的安装入口标题。"
+  },
+  "setupInstallNowSummary": "下载并运行官方安装脚本",
+  "@setupInstallNowSummary": {
+    "description": "Linux 环境页里安装 CLI 一行下面的说明。"
+  },
+  "setupSignInAgy": "登录 Antigravity 账号",
+  "@setupSignInAgy": {
+    "description": "Antigravity Google OAuth 登录页标题与安装完成后的登录按钮。"
+  },
+  "setupLoginStep1AgyFooter": "在浏览器里登录 Google 账号并同意授权，把跳转后的完整网址或授权码粘贴到下面。",
+  "@setupLoginStep1AgyFooter": {
+    "description": "Antigravity 登录页第一步下面的说明。"
+  },
+  "setupLoginCodeAgyHint": "粘贴回调网址或授权码",
+  "@setupLoginCodeAgyHint": {
+    "description": "Antigravity 登录页第二步输入框的占位提示。"
+  },
+  "chatSwitchHarness": "切换工具",
+  "@chatSwitchHarness": {
+    "description": "新对话中切换 Claude Code 与 Antigravity 的无障碍说明。"
+  },
+  "chatToolUpdateSteps": "更新步骤清单",
+  "@chatToolUpdateSteps": {
+    "description": "Antigravity 的 update_steps 工具不带条目数时的一行标题。"
+  },
+  "chatToolUpdateStepsCount": "更新步骤清单（{count} 项）",
+  "@chatToolUpdateStepsCount": {
+    "description": "Antigravity 的 update_steps 工具带条目数时的一行标题。",
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "chatToolManageTask": "管理后台任务",
+  "@chatToolManageTask": {
+    "description": "Antigravity 的 manage_task 工具没有具体动作时的一行标题。"
+  },
+  "chatToolManageTaskAction": "后台任务：{action}",
+  "@chatToolManageTaskAction": {
+    "description": "Antigravity 的 manage_task 工具带动作和任务编号时的一行标题。",
+    "placeholders": {
+      "action": {
+        "type": "String"
+      }
+    }
+  },
+  "settingsHostDefaultHarness": "新对话默认工具",
+  "@settingsHostDefaultHarness": {
+    "description": "设备设置页选择这台设备上新建对话默认使用 Claude Code 还是 Antigravity。"
+  },
+  "settingsHostDefaultHarnessSummary": "新建对话时默认使用的工具，未发送前仍可在对话页切换",
+  "@settingsHostDefaultHarnessSummary": {
+    "description": "设备设置页“新对话默认工具”下面的说明。"
+  },
+  "settingsHostAgyConfig": "Antigravity 配置",
+  "@settingsHostAgyConfig": {
+    "description": "设备设置页管理 Antigravity 规则、Skills、MCP、Subagent 与工具权限的分组标题。"
+  },
+  "settingsHostAgyConfigFooter": "改的是这台设备上 Antigravity CLI 自己的配置（~/.gemini），那边终端里的 agy 同样生效。",
+  "@settingsHostAgyConfigFooter": {
+    "description": "设备设置页 Antigravity 配置分组下面的说明。"
+  },
+  "settingsHostRules": "规则与指令",
+  "@settingsHostRules": {
+    "description": "Antigravity 配置分组下对应规则文件与全局指令的入口标题。"
+  },
+  "settingsAccountsAgyFooter": "账号、中转和额度保存在这台设备的 Antigravity 配置目录里，切换前会先结束空闲的对话进程。",
+  "@settingsAccountsAgyFooter": {
+    "description": "Antigravity 账号与额度页账号分组下面的说明。"
+  },
+  "relayBaseUrlAgyFooter": "填写 Gemini API 兼容中转地址；留空则直连 Google 官方地址。",
+  "@relayBaseUrlAgyFooter": {
+    "description": "Antigravity 中转编辑页地址输入框下面的说明。"
+  },
+  "relayBaseUrlOptionalHint": "留空使用官方默认地址",
+  "@relayBaseUrlOptionalHint": {
+    "description": "Antigravity 中转编辑页地址输入框的占位提示。"
   }
 }

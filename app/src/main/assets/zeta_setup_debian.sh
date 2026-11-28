@@ -1,8 +1,11 @@
+#!/bin/bash
+# shellcheck disable=SC1111,SC2015,SC2046,SC2086
 # Zeta 安装 Debian 环境时在 Debian 里面执行的部分（bash）。前半段见 zeta_setup_android.sh。
 #
 #   tools          （root）装 Claude Code 干活要用的常用工具，包清单照 Eta
 #   user <用户名>  （root）建一个普通用户，Claude Code 以它的身份运行
 #   claude         （那个用户）用官方安装脚本装 Claude Code
+#   install-agy    （那个用户）用官方安装脚本装或更新 Antigravity CLI，并合并 SessionStart hook
 #   python         （那个用户）可选：装 uv 和它管理的最新 Python，并设为这个用户的 python3
 #   node           （root）可选：装官方发布的最新 LTS 版 Node.js（带 npm）
 #   go             （root）可选：装官方发布的最新稳定版 Go
@@ -161,6 +164,42 @@ claude)
     [ $code = 0 ] || fail "Claude Code 安装脚本没有成功（退出码 $code）"
   fi
   "$HOME/.local/bin/claude" --version || fail "Claude Code 装上了但运行不起来"
+  ;;
+
+agy|install-agy)
+  [ "$(id -u)" != 0 ] || fail "这一步要以普通用户执行"
+  export PATH="$HOME/.local/bin:$PATH"
+  if [ "$cmd" = "install-agy" ] || ! command -v agy >/dev/null 2>&1; then
+    curl -fsSL --connect-timeout 20 --retry 2 https://antigravity.google/cli/install.sh -o /tmp/zeta-agy-install.sh \
+      || fail "下载 Antigravity CLI 安装脚本失败，请检查网络后重试"
+    bash /tmp/zeta-agy-install.sh
+    code=$?
+    rm -f /tmp/zeta-agy-install.sh
+    [ "$code" = 0 ] || fail "Antigravity CLI 安装脚本没有成功（退出码 $code）"
+  fi
+  { "$HOME/.local/bin/agy" --version || agy --version; } || fail "Antigravity CLI 装上了但运行不起来"
+  agy_cfg="$HOME/.gemini/antigravity-cli/settings.json"
+  mkdir -p "$HOME/.gemini/antigravity-cli"
+  # shellcheck disable=SC2016
+  hook_cmd='h=~/.cache/zeta/bin/zeta-helper; [ -x "$h" ] || h=~/.cache/zeta-dev/bin/zeta-helper; [ -x "$h" ] && exec "$h" session-start; exit 0'
+  existing='{}'
+  if [ -f "$agy_cfg" ] && jq -e 'type == "object"' "$agy_cfg" >/dev/null 2>&1; then
+    existing=$(cat "$agy_cfg")
+  fi
+  if printf '%s\n' "$existing" | jq --arg cmd "$hook_cmd" '
+    .hooks = ((.hooks | if type == "object" then . else {} end) |
+      .SessionStart = (
+        ((.SessionStart | if type == "array" then . else [] end)
+          | map(select(((.hooks // []) | map(.command // "") | any(contains("session-start"))) | not)))
+        + [{"matcher": "resume", "hooks": [{"type": "command", "command": $cmd, "timeout": 30}]}]
+      )
+    )
+  ' > "$agy_cfg.tmp"; then
+    mv "$agy_cfg.tmp" "$agy_cfg"
+  else
+    rm -f "$agy_cfg.tmp"
+    fail "写入 Antigravity CLI SessionStart 配置失败"
+  fi
   ;;
 
 python)

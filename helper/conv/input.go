@@ -8,6 +8,7 @@ import (
 	"strings"
 
 	"github.com/dzshzx/Zeta/helper/locales"
+	"github.com/dzshzx/Zeta/helper/sessionproto"
 	"github.com/dzshzx/Zeta/helper/tasks"
 )
 
@@ -294,16 +295,37 @@ func (c *Conversation) resumed() bool { return c.openedSession != "" }
 // 这时选的只在核心的内存里：核心收掉没人拿着的对话、换了核心，或者选的那次请求没送到（连接刚好断着），选择就没了，
 // 客户端重新打开时靠它补回来。有了会话号以后进程已经按选的起过，之后 Claude Code 照会话记录接着，不再看它。
 type Choices struct {
-	Model  *string `json:"model"`
-	Effort *string `json:"effort"`
-	Mode   *string `json:"mode"`
-	Hint   *string `json:"hint"`
+	Harness *string `json:"harness,omitempty"`
+	Model   *string `json:"model"`
+	Effort  *string `json:"effort"`
+	Mode    *string `json:"mode"`
+	Hint    *string `json:"hint"`
+}
+
+// chooseHarness 在对话尚未开始时切换引擎（claude / agy）。
+func (c *Conversation) chooseHarness(value string) error {
+	if c.session != "" || len(c.r.Items) > 0 || c.proc != nil || c.busy || c.fork != nil {
+		return locales.Err("errHarnessLocked")
+	}
+	next := sessionproto.NormalizeHarness(value)
+	if next == c.harness {
+		return nil
+	}
+	c.harness = next
+	c.commands = c.deps.Commands.RecallFor(c.harness, c.cwd)
+	c.models = nil
+	c.reportedModel = ""
+	c.changed()
+	return nil
 }
 
 // restoreChoices：打开时照客户端记着的选择定下来，和现在的一样的不动（不重复问用量、发控制请求）。已有会话号的不看。
 func (c *Conversation) restoreChoices(ch Choices) {
 	if c.session != "" {
 		return
+	}
+	if v := ch.Harness; v != nil && len(c.r.Items) == 0 && c.proc == nil && !c.busy && c.fork == nil {
+		_ = c.chooseHarness(*v)
 	}
 	if v := ch.Model; v != nil && !sameModel(c.modelFor(*v), c.model) {
 		c.chooseModel(*v)
@@ -442,12 +464,23 @@ func usageRequest() map[string]any { return control("get_usage", "skip_behaviors
 // queryQuota 借这个对话开着的进程问一次所在主机的订阅额度（get_usage），应答里的 response 原样交回客户端。
 func (c *Conversation) queryQuota() <-chan answer {
 	out := make(chan answer, 1)
-	if q := c.deps.Quota; q != nil && !q.Subscribed() {
+	if q := c.quotaSink(); q != nil && !q.Subscribed() {
 		out <- answer{err: errNoSubscription}
 		return out
 	}
 	p := c.proc
 	if p == nil {
+		if c.isAgy() && c.deps.QueryAgyQuota != nil {
+			q := c.quotaSink()
+			go func() {
+				raw, err := c.deps.QueryAgyQuota()
+				if err == nil && q != nil {
+					q.Usage(raw)
+				}
+				out <- answer{v: raw, err: err}
+			}()
+			return out
+		}
 		out <- answer{err: errNoProcess}
 		return out
 	}

@@ -1,5 +1,38 @@
 import SwiftUI
 
+/// 新对话还没开始时切换 Claude Code 与 Antigravity（composer.harness）。
+struct HarnessMenu: View {
+    @Environment(AppModel.self) private var model
+    let harness: String
+
+    var body: some View {
+        Menu {
+            Picker("对话工具", selection: choice) {
+                ForEach(Harness.all, id: \.self) { item in
+                    Text(Harness.name(item)).tag(item)
+                }
+            }
+        } label: {
+            HStack(spacing: 5) {
+                Image(systemName: harness == Harness.agy ? "sparkles" : "terminal")
+                Text(Harness.name(harness))
+                Image(systemName: "chevron.up.chevron.down")
+                    .font(.caption2)
+                    .foregroundStyle(.secondary)
+            }
+            .font(.footnote.weight(.medium))
+            .padding(.horizontal, 12)
+            .padding(.vertical, 6)
+            .glassEffect(.regular.interactive(), in: .capsule)
+        }
+        .tint(.primary)
+    }
+
+    private var choice: Binding<String> {
+        Binding(get: { harness }, set: { model.choose("composer.harness", $0) })
+    }
+}
+
 /// 左下角的「+」：图片、文件一组，常用指令一组（点了填进输入框，最后一项管理）。
 struct AttachMenu: View {
     @Environment(AppModel.self) private var model

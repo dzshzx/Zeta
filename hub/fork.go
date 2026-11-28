@@ -31,8 +31,12 @@ func (h *Hub) Fork(last string, failed func(err error)) {
 				if cwd == "" {
 					cwd = c.Session.Cwd
 				}
+				harness := c.Harness()
+				if fh := fork.State().Harness; fh != "" {
+					harness = hostlink.NormalizeHarness(fh)
+				}
 				h.CloseChat()
-				h.chat = &Chat{Backend: c.Backend, Session: hostlink.Session{Cwd: cwd, Backend: c.Backend}, Conv: fork}
+				h.chat = &Chat{Backend: c.Backend, Session: hostlink.Session{Cwd: cwd, Backend: c.Backend, Harness: harness}, Conv: fork}
 			}
 		}
 	})

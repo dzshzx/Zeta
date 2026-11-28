@@ -53,6 +53,9 @@ func (st *Store) Defaults() (Defaults, error) {
 	if err != nil {
 		return Defaults{}, err
 	}
+	if st.IsAgy() {
+		return agyDefaultsOf(s), nil
+	}
 	return defaultsOf(s), nil
 }
 
@@ -60,6 +63,9 @@ func (st *Store) editDefaults(edit func(*object) error) (Defaults, error) {
 	s, err := st.updateSettings(edit)
 	if err != nil {
 		return Defaults{}, err
+	}
+	if st.IsAgy() {
+		return agyDefaultsOf(s), nil
 	}
 	return defaultsOf(s), nil
 }
@@ -96,8 +102,14 @@ func (st *Store) SetCompactWindow(tokens int64) (Defaults, error) {
 	})
 }
 
-// SetDefaultPermissionMode 设默认权限模式（permissions.defaultMode），permissions 里别的键原样留着。
+// SetDefaultPermissionMode 设默认权限模式（permissions.defaultMode 或 agy 的 agentMode/toolPermission），其余键原样留着。
 func (st *Store) SetDefaultPermissionMode(mode string) (Defaults, error) {
+	if st.IsAgy() {
+		return st.editDefaults(func(s *object) error {
+			applyAgyDefaultMode(s, mode)
+			return nil
+		})
+	}
 	return st.editDefaults(func(s *object) error {
 		p, err := childObject(s, "permissions", errInvalidPermissions)
 		if err != nil {

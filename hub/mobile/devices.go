@@ -25,8 +25,9 @@ type DeviceInfo struct {
 	Via        string `json:"via"`
 	Hostname   string `json:"hostname"`
 	// Fingerprint 是记下的主机指纹。
-	Fingerprint string `json:"fingerprint"`
-	Off         bool   `json:"off"`
+	Fingerprint    string `json:"fingerprint"`
+	Off            bool   `json:"off"`
+	DefaultHarness string `json:"default_harness"`
 	// Relay 是在用的中转名（这时不写额度）；Used 是最要紧的额度窗口用了百分之几，没有数、不显示额度时是 -1。
 	Relay string `json:"relay"`
 	Used  int    `json:"used"`
@@ -35,15 +36,17 @@ type DeviceInfo struct {
 func (c *Core) deviceInfo(x sshlink.Host, now time.Time) DeviceInfo {
 	original := x
 	original.CustomName = ""
+	dh := c.hub.DefaultHarness(x.ID)
 	d := DeviceInfo{ID: x.ID, Name: x.Name(), CustomName: x.CustomName, Original: original.Name(), Target: x.Target,
 		Home: x.Home, DefaultCwd: x.DefaultCwd, Via: x.Via, Hostname: x.Hostname, Fingerprint: x.Fingerprint(), Off: x.Off,
-		Used: -1}
+		DefaultHarness: dh, Used: -1}
 	r := c.hub.Remote(x.ID)
 	if r == nil {
 		return d
 	}
-	d.Relay = r.Quota.Relay()
-	if s, ok := r.Quota.Snapshot(); ok && d.Relay == "" && r.Quota.Shown() {
+	q := r.QuotaFor(dh)
+	d.Relay = q.Relay()
+	if s, ok := q.Snapshot(); ok && d.Relay == "" && q.Shown() {
 		if s = s.At(now); !s.Unavailable {
 			if w, ok := s.Headline(); ok {
 				d.Used = w.Percent()
@@ -57,6 +60,10 @@ type (
 	deviceRenameParams struct {
 		ID   string `json:"id"`
 		Name string `json:"name"`
+	}
+	deviceHarnessParams struct {
+		ID      string `json:"id"`
+		Harness string `json:"harness"`
 	}
 	cwdParams struct {
 		ID   string `json:"id"`
@@ -93,17 +100,18 @@ func init() {
 	})
 	onLoop("settings.open", func(c *Core, _ none) (any, error) {
 		for _, x := range c.hub.Hosts() {
-			r := c.hub.Remote(x.ID)
-			if r == nil {
-				continue
-			}
-			if _, ok := r.Accounts.State(); !ok && r.Accounts.Working() == "" {
-				r.Accounts.Refresh()
-			}
-			if _, ok := r.Quota.Snapshot(); !ok && !r.Quota.Refreshing() {
-				r.Quota.Refresh(false)
-			}
+			c.refreshDeviceDefault(x.ID)
 		}
+		return ok, nil
+	})
+	onLoop("device.setharness", func(c *Core, p deviceHarnessParams) (any, error) {
+		if _, found := c.hub.Host(p.ID); !found {
+			return nil, locales.Err(locales.MobileDeviceGone)
+		}
+		if err := c.hub.SetDefaultHarness(p.ID, p.Harness); err != nil {
+			return nil, err
+		}
+		c.refreshDeviceDefault(p.ID)
 		return ok, nil
 	})
 	onLoop("device.rename", func(c *Core, p deviceRenameParams) (any, error) {
@@ -137,6 +145,21 @@ func init() {
 		c.hub.Settings().SetAutoLoadRemoteImages(p.AutoLoadRemoteImages)
 		return ok, nil
 	})
+}
+
+func (c *Core) refreshDeviceDefault(id string) {
+	r := c.hub.Remote(id)
+	if r == nil {
+		return
+	}
+	dh := c.hub.DefaultHarness(id)
+	acct, q := r.AccountsFor(dh), r.QuotaFor(dh)
+	if _, ok := acct.State(); !ok && acct.Working() == "" {
+		acct.Refresh()
+	}
+	if _, ok := q.Snapshot(); !ok && !q.Refreshing() {
+		q.Refresh(false)
+	}
 }
 
 // checkCwd 把默认工作目录改成 p.Path（同桌面版）：先到那台设备上看进不进得去，进得去才存；进不去时答原因、不存；

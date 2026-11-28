@@ -9,6 +9,7 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import com.dzshzx.zeta.core.ConversationHub
+import com.dzshzx.zeta.core.Harnesses
 import com.dzshzx.zeta.core.claude.ConfigFile
 import com.dzshzx.zeta.core.claude.MemoryEntry
 import com.dzshzx.zeta.core.claude.MemoryOverview
@@ -57,8 +58,14 @@ private fun shortPath(path: String, home: String?): String =
  * ~/.claude/settings.json（autoMemoryEnabled），对所有项目生效。
  */
 @Composable
-internal fun ClaudeMemoryScreen(hub: ConversationHub, backend: String, onBack: () -> Unit) {
-    val client = rememberConfigClient(hub, backend)
+internal fun ClaudeMemoryScreen(
+    hub: ConversationHub,
+    backend: String,
+    onBack: () -> Unit,
+    harness: String = Harnesses.CLAUDE,
+) {
+    val isAgy = Harnesses.normalize(harness) == Harnesses.AGY
+    val client = rememberConfigClient(hub, backend, harness)
     val scope = rememberCoroutineScope()
     val cwd = hub.defaultCwd(backend)
     val home = hub.home(backend)
@@ -69,7 +76,7 @@ internal fun ClaudeMemoryScreen(hub: ConversationHub, backend: String, onBack: (
     var editing by remember { mutableStateOf<MemoryTarget?>(null) }
     var reloads by remember { mutableStateOf(0) }
 
-    LaunchedEffect(project, reloads) {
+    LaunchedEffect(project, reloads, harness) {
         scope.runConfig({ client.memory(cwd, project) }) { result ->
             result
                 .onSuccess { overview = it }
@@ -80,33 +87,36 @@ internal fun ClaudeMemoryScreen(hub: ConversationHub, backend: String, onBack: (
 
     val o = overview
     MiuixPage(
-        title = Strings.setupMemoryTitle(),
+        title = if (isAgy) Strings.settingsHostRules() else Strings.setupMemoryTitle(),
         onBack = onBack,
         dialogs = { ConfigNoticeDialog(notice) { notice = null } },
     ) {
-        item(key = "instructions") { InstructionsGroup(o, onOpen = { editing = it }) }
+        item(key = "instructions") { InstructionsGroup(o, isAgy, onOpen = { editing = it }) }
 
-        item(key = "auto") {
-            AutoMemoryGroup(
-                o = o,
-                home = home,
-                working = working,
-                onToggle = { on ->
-                    working = true
-                    scope.runConfig({ client.setAutoMemory(on) }) { result ->
-                        working = false
-                        result.onFailure {
-                            notice = ConfigNotice(Strings.setupClaudeChangeFailed(), it.problem())
+        if (!isAgy) {
+            item(key = "auto") {
+                AutoMemoryGroup(
+                    o = o,
+                    home = home,
+                    working = working,
+                    onToggle = { on ->
+                        working = true
+                        scope.runConfig({ client.setAutoMemory(on) }) { result ->
+                            working = false
+                            result.onFailure {
+                                notice =
+                                    ConfigNotice(Strings.setupClaudeChangeFailed(), it.problem())
+                            }
+                            reload()
                         }
-                        reload()
-                    }
-                },
-                onSelectProject = { project = it },
-                onOpen = { editing = it },
-            )
+                    },
+                    onSelectProject = { project = it },
+                    onOpen = { editing = it },
+                )
+            }
         }
 
-        if (o != null && o.index != null) {
+        if (o != null && (o.index != null || (isAgy && o.files.isNotEmpty()))) {
             item(key = "files") { MemoryFilesGroup(o.files, onOpen = { editing = it }) }
         }
     }
@@ -147,14 +157,21 @@ internal fun ClaudeMemoryScreen(hub: ConversationHub, backend: String, onBack: (
 
 /** 「用户指令」一组：~/.claude/CLAUDE.md。 */
 @Composable
-private fun InstructionsGroup(o: MemoryOverview?, onOpen: (MemoryTarget) -> Unit) {
+private fun InstructionsGroup(
+    o: MemoryOverview?,
+    isAgy: Boolean,
+    onOpen: (MemoryTarget) -> Unit,
+) {
+    val fileLabel =
+        o?.instructions?.path?.substringAfterLast('/')?.takeIf { it.isNotBlank() }
+            ?: if (isAgy) "GEMINI.md" else "CLAUDE.md"
     PreferenceGroup(
         title = Strings.setupMemoryInstructions(),
-        footer = Strings.setupMemoryInstructionsFooter(),
+        footer = if (isAgy) null else Strings.setupMemoryInstructionsFooter(),
     ) {
         item {
             ArrowPreference(
-                title = "CLAUDE.md",
+                title = fileLabel,
                 summary =
                     when {
                         o == null -> Strings.setupClaudeLoading()
@@ -168,7 +185,7 @@ private fun InstructionsGroup(o: MemoryOverview?, onOpen: (MemoryTarget) -> Unit
                             MemoryTarget(
                                 it.instructions.path,
                                 Strings.setupMemoryInstructions(),
-                                "CLAUDE.md",
+                                fileLabel,
                                 Strings.setupMemoryInstructionsHint(),
                             ),
                         )

@@ -139,7 +139,7 @@ final class Notifier: NSObject, UNUserNotificationCenterDelegate {
         }
         if prompt.isPlan == true { return String(localized: "计划等你批准") }
         if prompt.kind == "elicitation" { return String(localized: "MCP 服务等你回应") }
-        return String(localized: "等你确认：\(prompt.toolName ?? "")")
+        return String(localized: "等你确认：\(ToolLabels.title(prompt.toolName ?? ""))")
     }
 
     /// request 是聊天页对话里等你确认的工具请求：通知上带允许、拒绝两个按钮。

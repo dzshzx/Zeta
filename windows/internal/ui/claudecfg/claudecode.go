@@ -20,10 +20,17 @@ type claudeState struct {
 	note     string // 读版本或上次更新的结果，没有时为空
 }
 
-// loadClaude 读这台主机上 Claude Code 的版本（打开设备页时）。
+// loadClaude 读这台主机上当前工具（claude 或 agy）的版本（打开设备页时）。
 func (p *Page) loadClaude() {
+	agy := p.isAgy()
 	p.async(func(ctx context.Context) func() {
-		v, err := p.opts.Core.ClaudeVersion(ctx)
+		var v string
+		var err error
+		if agy {
+			v, err = p.opts.Core.AgyVersion(ctx)
+		} else {
+			v, err = p.opts.Core.ClaudeVersion(ctx)
+		}
 		return func() {
 			p.claude.loaded = err == nil
 			p.claude.version = v
@@ -35,7 +42,7 @@ func (p *Page) loadClaude() {
 	})
 }
 
-// claudeRow 是「Claude Code」一行：右边版本和「更新」，说明是上次的结果。
+// claudeRow 是 CLI 版本与更新一行：右边版本和「更新」，说明是上次的结果。
 func (p *Page) claudeRow(l *widget.List) {
 	c := l.Context()
 	st := &p.claude
@@ -50,16 +57,27 @@ func (p *Page) claudeRow(l *widget.List) {
 			value = locales.ClaudecfgClaudeNotInstalled()
 		}
 	}
-	l.Row(widget.Row{Title: "Claude Code", Summary: summary, Value: value, End: func() {
+	title := "Claude Code"
+	if p.isAgy() {
+		title = "Antigravity CLI"
+	}
+	l.Row(widget.Row{Title: title, Summary: summary, Value: value, End: func() {
 		widget.SmallButton(c, locales.ClaudecfgClaudeUpdate()).Disabled(!st.loaded || st.updating).OnClick(p.updateClaude)
 	}})
 }
 
-// updateClaude 在这台主机上跑 claude update，最多几分钟。
+// updateClaude 在这台主机上跑 claude update 或 agy update，最多几分钟。
 func (p *Page) updateClaude() {
+	agy := p.isAgy()
 	p.claude.updating, p.claude.note = true, ""
 	p.async(func(ctx context.Context) func() {
-		u, err := p.opts.Core.UpdateClaude(ctx)
+		var u coreapi.ClaudeUpdate
+		var err error
+		if agy {
+			u, err = p.opts.Core.UpdateAgy(ctx)
+		} else {
+			u, err = p.opts.Core.UpdateClaude(ctx)
+		}
 		return func() {
 			p.claude.updating = false
 			if err != nil {

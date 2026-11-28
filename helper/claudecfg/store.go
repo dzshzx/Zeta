@@ -65,18 +65,33 @@ const MaxText = 1 << 20
 
 const defaultTimeout = time.Minute
 
-// Store 是家目录 home 下的 Claude Code 配置。
+// Store 是家目录 home 下的 Claude Code 或 Antigravity（agy）配置。
 type Store struct {
-	home string
-	lang string // 结果里 Zeta 自己写的说明（工具权限页的工具说明）用这个语言，见 In
+	home    string
+	lang    string // 结果里 Zeta 自己写的说明（工具权限页的工具说明）用这个语言，见 In
+	harness string // "claude"（默认）或 "agy"
 }
 
-// New 是家目录 home 下的配置。
+// New 是家目录 home 下的配置（默认 Claude Code）。
 func New(home string) *Store { return &Store{home: strings.TrimRight(home, "/")} }
 
 // In 是同一份配置，结果里 Zeta 自己写的说明用语言 lang（发请求的客户端的语言，core.Client.Lang）。出错不用它：
 // 出错是 *locales.Error，由核心按连接的语言出字。
-func (s *Store) In(lang string) *Store { return &Store{home: s.home, lang: lang} }
+func (s *Store) In(lang string) *Store {
+	return &Store{home: s.home, lang: lang, harness: s.harness}
+}
+
+// ForHarness 返回读写指定 harness（"claude" 或 "agy"）配置的 Store。
+func (s *Store) ForHarness(harness string) *Store {
+	h := "claude"
+	if strings.TrimSpace(harness) == "agy" {
+		h = "agy"
+	}
+	return &Store{home: s.home, lang: s.lang, harness: h}
+}
+
+// IsAgy 判断当前 Store 是否面向 Antigravity CLI。
+func (s *Store) IsAgy() bool { return s.harness == "agy" }
 
 // Home 是家目录。
 func (s *Store) Home() string {

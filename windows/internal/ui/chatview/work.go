@@ -138,8 +138,10 @@ func stepIcon(s items.Step) *ui.SVG {
 	return lookOf(s).icon
 }
 
-// isSubagent：发起子代理的工具（Task 是 Agent 的旧名）。
-func isSubagent(name string) bool { return name == "Agent" || name == "Task" }
+// isSubagent：发起子代理的工具（Task 是 Agent 的旧名，invoke_subagent 是 Antigravity 的子代理工具）。
+func isSubagent(name string) bool {
+	return name == "Agent" || name == "Task" || name == "invoke_subagent"
+}
 
 // stepRow 画时间线里的一步：改文件的直接是红绿对比；发起子代理的点了进子代理查看页；别的点开看详情。
 func (ch *Chat) stepRow(c *ui.Context, s items.Step) {

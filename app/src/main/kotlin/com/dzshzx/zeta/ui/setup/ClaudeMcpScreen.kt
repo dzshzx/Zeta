@@ -17,6 +17,7 @@ import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.unit.dp
 import com.dzshzx.zeta.core.ConversationHub
+import com.dzshzx.zeta.core.Harnesses
 import com.dzshzx.zeta.core.claude.ClaudeConfigCore
 import com.dzshzx.zeta.core.claude.McpConnector
 import com.dzshzx.zeta.core.claude.McpServer
@@ -141,8 +142,13 @@ private val EnvLine = Regex("([A-Za-z_][A-Za-z0-9_]*)=(.*)")
  * 的手机工具（SDK 类型的 phone 服务器）不在配置里，这里不显示。
  */
 @Composable
-internal fun ClaudeMcpScreen(hub: ConversationHub, backend: String, onBack: () -> Unit) {
-    val client = rememberConfigClient(hub, backend)
+internal fun ClaudeMcpScreen(
+    hub: ConversationHub,
+    backend: String,
+    onBack: () -> Unit,
+    harness: String = Harnesses.CLAUDE,
+) {
+    val client = rememberConfigClient(hub, backend, harness)
     val scope = rememberCoroutineScope()
     val cwd = hub.defaultCwd(backend)
     var servers by remember { mutableStateOf<List<McpServer>?>(null) }
@@ -211,6 +217,7 @@ internal fun ClaudeMcpScreen(hub: ConversationHub, backend: String, onBack: () -
         McpServerDetail(
             hub = hub,
             backend = backend,
+            harness = harness,
             server = server,
             state = status.of(server, statusError != null),
             onBack = { detail = null },
@@ -464,13 +471,14 @@ private fun draftProblem(
 private fun McpServerDetail(
     hub: ConversationHub,
     backend: String,
+    harness: String,
     server: McpServer,
     state: McpState?,
     onBack: () -> Unit,
     onChanged: () -> Unit,
     onRemoved: () -> Unit,
 ) {
-    val client = rememberConfigClient(hub, backend)
+    val client = rememberConfigClient(hub, backend, harness)
     val scope = rememberCoroutineScope()
     val cwd = hub.defaultCwd(backend)
     var tools by remember(server) { mutableStateOf<List<McpTool>?>(null) }

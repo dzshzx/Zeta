@@ -1708,6 +1708,22 @@ func (msgs Messages) QuotaSession() string {
 	return Catalog.Format(msgs.locale, "quotaSession", nil)
 }
 
+// QuotaSessionScoped says "5 小时 · {scope}"
+// in the language the app shows.
+//
+// 额度窗口的名字：5 小时里按模型组分的，scope
+// 是模型组名（如 Gemini）。
+func QuotaSessionScoped(scope string) string { return In(i18n.Locale()).QuotaSessionScoped(scope) }
+
+// QuotaSessionScoped says "5 小时 · {scope}"
+// in the language of msgs.
+//
+// 额度窗口的名字：5 小时里按模型组分的，scope
+// 是模型组名（如 Gemini）。
+func (msgs Messages) QuotaSessionScoped(scope string) string {
+	return Catalog.Format(msgs.locale, "quotaSessionScoped", map[string]any{"scope": scope})
+}
+
 // QuotaWeeklyAll says "每周 · 全部模型"
 // in the language the app shows.
 //
@@ -3978,6 +3994,20 @@ func (msgs Messages) ToolAskUserQuestion() string {
 	return Catalog.Format(msgs.locale, "toolAskUserQuestion", nil)
 }
 
+// ToolUpdateSteps says "更新步骤进度清单"
+// in the language the app shows.
+//
+// 工具权限页 update_steps 一行的说明。
+func ToolUpdateSteps() string { return In(i18n.Locale()).ToolUpdateSteps() }
+
+// ToolUpdateSteps says "更新步骤进度清单"
+// in the language of msgs.
+//
+// 工具权限页 update_steps 一行的说明。
+func (msgs Messages) ToolUpdateSteps() string {
+	return Catalog.Format(msgs.locale, "toolUpdateSteps", nil)
+}
+
 // ToolToolSearch says "按需加载其余工具，拒绝后都用不了"
 // in the language the app shows.
 //
@@ -4190,4 +4220,116 @@ func ErrSkillZipTooBig() string { return In(i18n.Locale()).ErrSkillZipTooBig() }
 // locales.Said）。
 func (msgs Messages) ErrSkillZipTooBig() string {
 	return Catalog.Format(msgs.locale, "errSkillZipTooBig", nil)
+}
+
+// ErrAgyUpdating says "这台主机上正在更新 Antigravity"
+// in the language the app shows.
+//
+// 出错应答：已经有一次 agy update 在跑。
+func ErrAgyUpdating() string { return In(i18n.Locale()).ErrAgyUpdating() }
+
+// ErrAgyUpdating says "这台主机上正在更新 Antigravity"
+// in the language of msgs.
+//
+// 出错应答：已经有一次 agy update 在跑。
+func (msgs Messages) ErrAgyUpdating() string {
+	return Catalog.Format(msgs.locale, "errAgyUpdating", nil)
+}
+
+// ErrAgyAccountInUse says "正在用这个账号，先换到别的账号或中转再删"
+// in the language the app shows.
+//
+// 出错应答：要删的 agy 账号正在用。
+func ErrAgyAccountInUse() string { return In(i18n.Locale()).ErrAgyAccountInUse() }
+
+// ErrAgyAccountInUse says "正在用这个账号，先换到别的账号或中转再删"
+// in the language of msgs.
+//
+// 出错应答：要删的 agy 账号正在用。
+func (msgs Messages) ErrAgyAccountInUse() string {
+	return Catalog.Format(msgs.locale, "errAgyAccountInUse", nil)
+}
+
+// ErrAgyBlockedElsewhere says "还有 {others, plural, other {# 个别处开着的 Antigravity}}（比如终端里的 agy）{othersBusy, plural, =0 …"
+// in the language the app shows.
+//
+// 换号被挡住时的说明：Zeta 之外开着 Antigravity。others
+// 是几个，othersBusy 是其中几个在进行。
+func ErrAgyBlockedElsewhere(others int, othersBusy int) string {
+	return In(i18n.Locale()).ErrAgyBlockedElsewhere(others, othersBusy)
+}
+
+// ErrAgyBlockedElsewhere says "还有 {others, plural, other {# 个别处开着的 Antigravity}}（比如终端里的 agy）{othersBusy, plural, =0 …"
+// in the language of msgs.
+//
+// 换号被挡住时的说明：Zeta 之外开着 Antigravity。others
+// 是几个，othersBusy 是其中几个在进行。
+func (msgs Messages) ErrAgyBlockedElsewhere(others int, othersBusy int) string {
+	return Catalog.Format(msgs.locale, "errAgyBlockedElsewhere", map[string]any{"others": others, "othersBusy": othersBusy})
+}
+
+// ErrAgyBlockedBoth says "另一个 Zeta（{apps}）开着 {count, plural, other {# 个对话}}{busy, plural, =0 {} other {，其中 # …"
+// in the language the app shows.
+//
+// 换号被挡住时的说明：别的 Zeta 包和别处的 Antigravity
+// 都开着，参数同 errSwitchBlockedZeta 和 errAgyBlockedElsewhere。
+func ErrAgyBlockedBoth(apps string, count int, busy int, others int, othersBusy int) string {
+	return In(i18n.Locale()).ErrAgyBlockedBoth(apps, count, busy, others, othersBusy)
+}
+
+// ErrAgyBlockedBoth says "另一个 Zeta（{apps}）开着 {count, plural, other {# 个对话}}{busy, plural, =0 {} other {，其中 # …"
+// in the language of msgs.
+//
+// 换号被挡住时的说明：别的 Zeta 包和别处的 Antigravity
+// 都开着，参数同 errSwitchBlockedZeta 和 errAgyBlockedElsewhere。
+func (msgs Messages) ErrAgyBlockedBoth(apps string, count int, busy int, others int, othersBusy int) string {
+	return Catalog.Format(msgs.locale, "errAgyBlockedBoth", map[string]any{"apps": apps, "count": count, "busy": busy, "others": others, "othersBusy": othersBusy})
+}
+
+// ErrAgyLoginCodeEmpty says "请粘贴授权码或回调网址"
+// in the language the app shows.
+//
+// 出错应答（code 是
+// login_incomplete）：交授权码时输入为空。
+func ErrAgyLoginCodeEmpty() string { return In(i18n.Locale()).ErrAgyLoginCodeEmpty() }
+
+// ErrAgyLoginCodeEmpty says "请粘贴授权码或回调网址"
+// in the language of msgs.
+//
+// 出错应答（code 是
+// login_incomplete）：交授权码时输入为空。
+func (msgs Messages) ErrAgyLoginCodeEmpty() string {
+	return Catalog.Format(msgs.locale, "errAgyLoginCodeEmpty", nil)
+}
+
+// ErrHarnessLocked says "对话已经开始，不能再切换引擎"
+// in the language the app shows.
+//
+// 出错应答：已有消息、会话号或运行中进程时调用
+// conv.harness 切换引擎。
+func ErrHarnessLocked() string { return In(i18n.Locale()).ErrHarnessLocked() }
+
+// ErrHarnessLocked says "对话已经开始，不能再切换引擎"
+// in the language of msgs.
+//
+// 出错应答：已有消息、会话号或运行中进程时调用
+// conv.harness 切换引擎。
+func (msgs Messages) ErrHarnessLocked() string {
+	return Catalog.Format(msgs.locale, "errHarnessLocked", nil)
+}
+
+// ErrAgyNoRewind says "Antigravity 会话不支持编辑、撤回、还原代码或分支"
+// in the language the app shows.
+//
+// 出错应答：对 agy 会话调用
+// conv.rewrite、conv.drop、conv.restore_code 或 conv.fork。
+func ErrAgyNoRewind() string { return In(i18n.Locale()).ErrAgyNoRewind() }
+
+// ErrAgyNoRewind says "Antigravity 会话不支持编辑、撤回、还原代码或分支"
+// in the language of msgs.
+//
+// 出错应答：对 agy 会话调用
+// conv.rewrite、conv.drop、conv.restore_code 或 conv.fork。
+func (msgs Messages) ErrAgyNoRewind() string {
+	return Catalog.Format(msgs.locale, "errAgyNoRewind", nil)
 }

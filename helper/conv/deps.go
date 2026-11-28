@@ -17,6 +17,8 @@ type Deps struct {
 	Attach func(key string, from int, ev Events) (Link, error)
 	// SessionFile 是会话号 session 的会话记录（几份时取最新的），没有时为空；可以是 nil
 	SessionFile func(session string) string
+	// SessionHarness 识别已有会话 session 属于哪个引擎（claude 或 agy）；可以是 nil
+	SessionHarness func(session string) string
 	// HostOutput 是托管标识 key 的进程的输出日志（zeta_host.sh 的 out.jsonl）；可以是 nil
 	HostOutput func(key string) string
 	// History 跑 zeta-helper history 的参数，返回它的输出（第一行 zeta_history，之后一行一条消息）
@@ -25,6 +27,8 @@ type Deps struct {
 	Subagent func(args ...string) ([]byte, error)
 	// DefaultMode 是这台主机上 Claude Code 设置里的默认权限模式（permissions.defaultMode），不知道时为空
 	DefaultMode func() string
+	// DefaultModeFor 按引擎读取默认权限模式；不设时回落到 DefaultMode
+	DefaultModeFor func(harness string) string
 	// Windows 是这台主机上学到的各模型的上下文窗口（用量条用），几个对话共用；可以是 nil
 	Windows *usage.Windows
 	// Now 是现在的时刻，测试里换成假的；不给时用 time.Now
@@ -48,6 +52,10 @@ type Deps struct {
 	// Quota 收下 Claude Code 给的这台主机的订阅额度（核心里接到额度存储，quota.get 读的那份）；可以是 nil：
 	// 那样输出里的 rate_limit_event 不管，起进程时也不问额度
 	Quota Quota
+	// QuotaFor 按引擎返回订阅额度存储；不设时回落到 Quota
+	QuotaFor func(harness string) Quota
+	// QueryAgyQuota 在 agy 对话尚未起子进程时直接查询订阅额度；可以是 nil
+	QueryAgyQuota func() (json.RawMessage, error)
 	// KeepMode 把用户在这个对话里的权限模式记到托管进程 key 上（托管目录的 user_mode），核心重启后接回时恢复；
 	// 没写成（比如托管脚本还没建好目录）时出错，下次推送时再写。可以是 nil
 	KeepMode func(key, mode string) error
@@ -82,11 +90,12 @@ type Quota interface {
 
 // StartOptions 是起进程用的：托管标识、工作目录、标题、claude 的参数，和只给这个进程的环境变量。
 type StartOptions struct {
-	Key   string
-	Cwd   string
-	Title string
-	Args  []string
-	Env   map[string]string
+	Key     string
+	Cwd     string
+	Title   string
+	Harness string
+	Args    []string
+	Env     map[string]string
 	// OnJoin 是接上了本包已在跑这个会话的进程时先写的几行（排在别的消息前面），把那个进程调成这边要的样子
 	OnJoin [][]byte
 }

@@ -15,6 +15,7 @@ type env struct {
 	home     string // 家目录，去掉末尾的斜杠（可能是空串，表示根目录）
 	name     string // Zeta 自己的目录名
 	claude   string // ~/.claude
+	agy      string // ~/.gemini/antigravity-cli（或 ZETA_AGY_DIR）
 	root     string // ~/.claude/projects：会话记录
 	sessions string // ~/.claude/sessions：Claude Code 每个进程登记自己的会话
 	hosts    string // ~/.cache/<name>/hosts：Zeta 托管的后台对话
@@ -36,10 +37,15 @@ func newEnv() *env {
 
 func newEnvAt(home, name string) *env {
 	home = strings.TrimRight(home, "/")
+	agy := home + "/.gemini/antigravity-cli"
+	if override := strings.TrimSpace(os.Getenv("ZETA_AGY_DIR")); override != "" {
+		agy = strings.TrimRight(override, "/")
+	}
 	return &env{
 		home:     home,
 		name:     name,
 		claude:   home + "/.claude",
+		agy:      agy,
 		root:     home + "/.claude/projects",
 		sessions: home + "/.claude/sessions",
 		hosts:    home + "/.cache/" + name + "/hosts",

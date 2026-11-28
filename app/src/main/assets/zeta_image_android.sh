@@ -1,3 +1,5 @@
+#!/system/bin/sh
+# shellcheck shell=ash disable=SC2016,SC2046,SC2086,SC2116,SC2329
 # Zeta 自带的 Debian 存在磁盘镜像里时，Android 一侧的部分（root，管理器自带的 BusyBox ash）。
 #
 # 为什么用镜像：Android 每次开机在 post-fs-data 阶段对 /data 做一遍 restorecon，而装了 KernelSU 模块的设备上总有改不了标签的文件，

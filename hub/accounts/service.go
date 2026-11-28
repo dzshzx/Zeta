@@ -56,10 +56,11 @@ func (cl client) list(ctx context.Context) (st coreapi.AccountList, err error) {
 //
 // 方法和读状态都在界面线程上；后台的事（loop.Run）做完经 loop.Post 回到界面线程改状态。
 type Service struct {
-	cl    client
-	convs Conversations
-	quota *Quota
-	loop  Loop
+	cl          client
+	convs       Conversations
+	quota       *Quota
+	loop        Loop
+	requireHash bool
 
 	state         *coreapi.AccountList
 	login         *Login // 正在进行的登录，见 login.go
@@ -69,10 +70,15 @@ type Service struct {
 	problem error
 }
 
-// NewService 返回一台主机的账号状态。convs 是本客户端在那台上的对话；quota 是那台的额度（换号后重取，可以为 nil，
+// NewService 返回一台主机的 Claude Code 账号状态。convs 是本客户端在那台上的对话；quota 是那台的额度（换号后重取，可以为 nil，
 // 读到的在用中转也告诉它）；loop 是界面线程的两头（见 Loop）。
 func NewService(core *coreapi.Client, program Program, convs Conversations, quota *Quota, loop Loop) *Service {
-	return &Service{cl: client{core, program}, convs: convs, quota: quota, loop: loop}
+	return &Service{cl: client{core, program}, convs: convs, quota: quota, loop: loop, requireHash: true}
+}
+
+// NewAgyService 返回一台主机的 Antigravity CLI 账号状态（由核心原生实现，不依赖 claude-switch，登录授权码也允许回调网址）。
+func NewAgyService(core *coreapi.Client, convs Conversations, quota *Quota, loop Loop) *Service {
+	return &Service{cl: client{core: core}, convs: convs, quota: quota, loop: loop}
 }
 
 // setState 收下读到的账号（界面线程上），告诉额度在用的是不是中转。

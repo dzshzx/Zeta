@@ -9,6 +9,8 @@ import (
 	"time"
 
 	"github.com/dzshzx/Zeta/client/hostlink"
+	"github.com/dzshzx/Zeta/helper/coreapi"
+	"github.com/dzshzx/Zeta/helper/sessionproto"
 	"github.com/dzshzx/Zeta/hub/chat"
 	"github.com/dzshzx/Zeta/hub/host"
 	"github.com/dzshzx/Zeta/hub/locales"
@@ -35,10 +37,24 @@ type Chat struct {
 // Fresh：新对话（不是接着已有的会话打开的）。
 func (c *Chat) Fresh() bool { return c.Session.ID == "" }
 
+// Harness 是这个对话当前用的 CLI 工具（"claude" 或 "agy"）。
+func (c *Chat) Harness() string {
+	if c == nil {
+		return hostlink.HarnessClaude
+	}
+	if c.Conv != nil {
+		if h := c.Conv.State().Harness; h != "" {
+			return hostlink.NormalizeHarness(h)
+		}
+	}
+	return hostlink.NormalizeHarness(c.Session.Harness)
+}
+
 // chatConn 是一台设备上给对话用的 serve 连接，和它上面的对话协议层。
 type chatConn struct {
-	link   host.ChatLink
-	client *chat.Client
+	link    host.ChatLink
+	client  *chat.Client
+	onQuota func(coreapi.QuotaState)
 	// problem 是连接现在的问题（断了、连不上），空是连着；ever：连上过。只在主线程上读写。
 	problem string
 	ever    bool
@@ -70,12 +86,21 @@ func (h *Hub) ChatLinkProblem() string {
 
 // OpenSession 在聊天窗格里打开会话 s，关掉原来的。已经开着它时什么也不做。
 func (h *Hub) OpenSession(s hostlink.Session) {
+	if s.Harness == "" && s.ID != "" {
+		for _, listed := range h.sessions {
+			if listed.Backend == s.Backend && listed.ID == s.ID {
+				s.Harness = listed.Harness
+				break
+			}
+		}
+	}
+	s.Harness = hostlink.NormalizeHarness(s.Harness)
 	h.seen(s)
 	if h.showing(s.Backend, s.ID) && s.ID != "" {
 		return
 	}
 	h.open(&Chat{Backend: s.Backend, Session: s},
-		chat.Spec{Session: s.ID, File: s.File, Cwd: s.Cwd, Title: s.Title, Options: h.options(s.Backend)}, false)
+		chat.Spec{Session: s.ID, File: s.File, Cwd: s.Cwd, Title: s.Title, Harness: s.Harness, Options: h.options(s.Backend)}, false)
 }
 
 // NewChat 在 Backend 那台设备上开一个新对话（只列一台时是侧栏列着的那台，列着全部设备时是上次选的那台，见 NewChatOn），
@@ -103,9 +128,13 @@ func (h *Hub) NewChatIn(cwd string) {
 	if !ok {
 		return
 	}
+	harness := h.DefaultHarness(x.ID)
+	if cwd != "" && h.chat != nil && h.chat.Backend == x.ID && h.chat.Fresh() {
+		harness = h.chat.Harness()
+	}
 	cwd = cmp.Or(cwd, x.DefaultCwd, x.Home)
-	h.open(&Chat{Backend: x.ID, Session: hostlink.Session{Cwd: cwd, Backend: x.ID}},
-		chat.Spec{Cwd: cwd, Options: h.options(x.ID)}, true)
+	h.open(&Chat{Backend: x.ID, Session: hostlink.Session{Cwd: cwd, Backend: x.ID, Harness: harness}},
+		chat.Spec{Cwd: cwd, Harness: harness, Options: h.options(x.ID)}, true)
 }
 
 // open 换成对话 c：关掉原来的，在后台连设备、打开，结果回主线程填进 c。checkCwd 时先看工作目录进不进得去。
@@ -172,14 +201,42 @@ func (h *Hub) closeConv(conv *chat.Conversation) {
 // chatConn 是设备 id 上给对话用的连接，没有就起一条（「连接」关着时是答已断开的假连接，见 gated）。推送、招呼和连接的变化在读的 goroutine 上来：推送交给协议层，招呼经 post 补上主机名（setHostname），
 // 连上时经 run 在后台让打开过的对话重新打开（Call 的应答要靠读的那个 goroutine 送回来，不能就地等），
 // 界面要重画的经 post 回主线程。
+func (h *Hub) quotaUpdater(id string, c *chatConn) func(coreapi.QuotaState) {
+	return func(st coreapi.QuotaState) {
+		h.post(func() {
+			if h.conns[id] == c {
+				if r := h.Remote(id); r != nil {
+					r.QuotaFor(st.Harness).ApplyState(st)
+				}
+			}
+		})
+	}
+}
+
+func (c *chatConn) handleConnected(h *Hub) {
+	h.run(func() {
+		ctx, cancel := context.WithTimeout(context.Background(), chat.OpenTimeout)
+		defer cancel()
+		if err := c.client.Reconnected(ctx); err != nil {
+			log.Printf("zeta: 重连后重新打开对话：%v", err)
+		}
+		api := coreapi.New(c)
+		_ = api.WatchQuota(ctx, true)
+		_ = api.WithHarness(sessionproto.HarnessAgy).WatchQuota(ctx, true)
+	})
+}
+
 func (h *Hub) chatConn(id string) *chatConn {
 	if c := h.conns[id]; c != nil {
 		return c
 	}
 	x, _ := h.Host(id)
 	c := &chatConn{}
+	c.onQuota = h.quotaUpdater(id, c)
 	c.client = chat.NewClient(c, func() { h.post(func() {}) })
-	c.link = h.devices.OpenChat(x,
+	var mu sync.Mutex
+	var pendingConnect bool
+	link := h.devices.OpenChat(x,
 		c.received,
 		func(hello hostlink.Hello) {
 			h.post(func() {
@@ -189,15 +246,17 @@ func (h *Hub) chatConn(id string) *chatConn {
 			})
 		},
 		func(why string) {
-			if why == "" {
-				h.run(func() {
-					ctx, cancel := context.WithTimeout(context.Background(), chat.OpenTimeout)
-					defer cancel()
-					if err := c.client.Reconnected(ctx); err != nil {
-						log.Printf("zeta: 重连后重新打开对话：%v", err)
-					}
-				})
-			} else {
+			mu.Lock()
+			ready := c.link != nil
+			if why == "" && !ready {
+				pendingConnect = true
+			} else if why != "" {
+				pendingConnect = false
+			}
+			mu.Unlock()
+			if why == "" && ready {
+				c.handleConnected(h)
+			} else if why != "" {
 				c.client.Disconnected()
 			}
 			h.post(func() {
@@ -205,6 +264,13 @@ func (h *Hub) chatConn(id string) *chatConn {
 				c.ever = c.ever || why == ""
 			})
 		})
+	mu.Lock()
+	c.link = link
+	fire := pendingConnect
+	mu.Unlock()
+	if fire {
+		c.handleConnected(h)
+	}
 	h.conns[id] = c
 	return c
 }
@@ -296,13 +362,14 @@ func (h *Hub) RunChatThen(do func(ctx context.Context, conv *chat.Conversation) 
 // reopen 在新的连接上重新打开对话 c（设备的连法改了）：接着它已经有的会话号。
 func (h *Hub) reopen(c *Chat) {
 	s := c.Session
+	s.Harness = c.Harness()
 	if c.Conv != nil {
 		s.ID = c.Conv.Session()
 	}
 	h.chat = nil // 原来的连接已经关了，不再发 conv.close
 	if s.ID == "" {
-		h.open(&Chat{Backend: c.Backend, Session: s}, chat.Spec{Cwd: s.Cwd, Options: h.options(c.Backend)}, true)
+		h.open(&Chat{Backend: c.Backend, Session: s}, chat.Spec{Cwd: s.Cwd, Harness: s.Harness, Options: h.options(c.Backend)}, true)
 		return
 	}
-	h.open(&Chat{Backend: c.Backend, Session: s}, chat.Spec{Session: s.ID, File: s.File, Cwd: s.Cwd, Title: s.Title, Options: h.options(c.Backend)}, false)
+	h.open(&Chat{Backend: c.Backend, Session: s}, chat.Spec{Session: s.ID, File: s.File, Cwd: s.Cwd, Title: s.Title, Harness: s.Harness, Options: h.options(c.Backend)}, false)
 }

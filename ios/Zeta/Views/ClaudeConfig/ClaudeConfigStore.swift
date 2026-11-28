@@ -1,7 +1,7 @@
 import Observation
 import SwiftUI
 
-/// 一台设备的 Claude Code 配置页共用的状态：新对话默认、模型清单、本地的几项、闲置超时、Claude Code 版本（同桌面版 Page）。
+/// 一台设备的配置页共用的状态：新对话默认、模型清单、本地的几项、闲置超时、CLI 版本（Claude Code 或 Antigravity）。
 @MainActor @Observable
 final class ClaudeConfigStore {
     let calls: ConfigCalls
@@ -20,8 +20,10 @@ final class ClaudeConfigStore {
     var working = false
     var failure: ConfigFailure?
 
-    init(model: AppModel, backend: String) {
-        calls = ConfigCalls(model: model, backend: backend)
+    var isAgy: Bool { calls.isAgy }
+
+    init(model: AppModel, backend: String, harness: String = Harness.claude) {
+        calls = ConfigCalls(model: model, backend: backend, harness: harness)
     }
 
     /// 默认工作目录：记忆、MCP、权限页按它找；还没读到时是空串（那边的家目录）。
@@ -59,13 +61,15 @@ final class ClaudeConfigStore {
 
     private func loadModels() async {
         modelsPending = true
-        models = (try? await calls.hub("claudecfg.models", as: ModelChoices.self)) ?? .unknown
+        let got = try? await calls.hub("claudecfg.models", ["harness": calls.harness], as: ModelChoices.self)
+        models = got ?? .unknown
         modelsPending = false
     }
 
     private func loadClaude() async {
+        let method = isAgy ? "system.agy" : "system.claude"
         do {
-            claudeVersion = try await calls.get("system.claude", as: ClaudeVersion.self).version ?? ""
+            claudeVersion = try await calls.get(method, as: ClaudeVersion.self).version ?? ""
             claudeLoaded = true
             claudeNote = ""
         } catch {
@@ -108,27 +112,30 @@ final class ClaudeConfigStore {
         }
     }
 
-    /// 在那台主机上跑 claude update，最多几分钟。
+    /// 在那台主机上跑 claude update 或 agy update，最多几分钟。
     func updateClaude() {
         updating = true
         claudeNote = ""
+        let method = isAgy ? "system.agy_update" : "system.claude_update"
+        let agy = isAgy
         Task {
             defer { updating = false }
             do {
-                let update = try await calls.slow("system.claude_update", as: ClaudeUpdate.self)
+                let update = try await calls.slow(method, as: ClaudeUpdate.self)
                 claudeVersion = update.version
-                claudeNote = Self.note(update)
+                claudeNote = Self.note(update, isAgy: agy)
             } catch {
                 claudeNote = String(localized: "没更新成：\(error.localizedDescription)")
             }
         }
     }
 
-    /// 更新完的一句话：成了说新旧版本，没成说 claude update 输出的最后一行。
-    static func note(_ update: ClaudeUpdate) -> String {
+    /// 更新完的一句话：成了说新旧版本，没成说 update 输出的最后一行。
+    static func note(_ update: ClaudeUpdate, isAgy: Bool = false) -> String {
         if !update.succeeded {
             let last = update.output.split(separator: "\n").last { !$0.trimmingCharacters(in: .whitespaces).isEmpty }
-            let reason = last.map { String($0) } ?? String(localized: "claude update 出错了")
+            let fallback = isAgy ? String(localized: "agy update 出错了") : String(localized: "claude update 出错了")
+            let reason = last.map { String($0) } ?? fallback
             return String(localized: "没更新成：\(reason)")
         }
         if !update.version.isEmpty, update.version != update.before {

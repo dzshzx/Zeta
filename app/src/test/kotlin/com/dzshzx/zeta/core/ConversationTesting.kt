@@ -102,6 +102,7 @@ internal class FakeCore : ConvConnection {
         val value = call.params["value"]?.toString() ?: "null"
         when (call.method) {
             "conv.open" -> opened(call)
+            "conv.harness" -> push(stateOf(call, """"harness":$value"""))
             "conv.model" -> push(stateOf(call, """"model":$value"""))
             "conv.effort" -> push(stateOf(call, """"effort":$value"""))
             "conv.mode" ->
@@ -115,11 +116,13 @@ internal class FakeCore : ConvConnection {
 
     private fun opened(call: Call) {
         val session = call.str("session") ?: newSession
+        val harness =
+            call.str("harness") ?: call.params.obj("choices")?.str("harness") ?: Harnesses.CLAUDE
         keys++
         val sessionField = session?.let { ",\"session\":\"$it\"" }.orEmpty()
         push(
             """{"type":"conv.state","conv":"${call.conv}","full":true,"key":"c$keys"$sessionField,""" +
-                """"cwd":"${call.str("cwd").orEmpty()}","title":"${call.str("title").orEmpty()}"}""",
+                """"harness":"$harness","cwd":"${call.str("cwd").orEmpty()}","title":"${call.str("title").orEmpty()}"}""",
         )
         push(
             """{"type":"conv.items","conv":"${call.conv}","full":true,"at":0,"remove":0,"items":[]}""",

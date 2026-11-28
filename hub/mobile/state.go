@@ -44,6 +44,7 @@ type Device struct {
 type Session struct {
 	Backend  string `json:"backend"`
 	ID       string `json:"id"`
+	Harness  string `json:"harness"`
 	Title    string `json:"title"`
 	Place    string `json:"place"`
 	Updated  int64  `json:"updated"`
@@ -61,22 +62,24 @@ type Session struct {
 
 // Chat 是聊天页的样子。Items 是上次 state 以后条目的变化：Full 时第一项是整份，界面依次套上（同桌面版的 Take）。
 type Chat struct {
-	Backend     string             `json:"backend"`
-	Session     string             `json:"session"`
-	Title       string             `json:"title"`
-	Device      string             `json:"device"`
-	Cwd         string             `json:"cwd"`
-	Opening     bool               `json:"opening"`
-	Problem     string             `json:"problem"`
-	LinkProblem string             `json:"link_problem"`
-	Connected   bool               `json:"connected"`
-	Busy        bool               `json:"busy"`
-	Blocked     bool               `json:"blocked"`
-	Status      string             `json:"status"`
-	Model       string             `json:"model"`
-	Earlier     int                `json:"earlier"`
-	Prompts     []prompt.Prompt    `json:"prompts"`
-	Items       []chat.ItemsChange `json:"items"`
+	Backend          string             `json:"backend"`
+	Session          string             `json:"session"`
+	Harness          string             `json:"harness"`
+	CanSwitchHarness bool               `json:"can_switch_harness"`
+	Title            string             `json:"title"`
+	Device           string             `json:"device"`
+	Cwd              string             `json:"cwd"`
+	Opening          bool               `json:"opening"`
+	Problem          string             `json:"problem"`
+	LinkProblem      string             `json:"link_problem"`
+	Connected        bool               `json:"connected"`
+	Busy             bool               `json:"busy"`
+	Blocked          bool               `json:"blocked"`
+	Status           string             `json:"status"`
+	Model            string             `json:"model"`
+	Earlier          int                `json:"earlier"`
+	Prompts          []prompt.Prompt    `json:"prompts"`
+	Items            []chat.ItemsChange `json:"items"`
 	// Failed 是最近一次操作（发消息、停止、回应确认）没成的原因，交出去一次就清掉。
 	Failed string `json:"failed"`
 	// Tasks、Todos、Process 同 conv.state；Finished 是上次 state 以后答完的各轮的结局（通知用，tasks.go）。
@@ -113,7 +116,8 @@ func (c *Core) state() State {
 		current = ch.Session
 	}
 	for _, s := range c.rows(current) {
-		st.Sessions = append(st.Sessions, c.decorate(Session{Backend: s.Backend, ID: s.ID, Title: hub.SessionLabel(s, locale), Place: s.Place(),
+		st.Sessions = append(st.Sessions, c.decorate(Session{Backend: s.Backend, ID: s.ID,
+			Harness: sessionproto.NormalizeHarness(s.Harness), Title: hub.SessionLabel(s, locale), Place: s.Place(),
 			Updated: s.Updated, Pinned: h.Pinned(s), External: s.External, Ended: s.Ended, Archived: s.Archived}, s, current))
 	}
 	st.Side = c.side()
@@ -129,7 +133,8 @@ func (c *Core) chatState(locale string) *Chat {
 		c.shown = nil
 		return nil
 	}
-	out := &Chat{Backend: ch.Backend, Session: ch.Session.ID, Title: hub.SessionLabel(ch.Session, locale), Device: h.Name(ch.Backend),
+	out := &Chat{Backend: ch.Backend, Session: ch.Session.ID, Harness: ch.Harness(),
+		Title: hub.SessionLabel(ch.Session, locale), Device: h.Name(ch.Backend),
 		Cwd: ch.Session.Cwd, Opening: ch.Opening, Problem: cmp.Or(locales.ErrorText(ch.Problem), ch.CwdProblem),
 		LinkProblem: h.ChatLinkProblem(), Prompts: []prompt.Prompt{}, Items: []chat.ItemsChange{}, Failed: c.problem}
 	out.Handing, out.HandoffProblem = ch.Handoff.Handing, locales.ErrorText(ch.Handoff.Problem)
@@ -146,6 +151,8 @@ func (c *Core) chatState(locale string) *Chat {
 		u.Items = []chat.ItemsChange{{Full: true, Items: ch.Conv.Items()}}
 	}
 	s := u.State
+	out.Harness = sessionproto.NormalizeHarness(s.Harness)
+	out.CanSwitchHarness = ch.Session.ID == "" && s.CanSwitchHarness() && ch.Conv.CanSwitchHarness()
 	out.Session = cmp.Or(s.Session, out.Session)
 	out.Title = cmp.Or(s.Title, out.Title)
 	if out.Title == "" {

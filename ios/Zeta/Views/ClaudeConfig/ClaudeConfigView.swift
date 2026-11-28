@@ -1,11 +1,11 @@
 import SwiftUI
 
-/// 一台设备的 Claude Code 配置（同桌面版设备页的三组）：新对话默认、Claude（自动压缩、压缩时机、自动标题、闲置超时、
-/// Claude Code 版本与更新）、Claude Code 配置各页的入口。读写的是那台主机上 Claude Code 的真实配置，只有自动压缩、
-/// 压缩时机、自动标题存在这台手机上。
+/// 一台设备的工具配置（Claude Code 或 Antigravity）：新对话默认、运行时与 CLI 版本及更新、配置各页（记忆/规则、Skills、
+/// MCP 服务器、Subagent、工具权限）的入口。读写的是那台主机上的真实配置。
 struct ClaudeConfigView: View {
     @Environment(AppModel.self) private var model
     let backend: String
+    var harness = Harness.claude
     @State private var store: ClaudeConfigStore?
 
     var body: some View {
@@ -16,13 +16,11 @@ struct ClaudeConfigView: View {
                 ProgressView()
             }
         }
-        .navigationTitle("Claude Code 配置")
-        .task {
-            if store == nil {
-                let created = ClaudeConfigStore(model: model, backend: backend)
-                store = created
-                await created.load()
-            }
+        .navigationTitle(harness == Harness.agy ? "Antigravity 配置" : "Claude Code 配置")
+        .task(id: harness) {
+            let created = ClaudeConfigStore(model: model, backend: backend, harness: harness)
+            store = created
+            await created.load()
         }
     }
 }
@@ -35,15 +33,17 @@ private struct ClaudeConfigForm: View {
             DefaultsSection(store: store)
             ClaudeSection(store: store)
             Section {
-                NavigationLink("记忆") { MemoryView(calls: store.calls, cwd: store.cwd) }
+                NavigationLink(store.isAgy ? "规则" : "记忆") { MemoryView(calls: store.calls, cwd: store.cwd) }
                 NavigationLink("Skills") { SkillsView(calls: store.calls) }
                 NavigationLink("MCP 服务器") { McpView(calls: store.calls, cwd: store.cwd) }
                 NavigationLink("Subagent") { AgentsView(calls: store.calls) }
                 NavigationLink("工具权限") { PermissionsView(calls: store.calls, cwd: store.cwd) }
             } header: {
-                Text("Claude Code 配置")
+                Text(store.isAgy ? "Antigravity 配置" : "Claude Code 配置")
             } footer: {
-                Text("改的是这台设备上 Claude Code 自己的配置（~/.claude），那边终端里的 claude 同样生效。")
+                Text(store.isAgy
+                    ? "改的是这台设备上 Antigravity 自己的配置（~/.gemini），那边终端里的 agy 同样生效。"
+                    : "改的是这台设备上 Claude Code 自己的配置（~/.claude），那边终端里的 claude 同样生效。")
             }
         }
         .refreshable { await store.load() }
@@ -77,7 +77,9 @@ private struct DefaultsSection: View {
                 LoadingRow()
             } else {
                 TitledRow(
-                    title: String(localized: "还没读到 Claude Code 的设置"),
+                    title: store.isAgy
+                        ? String(localized: "还没读到 Antigravity 的设置")
+                        : String(localized: "还没读到 Claude Code 的设置"),
                     summary: store.defaultsProblem)
             }
         } header: {
@@ -125,7 +127,11 @@ private struct DefaultsSection: View {
     static func effortSummary(_ defaults: ConfigDefaults, _ store: ClaudeConfigStore) -> String {
         var parts = defaults.efforts.map { "\(store.modelName($0.model)) \(ConfigLabels.effort($0.level))" }
         if parts.isEmpty {
-            guard !defaults.effort.isEmpty else { return String(localized: "没有设，按 Claude Code 的默认") }
+            guard !defaults.effort.isEmpty else {
+                return store.isAgy
+                    ? String(localized: "没有设，按 Antigravity 的默认")
+                    : String(localized: "没有设，按 Claude Code 的默认")
+            }
             return ConfigLabels.effort(defaults.effort)
         }
         if !defaults.effort.isEmpty {
@@ -149,7 +155,8 @@ private struct DefaultModelMenu: View {
             top.append(ModelChoice(value: current, label: ConfigLabels.readableModel(current), id: "", older: false))
         }
         let defaultLabel = store.models.source == "harness"
-            ? String(localized: "Claude Code 内置的默认") : String(localized: "默认")
+            ? (store.isAgy ? String(localized: "Antigravity 内置的默认") : String(localized: "Claude Code 内置的默认"))
+            : String(localized: "默认")
         let shown = (top + older).first { $0.value == current }?.label ?? defaultLabel
         let disabled = store.working || store.models.source == "unknown"
         return LabeledContent("默认模型") {
@@ -177,31 +184,33 @@ private struct DefaultModelMenu: View {
     }
 }
 
-/// Claude：自动压缩、压缩时机、自动标题（存在这台手机上），闲置超时和 Claude Code 版本（在那台主机上）。
+/// 运行时与 CLI 版本：自动压缩、压缩时机、自动标题（Claude Code，存在这台手机上），闲置超时和 CLI 版本（在那台主机上）。
 private struct ClaudeSection: View {
     let store: ClaudeConfigStore
 
     var body: some View {
         Section {
-            if let local = store.local {
-                Toggle("自动压缩上下文", isOn: Binding { local.autoCompact } set: { store.setLocal("autoCompact", $0) })
-                let point = Binding { local.compactPercent } set: { store.setLocal("compactPercent", $0) }
-                Picker("压缩时机", selection: point) {
-                    ForEach(points(local), id: \.self) { Text(ConfigLabels.compactPercent($0)).tag($0) }
+            if !store.isAgy {
+                if let local = store.local {
+                    Toggle("自动压缩上下文", isOn: Binding { local.autoCompact } set: { store.setLocal("autoCompact", $0) })
+                    let point = Binding { local.compactPercent } set: { store.setLocal("compactPercent", $0) }
+                    Picker("压缩时机", selection: point) {
+                        ForEach(points(local), id: \.self) { Text(ConfigLabels.compactPercent($0)).tag($0) }
+                    }
+                    .disabled(!local.autoCompact)
+                    Toggle(isOn: Binding { local.autoTitle } set: { store.setLocal("autoTitle", $0) }) {
+                        TitledRow(
+                            title: String(localized: "自动生成对话标题"),
+                            summary: String(localized: "第一轮回答后由 Claude Code 起个简短标题，改过名的不动"))
+                    }
+                } else {
+                    LoadingRow()
                 }
-                .disabled(!local.autoCompact)
-                Toggle(isOn: Binding { local.autoTitle } set: { store.setLocal("autoTitle", $0) }) {
-                    TitledRow(
-                        title: String(localized: "自动生成对话标题"),
-                        summary: String(localized: "第一轮回答后由 Claude Code 起个简短标题，改过名的不动"))
-                }
-            } else {
-                LoadingRow()
             }
             idleRow
             claudeRow
         } header: {
-            Text("Claude")
+            Text(store.isAgy ? "Antigravity" : "Claude")
         } footer: {
             Text("只管 Zeta 在这台设备上起的对话。闲置超时马上生效，其余的下次起进程时生效。")
         }
@@ -228,7 +237,9 @@ private struct ClaudeSection: View {
         HStack {
             let value = !store.claudeLoaded ? "…"
                 : store.claudeVersion.isEmpty ? String(localized: "未安装") : store.claudeVersion
-            TitledRow(title: "Claude Code", summary: store.updating ? String(localized: "正在更新…") : store.claudeNote)
+            TitledRow(
+                title: store.isAgy ? "Antigravity CLI" : "Claude Code",
+                summary: store.updating ? String(localized: "正在更新…") : store.claudeNote)
             Spacer()
             Text(value).foregroundStyle(.secondary)
             if store.updating {
@@ -261,7 +272,7 @@ private struct EffortView: View {
                         Picker(row.title, selection: Binding { row.value } set: { level in
                             store.setDefault("config.defaults.setEffort", ["model": row.model, "value": level])
                         }) {
-                            Text("跟随 Claude Code").tag("")
+                            Text(store.isAgy ? "跟随 Antigravity" : "跟随 Claude Code").tag("")
                             ForEach(ConfigLabels.effortLevels, id: \.self) { Text(ConfigLabels.effort($0)).tag($0) }
                         }
                         .disabled(store.working)
@@ -270,7 +281,9 @@ private struct EffortView: View {
                     LoadingRow()
                 }
             } footer: {
-                Text("这台设备上的新对话按所用的模型取这里的设置，和那边终端里 /effort 存为默认的是同一份；没单独设的模型用「其他模型」那一档。")
+                Text(store.isAgy
+                    ? "这台设备上的新对话按所用的模型取这里的设置；没单独设的模型用「其他模型」那一档。"
+                    : "这台设备上的新对话按所用的模型取这里的设置，和那边终端里 /effort 存为默认的是同一份；没单独设的模型用「其他模型」那一档。")
             }
         }
         .navigationTitle("默认思考强度")

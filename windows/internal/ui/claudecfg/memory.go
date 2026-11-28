@@ -55,11 +55,29 @@ func typeLabel(t string) string {
 	return t
 }
 
+func fileLabel(path, def string) string {
+	path = strings.TrimRight(path, "/")
+	if i := strings.LastIndexByte(path, '/'); i >= 0 && path[i+1:] != "" {
+		return path[i+1:]
+	}
+	return def
+}
+
+func (p *Page) memoryHeaders() (title, instFooter, secondTitle, secondFooter string) {
+	if p.isAgy() {
+		return locales.ClaudecfgAgyRules(), locales.ClaudecfgAgyInstructionsFooter(),
+			locales.ClaudecfgAgyWorkspaceRules(), locales.ClaudecfgAgyWorkspaceRulesFooter()
+	}
+	return locales.ClaudecfgMemory(), locales.ClaudecfgMemoryInstructionsFooter(),
+		locales.ClaudecfgAutoMemory(), locales.ClaudecfgAutoMemoryFooter()
+}
+
 func (p *Page) memoryPage(c *ui.Context) {
 	m := p.memory.data
-	pageTitle(c, locales.ClaudecfgMemory(), p.back, nil)
+	title, instFooter, secondTitle, secondFooter := p.memoryHeaders()
+	pageTitle(c, title, p.back, nil)
 	body(c, "memory", func() {
-		widget.Group(c, locales.ClaudecfgMemoryInstructions(), locales.ClaudecfgMemoryInstructionsFooter(), func(l *widget.List) {
+		widget.Group(c, locales.ClaudecfgMemoryInstructions(), instFooter, func(l *widget.List) {
 			if m == nil {
 				loadingRow(l, locales.CommonLoading())
 				return
@@ -68,19 +86,23 @@ func (p *Page) memoryPage(c *ui.Context) {
 			if m.Instructions.Exists {
 				summary = sizeText(m.Instructions.Size)
 			}
-			entry(l, "CLAUDE.md", "CLAUDE.md", summary, "", true, func() {
-				p.openDocument(document{path: m.Instructions.Path, title: locales.ClaudecfgMemoryInstructions(), file: "CLAUDE.md",
+			docFile := "CLAUDE.md"
+			if p.isAgy() {
+				docFile = fileLabel(m.Instructions.Path, "AGENTS.md")
+			}
+			entry(l, docFile, docFile, summary, "", true, func() {
+				p.openDocument(document{path: m.Instructions.Path, title: locales.ClaudecfgMemoryInstructions(), file: docFile,
 					placeholder: locales.ClaudecfgMemoryInstructionsPlaceholder()})
 			})
 		})
-		widget.Group(c, locales.ClaudecfgAutoMemory(), locales.ClaudecfgAutoMemoryFooter(), func(l *widget.List) {
+		widget.Group(c, secondTitle, secondFooter, func(l *widget.List) {
 			if m == nil {
 				loadingRow(l, locales.CommonLoading())
 				return
 			}
 			p.autoMemoryRows(l, *m)
 		})
-		if m != nil && m.Index != nil {
+		if m != nil && (m.Index != nil || p.isAgy()) {
 			p.memoryFiles(c, *m)
 		}
 	})
@@ -88,6 +110,26 @@ func (p *Page) memoryPage(c *ui.Context) {
 
 func (p *Page) autoMemoryRows(l *widget.List, m coreapi.Memory) {
 	c := l.Context()
+	if !p.isAgy() {
+		p.autoMemoryToggle(c, l, m)
+	}
+	p.memoryProjectRow(c, l, m)
+	if idx := m.Index; idx != nil {
+		idxName := "MEMORY.md"
+		if p.isAgy() {
+			idxName = fileLabel(idx.Path, "AGENTS.md")
+		}
+		summary, value := locales.ClaudecfgMemoryIndexMissing(), ""
+		if idx.Exists {
+			summary, value = locales.ClaudecfgMemoryIndex(), sizeText(idx.Size)
+		}
+		entry(l, idxName, idxName, summary, value, true, func() {
+			p.openDocument(document{path: idx.Path, title: idxName, file: idxName, placeholder: locales.ClaudecfgMemoryIndexPlaceholder()})
+		})
+	}
+}
+
+func (p *Page) autoMemoryToggle(c *ui.Context, l *widget.List, m coreapi.Memory) {
 	on := m.AutoMemory && !m.ForcedOff
 	summary := ""
 	if m.ForcedOff {
@@ -109,9 +151,11 @@ func (p *Page) autoMemoryRows(l *widget.List, m coreapi.Memory) {
 			})
 		}
 	})
+}
+
+func (p *Page) memoryProjectRow(c *ui.Context, l *widget.List, m coreapi.Memory) {
 	switch {
 	case m.CustomDir != "":
-		// settings.json 里设了 autoMemoryDirectory：所有项目共用这一个目录，没有项目可选
 		l.Row(widget.Row{Title: locales.ClaudecfgMemoryDir(), Summary: m.CustomDir, Value: locales.ClaudecfgMemoryDirShared()})
 	case len(m.Projects) > 0:
 		var labels []string
@@ -133,19 +177,14 @@ func (p *Page) autoMemoryRows(l *widget.List, m coreapi.Memory) {
 			})
 		})
 	}
-	if idx := m.Index; idx != nil {
-		summary, value := locales.ClaudecfgMemoryIndexMissing(), ""
-		if idx.Exists {
-			summary, value = locales.ClaudecfgMemoryIndex(), sizeText(idx.Size)
-		}
-		entry(l, "MEMORY.md", "MEMORY.md", summary, value, true, func() {
-			p.openDocument(document{path: idx.Path, title: "MEMORY.md", file: "MEMORY.md", placeholder: locales.ClaudecfgMemoryIndexPlaceholder()})
-		})
-	}
 }
 
 func (p *Page) memoryFiles(c *ui.Context, m coreapi.Memory) {
-	widget.Group(c, locales.ClaudecfgMemoryFiles(len(m.Files)), "", func(l *widget.List) {
+	groupTitle := locales.ClaudecfgMemoryFiles(len(m.Files))
+	if p.isAgy() {
+		groupTitle = locales.ClaudecfgAgyRulesFiles(len(m.Files))
+	}
+	widget.Group(c, groupTitle, "", func(l *widget.List) {
 		if len(m.Files) == 0 {
 			emptyRow(l, locales.ClaudecfgMemoryFilesEmpty(), locales.ClaudecfgMemoryFilesEmptyHint())
 		}

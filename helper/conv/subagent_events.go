@@ -90,6 +90,20 @@ type agentCall struct {
 	Prompt      string `json:"prompt"`
 	Model       string `json:"model"`  // 指定的模型（可能是 sonnet 这样的别名），没指定时空着
 	Effort      string `json:"effort"` // 指定的思考强度
+	// agy invoke_subagent 首字母大写参数兼容
+	AgyRole   string `json:"Role"`
+	AgyType   string `json:"TypeName"`
+	AgyPrompt string `json:"Prompt"`
+	AgyModel  string `json:"Model"`
+}
+
+func (a *agentCall) normalize() {
+	a.Description = cmp.Or(a.Description, a.AgyRole)
+	a.AgentType = cmp.Or(a.AgentType, a.AgyType)
+	a.Prompt = cmp.Or(a.Prompt, a.AgyPrompt)
+	if a.Model == "" && a.AgyModel != "" && a.AgyModel != "inherit" {
+		a.Model = a.AgyModel
+	}
 }
 
 // fillSubagentStatus 填上 status 的 meta：记录旁的 meta 读到了就用它，其中空着的说明、类型、模型、思考强度用发起它的
@@ -135,6 +149,7 @@ func (c *Conversation) agentCallOf(l *subagentLog) *agentCall {
 			if json.Unmarshal(s.Input, &call) != nil {
 				return nil
 			}
+			call.normalize()
 			l.call = &call
 			return l.call
 		}

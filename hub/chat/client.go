@@ -44,12 +44,13 @@ type Spec struct {
 	// Session 是接着的会话号，新对话为空。
 	Session string
 	// File 是它的会话记录在主机上的路径，载入历史用。
-	File  string
-	Cwd   string
-	Title string
-	// Options 是起 Claude Code 进程用的设置，打开以后可以用 SetOptions 改。
+	File    string
+	Cwd     string
+	Title   string
+	Harness string
+	// Options 是起进程用的设置，打开以后可以用 SetOptions 改。
 	Options coreapi.Options
-	// Choices 是用户在这个对话里选的模型、思考强度和权限模式，SetModel、SetEffort、SetMode 记下，每次打开都带上。
+	// Choices 是用户在这个对话里选的模型、思考强度、权限模式和工具，SetModel、SetEffort、SetMode、SetHarness 记下，每次打开都带上。
 	Choices coreapi.Choices
 }
 

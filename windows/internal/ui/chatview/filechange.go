@@ -69,53 +69,90 @@ const contextLines = 3
 
 // isFileEdit 报告工具会改文件、能画成对比。
 func isFileEdit(name string) bool {
-	return name == "Edit" || name == "MultiEdit" || name == "Write"
+	return name == "Edit" || name == "MultiEdit" || name == "Write" || name == "edit_file" || name == "write_file"
+}
+
+func isWriteTool(name string) bool {
+	return name == "Write" || name == "write_file"
+}
+
+func filePathOf(s items.Step) string {
+	return orDefault(s.Str("file_path"), orDefault(s.Str("Path"), s.Str("path")))
+}
+
+func fileContentOf(s items.Step) (string, bool) {
+	if v, ok := s.Input["content"].(string); ok {
+		return v, true
+	}
+	v, ok := s.Input["Content"].(string)
+	return v, ok
+}
+
+func editPairOf(s items.Step) (old, nw string, ok bool) {
+	if old, okOld := s.Input["old_string"].(string); okOld {
+		if nw, okNew := s.Input["new_string"].(string); okNew {
+			return old, nw, true
+		}
+	}
+	old, okOld := s.Input["Target"].(string)
+	nw, okNew := s.Input["Replacement"].(string)
+	return old, nw, okOld && okNew
 }
 
 // changeOf 从一次工具调用算出文件改动；不是改文件的工具、参数还没到、或者没改成（失败了照普通步骤显示报错）时返回 nil。
-// 有 Claude Code 给的改动就照它画（带真实行号），否则按参数里的新旧字符串自己对比。
+// 有核心给的改动就照它画（带真实行号），否则按参数里的新旧字符串自己对比。
 func changeOf(s items.Step) *fileChange {
-	path := s.Str("file_path")
+	path := filePathOf(s)
 	if !isFileEdit(s.Name) || s.Status == items.ToolFailed || path == "" {
 		return nil
 	}
 	if p := s.Patch; p != nil && (len(p.Hunks) > 0 || p.Created) {
-		switch {
-		case s.Name == "Write" && p.Created:
-			return newFileChange(path, s)
-		case s.Name == "Write":
-			return &fileChange{path: path, kind: overwriteChange, hunks: p.Hunks, numbered: true}
-		default:
-			return &fileChange{path: path, kind: editChange, hunks: p.Hunks, numbered: true, replaceAll: s.Bool("replace_all")}
-		}
+		return patchFileChange(path, s, p)
 	}
-	switch s.Name {
-	case "Write":
+	switch {
+	case isWriteTool(s.Name):
 		// 还不知道是不是新建：先当作整份新内容显示，结果到了再换成真实对比
 		return newFileChange(path, s)
-	case "Edit":
-		old, okOld := s.Input["old_string"].(string)
-		nw, okNew := s.Input["new_string"].(string)
-		if !okOld || !okNew {
+	case s.Name == "Edit" || s.Name == "edit_file":
+		old, nw, ok := editPairOf(s)
+		if !ok {
 			return nil
 		}
 		f := &fileChange{path: path, kind: editChange, replaceAll: s.Bool("replace_all")}
 		f.addEdit(old, nw, s.Clipped)
 		return f
 	default: // MultiEdit
-		edits, _ := s.Input["edits"].([]any)
-		f := &fileChange{path: path, kind: editChange}
-		for _, e := range edits {
-			m, _ := e.(map[string]any)
-			old, _ := m["old_string"].(string)
-			nw, _ := m["new_string"].(string)
-			f.addEdit(old, nw, s.Clipped)
-		}
-		if len(f.hunks) == 0 {
-			return nil
-		}
-		return f
+		return multiEditChange(path, s)
 	}
+}
+
+func patchFileChange(path string, s items.Step, p *items.Patch) *fileChange {
+	switch {
+	case isWriteTool(s.Name) && p.Created:
+		if fc := newFileChange(path, s); fc != nil {
+			return fc
+		}
+		return &fileChange{path: path, kind: createChange, hunks: p.Hunks, numbered: true}
+	case isWriteTool(s.Name):
+		return &fileChange{path: path, kind: overwriteChange, hunks: p.Hunks, numbered: true}
+	default:
+		return &fileChange{path: path, kind: editChange, hunks: p.Hunks, numbered: true, replaceAll: s.Bool("replace_all")}
+	}
+}
+
+func multiEditChange(path string, s items.Step) *fileChange {
+	edits, _ := s.Input["edits"].([]any)
+	f := &fileChange{path: path, kind: editChange}
+	for _, e := range edits {
+		m, _ := e.(map[string]any)
+		old, _ := m["old_string"].(string)
+		nw, _ := m["new_string"].(string)
+		f.addEdit(old, nw, s.Clipped)
+	}
+	if len(f.hunks) == 0 {
+		return nil
+	}
+	return f
 }
 
 // addEdit 把一处新旧字符串的对比接到改动后面；clipped 是核心截断过参数（items.Step 的 Clipped）。
@@ -127,7 +164,7 @@ func (f *fileChange) addEdit(old, nw string, clipped bool) {
 }
 
 func newFileChange(path string, s items.Step) *fileChange {
-	content, ok := s.Input["content"].(string)
+	content, ok := fileContentOf(s)
 	if !ok {
 		return nil
 	}

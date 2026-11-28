@@ -43,9 +43,16 @@ var (
 // ValidAgentName：小写字母、数字和连字符，以字母或数字开头，最长 64。
 func ValidAgentName(name string) bool { return agentNamePattern.MatchString(name) }
 
-// Agents 列出 ~/.claude/agents 下（含子目录，跟着符号链接走）的 Subagent，按路径排。
+func (s *Store) agentsRoot() string {
+	if s.IsAgy() {
+		return agyAgentsDir(s.Home())
+	}
+	return agentsDir(s.Home())
+}
+
+// Agents 列出 ~/.claude/agents（或 ~/.gemini/config/agents）下（含子目录，跟着符号链接走）的 Subagent，按路径排。
 func (s *Store) Agents() []Subagent {
-	dir := agentsDir(s.Home())
+	dir := s.agentsRoot()
 	out := []Subagent{}
 	for _, rel := range agentFiles(dir, "", 0) {
 		data, size, ok := readHead(dir+"/"+rel, MaxText+1)
@@ -183,7 +190,7 @@ func (s *Store) SaveAgent(original *Subagent, d SubagentDraft) (string, error) {
 			return "", err
 		}
 	}
-	dir := agentsDir(s.Home())
+	dir := s.agentsRoot()
 	target := agentTarget("", d.Name)
 	var originalText string
 	expected, removeAfter := "-", ""
@@ -215,7 +222,7 @@ func (s *Store) DeleteAgent(file string) error {
 	if err := relativeProblem(file); err != nil {
 		return err
 	}
-	if err := os.Remove(agentsDir(s.Home()) + "/" + file); err != nil && !os.IsNotExist(err) {
+	if err := os.Remove(s.agentsRoot() + "/" + file); err != nil && !os.IsNotExist(err) {
 		return locales.Err("cfgDeleteFailed", "reason", pathReason(err))
 	}
 	return nil

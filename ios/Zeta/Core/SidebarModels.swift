@@ -23,7 +23,14 @@ struct BackgroundChat: Decodable, Sendable, Hashable {
     /// waiting、answering、background、idle。
     let activity: String
     let tasks: Int
+    private let rawHarness: String?
 
+    enum CodingKeys: String, CodingKey {
+        case backend, id, title, activity, tasks
+        case rawHarness = "harness"
+    }
+
+    var isAgy: Bool { rawHarness == Harness.agy }
     var key: String { backend + "/" + id }
 }
 

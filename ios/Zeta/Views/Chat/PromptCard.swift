@@ -61,7 +61,7 @@ private struct ToolPrompt: View {
     @State private var feedback = ""
 
     var body: some View {
-        Text("允许 \(prompt.toolName ?? "")？").font(.headline)
+        Text("允许 \(ToolLabels.title(prompt.toolName ?? ""))？").font(.headline)
         if let detail {
             DetailBlock(text: detail)
         }
@@ -93,8 +93,9 @@ private struct ToolPrompt: View {
 
     /// 命令照原样，别的工具列出参数里最能说明的一项。
     private var detail: String? {
-        if let command = prompt.input?["command"]?.string { return command }
-        return prompt.input?.summary
+        if let command = ToolLabels.command(prompt.input) { return command }
+        let summary = ToolLabels.summary(name: prompt.toolName ?? "", input: prompt.input)
+        return summary.isEmpty ? nil : summary
     }
 }
 

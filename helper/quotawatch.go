@@ -7,87 +7,129 @@ import (
 	"sync"
 
 	"github.com/dzshzx/Zeta/helper/accounts"
+	"github.com/dzshzx/Zeta/helper/agyacct"
 	"github.com/dzshzx/Zeta/helper/core"
+	"github.com/dzshzx/Zeta/helper/sessionproto"
 )
 
-// quotaWatch 管额度的订阅（quota.watch）：订阅时先推一份在用账号的额度（在用中转时不带额度、带中转名），之后这个核心存了新的数（对话交来的、客户端经
-// quota.usage、quota.event 交来的）或换了号时，存着的额度（连同收到的时刻 updatedAt，客户端拿它看数有多旧）和上次推的
-// 不一样就推给全部订阅的客户端。
-// 别的包的核心、终端里的 claude-switch 改的它看不到，客户端打开额度页时照样可以 quota.get。
+// quotaWatch 管额度的订阅（quota.watch）：按 harness（claude / agy）分桶维护订阅者与最近一次推送，
+// 订阅时先推一份在用账号的额度（在用中转时不带额度、带中转名），之后存了新数或换了号且内容变化时推给对应引擎的订阅客户端。
 type quotaWatch struct {
-	store accounts.QuotaStore
+	claude quotaBucket
+	agy    quotaBucket
+}
+
+type quotaBucket struct {
+	harness string
+	read    func() (*accounts.Snapshot, string, error)
 
 	mu      sync.Mutex
 	clients map[*core.Client]bool
-	last    []byte // 上次推出去的额度（JSON），一样的不重推
+	last    []byte
 }
 
 // quotaPush 是推给订阅的客户端的一行。
 type quotaPush struct {
-	Type     string             `json:"type"` // quota.snapshot
+	Type     string             `json:"type"`    // quota.snapshot
+	Harness  string             `json:"harness"` // claude | agy
 	Snapshot *accounts.Snapshot `json:"snapshot"`
 	// Relay 是在用的中转名；在用中转时没有订阅额度，Snapshot 为 nil，客户端不显示额度。在用账号时为空。
 	Relay string `json:"relay"`
 }
 
 func newQuotaWatch(e *env) *quotaWatch {
-	return &quotaWatch{store: accounts.QuotaStore{Home: e.home}, clients: map[*core.Client]bool{}}
-}
-
-// current 是要推的一行：在用账号的额度（读不了时记进日志，当没有），在用中转时不读额度、带上中转名。
-func (w *quotaWatch) current() (quotaPush, []byte) {
-	push := quotaPush{Type: "quota.snapshot", Relay: accounts.CurrentRelay(w.store.Home)}
-	if push.Relay == "" {
-		snap, err := w.store.Get()
-		if err != nil {
-			log.Print("读额度：", err)
-		}
-		push.Snapshot = snap
+	claudeStore := accounts.QuotaStore{Home: e.home}
+	agyStore := agyacct.QuotaStore{Home: e.home}
+	return &quotaWatch{
+		claude: quotaBucket{
+			harness: sessionproto.HarnessClaude,
+			clients: map[*core.Client]bool{},
+			read: func() (*accounts.Snapshot, string, error) {
+				if r := accounts.CurrentRelay(e.home); r != "" {
+					return nil, r, nil
+				}
+				s, err := claudeStore.Get()
+				return s, "", err
+			},
+		},
+		agy: quotaBucket{
+			harness: sessionproto.HarnessAgy,
+			clients: map[*core.Client]bool{},
+			read: func() (*accounts.Snapshot, string, error) {
+				if r := agyacct.CurrentRelay(e.home); r != "" {
+					return nil, r, nil
+				}
+				s, err := agyStore.Get()
+				return s, "", err
+			},
+		},
 	}
-	b, _ := json.Marshal(push)
-	return push, b
 }
 
-// watch：客户端 c 订阅（on 为真，先推一份现在的）或退订。
-func (w *quotaWatch) watch(c *core.Client, on bool) {
+func (w *quotaWatch) bucket(harness string) *quotaBucket {
+	if sessionproto.NormalizeHarness(harness) == sessionproto.HarnessAgy {
+		return &w.agy
+	}
+	return &w.claude
+}
+
+func (b *quotaBucket) current() (quotaPush, []byte) {
+	snap, relay, err := b.read()
+	if err != nil {
+		log.Print("读额度（"+b.harness+"）：", err)
+	}
+	push := quotaPush{Type: "quota.snapshot", Harness: b.harness, Snapshot: snap, Relay: relay}
+	encoded, _ := json.Marshal(push)
+	return push, encoded
+}
+
+// watchFor：客户端 c 订阅或退订指定 harness 的额度推送。
+func (w *quotaWatch) watchFor(c *core.Client, harness string, on bool) {
+	b := w.bucket(harness)
 	if !on {
-		w.gone(c)
+		b.gone(c)
 		return
 	}
-	push, b := w.current()
-	w.mu.Lock()
-	w.clients[c] = true
-	w.last = b
-	w.mu.Unlock()
+	push, encoded := b.current()
+	b.mu.Lock()
+	b.clients[c] = true
+	b.last = encoded
+	b.mu.Unlock()
 	_ = c.Send(push)
 }
 
-func (w *quotaWatch) gone(c *core.Client) {
-	w.mu.Lock()
-	delete(w.clients, c)
-	w.mu.Unlock()
+func (b *quotaBucket) gone(c *core.Client) {
+	b.mu.Lock()
+	delete(b.clients, c)
+	b.mu.Unlock()
 }
 
-// changed：存额度或换号之后调。和上次推的一样时不推。
-func (w *quotaWatch) changed() {
-	w.mu.Lock()
-	if len(w.clients) == 0 {
-		w.mu.Unlock()
+func (w *quotaWatch) gone(c *core.Client) {
+	w.claude.gone(c)
+	w.agy.gone(c)
+}
+
+// changedFor：指定 harness 存额度或换号之后调，和上次推的一样时不推。
+func (w *quotaWatch) changedFor(harness string) {
+	b := w.bucket(harness)
+	b.mu.Lock()
+	if len(b.clients) == 0 {
+		b.mu.Unlock()
 		return
 	}
-	w.mu.Unlock()
-	push, b := w.current()
-	w.mu.Lock()
-	if bytes.Equal(b, w.last) {
-		w.mu.Unlock()
+	b.mu.Unlock()
+	push, encoded := b.current()
+	b.mu.Lock()
+	if bytes.Equal(encoded, b.last) {
+		b.mu.Unlock()
 		return
 	}
-	w.last = b
-	clients := make([]*core.Client, 0, len(w.clients))
-	for c := range w.clients {
+	b.last = encoded
+	clients := make([]*core.Client, 0, len(b.clients))
+	for c := range b.clients {
 		clients = append(clients, c)
 	}
-	w.mu.Unlock()
+	b.mu.Unlock()
 	for _, c := range clients {
 		_ = c.Send(push)
 	}

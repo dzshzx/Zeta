@@ -328,6 +328,19 @@ func TestSessionsDecodeLive(t *testing.T) {
 	}
 }
 
+func TestSessionsDecodeHarness(t *testing.T) {
+	u, err := ParseSessions([]byte(`{"upsert":[{"id":"a","file":"/f"},{"id":"b","file":"/g","harness":"agy"},{"id":"c","file":"/h","harness":"claude"}]}`), "r-1")
+	if err != nil || len(u.Upsert) != 3 {
+		t.Fatalf("%+v %v", u, err)
+	}
+	if u.Upsert[0].Harness != HarnessClaude || u.Upsert[1].Harness != HarnessAgy || u.Upsert[2].Harness != HarnessClaude {
+		t.Errorf("harness: %q %q %q", u.Upsert[0].Harness, u.Upsert[1].Harness, u.Upsert[2].Harness)
+	}
+	if NormalizeHarness(" AGY ") != HarnessAgy || NormalizeHarness("") != HarnessClaude || NormalizeHarness("other") != HarnessClaude {
+		t.Error("NormalizeHarness")
+	}
+}
+
 // 到点没跑完时那边的命令也结束，不留在设备上。
 func TestShellRunLimitsTheRemoteCommand(t *testing.T) {
 	b := newBox(t)

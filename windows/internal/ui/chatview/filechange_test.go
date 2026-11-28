@@ -87,6 +87,17 @@ func TestChangeOfWrite(t *testing.T) {
 	}
 }
 
+func TestChangeOfAgyEditAndWrite(t *testing.T) {
+	ed := step(t, `{"kind":"tool","id":"e1","name":"edit_file","status":"success","input":{"Path":"/w/main.go","Target":"old\nline","Replacement":"new\nline"}}`)
+	if f := changeOf(ed); f == nil || f.path != "/w/main.go" || f.kind != editChange || lineKinds(f.hunks) != "-+ " {
+		t.Fatalf("edit_file：%+v", f)
+	}
+	wr := step(t, `{"kind":"tool","id":"w1","name":"write_file","status":"running","input":{"Path":"/w/add.go","Content":"a\nb\n"}}`)
+	if f := changeOf(wr); f == nil || f.path != "/w/add.go" || f.kind != createChange || lineKinds(f.hunks) != "++" {
+		t.Fatalf("write_file：%+v", f)
+	}
+}
+
 func TestChangeOfMultiEditAndTruncated(t *testing.T) {
 	js := `{"kind":"tool","id":"m","name":"MultiEdit","status":"success","clipped":true,"input":{"file_path":"/w/a.go","edits":[
 		{"old_string":"a","new_string":"b"},{"old_string":"c","new_string":"d\n…"}]}}`

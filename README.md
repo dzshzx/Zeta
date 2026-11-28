@@ -1,17 +1,18 @@
 # Zeta
 
-Zeta 是 [Claude Code](https://github.com/anthropics/claude-code) 的跨平台原生客户端，有 Android 版（root 过的手机）和 Windows 版。
+Zeta 是 [Claude Code](https://github.com/anthropics/claude-code) 与 [Antigravity CLI](https://antigravity.google)（`agy`）的跨平台原生客户端，有 Android 版（root 过的手机）、Windows 桌面版和 iOS 版。
 
-> Zeta 是个人维护的非官方项目。Claude 是 Anthropic 的商标；Zeta 不是 Anthropic 的产品，与 Anthropic 没有关联。
+> Zeta 是个人维护的非官方项目。Claude 是 Anthropic 的商标，Google 与 Antigravity 是 Google 的商标；Zeta 与 Anthropic、Google 没有关联。
 
 ## 能做什么
 
-### 两端都有
+### 多端都有
 
+- **双工具共存与统一会话**：同一台设备上可以同时装 Claude Code 和 Antigravity CLI；两者的会话合在同一个列表里管理（Antigravity 会话标有 `agy`），新对话发第一条消息前随时切换工具，每台设备也能设新对话默认用哪个。
 - **原生的对话界面**：Markdown、代码块和公式按屏幕排版；思考、工具调用、子代理、后台任务都能点开看；会话列表能改名、归档、置顶、导出，能从中间改写一条消息重来。
-- **远程主机**：Claude Code 可以跑在别的 Linux 主机上，经 SSH 连；同一个会话可以电脑和手机同时接着。
-- **Claude Code 的配置与账号**：记忆、Skills、MCP、Subagent、工具权限在设置里就能改；每台设备的账号、额度和中转各管各的。
-- **和电脑上的终端交接**：同一个会话可以在电脑终端里的 `claude` 和 Zeta 之间来回接着用（两轮之间交接）。会话正在终端里开着时，Zeta 里点「接管会话」，那边像 `/exit` 一样退出；远程主机上在 Zeta 里起的会话，在那台的 tmux 会话 `zeta` 里各有一个窗口，回到电脑前 `tmux attach -t zeta` 回车就接着。终端里 `claude --resume` 接回时，要让 Zeta 那边自动让出来，在那台主机的 Claude Code 设置里登记一个 SessionStart hook（见下）。
+- **远程主机**：Claude Code 与 Antigravity CLI 都可以跑在别的 Linux 主机上，经 SSH 连；同一个会话可以电脑和手机同时接着。
+- **双工具配置与账号额度**：Claude Code 的记忆、Antigravity 的全局与工作区规则（`AGENTS.md`）、Skills、MCP、Subagent、工具权限在设置里就能按工具切换修改；每台设备的两个工具各自管理账号、额度与中转（支持 Claude 登录与中转，也支持 Antigravity 的远程 Google OAuth 登录、订阅/积分额度查看与 Gemini API Key 中转）。
+- **和电脑上的终端交接**：同一个会话可以在电脑终端里的 `claude` / `agy` 和 Zeta 之间来回接着用（两轮之间交接）。会话正在终端里开着时，Zeta 里点「接管会话」，那边退出交回；远程主机上在 Zeta 里起的会话，在那台的 tmux 会话 `zeta` 里各有一个窗口，回到电脑前 `tmux attach -t zeta` 回车就接着。终端里接回时，要让 Zeta 那边自动让出来，可在那台主机的设置里登记一个 `SessionStart` hook（见下）。
 
 ### Android 版独有
 
@@ -73,7 +74,7 @@ Zeta 是 [Claude Code](https://github.com/anthropics/claude-code) 的跨平台�
 
 ### 终端接回时让 Zeta 让出会话
 
-在远程主机的 `~/.claude/settings.json` 的 `hooks` 里加上（Zeta 连过这台主机后 `zeta-helper` 就装好了）：
+Claude Code 在远程主机的 `~/.claude/settings.json` 的 `hooks` 里加上（Zeta 连过这台主机后 `zeta-helper` 就装好了）：
 
 ```json
 "SessionStart": [
@@ -90,11 +91,25 @@ Zeta 是 [Claude Code](https://github.com/anthropics/claude-code) 的跨平台�
 ]
 ```
 
+Antigravity CLI（可选）在远程主机的 `~/.gemini/antigravity-cli/settings.json` 的 `hooks` 里加上：
+
+```json
+"hooks": {
+  "SessionStart": [
+    {
+      "type": "command",
+      "command": "h=~/.cache/zeta/bin/zeta-helper; [ -x \"$h\" ] || h=~/.cache/zeta-dev/bin/zeta-helper; [ -x \"$h\" ] && exec \"$h\" session-start; exit 0",
+      "timeout": 30
+    }
+  ]
+}
+```
+
 终端里接着一个会话时，Zeta 那边闲着就退出；正在回答时终端里会提示先等它答完。
 
 ## Windows 桌面版
 
-桌面版是 Windows 上的原生窗口程序（Go 写的），只经 SSH 用远程 Linux 主机上的 Claude Code：左边是会话列表，右边是聊天，手机一侧的功能（Linux 环境、手机工具、语音）都不带。会话、确认、子代理和后台任务能看到的和手机上一样，界面照 ChatGPT 的 Windows 客户端：能拖宽、能收起的侧栏，右键菜单和 Ctrl、Shift 多选，一套快捷键（设置「常规」里列着）。
+桌面版是 Windows 上的原生窗口程序（Go 写的），只经 SSH 用远程 Linux 主机上的 Claude Code 与 Antigravity CLI：左边是会话列表，右边是聊天，手机一侧的功能（Linux 环境、手机工具、语音）都不带。会话、确认、子代理和后台任务能看到的和手机上一样，界面照 ChatGPT 的 Windows 客户端：能拖宽、能收起的侧栏，右键菜单和 Ctrl、Shift 多选，一套快捷键（设置「常规」里列着）。
 
 - 安装：从 Releases 下载 `Zeta-vX.Y.Z.msi`，双击安装。它装在你自己的用户目录下（`%LOCALAPPDATA%\Programs\Zeta`），不要管理员，也不用另装运行时。安装包没做代码签名，第一次运行时 Windows 的 SmartScreen 会提示。
 - 更新：设置 › 关于里检查更新，有新版本时点「更新」，Zeta 下载安装包、核对校验值后退出，装好自动重新打开；也可以打开自动检查，每天第一次启动时查一次。
@@ -119,13 +134,13 @@ Zeta 是 [Claude Code](https://github.com/anthropics/claude-code) 的跨平台�
 ## 隐私
 
 - Zeta 不收集任何数据：没有统计、广告、崩溃上报，也没有 Zeta 自己的服务器。
-- 对话内容只经 Claude Code 发给 Anthropic（或你在 Claude Code 里配置的 API 提供方）；会话记录由 Claude Code 存在手机 Debian 里，Zeta 不往别处传。
+- 对话内容只经 Claude Code 或 Antigravity CLI 发给对应的模型服务方（或你在工具里配置的中转接入点）；会话记录由工具各自存在主机或手机 Debian 里，Zeta 不往别处传。
 - 手机工具读到的个人数据（屏幕内容、通知、文件、健康数据等）会作为工具结果发给模型。不想让模型看到的，在工具权限里禁用对应的工具，或者关掉手机操作。
 - Zeta 自己联网只做这几件事：装环境时从 Debian 镜像（清华 TUNA 镜像或 deb.debian.org）、claude.ai、GitHub 和各工具的官方或国内镜像站下载（GitHub 连不上时经 gh-proxy.com 中转）；连你添加的远程主机；检查更新时访问 GitHub 和 gh-proxy.com。
 
 ## 从源码构建
 
-要 JDK 25、Android SDK 和 Go（版本见 `helper/go.mod`）。`tools/gradle :app:assembleDebug` 构建测试版（包名 `com.dzshzx.zeta.dev`，和正式版能同时装）。构建、测试、设备脚本和本机配置的细节见 [AGENTS.md](AGENTS.md) 的「本机配置」「构建与测试」两节；这份文件也是给 Claude Code 在本仓工作时读的开发说明。发版流程见 [docs/release.md](docs/release.md)。Windows 桌面版（`windows/`）在 Linux 上开发和打包：先 `hub/scripts/assets.sh`，再 `windows/installer/build.sh [输出目录]`，要 wixl（Debian/Ubuntu 的 `wixl` 包），产物是 `Zeta-v<版本>.msi`（默认在 `windows/build/`）；设计和测试见 [docs/desktop.md](docs/desktop.md)。iOS 版（`ios/`）只在 GitHub 托管的 macOS 上构建（`.github/workflows/ios.yml`），产物是不签名的 ipa，见 [docs/ios.md](docs/ios.md)。
+要 JDK 25、Android SDK 和 Go（版本见 `helper/go.mod`）。`tools/gradle :app:assembleDebug` 构建测试版（包名 `com.dzshzx.zeta.dev`，和正式版能同时装）。构建、测试、设备脚本和本机配置的细节见 [AGENTS.md](AGENTS.md) 的「本机配置」「构建与测试」两节；这份文件也是给 Claude Code 与 Antigravity 在本仓工作时读的开发说明。发版流程见 [docs/release.md](docs/release.md)。Windows 桌面版（`windows/`）在 Linux 上开发和打包：先 `hub/scripts/assets.sh`，再 `windows/installer/build.sh [输出目录]`，要 wixl（Debian/Ubuntu 的 `wixl` 包），产物是 `Zeta-v<版本>.msi`（默认在 `windows/build/`）；设计和测试见 [docs/desktop.md](docs/desktop.md)。iOS 版（`ios/`）只在 GitHub 托管的 macOS 上构建（`.github/workflows/ios.yml`），产物是不签名的 ipa，见 [docs/ios.md](docs/ios.md)。
 
 ## 反馈
 
@@ -135,7 +150,7 @@ Bug 和功能建议请提 [Issue](https://github.com/dzshzx/Zeta/issues)，安�
 
 - [Eta](https://github.com/Mangi-11/Eta)：Zeta 的功能和交互照它设计，Markdown 渲染、侧栏骨架等代码来自它（GPL-3.0）。
 - [Miuix](https://github.com/compose-miuix-ui/miuix)：界面组件库；长按菜单的手势代码取自 [COUI 2](https://github.com/suqi8/coui)。
-- [Claude Code](https://github.com/anthropics/claude-code)：Zeta 就是它在手机上的客户端。
+- [Claude Code](https://github.com/anthropics/claude-code) 与 [Antigravity CLI](https://antigravity.google)：Zeta 支持的两款编程 agent。
 
 ## 许可证
 
@@ -143,12 +158,11 @@ Zeta 按 [GPL-3.0-only](LICENSE) 授权。APK 里带的第三方组件和它们�
 
 ## English
 
-Zeta is an unofficial cross-platform native client for [Claude Code](https://github.com/anthropics/claude-code), for Android (rooted phones) and Windows. Both connect to Claude Code on remote Linux hosts over SSH. The Android app also installs Debian and Claude Code on the phone and lets Claude operate the phone on a background virtual display.
+Zeta is an unofficial cross-platform native client for [Claude Code](https://github.com/anthropics/claude-code) and [Antigravity CLI](https://antigravity.google) (`agy`), for Android (rooted phones), Windows, and iOS. All clients connect to Claude Code and Antigravity CLI on remote Linux hosts over SSH, managing sessions from both tools side by side. The Android app also installs Debian on the phone and lets the agent operate the phone on a background virtual display.
 
 - Requirements: Android 15+, arm64, root (KernelSU or Magisk). LSPosed is optional and only used for HyperOS features.
 - Install: download the APK from [Releases](https://github.com/dzshzx/Zeta/releases) and check that `apksigner verify --print-certs` reports the certificate SHA-256 `1b89b1ab1d2274b98847c466b19bbf51f9ef997cb08956d9ed4b4caa7fba2403`. Obtainium can track the releases.
-- Privacy: Zeta collects no data. Conversations go to Anthropic only through Claude Code; personal data read by the phone tools is sent to the model as tool results. Update checks contact GitHub and gh-proxy.com.
-- The UI and documentation are in Chinese.
+- Privacy: Zeta collects no data. Conversations go only through Claude Code or Antigravity CLI to their configured model providers; personal data read by the phone tools is sent to the model as tool results. Update checks contact GitHub and gh-proxy.com.
 - License: GPL-3.0-only; third-party components are listed in [THIRD_PARTY.md](THIRD_PARTY.md).
 
-Claude is a trademark of Anthropic. Zeta is not an Anthropic product and is not affiliated with Anthropic.
+Claude is a trademark of Anthropic; Google and Antigravity are trademarks of Google. Zeta is not affiliated with Anthropic or Google.

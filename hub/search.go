@@ -135,8 +135,20 @@ func (h *Hub) searchHosts(ctx context.Context, conns map[string]*chatConn, needl
 
 type searchOutcome struct{ complete, ok bool }
 
-// received 是连接推来的一行：搜索的命中交给最近一次搜索（名字对得上的），别的（对话推送）交给协议层。在读的 goroutine 上。
+// received 是连接推来的一行：搜索的命中交给最近一次搜索，额度的推送交给 onQuota，别的（对话推送）交给协议层。在读的 goroutine 上。
 func (c *chatConn) received(line []byte) {
+	if bytes.Contains(line, []byte(`"quota.snapshot"`)) {
+		var q struct {
+			Type string `json:"type"`
+			coreapi.QuotaState
+		}
+		if json.Unmarshal(line, &q) == nil && q.Type == "quota.snapshot" {
+			if c.onQuota != nil {
+				c.onQuota(q.QuotaState)
+			}
+			return
+		}
+	}
 	var m struct {
 		Type    string `json:"type"`
 		Search  int64  `json:"search"`

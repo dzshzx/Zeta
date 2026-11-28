@@ -60,6 +60,7 @@ type request struct {
 	File      string              `json:"file"`
 	Cwd       string              `json:"cwd"`
 	Title     string              `json:"title"`
+	Harness   string              `json:"harness"`
 	Options   *Options            `json:"options"`
 	Choices   *Choices            `json:"choices"` // conv.open：客户端替还没有会话号的对话记着的选择（见 Choices）
 	UUID      string              `json:"uuid"`
@@ -259,9 +260,10 @@ var handlers = map[string]func(c *Conversation, client int, r request) (any, err
 		}
 		return nil, err
 	},
-	"conv.model":  func(c *Conversation, _ int, r request) (any, error) { c.chooseModel(value(r)); return nil, nil },
-	"conv.effort": func(c *Conversation, _ int, r request) (any, error) { c.chooseEffort(value(r)); return nil, nil },
-	"conv.mode":   func(c *Conversation, _ int, r request) (any, error) { c.chooseMode(value(r)); return nil, nil },
+	"conv.model":   func(c *Conversation, _ int, r request) (any, error) { c.chooseModel(value(r)); return nil, nil },
+	"conv.effort":  func(c *Conversation, _ int, r request) (any, error) { c.chooseEffort(value(r)); return nil, nil },
+	"conv.mode":    func(c *Conversation, _ int, r request) (any, error) { c.chooseMode(value(r)); return nil, nil },
+	"conv.harness": func(c *Conversation, _ int, r request) (any, error) { return nil, c.chooseHarness(value(r)) },
 	"conv.preset": func(c *Conversation, _ int, r request) (any, error) {
 		c.preset(r.Model, r.Effort, r.Hint)
 		return nil, nil
@@ -333,8 +335,10 @@ func (m *Manager) open(client int, r request) error {
 		}
 	}
 	if c == nil {
+		harness := m.resolveOpenHarness(r)
 		m.seq++
-		c = New("c"+strconv.Itoa(m.seq), Spec{Session: r.Session, File: r.File, Cwd: r.Cwd, Title: r.Title, Blocked: blocked, Occupant: &occupant}, m.deps, m.send)
+		c = New("c"+strconv.Itoa(m.seq), Spec{Session: r.Session, File: r.File, Cwd: r.Cwd, Title: r.Title,
+			Harness: harness, Blocked: blocked, Occupant: &occupant}, m.deps, m.send)
 		m.all[c] = true
 		if r.Session != "" {
 			m.bySession[r.Session] = c
@@ -370,6 +374,19 @@ func (m *Manager) byKey(key string) *Conversation {
 		}
 	}
 	return nil
+}
+
+func (m *Manager) resolveOpenHarness(r request) string {
+	if r.Harness != "" {
+		return sessionproto.NormalizeHarness(r.Harness)
+	}
+	if strings.HasSuffix(r.File, "/.system_generated/logs/transcript.jsonl") {
+		return sessionproto.HarnessAgy
+	}
+	if r.Session != "" && m.deps.SessionHarness != nil {
+		return sessionproto.NormalizeHarness(m.deps.SessionHarness(r.Session))
+	}
+	return sessionproto.HarnessClaude
 }
 
 func (m *Manager) find(client int, name string) *Conversation {
