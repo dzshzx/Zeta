@@ -37,6 +37,14 @@ struct ConfigCalls {
         all["backend"] = backend
         return try await model.request(method, all, as: type)
     }
+
+    func cliVersion() async throws -> String {
+        try await get(isAgy ? "system.agy" : "system.claude", as: ClaudeVersion.self).version ?? ""
+    }
+
+    func updateCLI() async throws -> ClaudeUpdate {
+        try await slow(isAgy ? "system.agy_update" : "system.claude_update", as: ClaudeUpdate.self)
+    }
 }
 
 /// 弹一句没成功的原因（标题加核心说的原因）。

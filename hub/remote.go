@@ -1,8 +1,6 @@
 package hub
 
 import (
-	"bytes"
-	"cmp"
 	"context"
 	"encoding/json"
 	"log"
@@ -13,7 +11,6 @@ import (
 	"github.com/dzshzx/Zeta/helper/sessionproto"
 	"github.com/dzshzx/Zeta/hub/accounts"
 	"github.com/dzshzx/Zeta/hub/chat"
-	"github.com/dzshzx/Zeta/hub/chat/items"
 	"github.com/dzshzx/Zeta/hub/claudecfg"
 	"github.com/dzshzx/Zeta/hub/settings"
 )
@@ -69,9 +66,8 @@ func (h *Hub) Remote(id string) *Remote {
 	core := coreapi.New(caller)
 	agyCore := core.WithHarness(sessionproto.HarnessAgy)
 	loop := accounts.Loop{Run: h.run, Post: h.post}
-	cwd := cmp.Or(x.DefaultCwd, x.Home)
-	q := accounts.NewQuota(core, usageSource{conn: conn, harness: sessionproto.HarnessClaude, cwd: cwd}, loop, nil)
-	aq := accounts.NewQuota(agyCore, usageSource{conn: conn, harness: sessionproto.HarnessAgy, cwd: cwd}, loop, nil)
+	q := accounts.NewQuota(core, usageSource{conn: conn, harness: sessionproto.HarnessClaude}, loop, nil)
+	aq := accounts.NewQuota(agyCore, usageSource{conn: conn, harness: sessionproto.HarnessAgy}, loop, nil)
 	r := &Remote{
 		Core:        core,
 		Accounts:    accounts.NewService(core, h.devices.ClaudeSwitch(x), deviceConvs{conn, h.run, sessionproto.HarnessClaude}, q, loop),
@@ -100,11 +96,10 @@ func (c *remoteCaller) Call(ctx context.Context, method string, params map[strin
 	return raw, err
 }
 
-// usageSource 借这台上本客户端开着进程的对话问额度（conv.quota）；agy 无活跃进程时开一个临时对话去查。
+// usageSource 借这台上本客户端开着进程的对话问额度（conv.quota）；agy 无活跃进程时交由核心的 quota.usage 直接查。
 type usageSource struct {
 	conn    *chatConn
 	harness string
-	cwd     string
 }
 
 func (s usageSource) Usage(ctx context.Context) (json.RawMessage, error) {
@@ -116,39 +111,9 @@ func (s usageSource) Usage(ctx context.Context) (json.RawMessage, error) {
 		}
 	}
 	if target == sessionproto.HarnessAgy {
-		return s.tempAgyUsage(ctx)
+		return nil, nil
 	}
 	return nil, accounts.ErrNoProcess
-}
-
-func (s usageSource) tempAgyUsage(ctx context.Context) (json.RawMessage, error) {
-	conv, err := s.conn.client.Open(ctx, chat.Spec{Cwd: s.cwd, Harness: sessionproto.HarnessAgy})
-	if err != nil {
-		return nil, err
-	}
-	defer func() {
-		done, cancel := context.WithTimeout(context.WithoutCancel(ctx), closeTimeout)
-		defer cancel()
-		_ = conv.End(done)
-		_ = conv.Close(done)
-	}()
-	if err := conv.Prepare(ctx); err != nil {
-		return nil, err
-	}
-	for _, it := range conv.Items() {
-		if it.Kind == items.Notice && it.Code == "noticeStartFailed" {
-			return nil, accounts.ErrNoProcess
-		}
-	}
-	raw, err := conv.Quota(ctx)
-	if err != nil {
-		return nil, err
-	}
-	trimmed := bytes.TrimSpace(raw)
-	if len(trimmed) == 0 || string(trimmed) == "{}" || string(trimmed) == "null" {
-		return nil, accounts.ErrNoProcess
-	}
-	return raw, nil
 }
 
 // deviceConvs 是本客户端在这台上对应 harness 的对话（accounts.Conversations）：换号、记下账号前看忙不忙，闲着的进程收掉。

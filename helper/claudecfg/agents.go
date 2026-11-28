@@ -43,12 +43,7 @@ var (
 // ValidAgentName：小写字母、数字和连字符，以字母或数字开头，最长 64。
 func ValidAgentName(name string) bool { return agentNamePattern.MatchString(name) }
 
-func (s *Store) agentsRoot() string {
-	if s.IsAgy() {
-		return agyAgentsDir(s.Home())
-	}
-	return agentsDir(s.Home())
-}
+func (s *Store) agentsRoot() string { return s.activeSpec().agentsDir(s.Home()) }
 
 // Agents 列出 ~/.claude/agents（或 ~/.gemini/config/agents）下（含子目录，跟着符号链接走）的 Subagent，按路径排。
 func (s *Store) Agents() []Subagent {

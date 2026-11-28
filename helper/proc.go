@@ -6,6 +6,8 @@ import (
 	"os"
 	"strconv"
 	"strings"
+
+	"github.com/dzshzx/Zeta/helper/agystore"
 )
 
 // 进程信息，都从 /proc 读。
@@ -100,33 +102,7 @@ func isAgyArgv(argv [][]byte) bool {
 			clean = append(clean, decodeString(a))
 		}
 	}
-	if len(clean) == 0 {
-		return false
-	}
-	if len(clean) >= 2 && clean[1] == "agy-bridge" {
-		return true
-	}
-	if baseName(clean[0]) != "agy" {
-		return false
-	}
-	if len(clean) >= 2 {
-		switch clean[1] {
-		case "mcp", "models", "update", "--version", "-v", "--help", "-h":
-			return false
-		case "acp":
-			return !hasArg(clean[2:], "--login")
-		}
-	}
-	return !hasArg(clean[1:], "-p")
-}
-
-func hasArg(args []string, target string) bool {
-	for _, a := range args {
-		if a == target {
-			return true
-		}
-	}
-	return false
+	return agystore.IsAgySessionCmdline(clean)
 }
 
 // procExecing：命令行读出来是空的进程 pid 还不能算结束了。进程 exec 时内核先换上新的内存、再设参数区，

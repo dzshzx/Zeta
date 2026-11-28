@@ -182,7 +182,10 @@ func cmdDesk(e *env, w io.Writer, id, cwd string) error {
 			fmt.Fprintln(w, "这个会话已经删除或很久没用，窗口关掉。")
 			return nil
 		}
-		isAgy := e.isAgyDeskSession(id)
+		_, _, isAgy := agyDirFromTranscript(file)
+		if file == "" {
+			isAgy = e.isAgyDeskSession(id)
+		}
 		if title := titles.read(file); title != shown || prompt {
 			if title != shown {
 				renameOwnWindow(deskTitle(title, id))

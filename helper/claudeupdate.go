@@ -23,14 +23,37 @@ const (
 	claudeOutputLines    = 8 // 更新的输出交回最后几行
 )
 
-// claudeUpdating：同一个核心里同时只跑一次 claude update，几个客户端一起点时后到的答「正在更新」。
-var claudeUpdating sync.Mutex
+type cliTool struct {
+	mu           sync.Mutex
+	script       string
+	argv0        string
+	busyErr      func() error
+	parseVersion func(string) string
+}
 
-// claudeCommand 在登录 shell 里跑 claude 加上 args，返回合起来的输出（去掉首尾空白）和退出码；起不来或超时时 err 非空。
-func claudeCommand(e *env, timeout time.Duration, args ...string) (string, int, error) {
+var (
+	agySemverRe = regexp.MustCompile(`\d+\.\d+\.\d+(?:[-+][A-Za-z0-9._-]+)?`)
+	claudeCLI   = cliTool{
+		script:  `PATH="$PATH:$HOME/.local/bin"; exec claude "$@"`,
+		argv0:   "zeta-claude",
+		busyErr: func() error { return locales.Err("errClaudeUpdating") },
+		parseVersion: func(out string) string {
+			version, _, _ := strings.Cut(out, " ")
+			return version
+		},
+	}
+	agyCLI = cliTool{
+		script:       `PATH="$PATH:$HOME/.local/bin"; exec "${ZETA_AGY_BIN:-agy}" "$@"`,
+		argv0:        "zeta-agy",
+		busyErr:      func() error { return locales.Err("errAgyUpdating") },
+		parseVersion: parseAgyVersion,
+	}
+)
+
+func (t *cliTool) run(e *env, timeout time.Duration, args ...string) (string, int, error) {
 	ctx, cancel := context.WithTimeout(context.Background(), timeout)
 	defer cancel()
-	cmd := exec.CommandContext(ctx, "bash", append([]string{"-lc", `PATH="$PATH:$HOME/.local/bin"; exec claude "$@"`, "zeta-claude"}, args...)...)
+	cmd := exec.CommandContext(ctx, "bash", append([]string{"-lc", t.script, t.argv0}, args...)...)
 	home := e.home
 	if home == "" {
 		home = "/"
@@ -51,17 +74,33 @@ func claudeCommand(e *env, timeout time.Duration, args ...string) (string, int, 
 	return text, 0, err
 }
 
-// claudeVersion 是 claude --version 的版本号（「2.1.330 (Claude Code)」取第一个词）；没装或跑不起来时为空串。
-func claudeVersion(e *env) string {
-	out, code, err := claudeCommand(e, claudeVersionTimeout, "--version")
-	if err != nil || code != 0 {
+func (t *cliTool) version(e *env) string {
+	out, code, err := t.run(e, claudeVersionTimeout, "--version")
+	if err != nil || code != 0 || out == "" {
 		return ""
 	}
-	version, _, _ := strings.Cut(out, " ")
-	return version
+	return t.parseVersion(out)
 }
 
-// versionReply 是 system.claude 的结果：version 没装时为 null。
+func (t *cliTool) update(e *env) (any, error) {
+	if !t.mu.TryLock() {
+		return nil, t.busyErr()
+	}
+	defer t.mu.Unlock()
+	before := t.version(e)
+	out, code, err := t.run(e, claudeUpdateTimeout, "update")
+	if err != nil {
+		return nil, err
+	}
+	lines := strings.Split(out, "\n")
+	reply := versionReply(t.version(e))
+	reply["before"] = versionReply(before)["version"]
+	reply["ok"] = code == 0
+	reply["output"] = strings.Join(lines[max(0, len(lines)-claudeOutputLines):], "\n")
+	return reply, nil
+}
+
+// versionReply 是 system.claude / system.agy 的结果：version 没装时为 null。
 func versionReply(version string) obj {
 	if version == "" {
 		return obj{"version": nil}
@@ -69,65 +108,7 @@ func versionReply(version string) obj {
 	return obj{"version": version}
 }
 
-func systemClaudeMethod(e *env, _ oneShotParams) (any, error) {
-	return versionReply(claudeVersion(e)), nil
-}
-
-// systemClaudeUpdateMethod 做 system.claude_update：跑 claude update，结果是 {ok, before, version, output}：
-// ok 是它退出码为 0，before、version 是更新前后的版本（没装为 null），output 是输出的最后几行。
-// 已在跑的 Claude Code 进程不受影响，下次起的用新版本。
-func systemClaudeUpdateMethod(e *env, _ oneShotParams) (any, error) {
-	if !claudeUpdating.TryLock() {
-		return nil, locales.Err("errClaudeUpdating")
-	}
-	defer claudeUpdating.Unlock()
-	before := claudeVersion(e)
-	out, code, err := claudeCommand(e, claudeUpdateTimeout, "update")
-	if err != nil {
-		return nil, err
-	}
-	lines := strings.Split(out, "\n")
-	reply := versionReply(claudeVersion(e))
-	reply["before"] = versionReply(before)["version"]
-	reply["ok"] = code == 0
-	reply["output"] = strings.Join(lines[max(0, len(lines)-claudeOutputLines):], "\n")
-	return reply, nil
-}
-
-var (
-	agyUpdating sync.Mutex
-	agySemverRe = regexp.MustCompile(`\d+\.\d+\.\d+(?:[-+][A-Za-z0-9._-]+)?`)
-)
-
-func agyCommand(e *env, timeout time.Duration, args ...string) (string, int, error) {
-	ctx, cancel := context.WithTimeout(context.Background(), timeout)
-	defer cancel()
-	cmd := exec.CommandContext(ctx, "bash", append([]string{"-lc", `PATH="$PATH:$HOME/.local/bin"; exec "${ZETA_AGY_BIN:-agy}" "$@"`, "zeta-agy"}, args...)...)
-	home := e.home
-	if home == "" {
-		home = "/"
-	}
-	cmd.Dir = home
-	cmd.Env = append(os.Environ(), "HOME="+home)
-	var out bytes.Buffer
-	cmd.Stdout, cmd.Stderr = &out, &out
-	err := cmd.Run()
-	text := strings.TrimSpace(out.String())
-	if ctx.Err() != nil {
-		return text, -1, locales.Err("errClaudeUpdateTimeout")
-	}
-	var exit *exec.ExitError
-	if errors.As(err, &exit) {
-		return text, exit.ExitCode(), nil
-	}
-	return text, 0, err
-}
-
-func agyVersion(e *env) string {
-	out, code, err := agyCommand(e, claudeVersionTimeout, "--version")
-	if err != nil || code != 0 || out == "" {
-		return ""
-	}
+func parseAgyVersion(out string) string {
 	if m := agySemverRe.FindString(out); m != "" {
 		return m
 	}
@@ -139,24 +120,14 @@ func agyVersion(e *env) string {
 	return ""
 }
 
-func systemAgyMethod(e *env, _ oneShotParams) (any, error) {
-	return versionReply(agyVersion(e)), nil
+func systemClaudeMethod(e *env, _ oneShotParams) (any, error) {
+	return versionReply(claudeCLI.version(e)), nil
 }
 
-func systemAgyUpdateMethod(e *env, _ oneShotParams) (any, error) {
-	if !agyUpdating.TryLock() {
-		return nil, locales.Err("errAgyUpdating")
-	}
-	defer agyUpdating.Unlock()
-	before := agyVersion(e)
-	out, code, err := agyCommand(e, claudeUpdateTimeout, "update")
-	if err != nil {
-		return nil, err
-	}
-	lines := strings.Split(out, "\n")
-	reply := versionReply(agyVersion(e))
-	reply["before"] = versionReply(before)["version"]
-	reply["ok"] = code == 0
-	reply["output"] = strings.Join(lines[max(0, len(lines)-claudeOutputLines):], "\n")
-	return reply, nil
+func systemClaudeUpdateMethod(e *env, _ oneShotParams) (any, error) { return claudeCLI.update(e) }
+
+func systemAgyMethod(e *env, _ oneShotParams) (any, error) {
+	return versionReply(agyCLI.version(e)), nil
 }
+
+func systemAgyUpdateMethod(e *env, _ oneShotParams) (any, error) { return agyCLI.update(e) }

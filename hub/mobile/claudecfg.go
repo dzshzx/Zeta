@@ -123,6 +123,11 @@ func (c *Core) modelChoices(backend, harness string) (modelChoices, error) {
 	if catalog.Relay != "" {
 		return relayChoices(catalog, h), nil
 	}
+	if h == sessionproto.HarnessAgy && len(reported) == 0 && len(catalog.Models) > 0 {
+		for _, m := range catalog.Models {
+			reported = append(reported, chat.ModelOption{Value: m.ID, DisplayName: m.DisplayName, ResolvedModel: m.ID})
+		}
+	}
 	if len(reported) == 0 {
 		if list, err := r.ModelsFor(ctx, cwd, h); err == nil {
 			reported = list

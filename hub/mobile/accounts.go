@@ -114,23 +114,19 @@ type (
 		Harness string `json:"harness"`
 	}
 	refreshParams struct {
-		ID      string `json:"id"`
-		Harness string `json:"harness"`
-		Force   bool   `json:"force"`
+		deviceParams
+		Force bool `json:"force"`
 	}
 	accountParams struct {
-		ID      string `json:"id"`
-		Harness string `json:"harness"`
-		Name    string `json:"name"`
+		deviceParams
+		Name string `json:"name"`
 	}
 	codeParams struct {
-		ID      string `json:"id"`
-		Harness string `json:"harness"`
-		Code    string `json:"code"`
+		deviceParams
+		Code string `json:"code"`
 	}
 	relayDraftParams struct {
-		ID      string `json:"id"`
-		Harness string `json:"harness"`
+		deviceParams
 		Name    string `json:"name"`
 		BaseURL string `json:"base_url"`
 		Key     string `json:"key"`
@@ -165,16 +161,8 @@ func onRemote[P remoteTarget](name string, f func(c *Core, svc *accounts.Service
 	})
 }
 
-func (p deviceParams) device() string     { return p.ID }
-func (p deviceParams) tool() string       { return p.Harness }
-func (p refreshParams) device() string    { return p.ID }
-func (p refreshParams) tool() string      { return p.Harness }
-func (p accountParams) device() string    { return p.ID }
-func (p accountParams) tool() string      { return p.Harness }
-func (p codeParams) device() string       { return p.ID }
-func (p codeParams) tool() string         { return p.Harness }
-func (p relayDraftParams) device() string { return p.ID }
-func (p relayDraftParams) tool() string   { return p.Harness }
+func (p deviceParams) device() string { return p.ID }
+func (p deviceParams) tool() string   { return p.Harness }
 
 func init() {
 	reading("accounts", func(c *Core, p deviceParams) (any, error) {

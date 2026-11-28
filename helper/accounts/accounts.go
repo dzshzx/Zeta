@@ -435,16 +435,19 @@ func alive(p procID) bool {
 const builtin = "claude"
 
 // FreeName 是新号的名字：claude、claude-b……claude-z、claude-27……里第一个不在 taken 里的。
-func FreeName(taken map[string]bool) string {
+func FreeName(taken map[string]bool) string { return FreeNameWith(builtin, taken) }
+
+// FreeNameWith 按 prefix 挑第一个不在 taken 里的账号名（prefix、prefix-b……prefix-z、prefix-27……）。
+func FreeNameWith(prefix string, taken map[string]bool) string {
 	for i := 0; ; i++ {
 		var name string
 		switch {
 		case i == 0:
-			name = builtin
+			name = prefix
 		case i < 26:
-			name = "claude-" + string(rune('a'+i))
+			name = prefix + "-" + string(rune('a'+i))
 		default:
-			name = "claude-" + strconv.Itoa(i+1)
+			name = prefix + "-" + strconv.Itoa(i+1)
 		}
 		if !taken[name] {
 			return name
@@ -468,6 +471,23 @@ func withNames(m map[string]bool, extra ...string) map[string]bool {
 // 别的 Claude Code 进程哪怕闲着也不行：按账号统计用量的程序假定一个进程只属于一个账号，开着换号会把用量和额度读数分错账号（见 claude-switch 的 README「为什么是冷切换」）。
 // claude-switch 自己也会拒绝，这里只是为了说清是谁挡着、怎么让开。
 func Blocker(procs []Proc, mine string) locales.Msg {
+	return BlockerFor(procs, mine,
+		func(apps []locales.Msg, count, busy, others, othersBusy int) locales.Msg {
+			return locales.M("errSwitchBlockedBoth", "apps", apps, "count", count, "busy", busy, "others", others, "othersBusy", othersBusy)
+		},
+		func(others, othersBusy int) locales.Msg {
+			return locales.M("errSwitchBlockedElsewhere", "others", others, "othersBusy", othersBusy)
+		},
+	)
+}
+
+// BlockerFor 按指定的本地化构造器组装换号阻碍提示（供 Claude 与 agy 共用）。
+func BlockerFor(
+	procs []Proc,
+	mine string,
+	bothMsg func(apps []locales.Msg, count, busy, others, othersBusy int) locales.Msg,
+	elsewhereMsg func(others, othersBusy int) locales.Msg,
+) locales.Msg {
 	var zeta, elsewhere []Proc
 	for _, p := range procs {
 		switch {
@@ -488,14 +508,24 @@ func Blocker(procs []Proc, mine string) locales.Msg {
 	}
 	switch {
 	case len(zeta) > 0 && len(elsewhere) > 0:
-		return locales.M("errSwitchBlockedBoth", "apps", names, "count", len(zeta), "busy", busyCount(zeta),
-			"others", len(elsewhere), "othersBusy", busyCount(elsewhere))
+		return bothMsg(names, len(zeta), busyCount(zeta), len(elsewhere), busyCount(elsewhere))
 	case len(zeta) > 0:
 		return locales.M("errSwitchBlockedZeta", "apps", names, "count", len(zeta), "busy", busyCount(zeta))
 	case len(elsewhere) > 0:
-		return locales.M("errSwitchBlockedElsewhere", "others", len(elsewhere), "othersBusy", busyCount(elsewhere))
+		return elsewhereMsg(len(elsewhere), busyCount(elsewhere))
 	}
 	return locales.Msg{}
+}
+
+// OwnerFromMark 从 ZETA_HOST 环境变量值（<pkg>/<key>）中提取所属 Zeta 包名。
+func OwnerFromMark(mark string) string {
+	if mark == "" {
+		return ""
+	}
+	if m := hostMark.FindStringSubmatch("ZETA_HOST=" + mark); m != nil {
+		return m[1]
+	}
+	return ""
 }
 
 // busyCount 是 procs 里有几个在忙。

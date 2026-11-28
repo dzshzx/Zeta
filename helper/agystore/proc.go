@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"os"
 	"path/filepath"
+	"slices"
 	"strconv"
 	"strings"
 )
@@ -20,7 +21,7 @@ type Holder struct {
 // ActiveHolders 扫描 /proc/<pid>/fd，找出正持有着 presence/<session>.lock（session 为空时为全部会话）的本用户进程。
 func ActiveHolders(agyDir, session string) []Holder {
 	presenceDir := filepath.Clean(filepath.Join(agyDir, "presence"))
-	if st, err := os.Stat(presenceDir); err != nil || !st.IsDir() {
+	if !hasActiveLockFile(presenceDir, session) {
 		return nil
 	}
 	if resolved, err := filepath.EvalSymlinks(presenceDir); err == nil {
@@ -45,16 +46,33 @@ func ActiveHolders(agyDir, session string) []Holder {
 	return out
 }
 
+func hasActiveLockFile(presenceDir, session string) bool {
+	if session != "" {
+		_, err := os.Stat(filepath.Join(presenceDir, session+".lock"))
+		return err == nil
+	}
+	entries, err := os.ReadDir(presenceDir)
+	if err != nil {
+		return false
+	}
+	for _, e := range entries {
+		if strings.HasSuffix(e.Name(), ".lock") {
+			return true
+		}
+	}
+	return false
+}
+
 func inspectProcLocks(pid int, presencePrefix, wantSession string) ([]Holder, bool) {
 	matched := lockedSessionsForPID(pid, presencePrefix, wantSession)
 	if len(matched) == 0 {
 		return nil, false
 	}
-	start, state, ok := readProcStat(pid)
+	start, state, ok := ReadProcStat(pid)
 	if !ok || state == 'Z' {
 		return nil, false
 	}
-	mark := readProcEnv(pid, "ZETA_HOST")
+	mark := ReadProcEnv(pid, "ZETA_HOST")
 	ep := entrypointOfCmdline(pid)
 	holders := make([]Holder, 0, len(matched))
 	for _, id := range matched {
@@ -102,7 +120,8 @@ func parseLockFDTarget(fdPath, presencePrefix string) (string, bool) {
 	return id, ok && IsSessionID(id)
 }
 
-func readProcStat(pid int) (start string, state byte, ok bool) {
+// ReadProcStat 读 /proc/<pid>/stat，返回启动时刻（第 22 项）和状态字符（第 3 项）。
+func ReadProcStat(pid int) (start string, state byte, ok bool) {
 	data, err := os.ReadFile("/proc/" + strconv.Itoa(pid) + "/stat")
 	if err != nil {
 		return "", 0, false
@@ -118,7 +137,8 @@ func readProcStat(pid int) (start string, state byte, ok bool) {
 	return fields[19], fields[0][0], true
 }
 
-func readProcEnv(pid int, key string) string {
+// ReadProcEnv 读取 /proc/<pid>/environ 里指定环境变量的值，不存在或不可读时为空。
+func ReadProcEnv(pid int, key string) string {
 	data, err := os.ReadFile("/proc/" + strconv.Itoa(pid) + "/environ")
 	if err != nil {
 		return ""
@@ -132,15 +152,46 @@ func readProcEnv(pid int, key string) string {
 	return ""
 }
 
-func entrypointOfCmdline(pid int) string {
+// ReadCmdline 读取 /proc/<pid>/cmdline，去掉空段后返回参数切片。
+func ReadCmdline(pid int) []string {
 	data, err := os.ReadFile("/proc/" + strconv.Itoa(pid) + "/cmdline")
 	if err != nil {
-		return "cli"
+		return nil
 	}
+	var out []string
 	for _, part := range bytes.Split(data, []byte{0}) {
-		if string(part) == "acp" {
-			return "sdk-cli"
+		if len(part) > 0 {
+			out = append(out, string(part))
 		}
+	}
+	return out
+}
+
+// IsAgySessionCmdline 识别活着的 agy 会话进程（交互式 agy、agy acp 或 zeta-helper agy-bridge），排除短命令与 -p 单次调用。
+func IsAgySessionCmdline(argv []string) bool {
+	if len(argv) == 0 {
+		return false
+	}
+	if len(argv) >= 2 && argv[1] == "agy-bridge" {
+		return true
+	}
+	if filepath.Base(argv[0]) != "agy" {
+		return false
+	}
+	if len(argv) >= 2 {
+		switch argv[1] {
+		case "mcp", "models", "update", "--version", "-v", "--help", "-h":
+			return false
+		case "acp":
+			return !slices.Contains(argv[2:], "--login")
+		}
+	}
+	return !slices.Contains(argv[1:], "-p")
+}
+
+func entrypointOfCmdline(pid int) string {
+	if slices.Contains(ReadCmdline(pid), "acp") {
+		return "sdk-cli"
 	}
 	return "cli"
 }

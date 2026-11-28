@@ -1,6 +1,10 @@
 package coreapi
 
-import "context"
+import (
+	"context"
+
+	"github.com/dzshzx/Zeta/helper/sessionproto"
+)
 
 // 这一组是 docs/core.md「主机」的 system.* 方法：这台主机的负载、闲置超时和 Claude Code 版本。
 
@@ -63,4 +67,20 @@ func (cl *Client) AgyVersion(ctx context.Context) (string, error) {
 // UpdateAgy 在这台主机上跑 agy update（最多 5 分钟）；同一个核心里已经在跑时出错（system.agy_update）。
 func (cl *Client) UpdateAgy(ctx context.Context) (ClaudeUpdate, error) {
 	return get[ClaudeUpdate](ctx, cl.c, "system.agy_update", nil)
+}
+
+// CLIVersion 按当前 Client 绑定的 harness 查询对应 CLI 版本（AgyVersion 或 ClaudeVersion）。
+func (cl *Client) CLIVersion(ctx context.Context) (string, error) {
+	if hc, ok := cl.c.(harnessCaller); ok && hc.harness == sessionproto.HarnessAgy {
+		return cl.AgyVersion(ctx)
+	}
+	return cl.ClaudeVersion(ctx)
+}
+
+// UpdateCLI 按当前 Client 绑定的 harness 更新对应 CLI（UpdateAgy 或 UpdateClaude）。
+func (cl *Client) UpdateCLI(ctx context.Context) (ClaudeUpdate, error) {
+	if hc, ok := cl.c.(harnessCaller); ok && hc.harness == sessionproto.HarnessAgy {
+		return cl.UpdateAgy(ctx)
+	}
+	return cl.UpdateClaude(ctx)
 }

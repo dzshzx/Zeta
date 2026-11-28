@@ -37,12 +37,7 @@ type Skills struct {
 	Synced []SyncedSkill `json:"synced"`
 }
 
-func (s *Store) skillsRoot() string {
-	if s.IsAgy() {
-		return agySkillsDir(s.Home())
-	}
-	return s.claudeDir() + "/skills"
-}
+func (s *Store) skillsRoot() string { return s.activeSpec().skillsDir(s.Home()) }
 
 // Skills 读 Skills 页。
 func (s *Store) Skills() Skills {
@@ -51,21 +46,12 @@ func (s *Store) Skills() Skills {
 	}
 	settings := s.lenientSettings()
 	root := s.skillsRoot()
-	entries, _ := os.ReadDir(root)
-	out := Skills{User: []Skill{}, Synced: []SyncedSkill{}}
-	for _, e := range entries {
-		if st, err := os.Stat(root + "/" + e.Name()); err != nil || !st.IsDir() || e.Name() == "synced" {
-			continue
-		}
-		sk := Skill{Name: e.Name()}
-		if head, _, ok := readHead(root+"/"+e.Name()+"/SKILL.md", 8192); ok {
-			sk.Valid = true
-			text, _, _ := splitFront(string(head))
-			meta := parseFront(text)
-			sk.Title, sk.Description = meta.get("name"), meta.get("description")
-		}
-		sk.Enabled = skillOverride(settings, sk.Name, sk.Title) != "off"
-		out.User = append(out.User, sk)
+	out := Skills{
+		User:   readSkillDir(root, settings, func(name string) bool { return name == "synced" }),
+		Synced: []SyncedSkill{},
+	}
+	if out.User == nil {
+		out.User = []Skill{}
 	}
 	manifests, _ := filepath.Glob(root + "/synced/*/manifest.json")
 	slices.Sort(manifests)

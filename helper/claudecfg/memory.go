@@ -91,20 +91,7 @@ func memoryFiles(dir string) (*ConfigFile, []MemoryEntry) {
 	if _, size, ok := readHead(index.Path, 0); ok {
 		index.Exists, index.Size = true, size
 	}
-	entries, _ := os.ReadDir(dir)
-	var files []MemoryEntry
-	for _, e := range entries {
-		name := e.Name()
-		if name == "MEMORY.md" || !isMemoryFileName(name) {
-			continue
-		}
-		path := dir + "/" + name
-		if head, size, ok := readHead(path, 4096); ok {
-			files = append(files, memoryEntry(path, size, head))
-		}
-	}
-	slices.SortFunc(files, func(a, b MemoryEntry) int { return cmp.Compare(a.FileName, b.FileName) })
-	return index, files
+	return index, listMarkdownEntries(dir, "MEMORY.md")
 }
 
 // memoryEntry 读记忆文件的前言：name、description、type（新版写在 metadata.type 下面）。
@@ -269,7 +256,7 @@ func (s *Store) DeleteMemory(path string) error {
 		return err
 	}
 	name := baseName(path)
-	if name == "MEMORY.md" || path == instructions(s.Home()) || (s.IsAgy() && (name == "AGENTS.md" || name == "GEMINI.md")) {
+	if s.activeSpec().protectedMemory(s.Home(), path, name) {
 		return locales.Err("cfgCantDelete")
 	}
 	if err := os.Remove(path); err != nil && !os.IsNotExist(err) {

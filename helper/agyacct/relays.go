@@ -9,7 +9,6 @@ import (
 	"io"
 	"net"
 	"net/http"
-	"net/url"
 	"os"
 	"path/filepath"
 	"slices"
@@ -17,7 +16,6 @@ import (
 	"strings"
 	"syscall"
 	"time"
-	"unicode"
 
 	"github.com/dzshzx/Zeta/helper/accounts"
 	"github.com/dzshzx/Zeta/helper/locales"
@@ -95,31 +93,29 @@ func RelayDefaultModel(home string) string {
 
 // SetRelayDefaultModel 修改当前生效 agy 中转的默认模型；未启用中转时返回 false。
 func SetRelayDefaultModel(home, model string) (bool, error) {
-	changing.Lock()
-	defer changing.Unlock()
-	unlock, err := lockState(home)
-	if err != nil {
-		return false, err
-	}
-	defer unlock()
-	name := CurrentRelay(home)
-	if name == "" {
-		return false, nil
-	}
-	model = strings.TrimSpace(model)
-	if err := validRelayModel(model); err != nil {
-		return true, err
-	}
-	rec, ok := readRelayRecord(home, name)
-	if !ok {
-		return false, nil
-	}
-	rec.Model = model
-	if err := writeRelayRecord(home, rec); err != nil {
-		return true, err
-	}
-	r := accounts.Relay{Name: rec.Name, BaseURL: rec.BaseURL, Model: rec.Model, Current: true}
-	return true, syncAgySettingsForRelay(home, &r, true)
+	var active bool
+	err := withStateLock(home, func() error {
+		name := CurrentRelay(home)
+		if name == "" {
+			return nil
+		}
+		model = strings.TrimSpace(model)
+		if err := accounts.ValidRelayModel(model); err != nil {
+			active = true
+			return err
+		}
+		rec, ok := readRelayRecord(home, name)
+		if !ok {
+			return nil
+		}
+		active = true
+		rec.Model = model
+		if err := writeRelayRecord(home, rec); err != nil {
+			return err
+		}
+		return enableRelaySettings(home, rec.Model)
+	})
+	return active, err
 }
 
 // ReadModelCatalog 读取生效 agy 中转的模型目录；未启用中转时 Relay 为空。
@@ -140,14 +136,11 @@ func ReadModelCatalog(ctx context.Context, home string) (accounts.ModelCatalog, 
 		return out, nil
 	}
 	base := cmp.Or(strings.TrimSpace(rec.BaseURL), DefaultGeminiBaseURL)
-	if validBaseURL(base) != nil {
+	if accounts.ValidBaseURL(base) != nil {
 		return out, nil
 	}
-	models, _ := fetchGeminiModels(ctx, base, key)
-	for _, m := range models {
-		if !strings.Contains(m.ID, key) && !strings.Contains(m.DisplayName, key) {
-			out.Models = append(out.Models, m)
-		}
+	if models, err := fetchGeminiModels(ctx, base, key); err == nil {
+		out.Models = models
 	}
 	return out, nil
 }
@@ -160,63 +153,52 @@ func (h *Host) SaveRelay(_ context.Context, in accounts.RelayInput) error {
 	if err := validAgyRelay(in); err != nil {
 		return err
 	}
-	changing.Lock()
-	defer changing.Unlock()
-	unlock, err := lockState(h.Home)
-	if err != nil {
-		return err
-	}
-	defer unlock()
-	snap := h.readStateLocked()
-	existing := slices.IndexFunc(snap.Relays, func(r accounts.Relay) bool { return r.Name == in.Name }) >= 0
-	switch {
-	case in.Create && snap.taken[in.Name]:
-		return locales.Err("errRelayNameTaken")
-	case in.Create && in.Key == "":
-		return locales.Err("errRelayKeyRequired")
-	case !in.Create && !existing:
-		return accounts.ErrRelayMissing
-	}
-	if in.Key != "" {
-		kp := relayKeyPath(h.Home, in.Name)
-		if err := writeFileAtomic(kp, []byte(in.Key+"\n"), 0o600); err != nil {
-			return locales.Err("errRelayWrite", "path", kp)
+	return withStateLock(h.Home, func() error {
+		snap := h.readStateLocked()
+		existing := slices.IndexFunc(snap.Relays, func(r accounts.Relay) bool { return r.Name == in.Name }) >= 0
+		switch {
+		case in.Create && snap.taken[in.Name]:
+			return locales.Err("errRelayNameTaken")
+		case in.Create && in.Key == "":
+			return locales.Err("errRelayKeyRequired")
+		case !in.Create && !existing:
+			return accounts.ErrRelayMissing
 		}
-	}
-	rec := relayRecord{Name: in.Name, BaseURL: in.BaseURL, Model: in.Model}
-	if err := writeRelayRecord(h.Home, rec); err != nil {
-		return err
-	}
-	if snap.ds.CurrentRelay == in.Name {
-		r := accounts.Relay{Name: rec.Name, BaseURL: rec.BaseURL, Model: rec.Model, Current: true}
-		return syncAgySettingsForRelay(h.Home, &r, true)
-	}
-	return nil
+		if in.Key != "" {
+			kp := relayKeyPath(h.Home, in.Name)
+			if err := accounts.WriteFileAtomic(kp, []byte(in.Key+"\n"), 0o600); err != nil {
+				return locales.Err("errRelayWrite", "path", kp)
+			}
+		}
+		rec := relayRecord{Name: in.Name, BaseURL: in.BaseURL, Model: in.Model}
+		if err := writeRelayRecord(h.Home, rec); err != nil {
+			return err
+		}
+		if snap.ds.CurrentRelay == in.Name {
+			return enableRelaySettings(h.Home, rec.Model)
+		}
+		return nil
+	})
 }
 
 // RemoveRelay 删除一个未在使用中的 agy 中转。
 func (h *Host) RemoveRelay(_ context.Context, name string) error {
-	changing.Lock()
-	defer changing.Unlock()
-	unlock, err := lockState(h.Home)
-	if err != nil {
-		return err
-	}
-	defer unlock()
-	snap := h.readStateLocked()
-	i := slices.IndexFunc(snap.Relays, func(r accounts.Relay) bool { return r.Name == name })
-	switch {
-	case i < 0:
-		return accounts.ErrRelayMissing
-	case snap.Relays[i].Current:
-		return accounts.ErrRelayInUse
-	}
-	for _, p := range []string{relayConfigPath(h.Home, name), relayKeyPath(h.Home, name)} {
-		if !removed(p) {
-			return locales.Err("errRelayWrite", "path", p)
+	return withStateLock(h.Home, func() error {
+		snap := h.readStateLocked()
+		i := slices.IndexFunc(snap.Relays, func(r accounts.Relay) bool { return r.Name == name })
+		switch {
+		case i < 0:
+			return accounts.ErrRelayMissing
+		case snap.Relays[i].Current:
+			return accounts.ErrRelayInUse
 		}
-	}
-	return nil
+		for _, p := range []string{relayConfigPath(h.Home, name), relayKeyPath(h.Home, name)} {
+			if !accounts.Removed(p) {
+				return locales.Err("errRelayWrite", "path", p)
+			}
+		}
+		return nil
+	})
 }
 
 // RelayModels 请求 <baseUrl>/v1beta/models（默认 https://generativelanguage.googleapis.com）拉取可用模型列表。
@@ -228,7 +210,7 @@ func (h *Host) RelayModels(ctx context.Context, q accounts.ModelsQuery) ([]accou
 		}
 	}
 	base := cmp.Or(q.BaseURL, DefaultGeminiBaseURL)
-	if err := validBaseURL(base); err != nil {
+	if err := accounts.ValidBaseURL(base); err != nil {
 		return nil, err
 	}
 	key := q.Key
@@ -239,17 +221,7 @@ func (h *Host) RelayModels(ctx context.Context, q accounts.ModelsQuery) ([]accou
 			return nil, locales.Err("errModelsNoKey")
 		}
 	}
-	models, err := fetchGeminiModels(ctx, base, key)
-	if err != nil {
-		return nil, err
-	}
-	out := make([]accounts.RelayModel, 0, len(models))
-	for _, m := range models {
-		if !strings.Contains(m.ID, key) && !strings.Contains(m.DisplayName, key) {
-			out = append(out, m)
-		}
-	}
-	return out, nil
+	return fetchGeminiModels(ctx, base, key)
 }
 
 var modelsClient = &http.Client{
@@ -291,7 +263,17 @@ func fetchGeminiModels(ctx context.Context, baseURL, key string) ([]accounts.Rel
 	case len(body) > modelsLimit:
 		return nil, locales.Err("errModelsTooLarge")
 	}
-	return parseGeminiOrOpenAIModels(body)
+	models, err := parseGeminiOrOpenAIModels(body)
+	if err != nil {
+		return nil, err
+	}
+	out := make([]accounts.RelayModel, 0, len(models))
+	for _, m := range models {
+		if !strings.Contains(m.ID, key) && !strings.Contains(m.DisplayName, key) {
+			out = append(out, m)
+		}
+	}
+	return out, nil
 }
 
 func geminiModelsEndpoint(baseURL string) string {
@@ -316,21 +298,18 @@ func parseGeminiOrOpenAIModels(body []byte) ([]accounts.RelayModel, error) {
 	}
 	out := []accounts.RelayModel{}
 	seen := map[string]bool{}
-	for _, m := range payload.Models {
-		id := strings.TrimSpace(strings.TrimPrefix(strings.TrimSpace(m.Name), "models/"))
+	add := func(id, display string) {
 		if id == "" || seen[id] {
-			continue
+			return
 		}
 		seen[id] = true
-		out = append(out, accounts.RelayModel{ID: id, DisplayName: cmp.Or(strings.TrimSpace(m.DisplayName), id)})
+		out = append(out, accounts.RelayModel{ID: id, DisplayName: cmp.Or(strings.TrimSpace(display), id)})
+	}
+	for _, m := range payload.Models {
+		add(strings.TrimSpace(strings.TrimPrefix(strings.TrimSpace(m.Name), "models/")), m.DisplayName)
 	}
 	for _, m := range payload.Data {
-		id := strings.TrimSpace(m.ID)
-		if id == "" || seen[id] {
-			continue
-		}
-		seen[id] = true
-		out = append(out, accounts.RelayModel{ID: id, DisplayName: cmp.Or(strings.TrimSpace(m.DisplayName), id)})
+		add(strings.TrimSpace(m.ID), m.DisplayName)
 	}
 	return out, nil
 }
@@ -387,7 +366,7 @@ func writeRelayRecord(home string, rec relayRecord) error {
 	if err != nil {
 		return err
 	}
-	if err := writeFileAtomic(path, append(data, '\n'), 0o600); err != nil {
+	if err := accounts.WriteFileAtomic(path, append(data, '\n'), 0o600); err != nil {
 		return locales.Err("errRelayWrite", "path", path)
 	}
 	return nil
@@ -434,47 +413,50 @@ func validAgyRelay(in accounts.RelayInput) error {
 		return locales.Err("errRelayName")
 	}
 	if in.BaseURL != "" {
-		if err := validBaseURL(in.BaseURL); err != nil {
+		if err := accounts.ValidBaseURL(in.BaseURL); err != nil {
 			return err
 		}
 	}
 	if strings.ContainsAny(in.Key, " \t\r\n") {
 		return locales.Err("errRelayKey")
 	}
-	return validRelayModel(in.Model)
+	return accounts.ValidRelayModel(in.Model)
 }
 
-func validBaseURL(raw string) error {
-	u, err := url.Parse(strings.TrimSpace(raw))
-	if err != nil || (u.Scheme != "http" && u.Scheme != "https") || u.Host == "" || u.User != nil {
-		return locales.Err("errRelayURL")
-	}
-	return nil
+func enableRelaySettings(home, model string) error {
+	return updateAgySettings(home, func(obj map[string]json.RawMessage, _ bool) bool {
+		obj["modelProvider"], _ = json.Marshal("gemini")
+		if m := strings.TrimSpace(model); m != "" {
+			obj["model"], _ = json.Marshal(m)
+		}
+		return true
+	})
 }
 
-func validRelayModel(model string) error {
-	if len(model) > 200 || strings.ContainsFunc(model, func(r rune) bool { return unicode.IsSpace(r) || unicode.IsControl(r) }) {
-		return locales.Err("errRelayModel")
-	}
-	return nil
-}
-
-// syncAgySettingsForRelay 在切换到中转时往 ~/.gemini/antigravity-cli/settings.json 写入 modelProvider:"gemini"
-// （及可选的 model）；切回账号时清除 Zeta 写入的 modelProvider:"gemini"。
-func syncAgySettingsForRelay(home string, r *accounts.Relay, clearProvider bool) error {
-	path := agySettingsPath(home)
-	obj, existed, ok := loadAgySettingsMap(path)
-	if !ok {
+func clearRelaySettings(home string, clearProvider bool) error {
+	if !clearProvider {
 		return nil
 	}
-	if !mutateRelaySettings(obj, r, clearProvider, existed) {
+	return updateAgySettings(home, func(obj map[string]json.RawMessage, existed bool) bool {
+		var cur string
+		if rawProv, ok := obj["modelProvider"]; ok && json.Unmarshal(rawProv, &cur) == nil && cur == "gemini" {
+			delete(obj, "modelProvider")
+		}
+		return len(obj) > 0 || existed
+	})
+}
+
+func updateAgySettings(home string, mutate func(obj map[string]json.RawMessage, existed bool) bool) error {
+	path := agySettingsPath(home)
+	obj, existed, ok := loadAgySettingsMap(path)
+	if !ok || !mutate(obj, existed) {
 		return nil
 	}
 	encoded, err := json.MarshalIndent(obj, "", "  ")
 	if err != nil {
 		return err
 	}
-	return writeFileAtomic(path, append(encoded, '\n'), 0o644)
+	return accounts.WriteFileAtomic(path, append(encoded, '\n'), 0o644)
 }
 
 func loadAgySettingsMap(path string) (map[string]json.RawMessage, bool, bool) {
@@ -491,22 +473,4 @@ func loadAgySettingsMap(path string) (map[string]json.RawMessage, bool, bool) {
 		return nil, true, false
 	}
 	return obj, true, true
-}
-
-func mutateRelaySettings(obj map[string]json.RawMessage, r *accounts.Relay, clearProvider, existed bool) bool {
-	if r != nil {
-		obj["modelProvider"], _ = json.Marshal("gemini")
-		if m := strings.TrimSpace(r.Model); m != "" {
-			obj["model"], _ = json.Marshal(m)
-		}
-		return true
-	}
-	if !clearProvider {
-		return false
-	}
-	var cur string
-	if rawProv, ok := obj["modelProvider"]; ok && json.Unmarshal(rawProv, &cur) == nil && cur == "gemini" {
-		delete(obj, "modelProvider")
-	}
-	return len(obj) > 0 || existed
 }

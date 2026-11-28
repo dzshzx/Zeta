@@ -61,10 +61,6 @@ type (
 		ID   string `json:"id"`
 		Name string `json:"name"`
 	}
-	deviceHarnessParams struct {
-		ID      string `json:"id"`
-		Harness string `json:"harness"`
-	}
 	cwdParams struct {
 		ID   string `json:"id"`
 		Path string `json:"path"`
@@ -104,7 +100,7 @@ func init() {
 		}
 		return ok, nil
 	})
-	onLoop("device.setharness", func(c *Core, p deviceHarnessParams) (any, error) {
+	onLoop("device.setharness", func(c *Core, p deviceParams) (any, error) {
 		if _, found := c.hub.Host(p.ID); !found {
 			return nil, locales.Err(locales.MobileDeviceGone)
 		}

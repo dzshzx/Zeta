@@ -113,6 +113,17 @@ func (s QuotaStore) save(account string, snap Snapshot) error {
 	return os.Rename(tmp.Name(), path)
 }
 
+// MergeUsage 将新解析的额度快照 parsed 与旧快照 prev 合并（未取到窗口时保留旧值，沿用被拒状态并按 now 归零过期窗口）。
+func MergeUsage(prev *Snapshot, parsed Snapshot, now time.Time) (Snapshot, bool) {
+	if prev != nil {
+		if !parsed.Unavailable && len(parsed.Windows) == 0 && len(prev.Windows) > 0 {
+			return *prev, false
+		}
+		parsed.Blocked, parsed.BlockedUntil = prev.Blocked, prev.BlockedUntil
+	}
+	return parsed.At(now), true
+}
+
 // Usage 收下一次 get_usage 的应答（control_response 的 response.response）。Claude Code 这次没取到服务器的数（rate_limits
 // 为 null）而已有窗口时，已有的留着，fresh 为 false；被拒的状态只有事件里有，取到新数时沿用已有的。返回现在的额度。
 func (s QuotaStore) Usage(raw []byte, now time.Time) (snap Snapshot, fresh bool, err error) {
@@ -130,14 +141,11 @@ func (s QuotaStore) Usage(raw []byte, now time.Time) (snap Snapshot, fresh bool,
 	if err != nil {
 		return Snapshot{}, false, err
 	}
-	if prev != nil {
-		if !parsed.Unavailable && len(parsed.Windows) == 0 && len(prev.Windows) > 0 {
-			return prev.withPlan(in.Plan), false, nil
-		}
-		parsed.Blocked, parsed.BlockedUntil = prev.Blocked, prev.BlockedUntil
+	merged, fresh := MergeUsage(prev, parsed, now)
+	if !fresh {
+		return merged.withPlan(in.Plan), false, nil
 	}
-	parsed = parsed.At(now)
-	return parsed, true, s.save(in.UUID, parsed)
+	return merged, true, s.save(in.UUID, merged)
 }
 
 // Event 收下对话里一条 rate_limit_event 的 rate_limit_info，并进已有的额度。没有变化时 changed 为 false。

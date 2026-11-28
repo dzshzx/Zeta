@@ -487,53 +487,18 @@ private fun ClaudeGroup(
     onOpenLogin: () -> Unit,
     onLogout: () -> Unit,
 ) {
-    val account = hub.environment.account
-    val missing = health != null && health.claude.isBlank()
-    PreferenceGroup(title = "Claude Code") {
-        item {
-            ValueRow(
-                Strings.setupVersion(),
-                health?.claude?.ifBlank { Strings.setupNotInstalled() } ?: "…",
-            )
-        }
-        if (missing) {
-            item {
-                BasicComponent(
-                    title = Strings.setupInstallNow(),
-                    summary = Strings.setupInstallNowSummary(),
-                    enabled = !maintenanceRunning,
-                    onClick = hub.environment::installClaude,
-                )
-            }
-        } else {
-            item {
-                BasicComponent(
-                    title = Strings.setupUpdate(),
-                    // 运行 claude update
-                    summary = Strings.setupUpdateLatest(),
-                    enabled = !maintenanceRunning,
-                    onClick = hub.environment::updateClaude,
-                )
-            }
-            item {
-                ArrowPreference(
-                    title = Strings.setupAccount(),
-                    summary = cliAccountSummary(account),
-                    onClick = onOpenLogin,
-                )
-            }
-            // 在用中转时没有登录着的账号，退出登录无从谈起；换回账号在账号页
-            if (account?.loggedIn == true && account.relay == null) {
-                item {
-                    BasicComponent(
-                        title = Strings.setupLogout(),
-                        enabled = !maintenanceRunning,
-                        onClick = onLogout,
-                    )
-                }
-            }
-        }
-    }
+    CliEnvGroup(
+        title = "Claude Code",
+        version = health?.claude,
+        missing = health != null && health.claude.isBlank(),
+        account = hub.environment.account,
+        maintenanceRunning = maintenanceRunning,
+        updateEnabled = !maintenanceRunning,
+        onInstall = hub.environment::installClaude,
+        onUpdate = hub.environment::updateClaude,
+        onOpenLogin = onOpenLogin,
+        onLogout = onLogout,
+    )
 }
 
 /** 正在做或刚做完的维护（修复、更新、装卸可选工具、SSH 的操作）：做完了点一下收起。 */
@@ -721,9 +686,8 @@ private fun InstallActions(
     onBack: () -> Unit,
 ) {
     val installer = hub.environment.installer
-    val signedIn =
-        if (cli == InstallCli.Agy) hub.environment.agyAccount?.loggedIn == true
-        else hub.environment.account?.loggedIn == true
+    val targetHarness = if (cli == InstallCli.Agy) Harnesses.AGY else Harnesses.CLAUDE
+    val signedIn = hub.environment.account(targetHarness)?.loggedIn == true
     val signInLabel =
         if (cli == InstallCli.Agy) Strings.setupSignInAgy() else Strings.setupSignInClaude()
     Column(
@@ -844,10 +808,9 @@ private fun loginAccount(
     backend: String,
     harness: String,
 ): AccountStatus? {
-    val isAgy = Harnesses.normalize(harness) == Harnesses.AGY
-    if (backend == Backends.LOCAL && !isAgy) return hub.environment.account
-    if (backend == Backends.LOCAL && hub.environment.agyAccount != null) {
-        return hub.environment.agyAccount
+    if (backend == Backends.LOCAL) {
+        val local = hub.environment.account(harness)
+        if (local != null || Harnesses.normalize(harness) != Harnesses.AGY) return local
     }
     val service = hub.accounts(backend, harness)
     LaunchedEffect(backend, harness) { if (service.state == null) service.refresh() }

@@ -67,9 +67,8 @@ final class ClaudeConfigStore {
     }
 
     private func loadClaude() async {
-        let method = isAgy ? "system.agy" : "system.claude"
         do {
-            claudeVersion = try await calls.get(method, as: ClaudeVersion.self).version ?? ""
+            claudeVersion = try await calls.cliVersion()
             claudeLoaded = true
             claudeNote = ""
         } catch {
@@ -116,12 +115,11 @@ final class ClaudeConfigStore {
     func updateClaude() {
         updating = true
         claudeNote = ""
-        let method = isAgy ? "system.agy_update" : "system.claude_update"
         let agy = isAgy
         Task {
             defer { updating = false }
             do {
-                let update = try await calls.slow(method, as: ClaudeUpdate.self)
+                let update = try await calls.updateCLI()
                 claudeVersion = update.version
                 claudeNote = Self.note(update, isAgy: agy)
             } catch {

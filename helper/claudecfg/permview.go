@@ -57,10 +57,8 @@ func (s *Store) PermissionsView(rs Rules, cwd, server string, tools []string) Pe
 	for _, r := range rs {
 		v.Rules = append(v.Rules, RuleView{r, RuleMalformed(r.Text)})
 	}
-	common, other, group := CommonTools, OtherTools, BuiltinGroup()
-	if s.IsAgy() {
-		common, other, group = AgyCommonTools, AgyOtherTools, AgyBuiltinGroup()
-	}
+	spec := s.activeSpec()
+	common, other, group := spec.commonTools, spec.otherTools, spec.builtinGroup()
 	for i, t := range append(slices.Clone(common), other...) {
 		st := rs.Tool(t.Name)
 		v.Builtin = append(v.Builtin, ToolView{ToolInfo: t.in(s.lang), Rule: t.Name, Own: st.Behavior, More: i >= len(common), State: st})

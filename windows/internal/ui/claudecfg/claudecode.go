@@ -22,15 +22,8 @@ type claudeState struct {
 
 // loadClaude 读这台主机上当前工具（claude 或 agy）的版本（打开设备页时）。
 func (p *Page) loadClaude() {
-	agy := p.isAgy()
 	p.async(func(ctx context.Context) func() {
-		var v string
-		var err error
-		if agy {
-			v, err = p.opts.Core.AgyVersion(ctx)
-		} else {
-			v, err = p.opts.Core.ClaudeVersion(ctx)
-		}
+		v, err := p.opts.Core.CLIVersion(ctx)
 		return func() {
 			p.claude.loaded = err == nil
 			p.claude.version = v
@@ -68,16 +61,9 @@ func (p *Page) claudeRow(l *widget.List) {
 
 // updateClaude 在这台主机上跑 claude update 或 agy update，最多几分钟。
 func (p *Page) updateClaude() {
-	agy := p.isAgy()
 	p.claude.updating, p.claude.note = true, ""
 	p.async(func(ctx context.Context) func() {
-		var u coreapi.ClaudeUpdate
-		var err error
-		if agy {
-			u, err = p.opts.Core.UpdateAgy(ctx)
-		} else {
-			u, err = p.opts.Core.UpdateClaude(ctx)
-		}
+		u, err := p.opts.Core.UpdateCLI(ctx)
 		return func() {
 			p.claude.updating = false
 			if err != nil {

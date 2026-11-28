@@ -17,32 +17,33 @@ import (
 	"github.com/egoist/mygo/ui"
 )
 
+// toolEditState 是设备页上单个工具（Claude Code 或 Antigravity）的配置页和模型来源状态。
+type toolEditState struct {
+	cfg    *claudecfg.Page
+	loaded bool
+	models *modelSource // 配置页显示的模型来源
+	probed *modelSource // 本次打开首页已经向该工具要过清单的来源
+	fed    *modelFeed   // 上次交给配置页的模型来源
+}
+
 // editing 是一台设备的页面上的状态。
 type editing struct {
-	loaded       bool            // 已加载设备首页；直达子页时不读首页数据
-	tool         string          // 当前正在查看/编辑的工具（"claude" 或 "agy"）
-	cfgClaude    *claudecfg.Page // Claude Code 配置页实例
-	cfgAgy       *claudecfg.Page // Antigravity 配置页实例
-	loadedClaude bool
-	loadedAgy    bool
-	remote       *hub.Remote   // 配置页绑定的设备连接
-	models       *modelSource  // Claude 配置页显示的模型来源
-	probed       *modelSource  // 本次打开首页已经向 Claude Code 要过清单的来源
-	fed          *modelFeed    // 上次交给 Claude 配置页的模型来源
-	modelsAgy    *modelSource  // Antigravity 配置页显示的模型来源
-	probedAgy    *modelSource  // 本次打开首页已经向 Antigravity 要过清单的来源
-	fedAgy       *modelFeed    // 上次交给 Antigravity 配置页的模型来源
-	name         string        // 名称输入框
-	cwd          string        // 默认工作目录输入框
-	checking     bool          // 正在检查连接
-	check        func() string // 上次检查的结果（显示时出字），没有时为 nil
-	changing     bool          // 正在试着改用另一把私钥
-	changedKey   string        // 检查时发现对方现在的主机公钥（和记下的不一样），等用户决定认不认
-	trusting     bool          // 正问着认不认新的指纹
-	removing     bool          // 正问着删不删
-	cutting      bool          // 正问着断不断开（那台上有对话在进行）
-	naming       bool          // 正在改名（对话框开着）
-	moving       bool          // 正在改默认工作目录（对话框开着）
+	loaded     bool          // 已加载设备首页；直达子页时不读首页数据
+	tool       string        // 当前正在查看/编辑的工具（"claude" 或 "agy"）
+	claude     toolEditState // Claude Code 配置页状态
+	agy        toolEditState // Antigravity 配置页状态
+	remote     *hub.Remote   // 配置页绑定的设备连接
+	name       string        // 名称输入框
+	cwd        string        // 默认工作目录输入框
+	checking   bool          // 正在检查连接
+	check      func() string // 上次检查的结果（显示时出字），没有时为 nil
+	changing   bool          // 正在试着改用另一把私钥
+	changedKey string        // 检查时发现对方现在的主机公钥（和记下的不一样），等用户决定认不认
+	trusting   bool          // 正问着认不认新的指纹
+	removing   bool          // 正问着删不删
+	cutting    bool          // 正问着断不断开（那台上有对话在进行）
+	naming     bool          // 正在改名（对话框开着）
+	moving     bool          // 正在改默认工作目录（对话框开着）
 	// 改默认工作目录时先到设备上核对（moveCwd）：verifying 是正在核对，cwdProblem 是 cwdChecked 那个目录进不去的原因；
 	// 核对不了（连不上）时 unchecked 问用户仍然保存 pendingCwd 吗，uncheckedWhy 是连不上的原因。cwdRound 每开一次对话框、
 	// 每核对一次加一，对不上的结果是过时的，不用。
@@ -55,11 +56,11 @@ type editing struct {
 	cwdRound     int
 }
 
-func (e *editing) toolModelState(tool string) (**modelSource, **modelSource, **modelFeed) {
+func (e *editing) toolState(tool string) *toolEditState {
 	if sessionproto.NormalizeHarness(tool) == sessionproto.HarnessAgy {
-		return &e.modelsAgy, &e.probedAgy, &e.fedAgy
+		return &e.agy
 	}
-	return &e.models, &e.probed, &e.fed
+	return &e.claude
 }
 
 func (a *App) editTool(id string) string {
@@ -78,30 +79,18 @@ func (a *App) startEditing() {
 }
 
 func (a *App) ensureActiveCfgLoaded() {
-	if a.cfg == nil {
+	ts := a.edit.toolState(a.edit.tool)
+	if ts.cfg == nil || ts.loaded {
 		return
 	}
-	if a.cfg == a.edit.cfgAgy {
-		if !a.edit.loadedAgy {
-			a.edit.loadedAgy = true
-			a.cfg.Load()
-		}
-		return
-	}
-	if !a.edit.loadedClaude {
-		a.edit.loadedClaude = true
-		a.cfg.Load()
-	}
+	ts.loaded = true
+	ts.cfg.Load()
 }
 
 func (a *App) selectDeviceTool(x sshlink.Host, tool string) {
 	h := sessionproto.NormalizeHarness(tool)
 	a.edit.tool = h
-	if h == sessionproto.HarnessAgy {
-		a.cfg = a.edit.cfgAgy
-	} else {
-		a.cfg = a.edit.cfgClaude
-	}
+	a.cfg = a.edit.toolState(h).cfg
 	if a.edit.loaded {
 		a.ensureActiveCfgLoaded()
 		if r := a.hub.Remote(x.ID); r != nil {
@@ -116,7 +105,7 @@ func (a *App) selectDeviceTool(x sshlink.Host, tool string) {
 	}
 }
 
-func (a *App) loadDeviceHome(x sshlink.Host) {
+func (a *App) loadDeviceHome() {
 	if !a.edit.loaded {
 		a.edit.loaded = true
 		a.async(func() func() {
@@ -146,7 +135,7 @@ func (a *App) devicePage(c *ui.Context) {
 		a.cfg.SubPage(c)
 		return
 	}
-	a.loadDeviceHome(x)
+	a.loadDeviceHome()
 	a.syncDeviceModels(x)
 	widget.Header(c, x.Name(), nil)
 	widget.Body(c, "device", func() {

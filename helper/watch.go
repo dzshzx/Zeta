@@ -208,8 +208,7 @@ func (w *sessionWatch) wantedDirs() map[string]uint32 {
 		dirs = append(dirs, joinPath(e.root, project))
 	}
 	brainRoot := joinPath(e.agy, "brain")
-	for _, id := range globNames(brainRoot, true, nil) {
-		bdir := joinPath(brainRoot, id)
+	for _, bdir := range recentBrainDirs(brainRoot, listLimit) {
 		dirs = append(dirs, bdir, joinPath(bdir, ".system_generated/logs"))
 	}
 	want := map[string]uint32{}
@@ -228,6 +227,32 @@ func (w *sessionWatch) wantedDirs() map[string]uint32 {
 		}
 	}
 	return want
+}
+
+// recentBrainDirs 返回 brainRoot 下按修改时间最新的 limit 个会话目录，避免历史与子代理目录耗尽 inotify watch。
+func recentBrainDirs(brainRoot string, limit int) []string {
+	ids := globNames(brainRoot, true, nil)
+	if len(ids) == 0 {
+		return nil
+	}
+	type timed struct {
+		dir   string
+		mtime float64
+	}
+	list := make([]timed, 0, len(ids))
+	for _, id := range ids {
+		d := joinPath(brainRoot, id)
+		list = append(list, timed{dir: d, mtime: mtimeFollow(d)})
+	}
+	sort.Slice(list, func(i, j int) bool { return list[i].mtime > list[j].mtime })
+	if len(list) > limit {
+		list = list[:limit]
+	}
+	out := make([]string, len(list))
+	for i, it := range list {
+		out[i] = it.dir
+	}
+	return out
 }
 
 // existingParent 是 p 最近的、已经在的上级目录，不出 home；都不在时为空串。

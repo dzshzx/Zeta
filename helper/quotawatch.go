@@ -7,7 +7,6 @@ import (
 	"sync"
 
 	"github.com/dzshzx/Zeta/helper/accounts"
-	"github.com/dzshzx/Zeta/helper/agyacct"
 	"github.com/dzshzx/Zeta/helper/core"
 	"github.com/dzshzx/Zeta/helper/sessionproto"
 )
@@ -38,30 +37,22 @@ type quotaPush struct {
 }
 
 func newQuotaWatch(e *env) *quotaWatch {
-	claudeStore := accounts.QuotaStore{Home: e.home}
-	agyStore := agyacct.QuotaStore{Home: e.home}
 	return &quotaWatch{
-		claude: quotaBucket{
-			harness: sessionproto.HarnessClaude,
-			clients: map[*core.Client]bool{},
-			read: func() (*accounts.Snapshot, string, error) {
-				if r := accounts.CurrentRelay(e.home); r != "" {
-					return nil, r, nil
-				}
-				s, err := claudeStore.Get()
-				return s, "", err
-			},
-		},
-		agy: quotaBucket{
-			harness: sessionproto.HarnessAgy,
-			clients: map[*core.Client]bool{},
-			read: func() (*accounts.Snapshot, string, error) {
-				if r := agyacct.CurrentRelay(e.home); r != "" {
-					return nil, r, nil
-				}
-				s, err := agyStore.Get()
-				return s, "", err
-			},
+		claude: newQuotaBucket(quotaBackendFor(e, sessionproto.HarnessClaude)),
+		agy:    newQuotaBucket(quotaBackendFor(e, sessionproto.HarnessAgy)),
+	}
+}
+
+func newQuotaBucket(b quotaBackend) quotaBucket {
+	return quotaBucket{
+		harness: b.harness,
+		clients: map[*core.Client]bool{},
+		read: func() (*accounts.Snapshot, string, error) {
+			if r := b.currentRelay(); r != "" {
+				return nil, r, nil
+			}
+			s, err := b.store.Get()
+			return s, "", err
 		},
 	}
 }

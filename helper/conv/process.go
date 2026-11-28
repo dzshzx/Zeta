@@ -116,16 +116,7 @@ const imagesHint = "When the user attaches image files ([Attached file: ...] lin
 	"after any other inline images and in the same order as those lines. If the inline copy is not enough for the task (small text, fine detail, exact pixels, metadata), " +
 	"read the original file with the Read tool or other tools instead of guessing."
 
-// launchArgs 是起 Claude Code 进程的参数。没指定模型时不带 --model：接着已有会话时 Claude Code 照记录用原来的模型；
-// 终端里换过模型、之后还没有回答的指定换成的那个。
-func (c *Conversation) launchArgs(mode string, o Options) []string {
-	if c.isAgy() {
-		return c.agyLaunchArgs(mode, o)
-	}
-	args := []string{"-p", "--input-format", "stream-json", "--output-format", "stream-json", "--verbose",
-		"--include-partial-messages", "--permission-prompt-tool", "stdio"}
-	// 接着原会话；分支则从原会话复制出新会话（发出第一条消息时才写出记录）
-	args = append(args, c.sessionArgs()...)
+func (c *Conversation) appendCommonLaunchArgs(args []string, mode, prompt string) []string {
 	model := c.switchedInTerminal
 	if c.model != nil {
 		model = *c.model
@@ -136,15 +127,28 @@ func (c *Conversation) launchArgs(mode string, o Options) []string {
 	if mode != "" {
 		args = append(args, "--permission-mode", mode)
 	}
-	// 只是允许之后切到完全放行（没有它 set_permission_mode 切不过去），不放行任何东西
-	args = append(args, "--allow-dangerously-skip-permissions")
 	if c.effort != "" {
 		args = append(args, "--effort", c.effort)
 	}
-	prompt := strings.TrimSpace(imagesHint + " " + o.SystemPrompt + " " + c.launchHint)
 	if prompt != "" {
 		args = append(args, "--append-system-prompt", prompt)
 	}
+	return args
+}
+
+// launchArgs 是起 Claude Code 进程的参数。没指定模型时不带 --model：接着已有会话时 Claude Code 照记录用原来的模型；
+// 终端里换过模型、之后还没有回答的指定换成的那个。
+func (c *Conversation) launchArgs(mode string, o Options) []string {
+	if c.isAgy() {
+		return c.agyLaunchArgs(mode, o)
+	}
+	args := []string{"-p", "--input-format", "stream-json", "--output-format", "stream-json", "--verbose",
+		"--include-partial-messages", "--permission-prompt-tool", "stdio"}
+	// 接着原会话；分支则从原会话复制出新会话（发出第一条消息时才写出记录）
+	args = append(args, c.sessionArgs()...)
+	// 只是允许之后切到完全放行（没有它 set_permission_mode 切不过去），不放行任何东西
+	args = append(args, "--allow-dangerously-skip-permissions")
+	args = c.appendCommonLaunchArgs(args, mode, strings.TrimSpace(imagesHint+" "+o.SystemPrompt+" "+c.launchHint))
 	// 手机工具：一个不开端口的 MCP 服务器，消息走控制通道，由声明了 phone 的客户端应答
 	if o.MCPConfig != "" && c.phoneHolder() {
 		args = append(args, "--mcp-config", o.MCPConfig)
@@ -161,24 +165,9 @@ func (c *Conversation) agyLaunchArgs(mode string, o Options) []string {
 	if c.session != "" {
 		args = append(args, "--resume", c.session)
 	}
-	model := c.switchedInTerminal
-	if c.model != nil {
-		model = *c.model
-	}
-	if model != "" {
-		args = append(args, "--model", model)
-	}
-	if mode != "" {
-		args = append(args, "--permission-mode", mode)
-	}
-	if c.effort != "" {
-		args = append(args, "--effort", c.effort)
-	}
+	args = c.appendCommonLaunchArgs(args, mode, strings.TrimSpace(o.SystemPrompt+" "+c.launchHint))
 	if strings.TrimSpace(c.title) != "" {
 		args = append(args, "--title", c.title)
-	}
-	if prompt := strings.TrimSpace(o.SystemPrompt + " " + c.launchHint); prompt != "" {
-		args = append(args, "--append-system-prompt", prompt)
 	}
 	if c.phoneHolder() {
 		args = append(args, "--phone-mcp")

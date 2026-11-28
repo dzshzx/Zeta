@@ -113,9 +113,15 @@ func (s *modelSource) setCatalog(catalog coreapi.ModelCatalog, err error, at tim
 	s.catalog = catalog
 	s.ready, s.pending, s.readAt = err == nil || catalog.Relay != "", false, at
 	s.relay = nil
+	var opts []chat.ModelOption
 	// 中转报的就是具体 ID，它对应的完整 ID 就是它自己（同手机版），之后和 Claude Code 的清单一样按 FullID 取
 	for _, m := range catalog.Models {
-		s.relay = append(s.relay, chat.ModelOption{Value: m.ID, DisplayName: m.DisplayName, ResolvedModel: m.ID})
+		opts = append(opts, chat.ModelOption{Value: m.ID, DisplayName: m.DisplayName, ResolvedModel: m.ID})
+	}
+	if catalog.Relay != "" {
+		s.relay = opts
+	} else if sessionproto.NormalizeHarness(s.tool) == sessionproto.HarnessAgy && len(opts) > 0 && len(s.harness.list) == 0 {
+		s.setHarness(opts)
 	}
 	s.gen++
 }
@@ -190,32 +196,32 @@ func (a *App) syncDeviceModels(x sshlink.Host) {
 		return
 	}
 	tool := a.editTool(x.ID)
-	modelsPtr, probedPtr, fedPtr := a.edit.toolModelState(tool)
-	s := a.modelSourceFor(x.ID, tool, a.edit.remote, *modelsPtr == nil)
-	if prev := *modelsPtr; prev != nil && prev != s {
+	ts := a.edit.toolState(tool)
+	s := a.modelSourceFor(x.ID, tool, a.edit.remote, ts.models == nil)
+	if ts.models != nil && ts.models != s {
 		a.cfg.RefreshDefaults()
 	}
-	*modelsPtr = s
+	ts.models = s
 	available := s.available()
 	if available {
 		if p := a.pane; p != nil && p.src.Backend == x.ID {
 			s.useConversation(p)
 		}
-		a.askHarnessModels(x, s, probedPtr)
+		a.askHarnessModels(x, s, ts)
 	}
-	a.feedDeviceModels(s, available, fedPtr)
+	a.feedDeviceModels(s, available, ts)
 }
 
 // feedDeviceModels 把 s 的模型交给配置页，和上次交的一样时不交。
-func (a *App) feedDeviceModels(s *modelSource, available bool, fedPtr **modelFeed) {
+func (a *App) feedDeviceModels(s *modelSource, available bool, ts *toolEditState) {
 	feed := modelFeed{source: s, available: available}
 	if s != nil {
 		feed.gen, feed.pending, feed.probe = s.gen, s.pending, s.probe
 	}
-	if *fedPtr != nil && **fedPtr == feed {
+	if ts.fed != nil && *ts.fed == feed {
 		return
 	}
-	*fedPtr = &feed
+	ts.fed = &feed
 	switch {
 	case !available:
 		a.cfg.SetModelChoices(nil, claudecfg.ModelSourceUnknown, feed.pending)
@@ -226,11 +232,11 @@ func (a *App) feedDeviceModels(s *modelSource, available bool, fedPtr **modelFee
 	}
 }
 
-func (a *App) askHarnessModels(x sshlink.Host, s *modelSource, probedPtr **modelSource) {
-	if s.catalog.Relay != "" || len(s.harness.list) > 0 || *probedPtr == s {
+func (a *App) askHarnessModels(x sshlink.Host, s *modelSource, ts *toolEditState) {
+	if s.catalog.Relay != "" || len(s.harness.list) > 0 || ts.probed == s {
 		return
 	}
-	*probedPtr = s
+	ts.probed = s
 	if s.probe {
 		return
 	}

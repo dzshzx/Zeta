@@ -65,29 +65,77 @@ const MaxText = 1 << 20
 
 const defaultTimeout = time.Minute
 
+type harnessSpec struct {
+	settingsPath    func(home string) string
+	agentsDir       func(home string) string
+	skillsDir       func(home string) string
+	commonTools     []ToolInfo
+	otherTools      []ToolInfo
+	builtinGroup    func() PermissionGroup
+	protectedMemory func(home, path, name string) bool
+}
+
+var (
+	claudeSpec = harnessSpec{
+		settingsPath: settingsPath,
+		agentsDir:    agentsDir,
+		skillsDir:    func(home string) string { return claudeDir(home) + "/skills" },
+		commonTools:  CommonTools,
+		otherTools:   OtherTools,
+		builtinGroup: BuiltinGroup,
+		protectedMemory: func(home, path, name string) bool {
+			return name == "MEMORY.md" || path == instructions(home)
+		},
+	}
+	agySpec = harnessSpec{
+		settingsPath: agySettingsPath,
+		agentsDir:    agyAgentsDir,
+		skillsDir:    agySkillsDir,
+		commonTools:  AgyCommonTools,
+		otherTools:   AgyOtherTools,
+		builtinGroup: AgyBuiltinGroup,
+		protectedMemory: func(home, path, name string) bool {
+			return name == "MEMORY.md" || name == "AGENTS.md" || name == "GEMINI.md" || path == instructions(home)
+		},
+	}
+)
+
 // Store 是家目录 home 下的 Claude Code 或 Antigravity（agy）配置。
 type Store struct {
 	home    string
 	lang    string // 结果里 Zeta 自己写的说明（工具权限页的工具说明）用这个语言，见 In
 	harness string // "claude"（默认）或 "agy"
+	spec    *harnessSpec
 }
 
 // New 是家目录 home 下的配置（默认 Claude Code）。
-func New(home string) *Store { return &Store{home: strings.TrimRight(home, "/")} }
+func New(home string) *Store {
+	return &Store{home: strings.TrimRight(home, "/"), harness: "claude", spec: &claudeSpec}
+}
+
+func (s *Store) activeSpec() *harnessSpec {
+	if s.spec != nil {
+		return s.spec
+	}
+	if s.harness == "agy" {
+		return &agySpec
+	}
+	return &claudeSpec
+}
 
 // In 是同一份配置，结果里 Zeta 自己写的说明用语言 lang（发请求的客户端的语言，core.Client.Lang）。出错不用它：
 // 出错是 *locales.Error，由核心按连接的语言出字。
 func (s *Store) In(lang string) *Store {
-	return &Store{home: s.home, lang: lang, harness: s.harness}
+	return &Store{home: s.home, lang: lang, harness: s.harness, spec: s.activeSpec()}
 }
 
 // ForHarness 返回读写指定 harness（"claude" 或 "agy"）配置的 Store。
 func (s *Store) ForHarness(harness string) *Store {
-	h := "claude"
+	h, spec := "claude", &claudeSpec
 	if strings.TrimSpace(harness) == "agy" {
-		h = "agy"
+		h, spec = "agy", &agySpec
 	}
-	return &Store{home: s.home, lang: s.lang, harness: h}
+	return &Store{home: s.home, lang: s.lang, harness: h, spec: spec}
 }
 
 // IsAgy 判断当前 Store 是否面向 Antigravity CLI。
@@ -100,8 +148,6 @@ func (s *Store) Home() string {
 	}
 	return s.home
 }
-
-func (s *Store) claudeDir() string { return claudeDir(s.Home()) }
 
 // Document 是读到的一个文本文件。SHA 是读到时内容的 sha256，写回时用它判断中间有没有被别人改过；文件不存在时为空。
 type Document struct {

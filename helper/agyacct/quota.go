@@ -101,17 +101,14 @@ func (s QuotaStore) Usage(raw []byte, now time.Time) (accounts.Snapshot, bool, e
 	if err != nil {
 		return accounts.Snapshot{}, false, err
 	}
-	if prev != nil {
-		if !parsed.Unavailable && len(parsed.Windows) == 0 && len(prev.Windows) > 0 {
-			return *prev, false, nil
-		}
-		parsed.Blocked, parsed.BlockedUntil = prev.Blocked, prev.BlockedUntil
+	merged, fresh := accounts.MergeUsage(prev, parsed, now)
+	if !fresh {
+		return merged, false, nil
 	}
-	parsed = parsed.At(now)
-	if err := s.save(fp, parsed); err != nil {
+	if err := s.save(fp, merged); err != nil {
 		return accounts.Snapshot{}, false, err
 	}
-	return parsed, true, nil
+	return merged, true, nil
 }
 
 // Event 将一条 rate_limit_event 并入当前 agy 账号额度。
@@ -143,29 +140,29 @@ func (s QuotaStore) save(fp string, snap accounts.Snapshot) error {
 	if err != nil {
 		return err
 	}
-	if err := writeFileAtomic(s.slotPath(fp), data, 0o600); err != nil {
+	if err := accounts.WriteFileAtomic(s.slotPath(fp), data, 0o600); err != nil {
 		return err
 	}
-	return writeFileAtomic(s.activePath(), data, 0o600)
+	return accounts.WriteFileAtomic(s.activePath(), data, 0o600)
 }
 
 func syncQuotaCache(home string) {
 	s := QuotaStore{Home: home}
 	if CurrentRelay(home) != "" {
-		_ = removed(s.activePath())
+		_ = accounts.Removed(s.activePath())
 		return
 	}
 	fp, ok := fileFingerprint(oauthTokenPath(home))
 	if !ok {
-		_ = removed(s.activePath())
+		_ = accounts.Removed(s.activePath())
 		return
 	}
 	data, err := os.ReadFile(s.slotPath(fp))
 	if err != nil {
-		_ = removed(s.activePath())
+		_ = accounts.Removed(s.activePath())
 		return
 	}
-	_ = writeFileAtomic(s.activePath(), data, 0o600)
+	_ = accounts.WriteFileAtomic(s.activePath(), data, 0o600)
 }
 
 // ---------- agy /usage 与 /credits 真实额度查询 ----------

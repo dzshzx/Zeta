@@ -29,6 +29,7 @@ type agentsState struct {
 type agentDraft struct {
 	name, description, model, prompt string
 	allTools                         bool
+	builtins                         []option
 	checked                          map[string]bool
 	others                           string
 }
@@ -91,7 +92,7 @@ func isInToolList(list []option, name string) bool {
 }
 
 func draftOfTools(a *coreapi.Subagent, list []option) agentDraft {
-	d := agentDraft{allTools: true, checked: map[string]bool{}}
+	d := agentDraft{allTools: true, builtins: list, checked: map[string]bool{}}
 	if a == nil {
 		return d
 	}
@@ -110,12 +111,12 @@ func draftOfTools(a *coreapi.Subagent, list []option) agentDraft {
 }
 
 // tools 是要写进文件的工具：勾选的常用工具按固定顺序，再加“其他工具”里用逗号分开的；nil 是全部工具。
-func (d agentDraft) tools(list []option) []string {
+func (d agentDraft) tools() []string {
 	if d.allTools {
 		return nil
 	}
 	out := []string{}
-	for _, t := range list {
+	for _, t := range d.builtins {
 		if d.checked[t.value] {
 			out = append(out, t.value)
 		}
@@ -196,7 +197,7 @@ func (p *Page) openAgent(a *coreapi.Subagent) {
 func (p *Page) saveAgent() {
 	a := &p.agents
 	d := a.draft
-	draft := coreapi.SubagentDraft{Name: strings.TrimSpace(d.name), Description: strings.TrimSpace(d.description), Model: d.model, Tools: d.tools(p.agentToolList()), Prompt: d.prompt}
+	draft := coreapi.SubagentDraft{Name: strings.TrimSpace(d.name), Description: strings.TrimSpace(d.description), Model: d.model, Tools: d.tools(), Prompt: d.prompt}
 	original := a.editing
 	a.saving, a.problem = true, ""
 	p.async(func(ctx context.Context) func() {
@@ -217,8 +218,7 @@ func (p *Page) agentPage(c *ui.Context) {
 	a := &p.agents
 	d := &a.draft
 	missing := d.missing()
-	toolsList := p.agentToolList()
-	dirty := a.editing == nil || !agentDraftEqual(*d, draftOfTools(a.editing, toolsList), toolsList)
+	dirty := a.editing == nil || !agentDraftEqual(*d, draftOfTools(a.editing, d.builtins))
 	title := locales.ClaudecfgAgentNew()
 	if a.editing != nil {
 		title = locales.ClaudecfgAgentEdit()
@@ -269,9 +269,9 @@ func (p *Page) agentPage(c *ui.Context) {
 	p.agentDialogs(c)
 }
 
-func agentDraftEqual(a, b agentDraft, list []option) bool {
+func agentDraftEqual(a, b agentDraft) bool {
 	return a.name == b.name && a.description == b.description && a.model == b.model && a.prompt == b.prompt &&
-		slices.Equal(a.tools(list), b.tools(list))
+		slices.Equal(a.tools(), b.tools())
 }
 
 // agentModelSection 选模型；文件里写的不在选项里时加在最后，原样保留。
@@ -305,7 +305,7 @@ func (p *Page) agentToolsSection(c *ui.Context) {
 		if d.allTools {
 			return
 		}
-		for _, tool := range p.agentToolList() {
+		for _, tool := range d.builtins {
 			on := d.checked[tool.value]
 			row := widget.Row{Key: "tool-" + tool.value, Title: tool.label(), Summary: tool.value, End: func() { widget.MarkLook(c, widget.MarkCheck, on) }}
 			if !saving {

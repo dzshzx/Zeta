@@ -289,8 +289,8 @@ func relays(home string, names []string, current string) []Relay {
 	return out
 }
 
-// validBaseURL 核对中转地址：http(s)、有主机、不带用户名密码。
-func validBaseURL(raw string) error {
+// ValidBaseURL 核对中转地址：http(s)、有主机、不带用户名密码。
+func ValidBaseURL(raw string) error {
 	u, err := url.Parse(strings.TrimSpace(raw))
 	if err != nil || (u.Scheme != "http" && u.Scheme != "https") || u.Host == "" || u.User != nil {
 		return locales.Err("errRelayURL")
@@ -298,26 +298,31 @@ func validBaseURL(raw string) error {
 	return nil
 }
 
+func validBaseURL(raw string) error { return ValidBaseURL(raw) }
+
 // validRelay 核对名字、地址、密钥和模型；出错是给用户看的那句。
 func validRelay(in RelayInput) error {
 	if !account.Valid(in.Name) || in.Name == builtin {
 		return locales.Err("errRelayName")
 	}
-	if err := validBaseURL(in.BaseURL); err != nil {
+	if err := ValidBaseURL(in.BaseURL); err != nil {
 		return err
 	}
 	if strings.ContainsAny(in.Key, " \t\r\n") {
 		return locales.Err("errRelayKey")
 	}
-	return validRelayModel(in.Model)
+	return ValidRelayModel(in.Model)
 }
 
-func validRelayModel(model string) error {
+// ValidRelayModel 核对中转默认模型名长度与合法字符。
+func ValidRelayModel(model string) error {
 	if len(model) > 200 || strings.ContainsFunc(model, func(r rune) bool { return unicode.IsSpace(r) || unicode.IsControl(r) }) {
 		return locales.Err("errRelayModel")
 	}
 	return nil
 }
+
+func validRelayModel(model string) error { return ValidRelayModel(model) }
 
 // SaveRelay 添加或修改一个中转（见 RelayInput）。正在用的中转改了，之后起的对话进程才用上。
 func (h *Host) SaveRelay(ctx context.Context, in RelayInput) error {
@@ -449,11 +454,13 @@ func (h *Host) RemoveRelay(ctx context.Context, name string) error {
 	return nil
 }
 
-// removed 删掉 path，本来就不在也算删了。
-func removed(path string) bool {
+// Removed 删掉 path，本来就不在也算删了。
+func Removed(path string) bool {
 	err := os.Remove(path)
 	return err == nil || errors.Is(err, fs.ErrNotExist)
 }
+
+func removed(path string) bool { return Removed(path) }
 
 // keyShared 是除 name 以外还有中转的 apiKeyHelper 读 key 这个文件。
 func keyShared(home string, relays []Relay, name, key string) bool {
@@ -468,8 +475,8 @@ func keyShared(home string, relays []Relay, name, key string) bool {
 	return false
 }
 
-// writeFileAtomic 先写同目录的临时文件（权限 mode）、落盘，再改名成 path；目录不在时按 0700 建。
-func writeFileAtomic(path string, data []byte, mode os.FileMode) error {
+// WriteFileAtomic 先写同目录的临时文件（权限 mode）、落盘，再改名成 path；目录不在时按 0700 建。
+func WriteFileAtomic(path string, data []byte, mode os.FileMode) error {
 	dir := filepath.Dir(path)
 	if err := os.MkdirAll(dir, 0o700); err != nil {
 		return err
@@ -495,4 +502,8 @@ func writeFileAtomic(path string, data []byte, mode os.FileMode) error {
 		return err
 	}
 	return os.Rename(tmp.Name(), path)
+}
+
+func writeFileAtomic(path string, data []byte, mode os.FileMode) error {
+	return WriteFileAtomic(path, data, mode)
 }

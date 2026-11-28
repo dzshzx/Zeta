@@ -165,7 +165,7 @@ func (r *mcpRelay) forwardMessage(rawMsg []byte, writeBack func([]byte)) {
 	}()
 }
 
-func (r *mcpRelay) handleReply(reqID string, mcpResp json.RawMessage) bool {
+func (r *mcpRelay) handleReply(reqID string, mcpResp json.RawMessage) {
 	r.mu.Lock()
 	ch, ok := r.waiting[reqID]
 	delete(r.waiting, reqID)
@@ -173,7 +173,6 @@ func (r *mcpRelay) handleReply(reqID string, mcpResp json.RawMessage) bool {
 	if ok && ch != nil {
 		ch <- mcpResp
 	}
-	return ok
 }
 
 func (r *mcpRelay) close() {

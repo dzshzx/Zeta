@@ -136,14 +136,12 @@ held_elsewhere() {
 held_elsewhere_agy() {
   local agy_dir="${ZETA_AGY_DIR:-$HOME/.gemini/antigravity-cli}"
   local lock_path="$agy_dir/presence/$1.lock"
-  local resolved fd pid target m
+  [ -e "$lock_path" ] || return 1
+  local resolved fd pid m
   local -a STAT
   resolved=$(readlink -f "$lock_path" 2>/dev/null) || resolved="$lock_path"
-  for fd in /proc/[0-9]*/fd/*; do
-    [ -L "$fd" ] || continue
-    target=$(readlink "$fd" 2>/dev/null) || continue
-    target=${target% (deleted)}
-    [ "$target" = "$lock_path" ] || [ "$target" = "$resolved" ] || continue
+  while IFS= read -r fd; do
+    [ -n "$fd" ] || continue
     pid=${fd#/proc/}
     pid=${pid%%/*}
     [ "$pid" = "$$" ] && continue
@@ -152,7 +150,7 @@ held_elsewhere_agy() {
     m=$(host_mark "$pid")
     [ "${m%%/*}" = "${ZETA_NAME:-zeta}" ] && [ "$(host_session "${D%/*}/${m#*/}")" = "$1" ] && continue
     return 0
-  done
+  done < <(find /proc/[0-9]*/fd -maxdepth 1 \( -lname "$lock_path" -o -lname "$lock_path (deleted)" -o -lname "$resolved" -o -lname "$resolved (deleted)" \) 2>/dev/null)
   return 1
 }
 

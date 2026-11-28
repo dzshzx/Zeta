@@ -51,30 +51,34 @@ internal fun InstallCliRow(
     )
 }
 
-/** Linux 环境页的「Antigravity CLI」一组：版本、安装或更新、账号。 */
+/** Linux 环境页的单个 CLI（Claude Code / Antigravity CLI）一组：版本、安装或更新、账号与可选的退出登录。 */
 @Composable
-internal fun AgyGroup(
-    hub: ConversationHub,
-    health: EnvHealth?,
+internal fun CliEnvGroup(
+    title: String,
+    version: String?,
+    missing: Boolean,
+    account: AccountStatus?,
     maintenanceRunning: Boolean,
+    updateEnabled: Boolean,
+    onInstall: () -> Unit,
+    onUpdate: () -> Unit,
     onOpenLogin: () -> Unit,
+    onLogout: (() -> Unit)? = null,
 ) {
-    val installed = health?.agy?.isNotBlank() == true
-    val account = hub.environment.agyAccount
-    PreferenceGroup(title = "Antigravity CLI") {
+    PreferenceGroup(title = title) {
         item {
             ValueRow(
                 Strings.setupVersion(),
-                health?.agy?.ifBlank { Strings.setupNotInstalled() } ?: "…",
+                version?.ifBlank { Strings.setupNotInstalled() } ?: "…",
             )
         }
-        if (health != null && !installed) {
+        if (missing) {
             item {
                 BasicComponent(
                     title = Strings.setupInstallNow(),
                     summary = Strings.setupInstallNowSummary(),
                     enabled = !maintenanceRunning,
-                    onClick = hub.environment::installAgy,
+                    onClick = onInstall,
                 )
             }
         } else {
@@ -82,8 +86,8 @@ internal fun AgyGroup(
                 BasicComponent(
                     title = Strings.setupUpdate(),
                     summary = Strings.setupUpdateLatest(),
-                    enabled = !maintenanceRunning && health != null,
-                    onClick = hub.environment::updateAgy,
+                    enabled = updateEnabled,
+                    onClick = onUpdate,
                 )
             }
             item {
@@ -93,8 +97,38 @@ internal fun AgyGroup(
                     onClick = onOpenLogin,
                 )
             }
+            if (onLogout != null && account?.loggedIn == true && account.relay == null) {
+                item {
+                    BasicComponent(
+                        title = Strings.setupLogout(),
+                        enabled = !maintenanceRunning,
+                        onClick = onLogout,
+                    )
+                }
+            }
         }
     }
+}
+
+/** Linux 环境页的「Antigravity CLI」一组：版本、安装或更新、账号。 */
+@Composable
+internal fun AgyGroup(
+    hub: ConversationHub,
+    health: EnvHealth?,
+    maintenanceRunning: Boolean,
+    onOpenLogin: () -> Unit,
+) {
+    CliEnvGroup(
+        title = "Antigravity CLI",
+        version = health?.agy,
+        missing = health != null && health.agy.isBlank(),
+        account = hub.environment.agyAccount,
+        maintenanceRunning = maintenanceRunning,
+        updateEnabled = !maintenanceRunning && health != null,
+        onInstall = hub.environment::installAgy,
+        onUpdate = hub.environment::updateAgy,
+        onOpenLogin = onOpenLogin,
+    )
 }
 
 internal fun cliAccountSummary(account: AccountStatus?): String =

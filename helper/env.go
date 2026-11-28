@@ -7,6 +7,8 @@ import (
 	"os"
 	"os/user"
 	"strings"
+
+	"github.com/dzshzx/Zeta/helper/agystore"
 )
 
 // env 是各命令要用的路径。Claude Code 的会话两个包共用；Zeta 自己的目录按包分开
@@ -37,10 +39,7 @@ func newEnv() *env {
 
 func newEnvAt(home, name string) *env {
 	home = strings.TrimRight(home, "/")
-	agy := home + "/.gemini/antigravity-cli"
-	if override := strings.TrimSpace(os.Getenv("ZETA_AGY_DIR")); override != "" {
-		agy = strings.TrimRight(override, "/")
-	}
+	agy := strings.TrimRight(agystore.Dir(home), "/")
 	return &env{
 		home:     home,
 		name:     name,

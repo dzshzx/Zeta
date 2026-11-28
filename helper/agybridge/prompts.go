@@ -3,6 +3,7 @@ package agybridge
 import (
 	"cmp"
 	"encoding/json"
+	"slices"
 	"strconv"
 	"strings"
 )
@@ -87,15 +88,7 @@ func (b *bridge) onPermissionRequest(rpcID json.RawMessage, rawParams json.RawMe
 			},
 		}
 	}
-	wireMap := map[string]any{"type": "control_request", "request_id": reqID, "request": reqBody}
-	wireBytes, _ := json.Marshal(wireMap)
-
-	b.mu.Lock()
-	b.prompts[reqID] = &pendingPrompt{reqID: reqID, rpcID: rpcID, kind: "permission", options: p.Options, wireLine: wireBytes}
-	b.promptOrder = append(b.promptOrder, reqID)
-	b.mu.Unlock()
-
-	b.emitRaw(wireBytes)
+	b.registerPrompt(reqID, "permission", rpcID, p.Options, reqBody)
 }
 
 func (b *bridge) onElicitationRequest(rpcID json.RawMessage, rawParams json.RawMessage) {
@@ -119,27 +112,28 @@ func (b *bridge) onElicitationRequest(rpcID json.RawMessage, rawParams json.RawM
 	if len(p.RequestedSchema) > 0 {
 		reqBody["requested_schema"] = p.RequestedSchema
 	}
+	b.registerPrompt(reqID, "elicitation", rpcID, nil, reqBody)
+}
+
+func (b *bridge) registerPrompt(reqID, kind string, rpcID json.RawMessage, opts []acpPermOpt, reqBody map[string]any) {
 	wireMap := map[string]any{"type": "control_request", "request_id": reqID, "request": reqBody}
 	wireBytes, _ := json.Marshal(wireMap)
-
 	b.mu.Lock()
-	b.prompts[reqID] = &pendingPrompt{reqID: reqID, rpcID: rpcID, kind: "elicitation", wireLine: wireBytes}
-	b.promptOrder = append(b.promptOrder, reqID)
+	b.prompts = append(b.prompts, &pendingPrompt{reqID: reqID, rpcID: rpcID, kind: kind, options: opts, wireLine: wireBytes})
 	b.mu.Unlock()
-
 	b.emitRaw(wireBytes)
 }
 
-func (b *bridge) handlePromptResponse(reqID string, resp json.RawMessage) bool {
+func (b *bridge) handlePromptResponse(reqID string, resp json.RawMessage) {
 	b.mu.Lock()
-	pp, ok := b.prompts[reqID]
-	if ok {
-		delete(b.prompts, reqID)
-		b.removePromptOrderLocked(reqID)
+	var pp *pendingPrompt
+	if idx := slices.IndexFunc(b.prompts, func(p *pendingPrompt) bool { return p.reqID == reqID }); idx >= 0 {
+		pp = b.prompts[idx]
+		b.prompts = slices.Delete(b.prompts, idx, idx+1)
 	}
 	b.mu.Unlock()
-	if !ok {
-		return false
+	if pp == nil {
+		return
 	}
 	if pp.kind == "elicitation" {
 		var el struct {
@@ -152,7 +146,7 @@ func (b *bridge) handlePromptResponse(reqID string, resp json.RawMessage) bool {
 			res["content"] = el.Content
 		}
 		_ = b.acp.reply(pp.rpcID, res)
-		return true
+		return
 	}
 
 	var perm struct {
@@ -169,11 +163,11 @@ func (b *bridge) handlePromptResponse(reqID string, resp json.RawMessage) bool {
 			}
 		}
 		_ = b.acp.reply(pp.rpcID, map[string]any{"outcome": map[string]any{"outcome": "selected", "optionId": optID}})
-		return true
+		return
 	}
 	if perm.Interrupt {
 		_ = b.acp.reply(pp.rpcID, map[string]any{"outcome": map[string]any{"outcome": "cancelled"}})
-		return true
+		return
 	}
 	rejID := pickPermOption(pp.options, "reject_once", "reject_always")
 	if rejID != "" {
@@ -181,28 +175,21 @@ func (b *bridge) handlePromptResponse(reqID string, resp json.RawMessage) bool {
 	} else {
 		_ = b.acp.reply(pp.rpcID, map[string]any{"outcome": map[string]any{"outcome": "cancelled"}})
 	}
-	return true
 }
 
 func (b *bridge) cancelPendingPrompts() {
 	b.mu.Lock()
-	order := b.promptOrder
 	prompts := b.prompts
-	b.promptOrder = nil
-	b.prompts = map[string]*pendingPrompt{}
+	b.prompts = nil
 	b.mu.Unlock()
 
-	for _, id := range order {
-		pp := prompts[id]
-		if pp == nil {
-			continue
-		}
+	for _, pp := range prompts {
 		if pp.kind == "elicitation" {
 			_ = b.acp.reply(pp.rpcID, map[string]any{"action": "cancel"})
 		} else {
 			_ = b.acp.reply(pp.rpcID, map[string]any{"outcome": map[string]any{"outcome": "cancelled"}})
 		}
-		b.emit(map[string]any{"type": "control_cancel_request", "request_id": id})
+		b.emit(map[string]any{"type": "control_cancel_request", "request_id": pp.reqID})
 	}
 }
 
@@ -210,22 +197,12 @@ func (b *bridge) pendingPermissionSnapshot() []json.RawMessage {
 	b.mu.Lock()
 	defer b.mu.Unlock()
 	out := []json.RawMessage{}
-	for _, id := range b.promptOrder {
-		if pp := b.prompts[id]; pp != nil && pp.kind == "permission" {
+	for _, pp := range b.prompts {
+		if pp.kind == "permission" {
 			out = append(out, pp.wireLine)
 		}
 	}
 	return out
-}
-
-func (b *bridge) removePromptOrderLocked(reqID string) {
-	kept := b.promptOrder[:0]
-	for _, id := range b.promptOrder {
-		if id != reqID {
-			kept = append(kept, id)
-		}
-	}
-	b.promptOrder = kept
 }
 
 func pickPermOption(opts []acpPermOpt, kinds ...string) string {

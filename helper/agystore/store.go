@@ -96,6 +96,20 @@ var dbCache struct {
 	entries map[string]dbCacheEntry
 }
 
+var (
+	sqliteBinOnce sync.Once
+	sqliteBinPath string
+)
+
+func sqlite3Path() string {
+	sqliteBinOnce.Do(func() {
+		if p, err := exec.LookPath("sqlite3"); err == nil {
+			sqliteBinPath = p
+		}
+	})
+	return sqliteBinPath
+}
+
 func readDBRows(agyDir string) map[string]dbSummaryRow {
 	dbPath := filepath.Join(agyDir, "conversation_summaries.db")
 	dbSize, dbMtime, ok := statSig(dbPath)
@@ -114,9 +128,6 @@ func readDBRows(agyDir string) map[string]dbSummaryRow {
 	dbCache.mu.Unlock()
 
 	rows := querySQLiteSummaries(dbPath)
-	if rows == nil {
-		return nil
-	}
 	dbCache.mu.Lock()
 	dbCache.entries[dbPath] = dbCacheEntry{dbSize: dbSize, dbMtime: dbMtime, walSize: walSize, walMtime: walMtime, rows: rows}
 	dbCache.mu.Unlock()
@@ -138,8 +149,8 @@ func statSig(path string) (int64, int64, bool) {
 }
 
 func querySQLiteSummaries(dbPath string) map[string]dbSummaryRow {
-	sqliteBin, err := exec.LookPath("sqlite3")
-	if err != nil {
+	sqliteBin := sqlite3Path()
+	if sqliteBin == "" {
 		return nil
 	}
 	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
@@ -248,6 +259,37 @@ func ListedTranscriptFiles(agyDir string) []string {
 	return paths
 }
 
+// HasSessionData 判断 agyDir 下是否存在该会话的本地数据（brain、annotations 或 conversations）。
+func HasSessionData(agyDir, id string) bool {
+	if !IsSessionID(id) {
+		return false
+	}
+	if lstatExists(filepath.Join(agyDir, "brain", id)) || lstatExists(AnnotationPath(agyDir, id)) {
+		return true
+	}
+	base := filepath.Join(agyDir, "conversations", id)
+	return lstatExists(base+".db") || lstatExists(base+".pb")
+}
+
+func lstatExists(path string) bool {
+	_, err := os.Lstat(path)
+	return err == nil
+}
+
+// ReadTitle 仅从标题源（annotations/*.pbtxt、conversation_summaries.db、.zeta_meta.json）读取 agy 会话标题，不读 transcript.jsonl。
+func ReadTitle(agyDir, id string) string {
+	if !IsSessionID(id) {
+		return ""
+	}
+	if title := ReadAnnotation(agyDir, id).Title; title != "" {
+		return title
+	}
+	if row, ok := readDBRows(agyDir)[id]; ok && row.Title != "" {
+		return row.Title
+	}
+	return ReadZetaMeta(agyDir, id).Title
+}
+
 // Summarize 读取一份 agy transcript.jsonl 的概要；一句用户输入都没有时 ok 为假。
 func Summarize(agyDir, path string) (Summary, bool, error) {
 	id, ok := SessionIDFromTranscript(agyDir, path)
@@ -266,7 +308,10 @@ func Summarize(agyDir, path string) (Summary, bool, error) {
 	if preview == "" {
 		return Summary{}, false, nil
 	}
-	tailReplied := scanTailReply(tail)
+	var tailReplied int64
+	if len(tail) > 0 {
+		tailReplied = scanTailReply(tail)
+	}
 	replied := cmp.Or(tailReplied, headReplied)
 	updated := fi.ModTime().UnixMilli()
 	ann := ReadAnnotation(agyDir, id)
@@ -320,7 +365,7 @@ func readHeadAndTail(path string, limit int64) (head, tail []byte, err error) {
 	}
 	head = head[:n]
 	if size <= limit {
-		return head, head, nil
+		return head, nil, nil
 	}
 	start := size - limit
 	tail = make([]byte, limit)
@@ -347,12 +392,22 @@ func scanHead(data []byte) (preview string, created int64, cwd string, replied i
 	var hs headState
 	for _, line := range bytes.Split(data, []byte{'\n'}) {
 		line = bytes.TrimSpace(line)
+		if len(line) == 0 || (hs.created != 0 && !headLineRelevant(line, hs.preview == "")) {
+			continue
+		}
 		var st rawStep
-		if len(line) > 0 && json.Unmarshal(line, &st) == nil {
+		if json.Unmarshal(line, &st) == nil {
 			hs.observe(st)
 		}
 	}
 	return cmp.Or(hs.preview, hs.first), hs.created, hs.cwd, hs.replied
+}
+
+func headLineRelevant(line []byte, needPreview bool) bool {
+	if bytes.Contains(line, []byte(`"PLANNER_RESPONSE"`)) {
+		return true
+	}
+	return needPreview && bytes.Contains(line, []byte(`"USER_INPUT"`))
 }
 
 func (hs *headState) observe(st rawStep) {
@@ -451,21 +506,25 @@ func Rename(agyDir, id, cleanTitle string) error {
 	return nil
 }
 
-func updateSQLiteTitle(agyDir, id, title string) {
-	dbPath := filepath.Join(agyDir, "conversation_summaries.db")
-	if _, err := os.Stat(dbPath); err != nil {
+func execSQLite(dbPath, sql string) {
+	st, err := os.Stat(dbPath)
+	if err != nil || st.IsDir() {
 		return
 	}
-	sqliteBin, err := exec.LookPath("sqlite3")
-	if err != nil {
+	sqliteBin := sqlite3Path()
+	if sqliteBin == "" {
 		return
 	}
-	escaped := strings.ReplaceAll(title, "'", "''")
-	idEsc := strings.ReplaceAll(id, "'", "''")
 	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
 	defer cancel()
-	sql := "UPDATE summaries SET title = '" + escaped + "' WHERE conversation_id = '" + idEsc + "';"
 	_ = exec.CommandContext(ctx, sqliteBin, dbPath, sql).Run()
+}
+
+func updateSQLiteTitle(agyDir, id, title string) {
+	escaped := strings.ReplaceAll(title, "'", "''")
+	idEsc := strings.ReplaceAll(id, "'", "''")
+	execSQLite(filepath.Join(agyDir, "conversation_summaries.db"),
+		"UPDATE summaries SET title = '"+escaped+"' WHERE conversation_id = '"+idEsc+"';")
 }
 
 // Delete 删除一个 agy 会话的本地记录（brain/<id>、conversations/<id>.db*、annotations/<id>.pbtxt、presence/<id>.lock 及摘要行）。
@@ -495,22 +554,11 @@ func Delete(agyDir, id string) (hadBrain bool, err error) {
 }
 
 func deleteSQLiteSummary(agyDir, id string) {
-	dbPath := filepath.Join(agyDir, "conversation_summaries.db")
-	if _, err := os.Stat(dbPath); err != nil {
-		return
-	}
-	sqliteBin, err := exec.LookPath("sqlite3")
-	if err != nil {
-		return
-	}
 	idEsc := strings.ReplaceAll(id, "'", "''")
-	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
-	defer cancel()
-	_ = exec.CommandContext(ctx, sqliteBin, dbPath, "DELETE FROM summaries WHERE conversation_id = '"+idEsc+"';").Run()
-	ftsPath := filepath.Join(agyDir, "conversations_fts")
-	if st, err := os.Stat(ftsPath); err == nil && !st.IsDir() {
-		_ = exec.CommandContext(ctx, sqliteBin, ftsPath, "DELETE FROM conversations_fts WHERE conversation_id = '"+idEsc+"';").Run()
-	}
+	execSQLite(filepath.Join(agyDir, "conversation_summaries.db"),
+		"DELETE FROM summaries WHERE conversation_id = '"+idEsc+"';")
+	execSQLite(filepath.Join(agyDir, "conversations_fts"),
+		"DELETE FROM conversations_fts WHERE conversation_id = '"+idEsc+"';")
 }
 
 // SearchTranscript 在一份 agy transcript.jsonl 里按小写关键词 needle 搜索第一处用户或模型发言命中。

@@ -28,10 +28,7 @@ func parseSettings(text []byte, exists bool) (*object, error) {
 }
 
 func (s *Store) settingsFile() string {
-	if s.IsAgy() {
-		return agySettingsPath(s.Home())
-	}
-	return settingsPath(s.Home())
+	return s.activeSpec().settingsPath(s.Home())
 }
 
 // lenientSettings 读的时候宽松一些：坏了也只当没设。
@@ -57,33 +54,35 @@ var settingsMu sync.Mutex
 // updateSettings 改 settings.json：读出来、交给 edit 改、按读到时的校验值写回去；中途被别人改了就在新内容上重做一遍。
 // edit 报错时什么都不写。返回写回去的（没变化时是读到的）内容。
 func (s *Store) updateSettings(edit func(*object) error) (*object, error) {
-	// 本进程里的改动一个一个来（serve 并发处理请求），撞车只会来自 Claude Code 这类别的进程
-	settingsMu.Lock()
-	defer settingsMu.Unlock()
-	path := s.settingsFile()
+	return updateJSONFile(s.settingsFile(), &settingsMu, edit)
+}
+
+func updateJSONFile(path string, mu *sync.Mutex, edit func(*object) error) (*object, error) {
+	mu.Lock()
+	defer mu.Unlock()
 	for range 3 {
 		doc, err := load(path, MaxText)
 		if err != nil {
 			return nil, err
 		}
-		settings, err := parseSettings([]byte(doc.Content), doc.Exists)
+		root, err := parseSettings([]byte(doc.Content), doc.Exists)
 		if err != nil {
 			return nil, err
 		}
-		before := compactJSON(settings)
-		if err := edit(settings); err != nil {
+		before := compactJSON(root)
+		if err := edit(root); err != nil {
 			return nil, err
 		}
-		if compactJSON(settings) == before {
-			return settings, nil
+		if compactJSON(root) == before {
+			return root, nil
 		}
 		expected := doc.SHA
 		if !doc.Exists {
 			expected = "-"
 		}
-		_, err = store(path, []byte(renderJSON(settings)), expected, "")
+		_, err = store(path, []byte(renderJSON(root)), expected, "")
 		if err == nil {
-			return settings, nil
+			return root, nil
 		}
 		if err != ErrConflict {
 			return nil, err

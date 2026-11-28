@@ -324,15 +324,14 @@ func (a *App) openChatDeviceSettings(p *chatPane, permissions bool) bool {
 
 // startDeviceConfig 打开设备页时建那台的 Claude Code 与 Antigravity 配置部分，数据等显示对应页面时再读。
 func (a *App) startDeviceConfig(x sshlink.Host) {
-	a.edit.loaded, a.edit.loadedClaude, a.edit.loadedAgy = false, false, false
-	a.edit.models, a.edit.probed, a.edit.fed = nil, nil, nil
-	a.edit.modelsAgy, a.edit.probedAgy, a.edit.fedAgy = nil, nil, nil
+	a.edit.loaded = false
+	a.edit.claude, a.edit.agy = toolEditState{}, toolEditState{}
 	r := a.hub.Remote(x.ID)
 	a.edit.remote = r
 	if r == nil {
 		delete(a.modelLists, x.ID)
 		delete(a.modelLists, modelListKey(x.ID, sessionproto.HarnessAgy))
-		a.edit.cfgClaude, a.edit.cfgAgy, a.cfg = nil, nil, nil
+		a.cfg = nil
 		return
 	}
 	makeCfg := func(tool string) *claudecfg.Page {
@@ -351,13 +350,9 @@ func (a *App) startDeviceConfig(x sshlink.Host) {
 			},
 		})
 	}
-	a.edit.cfgClaude = makeCfg(sessionproto.HarnessClaude)
-	a.edit.cfgAgy = makeCfg(sessionproto.HarnessAgy)
-	if a.editTool(x.ID) == sessionproto.HarnessAgy {
-		a.cfg = a.edit.cfgAgy
-	} else {
-		a.cfg = a.edit.cfgClaude
-	}
+	a.edit.claude.cfg = makeCfg(sessionproto.HarnessClaude)
+	a.edit.agy.cfg = makeCfg(sessionproto.HarnessAgy)
+	a.cfg = a.edit.toolState(a.editTool(x.ID)).cfg
 }
 
 // defaultAbout 是没给关于页时用的：本程序的版本，不查更新（测试里；窗口由入口换成接了自动更新的）。

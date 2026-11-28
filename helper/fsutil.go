@@ -216,20 +216,8 @@ func globNames(dir string, dirsOnly bool, match func(string) bool) []string {
 	return out
 }
 
-const agyTranscriptSuffix = "/.system_generated/logs/transcript.jsonl"
-
 func agyDirFromTranscript(p string) (agyDir, id string, ok bool) {
-	clean := normPath(p)
-	rest, has := strings.CutSuffix(clean, agyTranscriptSuffix)
-	if !has {
-		return "", "", false
-	}
-	id = baseName(rest)
-	brainDir := dirName(rest)
-	if baseName(brainDir) != "brain" || !agystore.IsSessionID(id) {
-		return "", "", false
-	}
-	return dirName(brainDir), id, true
+	return agystore.ParseTranscriptPath(p)
 }
 
 func sessionIDOfPath(p string) string {
@@ -274,9 +262,6 @@ func (e *env) sessionIDs() map[string]bool {
 	ids := map[string]bool{}
 	for _, p := range e.sessionFiles() {
 		ids[sessionIDOfPath(p)] = true
-	}
-	for id := range agystore.SessionIDs(e.agy) {
-		ids[id] = true
 	}
 	return ids
 }

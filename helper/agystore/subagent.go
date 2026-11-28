@@ -4,9 +4,7 @@ import (
 	"bytes"
 	"encoding/json"
 	"os"
-	"path/filepath"
 	"regexp"
-	"strings"
 )
 
 var anyUUIDRe = regexp.MustCompile(`[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}`)
@@ -62,9 +60,12 @@ func subagentFromID(agyDir, id string, callArgs map[string]any) (SubagentFound, 
 }
 
 func subagentFinished(path string) bool {
-	_, tail, err := readHeadAndTail(path, 32*1024)
+	head, tail, err := readHeadAndTail(path, 32*1024)
 	if err != nil {
 		return false
+	}
+	if len(tail) == 0 {
+		tail = head
 	}
 	return scanTailReply(tail) > 0
 }
@@ -95,10 +96,10 @@ func (s *subagentSearch) step(st rawStep) string {
 	case "USER_INPUT":
 		s.pending = nil
 	case "PLANNER_RESPONSE":
-		_, ids := plannerEvent(st)
-		for i, id := range ids {
-			if id == s.toolUse && i < len(st.ToolCalls) {
-				s.targetArgs = DecodeToolArgs(st.ToolCalls[i].Args)
+		for i, tc := range st.ToolCalls {
+			id := toolCallID(st.StepIndex, i, tc)
+			if id == s.toolUse {
+				s.targetArgs = DecodeToolArgs(tc.Args)
 			}
 			s.pending = append(s.pending, id)
 		}
@@ -226,14 +227,9 @@ func stepChildTokens(agyDir string, out map[string]map[string][3]int64, pending 
 }
 
 func plannerNamedCalls(st rawStep) []namedCall {
-	_, ids := plannerEvent(st)
-	calls := make([]namedCall, 0, len(ids))
-	for i, id := range ids {
-		name := ""
-		if i < len(st.ToolCalls) {
-			name = st.ToolCalls[i].Name
-		}
-		calls = append(calls, namedCall{id: id, name: name})
+	calls := make([]namedCall, len(st.ToolCalls))
+	for i, tc := range st.ToolCalls {
+		calls[i] = namedCall{id: toolCallID(st.StepIndex, i, tc), name: tc.Name}
 	}
 	return calls
 }
@@ -257,12 +253,26 @@ func sumChildTranscript(agyDir, id string, seen map[string]bool) map[string][3]i
 		return nil
 	}
 	totals := map[string][3]int64{}
+	var pending []string
 	for _, st := range steps {
-		if st.Type == "PLANNER_RESPONSE" && realModelName(st.Model) {
-			addModelTokens(totals, st.Model, [3]int64{st.InputTokens, st.OutputTokens, st.CacheReadTokens})
-		}
-		if st.Type == "GENERIC" && st.Source == "MODEL" {
-			mergeNestedSubagentTokens(agyDir, totals, seen, st.Output)
+		switch st.Type {
+		case "USER_INPUT":
+			pending = nil
+		case "PLANNER_RESPONSE":
+			if realModelName(st.Model) {
+				addModelTokens(totals, st.Model, [3]int64{st.InputTokens, st.OutputTokens, st.CacheReadTokens})
+			}
+			for _, tc := range st.ToolCalls {
+				pending = append(pending, tc.Name)
+			}
+		case "GENERIC":
+			if st.Source == "MODEL" && len(pending) > 0 {
+				name := pending[0]
+				pending = pending[1:]
+				if name == "invoke_subagent" {
+					mergeNestedSubagentTokens(agyDir, totals, seen, st.Output)
+				}
+			}
 		}
 	}
 	return totals
@@ -285,11 +295,4 @@ func addModelTokens(totals map[string][3]int64, model string, add [3]int64) {
 	cur[1] += add[1]
 	cur[2] += add[2]
 	totals[model] = cur
-}
-
-// CleanPathRoot 校验路径在给定的根目录下。
-func CleanPathRoot(p, root string) bool {
-	cp := filepath.Clean(p)
-	cr := filepath.Clean(root)
-	return strings.HasPrefix(cp, cr+string(filepath.Separator))
 }

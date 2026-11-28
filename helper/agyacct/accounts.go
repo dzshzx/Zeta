@@ -40,16 +40,10 @@ const (
 var (
 	changing    sync.Mutex
 	accountName = regexp.MustCompile(`^[a-z0-9](?:[a-z0-9-]{0,30}[a-z0-9])?$`)
-	hostMarkRe  = regexp.MustCompile(`^ZETA_HOST=(zeta[^/]*)/[^/.][^/]*$`)
 )
 
 // AgyDir 返回家目录 home 下的 Antigravity CLI 数据目录；设了 ZETA_AGY_DIR 时优先用它（供单测隔离）。
-func AgyDir(home string) string {
-	if d := strings.TrimSpace(os.Getenv("ZETA_AGY_DIR")); d != "" {
-		return filepath.Clean(d)
-	}
-	return filepath.Join(home, ".gemini", "antigravity-cli")
-}
+func AgyDir(home string) string { return agystore.Dir(home) }
 
 func oauthTokenPath(home string) string {
 	return filepath.Join(AgyDir(home), "antigravity-oauth-token")
@@ -98,22 +92,7 @@ type Host struct {
 }
 
 // FreeName 挑第一个不在 taken 里的账号名：agy、agy-b……agy-z、agy-27……。
-func FreeName(taken map[string]bool) string {
-	for i := 0; ; i++ {
-		var name string
-		switch {
-		case i == 0:
-			name = builtin
-		case i < 26:
-			name = "agy-" + string(rune('a'+i))
-		default:
-			name = "agy-" + strconv.Itoa(i+1)
-		}
-		if !taken[name] {
-			return name
-		}
-	}
-}
+func FreeName(taken map[string]bool) string { return accounts.FreeNameWith(builtin, taken) }
 
 func validAccountName(name string) bool {
 	return accountName.MatchString(name)
@@ -241,26 +220,41 @@ func makeAccount(name string, meta savedMeta, current, parked bool) accounts.Acc
 	}
 }
 
-// Save 将当前未命名的 Google OAuth 登录归档为一个新账号名（agy、agy-b…）。未登录时返回空串。
-func (h *Host) Save(_ context.Context) (string, error) {
-	changing.Lock()
-	defer changing.Unlock()
-	unlock, err := lockState(h.Home)
+func withFileLock(home string, fn func() error) error {
+	unlock, err := lockState(home)
 	if err != nil {
-		return "", err
+		return err
 	}
 	defer unlock()
-	snap := h.readStateLocked()
-	if snap.Current == nil {
-		return "", nil
-	}
-	if snap.Current.Name != "" {
-		return snap.Current.Name, nil
-	}
-	return h.archiveActiveTokenLocked(&snap)
+	return fn()
 }
 
-func (h *Host) archiveActiveTokenLocked(snap *stateSnapshot) (string, error) {
+func withStateLock(home string, fn func() error) error {
+	changing.Lock()
+	defer changing.Unlock()
+	return withFileLock(home, fn)
+}
+
+// Save 将当前未命名的 Google OAuth 登录归档为一个新账号名（agy、agy-b…）。未登录时返回空串。
+func (h *Host) Save(_ context.Context) (string, error) {
+	var name string
+	err := withStateLock(h.Home, func() error {
+		snap := h.readStateLocked()
+		if snap.Current == nil {
+			return nil
+		}
+		if snap.Current.Name != "" {
+			name = snap.Current.Name
+			return nil
+		}
+		var err error
+		name, err = h.archiveActiveTokenLocked(&snap, "")
+		return err
+	})
+	return name, err
+}
+
+func (h *Host) archiveActiveTokenLocked(snap *stateSnapshot, preferred string) (string, error) {
 	activePath := oauthTokenPath(h.Home)
 	fp, ok := fileFingerprint(activePath)
 	if !ok {
@@ -275,8 +269,11 @@ func (h *Host) archiveActiveTokenLocked(snap *stateSnapshot) (string, error) {
 	if err != nil || len(bytes.TrimSpace(data)) == 0 {
 		return "", err
 	}
-	name := FreeName(snap.taken)
-	if err := writeFileAtomic(tokenSlotPath(h.Home, name), data, 0o600); err != nil {
+	name := preferred
+	if name == "" || snap.taken[name] {
+		name = FreeName(snap.taken)
+	}
+	if err := accounts.WriteFileAtomic(tokenSlotPath(h.Home, name), data, 0o600); err != nil {
 		return "", err
 	}
 	snap.taken[name] = true
@@ -304,24 +301,21 @@ func (h *Host) Switch(ctx context.Context, name string) error {
 	if err := h.waitAndCheckIdle(ctx); err != nil {
 		return err
 	}
-	unlock, err := lockState(h.Home)
-	if err != nil {
-		return err
-	}
-	defer unlock()
-	snap := h.readStateLocked()
-	_, isAcct := snap.slots[name]
-	relayIdx := slices.IndexFunc(snap.Relays, func(r accounts.Relay) bool { return r.Name == name })
-	if !isAcct && relayIdx < 0 {
-		return accounts.ErrMissing
-	}
-	if _, err := h.archiveActiveTokenLocked(&snap); err != nil {
-		return err
-	}
-	if isAcct {
-		return h.activateAccountLocked(name, &snap.ds)
-	}
-	return h.activateRelayLocked(snap.Relays[relayIdx], &snap.ds)
+	return withFileLock(h.Home, func() error {
+		snap := h.readStateLocked()
+		_, isAcct := snap.slots[name]
+		relayIdx := slices.IndexFunc(snap.Relays, func(r accounts.Relay) bool { return r.Name == name })
+		if !isAcct && relayIdx < 0 {
+			return accounts.ErrMissing
+		}
+		if _, err := h.archiveActiveTokenLocked(&snap, ""); err != nil {
+			return err
+		}
+		if isAcct {
+			return h.activateAccountLocked(name, &snap.ds)
+		}
+		return h.activateRelayLocked(snap.Relays[relayIdx], &snap.ds)
+	})
 }
 
 func (h *Host) activateAccountLocked(name string, ds *diskState) error {
@@ -332,10 +326,10 @@ func (h *Host) activateAccountLocked(name string, ds *diskState) error {
 		}
 		return err
 	}
-	if err := writeFileAtomic(oauthTokenPath(h.Home), data, 0o600); err != nil {
+	if err := accounts.WriteFileAtomic(oauthTokenPath(h.Home), data, 0o600); err != nil {
 		return err
 	}
-	if err := syncAgySettingsForRelay(h.Home, nil, ds.RelaySetMode); err != nil {
+	if err := clearRelaySettings(h.Home, ds.RelaySetMode); err != nil {
 		return err
 	}
 	ds.Current = name
@@ -350,10 +344,10 @@ func (h *Host) activateAccountLocked(name string, ds *diskState) error {
 }
 
 func (h *Host) activateRelayLocked(r accounts.Relay, ds *diskState) error {
-	if !removed(oauthTokenPath(h.Home)) {
+	if !accounts.Removed(oauthTokenPath(h.Home)) {
 		return locales.Err("errRelayWrite", "path", oauthTokenPath(h.Home))
 	}
-	if err := syncAgySettingsForRelay(h.Home, &r, true); err != nil {
+	if err := enableRelaySettings(h.Home, r.Model); err != nil {
 		return err
 	}
 	ds.Current = ""
@@ -374,31 +368,30 @@ func (h *Host) PrepareLogin(ctx context.Context) (string, error) {
 	if err := h.waitAndCheckIdle(ctx); err != nil {
 		return "", err
 	}
-	unlock, err := lockState(h.Home)
-	if err != nil {
-		return "", err
-	}
-	defer unlock()
-	snap := h.readStateLocked()
-	if _, err := h.archiveActiveTokenLocked(&snap); err != nil {
-		return "", err
-	}
-	if !removed(oauthTokenPath(h.Home)) {
-		return "", locales.Err("errRelayWrite", "path", oauthTokenPath(h.Home))
-	}
-	if err := syncAgySettingsForRelay(h.Home, nil, snap.ds.RelaySetMode); err != nil {
-		return "", err
-	}
-	name := FreeName(snap.taken)
-	snap.ds.Current = ""
-	snap.ds.CurrentRelay = ""
-	snap.ds.PendingLogin = name
-	snap.ds.RelaySetMode = false
-	if err := saveDiskState(h.Home, snap.ds); err != nil {
-		return "", err
-	}
-	syncQuotaCache(h.Home)
-	return name, nil
+	var name string
+	err := withFileLock(h.Home, func() error {
+		snap := h.readStateLocked()
+		if _, err := h.archiveActiveTokenLocked(&snap, ""); err != nil {
+			return err
+		}
+		if !accounts.Removed(oauthTokenPath(h.Home)) {
+			return locales.Err("errRelayWrite", "path", oauthTokenPath(h.Home))
+		}
+		if err := clearRelaySettings(h.Home, snap.ds.RelaySetMode); err != nil {
+			return err
+		}
+		name = FreeName(snap.taken)
+		snap.ds.Current = ""
+		snap.ds.CurrentRelay = ""
+		snap.ds.PendingLogin = name
+		snap.ds.RelaySetMode = false
+		if err := saveDiskState(h.Home, snap.ds); err != nil {
+			return err
+		}
+		syncQuotaCache(h.Home)
+		return nil
+	})
+	return name, err
 }
 
 // Remove 删除一个不在使用中的已保存账号。
@@ -406,74 +399,47 @@ func (h *Host) Remove(_ context.Context, name string) error {
 	if name == "" {
 		return accounts.ErrMissing
 	}
-	changing.Lock()
-	defer changing.Unlock()
-	unlock, err := lockState(h.Home)
-	if err != nil {
-		return err
-	}
-	defer unlock()
-	snap := h.readStateLocked()
-	if _, ok := snap.slots[name]; !ok {
-		return accounts.ErrMissing
-	}
-	if snap.Current != nil && snap.Current.Name == name {
-		return locales.Err("errAgyAccountInUse")
-	}
-	slot := tokenSlotPath(h.Home, name)
-	if !removed(slot) {
-		return locales.Err("errRelayWrite", "path", slot)
-	}
-	delete(snap.ds.Accounts, name)
-	if snap.ds.Current == name {
-		snap.ds.Current = ""
-	}
-	return saveDiskState(h.Home, snap.ds)
+	return withStateLock(h.Home, func() error {
+		snap := h.readStateLocked()
+		if _, ok := snap.slots[name]; !ok {
+			return accounts.ErrMissing
+		}
+		if snap.Current != nil && snap.Current.Name == name {
+			return locales.Err("errAgyAccountInUse")
+		}
+		slot := tokenSlotPath(h.Home, name)
+		if !accounts.Removed(slot) {
+			return locales.Err("errRelayWrite", "path", slot)
+		}
+		delete(snap.ds.Accounts, name)
+		if snap.ds.Current == name {
+			snap.ds.Current = ""
+		}
+		return saveDiskState(h.Home, snap.ds)
+	})
 }
 
 func (h *Host) finishLogin(preferred string) (string, error) {
-	changing.Lock()
-	defer changing.Unlock()
-	unlock, err := lockState(h.Home)
-	if err != nil {
-		return "", err
-	}
-	defer unlock()
-	snap := h.readStateLocked()
-	activePath := oauthTokenPath(h.Home)
-	fp, ok := fileFingerprint(activePath)
-	if !ok {
-		return "", locales.Err("errLoginFailed")
-	}
-	if matched := matchSlot(fp, snap.ds.Current, snap.slots); matched != "" {
-		snap.ds.Current = matched
+	var name string
+	err := withStateLock(h.Home, func() error {
+		snap := h.readStateLocked()
+		archived, err := h.archiveActiveTokenLocked(&snap, cmp.Or(preferred, snap.ds.PendingLogin))
+		if err != nil {
+			return err
+		}
+		if archived == "" {
+			return locales.Err("errLoginFailed")
+		}
+		snap.ds.Current = archived
 		snap.ds.CurrentRelay = ""
 		snap.ds.PendingLogin = ""
-		_ = saveDiskState(h.Home, snap.ds)
-		return matched, nil
-	}
-	data, err := os.ReadFile(activePath)
-	if err != nil || len(bytes.TrimSpace(data)) == 0 {
-		return "", locales.Err("errLoginFailed")
-	}
-	name := cmp.Or(preferred, snap.ds.PendingLogin)
-	if name == "" || snap.taken[name] {
-		name = FreeName(snap.taken)
-	}
-	if err := writeFileAtomic(tokenSlotPath(h.Home, name), data, 0o600); err != nil {
-		return "", err
-	}
-	if snap.ds.Accounts == nil {
-		snap.ds.Accounts = map[string]savedMeta{}
-	}
-	snap.ds.Accounts[name] = savedMeta{DisplayName: "Google OAuth"}
-	snap.ds.Current = name
-	snap.ds.CurrentRelay = ""
-	snap.ds.PendingLogin = ""
-	if err := saveDiskState(h.Home, snap.ds); err != nil {
-		return "", err
-	}
-	return name, nil
+		if err := saveDiskState(h.Home, snap.ds); err != nil {
+			return err
+		}
+		name = archived
+		return nil
+	})
+	return name, err
 }
 
 // ---------- 进程检测与换号阻碍 ----------
@@ -583,119 +549,30 @@ func inspectAgyProc(pid int, cleanHome string) (accounts.Proc, bool) {
 	return accounts.Proc{PID: pid, Owner: ownerFromMark(mark), Status: "idle", Kind: "agy"}, true
 }
 
-func isAgySessionCmdline(argv []string) bool {
-	if len(argv) == 0 {
-		return false
-	}
-	if len(argv) >= 2 && argv[1] == "agy-bridge" {
-		return true
-	}
-	base := filepath.Base(argv[0])
-	if base != "agy" {
-		return false
-	}
-	if len(argv) >= 2 {
-		switch argv[1] {
-		case "mcp", "models", "update", "--version", "-v", "--help", "-h":
-			return false
-		case "acp":
-			return !slices.Contains(argv[2:], "--login")
-		}
-	}
-	return !slices.Contains(argv[1:], "-p")
-}
+func isAgySessionCmdline(argv []string) bool { return agystore.IsAgySessionCmdline(argv) }
 
 func agyBlocker(procs []accounts.Proc, mine string) locales.Msg {
-	var zeta, elsewhere []accounts.Proc
-	for _, p := range procs {
-		switch {
-		case p.Owner == mine:
-		case p.Owner != "":
-			zeta = append(zeta, p)
-		default:
-			elsewhere = append(elsewhere, p)
-		}
-	}
-	var names []locales.Msg
-	var owners []string
-	for _, p := range zeta {
-		if !slices.Contains(owners, p.Owner) {
-			owners = append(owners, p.Owner)
-			names = append(names, zetaName(p.Owner))
-		}
-	}
-	switch {
-	case len(zeta) > 0 && len(elsewhere) > 0:
-		return locales.M("errAgyBlockedBoth", "apps", names, "count", len(zeta), "busy", busyCount(zeta),
-			"others", len(elsewhere), "othersBusy", busyCount(elsewhere))
-	case len(zeta) > 0:
-		return locales.M("errSwitchBlockedZeta", "apps", names, "count", len(zeta), "busy", busyCount(zeta))
-	case len(elsewhere) > 0:
-		return locales.M("errAgyBlockedElsewhere", "others", len(elsewhere), "othersBusy", busyCount(elsewhere))
-	}
-	return locales.Msg{}
+	return accounts.BlockerFor(procs, mine,
+		func(apps []locales.Msg, count, busy, others, othersBusy int) locales.Msg {
+			return locales.M("errAgyBlockedBoth", "apps", apps, "count", count, "busy", busy, "others", others, "othersBusy", othersBusy)
+		},
+		func(others, othersBusy int) locales.Msg {
+			return locales.M("errAgyBlockedElsewhere", "others", others, "othersBusy", othersBusy)
+		},
+	)
 }
 
-func busyCount(procs []accounts.Proc) int {
-	n := 0
-	for _, p := range procs {
-		if p.Busy() {
-			n++
-		}
-	}
-	return n
-}
-
-func zetaName(owner string) locales.Msg {
-	switch {
-	case owner == "zeta":
-		return locales.M("zetaRelease")
-	case strings.HasPrefix(owner, "zeta-dev"):
-		return locales.M("zetaDev", "suffix", strings.TrimPrefix(owner, "zeta-dev"))
-	}
-	return locales.M("zetaOther", "name", owner)
-}
-
-func ownerFromMark(mark string) string {
-	if mark == "" {
-		return ""
-	}
-	if m := hostMarkRe.FindStringSubmatch("ZETA_HOST=" + mark); m != nil {
-		return m[1]
-	}
-	return ""
-}
+func ownerFromMark(mark string) string { return accounts.OwnerFromMark(mark) }
 
 func procStart(pid int) (string, bool) {
-	s, _, ok := readProcStat(pid)
+	s, _, ok := agystore.ReadProcStat(pid)
 	return s, ok
 }
 
-func readProcStat(pid int) (start string, state byte, ok bool) {
-	data, err := os.ReadFile("/proc/" + strconv.Itoa(pid) + "/stat")
-	if err != nil {
-		return "", 0, false
-	}
-	i := bytes.LastIndexByte(data, ')')
-	if i < 0 {
-		return "", 0, false
-	}
-	fields := strings.Fields(string(data[i+1:]))
-	if len(fields) < 20 {
-		return "", 0, false
-	}
-	return fields[19], fields[0][0], true
-}
+func readProcStat(pid int) (start string, state byte, ok bool) { return agystore.ReadProcStat(pid) }
 
 func readCmdline(pid int) ([]string, bool) {
-	data, err := os.ReadFile("/proc/" + strconv.Itoa(pid) + "/cmdline")
-	if err != nil || len(data) == 0 {
-		return nil, false
-	}
-	var out []string
-	for _, part := range bytes.Split(bytes.TrimRight(data, "\x00"), []byte{0}) {
-		out = append(out, string(part))
-	}
+	out := agystore.ReadCmdline(pid)
 	return out, len(out) > 0
 }
 
@@ -771,7 +648,7 @@ func saveDiskState(home string, ds diskState) error {
 	if err != nil {
 		return err
 	}
-	return writeFileAtomic(stateFilePath(home), append(data, '\n'), 0o600)
+	return accounts.WriteFileAtomic(stateFilePath(home), append(data, '\n'), 0o600)
 }
 
 func lockState(home string) (func(), error) {
@@ -789,37 +666,4 @@ func lockState(home string) (func(), error) {
 		return nil, writeErr
 	}
 	return func() { _ = f.Close() }, nil
-}
-
-func writeFileAtomic(path string, data []byte, mode os.FileMode) error {
-	dir := filepath.Dir(path)
-	if err := os.MkdirAll(dir, 0o700); err != nil {
-		return err
-	}
-	tmp, err := os.CreateTemp(dir, "."+filepath.Base(path)+".*")
-	if err != nil {
-		return err
-	}
-	defer os.Remove(tmp.Name())
-	if err := tmp.Chmod(mode); err != nil {
-		_ = tmp.Close()
-		return err
-	}
-	if _, err := tmp.Write(data); err != nil {
-		_ = tmp.Close()
-		return err
-	}
-	if err := tmp.Sync(); err != nil {
-		_ = tmp.Close()
-		return err
-	}
-	if err := tmp.Close(); err != nil {
-		return err
-	}
-	return os.Rename(tmp.Name(), path)
-}
-
-func removed(path string) bool {
-	err := os.Remove(path)
-	return err == nil || errors.Is(err, fs.ErrNotExist)
 }

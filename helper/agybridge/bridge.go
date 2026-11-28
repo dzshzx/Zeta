@@ -10,7 +10,6 @@ import (
 	"io"
 	"os"
 	"os/exec"
-	"path/filepath"
 	"slices"
 	"strings"
 	"sync"
@@ -105,9 +104,8 @@ type bridge struct {
 	cumOutput    int64
 	cumCacheRead int64
 
-	promptSeq   int
-	prompts     map[string]*pendingPrompt
-	promptOrder []string
+	promptSeq int
+	prompts   []*pendingPrompt
 
 	turnM      sync.Mutex
 	turnSeq    int
@@ -125,10 +123,7 @@ func Run(args []string, stdin io.Reader, stdout, stderr io.Writer) int {
 	if h, ok := os.LookupEnv("HOME"); ok && h != "" {
 		home = h
 	}
-	agyDir := filepath.Join(home, ".gemini", "antigravity-cli")
-	if override := strings.TrimSpace(os.Getenv("ZETA_AGY_DIR")); override != "" {
-		agyDir = filepath.Clean(override)
-	}
+	agyDir := agystore.Dir(home)
 	b := &bridge{
 		opts:          opts,
 		home:          home,
@@ -140,7 +135,6 @@ func Run(args []string, stdin io.Reader, stdout, stderr io.Writer) int {
 		title:         opts.title,
 		windowSize:    defaultAgyWindow,
 		commandsReady: make(chan struct{}, 1),
-		prompts:       map[string]*pendingPrompt{},
 	}
 	if err := b.start(); err != nil {
 		_, _ = io.WriteString(stderr, "agy-bridge: "+err.Error()+"\n")
@@ -303,14 +297,26 @@ func (b *bridge) ensureSession() error {
 }
 
 func (b *bridge) applyInitialOptions(model, effort, mode string) {
-	if model != "" && model != "default" {
+	b.mu.Lock()
+	curModel, curEffort, curMode := b.currentModel, b.currentEffort, b.acpMode
+	b.mu.Unlock()
+	if model != "" && model != "default" && model != curModel {
 		b.setConfigOption("model", model)
 	}
-	if effort != "" {
+	if effort != "" && effort != curEffort {
 		b.setConfigOption("thought_level", effort)
 	}
 	if mode != "" {
-		b.applyPermissionMode(mode)
+		b.mu.Lock()
+		b.userMode = mode
+		b.mu.Unlock()
+		acpMode := mode
+		if mode == "bypassPermissions" {
+			acpMode = "auto"
+		}
+		if acpMode != curMode {
+			b.setConfigOption("mode", acpMode)
+		}
 	}
 }
 

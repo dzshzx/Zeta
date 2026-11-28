@@ -105,37 +105,47 @@ type valueParams struct {
 	Value string `json:"value"`
 }
 
-func readModelCatalog(ctx context.Context, s *claudecfg.Store) (any, error) {
+type relayModelOps struct {
+	readCatalog     func(context.Context) (accounts.ModelCatalog, error)
+	defaultModel    func(context.Context) (string, error)
+	setDefaultModel func(context.Context, string) (bool, error)
+}
+
+func relayModelsFor(s *claudecfg.Store) relayModelOps {
+	home := s.Home()
 	if s.IsAgy() {
-		return readAgyModelCatalog(ctx, s)
+		return relayModelOps{
+			readCatalog: func(ctx context.Context) (accounts.ModelCatalog, error) {
+				out, err := agyacct.ReadModelCatalog(ctx, home)
+				if err != nil || out.Relay != "" {
+					return out, err
+				}
+				items := s.ReadAgyModels(ctx)
+				models := make([]accounts.RelayModel, len(items))
+				for i, it := range items {
+					models[i] = accounts.RelayModel{ID: it.ID, DisplayName: it.DisplayName}
+				}
+				return accounts.ModelCatalog{Models: models}, nil
+			},
+			defaultModel:    func(context.Context) (string, error) { return agyacct.RelayDefaultModel(home), nil },
+			setDefaultModel: func(_ context.Context, v string) (bool, error) { return agyacct.SetRelayDefaultModel(home, v) },
+		}
 	}
-	out, err := accounts.ReadModelCatalog(ctx, s.Home())
-	if err == nil && out.Relay != "" && out.Model == "" {
-		// 用户级设置读不到时仍可列出中转，只是没有可继承的模型。
+	return relayModelOps{
+		readCatalog:     func(ctx context.Context) (accounts.ModelCatalog, error) { return accounts.ReadModelCatalog(ctx, home) },
+		defaultModel:    func(ctx context.Context) (string, error) { return accounts.RelayDefaultModel(ctx, home) },
+		setDefaultModel: func(ctx context.Context, v string) (bool, error) { return accounts.SetRelayDefaultModel(ctx, home, v) },
+	}
+}
+
+func readModelCatalog(ctx context.Context, s *claudecfg.Store) (any, error) {
+	out, err := relayModelsFor(s).readCatalog(ctx)
+	if err == nil && out.Model == "" && (out.Relay != "" || s.IsAgy()) {
+		// 用户级设置读不到时仍可列出模型，只是没有可继承的默认模型。
 		d, _ := s.Defaults()
 		out.Model = d.Model
 	}
 	return out, err
-}
-
-func readAgyModelCatalog(ctx context.Context, s *claudecfg.Store) (any, error) {
-	out, err := agyacct.ReadModelCatalog(ctx, s.Home())
-	if err != nil {
-		return nil, err
-	}
-	d, _ := s.Defaults()
-	if out.Relay != "" {
-		if out.Model == "" {
-			out.Model = d.Model
-		}
-		return out, nil
-	}
-	items := s.ReadAgyModels(ctx)
-	models := make([]accounts.RelayModel, len(items))
-	for i, it := range items {
-		models[i] = accounts.RelayModel{ID: it.ID, DisplayName: it.DisplayName}
-	}
-	return accounts.ModelCatalog{Relay: "", Model: d.Model, Models: models}, nil
 }
 
 func readDefaults(ctx context.Context, s *claudecfg.Store) (any, error) {
@@ -143,15 +153,7 @@ func readDefaults(ctx context.Context, s *claudecfg.Store) (any, error) {
 }
 
 func withEffectiveModel(ctx context.Context, s *claudecfg.Store, defaults func() (claudecfg.Defaults, error)) (any, error) {
-	var (
-		model string
-		err   error
-	)
-	if s.IsAgy() {
-		model = agyacct.RelayDefaultModel(s.Home())
-	} else {
-		model, err = accounts.RelayDefaultModel(ctx, s.Home())
-	}
+	model, err := relayModelsFor(s).defaultModel(ctx)
 	if err != nil {
 		return nil, err
 	}
@@ -168,12 +170,7 @@ func setDefaultModel(ctx context.Context, s *claudecfg.Store, p valueParams) (an
 	if err != nil {
 		return nil, err
 	}
-	var changed bool
-	if s.IsAgy() {
-		changed, err = agyacct.SetRelayDefaultModel(s.Home(), p.Value)
-	} else {
-		changed, err = accounts.SetRelayDefaultModel(ctx, s.Home(), p.Value)
-	}
+	changed, err := relayModelsFor(s).setDefaultModel(ctx, p.Value)
 	if err != nil {
 		return nil, err
 	}

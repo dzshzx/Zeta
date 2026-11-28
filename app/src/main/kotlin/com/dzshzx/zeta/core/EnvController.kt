@@ -77,6 +77,9 @@ class EnvController constructor(private val hub: ConversationHub, assets: (Strin
     /** 当前环境里 Antigravity CLI 的登录状态；null 表示还没查过。 */
     var agyAccount by mutableStateOf<AccountStatus?>(null)
 
+    fun account(harness: String): AccountStatus? =
+        if (Harnesses.normalize(harness) == Harnesses.AGY) agyAccount else account
+
     var health by mutableStateOf<EnvHealth?>(null)
 
     var healthChecking by mutableStateOf(false)
@@ -182,11 +185,15 @@ class EnvController constructor(private val hub: ConversationHub, assets: (Strin
         val config = settings.env ?: return
         thread(name = "zeta-account", isDaemon = true) {
             val shown = readClaudeAccount(config)
+            main.post {
+                if (settings.env?.rootfs == config.rootfs && shown != null) account = shown
+            }
+        }
+        thread(name = "zeta-agy-account", isDaemon = true) {
             val agyShown = readAgyAccount()
             main.post {
-                if (settings.env?.rootfs == config.rootfs) {
-                    if (shown != null) account = shown
-                    if (agyShown != null) agyAccount = agyShown
+                if (settings.env?.rootfs == config.rootfs && agyShown != null) {
+                    agyAccount = agyShown
                 }
             }
         }

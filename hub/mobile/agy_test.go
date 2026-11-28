@@ -17,8 +17,8 @@ func answerMobileAgy(l *hubtest.ChatLink, req hubtest.Call) (json.RawMessage, er
 		l.Push(`{"type":"conv.state","conv":"` + req.Conv() + `","harness":"` + h + `"}`)
 		return nil, nil
 	}
-	if req.Method == "quota.get" && req.Str("harness") == "agy" {
-		return json.RawMessage(`{"snapshot":{"windows":[{"kind":"model_pool","group":"session","used":0.65,"severity":"normal","label":"Gemini Pro"}],"updatedAt":"2099-01-01T00:00:00Z"},"relay":""}`), nil
+	if (req.Method == "quota.get" || req.Method == "quota.usage") && req.Str("harness") == "agy" {
+		return json.RawMessage(`{"fresh":true,"snapshot":{"windows":[{"kind":"model_pool","group":"session","used":0.65,"severity":"normal","label":"Gemini Pro"}],"updatedAt":"2099-01-01T00:00:00Z"},"relay":""}`), nil
 	}
 	if req.Method == "accounts.list" {
 		return json.RawMessage(`{"accounts":[],"relays":[]}`), nil

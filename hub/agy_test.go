@@ -112,8 +112,8 @@ func TestRemoteDualAccountsAndQuotaPush(t *testing.T) {
 	}
 }
 
-// 没有活跃 agy 对话时刷新 agy 额度：临时开一个 harness=agy 的对话查 conv.quota 再收掉。
-func TestAgyQuotaUsesTemporaryConversationWhenIdle(t *testing.T) {
+// 没有活跃 agy 对话时刷新 agy 额度：不拉起临时对话，直接走核心的 quota.usage 刷新。
+func TestAgyQuotaQueriesCoreDirectlyWhenIdle(t *testing.T) {
 	f, until := queuedFixture(t)
 	r := f.hub.Remote(f.id)
 	f.link().Took()
@@ -121,14 +121,6 @@ func TestAgyQuotaUsesTemporaryConversationWhenIdle(t *testing.T) {
 		switch c.Method {
 		case "quota.get":
 			return json.RawMessage(`{"snapshot":null,"fresh":false}`), nil
-		case "conv.open":
-			f.link().Push(`{"type":"conv.state","conv":"` + c.Conv() + `","harness":"agy"}`)
-			return nil, nil
-		case "conv.prepare":
-			f.link().Push(`{"type":"conv.state","conv":"` + c.Conv() + `","harness":"agy","process":true}`)
-			return nil, nil
-		case "conv.quota":
-			return json.RawMessage(`{"models":[{"label":"Gemini Pro","remaining":0.8}]}`), nil
 		case "quota.usage":
 			return json.RawMessage(`{"fresh":true,"snapshot":{"windows":[{"kind":"model_pool","label":"Gemini Pro","used":0.2,"severity":"normal"}],"updatedAt":"2099-01-01T00:00:00Z"}}`), nil
 		}
@@ -136,7 +128,7 @@ func TestAgyQuotaUsesTemporaryConversationWhenIdle(t *testing.T) {
 	})
 	r.AgyQuota.Refresh(true)
 	until("取完 agy 额度", func() bool { return !r.AgyQuota.Refreshing() })
-	want := []string{"quota.get", "conv.open", "conv.prepare", "conv.quota", "conv.end", "conv.close", "quota.usage"}
+	want := []string{"quota.get", "quota.usage"}
 	if got := f.link().Methods(); !slices.Equal(got, want) {
 		t.Fatalf("methods = %v, want %v", got, want)
 	}

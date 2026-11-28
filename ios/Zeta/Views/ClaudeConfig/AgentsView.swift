@@ -67,6 +67,7 @@ struct AgentsView: View {
 
 /// 编辑页上的内容；tools 只在 allTools 为假时用。
 struct AgentDraft: Equatable {
+    var isAgy = false
     var name = ""
     var description = ""
     var model = ""
@@ -88,12 +89,15 @@ struct AgentDraft: Equatable {
         "run_command", "search_web", "invoke_subagent", "ask_question", "update_steps"
     ]
 
-    static func builtinTools(isAgy: Bool) -> [String] { isAgy ? agyTools : commonTools }
+    var builtinTools: [String] { isAgy ? Self.agyTools : Self.commonTools }
 
-    init() {}
+    init(isAgy: Bool = false) {
+        self.isAgy = isAgy
+    }
 
     init(_ agent: Subagent, isAgy: Bool = false) {
-        let builtins = Self.builtinTools(isAgy: isAgy)
+        self.isAgy = isAgy
+        let builtins = isAgy ? Self.agyTools : Self.commonTools
         name = agent.name
         description = agent.description
         model = agent.model
@@ -105,11 +109,10 @@ struct AgentDraft: Equatable {
     }
 
     /// 要写进文件的工具：勾选的常用工具按固定顺序，再加「其他工具」里逗号分开的；nil 是全部工具。
-    func selectedTools(isAgy: Bool) -> [String]? {
+    var selectedTools: [String]? {
         guard !allTools else { return nil }
-        let builtins = Self.builtinTools(isAgy: isAgy)
         let extra = others.split { $0 == "," || $0 == "，" }.map { $0.trimmingCharacters(in: .whitespaces) }
-        return builtins.filter(checked.contains) + extra.filter { !$0.isEmpty }
+        return builtinTools.filter(checked.contains) + extra.filter { !$0.isEmpty }
     }
 
     /// 保存前还差什么；不差时为空。
@@ -123,18 +126,18 @@ struct AgentDraft: Equatable {
         return ""
     }
 
-    func same(as other: AgentDraft, isAgy: Bool) -> Bool {
+    func same(as other: AgentDraft) -> Bool {
         name == other.name && description == other.description && model == other.model && prompt == other.prompt
-            && selectedTools(isAgy: isAgy) == other.selectedTools(isAgy: isAgy)
+            && selectedTools == other.selectedTools
     }
 
-    func params(isAgy: Bool) -> [String: any Sendable] {
+    var params: [String: any Sendable] {
         var out: [String: any Sendable] = [
             "name": name.trimmingCharacters(in: .whitespaces),
             "description": description.trimmingCharacters(in: .whitespacesAndNewlines),
             "model": model, "prompt": prompt
         ]
-        if let tools = selectedTools(isAgy: isAgy) { out["tools"] = tools }
+        if let tools = selectedTools { out["tools"] = tools }
         return out
     }
 
@@ -186,7 +189,7 @@ struct AgentEditView: View {
 
     private var dirty: Bool {
         guard let original else { return !draft.name.isEmpty || !draft.description.isEmpty || !draft.prompt.isEmpty }
-        return !draft.same(as: AgentDraft(original, isAgy: calls.isAgy), isAgy: calls.isAgy)
+        return !draft.same(as: AgentDraft(original, isAgy: calls.isAgy))
     }
 
     var body: some View {
@@ -231,8 +234,10 @@ struct AgentEditView: View {
         .navigationBarBackButtonHidden(dirty)
         .toolbar { toolbar }
         .onAppear {
-            if !started, let original { draft = AgentDraft(original, isAgy: calls.isAgy) }
-            started = true
+            if !started {
+                draft = original.map { AgentDraft($0, isAgy: calls.isAgy) } ?? AgentDraft(isAgy: calls.isAgy)
+                started = true
+            }
         }
         .confirmationDialog("放弃未保存的更改？", isPresented: $leaving, titleVisibility: .visible) {
             Button("放弃", role: .destructive) { dismiss() }
@@ -254,13 +259,12 @@ struct AgentEditView: View {
     }
 
     private var toolsSection: some View {
-        let builtins = AgentDraft.builtinTools(isAgy: calls.isAgy)
-        return Section {
+        Section {
             Toggle(isOn: $draft.allTools) {
                 TitledRow(title: String(localized: "全部工具"), summary: String(localized: "包括 MCP 工具"))
             }
             if !draft.allTools {
-                ForEach(builtins, id: \.self) { tool in
+                ForEach(draft.builtinTools, id: \.self) { tool in
                     Button {
                         draft.checked.formSymmetricDifference([tool])
                     } label: {
@@ -317,7 +321,7 @@ struct AgentEditView: View {
     }
 
     private func save() {
-        var params: [String: any Sendable] = ["draft": draft.params(isAgy: calls.isAgy)]
+        var params: [String: any Sendable] = ["draft": draft.params]
         if let original { params["original"] = original.params }
         saving = true
         problem = ""

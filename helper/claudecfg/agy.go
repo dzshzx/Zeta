@@ -178,12 +178,12 @@ func (s *Store) agyMemory(cwd, project string) Memory {
 	}
 	if selected == "global" {
 		m.Dir = globalDir
-		m.Files = listRuleFiles(globalDir, "AGENTS.md")
+		m.Files = listMarkdownEntries(globalDir, "AGENTS.md")
 	} else {
 		m.Dir = selected + "/.agents/rules"
 		idx := s.workspaceInstructionsFile(selected)
 		m.Index = &idx
-		m.Files = listRuleFiles(m.Dir, "")
+		m.Files = listMarkdownEntries(m.Dir, "")
 	}
 	return m
 }
@@ -219,7 +219,7 @@ func countMarkdownFiles(dir string) int {
 	return n
 }
 
-func listRuleFiles(dir, skipName string) []MemoryEntry {
+func listMarkdownEntries(dir, skipName string) []MemoryEntry {
 	entries, _ := os.ReadDir(dir)
 	var out []MemoryEntry
 	for _, e := range entries {
@@ -264,15 +264,16 @@ func (s *Store) agySkills() Skills {
 	out := Skills{User: []Skill{}, Synced: []SyncedSkill{}}
 	seen := map[string]bool{}
 
+	skipDot := func(name string) bool { return strings.HasPrefix(name, ".") }
 	primary := agySkillsDir(s.Home())
-	for _, sk := range readSkillDir(primary, settings) {
+	for _, sk := range readSkillDir(primary, settings, skipDot) {
 		seen[sk.Name] = true
 		out.User = append(out.User, sk)
 	}
 
 	extraDirs := append([]string{resolve(s.Home(), ".agents/skills")}, declaredSkillDirs(s.Home())...)
 	for _, d := range extraDirs {
-		for _, sk := range readSkillDir(d, settings) {
+		for _, sk := range readSkillDir(d, settings, skipDot) {
 			if seen[sk.Name] {
 				continue
 			}
@@ -289,18 +290,22 @@ func (s *Store) agySkills() Skills {
 	return out
 }
 
-func readSkillDir(root string, settings *object) []Skill {
+func readSkillDir(root string, settings *object, skip func(string) bool) []Skill {
 	entries, err := os.ReadDir(root)
 	if err != nil {
 		return nil
 	}
 	var out []Skill
 	for _, e := range entries {
-		p := filepath.Join(root, e.Name())
-		if st, err := os.Stat(p); err != nil || !st.IsDir() || strings.HasPrefix(e.Name(), ".") {
+		name := e.Name()
+		if skip != nil && skip(name) {
 			continue
 		}
-		sk := Skill{Name: e.Name()}
+		p := filepath.Join(root, name)
+		if st, err := os.Stat(p); err != nil || !st.IsDir() {
+			continue
+		}
+		sk := Skill{Name: name}
 		if head, _, ok := readHead(p+"/SKILL.md", 8192); ok {
 			sk.Valid = true
 			text, _, _ := splitFront(string(head))

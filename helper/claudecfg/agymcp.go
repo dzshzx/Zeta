@@ -1,7 +1,6 @@
 package claudecfg
 
 import (
-	"bytes"
 	"cmp"
 	"context"
 	"path/filepath"
@@ -65,33 +64,13 @@ func normalizeAgyMcpEntry(cfg *object) {
 }
 
 func (s *Store) updateAgyMcpFile(edit func(servers *object) error) error {
-	agyMcpMu.Lock()
-	defer agyMcpMu.Unlock()
-	path := agyMcpConfigPath(s.Home())
-	doc, err := load(path, MaxText)
-	if err != nil {
-		return err
-	}
-	root := newObject()
-	if doc.Exists && len(bytes.TrimSpace([]byte(doc.Content))) > 0 {
-		parsed, pErr := parseObject([]byte(doc.Content))
-		if pErr != nil {
-			return locales.Err("cfgSettingsInvalid")
+	_, err := updateJSONFile(agyMcpConfigPath(s.Home()), &agyMcpMu, func(root *object) error {
+		servers, err := childObject(root, "mcpServers", errInvalidSettings)
+		if err != nil {
+			return err
 		}
-		root = parsed
-	}
-	servers, err := childObject(root, "mcpServers", locales.Err("cfgSettingsInvalid"))
-	if err != nil {
-		return err
-	}
-	if err := edit(servers); err != nil {
-		return err
-	}
-	expected := doc.SHA
-	if !doc.Exists {
-		expected = "-"
-	}
-	_, err = store(path, []byte(renderJSON(root)), expected, "")
+		return edit(servers)
+	})
 	return err
 }
 

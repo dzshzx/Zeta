@@ -275,14 +275,7 @@ func (h sessionOps) deleteSession(q sessionParams) (any, error) {
 }
 
 func (e *env) hasAgySessionData(id string) bool {
-	if !agystore.IsSessionID(id) {
-		return false
-	}
-	if lexists(joinPath(joinPath(e.agy, "brain"), id)) || lexists(agystore.AnnotationPath(e.agy, id)) {
-		return true
-	}
-	base := joinPath(joinPath(e.agy, "conversations"), id)
-	return lexists(base+".db") || lexists(base+".pb")
+	return agystore.HasSessionData(e.agy, id)
 }
 
 // end 结束本包占着会话 session 的 Claude Code 进程（等于终端里 /exit），等它退出再答，好让马上推的列表项里 live 已经是假。

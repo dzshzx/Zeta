@@ -8,7 +8,6 @@ import (
 	"io"
 	"os"
 	"path/filepath"
-	"regexp"
 	"strconv"
 	"strings"
 	"time"
@@ -16,29 +15,43 @@ import (
 )
 
 const (
-	transcriptRelPath     = ".system_generated/logs/transcript.jsonl"
-	transcriptFullRelPath = ".system_generated/logs/transcript_full.jsonl"
-	maxClipRunes          = 32000
+	transcriptRelPath = ".system_generated/logs/transcript.jsonl"
+	maxClipRunes      = 32000
 )
 
-var uuidRe = regexp.MustCompile(`^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$`)
+// Dir 返回 agy 数据根目录（默认 ~/.gemini/antigravity-cli，支持 ZETA_AGY_DIR 覆盖）。
+func Dir(home string) string {
+	if override := strings.TrimSpace(os.Getenv("ZETA_AGY_DIR")); override != "" {
+		return filepath.Clean(override)
+	}
+	return filepath.Join(home, ".gemini", "antigravity-cli")
+}
 
 // TranscriptPath 是 agy 会话 id 的会话记录路径。
 func TranscriptPath(agyDir, id string) string {
 	return filepath.Join(agyDir, "brain", id, transcriptRelPath)
 }
 
-// SessionIDFromTranscript 从 transcript.jsonl 的路径还原会话 id；不是 agy 的会话记录路径时 ok 为假。
-func SessionIDFromTranscript(agyDir, p string) (string, bool) {
+// ParseTranscriptPath 从任意 agy transcript.jsonl 路径还原 agy 根目录和会话 id。
+func ParseTranscriptPath(p string) (agyDir, id string, ok bool) {
 	clean := filepath.Clean(p)
-	root := filepath.Clean(filepath.Join(agyDir, "brain")) + string(filepath.Separator)
-	rest, ok := strings.CutPrefix(clean, root)
-	if !ok {
-		return "", false
-	}
 	suffix := string(filepath.Separator) + filepath.FromSlash(transcriptRelPath)
-	id, ok := strings.CutSuffix(rest, suffix)
-	if !ok || strings.Contains(id, string(filepath.Separator)) || !IsSessionID(id) {
+	rest, has := strings.CutSuffix(clean, suffix)
+	if !has {
+		return "", "", false
+	}
+	id = filepath.Base(rest)
+	brainDir := filepath.Dir(rest)
+	if filepath.Base(brainDir) != "brain" || !IsSessionID(id) {
+		return "", "", false
+	}
+	return filepath.Dir(brainDir), id, true
+}
+
+// SessionIDFromTranscript 从 transcript.jsonl 的路径还原会话 id；不是 agyDir 下的会话记录路径时 ok 为假。
+func SessionIDFromTranscript(agyDir, p string) (string, bool) {
+	dir, id, ok := ParseTranscriptPath(p)
+	if !ok || filepath.Clean(dir) != filepath.Clean(agyDir) {
 		return "", false
 	}
 	return id, true
@@ -46,9 +59,6 @@ func SessionIDFromTranscript(agyDir, p string) (string, bool) {
 
 // IsSessionID 判断 id 是否是合法的会话标识。
 func IsSessionID(id string) bool {
-	if uuidRe.MatchString(id) {
-		return true
-	}
 	if len(id) < 8 || len(id) > 64 {
 		return false
 	}
@@ -59,6 +69,13 @@ func IsSessionID(id string) bool {
 		}
 	}
 	return true
+}
+
+func toolCallID(stepIndex, idx int, tc rawTool) string {
+	if tc.ID != "" {
+		return tc.ID
+	}
+	return fmt.Sprintf("agy-%d-%d", stepIndex, idx)
 }
 
 // rawStep 是 agy transcript.jsonl 里的一行。
@@ -284,10 +301,7 @@ func plannerEvent(st rawStep) (map[string]any, []string) {
 		blocks = append(blocks, map[string]any{"type": "text", "text": clipString(st.Content)})
 	}
 	for i, tc := range st.ToolCalls {
-		callID := tc.ID
-		if callID == "" {
-			callID = fmt.Sprintf("agy-%d-%d", st.StepIndex, i)
-		}
+		callID := toolCallID(st.StepIndex, i, tc)
 		ids = append(ids, callID)
 		decoded := DecodeToolArgs(tc.Args)
 		clipped, wasClipped := clipMap(decoded)

@@ -170,11 +170,8 @@ type titleFollower struct {
 
 // read 读到 path 现在为止的标题；path 是空串或读不了时给出上次读到的。
 func (t *titleFollower) read(path string) string {
-	if agyDir, _, ok := agyDirFromTranscript(path); ok {
-		if s, ok, err := agystore.Summarize(agyDir, path); err == nil && ok {
-			return s.Title
-		}
-		return ""
+	if agyDir, id, ok := agyDirFromTranscript(path); ok {
+		return agystore.ReadTitle(agyDir, id)
 	}
 	if path != t.path {
 		*t = titleFollower{path: path}

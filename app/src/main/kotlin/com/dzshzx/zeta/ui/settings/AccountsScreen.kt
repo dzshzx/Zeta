@@ -60,11 +60,12 @@ private fun entryAccount(
     harness: String,
     ready: Boolean,
 ): EntryAccount? {
-    val isAgy = Harnesses.normalize(harness) == Harnesses.AGY
-    if (backend == Backends.LOCAL && !isAgy)
-        return hub.environment.account?.let { EntryAccount(it.loggedIn, it.email, it.relay) }
-    if (backend == Backends.LOCAL && isAgy && hub.environment.agyAccount != null)
-        return hub.environment.agyAccount?.let { EntryAccount(it.loggedIn, it.email, it.relay) }
+    if (backend == Backends.LOCAL) {
+        val local = hub.environment.account(harness)
+        if (local != null || Harnesses.normalize(harness) != Harnesses.AGY) {
+            return local?.let { EntryAccount(it.loggedIn, it.email, it.relay) }
+        }
+    }
     val service = hub.accounts(backend, harness)
     LaunchedEffect(backend, harness, ready) {
         if (ready && service.state == null) service.refresh()
