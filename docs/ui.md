@@ -61,6 +61,12 @@ Miuix 没有的才在 `ui/components/miuix` 补，页面文件里不各写一份
 - 网络图片在没开「自动加载网络图片」时，单张和组里的每一页都是「加载图片」按钮，点了才取。
 - 回答里写的图片文件读不到（被删了、挪走了）时，改显示 Claude 用 Read 读这个文件时工具结果里的那张图（`readImage`）；没读过的照样显示「图片无法显示」。
 
+## 回答的流式 Markdown
+
+- 手机版：每次更新都把整条回答从头完整解析一遍（`StreamingGfmParserSession.parse`，`ui/markdown/StreamingGfmParser.kt`），在 `Dispatchers.Default` 上做，来不及处理的更新合并成最新一版（`StreamingMarkdownState.parseTargets` 是 `CONFLATED`），所以不卡界面；块是 `@Immutable` 的数据类、按 `offset` 标识，没变的块 Compose 跳过重画。代价是解析耗时随回答长度增长，长回答流式输出时画面更新变稀、多耗电。
+- 三端对照：桌面版只解析上一帧之后追加的那段（mygo 的 `markdown.View`）；iOS 版在 `body` 里、界面线程上整条解析（见 `docs/ios.md` 的 Markdown 一条）。
+- 改成增量解析时可参考 DSH Go（github `ccch1mneyyy/dsh-Go` 的 `app/lib/ui/chat/render/markdown_split.dart`）：前面已经定下来的块原样沿用，只从倒数第二块起重新解析；只在不会改变结果的边界切块（不切在围栏代码、块公式、HTML 块里和列表项之间，表格、引用、图片前后不切），回答里有链接或脚注定义时整条解析。手机版动手前先在真机上量长回答的解析耗时。
+
 ## 补上游缺口
 
 下面几处是 Miuix 的缺口，Zeta 在本地补着。`MiuixGapsTest` 断言缺口还在：升级 Miuix 后它哪条失败，说明上游已经补上，删掉对应的补丁和那条断言。
