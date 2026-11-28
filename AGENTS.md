@@ -1,12 +1,12 @@
 # Zeta 项目约束
 
-Zeta（Ζ）是 Claude Code 与 Antigravity CLI（`agy`）的跨平台原生客户端，有 Android 版、iOS 版和 Windows 版，默认分支 `master`。功能按三组归属，加功能先定属于哪组：
+Zeta（Ζ）是面向多个 Code Agent（当前支持 Claude Code 与 Antigravity CLI `agy`）的跨平台原生客户端，主力场景是经 SSH 连接远程 Linux 主机上的 Code Agent 进行开发，并在 Android 端提供手机操作与可选的本机 Linux 环境能力；默认分支 `master`。各端共用 Go 核心（主机端 `zeta-helper serve`、客户端通用层 `client/` 与中枢 `hub/`），界面分别采用各平台原生框架：Windows 用 Go + mygo（`windows/`），Android 用 Kotlin + Jetpack Compose + Miuix（`app/`），iOS 用 Swift + SwiftUI（`ios/`）。功能按三组归属，加功能先定属于哪组：
 
-- 多端共有：和远程主机（或手机 Debian）上的 Claude Code、Antigravity CLI 有关的，如对话与会话列表（同一台设备可并存双工具、统一管理会话、新对话自由选工具）、确认与提问、子代理与后台任务、账号额度与中转、双工具配置页（记忆/规则、Skills、MCP、Subagent、工具权限）、诊断、和终端交接。逻辑放 Go 核心（主机上的 `zeta-helper serve` 与 `client/`、`hub/`，见 `docs/core.md`），各端只画界面。
-- Android 版独有（`app/`）：手机一侧的，如自带的 Debian 环境、手机操作工具与后台虚拟屏、语音与数字助理、定时任务与通知触发、超级岛；完整清单以 `docs/desktop.md` 开头桌面版不做的那串为准。
-- Windows 版（`windows/`）与 iOS 版（`ios/`）：Windows 版做桌面的交互、MSI 安装与应用内更新（见 `docs/desktop.md`）；iOS 版做 SwiftUI 界面与灵动岛实时活动（见 `docs/ios.md`）。
+- 多端共有（主力场景）：连接远程 Linux 主机（或手机本机 Debian）上的多个 Code Agent 进行开发，涵盖双工具共存与统一会话管理（新对话自由选工具）、确认与提问、子代理与后台任务、账号额度与中转、各工具配置页（记忆/规则、Skills、MCP、Subagent、工具权限）、诊断及与终端交接。逻辑放 Go 核心（主机上的 `zeta-helper serve` 与 `client/`、`hub/`，见 `docs/core.md`），各端只画界面。
+- Android 版独有（`app/`）：手机一侧的扩展能力，包括手机操作工具与后台虚拟屏、语音与数字助理、定时任务与通知触发、超级岛，以及可选的本机 Debian 环境；完整清单以 `docs/desktop.md` 开头桌面版不做的那串为准。
+- Windows 版（`windows/`）与 iOS 版（`ios/`）：Windows 版用 Go + mygo 做桌面交互、托盘、MSI 安装与应用内更新（见 `docs/desktop.md`）；iOS 版用 Swift + SwiftUI 做移动端界面与灵动岛实时活动（见 `docs/ios.md`）。
 
-Android 版用 Kotlin、Compose，界面用 Miuix，包名 `com.dzshzx.zeta`（测试版 `com.dzshzx.zeta.dev`，见「构建与测试」），要取代 Eta 做手机上的主力 agent；Windows 版与 iOS 版见「架构」的 `windows/`、`ios/` 两条。
+Android 版用 Kotlin、Jetpack Compose 与 Miuix，包名 `com.dzshzx.zeta`（测试版 `com.dzshzx.zeta.dev`，见「构建与测试」）；Windows 版与 iOS 版见「架构」的 `windows/`、`ios/` 两条。
 
 维护者本机的环境事实（设备的 ssh 别名、模拟器、参照源码的本机位置、账号与密钥条目）不进 Git，写在仓根未跟踪的 `CLAUDE.local.md`，Claude Code 在主 checkout 里会自动加载它；本仓根指令文件为 `AGENTS.md`（Claude Code 与 `agy` 共读），在任务 worktree 里需查本机环境事实时去读主 checkout 的 `CLAUDE.local.md`（`git rev-parse --path-format=absolute --git-common-dir` 的上一级目录）。没有这个文件时，按下面「本机配置」配好自己的设备。
 
@@ -14,12 +14,12 @@ Android 版用 Kotlin、Compose，界面用 Miuix，包名 `com.dzshzx.zeta`（�
 
 用户定的，改之前先问。
 
-- 手机版界面用 Miuix（`top.yukonga.miuix.kmp`，HyperOS 4 的玻璃样式）：组件、配色、文字样式默认用它自带的；它没有的在 `ui/components/miuix` 补，Eta（也用 Miuix）里有现成写法的先从 Eta 拷来再改。组件参数以 Miuix 源码为准，Zeta 的补充件、常见选法和坑见 `docs/ui.md`。不提 Web UI 方案。功能从简。
-- 桌面版（`windows/`）的界面照 ChatGPT 的 Windows 客户端（原 Codex 客户端）：配色和快捷键照它，尺寸按鼠标；布局和交互是 Zeta 自己的，它做得好的地方拿来参考，不照搬手机版的交互；规矩见 `docs/desktop.md`「界面」。
-- Claude Code 与 Antigravity CLI（`agy`）就是 harness。同一台设备上两者可并存，会话列表合在一起管理（`agy` 会话标 `agy`），新对话发第一条消息前可自由切换工具，每台设备也可设新建对话的默认工具。Eta 里属于 harness 的部分不移植，比如终端。模型供应商只做成「中转」：每台设备的账号页里按工具分别添加、切换第三方接入点——Claude Code 换用中转的 `ANTHROPIC_BASE_URL`、密钥和默认模型（claude-switch 的非账号目标，见 `docs/core.md`「账号与额度」），Antigravity 配置 Gemini API Key 与可选 Base URL（`helper/agyacct`）；协议都走各自 CLI 原生支持的接口，Zeta 不自己实现模型客户端。压缩上下文和起标题用工具自带的；管理自身配置的页面（Claude Code 的记忆 `~/.claude` 与 Antigravity 的规则 `AGENTS.md`/`~/.gemini/config`、Skills、MCP、Subagent、工具权限）按 `harness` 读写各自真实配置，不另造一套。
-- 默认有 root，不照搬 Eta 里兼容无 root 的部分。可选工具里 Go 排第一。
+- Android 端（`app/`）界面用 Kotlin + Jetpack Compose + Miuix（`top.yukonga.miuix.kmp`，HyperOS 4 的玻璃样式）：组件、配色、文字样式默认用 Miuix 自带的；缺口补在 `ui/components/miuix`。组件参数以 Miuix 上游（`compose-miuix-ui/miuix`）源码为准，Zeta 的补充件、常见选法和坑见 `docs/ui.md`。不提 Web UI 方案。功能从简。
+- Windows 桌面端（`windows/`）用 Go + mygo 原生界面：配色和快捷键参考 ChatGPT 的 Windows 客户端（原 Codex 客户端），尺寸按鼠标；布局和交互按 Zeta 自身需求设计，不照搬手机端的交互；规矩见 `docs/desktop.md`「界面」。
+- iOS 端（`ios/`）用 Swift + SwiftUI（iOS 27 SDK 原生组件）；规矩见 `docs/ios.md`。
+- Claude Code 与 Antigravity CLI（`agy`）等 Code Agent 本身就是 harness。同一台设备上两者可并存，会话列表合在一起管理（`agy` 会话标 `agy`），新对话发第一条消息前可自由切换工具，每台设备也可设新建对话的默认工具。Zeta 不自建终端，也不自己实现模型客户端；模型供应商只做成「中转」：每台设备的账号页里按工具分别添加、切换第三方接入点——Claude Code 换用中转的 `ANTHROPIC_BASE_URL`、密钥和默认模型（claude-switch 的非账号目标，见 `docs/core.md`「账号与额度」），Antigravity 配置 Gemini API Key 与可选 Base URL（`helper/agyacct`），协议都走各自 CLI 原生支持的接口。压缩上下文和起标题用工具自带的；管理自身配置的页面（Claude Code 的记忆 `~/.claude` 与 Antigravity 的规则 `AGENTS.md`/`~/.gemini/config`、Skills、MCP、Subagent、工具权限）按 `harness` 读写各自真实配置，不另造一套。
+- 经 SSH 直连远程主机不要求 root；Android 端的本机 Debian 环境、手机操作能力与一键授权默认有 root，不做无 root 兼容。本机可选工具里 Go 排第一。
 - 版本号长期停在 0.x.x，不发 1.0。正式版的版本只在发版时升一次 patch（0.7.0 → 0.7.1），用户说了才升 minor；0.8.0 留给 Go 核心迁移全部做完（`docs/core.md`「进度」各步都做完，含撤掉 `shared/`），在那之前都发 0.7.x；合入不改版本号，测试版的版本跟着提交自动走（见「发版与上线」）。
-- Eta：本项目的参考来源，相关权利符合 GPLv3 标准。Eta 和 Miuix 的上游是 github `Mangi-11/Eta`、`compose-miuix-ui/miuix`，对照前先把本地那份更新到最新。
 
 ## 架构
 
@@ -136,7 +136,7 @@ Android SDK 取 `ANDROID_HOME`，默认 `~/Android/Sdk`。每次调用时才设�
 
 ## 坑
 
-- Linux 里的 `/workspace` 是 Android 的 `/data/local/zeta/workspace`（`LinuxEnv.WORKSPACE`）绑过去的，是用户自己的文件，正式版和测试版共用；它在 rootfs 外面，换环境、重装环境都不动它。Zeta 自己要建的目录放进 rootfs 里（共享文件夹挂在 `/mnt/shared`），不放在 `/workspace` 下。Zeta 不碰 Eta 的 `/data/local/tmp/eta`（别人设备上那可能是 Eta 正在用的工作区）。工作区里的文件要是 `/data` 的默认标签 `system_data_file`：在 Android 一侧从别处改名、mv 进来的文件带着原来的标签，开机的 restorecon 改不动，整个 `/data` 就每次开机全量重扫；开机脚本（`zeta_image_android.sh boot`）见到工作区目录本身标签不对时整棵重贴。
+- Linux 里的 `/workspace` 是 Android 的 `/data/local/zeta/workspace`（`LinuxEnv.WORKSPACE`）绑过去的，是用户自己的文件，正式版和测试版共用；它在 rootfs 外面，换环境、重装环境都不动它。Zeta 自己要建的目录放进 rootfs 里（共享文件夹挂在 `/mnt/shared`），不放在 `/workspace` 下。工作区里的文件要是 `/data` 的默认标签 `system_data_file`：在 Android 一侧从别处改名、mv 进来的文件带着原来的标签，开机的 restorecon 改不动，整个 `/data` 就每次开机全量重扫；开机脚本（`zeta_image_android.sh boot`）见到工作区目录本身标签不对时整棵重贴。
 - Zeta 自带的 Debian 存在磁盘镜像 `/data/local/zeta/debian/rootfs.img`（ext4，稀疏文件）里，挂在全局挂载命名空间的 `rootfs/` 上，挂载会传到各个应用的命名空间，所以路径和普通目录一样。为什么：Android 每次开机在 post-fs-data 对 /data 做 restorecon，装了 KernelSU 模块的设备上总有改不了标签的文件，它就永远不记目录摘要、每次全量重扫，几十万个文件的 Debian 放成普通目录会让开机多等二十来秒。镜像的事全在 `assets/zeta_image_android.sh`：Zeta 每次调它时先写到 `/data/local/zeta/image.sh`，开机脚本 `89-zeta-image.sh`（检查、挂上、fstrim）和进环境前（`LinuxEnv.MOUNT_IMAGE`、`zeta_enter.sh`）都经磁盘上那份挂镜像；转换、检查、调整大小要停掉 Debian 里根目录在 rootfs 下的全部进程，在 Android 一侧的后台进程里做，做完重新执行 service.d 里提到 rootfs 的开机脚本。新装的环境解压后就转成镜像；还是普通目录的在设置 › Linux 环境 › 磁盘镜像里转。设备上的回归是 `tools/phone-tests/disk-image-*.sh`（只在模拟器上跑）。
 - app 不能给它的 `su` 子进程发信号（uid 不同），要经 root 杀（`LinuxEnv.kill`）。
 - Android 上 `Process.waitFor(超时)` 是 java.lang.Process 的默认实现，每 100 毫秒才看一次进程结束没有，每条命令平均白等约 50 毫秒；等进程用 `Process.exitsWithin`（`core/ProcessWait.kt`，`ProcessWaitTest` 拦着应用代码里带超时的 `waitFor`）。

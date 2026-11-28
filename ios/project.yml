@@ -45,9 +45,9 @@ targets:
           UIApplicationSupportsMultipleScenes: false
         UISupportedInterfaceOrientations: [UIInterfaceOrientationPortrait, UIInterfaceOrientationLandscapeLeft, UIInterfaceOrientationLandscapeRight]
         UISupportedInterfaceOrientations~ipad: [UIInterfaceOrientationPortrait, UIInterfaceOrientationPortraitUpsideDown, UIInterfaceOrientationLandscapeLeft, UIInterfaceOrientationLandscapeRight]
-        NSLocalNetworkUsageDescription: Zeta 经 SSH 连局域网里的设备，在上面用 Claude Code。
+        NSLocalNetworkUsageDescription: Zeta 经 SSH 连局域网里的设备，连接其上的 Code Agent。
         NSPhotoLibraryAddUsageDescription: 看大图时把图片保存到相册。
-        NSCameraUsageDescription: 在输入栏里拍照，作为附件发给 Claude。
+        NSCameraUsageDescription: 在输入栏里拍照，作为附件发给 Code Agent。
         ITSAppUsesNonExemptEncryption: false
         NSSupportsLiveActivities: true
         CFBundleURLTypes:

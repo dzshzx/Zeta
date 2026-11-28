@@ -4881,13 +4881,13 @@ func (msgs Messages) ClaudecfgDocumentEmptyEdit() string {
 	return Catalog.Format(msgs.locale, "claudecfgDocumentEmptyEdit", nil)
 }
 
-// AboutCreditEta says "Zeta 的参考来源，功能和交互照它设计（GPL-3.0）"
+// AboutCreditEta says "早期参考项目，部分代码改写自它（GPL-3.0）"
 // in the language the app shows.
 //
 // 关于页鸣谢里 Eta 的介绍。
 func AboutCreditEta() string { return In(i18n.Locale()).AboutCreditEta() }
 
-// AboutCreditEta says "Zeta 的参考来源，功能和交互照它设计（GPL-3.0）"
+// AboutCreditEta says "早期参考项目，部分代码改写自它（GPL-3.0）"
 // in the language of msgs.
 //
 // 关于页鸣谢里 Eta 的介绍。
@@ -4895,18 +4895,32 @@ func (msgs Messages) AboutCreditEta() string {
 	return Catalog.Format(msgs.locale, "aboutCreditEta", nil)
 }
 
-// AboutCreditClaudeCode says "Anthropic 的编程 agent，Zeta 是它的客户端"
+// AboutCreditClaudeCode says "Anthropic 的 Code Agent，Zeta 支持接入"
 // in the language the app shows.
 //
 // 关于页鸣谢里 Claude Code 的介绍。
 func AboutCreditClaudeCode() string { return In(i18n.Locale()).AboutCreditClaudeCode() }
 
-// AboutCreditClaudeCode says "Anthropic 的编程 agent，Zeta 是它的客户端"
+// AboutCreditClaudeCode says "Anthropic 的 Code Agent，Zeta 支持接入"
 // in the language of msgs.
 //
 // 关于页鸣谢里 Claude Code 的介绍。
 func (msgs Messages) AboutCreditClaudeCode() string {
 	return Catalog.Format(msgs.locale, "aboutCreditClaudeCode", nil)
+}
+
+// AboutCreditAntigravity says "Google DeepMind 的 Code Agent，Zeta 支持接入"
+// in the language the app shows.
+//
+// 关于页鸣谢里 Antigravity CLI 的介绍。
+func AboutCreditAntigravity() string { return In(i18n.Locale()).AboutCreditAntigravity() }
+
+// AboutCreditAntigravity says "Google DeepMind 的 Code Agent，Zeta 支持接入"
+// in the language of msgs.
+//
+// 关于页鸣谢里 Antigravity CLI 的介绍。
+func (msgs Messages) AboutCreditAntigravity() string {
+	return Catalog.Format(msgs.locale, "aboutCreditAntigravity", nil)
 }
 
 // AboutCreditMygo says "桌面版的界面框架：窗口、控件、排版和绘制（MIT）"

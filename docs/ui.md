@@ -1,11 +1,11 @@
-# 界面写法
+# Android 界面写法
 
-手机版的界面用 Miuix（`top.yukonga.miuix.kmp`，HyperOS 风格），顶栏、对话框用它 `miuix-glass` 的 HyperOS 4 玻璃样式。桌面版不照这里，见 `docs/desktop.md`「界面」。
+Android 端的界面用 Kotlin + Jetpack Compose + Miuix（`top.yukonga.miuix.kmp`，HyperOS 风格），顶栏、对话框用 `miuix-glass` 的 HyperOS 4 玻璃样式。Windows 桌面端用 Go + mygo（见 `docs/desktop.md`「界面」），iOS 端用 Swift + SwiftUI（见 `docs/ios.md`），各端独立。
 
 ## 照什么写
 
 - 组件参数以 Miuix 源码为准（github `compose-miuix-ui/miuix`，克隆一份到本地，对照前先 `git pull`）：`miuix-ui`、`miuix-preference`、`miuix-glass`、`miuix-blur`、`miuix-squircle` 的 `src/commonMain`；组件的样子看 `docs/components/`。
-- Miuix 没有的东西先看 Eta（github `Mangi-11/Eta`，也用 Miuix、也是 HyperOS 4 的玻璃样式）有没有现成写法，有就拷来再改，拷来的文件登记在 `core/about/ThirdParty.kt` 的 `ETA_FILES`。
+- Miuix 没有的组件与样式缺口统一补在 `ui/components/miuix`；既有改写自第三方（含 Eta）的文件在 `core/about/ThirdParty.kt` 的 `ETA_FILES` 中合规登记。
 - 字符串不用 Compose resources，走 Zeta 自己的文字表（见 `docs/i18n.md`）；页面切换由 Zeta 自己管（聊天页上的页面栈 `ui/PageStack.kt`；一层层盖上去的页面都用 `ui/components/SlideInPage.kt`，带返回键时给 `onBack`；页面要带着一个值打开时用带值的写法 `SlideInPage(value) { … }`，值变空就关，退场动画期间仍用最后的值画），不用 miuix-nav；页面骨架用 `ui/components/miuix` 的，不再复制。
 
 ## Zeta 的补充件

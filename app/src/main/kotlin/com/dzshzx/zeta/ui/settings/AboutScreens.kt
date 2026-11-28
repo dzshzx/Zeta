@@ -284,6 +284,11 @@ private val CREDITS =
             Strings::aboutCreditClaudeCode,
             "https://github.com/anthropics/claude-code",
         ),
+        Credit(
+            "Antigravity CLI",
+            Strings::aboutCreditAntigravity,
+            "https://antigravity.google",
+        ),
     )
 
 /** 一种许可证的全文：分类标题，下面一张卡片里分段排；还没读出来时转圈，读不出时说一声。 */

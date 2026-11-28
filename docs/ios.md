@@ -1,6 +1,6 @@
 # iOS 版
 
-`ios/` 是 iPhone 和 iPad 上的 Zeta：经 Zeta 自带的 SSH 直连 Linux 设备，在上面用 Claude Code 与 Antigravity CLI（`agy`）。和远程主机有关的功能同手机版（双工具统一会话列表管理、新对话工具切换、对话与各种确认、输入栏、后台任务与子代理、双工具账号与额度和中转、Claude Code 与 Antigravity 配置、诊断、通知；手机版的超级岛在这里是灵动岛），差别见最后「现在没有的」；依赖手机本机环境的（Debian 环境、手机工具、悬浮层、语音与数字助理、定时任务、通知触发、存储与备份）不做。界面用 iOS 27 SDK 自带的 SwiftUI 组件，最低系统 iOS 27。
+`ios/` 是用 Swift + SwiftUI（iOS 27 SDK 原生组件，最低系统 iOS 27）写的 iPhone 和 iPad 原生客户端，经 Zeta 自带的 SSH 直连远程 Linux 主机，连接其上的多个 Code Agent（Claude Code 与 Antigravity CLI `agy`）进行开发。具备多端共有的开发能力（双工具统一会话列表管理、新对话工具切换、对话与各种确认、输入栏、后台任务与子代理、双工具账号与额度和中转、Claude Code 与 Antigravity 配置、诊断、通知，以及灵动岛实时活动），差别见最后「现在没有的」；依赖 Android 本机环境的扩展能力（本机 Debian 环境、手机操作工具、悬浮层、语音与数字助理、定时任务、通知触发、存储与备份）不做。
 
 ## 结构
 

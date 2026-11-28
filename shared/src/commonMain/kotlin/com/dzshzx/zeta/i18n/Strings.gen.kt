@@ -15037,7 +15037,7 @@ object Strings {
     fun aboutLicenseTextMissing(path: String): String = catalog.say("aboutLicenseTextMissing", mapOf("path" to path))
 
     /**
-     * 「Zeta 的功能和交互照它设计；Markdown 渲染、侧栏骨架的代码来自它（GPL-3.0）」
+     * 「早期参考项目，Markdown 渲染、侧栏骨架等部分代码改写自它（GPL-3.0）」
      *
      * 鸣谢页里 Eta 一行的介绍。
      */
@@ -15058,14 +15058,21 @@ object Strings {
     fun aboutCreditMiuix(): String = catalog.say("aboutCreditMiuix")
 
     /**
-     * 「Anthropic 的编程 agent，Zeta 是它在手机上的客户端」
+     * 「Anthropic 的 Code Agent，Zeta 支持接入」
      *
      * 鸣谢页里 Claude Code 一行的介绍。
      */
     fun aboutCreditClaudeCode(): String = catalog.say("aboutCreditClaudeCode")
 
     /**
-     * 「Claude 是 Anthropic 的商标。Zeta 不是 Anthropic 的产品，与 Anthropic 没有关联。」
+     * 「Google DeepMind 的 Code Agent，Zeta 支持接入」
+     *
+     * 鸣谢页里 Antigravity CLI 一行的介绍。
+     */
+    fun aboutCreditAntigravity(): String = catalog.say("aboutCreditAntigravity")
+
+    /**
+     * 「Claude 是 Anthropic 的商标，Google 与 Antigravity 是 Google 的商标。Zeta 是个人维护的非官方项目，与 Anthropic、Google 没有关联。」
      *
      * 「关于」一组和鸣谢页下面的非官方声明。
      */

@@ -19,18 +19,18 @@ body:
     id: device
     attributes:
       label: 设备与系统版本
-      description: 设备型号、Android 版本，厂商系统的版本（比如 HyperOS 3.0.5）
-      placeholder: Xiaomi 17，Android 16，HyperOS 3.0.5
+      description: 平台（Windows / Android / iOS）、设备型号与系统版本（Android 可附厂商系统版本，如 HyperOS 3.0.5）；如涉及远程主机也请说明其 Linux 发行版与架构
+      placeholder: Windows 11 24H2 / Xiaomi 17，Android 16，HyperOS 3.0.5 / iPhone，iOS 27
     validations:
       required: true
   - type: input
     id: root
     attributes:
-      label: root 方案
-      description: KernelSU、SukiSU、Magisk 等，带上版本；用了 LSPosed 也写上
+      label: root 方案（仅 Android 本机 Linux / 手机操作相关问题填写）
+      description: KernelSU、SukiSU、Magisk 等，带上版本；用了 LSPosed 也写上；Windows / iOS 或仅 SSH 直连远程主机可留空
       placeholder: KernelSU v1.0.5，LSPosed v2.2.1
     validations:
-      required: true
+      required: false
   - type: textarea
     id: what
     attributes:

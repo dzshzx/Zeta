@@ -1808,13 +1808,17 @@
   "@claudecfgDocumentEmptyEdit": {
     "description": "正文是空的那块的读屏名字：点了切到编辑。"
   },
-  "aboutCreditEta": "Zeta 的参考来源，功能和交互照它设计（GPL-3.0）",
+  "aboutCreditEta": "早期参考项目，部分代码改写自它（GPL-3.0）",
   "@aboutCreditEta": {
     "description": "关于页鸣谢里 Eta 的介绍。"
   },
-  "aboutCreditClaudeCode": "Anthropic 的编程 agent，Zeta 是它的客户端",
+  "aboutCreditClaudeCode": "Anthropic 的 Code Agent，Zeta 支持接入",
   "@aboutCreditClaudeCode": {
     "description": "关于页鸣谢里 Claude Code 的介绍。"
+  },
+  "aboutCreditAntigravity": "Google DeepMind 的 Code Agent，Zeta 支持接入",
+  "@aboutCreditAntigravity": {
+    "description": "关于页鸣谢里 Antigravity CLI 的介绍。"
   },
   "aboutCreditMygo": "桌面版的界面框架：窗口、控件、排版和绘制（MIT）",
   "@aboutCreditMygo": {

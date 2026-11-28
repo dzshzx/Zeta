@@ -11466,7 +11466,7 @@
   "@aboutLicenseTextMissing": {
     "description": "许可证全文读不出来时的说明；path 是包里的文件路径。"
   },
-  "aboutCreditEta": "Zeta 的功能和交互照它设计；Markdown 渲染、侧栏骨架的代码来自它（GPL-3.0）",
+  "aboutCreditEta": "早期参考项目，Markdown 渲染、侧栏骨架等部分代码改写自它（GPL-3.0）",
   "@aboutCreditEta": {
     "description": "鸣谢页里 Eta 一行的介绍。"
   },
@@ -11478,11 +11478,15 @@
   "@aboutCreditMiuix": {
     "description": "鸣谢页里 Miuix 一行的介绍。"
   },
-  "aboutCreditClaudeCode": "Anthropic 的编程 agent，Zeta 是它在手机上的客户端",
+  "aboutCreditClaudeCode": "Anthropic 的 Code Agent，Zeta 支持接入",
   "@aboutCreditClaudeCode": {
     "description": "鸣谢页里 Claude Code 一行的介绍。"
   },
-  "aboutUnofficial": "Claude 是 Anthropic 的商标。Zeta 不是 Anthropic 的产品，与 Anthropic 没有关联。",
+  "aboutCreditAntigravity": "Google DeepMind 的 Code Agent，Zeta 支持接入",
+  "@aboutCreditAntigravity": {
+    "description": "鸣谢页里 Antigravity CLI 一行的介绍。"
+  },
+  "aboutUnofficial": "Claude 是 Anthropic 的商标，Google 与 Antigravity 是 Google 的商标。Zeta 是个人维护的非官方项目，与 Anthropic、Google 没有关联。",
   "@aboutUnofficial": {
     "description": "「关于」一组和鸣谢页下面的非官方声明。"
   },

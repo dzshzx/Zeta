@@ -30,7 +30,7 @@
   <Product Id="*" Name="$(var.ProductName)" Language="1033" Version="$(var.Version)" Manufacturer="dzshzx"
            UpgradeCode="$(var.UpgradeCode)">
     <Package InstallerVersion="500" Compressed="yes" InstallScope="perUser"
-             Description="$(var.ProductName): Claude Code on remote hosts over SSH" />
+             Description="$(var.ProductName): Native client for remote Code Agents over SSH" />
     <Media Id="1" Cabinet="zeta.cab" EmbedCab="yes" />
     <MajorUpgrade AllowSameVersionUpgrades="yes" DowngradeErrorMessage="A newer version of $(var.ProductName) is already installed." />
     <!-- wixl 把卸旧版排在装新文件之前（不认 MajorUpgrade 的 Schedule），而装不装一个文件是卸旧版之前按版本号定的：

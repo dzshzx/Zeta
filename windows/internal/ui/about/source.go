@@ -17,6 +17,7 @@ type credit struct {
 var credits = []credit{
 	{fixed("Eta"), locales.AboutCreditEta, "https://github.com/Mangi-11/Eta", ""},
 	{fixed("Claude Code"), locales.AboutCreditClaudeCode, "https://github.com/anthropics/claude-code", ""},
+	{fixed("Antigravity CLI"), locales.AboutCreditAntigravity, "https://antigravity.google", ""},
 	{fixed("mygo"), locales.AboutCreditMygo, "https://github.com/egoist/mygo", "github.com/egoist/mygo"},
 	{fixed("Go x/crypto"), locales.AboutCreditCrypto, "https://github.com/golang/crypto", "golang.org/x/crypto"},
 	{fixed("Go x/image"), locales.AboutCreditImage, "https://github.com/golang/image", "golang.org/x/image"},

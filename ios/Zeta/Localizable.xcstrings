@@ -6526,12 +6526,18 @@
         }
       }
     },
-    "Zeta 的参考来源，功能和交互照它设计（GPL-3.0）": {
+    "早期参考项目，部分代码改写自它（GPL-3.0）": {
       "localizations": {
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Zeta’s reference; features and interactions follow it (GPL-3.0)"
+            "value": "Early reference project; some code is adapted from it (GPL-3.0)"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "早期参考项目，部分代码改写自它（GPL-3.0）"
           }
         }
       }
@@ -7746,34 +7752,34 @@
         }
       }
     },
-    "Anthropic 的编程 agent，Zeta 支持它": {
+    "Anthropic 的 Code Agent，Zeta 支持接入": {
       "localizations": {
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Anthropic’s coding agent, supported by Zeta"
+            "value": "Anthropic’s Code Agent, supported by Zeta"
           }
         },
         "zh-Hans": {
           "stringUnit": {
             "state": "translated",
-            "value": "Anthropic 的编程 agent，Zeta 支持它"
+            "value": "Anthropic 的 Code Agent，Zeta 支持接入"
           }
         }
       }
     },
-    "Google DeepMind 的编程 agent，Zeta 支持它": {
+    "Google DeepMind 的 Code Agent，Zeta 支持接入": {
       "localizations": {
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Google DeepMind’s coding agent, supported by Zeta"
+            "value": "Google DeepMind’s Code Agent, supported by Zeta"
           }
         },
         "zh-Hans": {
           "stringUnit": {
             "state": "translated",
-            "value": "Google DeepMind 的编程 agent，Zeta 支持它"
+            "value": "Google DeepMind 的 Code Agent，Zeta 支持接入"
           }
         }
       }

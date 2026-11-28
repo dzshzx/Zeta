@@ -1,6 +1,6 @@
 # Windows 桌面版（Go + mygo）
 
-`windows/` 是用 Go 和 mygo 原生界面写的 Windows 客户端，要做成全功能的桌面版：手机上和远程主机有关的功能它都有（同时支持 Claude Code 与 Antigravity CLI `agy`），手机专有的（手机工具、悬浮层、语音、Debian 环境、数字助理、定时任务、通知触发、存储与备份）不做。它是 Go 核心（`docs/core.md`）的第 3 步，随正式版一起发 MSI。对话的逻辑在主机上的 serve 里（第 2 步），桌面版只收发 serve 的协议、画界面，不另写一份对话状态。
+`windows/` 是用 Go + mygo 原生界面写的 Windows 桌面客户端，聚焦经 SSH 连接远程 Linux 主机上的多个 Code Agent（Claude Code 与 Antigravity CLI `agy`）进行开发，具备完整的多端共有开发能力；Android 端扩展能力（手机操作工具、悬浮层、语音、本机 Debian 环境、数字助理、定时任务、通知触发、存储与备份）不做。它是 Go 核心（`docs/core.md`）的第 3 步，随正式版一起发 MSI。对话的逻辑在主机上的 serve 里（第 2 步），桌面版只收发 serve 的协议、画界面，不另写一份对话状态。
 
 ## 和手机版的约定
 
