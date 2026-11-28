@@ -52,7 +52,7 @@ HyperOS 长按电源键由 system_server 直接拉起小爱，不看默认数字
 
 这个类在插件的 ClassLoader 里，插件晚于系统界面加载，模块等 `PluginInstance$PluginFactory.createPluginContext` 建出插件的 Context 再装。模块没启用时不上岛：对话那条是普通通知，跑完和等你照常是横幅。
 
-诊断：装没装上和第一次放行写进 LSPosed 的模块日志和 logcat，标签正式版 `ZetaIsland`、测试版 `ZetaDevIsland`。命令行：`logcat -d -s ZetaIsland ZetaDevIsland`；岛用了谁的参数看 `logcat -d -s DynamicIslandEventCoordinator` 里本包那条的 `tickerData`（图标是 `miui.focus.pic_app_icon` 的是 Zeta 的）。重装后的旧 APK 路径问题（上面「长按电源键」末段）在系统界面里一样：重装后系统界面按旧路径加载失败，重启手机后才装上。
+诊断：装没装上和第一次放行写进 LSPosed 的模块日志和 logcat，标签正式版 `ZetaIsland`、测试版 `ZetaDevIsland`。命令行：`logcat -d -s ZetaIsland ZetaDevIsland`；岛用了谁的参数看 `logcat -d -s DynamicIslandEventCoordinator` 里本包那条的 `tickerData`（图标是 `miui.focus.pic_app_icon` 的是 Zeta 的）。模拟器 `dumpsys` 不列出 `miui.focus.param`，核对 `miui.focus.pics`。不向小米申请官方焦点通知权限，也不改用 Android 实时通知；对照小爱通知结构可参考 `com.xiaomi.voiceassist.baselibrary.uiagent.common.b`（替用户操作手机）与 `com.xiaomi.voiceassist.deepthink.a`（深度思考）。重装后的旧 APK 路径问题（上面「长按电源键」末段）在系统界面里一样：重装后系统界面按旧路径加载失败，重启手机后才装上。
 
 ## 开机保持默认助理
 
