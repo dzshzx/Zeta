@@ -12450,10 +12450,6 @@
   "@setupAgentsAgyNoneSummary": {
     "description": "Antigravity Subagent 页为空时的提示副标题。"
   },
-  "commonFollowAgy": "跟随 Antigravity",
-  "@commonFollowAgy": {
-    "description": "选项：不另设，用 Antigravity 自己的默认值。"
-  },
   "commonFollowDeviceDefault": "跟随设备默认",
   "@commonFollowDeviceDefault": {
     "description": "选项：不另设，跟随当前设备的默认命令行工具。"

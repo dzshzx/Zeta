@@ -18,7 +18,6 @@ import com.dzshzx.zeta.assistant.PowerKeyStatus
 import com.dzshzx.zeta.core.AppVariant
 import com.dzshzx.zeta.core.Backends
 import com.dzshzx.zeta.core.ConversationHub
-import com.dzshzx.zeta.core.Harnesses
 import com.dzshzx.zeta.i18n.Strings
 import com.dzshzx.zeta.ui.components.miuix.MiuixPage
 import com.dzshzx.zeta.ui.components.miuix.PreferenceGroup
@@ -99,13 +98,7 @@ internal fun AssistantSettingsScreen(
                 footer = Strings.settingsAssistantConversationsFooter(),
             ) {
                 item {
-                    FollowDropdownPreference(
-                        title = Strings.setupInstallCli(),
-                        choices = Harnesses.ALL.map { it to Harnesses.shortTitle(it) },
-                        value = harness,
-                        unknown = Harnesses::shortTitle,
-                        followLabel = Strings.commonFollowDeviceDefault(),
-                    ) { value ->
+                    HarnessPreference(harness, Strings.commonFollowDeviceDefault()) { value ->
                         if (value != harness) {
                             harness = value
                             hub.settings.assistantHarness = value

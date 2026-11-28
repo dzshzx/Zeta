@@ -49,10 +49,6 @@ private fun notReadFor(harness: String): String =
     if (Harnesses.normalize(harness) == Harnesses.AGY) Strings.settingsDefaultsAgyNotRead()
     else notRead
 
-private fun followHarnessLabel(harness: String): String =
-    if (Harnesses.normalize(harness) == Harnesses.AGY) Strings.commonFollowAntigravity()
-    else Strings.commonFollowClaudeCode()
-
 private fun builtinModelLabel(harness: String): String =
     if (Harnesses.normalize(harness) == Harnesses.AGY) Strings.settingsDefaultsAgyModelBuiltin()
     else Strings.settingsDefaultsModelBuiltin()
@@ -116,7 +112,7 @@ internal fun DefaultModelPreference(
         value = defaults?.model?.takeIf { it != Conversation.DEFAULT_MODEL },
         unknown = ::readableModelId,
         followLabel =
-            if (hub.usesRelayModels(backend, harness)) followHarnessLabel(harness)
+            if (hub.usesRelayModels(backend, harness)) harnessFollowLabel(harness)
             else builtinModelLabel(harness),
         summary = notReadFor(harness).takeIf { defaults == null || changing },
         enabled = defaults != null && !changing,
@@ -233,7 +229,7 @@ internal fun DefaultEffortScreen(
                         effortRows(models, defaults, relay || isAgy),
                         showOlder,
                         { showOlder = true },
-                        followHarnessLabel(harness),
+                        harnessFollowLabel(harness),
                         write,
                     )
                 }

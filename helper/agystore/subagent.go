@@ -9,6 +9,9 @@ import (
 
 var anyUUIDRe = regexp.MustCompile(`[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}`)
 
+// FindUUID 返回文本中匹配的第一个 UUID；找不到时返回空串。
+func FindUUID(text string) string { return anyUUIDRe.FindString(text) }
+
 // SubagentFound 是找到的一个 agy 子代理会话。
 type SubagentFound struct {
 	AgentID string

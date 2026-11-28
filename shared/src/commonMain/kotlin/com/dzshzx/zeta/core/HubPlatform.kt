@@ -139,14 +139,11 @@ interface PhoneSession {
     /** 对话正被后台运行跑着时挂上（工具调用据此认出后台运行）。 */
     var unattended: Unattended?
 
-    /** 当前对话使用的命令行工具（[Harnesses.CLAUDE] 或 [Harnesses.AGY]）。 */
-    var harness: String
-
     /** 后台屏幕上正开着的应用的名字；没有是 null。 */
     val agentDisplayApp: String?
 
-    /** 应答一条 MCP 消息（在工具线程上调用）。 */
-    fun handle(message: JsonObject): JsonObject
+    /** 应答一条 MCP 消息（在工具线程上调用），[harness] 是发起调用的对话所用的命令行工具。 */
+    fun handle(message: JsonObject, harness: String = Harnesses.CLAUDE): JsonObject
 
     /** 用户回了消息 [messageId]（或插话）：等着用户的工具调用不再等。 */
     fun onReply(messageId: String)

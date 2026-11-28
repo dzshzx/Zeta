@@ -43,19 +43,34 @@ func (s QuotaStore) slotPath(fp string) string {
 	return filepath.Join(s.Home, quotaRelDir, "agy-"+fp[:16]+".json")
 }
 
+// activeOAuth 一次读取 state.json 与 OAuth 令牌指纹；在中转或未登录时 ok 为假。
+func (s QuotaStore) activeOAuth() (fp, plan string, ok bool) {
+	ds := loadDiskState(s.Home)
+	if activeRelayFromState(s.Home, ds) != "" {
+		return "", "", false
+	}
+	fp, ok = fileFingerprint(oauthTokenPath(s.Home))
+	if !ok {
+		return "", "", false
+	}
+	return fp, ds.Plans[planKey(fp)], true
+}
+
+func (s QuotaStore) getForFP(fp, fallbackPlan string) (*accounts.Snapshot, error) {
+	key := planKey(fp)
+	if snap, err := loadCachedQuota(s.activePath(), key, fallbackPlan); snap != nil || err != nil {
+		return snap, err
+	}
+	return loadCachedQuota(s.slotPath(fp), key, fallbackPlan)
+}
+
 // Get 读取当前在用 Google OAuth 账号最近一次缓存的额度；在用中转、未登录或尚无读数时返回 nil。
 func (s QuotaStore) Get() (*accounts.Snapshot, error) {
-	if CurrentRelay(s.Home) != "" {
-		return nil, nil
-	}
-	fp, ok := fileFingerprint(oauthTokenPath(s.Home))
+	fp, plan, ok := s.activeOAuth()
 	if !ok {
 		return nil, nil
 	}
-	if snap, err := loadCachedQuota(s.activePath(), fp[:16], CurrentPlan(s.Home)); snap != nil || err != nil {
-		return snap, err
-	}
-	return loadCachedQuota(s.slotPath(fp), fp[:16], CurrentPlan(s.Home))
+	return s.getForFP(fp, plan)
 }
 
 func loadCachedQuota(path, wantAccount, fallbackPlan string) (*accounts.Snapshot, error) {
@@ -79,9 +94,7 @@ func loadCachedQuota(path, wantAccount, fallbackPlan string) (*accounts.Snapshot
 
 func normalizeSnapshot(s accounts.Snapshot, fallbackPlan string) accounts.Snapshot {
 	s.Subscription = cmp.Or(s.Subscription, "antigravity")
-	if s.Plan == "" || (s.Plan == "Antigravity" && fallbackPlan != "") {
-		s.Plan = cmp.Or(fallbackPlan, "Antigravity")
-	}
+	s.Plan = cmp.Or(fallbackPlan, s.Plan, "Antigravity")
 	return s
 }
 
@@ -91,15 +104,12 @@ func (s QuotaStore) Usage(raw []byte, now time.Time) (accounts.Snapshot, bool, e
 	if err != nil {
 		return accounts.Snapshot{}, false, err
 	}
-	parsed = normalizeSnapshot(parsed, CurrentPlan(s.Home))
-	if CurrentRelay(s.Home) != "" {
-		return parsed.At(now), true, nil
-	}
-	fp, ok := fileFingerprint(oauthTokenPath(s.Home))
+	fp, plan, ok := s.activeOAuth()
+	parsed = normalizeSnapshot(parsed, plan)
 	if !ok {
 		return parsed.At(now), true, nil
 	}
-	prev, err := s.Get()
+	prev, err := s.getForFP(fp, plan)
 	if err != nil {
 		return accounts.Snapshot{}, false, err
 	}
@@ -115,14 +125,11 @@ func (s QuotaStore) Usage(raw []byte, now time.Time) (accounts.Snapshot, bool, e
 
 // Event 将一条 rate_limit_event 并入当前 agy 账号额度。
 func (s QuotaStore) Event(info []byte, now time.Time) (accounts.Snapshot, bool, error) {
-	if CurrentRelay(s.Home) != "" {
-		return accounts.Snapshot{}, false, nil
-	}
-	fp, ok := fileFingerprint(oauthTokenPath(s.Home))
+	fp, plan, ok := s.activeOAuth()
 	if !ok {
 		return accounts.Snapshot{}, false, nil
 	}
-	prev, err := s.Get()
+	prev, err := s.getForFP(fp, plan)
 	if err != nil {
 		return accounts.Snapshot{}, false, err
 	}
@@ -130,7 +137,7 @@ func (s QuotaStore) Event(info []byte, now time.Time) (accounts.Snapshot, bool, 
 	if err != nil {
 		return snap, changed, err
 	}
-	snap = normalizeSnapshot(snap, CurrentPlan(s.Home))
+	snap = normalizeSnapshot(snap, plan)
 	if !changed {
 		return snap, false, nil
 	}

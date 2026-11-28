@@ -1,6 +1,7 @@
 package com.dzshzx.zeta.ui.settings
 
 import com.dzshzx.zeta.core.EffortLevels
+import com.dzshzx.zeta.core.Harnesses
 import com.dzshzx.zeta.core.SavedPrompt
 import com.dzshzx.zeta.core.SavedPrompts
 import com.dzshzx.zeta.core.SessionIdPattern
@@ -181,11 +182,7 @@ internal object SettingsBackup {
                 "assistantHarness",
                 Strings::settingsBackupAssistantHarness,
                 unset = Strings::commonFollowDeviceDefault,
-                labels = {
-                    com.dzshzx.zeta.core.Harnesses.ALL.associateWith(
-                        com.dzshzx.zeta.core.Harnesses::shortTitle,
-                    )
-                },
+                labels = { Harnesses.ALL.associateWith(Harnesses::shortTitle) },
             ),
             optionalItem(
                 "assistantModel",

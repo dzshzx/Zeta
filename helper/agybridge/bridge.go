@@ -46,7 +46,6 @@ type acpConfigOption struct {
 
 type acpModelItem struct {
 	ModelID string `json:"modelId"`
-	Name    string `json:"name"`
 }
 
 type acpSessionResult struct {
@@ -106,7 +105,6 @@ type bridge struct {
 	resumed                    bool
 	prompted                   bool
 	supportsAppendSystemPrompt bool
-	systemPromptApplied        bool
 	title                      string
 	currentModel               string
 	defaultModel               string
@@ -340,7 +338,6 @@ func (b *bridge) ensureSession() error {
 	b.mu.Lock()
 	b.sessionID = res.SessionID
 	b.resumed = resume != ""
-	b.systemPromptApplied = withMetaPrompt
 	b.opts.resume = ""
 	initModel := b.opts.model
 	initEffort := b.opts.effort
@@ -904,7 +901,7 @@ func (b *bridge) runPromptTurn(seq int, q queuedPrompt) {
 	notes := b.contextNotes
 	b.contextNotes = nil
 	sysPrompt := strings.TrimSpace(b.opts.systemPrompt)
-	if seq > 1 || b.systemPromptApplied {
+	if seq > 1 || b.supportsAppendSystemPrompt {
 		sysPrompt = ""
 	}
 	b.mu.Unlock()
@@ -1034,7 +1031,6 @@ func (b *bridge) runClear(uuid string) {
 	b.mu.Lock()
 	b.resumed = false
 	b.prompted = false
-	b.systemPromptApplied = false
 	b.opts.model = model
 	b.opts.effort = effort
 	b.userMode = mode

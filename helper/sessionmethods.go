@@ -302,7 +302,7 @@ func (h sessionOps) activeSession(session string) bool {
 	if state := h.convs.SessionActivity(session).State; state != "" && state != "idle" {
 		return true
 	}
-	for _, r := range h.e.registeredSessions() {
+	for _, r := range h.e.registeredSessionsWithStatus() {
 		if r.session == session && (!h.e.ownHost(r) || busyStatus(r.status)) {
 			return true
 		}

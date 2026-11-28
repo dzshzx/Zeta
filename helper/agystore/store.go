@@ -16,6 +16,8 @@ import (
 	"sync"
 	"time"
 	"unicode/utf8"
+
+	"github.com/dzshzx/Zeta/helper/sessionproto"
 )
 
 // Summary 是 agy 会话的概要信息，对应 Zeta 列表里的一项。
@@ -536,17 +538,19 @@ func execSQLite(dbPath, sql string) {
 	}
 	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
 	defer cancel()
-	_ = exec.CommandContext(ctx, sqliteBin, dbPath, sql).Run()
+	cmd := exec.CommandContext(ctx, sqliteBin, dbPath)
+	cmd.Stdin = strings.NewReader(".bail off\n" + sql + "\n")
+	_ = cmd.Run()
 }
 
-// SessionRunStatus 按 conversation_summaries.db 里的 status 与 not_fully_idle 返回 agy 会话的忙闲（"busy" 或 "idle"）。
+// SessionRunStatus 按 conversation_summaries.db 里的 status 与 not_fully_idle 返回 agy 会话的忙闲（StatusBusy 或 StatusIdle）。
 func SessionRunStatus(agyDir, id string) string {
 	if row, ok := readDBRows(agyDir)[id]; ok {
 		if row.Status == "CASCADE_RUN_STATUS_RUNNING" || bool(row.NotFullyIdle) {
-			return "busy"
+			return sessionproto.StatusBusy
 		}
 	}
-	return "idle"
+	return sessionproto.StatusIdle
 }
 
 func updateSQLiteTitle(agyDir, id, title string) {
@@ -585,9 +589,10 @@ func Delete(agyDir, id string) (hadBrain bool, err error) {
 func deleteSQLiteSummary(agyDir, id string) {
 	idEsc := strings.ReplaceAll(id, "'", "''")
 	dbPath := filepath.Join(agyDir, "conversation_summaries.db")
-	execSQLite(dbPath, "DELETE FROM conversation_summaries WHERE conversation_id = '"+idEsc+"';")
-	execSQLite(dbPath, "DELETE FROM conversations_fts WHERE conversation_id = '"+idEsc+"';")
-	execSQLite(dbPath, "DELETE FROM conversation_parents WHERE conversation_id = '"+idEsc+"';")
+	sql := "DELETE FROM conversation_summaries WHERE conversation_id = '" + idEsc + "';\n" +
+		"DELETE FROM conversations_fts WHERE conversation_id = '" + idEsc + "';\n" +
+		"DELETE FROM conversation_parents WHERE conversation_id = '" + idEsc + "';"
+	execSQLite(dbPath, sql)
 }
 
 // SearchTranscript 在一份 agy transcript.jsonl 里按小写关键词 needle 搜索第一处用户或模型发言命中。

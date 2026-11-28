@@ -16626,13 +16626,6 @@ object Strings {
     fun setupAgentsAgyNoneSummary(): String = catalog.say("setupAgentsAgyNoneSummary")
 
     /**
-     * 「跟随 Antigravity」
-     *
-     * 选项：不另设，用 Antigravity 自己的默认值。
-     */
-    fun commonFollowAgy(): String = catalog.say("commonFollowAgy")
-
-    /**
      * 「跟随设备默认」
      *
      * 选项：不另设，跟随当前设备的默认命令行工具。

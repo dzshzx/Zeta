@@ -297,8 +297,7 @@ class Conversation(
         get() = !released && state.canRewind
 
     /** 这个会话的手机工具（各有各的后台屏幕）；没有时是 null。向 hub 要：重新打开的会话接着用原来那份， 进程结束过屏幕也还在。 */
-    val phoneSession: PhoneSession? =
-        hub.platform.phoneFor(openKey, backend)?.also { it.harness = initialHarness }
+    val phoneSession: PhoneSession? = hub.platform.phoneFor(openKey, backend)
 
     /** 平台给这个对话附的东西（手机上是顶部状态胶囊看到的这个对话），见 [HubPlatform.attachConversation]。 */
     val platformState: Any? = hub.platform.attachConversation(this)
@@ -693,7 +692,6 @@ class Conversation(
         val normalized = Harnesses.normalize(value)
         if (!canSwitchHarness || normalized == harness) return
         initialHarness = normalized
-        phoneSession?.harness = normalized
         hub.refreshClaudeDefaults(backend, normalized)
         hub.ensureModelSource(backend, normalized)
         choose(choices.copy(harness = normalized, model = "")) { it.setHarness(normalized) }
@@ -867,9 +865,11 @@ class Conversation(
             "conv.mcp" -> {
                 val id = message.str("request_id") ?: return
                 val body = message.obj("message") ?: return
+                val currentHarness = harness
                 thread(name = "zeta-phone", isDaemon = true) {
                     val reply: JsonElement =
-                        runCatching { phone.handle(body) }.getOrNull() ?: JsonObject(emptyMap())
+                        runCatching { phone.handle(body, currentHarness) }.getOrNull()
+                            ?: JsonObject(emptyMap())
                     runCatching { source.mcpReply(id, reply) }
                 }
             }

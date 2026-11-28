@@ -72,16 +72,15 @@ func tokenSlotPath(home, name string) string {
 type savedMeta struct {
 	DisplayName string `json:"displayName,omitempty"`
 	Email       string `json:"email,omitempty"`
-	Plan        string `json:"plan,omitempty"`
 }
 
 type diskState struct {
 	Current      string               `json:"current,omitempty"`
 	CurrentRelay string               `json:"currentRelay,omitempty"`
 	PendingLogin string               `json:"pendingLogin,omitempty"`
-	ActivePlan   string               `json:"activePlan,omitempty"`
 	RelaySetMode bool                 `json:"relaySetMode,omitempty"`
 	Accounts     map[string]savedMeta `json:"accounts,omitempty"`
+	Plans        map[string]string    `json:"plans,omitempty"`
 }
 
 // Host 是一台主机上的 agy 账号与中转管理器。
@@ -159,16 +158,17 @@ func buildAccountList(home string, ds diskState, slots map[string]string, onRela
 	var cur *accounts.Account
 	if !onRelay {
 		if fp, ok := fileFingerprint(oauthTokenPath(home)); ok {
+			plan := ds.Plans[planKey(fp)]
 			matched := matchSlot(fp, ds.Current, slots)
 			if matched != "" {
-				live := makeAccount(matched, ds.Accounts[matched], true, true)
+				live := makeAccount(matched, ds.Accounts[matched], plan, true, true)
 				cur = &live
 			} else {
 				live := accounts.Account{
 					Name:         "",
 					DisplayName:  "Google OAuth",
 					Subscription: "antigravity",
-					Plan:         cmp.Or(ds.ActivePlan, "Antigravity"),
+					Plan:         cmp.Or(plan, "Antigravity"),
 					Current:      true,
 				}
 				cur = &live
@@ -176,11 +176,11 @@ func buildAccountList(home string, ds diskState, slots map[string]string, onRela
 		}
 	}
 	var saved []accounts.Account
-	for name := range slots {
+	for name, sfp := range slots {
 		if cur != nil && cur.Name == name {
 			continue
 		}
-		saved = append(saved, makeAccount(name, ds.Accounts[name], false, true))
+		saved = append(saved, makeAccount(name, ds.Accounts[name], ds.Plans[planKey(sfp)], false, true))
 	}
 	slices.SortStableFunc(saved, func(a, b accounts.Account) int {
 		return strings.Compare(strings.ToLower(a.Title()), strings.ToLower(b.Title()))
@@ -210,13 +210,30 @@ func matchSlot(fp, preferred string, slots map[string]string) string {
 	return ""
 }
 
-func makeAccount(name string, meta savedMeta, current, parked bool) accounts.Account {
+func planKey(fp string) string {
+	if len(fp) > 16 {
+		return fp[:16]
+	}
+	return fp
+}
+
+func activeRelayFromState(home string, ds diskState) string {
+	if ds.CurrentRelay == "" {
+		return ""
+	}
+	if _, ok := readRelayRecord(home, ds.CurrentRelay); !ok {
+		return ""
+	}
+	return ds.CurrentRelay
+}
+
+func makeAccount(name string, meta savedMeta, plan string, current, parked bool) accounts.Account {
 	return accounts.Account{
 		Name:         name,
 		Email:        meta.Email,
 		DisplayName:  cmp.Or(meta.DisplayName, "Google OAuth"),
 		Subscription: "antigravity",
-		Plan:         cmp.Or(meta.Plan, "Antigravity"),
+		Plan:         cmp.Or(plan, "Antigravity"),
 		Current:      current,
 		Parked:       parked,
 	}
@@ -224,60 +241,46 @@ func makeAccount(name string, meta savedMeta, current, parked bool) accounts.Acc
 
 // CurrentPlan 返回当前活跃 Google OAuth 账号记下的真实套餐展示名（如 "Google AI Ultra"）；未记下时返回空串。
 func CurrentPlan(home string) string {
-	if CurrentRelay(home) != "" {
+	ds := loadDiskState(home)
+	if activeRelayFromState(home, ds) != "" {
 		return ""
 	}
 	fp, ok := fileFingerprint(oauthTokenPath(home))
 	if !ok {
 		return ""
 	}
-	ds := loadDiskState(home)
-	slots := readTokenSlots(home)
-	if matched := matchSlot(fp, ds.Current, slots); matched != "" {
-		return cmp.Or(ds.Accounts[matched].Plan, ds.ActivePlan)
-	}
-	return ds.ActivePlan
+	return ds.Plans[planKey(fp)]
 }
 
-// SaveCurrentPlan 将 ACP session/new 报出的真实套餐名持久化到当前活跃 OAuth 账号与额度缓存。
+// SaveCurrentPlan 将 ACP session/new 报出的真实套餐名按令牌指纹持久化到 state.json。
 func SaveCurrentPlan(home, plan string) {
 	plan = strings.TrimSpace(plan)
-	if home == "" || plan == "" || CurrentRelay(home) != "" {
+	if home == "" || plan == "" {
+		return
+	}
+	ds := loadDiskState(home)
+	if activeRelayFromState(home, ds) != "" {
 		return
 	}
 	fp, ok := fileFingerprint(oauthTokenPath(home))
 	if !ok {
+		return
+	}
+	key := planKey(fp)
+	if ds.Plans[key] == plan {
 		return
 	}
 	_ = withStateLock(home, func() error {
-		ds := loadDiskState(home)
-		slots := readTokenSlots(home)
-		changed := false
-		if ds.ActivePlan != plan {
-			ds.ActivePlan = plan
-			changed = true
+		cur := loadDiskState(home)
+		if activeRelayFromState(home, cur) != "" || cur.Plans[key] == plan {
+			return nil
 		}
-		if matched := matchSlot(fp, ds.Current, slots); matched != "" {
-			if ds.Accounts == nil {
-				ds.Accounts = map[string]savedMeta{}
-			}
-			meta := ds.Accounts[matched]
-			if meta.Plan != plan {
-				meta.Plan = plan
-				ds.Accounts[matched] = meta
-				changed = true
-			}
+		if cur.Plans == nil {
+			cur.Plans = map[string]string{}
 		}
-		if changed {
-			_ = saveDiskState(home, ds)
-		}
-		return nil
+		cur.Plans[key] = plan
+		return saveDiskState(home, cur)
 	})
-	qs := QuotaStore{Home: home}
-	if snap, err := qs.Get(); err == nil && snap != nil && snap.Plan != plan {
-		snap.Plan = plan
-		_ = qs.save(fp, *snap)
-	}
 }
 
 func withFileLock(home string, fn func() error) error {

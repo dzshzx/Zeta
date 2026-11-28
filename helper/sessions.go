@@ -409,7 +409,7 @@ func (e *env) sessionMarks() sessionMarks {
 // 会话列表的订阅每 poll 拿它核对进程有没有起来、结束（sessionWatch.run）。
 func (e *env) liveSessions() map[string]bool {
 	live := map[string]bool{}
-	for _, r := range e.registrations(false) {
+	for _, r := range e.registrations(false, false) {
 		if id, ok := r.session.(string); ok {
 			live[id] = true
 		}
@@ -705,11 +705,14 @@ func (e *env) ownHost(r registered) bool {
 }
 
 // registeredSessions：Claude Code 每个进程都在 ~/.claude/sessions/<pid>.json 登记自己的会话（stream-json 的也一样）。
-// 给出进程还活着的；pid 被别的进程复用了（启动时刻对不上）的不算。
-func (e *env) registeredSessions() []registered { return e.registrations(true) }
+// 给出进程还活着的；pid 被别的进程复用了（启动时刻对不上）的不算。不查 agy 的 SQLite 忙闲。
+func (e *env) registeredSessions() []registered { return e.registrations(true, false) }
 
-// registrations 同 registeredSessions；withHost 为假时不查 host（进程归哪个托管目录）。
-func (e *env) registrations(withHost bool) []registered {
+// registeredSessionsWithStatus 同 registeredSessions，但会为 agy 进程查 SQLite 忙闲（仅 occupied、activeSession 需要）。
+func (e *env) registeredSessionsWithStatus() []registered { return e.registrations(true, true) }
+
+// registrations 同 registeredSessions；withHost 为假时不查 host，withStatus 为假时不查 agy 的 SQLite 忙闲。
+func (e *env) registrations(withHost, withStatus bool) []registered {
 	var out []registered
 	for _, name := range globNames(e.sessions, false, func(n string) bool { return strings.HasSuffix(n, ".json") }) {
 		info := readJSONObject(joinPath(e.sessions, name))
@@ -732,10 +735,10 @@ func (e *env) registrations(withHost bool) []registered {
 			status: asString(info["status"]), waiting: asString(info["waitingFor"]), host: host,
 			entrypoint: asString(info["entrypoint"])})
 	}
-	return append(out, e.agyRegistrations(withHost)...)
+	return append(out, e.agyRegistrations(withHost, withStatus)...)
 }
 
-func (e *env) agyRegistrations(withHost bool) []registered {
+func (e *env) agyRegistrations(withHost, withStatus bool) []registered {
 	var out []registered
 	for _, h := range agystore.ActiveHolders(e.agy, "") {
 		var host string
@@ -746,11 +749,15 @@ func (e *env) agyRegistrations(withHost bool) []registered {
 		if host == "" && ep != "cli" {
 			ep = sessionproto.AppAgy
 		}
+		var status string
+		if withStatus {
+			status = agystore.SessionRunStatus(e.agy, h.Session)
+		}
 		out = append(out, registered{
 			pid:        h.PID,
 			start:      h.Start,
 			session:    h.Session,
-			status:     agystore.SessionRunStatus(e.agy, h.Session),
+			status:     status,
 			host:       host,
 			entrypoint: ep,
 		})
@@ -779,8 +786,16 @@ func jsonInt(v any) (int, bool) {
 
 // outsideRegistrations 是本包之外（终端里的、另一个包托管的）的进程登记的、带会话 id 的那些：侧栏标“在别处运行”、end 结束的都是它们。
 func (e *env) outsideRegistrations() []registered {
+	return e.outsideRegistrationsFrom(e.registeredSessions())
+}
+
+func (e *env) outsideRegistrationsWithStatus() []registered {
+	return e.outsideRegistrationsFrom(e.registeredSessionsWithStatus())
+}
+
+func (e *env) outsideRegistrationsFrom(all []registered) []registered {
 	var out []registered
-	for _, r := range e.registeredSessions() {
+	for _, r := range all {
 		if _, ok := r.session.(string); ok && !e.ownHost(r) {
 			out = append(out, r)
 		}

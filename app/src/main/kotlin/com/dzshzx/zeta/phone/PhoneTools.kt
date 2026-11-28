@@ -97,9 +97,6 @@ class PhoneTools(
     /** 这个对话正在跑的无人值守后台运行（定时任务、通知触发），随 Conversation.unattended 一起挂上、摘掉。随每次调用交给工具组（[CallContext]）。 */
     @Volatile override var unattended: Unattended? = null
 
-    /** 当前对话使用的命令行工具（[com.dzshzx.zeta.core.Harnesses]）；随每次调用交给工具组（[CallContext]）。 */
-    @Volatile override var harness: String = com.dzshzx.zeta.core.Harnesses.CLAUDE
-
     private class Screen(val width: Int, val height: Int) {
         val scale: Float = minOf(1f, MAX_EDGE / max(width, height).toFloat())
 
@@ -472,7 +469,7 @@ class PhoneTools(
     // ---- MCP ----
 
     /** 处理一条 MCP 消息，返回要送回去的应答（通知类消息没有应答，返回空对象）。 */
-    override fun handle(message: JsonObject): JsonObject {
+    override fun handle(message: JsonObject, harness: String): JsonObject {
         val id = message["id"] ?: return JsonObject(emptyMap())
         slot.lastUse = System.currentTimeMillis()
         val result: JsonObject? =
@@ -506,7 +503,7 @@ class PhoneTools(
                         runCatching {
                             // 用户暂停或接管时先在这里等着
                             gate.await()?.let { toolFailure(it) }
-                                ?: call(name, arguments, toolUseId)
+                                ?: call(name, arguments, toolUseId, harness)
                         }
                             .getOrElse { toolFailure(it.message ?: it.javaClass.simpleName) }
                             .also { DiagEvents.phoneTool(name, it) }
@@ -529,7 +526,12 @@ class PhoneTools(
         }
     }
 
-    private fun call(name: String, a: JsonObject, toolUseId: String?): JsonObject =
+    private fun call(
+        name: String,
+        a: JsonObject,
+        toolUseId: String?,
+        harness: String,
+    ): JsonObject =
         PhoneToolGroups.find(name)?.let { group ->
             reportCall(toolUseId, name, a)
             group.call(

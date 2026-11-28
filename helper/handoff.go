@@ -48,7 +48,7 @@ func statusRank(status string) int {
 
 // occupied 是 Zeta 之外占着会话 id 的进程，和它们里状态最要紧（statusRank）的那个 top；没有时 holders 为空。
 func (e *env) occupied(id string) (holders []registered, top registered) {
-	for _, r := range e.outsideRegistrations() {
+	for _, r := range e.outsideRegistrationsWithStatus() {
 		if r.session != id {
 			continue
 		}

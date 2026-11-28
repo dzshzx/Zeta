@@ -3,11 +3,18 @@ package com.dzshzx.zeta.core
 import android.app.Application
 import androidx.test.core.app.ApplicationProvider
 import com.dzshzx.zeta.core.claude.ClaudeConfigCore
+import com.dzshzx.zeta.core.notify.NotifyRules
+import com.dzshzx.zeta.core.notify.RuleDraft
+import com.dzshzx.zeta.core.schedule.ScheduleRecords
+import com.dzshzx.zeta.core.schedule.ScheduleRule
+import com.dzshzx.zeta.core.schedule.Schedules
+import com.dzshzx.zeta.core.schedule.TaskDraft
 import com.dzshzx.zeta.shots.Fixtures
 import com.dzshzx.zeta.ui.setup.applyProbedHost
 import com.dzshzx.zeta.ui.setup.probeSummary
 import java.io.File
 import java.nio.file.Files
+import java.time.LocalTime
 import java.util.concurrent.TimeUnit
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonObject
@@ -324,9 +331,9 @@ class AgySupportTest {
 
     @Test
     fun scheduleNotifyAndAssistantSupportAgyHarness() {
-        val daily = com.dzshzx.zeta.core.schedule.ScheduleRule.Daily(java.time.LocalTime.of(9, 0))
+        val daily = ScheduleRule.Daily(LocalTime.of(9, 0))
         val draft =
-            com.dzshzx.zeta.core.schedule.TaskDraft(
+            TaskDraft(
                 name = "早报",
                 prompt = "汇总动态",
                 rule = daily,
@@ -334,30 +341,22 @@ class AgySupportTest {
                 harness = Harnesses.AGY,
             )
         val task =
-            com.dzshzx.zeta.core.schedule.Schedules.toTask(draft, 1000L, Backends.LOCAL, id = "t1")
+            Schedules.toTask(draft, 1000L, Backends.LOCAL, id = "t1")
                 .copy(sessionId = "11111111-2222-3333-4444-555555555555")
-        val decodedTask =
-            com.dzshzx.zeta.core.schedule.Schedules.decode(
-                    com.dzshzx.zeta.core.schedule.Schedules.encode(listOf(task)),
-                )
-                .single()
+        val decodedTask = Schedules.decode(Schedules.encode(listOf(task))).single()
         assertEquals(Harnesses.AGY, decodedTask.harness)
-        assertEquals(
-            Harnesses.AGY,
-            com.dzshzx.zeta.core.schedule.ScheduleRecords.spec(decodedTask).harness,
-        )
+        assertEquals(Harnesses.AGY, ScheduleRecords.spec(decodedTask).harness)
         // 切换工具后清空旧 sessionId，防止跨工具 resume
         val switched =
-            com.dzshzx.zeta.core.schedule.Schedules.applyDraft(
+            Schedules.applyDraft(
                 decodedTask,
-                com.dzshzx.zeta.core.schedule.Schedules.draftOf(decodedTask)
-                    .copy(harness = Harnesses.CLAUDE),
+                Schedules.draftOf(decodedTask).copy(harness = Harnesses.CLAUDE),
             )
         assertEquals(Harnesses.CLAUDE, switched.harness)
         assertNull(switched.sessionId)
 
         val ruleDraft =
-            com.dzshzx.zeta.core.notify.RuleDraft(
+            RuleDraft(
                 name = "提醒",
                 packageName = "com.example.chat",
                 appLabel = "Chat",
@@ -366,18 +365,8 @@ class AgySupportTest {
                 prompt = "处理通知",
                 harness = Harnesses.AGY,
             )
-        val rule =
-            com.dzshzx.zeta.core.notify.NotifyRules.toRule(
-                ruleDraft,
-                2000L,
-                Backends.LOCAL,
-                id = "r1",
-            )
-        val decodedRule =
-            com.dzshzx.zeta.core.notify.NotifyRules.decode(
-                    com.dzshzx.zeta.core.notify.NotifyRules.encode(listOf(rule)),
-                )
-                .single()
+        val rule = NotifyRules.toRule(ruleDraft, 2000L, Backends.LOCAL, id = "r1")
+        val decodedRule = NotifyRules.decode(NotifyRules.encode(listOf(rule))).single()
         assertEquals(Harnesses.AGY, decodedRule.harness)
 
         val settings = Fixtures.readyHub(app).settings

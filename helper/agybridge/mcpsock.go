@@ -75,11 +75,10 @@ type mcpRelay struct {
 	ln       net.Listener
 	emit     func(any)
 
-	mu       sync.Mutex
-	seq      int
-	waiting  map[string]chan json.RawMessage
-	denied   map[string]bool
-	listReqs map[string]bool
+	mu      sync.Mutex
+	seq     int
+	waiting map[string]chan json.RawMessage
+	denied  map[string]bool
 }
 
 func startMCPRelay(emit func(any)) (*mcpRelay, error) {
@@ -100,7 +99,6 @@ func startMCPRelay(emit func(any)) (*mcpRelay, error) {
 		emit:     emit,
 		waiting:  map[string]chan json.RawMessage{},
 		denied:   map[string]bool{},
-		listReqs: map[string]bool{},
 	}
 	go r.acceptLoop()
 	return r, nil
@@ -127,14 +125,7 @@ func (r *mcpRelay) isDenied(name string) bool {
 func (r *mcpRelay) deniedSnapshot() map[string]bool {
 	r.mu.Lock()
 	defer r.mu.Unlock()
-	if len(r.denied) == 0 {
-		return nil
-	}
-	cp := make(map[string]bool, len(r.denied))
-	for k, v := range r.denied {
-		cp[k] = v
-	}
-	return cp
+	return r.denied
 }
 
 func (r *mcpRelay) acceptLoop() {
@@ -190,11 +181,8 @@ func (r *mcpRelay) forwardMessage(rawMsg []byte, writeBack func([]byte)) {
 	reqID := "agy-mcp-" + strconv.Itoa(r.seq)
 	ch := make(chan json.RawMessage, 1)
 	r.waiting[reqID] = ch
-	isList := check.Method == "tools/list"
-	if isList {
-		r.listReqs[reqID] = true
-	}
 	r.mu.Unlock()
+	isList := check.Method == "tools/list"
 
 	r.emit(map[string]any{
 		"type":       "control_request",
@@ -270,7 +258,6 @@ func (r *mcpRelay) handleReply(reqID string, mcpResp json.RawMessage) {
 	r.mu.Lock()
 	ch, ok := r.waiting[reqID]
 	delete(r.waiting, reqID)
-	delete(r.listReqs, reqID)
 	r.mu.Unlock()
 	if ok && ch != nil {
 		ch <- mcpResp

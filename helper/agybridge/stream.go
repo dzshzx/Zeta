@@ -4,13 +4,10 @@ import (
 	"cmp"
 	"encoding/json"
 	"fmt"
-	"regexp"
 	"strings"
 
 	"github.com/dzshzx/Zeta/helper/agystore"
 )
-
-var subagentUUIDRe = regexp.MustCompile(`[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}`)
 
 type acpUpdateEnvelope struct {
 	SessionID string          `json:"sessionId"`
@@ -305,12 +302,12 @@ func findSubagentUUID(u acpToolUpdate, texts []string) string {
 		}
 	}
 	for _, txt := range texts {
-		if id := subagentUUIDRe.FindString(txt); id != "" {
+		if id := agystore.FindUUID(txt); id != "" {
 			return id
 		}
 	}
 	if len(u.RawOutput) > 0 {
-		if id := subagentUUIDRe.FindString(string(u.RawOutput)); id != "" {
+		if id := agystore.FindUUID(string(u.RawOutput)); id != "" {
 			return id
 		}
 	}
@@ -342,9 +339,6 @@ func (b *bridge) emitFinishedToolResult(callID string, tr *trackedTool, u acpToo
 	}
 	b.emit(ev)
 	if tr.name == "invoke_subagent" && tr.subagentID != "" {
-		if !tr.subagentStarted {
-			b.emitSubagentStarted(callID, tr)
-		}
 		status := "completed"
 		if u.Status == "failed" {
 			status = "failed"

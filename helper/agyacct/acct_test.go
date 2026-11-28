@@ -293,4 +293,11 @@ func TestSaveCurrentPlanUpdatesAccountAndQuota(t *testing.T) {
 	if err != nil || st.Current == nil || st.Current.Plan != "Google AI Ultra" {
 		t.Fatalf("List current plan = %+v, err=%v", st.Current, err)
 	}
+	// 切到另一令牌指纹的账号后，不应串用上一个账号的套餐名
+	if err := os.WriteFile(filepath.Join(agyDir, "antigravity-oauth-token"), []byte("tok-plan-2"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	if got := CurrentPlan(home); got != "" {
+		t.Fatalf("other token CurrentPlan = %q, want empty", got)
+	}
 }

@@ -71,7 +71,7 @@ internal fun FollowDropdownPreference(
 }
 
 internal fun harnessFollowLabel(harness: String): String =
-    if (Harnesses.normalize(harness) == Harnesses.AGY) Strings.commonFollowAgy()
+    if (Harnesses.normalize(harness) == Harnesses.AGY) Strings.commonFollowAntigravity()
     else Strings.commonFollowClaudeCode()
 
 /**
@@ -131,6 +131,22 @@ internal fun HarnessPreference(harness: String, onChange: (String) -> Unit) =
     ) {
         it?.let(onChange)
     }
+
+/** 带「跟随」选项的「命令行工具」选择（如数字助理的跟随设备默认 / Claude Code / Antigravity）。 */
+@Composable
+internal fun HarnessPreference(
+    harness: String?,
+    followLabel: String,
+    onChange: (String?) -> Unit,
+) =
+    FollowDropdownPreference(
+        Strings.setupInstallCli(),
+        Harnesses.ALL.map { it to Harnesses.shortTitle(it) },
+        harness,
+        unknown = Harnesses::shortTitle,
+        followLabel = followLabel,
+        onChange = onChange,
+    )
 
 /** 后台运行（定时任务、通知触发）的「权限模式」：没有“跟随”，在任务上明确选一个，没人看着的运行能做什么不随别处的默认值变。 [mode] 不在清单里时补一项。 */
 @Composable
