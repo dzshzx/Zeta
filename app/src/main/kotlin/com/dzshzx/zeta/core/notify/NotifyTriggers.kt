@@ -73,6 +73,7 @@ internal object NotifyTriggers {
             sessionId = null,
             hint = NotifyRules.hint(rule.name, rule.onlyOnChange),
             onlyOnChange = rule.onlyOnChange,
+            harness = rule.harness,
         )
 
     /** 从系统给的通知里取规则要看的那些。正文先取展开后的长文本，没有时取聊天消息或多行摘要的最后几条。 */

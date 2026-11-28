@@ -322,6 +322,70 @@ class AgySupportTest {
         assertEquals("1.5.18", updated.version)
     }
 
+    @Test
+    fun scheduleNotifyAndAssistantSupportAgyHarness() {
+        val daily = com.dzshzx.zeta.core.schedule.ScheduleRule.Daily(java.time.LocalTime.of(9, 0))
+        val draft =
+            com.dzshzx.zeta.core.schedule.TaskDraft(
+                name = "早报",
+                prompt = "汇总动态",
+                rule = daily,
+                newSession = false,
+                harness = Harnesses.AGY,
+            )
+        val task =
+            com.dzshzx.zeta.core.schedule.Schedules.toTask(draft, 1000L, Backends.LOCAL, id = "t1")
+                .copy(sessionId = "11111111-2222-3333-4444-555555555555")
+        val decodedTask =
+            com.dzshzx.zeta.core.schedule.Schedules.decode(
+                    com.dzshzx.zeta.core.schedule.Schedules.encode(listOf(task)),
+                )
+                .single()
+        assertEquals(Harnesses.AGY, decodedTask.harness)
+        assertEquals(
+            Harnesses.AGY,
+            com.dzshzx.zeta.core.schedule.ScheduleRecords.spec(decodedTask).harness,
+        )
+        // 切换工具后清空旧 sessionId，防止跨工具 resume
+        val switched =
+            com.dzshzx.zeta.core.schedule.Schedules.applyDraft(
+                decodedTask,
+                com.dzshzx.zeta.core.schedule.Schedules.draftOf(decodedTask)
+                    .copy(harness = Harnesses.CLAUDE),
+            )
+        assertEquals(Harnesses.CLAUDE, switched.harness)
+        assertNull(switched.sessionId)
+
+        val ruleDraft =
+            com.dzshzx.zeta.core.notify.RuleDraft(
+                name = "提醒",
+                packageName = "com.example.chat",
+                appLabel = "Chat",
+                keywords = "",
+                window = null,
+                prompt = "处理通知",
+                harness = Harnesses.AGY,
+            )
+        val rule =
+            com.dzshzx.zeta.core.notify.NotifyRules.toRule(
+                ruleDraft,
+                2000L,
+                Backends.LOCAL,
+                id = "r1",
+            )
+        val decodedRule =
+            com.dzshzx.zeta.core.notify.NotifyRules.decode(
+                    com.dzshzx.zeta.core.notify.NotifyRules.encode(listOf(rule)),
+                )
+                .single()
+        assertEquals(Harnesses.AGY, decodedRule.harness)
+
+        val settings = Fixtures.readyHub(app).settings
+        assertNull(settings.assistantHarness)
+        settings.assistantHarness = Harnesses.AGY
+        assertEquals(Harnesses.AGY, settings.assistantHarness)
+    }
+
     private fun runAsset(name: String, vararg args: String): String {
         val cmd = listOf("sh", "src/main/assets/$name") + args
         val proc = ProcessBuilder(cmd).redirectErrorStream(true).start()

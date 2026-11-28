@@ -72,6 +72,7 @@ class SettingsKeysTest {
             "setSessionSort" to com.dzshzx.zeta.core.SessionSort.Created,
             "setInterfaceScale" to 0.9f,
             "setKeepScreenOn" to false,
+            "setAssistantHarness" to "agy",
             "setAssistantModel" to "opus",
             "setAssistantEffort" to "high",
             "setAutoCompact" to false,

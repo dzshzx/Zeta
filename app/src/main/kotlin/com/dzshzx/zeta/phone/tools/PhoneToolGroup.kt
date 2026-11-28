@@ -2,6 +2,7 @@ package com.dzshzx.zeta.phone.tools
 
 import android.content.Context
 import com.dzshzx.zeta.core.CommandResult
+import com.dzshzx.zeta.core.Harnesses
 import com.dzshzx.zeta.core.LinuxEnv
 import com.dzshzx.zeta.core.schedule.UnattendedRun
 import kotlinx.serialization.json.JsonArray
@@ -33,6 +34,7 @@ internal class CallContext(
     val context: Context,
     val backend: String,
     val unattended: UnattendedRun? = null,
+    val harness: String = Harnesses.CLAUDE,
 )
 
 /**

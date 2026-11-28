@@ -7,6 +7,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberUpdatedState
 import com.dzshzx.zeta.core.ConversationHub
 import com.dzshzx.zeta.core.EffortLevels
+import com.dzshzx.zeta.core.Harnesses
 import com.dzshzx.zeta.core.readableModelId
 import com.dzshzx.zeta.i18n.Strings
 import com.dzshzx.zeta.ui.chat.PermissionModes
@@ -69,41 +70,67 @@ internal fun FollowDropdownPreference(
     )
 }
 
+internal fun harnessFollowLabel(harness: String): String =
+    if (Harnesses.normalize(harness) == Harnesses.AGY) Strings.commonFollowAgy()
+    else Strings.commonFollowClaudeCode()
+
 /**
- * 「模型」：跟随 Claude Code 的默认，或 [modelChoices] 里的一个（旧版本在「更多模型」里）。列的是主机 [backend] 上的 Claude Code
- * 报的模型：定时任务、 通知触发是它们所在的那台，数字助理是手机本机。
+ * 「模型」：跟随对应工具的默认，或 [modelChoices] 里的一个（旧版本在「更多模型」里）。列的是主机 [backend] 上 [harness]
+ * 报的模型：定时任务、通知触发是它们所在的那台，数字助理是手机本机。
  */
 @Composable
 internal fun ModelPreference(
     hub: ConversationHub,
     backend: String,
     model: String?,
+    harness: String = Harnesses.CLAUDE,
     onChange: (String?) -> Unit,
 ) {
     val usable = hub.usable(backend)
-    LaunchedEffect(hub, backend, usable) { if (usable) hub.ensureModelSource(backend) }
-    val choices = modelChoices(hub.modelOptions(backend))
+    LaunchedEffect(hub, backend, harness, usable) {
+        if (usable) hub.ensureModelSource(backend, harness)
+    }
+    val choices = modelChoices(hub.modelOptions(backend, harness))
     FollowDropdownPreference(
         Strings.settingsFollowModel(),
         choices.latest,
         model,
         unknown = ::readableModelId,
+        followLabel = harnessFollowLabel(harness),
         more = choices.older,
-        enabled = !hub.modelSourceChanging(backend),
+        enabled = !hub.modelSourceChanging(backend, harness),
     ) { value ->
-        if (hub.modelSelectable(backend, value)) onChange(value)
+        if (hub.modelSelectable(backend, value, harness)) onChange(value)
     }
 }
 
-/** 「思考强度」：跟随 Claude Code 的默认（按模型存的），或 Claude Code 的几档之一。 */
+/** 「思考强度」：跟随对应工具的默认（按模型存的），或可选思考强度档位之一。 */
 @Composable
-internal fun EffortPreference(effort: String?, onChange: (String?) -> Unit) =
+internal fun EffortPreference(
+    effort: String?,
+    harness: String = Harnesses.CLAUDE,
+    onChange: (String?) -> Unit,
+) =
     FollowDropdownPreference(
         Strings.settingsFollowEffort(),
         EffortLevels,
         effort,
+        followLabel = harnessFollowLabel(harness),
         onChange = onChange,
     )
+
+/** 后台运行（定时任务、通知触发）的「命令行工具」选择：Claude Code 或 Antigravity。 */
+@Composable
+internal fun HarnessPreference(harness: String, onChange: (String) -> Unit) =
+    FollowDropdownPreference(
+        Strings.setupInstallCli(),
+        Harnesses.ALL.map { it to Harnesses.shortTitle(it) },
+        Harnesses.normalize(harness),
+        unknown = Harnesses::shortTitle,
+        followLabel = null,
+    ) {
+        it?.let(onChange)
+    }
 
 /** 后台运行（定时任务、通知触发）的「权限模式」：没有“跟随”，在任务上明确选一个，没人看着的运行能做什么不随别处的默认值变。 [mode] 不在清单里时补一项。 */
 @Composable

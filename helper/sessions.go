@@ -750,7 +750,7 @@ func (e *env) agyRegistrations(withHost bool) []registered {
 			pid:        h.PID,
 			start:      h.Start,
 			session:    h.Session,
-			status:     sessionproto.StatusIdle,
+			status:     agystore.SessionRunStatus(e.agy, h.Session),
 			host:       host,
 			entrypoint: ep,
 		})

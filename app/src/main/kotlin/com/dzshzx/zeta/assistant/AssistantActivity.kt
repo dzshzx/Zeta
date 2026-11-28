@@ -25,6 +25,7 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.lifecycle.lifecycleScope
+import com.dzshzx.zeta.core.Backends
 import com.dzshzx.zeta.core.Conversation
 import com.dzshzx.zeta.core.ConversationHub
 import com.dzshzx.zeta.core.Intake
@@ -316,6 +317,8 @@ internal class AssistantChat(private val hub: ConversationHub, val capture: Assi
             capture?.settle()
             val shot = capture?.screenshot
             val block = capture?.let { ScreenDigest.contextBlock(it.apps, shot != null) }
+            val harness =
+                hub.settings.assistantHarness ?: hub.settings.defaultHarness(Backends.LOCAL)
             val started =
                 Conversation(
                     hub,
@@ -323,6 +326,7 @@ internal class AssistantChat(private val hub: ConversationHub, val capture: Assi
                     sessionId = null,
                     title = "",
                     historyFile = null,
+                    harness = harness,
                 )
             // 设置 › 能力 › 数字助理 里单独定的模型和思考强度；没定（null）时跟随 Claude Code 的默认
             started.preset(

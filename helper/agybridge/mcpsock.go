@@ -12,6 +12,7 @@ import (
 	"os"
 	"path/filepath"
 	"strconv"
+	"strings"
 	"sync"
 )
 
@@ -74,9 +75,11 @@ type mcpRelay struct {
 	ln       net.Listener
 	emit     func(any)
 
-	mu      sync.Mutex
-	seq     int
-	waiting map[string]chan json.RawMessage
+	mu       sync.Mutex
+	seq      int
+	waiting  map[string]chan json.RawMessage
+	denied   map[string]bool
+	listReqs map[string]bool
 }
 
 func startMCPRelay(emit func(any)) (*mcpRelay, error) {
@@ -96,9 +99,42 @@ func startMCPRelay(emit func(any)) (*mcpRelay, error) {
 		ln:       ln,
 		emit:     emit,
 		waiting:  map[string]chan json.RawMessage{},
+		denied:   map[string]bool{},
+		listReqs: map[string]bool{},
 	}
 	go r.acceptLoop()
 	return r, nil
+}
+
+func (r *mcpRelay) setDeniedTools(tools []string) {
+	next := make(map[string]bool, len(tools))
+	for _, t := range tools {
+		if t = strings.TrimSpace(t); t != "" {
+			next[t] = true
+		}
+	}
+	r.mu.Lock()
+	r.denied = next
+	r.mu.Unlock()
+}
+
+func (r *mcpRelay) isDenied(name string) bool {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	return r.denied[name]
+}
+
+func (r *mcpRelay) deniedSnapshot() map[string]bool {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	if len(r.denied) == 0 {
+		return nil
+	}
+	cp := make(map[string]bool, len(r.denied))
+	for k, v := range r.denied {
+		cp[k] = v
+	}
+	return cp
 }
 
 func (r *mcpRelay) acceptLoop() {
@@ -133,11 +169,19 @@ func (r *mcpRelay) serveConn(conn net.Conn) {
 
 func (r *mcpRelay) forwardMessage(rawMsg []byte, writeBack func([]byte)) {
 	var check struct {
-		ID json.RawMessage `json:"id"`
+		ID     json.RawMessage `json:"id"`
+		Method string          `json:"method"`
+		Params struct {
+			Name string `json:"name"`
+		} `json:"params"`
 	}
 	_ = json.Unmarshal(rawMsg, &check)
 	hasID := len(bytes.TrimSpace(check.ID)) > 0 && string(bytes.TrimSpace(check.ID)) != "null"
 	if !hasID {
+		return
+	}
+	if check.Method == "tools/call" && check.Params.Name != "" && r.isDenied(check.Params.Name) {
+		writeBack(deniedToolCallReply(check.ID, check.Params.Name))
 		return
 	}
 
@@ -146,6 +190,10 @@ func (r *mcpRelay) forwardMessage(rawMsg []byte, writeBack func([]byte)) {
 	reqID := "agy-mcp-" + strconv.Itoa(r.seq)
 	ch := make(chan json.RawMessage, 1)
 	r.waiting[reqID] = ch
+	isList := check.Method == "tools/list"
+	if isList {
+		r.listReqs[reqID] = true
+	}
 	r.mu.Unlock()
 
 	r.emit(map[string]any{
@@ -161,14 +209,68 @@ func (r *mcpRelay) forwardMessage(rawMsg []byte, writeBack func([]byte)) {
 		if !ok || len(bytes.TrimSpace(resp)) == 0 || string(bytes.TrimSpace(resp)) == "{}" {
 			return
 		}
+		if isList {
+			resp = filterToolsListReply(resp, r.deniedSnapshot())
+		}
 		writeBack(resp)
 	}()
+}
+
+func deniedToolCallReply(id json.RawMessage, name string) []byte {
+	b, _ := json.Marshal(map[string]any{
+		"jsonrpc": "2.0",
+		"id":      id,
+		"result": map[string]any{
+			"isError": true,
+			"content": []any{map[string]any{"type": "text", "text": "Tool " + name + " is disabled during unattended runs."}},
+		},
+	})
+	return b
+}
+
+func filterToolsListReply(raw []byte, denied map[string]bool) []byte {
+	if len(denied) == 0 {
+		return raw
+	}
+	var msg map[string]json.RawMessage
+	if json.Unmarshal(raw, &msg) != nil {
+		return raw
+	}
+	var res map[string]json.RawMessage
+	if json.Unmarshal(msg["result"], &res) != nil {
+		return raw
+	}
+	var tools []json.RawMessage
+	if json.Unmarshal(res["tools"], &tools) != nil {
+		return raw
+	}
+	kept := make([]json.RawMessage, 0, len(tools))
+	for _, t := range tools {
+		var hdr struct {
+			Name string `json:"name"`
+		}
+		if json.Unmarshal(t, &hdr) == nil && denied[hdr.Name] {
+			continue
+		}
+		kept = append(kept, t)
+	}
+	if len(kept) == len(tools) {
+		return raw
+	}
+	res["tools"], _ = json.Marshal(kept)
+	msg["result"], _ = json.Marshal(res)
+	out, err := json.Marshal(msg)
+	if err != nil {
+		return raw
+	}
+	return out
 }
 
 func (r *mcpRelay) handleReply(reqID string, mcpResp json.RawMessage) {
 	r.mu.Lock()
 	ch, ok := r.waiting[reqID]
 	delete(r.waiting, reqID)
+	delete(r.listReqs, reqID)
 	r.mu.Unlock()
 	if ok && ch != nil {
 		ch <- mcpResp

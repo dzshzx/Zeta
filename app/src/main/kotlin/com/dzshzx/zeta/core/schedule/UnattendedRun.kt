@@ -1,6 +1,7 @@
 package com.dzshzx.zeta.core.schedule
 
 import android.content.Context
+import com.dzshzx.zeta.core.Harnesses
 import com.dzshzx.zeta.core.Unattended
 import com.dzshzx.zeta.i18n.Strings
 import com.dzshzx.zeta.phone.tools.ScheduleTools
@@ -49,6 +50,8 @@ data class RunSpec(
     val hint: String,
     /** 只在有变化时提醒（见 [Schedules.settle]）。 */
     val onlyOnChange: Boolean = false,
+    /** 使用哪个命令行工具（[Harnesses.CLAUDE] 或 [Harnesses.AGY]）。 */
+    val harness: String = Harnesses.CLAUDE,
 )
 
 /**
@@ -130,5 +133,6 @@ object ScheduleRecords : RunRecords {
                     task.onlyOnChange,
                 ),
             onlyOnChange = task.onlyOnChange,
+            harness = task.harness,
         )
 }

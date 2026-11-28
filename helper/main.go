@@ -75,6 +75,7 @@ var (
 
 func main() {
 	agybridge.UsageQueryFunc = agyacct.QueryUsageJSON
+	agybridge.TierReporterFunc = agyacct.SaveCurrentPlan
 	// phone-mcp、agy-bridge、mcp-sock 一直转发到连接断开，输出不能等到退出再写，不走 run 的缓冲
 	if len(os.Args) > 1 && os.Args[1] == "phone-mcp" {
 		os.Exit(runPhoneMCP(realPhoneBridge, os.Args[2:], os.Stdin, os.Stdout, os.Stderr))

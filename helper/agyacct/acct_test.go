@@ -271,3 +271,26 @@ func verifyRelayBlocksUsageQuery(t *testing.T, home string, h *Host, store Quota
 		t.Fatalf("expected nil quota snapshot on relay, got %+v", got)
 	}
 }
+
+func TestSaveCurrentPlanUpdatesAccountAndQuota(t *testing.T) {
+	home := t.TempDir()
+	agyDir := AgyDir(home)
+	if err := os.MkdirAll(agyDir, 0o700); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(agyDir, "antigravity-oauth-token"), []byte("tok-plan-1"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	h := &Host{Home: home, Lang: "zh-Hans"}
+	if _, err := h.Save(context.Background()); err != nil {
+		t.Fatal(err)
+	}
+	SaveCurrentPlan(home, "Google AI Ultra")
+	if got := CurrentPlan(home); got != "Google AI Ultra" {
+		t.Fatalf("CurrentPlan = %q, want Google AI Ultra", got)
+	}
+	st, err := h.List(context.Background())
+	if err != nil || st.Current == nil || st.Current.Plan != "Google AI Ultra" {
+		t.Fatalf("List current plan = %+v, err=%v", st.Current, err)
+	}
+}

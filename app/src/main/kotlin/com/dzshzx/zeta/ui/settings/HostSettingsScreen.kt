@@ -106,8 +106,10 @@ private fun HostSubPage(
             DefaultEffortScreen(hub = hub, backend = backend, onBack = close, harness = harness)
         HostPage.Accounts ->
             AccountsScreen(hub = hub, backend = backend, onBack = close, harness = harness)
-        HostPage.Schedules -> ScheduleScreen(hub, backend, onBack = close, onShowChat)
-        HostPage.NotifyTriggers -> NotifyTriggerScreen(hub, backend, onBack = close, onShowChat)
+        HostPage.Schedules ->
+            ScheduleScreen(hub, backend, onBack = close, onShowChat, defaultHarness = harness)
+        HostPage.NotifyTriggers ->
+            NotifyTriggerScreen(hub, backend, onBack = close, onShowChat, defaultHarness = harness)
         HostPage.Memory ->
             ClaudeMemoryScreen(hub = hub, backend = backend, onBack = close, harness = harness)
         HostPage.Skills ->
@@ -217,10 +219,8 @@ private fun hostRuntimeGroup(
         }
         item { AutoTitleSwitch(hub, backend) }
         item { IdleEndPreference(hub, backend, ready) }
-        if (!isAgy) {
-            item { ScheduleEntry(backend) { onOpen(HostPage.Schedules) } }
-            item { NotifyTriggerEntry(backend) { onOpen(HostPage.NotifyTriggers) } }
-        }
+        item { ScheduleEntry(backend) { onOpen(HostPage.Schedules) } }
+        item { NotifyTriggerEntry(backend) { onOpen(HostPage.NotifyTriggers) } }
     }
 }
 

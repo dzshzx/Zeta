@@ -75,14 +75,30 @@ func ReadZetaMeta(agyDir, id string) ZetaMeta {
 	return m
 }
 
+type sqliteBool bool
+
+func (b *sqliteBool) UnmarshalJSON(data []byte) error {
+	s := strings.TrimSpace(string(data))
+	switch strings.ToLower(strings.Trim(s, `"`)) {
+	case "1", "true":
+		*b = true
+	default:
+		*b = false
+	}
+	return nil
+}
+
 type dbSummaryRow struct {
-	ID         string `json:"conversation_id"`
-	Title      string `json:"title"`
-	CreatedAt  string `json:"created_at"`
-	UpdatedAt  string `json:"updated_at"`
-	StepCount  int    `json:"step_count"`
-	Workspaces string `json:"workspaces"`
-	ParentID   string `json:"parent_conversation_id"`
+	ID                string     `json:"conversation_id"`
+	Title             string     `json:"title"`
+	Preview           string     `json:"preview"`
+	StepCount         int        `json:"step_count"`
+	LastModifiedTime  string     `json:"last_modified_time"`
+	WorkspaceURIs     string     `json:"workspace_uris"`
+	Status            string     `json:"status"`
+	ParentID          string     `json:"parent_conversation_id"`
+	NotFullyIdle      sqliteBool `json:"not_fully_idle"`
+	LastUserInputTime string     `json:"last_user_input_time"`
 }
 
 type dbCacheEntry struct {
@@ -155,10 +171,12 @@ func querySQLiteSummaries(dbPath string) map[string]dbSummaryRow {
 	}
 	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
 	defer cancel()
-	const query = "SELECT conversation_id, COALESCE(title,'') AS title, COALESCE(created_at,'') AS created_at, " +
-		"COALESCE(updated_at,'') AS updated_at, COALESCE(step_count,0) AS step_count, " +
-		"COALESCE(workspaces,'') AS workspaces, COALESCE(parent_conversation_id,'') AS parent_conversation_id " +
-		"FROM summaries;"
+	const query = "SELECT conversation_id, COALESCE(title,'') AS title, COALESCE(preview,'') AS preview, " +
+		"COALESCE(step_count,0) AS step_count, COALESCE(last_modified_time,'') AS last_modified_time, " +
+		"COALESCE(workspace_uris,'') AS workspace_uris, COALESCE(status,'') AS status, " +
+		"COALESCE(parent_conversation_id,'') AS parent_conversation_id, " +
+		"COALESCE(not_fully_idle,0) AS not_fully_idle, COALESCE(last_user_input_time,'') AS last_user_input_time " +
+		"FROM conversation_summaries;"
 	out, err := exec.CommandContext(ctx, sqliteBin, "-readonly", "-json", dbPath, query).Output()
 	if err != nil {
 		return nil
@@ -245,7 +263,7 @@ func ListedTranscriptFiles(agyDir string) []string {
 		}
 		ms := fi.ModTime().UnixMilli()
 		if r, ok := rows[id]; ok {
-			if dbMs := parseISOMillis(r.UpdatedAt); dbMs > ms {
+			if dbMs := parseISOMillis(r.LastModifiedTime); dbMs > ms {
 				ms = dbMs
 			}
 		}
@@ -305,6 +323,12 @@ func Summarize(agyDir, path string) (Summary, bool, error) {
 		return Summary{}, false, err
 	}
 	preview, created, headCwd, headReplied := scanHead(head)
+	rows := readDBRows(agyDir)
+	row, hasRow := rows[id]
+	if hasRow && row.ParentID != "" {
+		return Summary{}, false, nil
+	}
+	preview = cmp.Or(preview, strings.TrimSpace(row.Preview))
 	if preview == "" {
 		return Summary{}, false, nil
 	}
@@ -316,22 +340,17 @@ func Summarize(agyDir, path string) (Summary, bool, error) {
 	updated := fi.ModTime().UnixMilli()
 	ann := ReadAnnotation(agyDir, id)
 	zmeta := ReadZetaMeta(agyDir, id)
-	rows := readDBRows(agyDir)
-	row, hasRow := rows[id]
 	if hasRow {
-		if row.ParentID != "" {
-			return Summary{}, false, nil
-		}
-		if dbUpd := parseISOMillis(row.UpdatedAt); dbUpd > updated {
+		if dbUpd := parseISOMillis(row.LastModifiedTime); dbUpd > updated {
 			updated = dbUpd
 		}
 		if created == 0 {
-			created = parseISOMillis(row.CreatedAt)
+			created = parseISOMillis(row.LastUserInputTime)
 		}
 	}
 	created = cmp.Or(created, updated)
 	title := cmp.Or(ann.Title, row.Title, zmeta.Title)
-	cwd := cmp.Or(firstWorkspacePath(row.Workspaces), zmeta.Cwd, headCwd)
+	cwd := cmp.Or(firstWorkspacePath(row.WorkspaceURIs), zmeta.Cwd, headCwd)
 	return Summary{
 		ID:       id,
 		File:     path,
@@ -520,11 +539,21 @@ func execSQLite(dbPath, sql string) {
 	_ = exec.CommandContext(ctx, sqliteBin, dbPath, sql).Run()
 }
 
+// SessionRunStatus 按 conversation_summaries.db 里的 status 与 not_fully_idle 返回 agy 会话的忙闲（"busy" 或 "idle"）。
+func SessionRunStatus(agyDir, id string) string {
+	if row, ok := readDBRows(agyDir)[id]; ok {
+		if row.Status == "CASCADE_RUN_STATUS_RUNNING" || bool(row.NotFullyIdle) {
+			return "busy"
+		}
+	}
+	return "idle"
+}
+
 func updateSQLiteTitle(agyDir, id, title string) {
 	escaped := strings.ReplaceAll(title, "'", "''")
 	idEsc := strings.ReplaceAll(id, "'", "''")
 	execSQLite(filepath.Join(agyDir, "conversation_summaries.db"),
-		"UPDATE summaries SET title = '"+escaped+"' WHERE conversation_id = '"+idEsc+"';")
+		"UPDATE conversation_summaries SET title = '"+escaped+"' WHERE conversation_id = '"+idEsc+"';")
 }
 
 // Delete 删除一个 agy 会话的本地记录（brain/<id>、conversations/<id>.db*、annotations/<id>.pbtxt、presence/<id>.lock 及摘要行）。
@@ -555,10 +584,10 @@ func Delete(agyDir, id string) (hadBrain bool, err error) {
 
 func deleteSQLiteSummary(agyDir, id string) {
 	idEsc := strings.ReplaceAll(id, "'", "''")
-	execSQLite(filepath.Join(agyDir, "conversation_summaries.db"),
-		"DELETE FROM summaries WHERE conversation_id = '"+idEsc+"';")
-	execSQLite(filepath.Join(agyDir, "conversations_fts"),
-		"DELETE FROM conversations_fts WHERE conversation_id = '"+idEsc+"';")
+	dbPath := filepath.Join(agyDir, "conversation_summaries.db")
+	execSQLite(dbPath, "DELETE FROM conversation_summaries WHERE conversation_id = '"+idEsc+"';")
+	execSQLite(dbPath, "DELETE FROM conversations_fts WHERE conversation_id = '"+idEsc+"';")
+	execSQLite(dbPath, "DELETE FROM conversation_parents WHERE conversation_id = '"+idEsc+"';")
 }
 
 // SearchTranscript 在一份 agy transcript.jsonl 里按小写关键词 needle 搜索第一处用户或模型发言命中。

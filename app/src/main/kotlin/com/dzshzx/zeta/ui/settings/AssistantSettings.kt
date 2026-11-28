@@ -18,6 +18,7 @@ import com.dzshzx.zeta.assistant.PowerKeyStatus
 import com.dzshzx.zeta.core.AppVariant
 import com.dzshzx.zeta.core.Backends
 import com.dzshzx.zeta.core.ConversationHub
+import com.dzshzx.zeta.core.Harnesses
 import com.dzshzx.zeta.i18n.Strings
 import com.dzshzx.zeta.ui.components.miuix.MiuixPage
 import com.dzshzx.zeta.ui.components.miuix.PreferenceGroup
@@ -78,8 +79,10 @@ internal fun AssistantSettingsScreen(
     owner: AssistantOwner? = null,
 ) {
     val current = owner ?: rememberAssistantOwner(AssistantRole::owner)
+    var harness by remember { mutableStateOf(hub.settings.assistantHarness) }
     var model by remember { mutableStateOf(hub.settings.assistantModel) }
     var effort by remember { mutableStateOf(hub.settings.assistantEffort) }
+    val effectiveHarness = harness ?: hub.settings.defaultHarness(Backends.LOCAL)
     MiuixPage(title = Strings.settingsAssistantTitle(), onBack = onBack) {
         // HyperOS 的长按电源键默认直接拉起小爱，要靠 Zeta 自带的 LSPosed 模块交给
         // Zeta；模块装没装上、最近的记录在诊断页（AssistantDiagnosticsGroup）
@@ -96,13 +99,29 @@ internal fun AssistantSettingsScreen(
                 footer = Strings.settingsAssistantConversationsFooter(),
             ) {
                 item {
-                    ModelPreference(hub, Backends.LOCAL, model) { value ->
+                    FollowDropdownPreference(
+                        title = Strings.setupInstallCli(),
+                        choices = Harnesses.ALL.map { it to Harnesses.shortTitle(it) },
+                        value = harness,
+                        unknown = Harnesses::shortTitle,
+                        followLabel = Strings.commonFollowDeviceDefault(),
+                    ) { value ->
+                        if (value != harness) {
+                            harness = value
+                            hub.settings.assistantHarness = value
+                            model = null
+                            hub.settings.assistantModel = null
+                        }
+                    }
+                }
+                item {
+                    ModelPreference(hub, Backends.LOCAL, model, effectiveHarness) { value ->
                         model = value
                         hub.settings.assistantModel = value
                     }
                 }
                 item {
-                    EffortPreference(effort) { value ->
+                    EffortPreference(effort, effectiveHarness) { value ->
                         effort = value
                         hub.settings.assistantEffort = value
                     }

@@ -2372,5 +2372,8 @@
   "setupSkillsAgyUserFooter": "Installed in ~/.gemini/config/skills. Turned-off Skills keep their files but Antigravity stops using them. Changes apply to conversations started afterwards.",
   "setupSkillsAgyNoneSummary": "Import one from a ZIP, or ask Antigravity to write one",
   "setupAgentsAgyCustomFooter": "Stored in ~/.gemini/config/agents and available to all projects. Antigravity picks one based on its “When to use”, or you can name one in a conversation.",
-  "setupAgentsAgyNoneSummary": "Ask Antigravity to write one, or tap + at the top right"
+  "setupAgentsAgyNoneSummary": "Ask Antigravity to write one, or tap + at the top right",
+  "commonFollowAgy": "Follow Antigravity",
+  "commonFollowDeviceDefault": "Follow device default",
+  "settingsBackupAssistantHarness": "Assistant CLI tool"
 }

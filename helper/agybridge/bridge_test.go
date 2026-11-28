@@ -250,3 +250,150 @@ done
 		t.Fatalf("unprompted session brain was not cleaned up: %v (ref=%s)", entries, unpromptedBrain)
 	}
 }
+
+func TestBridgeModeMappingSystemPromptEffortTierAndSubagent(t *testing.T) {
+	tmp := t.TempDir()
+	modeLog := filepath.Join(tmp, "modes.log")
+	promptLog := filepath.Join(tmp, "prompt.log")
+	fakeBin := filepath.Join(tmp, "fake-agy-precision.sh")
+	script := `#!/usr/bin/env bash
+set -euo pipefail
+while IFS= read -r line; do
+  id=$(printf '%s' "$line" | sed -n 's/.*"id":\([0-9]*\).*/\1/p')
+  if [[ "$line" == *'"method":"initialize"'* ]]; then
+    printf '{"jsonrpc":"2.0","id":%s,"result":{"protocolVersion":1,"agentCapabilities":{"_meta":{"antigravity":{"tier":true,"systemPrompt":{"append":true}}}}}}\n' "$id"
+  elif [[ "$line" == *'"method":"session/new"'* ]]; then
+    printf '%s\n' "$line" > "` + promptLog + `"
+    printf '{"jsonrpc":"2.0","id":%s,"result":{"sessionId":"11111111-2222-3333-4444-555555555555","models":{"availableModels":[{"modelId":"gemini-4-neon-low","name":"Neon Low"},{"modelId":"gemini-4-neon-high","name":"Neon High"},{"modelId":"gemini-4-neon-xhigh","name":"Neon XHigh"},{"modelId":"gpt-oss-120b-medium","name":"GPT-OSS"}]},"configOptions":[{"id":"model","currentValue":"gemini-4-neon","options":[{"value":"gemini-4-neon","name":"Gemini 4 Neon"},{"value":"gpt-oss-120b-medium","name":"GPT-OSS 120B"}]},{"id":"mode","currentValue":"accept-edits","options":[{"value":"default","name":"Default"},{"value":"accept-edits","name":"Accept edits"}]}],"_meta":{"antigravity":{"tier":{"name":"Google AI Ultra"}}}}}\n' "$id"
+  elif [[ "$line" == *'"method":"session/set_config_option"'* ]]; then
+    printf '%s\n' "$line" >> "` + modeLog + `"
+    printf '{"jsonrpc":"2.0","id":%s,"result":{"configOptions":[{"id":"mode","currentValue":"accept-edits"}]}}\n' "$id"
+  elif [[ "$line" == *'"method":"session/prompt"'* ]]; then
+    printf '%s\n' "$line" >> "` + promptLog + `"
+    printf '{"jsonrpc":"2.0","method":"session/update","params":{"sessionId":"11111111-2222-3333-4444-555555555555","update":{"sessionUpdate":"tool_call","toolCallId":"sub-1","title":"invoke_subagent","kind":"other","status":"in_progress","rawInput":{"TypeName":"research","Role":"Code Researcher","Prompt":"inspect"}}}}\n'
+    printf '%s\n' '{"jsonrpc":"2.0","method":"session/update","params":{"sessionId":"11111111-2222-3333-4444-555555555555","update":{"sessionUpdate":"tool_call_update","toolCallId":"sub-1","status":"completed","content":[{"type":"content","content":{"type":"text","text":"conversationId: 99999999-8888-7777-6666-555555555555\ndone"}}]}}}'
+    printf '{"jsonrpc":"2.0","id":%s,"result":{"stopReason":"end_turn"}}\n' "$id"
+  elif [[ "$line" == *'"method":"session/close"'* ]]; then
+    printf '{"jsonrpc":"2.0","id":%s,"result":{}}\n' "$id"
+    exit 0
+  fi
+done
+`
+	if err := os.WriteFile(fakeBin, []byte(script), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	t.Setenv("HOME", tmp)
+	t.Setenv("ZETA_AGY_BIN", fakeBin)
+
+	var reportedTier string
+	prevTier := TierReporterFunc
+	TierReporterFunc = func(_ string, tier string) { reportedTier = tier }
+	t.Cleanup(func() { TierReporterFunc = prevTier })
+
+	inR, inW := io.Pipe()
+	outR, outW := io.Pipe()
+	done := make(chan int, 1)
+	go func() {
+		done <- Run([]string{"--cwd", tmp, "--permission-mode", "acceptEdits", "--append-system-prompt", "SYS_HINT_MARKER"}, inR, outW, io.Discard)
+		_ = outW.Close()
+	}()
+
+	send := func(v any) {
+		b, _ := json.Marshal(v)
+		_, _ = inW.Write(append(b, '\n'))
+	}
+	send(map[string]any{"type": "control_request", "request_id": "init-1", "request": map[string]any{"subtype": "initialize"}})
+
+	var sawEffort, sawNoEffort, sawModeZeta, sawTaskStarted, sawAgentID, sawTaskNotif bool
+	sc := bufio.NewScanner(outR)
+	for sc.Scan() {
+		line := sc.Text()
+		switch {
+		case strings.Contains(line, `"request_id":"init-1"`):
+			sawEffort = strings.Contains(line, `"supportedEffortLevels":["low","high","xhigh"]`)
+			sawNoEffort = strings.Contains(line, `"supportsEffort":false`)
+			sawModeZeta = strings.Contains(line, `"current_permission_mode":"acceptEdits"`)
+			send(map[string]any{"type": "control_request", "request_id": "m-1", "request": map[string]any{"subtype": "set_permission_mode", "mode": "acceptEdits"}})
+			send(map[string]any{"type": "user", "uuid": "u-1", "message": map[string]any{"content": "hello"}})
+		case strings.Contains(line, `"subtype":"task_started"`):
+			sawTaskStarted = strings.Contains(line, `"task_id":"99999999-8888-7777-6666-555555555555"`) && strings.Contains(line, `"tool_use_id":"sub-1"`)
+		case strings.Contains(line, `"agentId":"99999999-8888-7777-6666-555555555555"`):
+			sawAgentID = true
+		case strings.Contains(line, `"subtype":"task_notification"`):
+			sawTaskNotif = strings.Contains(line, `"status":"completed"`)
+		case strings.Contains(line, `"type":"result"`):
+			send(map[string]any{"type": "control_request", "request_id": "end-1", "request": map[string]any{"subtype": "end_session"}})
+		}
+	}
+	<-done
+
+	if reportedTier != "Google AI Ultra" {
+		t.Fatalf("reportedTier = %q, want Google AI Ultra", reportedTier)
+	}
+	if !sawEffort || !sawNoEffort || !sawModeZeta {
+		t.Fatalf("init checks failed: effort=%v noEffort=%v modeZeta=%v", sawEffort, sawNoEffort, sawModeZeta)
+	}
+	if !sawTaskStarted || !sawAgentID || !sawTaskNotif {
+		t.Fatalf("subagent checks failed: started=%v agentId=%v notif=%v", sawTaskStarted, sawAgentID, sawTaskNotif)
+	}
+	modesRaw, _ := os.ReadFile(modeLog)
+	if !strings.Contains(string(modesRaw), `"value":"accept-edits"`) || strings.Contains(string(modesRaw), `"value":"acceptEdits"`) {
+		t.Fatalf("ACP mode mapping wrong: %s", string(modesRaw))
+	}
+	promptRaw, _ := os.ReadFile(promptLog)
+	lines := strings.Split(strings.TrimSpace(string(promptRaw)), "\n")
+	if len(lines) < 2 || !strings.Contains(lines[0], "SYS_HINT_MARKER") || strings.Contains(lines[1], "SYS_HINT_MARKER") {
+		t.Fatalf("systemPrompt should be in session/new _meta and not prepended to user prompt: %s", string(promptRaw))
+	}
+}
+
+func TestMCPRelayDeniedToolsFilteringAndBlocking(t *testing.T) {
+	reqCh := make(chan string, 1)
+	relay, err := startMCPRelay(func(v any) {
+		b, _ := json.Marshal(v)
+		var m struct {
+			RequestID string `json:"request_id"`
+		}
+		if json.Unmarshal(b, &m) == nil && m.RequestID != "" {
+			reqCh <- m.RequestID
+		}
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer relay.close()
+	relay.setDeniedTools([]string{"create_scheduled_task"})
+
+	clientInR, clientInW := io.Pipe()
+	clientOutR, clientOutW := io.Pipe()
+	sockDone := make(chan int, 1)
+	go func() {
+		sockDone <- RunMCPSock(relay.sockPath, clientInR, clientOutW)
+		_ = clientOutW.Close()
+	}()
+
+	br := bufio.NewReader(clientOutR)
+	// 1) tools/list strips denied tools
+	_, _ = io.WriteString(clientInW, `{"jsonrpc":"2.0","id":10,"method":"tools/list","params":{}}`+"\n")
+	reqID := <-reqCh
+	relay.handleReply(reqID, json.RawMessage(`{"jsonrpc":"2.0","id":10,"result":{"tools":[{"name":"create_scheduled_task"},{"name":"report_scheduled_run"}]}}`))
+	listLine, err := br.ReadString('\n')
+	if err != nil || strings.Contains(listLine, "create_scheduled_task") || !strings.Contains(listLine, "report_scheduled_run") {
+		t.Fatalf("filtered tools/list = %q err=%v", listLine, err)
+	}
+
+	// 2) tools/call to denied tool is blocked locally without emitting to host
+	_, _ = io.WriteString(clientInW, `{"jsonrpc":"2.0","id":11,"method":"tools/call","params":{"name":"create_scheduled_task","arguments":{}}}`+"\n")
+	callLine, err := br.ReadString('\n')
+	if err != nil || !strings.Contains(callLine, `"isError":true`) {
+		t.Fatalf("blocked tools/call = %q err=%v", callLine, err)
+	}
+	select {
+	case unexpected := <-reqCh:
+		t.Fatalf("denied tools/call should not be forwarded, got reqID=%s", unexpected)
+	default:
+	}
+
+	_ = clientInW.Close()
+	<-sockDone
+}

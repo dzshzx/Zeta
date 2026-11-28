@@ -478,13 +478,26 @@ func realModelName(m string) bool {
 	return m != "" && !strings.HasPrefix(m, "<")
 }
 
+var agyTimeLayouts = []string{
+	time.RFC3339Nano,
+	"2006-01-02 15:04:05.999999999Z07:00",
+	"2006-01-02 15:04:05Z07:00",
+	"2006-01-02 15:04:05.999999999-07:00",
+	"2006-01-02 15:04:05-07:00",
+}
+
 func parseISOMillis(s string) int64 {
 	s = strings.TrimSpace(s)
 	if s == "" {
 		return 0
 	}
-	if t, err := time.Parse(time.RFC3339Nano, s); err == nil {
-		return t.UnixMilli()
+	for _, layout := range agyTimeLayouts {
+		if t, err := time.Parse(layout, s); err == nil {
+			if t.Year() <= 1971 {
+				return 0
+			}
+			return t.UnixMilli()
+		}
 	}
 	return 0
 }

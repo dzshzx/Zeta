@@ -4,10 +4,13 @@ import (
 	"cmp"
 	"encoding/json"
 	"fmt"
+	"regexp"
 	"strings"
 
 	"github.com/dzshzx/Zeta/helper/agystore"
 )
+
+var subagentUUIDRe = regexp.MustCompile(`[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}`)
 
 type acpUpdateEnvelope struct {
 	SessionID string          `json:"sessionId"`
@@ -78,12 +81,15 @@ type acpConfigUpdate struct {
 }
 
 type trackedTool struct {
-	name      string
-	inputSent bool
-	done      bool
-	rawInput  json.RawMessage
-	patch     map[string]any
-	texts     []string
+	name            string
+	inputSent       bool
+	done            bool
+	rawInput        json.RawMessage
+	patch           map[string]any
+	texts           []string
+	subagentID      string
+	subagentDesc    string
+	subagentStarted bool
 }
 
 type turnStream struct {
@@ -227,11 +233,29 @@ func (b *bridge) mergeToolFields(ts *turnStream, callID string, tr *trackedTool,
 			map[string]any{"type": "tool_use", "id": callID, "name": tr.name, "input": normalizeInputObj(tr.rawInput)},
 		})
 	}
+	if tr.name == "invoke_subagent" && tr.subagentID != "" && !tr.subagentStarted {
+		b.emitSubagentStarted(callID, tr)
+	}
 	if !finished || tr.done {
 		return
 	}
 	tr.done = true
 	b.emitFinishedToolResult(callID, tr, u)
+}
+
+func (b *bridge) emitSubagentStarted(callID string, tr *trackedTool) {
+	tr.subagentStarted = true
+	ev := map[string]any{
+		"type":        "system",
+		"subtype":     "task_started",
+		"task_id":     tr.subagentID,
+		"tool_use_id": callID,
+		"task_type":   "local_agent",
+	}
+	if tr.subagentDesc != "" {
+		ev["description"] = tr.subagentDesc
+	}
+	b.emit(ev)
 }
 
 func absorbToolUpdate(tr *trackedTool, u acpToolUpdate) {
@@ -253,6 +277,44 @@ func absorbToolUpdate(tr *trackedTool, u acpToolUpdate) {
 			}
 		}
 	}
+	if tr.name == "invoke_subagent" {
+		absorbSubagentInfo(tr, u)
+	}
+}
+
+func absorbSubagentInfo(tr *trackedTool, u acpToolUpdate) {
+	if tr.subagentDesc == "" && len(tr.rawInput) > 0 {
+		var in struct {
+			Role     string `json:"Role"`
+			TypeName string `json:"TypeName"`
+		}
+		if json.Unmarshal(tr.rawInput, &in) == nil {
+			tr.subagentDesc = cmp.Or(strings.TrimSpace(in.Role), strings.TrimSpace(in.TypeName))
+		}
+	}
+	if tr.subagentID != "" {
+		return
+	}
+	tr.subagentID = findSubagentUUID(u, tr.texts)
+}
+
+func findSubagentUUID(u acpToolUpdate, texts []string) string {
+	for _, k := range []string{"conversationId", "conversation_id", "sessionId", "session_id", "agentId"} {
+		if s, ok := u.Meta[k].(string); ok && agystore.IsSessionID(s) {
+			return s
+		}
+	}
+	for _, txt := range texts {
+		if id := subagentUUIDRe.FindString(txt); id != "" {
+			return id
+		}
+	}
+	if len(u.RawOutput) > 0 {
+		if id := subagentUUIDRe.FindString(string(u.RawOutput)); id != "" {
+			return id
+		}
+	}
+	return ""
 }
 
 func (b *bridge) emitFinishedToolResult(callID string, tr *trackedTool, u acpToolUpdate) {
@@ -275,8 +337,25 @@ func (b *bridge) emitFinishedToolResult(callID string, tr *trackedTool, u acpToo
 	}
 	if tr.patch != nil {
 		ev["tool_use_result"] = tr.patch
+	} else if tr.name == "invoke_subagent" && tr.subagentID != "" {
+		ev["tool_use_result"] = map[string]any{"agentId": tr.subagentID}
 	}
 	b.emit(ev)
+	if tr.name == "invoke_subagent" && tr.subagentID != "" {
+		if !tr.subagentStarted {
+			b.emitSubagentStarted(callID, tr)
+		}
+		status := "completed"
+		if u.Status == "failed" {
+			status = "failed"
+		}
+		b.emit(map[string]any{
+			"type":    "system",
+			"subtype": "task_notification",
+			"task_id": tr.subagentID,
+			"status":  status,
+		})
+	}
 }
 
 func (b *bridge) onPlanUpdate(raw json.RawMessage) {

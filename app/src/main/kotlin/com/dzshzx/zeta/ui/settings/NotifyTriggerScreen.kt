@@ -26,6 +26,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.dzshzx.zeta.core.AppVariant
 import com.dzshzx.zeta.core.ConversationHub
+import com.dzshzx.zeta.core.Harnesses
 import com.dzshzx.zeta.core.notify.NotifyRecords
 import com.dzshzx.zeta.core.notify.NotifyRule
 import com.dzshzx.zeta.core.notify.NotifyRuleStore
@@ -168,6 +169,7 @@ internal fun NotifyTriggerScreen(
     backend: String,
     onBack: () -> Unit,
     onOpenConversation: () -> Unit,
+    defaultHarness: String = Harnesses.CLAUDE,
 ) {
     val app = LocalContext.current.applicationContext as Application
     LaunchedEffect(Unit) { withContext(Dispatchers.IO) { NotifyRuleStore.load(app) } }
@@ -206,6 +208,7 @@ internal fun NotifyTriggerScreen(
                 hub = hub,
                 backend = backend,
                 original = target.id?.let { id -> rules.firstOrNull { it.id == id } },
+                defaultHarness = defaultHarness,
                 onBack = { editing = null },
                 onOpenConversation = onOpenConversation,
             )
@@ -278,7 +281,12 @@ private fun ruleSummary(rule: NotifyRule, now: Long, zone: ZoneId): String {
                 last?.let { Strings.settingsScheduleLastOutcome(outcomeWord(it.outcome)) },
             )
         }
-    return (listOf(rule.appLabel.ifBlank { rule.packageName }) + state).joinToString(" · ")
+    val prefix =
+        listOfNotNull(
+            if (rule.harness == Harnesses.AGY) Harnesses.shortTitle(rule.harness) else null,
+            rule.appLabel.ifBlank { rule.packageName },
+        )
+    return (prefix + state).joinToString(" · ")
 }
 
 /** 编辑器里开着的那个对话框。 */
@@ -296,13 +304,25 @@ private fun RuleEditor(
     hub: ConversationHub,
     backend: String,
     original: NotifyRule?,
+    defaultHarness: String = Harnesses.CLAUDE,
     onBack: () -> Unit,
     onOpenConversation: () -> Unit,
 ) {
     val app = LocalContext.current.applicationContext as Application
     val zone = ZoneId.systemDefault()
     var draft by remember {
-        mutableStateOf(original?.let(NotifyRules::draftOf) ?: RuleDraft("", "", "", "", null, ""))
+        mutableStateOf(
+            original?.let(NotifyRules::draftOf)
+                ?: RuleDraft(
+                    "",
+                    "",
+                    "",
+                    "",
+                    null,
+                    "",
+                    harness = Harnesses.normalize(defaultHarness),
+                ),
+        )
     }
     val update: (RuleDraft.() -> RuleDraft) -> Unit = { change -> draft = draft.change() }
     // 关掉“只在某个时段触发”时 draft 里没有时段：记着上次的，再打开时还是它
@@ -678,6 +698,11 @@ private fun RuleRunGroup(
         title = Strings.settingsScheduleRunGroup(),
         footer = Strings.notifyRunFooter(),
     ) {
+        item(key = "harness") {
+            HarnessPreference(draft.harness) { chosen ->
+                if (chosen != draft.harness) update { copy(harness = chosen, model = null) }
+            }
+        }
         item(key = "cwd") {
             BasicComponent(
                 title = Strings.commonWorkingDir(),
@@ -687,7 +712,9 @@ private fun RuleRunGroup(
             )
         }
         item(key = "model") {
-            ModelPreference(hub, backend, draft.model) { model -> update { copy(model = model) } }
+            ModelPreference(hub, backend, draft.model, draft.harness) { model ->
+                update { copy(model = model) }
+            }
         }
         val mode = draft.permissionMode
         item(key = "mode") {

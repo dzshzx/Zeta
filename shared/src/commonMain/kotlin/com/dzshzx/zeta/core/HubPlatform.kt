@@ -139,6 +139,9 @@ interface PhoneSession {
     /** 对话正被后台运行跑着时挂上（工具调用据此认出后台运行）。 */
     var unattended: Unattended?
 
+    /** 当前对话使用的命令行工具（[Harnesses.CLAUDE] 或 [Harnesses.AGY]）。 */
+    var harness: String
+
     /** 后台屏幕上正开着的应用的名字；没有是 null。 */
     val agentDisplayApp: String?
 

@@ -2,6 +2,7 @@ package com.dzshzx.zeta.phone.tools
 
 import android.app.Application
 import android.content.Context
+import com.dzshzx.zeta.core.Harnesses
 import com.dzshzx.zeta.core.arr
 import com.dzshzx.zeta.core.bool
 import com.dzshzx.zeta.core.claude.McpNames
@@ -214,6 +215,11 @@ internal object ScheduleTools : PhoneToolGroup {
             "boolean",
             "Start a fresh conversation each run (default true); false continues one conversation across runs.",
         )
+        enumProp(
+            "harness",
+            if (update) Harnesses.ALL + "" else Harnesses.ALL,
+            "CLI tool to run with (claude or agy); default is the current conversation's CLI tool.",
+        )
         prop(
             "only_on_change",
             "boolean",
@@ -233,9 +239,9 @@ internal object ScheduleTools : PhoneToolGroup {
                 toolCall {
                     val context = call.context
                     when (name) {
-                        CREATE -> create(context, input, call.backend)
+                        CREATE -> create(context, input, call.backend, call.harness)
                         LIST -> toolText(list(context))
-                        UPDATE -> update(context, input)
+                        UPDATE -> update(context, input, call.harness)
                         DELETE -> delete(context, input)
                         RUN -> runNow(context, input)
                         REPORT -> report(input, call.unattended)
@@ -265,7 +271,12 @@ internal object ScheduleTools : PhoneToolGroup {
 
     private fun short(text: String) = text.clipChars(12, "…")
 
-    private fun create(context: Context, input: JsonObject, backend: String): JsonObject {
+    private fun create(
+        context: Context,
+        input: JsonObject,
+        backend: String,
+        defaultHarness: String,
+    ): JsonObject {
         val zone = ZoneId.systemDefault()
         val now = Instant.now()
         val draft =
@@ -278,6 +289,7 @@ internal object ScheduleTools : PhoneToolGroup {
                 permissionMode = mode(input),
                 newSession = input.bool("new_session") ?: true,
                 onlyOnChange = input.bool("only_on_change") ?: false,
+                harness = harness(input, defaultHarness),
             )
         // 手机上的 Linux 环境常用 UTC，Claude 照它的 date 算出来的时间会差几个小时：报错时带上手机本地的现在
         Schedules.problem(draft, now, zone)?.let { throw BadInput(it + localNote(now, zone)) }
@@ -297,14 +309,14 @@ internal object ScheduleTools : PhoneToolGroup {
         )
     }
 
-    private fun update(context: Context, input: JsonObject): JsonObject {
+    private fun update(context: Context, input: JsonObject, defaultHarness: String): JsonObject {
         val id = input.str("id")?.trim().orEmpty()
         val task =
             ScheduleStore.find(context, id)
                 ?: return toolFailure("没有 id 为 $id 的定时任务，用 list_scheduled_tasks 看看现有的")
         val zone = ZoneId.systemDefault()
         val now = Instant.now()
-        val changed = updated(task, input, now, zone)
+        val changed = updated(task, input, now, zone, defaultHarness)
         if (changed == task) return toolText("没有要改的。现在是这样：\n" + describe(task, now, zone))
         // 改动套在存盘时最新的那份上：这期间可能刚跑完一次，运行记录要留着
         ScheduleStore.updateTask(context, id) {
@@ -324,7 +336,13 @@ internal object ScheduleTools : PhoneToolGroup {
      * 按 update_scheduled_task 的参数改 [task]：只改传了的，运行记录照旧（见 [Schedules.applyDraft]）。参数不对时抛 [BadInput]。
      * 开关和校验照 [Schedules.edit]，和设置页的编辑一样。
      */
-    fun updated(task: ScheduledTask, input: JsonObject, now: Instant, zone: ZoneId): ScheduledTask {
+    fun updated(
+        task: ScheduledTask,
+        input: JsonObject,
+        now: Instant,
+        zone: ZoneId,
+        defaultHarness: String = Harnesses.CLAUDE,
+    ): ScheduledTask {
         val draft =
             TaskDraft(
                 name = input.str("name") ?: task.name,
@@ -339,10 +357,20 @@ internal object ScheduleTools : PhoneToolGroup {
                     if (given(input, "permission_mode")) mode(input) else task.permissionMode,
                 newSession = input.bool("new_session") ?: task.newSession,
                 onlyOnChange = input.bool("only_on_change") ?: task.onlyOnChange,
+                harness =
+                    if (given(input, "harness")) harness(input, defaultHarness) else task.harness,
             )
         val edited = Schedules.edit(task, draft, input.bool("enabled"), now, zone)
         edited.problem?.let { throw BadInput(it + localNote(now, zone)) }
         return Schedules.applyDraft(task, edited.draft)
+    }
+
+    private fun harness(input: JsonObject, fallback: String): String {
+        val raw =
+            input.str("harness")?.trim()?.lowercase()?.takeIf { it.isNotEmpty() }
+                ?: return Harnesses.normalize(fallback)
+        if (raw !in Harnesses.ALL) throw BadInput("harness 只能是 " + Harnesses.ALL.joinToString("、"))
+        return raw
     }
 
     private fun given(input: JsonObject, key: String) =
@@ -462,6 +490,7 @@ internal object ScheduleTools : PhoneToolGroup {
     /** 任务的选项：工作目录、模型、权限模式、接不接着同一个对话、是否只在有变化时提醒。 */
     private fun options(task: ScheduledTask): List<String> =
         listOfNotNull(
+            if (task.harness == Harnesses.AGY) "工具 Antigravity" else null,
             task.cwd?.let { "工作目录 $it" },
             task.model?.let { "模型 $it" },
             "权限模式 " + task.permissionMode,

@@ -52,13 +52,13 @@ func (s QuotaStore) Get() (*accounts.Snapshot, error) {
 	if !ok {
 		return nil, nil
 	}
-	if snap, err := loadCachedQuota(s.activePath(), fp[:16]); snap != nil || err != nil {
+	if snap, err := loadCachedQuota(s.activePath(), fp[:16], CurrentPlan(s.Home)); snap != nil || err != nil {
 		return snap, err
 	}
-	return loadCachedQuota(s.slotPath(fp), fp[:16])
+	return loadCachedQuota(s.slotPath(fp), fp[:16], CurrentPlan(s.Home))
 }
 
-func loadCachedQuota(path, wantAccount string) (*accounts.Snapshot, error) {
+func loadCachedQuota(path, wantAccount, fallbackPlan string) (*accounts.Snapshot, error) {
 	data, err := os.ReadFile(path)
 	if errors.Is(err, fs.ErrNotExist) {
 		return nil, nil
@@ -73,13 +73,15 @@ func loadCachedQuota(path, wantAccount string) (*accounts.Snapshot, error) {
 	if c.Account != "" && wantAccount != "" && c.Account != wantAccount {
 		return nil, nil
 	}
-	snap := normalizeSnapshot(c.Snapshot)
+	snap := normalizeSnapshot(c.Snapshot, fallbackPlan)
 	return &snap, nil
 }
 
-func normalizeSnapshot(s accounts.Snapshot) accounts.Snapshot {
+func normalizeSnapshot(s accounts.Snapshot, fallbackPlan string) accounts.Snapshot {
 	s.Subscription = cmp.Or(s.Subscription, "antigravity")
-	s.Plan = cmp.Or(s.Plan, "Antigravity")
+	if s.Plan == "" || (s.Plan == "Antigravity" && fallbackPlan != "") {
+		s.Plan = cmp.Or(fallbackPlan, "Antigravity")
+	}
 	return s
 }
 
@@ -89,7 +91,7 @@ func (s QuotaStore) Usage(raw []byte, now time.Time) (accounts.Snapshot, bool, e
 	if err != nil {
 		return accounts.Snapshot{}, false, err
 	}
-	parsed = normalizeSnapshot(parsed)
+	parsed = normalizeSnapshot(parsed, CurrentPlan(s.Home))
 	if CurrentRelay(s.Home) != "" {
 		return parsed.At(now), true, nil
 	}
@@ -128,7 +130,7 @@ func (s QuotaStore) Event(info []byte, now time.Time) (accounts.Snapshot, bool, 
 	if err != nil {
 		return snap, changed, err
 	}
-	snap = normalizeSnapshot(snap)
+	snap = normalizeSnapshot(snap, CurrentPlan(s.Home))
 	if !changed {
 		return snap, false, nil
 	}

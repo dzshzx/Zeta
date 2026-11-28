@@ -196,6 +196,9 @@ class Settings(private val prefs: PrefStore, private val owner: Any) {
     /** 对话进行中、Zeta 在前台时保持屏幕常亮。 */
     var keepScreenOn: Boolean by pref("keepScreenOn", true)
 
+    /** 数字助理新开的对话用的命令行工具；null 表示跟随手机本机默认工具。只影响数字助理开的对话。 */
+    var assistantHarness: String? by optionalString("assistantHarness")
+
     /** 数字助理新开的对话用的模型；null 表示跟随 Claude Code（新对话的默认模型）。只影响数字助理开的对话。 */
     var assistantModel: String? by optionalString("assistantModel")
 

@@ -178,6 +178,16 @@ internal object SettingsBackup {
                 default = true,
             ),
             optionalItem(
+                "assistantHarness",
+                Strings::settingsBackupAssistantHarness,
+                unset = Strings::commonFollowDeviceDefault,
+                labels = {
+                    com.dzshzx.zeta.core.Harnesses.ALL.associateWith(
+                        com.dzshzx.zeta.core.Harnesses::shortTitle,
+                    )
+                },
+            ),
+            optionalItem(
                 "assistantModel",
                 Strings::settingsBackupAssistantModel,
                 unset = Strings::commonFollowClaudeCode,

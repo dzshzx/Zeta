@@ -2,6 +2,7 @@ package com.dzshzx.zeta.core.notify
 
 import com.dzshzx.zeta.core.AppVariant
 import com.dzshzx.zeta.core.Backends
+import com.dzshzx.zeta.core.Harnesses
 import com.dzshzx.zeta.core.arr
 import com.dzshzx.zeta.core.bool
 import com.dzshzx.zeta.core.clipChars
@@ -85,6 +86,8 @@ data class NotifyRule(
     val firedCount: Int = 0,
     /** 在哪台主机上跑（[Backends]）：通知都在手机上收，命中后在这台上起对话。建的时候定，之后不改。 */
     val backend: String = Backends.LOCAL,
+    /** 使用哪个命令行工具（[Harnesses.CLAUDE] 或 [Harnesses.AGY]）。 */
+    val harness: String = Harnesses.CLAUDE,
 )
 
 /** 新建、编辑时用户填的那些。 */
@@ -103,6 +106,7 @@ data class RuleDraft(
     val dailyLimit: Int = NotifyRules.DEFAULT_DAILY_LIMIT,
     val enabled: Boolean = true,
     val onlyOnChange: Boolean = false,
+    val harness: String = Harnesses.CLAUDE,
 )
 
 /** 规则命中后能不能触发。 */
@@ -294,6 +298,7 @@ object NotifyRules {
             rule.dailyLimit,
             rule.enabled,
             rule.onlyOnChange,
+            rule.harness,
         )
 
     /** 编辑保存：运行记录、冷却和今天的次数照旧。 */
@@ -312,6 +317,7 @@ object NotifyRules {
             dailyLimit = draft.dailyLimit,
             enabled = draft.enabled,
             onlyOnChange = draft.onlyOnChange,
+            harness = Harnesses.normalize(draft.harness),
         )
 
     fun toRule(
@@ -402,6 +408,7 @@ object NotifyRules {
         put("prompt", rule.prompt)
         put("enabled", rule.enabled)
         if (rule.backend != Backends.LOCAL) put("backend", rule.backend)
+        if (rule.harness != Harnesses.CLAUDE) put("harness", rule.harness)
         rule.cwd?.let { put("cwd", it) }
         rule.model?.let { put("model", it) }
         put("permissionMode", rule.permissionMode)
@@ -461,6 +468,7 @@ object NotifyRules {
             cwd = o.str("cwd")?.takeIf { it.isNotBlank() },
             model = o.str("model")?.takeIf { it.isNotBlank() },
             backend = o.str("backend")?.takeIf { it.isNotBlank() } ?: Backends.LOCAL,
+            harness = Harnesses.normalize(o.str("harness")),
             permissionMode = o.str("permissionMode")?.takeIf { it.isNotBlank() } ?: DEFAULT_MODE,
             cooldownMinutes =
                 o.int("cooldown")?.takeIf { it in 1..MAX_COOLDOWN } ?: DEFAULT_COOLDOWN,

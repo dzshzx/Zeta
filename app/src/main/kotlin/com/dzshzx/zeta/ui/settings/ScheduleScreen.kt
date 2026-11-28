@@ -28,6 +28,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import com.dzshzx.zeta.core.ConversationHub
+import com.dzshzx.zeta.core.Harnesses
 import com.dzshzx.zeta.core.SetupState
 import com.dzshzx.zeta.core.environment
 import com.dzshzx.zeta.core.schedule.Edited
@@ -115,6 +116,7 @@ internal fun ScheduleScreen(
     backend: String,
     onBack: () -> Unit,
     onOpenConversation: () -> Unit,
+    defaultHarness: String = Harnesses.CLAUDE,
 ) {
     val context = LocalContext.current
     val app = context.applicationContext as Application
@@ -172,24 +174,10 @@ internal fun ScheduleScreen(
                     }
                 }
                 tasks.forEach { task ->
-                    val last = task.lastRun
-                    // 摘要一行：怎么重复，再加状态。关没关着看开关；下次什么时候在首页入口和编辑页的“时间”下面
-                    val state =
-                        when {
-                            last?.outcome == RunOutcome.Running -> Strings.settingsScheduleRunning()
-                            task.enabled && Schedules.nextTrigger(task.rule, now, zone) == null ->
-                                Strings.settingsScheduleTimePassed()
-                            else ->
-                                last?.let {
-                                    Strings.settingsScheduleLastOutcome(outcomeWord(it.outcome))
-                                }
-                        }
                     item(key = task.id) {
                         SwitchWithDividerPreference(
                             title = task.name,
-                            summary =
-                                listOfNotNull(Schedules.describe(task.rule), state)
-                                    .joinToString(" · "),
+                            summary = taskSummary(task, now, zone),
                             checked = task.enabled,
                             onCheckedChange = { on ->
                                 ScheduleStore.updateTask(app, task.id) { it.copy(enabled = on) }
@@ -209,6 +197,7 @@ internal fun ScheduleScreen(
                 hub = hub,
                 backend = backend,
                 original = target.id?.let { id -> tasks.firstOrNull { it.id == id } },
+                defaultHarness = defaultHarness,
                 onBack = { editing = null },
                 onOpenConversation = onOpenConversation,
             )
@@ -217,6 +206,24 @@ internal fun ScheduleScreen(
 }
 
 internal fun outcomeWord(outcome: RunOutcome) = outcome.label
+
+/** 列表里每个任务的摘要一行：工具标记（仅 agy）、重复规则和最近一次状态。 */
+private fun taskSummary(task: ScheduledTask, now: Instant, zone: ZoneId): String {
+    val last = task.lastRun
+    val state =
+        when {
+            last?.outcome == RunOutcome.Running -> Strings.settingsScheduleRunning()
+            task.enabled && Schedules.nextTrigger(task.rule, now, zone) == null ->
+                Strings.settingsScheduleTimePassed()
+            else -> last?.let { Strings.settingsScheduleLastOutcome(outcomeWord(it.outcome)) }
+        }
+    return listOfNotNull(
+            if (task.harness == Harnesses.AGY) Harnesses.shortTitle(task.harness) else null,
+            Schedules.describe(task.rule),
+            state,
+        )
+        .joinToString(" · ")
+}
 
 private val Workdays =
     setOf(
@@ -242,6 +249,7 @@ private fun TaskEditor(
     hub: ConversationHub,
     backend: String,
     original: ScheduledTask?,
+    defaultHarness: String = Harnesses.CLAUDE,
     onBack: () -> Unit,
     onOpenConversation: () -> Unit,
 ) {
@@ -255,6 +263,9 @@ private fun TaskEditor(
     var date by remember { mutableStateOf(initialDate(rule)) }
     var days by remember { mutableStateOf((rule as? ScheduleRule.Weekly)?.days ?: Workdays) }
     var hours by remember { mutableStateOf((rule as? ScheduleRule.Interval)?.hours ?: 3) }
+    var harness by remember {
+        mutableStateOf(Harnesses.normalize(original?.harness ?: defaultHarness))
+    }
     var cwd by remember { mutableStateOf(original?.cwd.orEmpty()) }
     var model by remember { mutableStateOf(original?.model) }
     var mode by remember { mutableStateOf(original?.permissionMode ?: Schedules.DEFAULT_MODE) }
@@ -278,6 +289,7 @@ private fun TaskEditor(
                 mode,
                 newSession,
                 onlyOnChange = onlyOnChange,
+                harness = harness,
             ),
             enabled = null,
             now,
@@ -372,11 +384,18 @@ private fun TaskEditor(
             TaskRunGroup(
                 hub = hub,
                 backend = backend,
+                harness = harness,
                 cwd = cwd,
                 defaultCwd = defaultCwd,
                 model = model,
                 mode = mode,
                 newSession = newSession,
+                onHarness = { chosen ->
+                    if (chosen != harness) {
+                        harness = chosen
+                        model = null
+                    }
+                },
                 onModel = { model = it },
                 onMode = { mode = it },
                 onNewSession = { newSession = it },
@@ -592,11 +611,13 @@ private fun TaskTimeGroup(
 private fun TaskRunGroup(
     hub: ConversationHub,
     backend: String,
+    harness: String,
     cwd: String,
     defaultCwd: String,
     model: String?,
     mode: String,
     newSession: Boolean,
+    onHarness: (String) -> Unit,
     onModel: (String?) -> Unit,
     onMode: (String) -> Unit,
     onNewSession: (Boolean) -> Unit,
@@ -606,6 +627,7 @@ private fun TaskRunGroup(
         title = Strings.settingsScheduleRunGroup(),
         footer = Strings.settingsScheduleRunFooter(),
     ) {
+        item { HarnessPreference(harness, onHarness) }
         item {
             BasicComponent(
                 title = Strings.commonWorkingDir(),
@@ -613,7 +635,7 @@ private fun TaskRunGroup(
                 onClick = onPickCwd,
             )
         }
-        item { ModelPreference(hub, backend, model, onModel) }
+        item { ModelPreference(hub, backend, model, harness, onModel) }
         item { PermissionModePreference(mode, onMode) }
         item {
             SwitchPreference(

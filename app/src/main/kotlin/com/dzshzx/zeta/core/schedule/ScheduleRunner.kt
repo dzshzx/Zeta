@@ -149,6 +149,7 @@ object ScheduleRunner {
                     title = spec.name,
                     historyFile = null,
                     backend = backend,
+                    harness = spec.harness,
                 ),
                 fresh = true,
             )
@@ -198,6 +199,7 @@ object ScheduleRunner {
                     named.name,
                     summary.file,
                     backend = spec.backend,
+                    harness = summary.harness,
                 )
             } else {
                 // 原来的会话找不到了（被删了）：另开一个，以后接着新的这个
@@ -208,6 +210,7 @@ object ScheduleRunner {
                     title = named.name,
                     historyFile = null,
                     backend = spec.backend,
+                    harness = spec.harness,
                 )
             }
         launch(hub, records, named, manual, now, conversation, fresh = summary == null)

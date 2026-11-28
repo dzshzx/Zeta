@@ -3,6 +3,7 @@ package com.dzshzx.zeta.core.schedule
 import com.dzshzx.zeta.core.AnswerItem
 import com.dzshzx.zeta.core.Backends
 import com.dzshzx.zeta.core.ChatItem
+import com.dzshzx.zeta.core.Harnesses
 import com.dzshzx.zeta.core.NoticeItem
 import com.dzshzx.zeta.core.UserItem
 import com.dzshzx.zeta.core.arr
@@ -158,6 +159,8 @@ data class ScheduledTask(
     val lastSkip: Long? = null,
     /** 在哪台主机上跑（[Backends]）：闹钟都由手机排，到点在这台上起对话。建的时候定，之后不改。 */
     val backend: String = Backends.LOCAL,
+    /** 使用哪个命令行工具（[Harnesses.CLAUDE] 或 [Harnesses.AGY]）。 */
+    val harness: String = Harnesses.CLAUDE,
 )
 
 /** 新建、编辑时用户填的那些；[toTask] 时再补上 id 和运行记录。 */
@@ -171,6 +174,7 @@ data class TaskDraft(
     val newSession: Boolean = true,
     val enabled: Boolean = true,
     val onlyOnChange: Boolean = false,
+    val harness: String = Harnesses.CLAUDE,
 )
 
 /** Claude 在只在有变化时提醒的运行里上报的结论（手机工具 report_scheduled_run）。 */
@@ -233,11 +237,14 @@ object Schedules {
             task.newSession,
             task.enabled,
             task.onlyOnChange,
+            task.harness,
         )
 
-    /** 编辑保存：规则以外的运行记录照旧；换了“开新对话”的方式就不再接着原来那个会话。 */
-    fun applyDraft(task: ScheduledTask, draft: TaskDraft) =
-        task.copy(
+    /** 编辑保存：规则以外的运行记录照旧；换了“开新对话”的方式或切换工具就不再接着原来那个会话。 */
+    fun applyDraft(task: ScheduledTask, draft: TaskDraft): ScheduledTask {
+        val nextHarness = Harnesses.normalize(draft.harness)
+        val resetSession = draft.newSession != task.newSession || nextHarness != task.harness
+        return task.copy(
             name = draft.name.trim(),
             prompt = draft.prompt.trim(),
             rule = draft.rule,
@@ -247,8 +254,10 @@ object Schedules {
             newSession = draft.newSession,
             enabled = draft.enabled,
             onlyOnChange = draft.onlyOnChange,
-            sessionId = if (draft.newSession != task.newSession) null else task.sessionId,
+            harness = nextHarness,
+            sessionId = if (resetSession) null else task.sessionId,
         )
+    }
 
     fun toTask(
         draft: TaskDraft,
@@ -525,6 +534,7 @@ object Schedules {
         task.cwd?.let { put("cwd", it) }
         task.model?.let { put("model", it) }
         if (task.backend != Backends.LOCAL) put("backend", task.backend)
+        if (task.harness != Harnesses.CLAUDE) put("harness", task.harness)
         put("permissionMode", task.permissionMode)
         put("newSession", task.newSession)
         task.sessionId?.let { put("sessionId", it) }
@@ -615,6 +625,7 @@ object Schedules {
             sessionId = o.str("sessionId")?.takeIf { it.isNotBlank() },
             onlyOnChange = o.bool("onlyOnChange") == true,
             backend = o.str("backend")?.takeIf { it.isNotBlank() } ?: Backends.LOCAL,
+            harness = Harnesses.normalize(o.str("harness")),
             created = o.long("created") ?: 0L,
             lastRun = decodeRun(o.obj("lastRun")),
             skips = (o.int("skips") ?: 0).coerceAtLeast(0),

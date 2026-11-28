@@ -3,6 +3,7 @@ package agystore
 import (
 	"encoding/json"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"strings"
 	"testing"
@@ -120,5 +121,95 @@ func verifySubagentAndMutate(t *testing.T, agyDir, parentID, childID, parentPath
 	}
 	if had, err := Delete(agyDir, parentID); err != nil || !had || len(ListedTranscriptFiles(agyDir)) != 0 {
 		t.Fatalf("Delete had=%v err=%v", had, err)
+	}
+}
+
+func TestSQLiteConversationSummariesSchemaAndStatus(t *testing.T) {
+	sqliteBin, err := exec.LookPath("sqlite3")
+	if err != nil {
+		if os.Getenv("CI") != "" {
+			t.Skip("CI 环境未安装 sqlite3，跳过 SQLite 集成测试")
+		}
+		t.Fatalf("本机缺少 sqlite3：%v", err)
+	}
+	agyDir := t.TempDir()
+	parentID := "11111111-2222-3333-4444-555555555555"
+	childID := "66666666-7777-8888-9999-000000000000"
+	runningID := "aaaaaaaa-1111-2222-3333-bbbbbbbbbbbb"
+
+	parentPath := writeTestTranscript(t, agyDir, parentID,
+		`{"step_index":0,"source":"MODEL","type":"PLANNER_RESPONSE","status":"DONE","created_at":"2026-11-28T07:00:01Z","content":"ok"}`,
+	)
+	writeTestTranscript(t, agyDir, childID,
+		`{"step_index":0,"source":"USER_EXPLICIT","type":"USER_INPUT","status":"DONE","created_at":"2026-11-28T07:00:01Z","content":"child"}`,
+	)
+	writeTestTranscript(t, agyDir, runningID,
+		`{"step_index":0,"source":"USER_EXPLICIT","type":"USER_INPUT","status":"DONE","created_at":"2026-11-28T07:00:01Z","content":"running"}`,
+	)
+
+	dbPath := filepath.Join(agyDir, "conversation_summaries.db")
+	schemaSQL := `
+CREATE TABLE conversation_summaries (
+  conversation_id text PRIMARY KEY,
+  title text NOT NULL DEFAULT "",
+  preview text NOT NULL DEFAULT "",
+  step_count integer NOT NULL DEFAULT 0,
+  last_modified_time datetime NOT NULL,
+  workspace_uris text NOT NULL,
+  status text NOT NULL DEFAULT "",
+  parent_conversation_id text NOT NULL DEFAULT "",
+  not_fully_idle numeric NOT NULL DEFAULT false,
+  last_user_input_time datetime NOT NULL
+);
+CREATE TABLE conversations_fts (conversation_id text, title text);
+CREATE TABLE conversation_parents (conversation_id TEXT PRIMARY KEY, parent_id TEXT NOT NULL);
+INSERT INTO conversation_summaries VALUES
+  ('` + parentID + `','DB 标题','DB 预览',5,'2026-11-28 10:33:23.448261955+00:00','["file:///workspace/real-proj"]','CASCADE_RUN_STATUS_IDLE','',0,'2026-11-28 10:19:49.865945581+00:00'),
+  ('` + childID + `','','',3,'2026-11-28 10:34:00.000000000+00:00','["file:///workspace/real-proj"]','CASCADE_RUN_STATUS_IDLE','` + parentID + `',0,'0001-01-01 00:00:00+00:00'),
+  ('` + runningID + `','运行中','正在执行',2,'2026-11-28 10:35:00.000000000+00:00','["file:///workspace/real-proj"]','CASCADE_RUN_STATUS_RUNNING','',1,'2026-11-28 10:34:30.000000000+00:00');
+INSERT INTO conversations_fts VALUES ('` + parentID + `','DB 标题');
+INSERT INTO conversation_parents VALUES ('` + childID + `','` + parentID + `');
+`
+	if out, err := exec.Command(sqliteBin, dbPath, schemaSQL).CombinedOutput(); err != nil {
+		t.Fatalf("init sqlite failed: %v %s", err, out)
+	}
+
+	if got := SessionRunStatus(agyDir, parentID); got != "idle" {
+		t.Fatalf("idle session status = %q, want idle", got)
+	}
+	if got := SessionRunStatus(agyDir, runningID); got != "busy" {
+		t.Fatalf("running session status = %q, want busy", got)
+	}
+
+	listed := ListedTranscriptFiles(agyDir)
+	if len(listed) != 2 {
+		t.Fatalf("ListedTranscriptFiles 应过滤子代理，got %v", listed)
+	}
+	sum, ok, err := Summarize(agyDir, parentPath)
+	if err != nil || !ok {
+		t.Fatalf("Summarize failed: ok=%v err=%v", ok, err)
+	}
+	if sum.Title != "DB 标题" || sum.Preview != "DB 预览" || sum.Cwd != "/workspace/real-proj" || sum.Created == 0 {
+		t.Fatalf("Summarize from DB mismatch: %+v", sum)
+	}
+
+	if err := Rename(agyDir, parentID, "同步改名"); err != nil {
+		t.Fatal(err)
+	}
+	out, err := exec.Command(sqliteBin, dbPath, "SELECT title FROM conversation_summaries WHERE conversation_id='"+parentID+"';").Output()
+	if err != nil || strings.TrimSpace(string(out)) != "同步改名" {
+		t.Fatalf("DB title after Rename = %q err=%v", string(out), err)
+	}
+
+	if _, err := Delete(agyDir, parentID); err != nil {
+		t.Fatal(err)
+	}
+	cntOut, err := exec.Command(sqliteBin, dbPath, "SELECT count(*) FROM conversation_summaries WHERE conversation_id='"+parentID+"';").Output()
+	if err != nil || strings.TrimSpace(string(cntOut)) != "0" {
+		t.Fatalf("conversation_summaries row not deleted: %q err=%v", string(cntOut), err)
+	}
+	ftsOut, err := exec.Command(sqliteBin, dbPath, "SELECT count(*) FROM conversations_fts WHERE conversation_id='"+parentID+"';").Output()
+	if err != nil || strings.TrimSpace(string(ftsOut)) != "0" {
+		t.Fatalf("conversations_fts row not deleted: %q err=%v", string(ftsOut), err)
 	}
 }

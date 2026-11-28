@@ -44,9 +44,24 @@ type acpConfigOption struct {
 	} `json:"options"`
 }
 
+type acpModelItem struct {
+	ModelID string `json:"modelId"`
+	Name    string `json:"name"`
+}
+
 type acpSessionResult struct {
 	SessionID     string            `json:"sessionId"`
 	ConfigOptions []acpConfigOption `json:"configOptions"`
+	Models        *struct {
+		AvailableModels []acpModelItem `json:"availableModels"`
+	} `json:"models"`
+	Meta *struct {
+		Antigravity *struct {
+			Tier *struct {
+				Name string `json:"name"`
+			} `json:"tier"`
+		} `json:"antigravity"`
+	} `json:"_meta"`
 }
 
 type acpPromptResult struct {
@@ -69,6 +84,9 @@ type queuedPrompt struct {
 // UsageQueryFunc 由外部（如 agyacct）提供订阅额度查询结果，供 get_usage 控制请求返回。
 var UsageQueryFunc func(ctx context.Context, home string) (json.RawMessage, error)
 
+// TierReporterFunc 在 ACP session/new 返回 _meta.antigravity.tier.name 时回调，持久化真实套餐展示名。
+var TierReporterFunc func(home, tierName string)
+
 type bridge struct {
 	opts     options
 	home     string
@@ -82,23 +100,26 @@ type bridge struct {
 	exitOnce sync.Once
 	closing  atomic.Bool
 
-	sessMu        sync.Mutex
-	mu            sync.Mutex
-	sessionID     string
-	resumed       bool
-	prompted      bool
-	title         string
-	currentModel  string
-	defaultModel  string
-	currentEffort string
-	userMode      string
-	acpMode       string
-	windowSize    int64
-	contextTokens int64
-	models        json.RawMessage
-	commands      json.RawMessage
-	commandsReady chan struct{}
-	contextNotes  []string
+	sessMu                     sync.Mutex
+	mu                         sync.Mutex
+	sessionID                  string
+	resumed                    bool
+	prompted                   bool
+	supportsAppendSystemPrompt bool
+	systemPromptApplied        bool
+	title                      string
+	currentModel               string
+	defaultModel               string
+	currentEffort              string
+	userMode                   string
+	acpMode                    string
+	windowSize                 int64
+	contextTokens              int64
+	availableModels            []acpModelItem
+	models                     json.RawMessage
+	commands                   json.RawMessage
+	commandsReady              chan struct{}
+	contextNotes               []string
 
 	cumInput     int64
 	cumOutput    int64
@@ -210,7 +231,7 @@ func (b *bridge) start() error {
 		return err
 	}
 	b.acp = acp
-	_, err = b.acp.call("initialize", map[string]any{
+	initRaw, err := b.acp.call("initialize", map[string]any{
 		"protocolVersion": 1,
 		"clientInfo":      map[string]any{"name": "Zed", "version": "1.0.0"},
 		"clientCapabilities": map[string]any{
@@ -223,7 +244,23 @@ func (b *bridge) start() error {
 		b.mcp.close()
 		return err
 	}
+	b.supportsAppendSystemPrompt = parseSupportsAppendSystemPrompt(initRaw)
 	return nil
+}
+
+func parseSupportsAppendSystemPrompt(raw json.RawMessage) bool {
+	var res struct {
+		AgentCapabilities struct {
+			Meta struct {
+				Antigravity struct {
+					SystemPrompt struct {
+						Append bool `json:"append"`
+					} `json:"systemPrompt"`
+				} `json:"antigravity"`
+			} `json:"_meta"`
+		} `json:"agentCapabilities"`
+	}
+	return json.Unmarshal(raw, &res) == nil && res.AgentCapabilities.Meta.Antigravity.SystemPrompt.Append
 }
 
 func (b *bridge) shutdown() {
@@ -267,6 +304,15 @@ func (b *bridge) ensureSession() error {
 		"cwd":        b.opts.cwd,
 		"mcpServers": b.mcpServersParam(),
 	}
+	sysPrompt := strings.TrimSpace(b.opts.systemPrompt)
+	withMetaPrompt := b.supportsAppendSystemPrompt && sysPrompt != ""
+	if withMetaPrompt {
+		params["_meta"] = map[string]any{
+			"antigravity": map[string]any{
+				"systemPrompt": map[string]any{"append": sysPrompt},
+			},
+		}
+	}
 	method := "session/new"
 	if resume != "" {
 		method = "session/resume"
@@ -280,10 +326,21 @@ func (b *bridge) ensureSession() error {
 	if json.Unmarshal(resRaw, &res) != nil || res.SessionID == "" {
 		return errors.New("agy acp returned empty sessionId")
 	}
+	if res.Models != nil && len(res.Models.AvailableModels) > 0 {
+		b.mu.Lock()
+		b.availableModels = res.Models.AvailableModels
+		b.mu.Unlock()
+	}
+	if res.Meta != nil && res.Meta.Antigravity != nil && res.Meta.Antigravity.Tier != nil {
+		if tier := strings.TrimSpace(res.Meta.Antigravity.Tier.Name); tier != "" && TierReporterFunc != nil {
+			TierReporterFunc(b.home, tier)
+		}
+	}
 	b.applyConfigOptions(res.ConfigOptions)
 	b.mu.Lock()
 	b.sessionID = res.SessionID
 	b.resumed = resume != ""
+	b.systemPromptApplied = withMetaPrompt
 	b.opts.resume = ""
 	initModel := b.opts.model
 	initEffort := b.opts.effort
@@ -310,11 +367,8 @@ func (b *bridge) applyInitialOptions(model, effort, mode string) {
 		b.mu.Lock()
 		b.userMode = mode
 		b.mu.Unlock()
-		acpMode := mode
-		if mode == "bypassPermissions" {
-			acpMode = "auto"
-		}
-		if acpMode != curMode {
+		acpMode := zetaModeToACP(mode)
+		if acpMode != zetaModeToACP(curMode) {
 			b.setConfigOption("mode", acpMode)
 		}
 	}
@@ -344,9 +398,41 @@ func (b *bridge) applyConfigOptions(opts []acpConfigOption) {
 		case "thought_level":
 			b.currentEffort = cmp.Or(opt.CurrentValue, b.currentEffort)
 		case "mode":
-			b.acpMode = cmp.Or(opt.CurrentValue, b.acpMode)
+			b.acpMode = cmp.Or(acpModeToZeta(opt.CurrentValue), b.acpMode)
 		}
 	}
+}
+
+var effortOrder = []string{"low", "medium", "high", "xhigh", "max"}
+
+func modelEfforts(baseID string, avail []acpModelItem) (hasInfo bool, levels []string) {
+	if len(avail) == 0 {
+		return false, nil
+	}
+	exact := false
+	found := map[string]bool{}
+	prefix := baseID + "-"
+	for _, item := range avail {
+		if item.ModelID == baseID {
+			exact = true
+			continue
+		}
+		if suffix, ok := strings.CutPrefix(item.ModelID, prefix); ok && slices.Contains(effortOrder, suffix) {
+			found[suffix] = true
+		}
+	}
+	if len(found) > 0 {
+		for _, lv := range effortOrder {
+			if found[lv] {
+				levels = append(levels, lv)
+			}
+		}
+		return true, levels
+	}
+	if exact {
+		return true, []string{}
+	}
+	return false, nil
 }
 
 func (b *bridge) applyModelOption(opt acpConfigOption) {
@@ -361,11 +447,16 @@ func (b *bridge) applyModelOption(opt acpConfigOption) {
 	}
 	models := make([]map[string]any, 0, len(opt.Options))
 	for _, m := range opt.Options {
-		models = append(models, map[string]any{
+		entry := map[string]any{
 			"value":       m.Value,
 			"displayName": cmp.Or(m.Name, m.Value),
 			"description": m.Description,
-		})
+		}
+		if hasInfo, levels := modelEfforts(m.Value, b.availableModels); hasInfo {
+			entry["supportsEffort"] = len(levels) > 0
+			entry["supportedEffortLevels"] = levels
+		}
+		models = append(models, entry)
 	}
 	b.models, _ = json.Marshal(models)
 }
@@ -397,29 +488,45 @@ func (b *bridge) setConfigOption(configID, value string) {
 	case "thought_level":
 		b.currentEffort = value
 	case "mode":
-		b.acpMode = value
+		b.acpMode = acpModeToZeta(value)
 	}
 	b.mu.Unlock()
+}
+
+func zetaModeToACP(mode string) string {
+	switch mode {
+	case "acceptEdits":
+		return "accept-edits"
+	case "bypassPermissions":
+		return "auto"
+	case "":
+		return "default"
+	default:
+		return mode
+	}
+}
+
+func acpModeToZeta(mode string) string {
+	if mode == "accept-edits" {
+		return "acceptEdits"
+	}
+	return mode
 }
 
 func (b *bridge) applyPermissionMode(mode string) {
 	b.mu.Lock()
 	b.userMode = mode
 	b.mu.Unlock()
-	acpMode := mode
-	if mode == "bypassPermissions" {
-		acpMode = "auto"
-	}
-	if acpMode == "" {
-		acpMode = "default"
-	}
-	b.setConfigOption("mode", acpMode)
+	b.setConfigOption("mode", zetaModeToACP(mode))
 }
 
 func (b *bridge) effectiveMode() string {
 	b.mu.Lock()
 	defer b.mu.Unlock()
-	return cmp.Or(b.userMode, b.acpMode, "default")
+	if b.userMode == "bypassPermissions" {
+		return "bypassPermissions"
+	}
+	return cmp.Or(b.acpMode, b.userMode, "default")
 }
 
 func (b *bridge) readStdin(stdin io.Reader) {
@@ -620,13 +727,31 @@ func (b *bridge) controlGetUsage(reqID string) {
 func (b *bridge) controlApplyFlagSettings(reqID string, rawSettings json.RawMessage) {
 	var s struct {
 		EffortLevel *string `json:"effortLevel"`
+		Permissions *struct {
+			Deny []string `json:"deny"`
+		} `json:"permissions"`
 	}
-	if json.Unmarshal(rawSettings, &s) == nil && s.EffortLevel != nil {
-		if err := b.ensureSession(); err == nil && *s.EffortLevel != "" {
-			b.setConfigOption("thought_level", *s.EffortLevel)
+	if json.Unmarshal(rawSettings, &s) == nil {
+		if s.EffortLevel != nil && *s.EffortLevel != "" {
+			if err := b.ensureSession(); err == nil {
+				b.setConfigOption("thought_level", *s.EffortLevel)
+			}
+		}
+		if s.Permissions != nil && b.mcp != nil {
+			b.mcp.setDeniedTools(extractDeniedPhoneTools(s.Permissions.Deny))
 		}
 	}
 	b.replyControlSuccess(reqID, map[string]any{})
+}
+
+func extractDeniedPhoneTools(rules []string) []string {
+	var denied []string
+	for _, r := range rules {
+		if name, ok := strings.CutPrefix(strings.TrimSpace(r), "mcp__phone__"); ok && name != "" {
+			denied = append(denied, name)
+		}
+	}
+	return denied
 }
 
 func (b *bridge) controlInterrupt(reqID string) {
@@ -779,7 +904,7 @@ func (b *bridge) runPromptTurn(seq int, q queuedPrompt) {
 	notes := b.contextNotes
 	b.contextNotes = nil
 	sysPrompt := strings.TrimSpace(b.opts.systemPrompt)
-	if seq > 1 {
+	if seq > 1 || b.systemPromptApplied {
 		sysPrompt = ""
 	}
 	b.mu.Unlock()
@@ -909,6 +1034,7 @@ func (b *bridge) runClear(uuid string) {
 	b.mu.Lock()
 	b.resumed = false
 	b.prompted = false
+	b.systemPromptApplied = false
 	b.opts.model = model
 	b.opts.effort = effort
 	b.userMode = mode
