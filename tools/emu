@@ -1,5 +1,5 @@
 #!/bin/bash
-# 测试版默认装在本机的 Android 模拟器上（见 CLAUDE.md「测试设备」）。模拟器各项目共用，即开即用、用完存快照关机：
+# 测试版默认装在本机的 Android 模拟器上（见 AGENTS.md「测试设备」）。模拟器各项目共用，即开即用、用完存快照关机：
 # 用的人先登记，最后一份登记结束满 ZETA_EMU_GRACE_SEC（默认 300）秒还没人再登记，就存快照关机，下次从快照恢复。
 # 用法：tools/emu [start|hold|release|status|stop]
 #   start [--hold-pid <进程号>]

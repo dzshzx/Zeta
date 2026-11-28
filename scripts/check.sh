@@ -8,7 +8,7 @@
 # 合入时（wt land）单元测试不跑截图测试（shots 包里类名以 Shots 结尾的，依据见 app/build.gradle.kts 的测试任务）。
 # 构建和单元测试在改动全落在它们读不到的路径里时整个跳过（见下面的 gradle_blind）。别的检查每次都跑。
 # ZETA_GATE_FULL=1 是全量：构建照跑，单元测试一个不落，Go 的测试不取缓存。每晚的 CI 和发版前跑的是它。
-# 装到手机和真机上的体验不在此列，见 CLAUDE.md「构建与测试」。
+# 装到手机和真机上的体验不在此列，见 AGENTS.md「构建与测试」。
 set -euo pipefail
 cd "$(dirname "$0")/.."
 
@@ -34,7 +34,7 @@ changed_files() {
 # 这些和拿不准的路径都不往这里加：不在这里的一律当作会影响构建。
 gradle_blind() {
   case $1 in
-    CLAUDE.md | README.md | CONTRIBUTING.md | SECURITY.md | docs/*) ;;
+    AGENTS.md | README.md | CONTRIBUTING.md | SECURITY.md | docs/*) ;;
     scripts/gatelib.sh | scripts/format.sh) ;;
     .github/* | .gitignore | .gitleaks-test-values.toml) ;;
     tools/phone-tests/* | tools/emu | tools/phone-lock | tools/phone-run | tools/install.sh | tools/config.sh) ;;

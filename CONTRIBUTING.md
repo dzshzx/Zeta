@@ -14,7 +14,7 @@
 
 Zeta 按 GPL-3.0 授权（见 [LICENSE](LICENSE)），可以 fork 下来自己改、自己用。再分发改过的版本时，按 GPL-3.0 公开你的源码、保留许可证和版权声明；请换一个包名和应用名，别让人把它和 Zeta 的正式版混在一起。
 
-构建方法见 [CLAUDE.md](CLAUDE.md) 的「本机配置」「构建与测试」两节。
+构建方法见 [AGENTS.md](AGENTS.md) 的「本机配置」「构建与测试」两节。
 
 ## English
 

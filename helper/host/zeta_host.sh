@@ -319,7 +319,7 @@ elif [ "$mode" = start ]; then
   export CLAUDE_CODE_ENABLE_TODO_TOOLS="${CLAUDE_CODE_ENABLE_TODO_TOOLS:-1}"
   # 起哪个程序：正式版（ZETA_NAME=zeta）永远是真的 claude，参数原样。
   # 只有测试版在设备测试里放了剧本时换成按剧本回话的假 Claude（tools/fake-claude；vd fake 放进来，vd stop 删掉）。
-  # 测试版起真的 claude 时新开、没指定模型的对话补 Haiku 5.5，规则见 CLAUDE.md「真跑用 Haiku 5.5」。走中转（核心带了 --settings，
+  # 测试版起真的 claude 时新开、没指定模型的对话补 Haiku 5.5，规则见 AGENTS.md「真跑用 Haiku 5.5」。走中转（核心带了 --settings，
   # 见 helper/hostlink.go 的 launchArgs）时不补：用中转自己的默认模型，中转上也未必有这个模型。
   # 只补 --model，不设 ANTHROPIC_MODEL：接着旧会话时那个变量让请求换成它、init 却还报记录里的模型（2.1.330 实测）。
   run=claude

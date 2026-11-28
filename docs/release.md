@@ -22,7 +22,7 @@ tools/rollout/rollout release Zeta --dry-run        # 完整构建、签名、�
 用户说上线时直接发，不先 dry run：发布是最后一步，前面任何一步失败都不会发出去。dry run 只在要提前确认能走通时用。
 
 发版不装机、不跑设备测试。正式版经 R8，R8 误删运行时才按类名找的类只有正式版出错，这一风险在开发时兜住：改了
-`app/proguard-rules.pro`、加了这类入口或升级依赖的分支，合入前用 `ZETA_R8=1 tools/phone-run` 跑相关的设备脚本（见 CLAUDE.md「坑」）。
+`app/proguard-rules.pro`、加了这类入口或升级依赖的分支，合入前用 `ZETA_R8=1 tools/phone-run` 跑相关的设备脚本（见 AGENTS.md「坑」）。
 
 工作流的输入（`rollout release` 按它的参数和本机 runner 在不在线来传）：
 
@@ -277,7 +277,7 @@ android "am start --display $DISPLAY_ID -n $PKG/com.dzshzx.zeta.ui.MainActivity 
 
 ## 装到手机上（用户要你装时）
 
-上线只发版，不装：用户在正式版里点应用内更新（见「应用内更新」）。用户说要你装时才用下面的命令，规矩见 CLAUDE.md「发版与上线」。
+上线只发版，不装：用户在正式版里点应用内更新（见「应用内更新」）。用户说要你装时才用下面的命令，规矩见 AGENTS.md「发版与上线」。
 
 ```sh
 ZETA_PHONE_OWNER=main tools/install.sh --release          # 最新的 Release

@@ -1,5 +1,5 @@
 #!/bin/bash
-# 在测试设备上跑一段测试脚本，子代理碰设备只用它。用法、脚本里能用什么见 CLAUDE.md「设备脚本」。
+# 在测试设备上跑一段测试脚本，子代理碰设备只用它。用法、脚本里能用什么见 AGENTS.md「设备脚本」。
 # 用法：ZETA_PHONE_OWNER=<任务名> [ZETA_DEVICE=phone] tools/phone-run [--no-build] <脚本>
 # 设备默认是本机的模拟器（没开就由 tools/emu 开机），ZETA_DEVICE=phone 时是手机。
 # 退出码：脚本自己的；124 超时（ZETA_PHONE_RUN_TIMEOUT，默认也是最多 300 秒）；75 排队超过 ZETA_PHONE_RUN_WAIT（默认 2700 秒）。
@@ -43,7 +43,7 @@ wait=${ZETA_PHONE_RUN_WAIT:-2700}
 OUT=$ZETA_ROOT/build/phone-run/$(date +%Y%m%d-%H%M%S)-$$
 export OUT PKG=com.dzshzx.zeta.dev
 source "$ZETA_ROOT/tools/config.sh"
-# 设备 Debian 里 Zeta 用的 Linux 用户（见 CLAUDE.md「本机配置」），脚本里拼家目录、ssh 目标时用
+# 设备 Debian 里 Zeta 用的 Linux 用户（见 AGENTS.md「本机配置」），脚本里拼家目录、ssh 目标时用
 ZETA_LINUX_USER=$(zeta_config ZETA_LINUX_USER linuxUser zeta)
 export ZETA_LINUX_USER
 mkdir -p "$OUT"

@@ -31,7 +31,7 @@ fun run(vararg args: String): String? {
 
 fun git(vararg args: String): String? = run("git", *args)
 
-// 版本号不手写，从 git 推出来（见 CLAUDE.md「发版与上线」）：算法和写法只在 tools/version.sh，它打印「版本号 版本名 是否正式版」。
+// 版本号不手写，从 git 推出来（见 AGENTS.md「发版与上线」）：算法和写法只在 tools/version.sh，它打印「版本号 版本名 是否正式版」。
 // commitCount 是手机版的 versionCode，versionLabel 是 versionName。
 val versionFields =
     run("bash", rootDir.resolve("tools/version.sh").path)?.split(" ")
