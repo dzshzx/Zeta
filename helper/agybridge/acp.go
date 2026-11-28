@@ -48,11 +48,27 @@ type acpClient struct {
 	done      chan struct{}
 }
 
-func startACP(agyBin, cwd string, stderr io.Writer, onNotify func(string, json.RawMessage), onReq func(json.RawMessage, string, json.RawMessage)) (*acpClient, error) {
+func buildACPArgs(extraDirs []string, agent string, sandbox bool) []string {
+	args := []string{"acp", "--process-per-session"}
+	for _, d := range extraDirs {
+		if d != "" {
+			args = append(args, "--add-dir", d)
+		}
+	}
+	if agent != "" {
+		args = append(args, "--agent", agent)
+	}
+	if sandbox {
+		args = append(args, "--sandbox")
+	}
+	return args
+}
+
+func startACP(agyBin, cwd string, extraDirs []string, agent string, sandbox bool, stderr io.Writer, onNotify func(string, json.RawMessage), onReq func(json.RawMessage, string, json.RawMessage)) (*acpClient, error) {
 	if agyBin == "" {
 		agyBin = "agy"
 	}
-	cmd := exec.Command(agyBin, "acp", "--process-per-session")
+	cmd := exec.Command(agyBin, buildACPArgs(extraDirs, agent, sandbox)...)
 	if cwd != "" {
 		cmd.Dir = cwd
 	}

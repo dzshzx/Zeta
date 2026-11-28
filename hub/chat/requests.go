@@ -115,6 +115,43 @@ func (c *Conversation) SetHarness(ctx context.Context, value string) error {
 	return nil
 }
 
+// SetAgent 设新 Antigravity 对话的 `--agent` 启动项。
+func (c *Conversation) SetAgent(ctx context.Context, agent string) error {
+	return c.do(func(v coreapi.Conv) error { return v.SetAgent(ctx, agent) })
+}
+
+// SetExtraDirs 设新 Antigravity 对话的 `--add-dir` 附加目录清单。
+func (c *Conversation) SetExtraDirs(ctx context.Context, dirs []string) error {
+	return c.do(func(v coreapi.Conv) error { return v.SetExtraDirs(ctx, dirs) })
+}
+
+// SetSandbox 设新 Antigravity 对话的 `--sandbox` 终端沙箱开关。
+func (c *Conversation) SetSandbox(ctx context.Context, sandbox bool) error {
+	return c.do(func(v coreapi.Conv) error { return v.SetSandbox(ctx, sandbox) })
+}
+
+// Artifacts 列出 Antigravity 会话产物摘要。
+func (c *Conversation) Artifacts(ctx context.Context) ([]coreapi.ArtifactInfo, error) {
+	var out []coreapi.ArtifactInfo
+	err := c.do(func(v coreapi.Conv) error {
+		var e error
+		out, e = v.Artifacts(ctx)
+		return e
+	})
+	return out, err
+}
+
+// ReadArtifact 读取 Antigravity 会话的一份产物正文。
+func (c *Conversation) ReadArtifact(ctx context.Context, name string) (coreapi.ArtifactContent, error) {
+	var out coreapi.ArtifactContent
+	err := c.do(func(v coreapi.Conv) error {
+		var e error
+		out, e = v.ReadArtifact(ctx, name)
+		return e
+	})
+	return out, err
+}
+
 // keepChoice 把选的 value 记进 spec 的 Choices 里的 field：nil（回到默认）记成空串。
 func (c *Conversation) keepChoice(field **string, value *string) {
 	v := ""

@@ -5790,5 +5790,171 @@
   "claudecfgToolSteps": "更新任务步骤",
   "@claudecfgToolSteps": {
     "description": "Antigravity Subagent 工具勾选：update_steps。"
+  },
+  "claudecfgAgySettings": "Antigravity 高级设置",
+  "@claudecfgAgySettings": {
+    "description": "Antigravity 专有设置页标题与入口。"
+  },
+  "claudecfgAgySettingsLoadFailed": "读取 Antigravity 设置失败",
+  "@claudecfgAgySettingsLoadFailed": {
+    "description": "读取 Antigravity 设置失败弹窗标题。"
+  },
+  "claudecfgAgyPolicyGroup": "权限与沙箱",
+  "@claudecfgAgyPolicyGroup": {
+    "description": "Antigravity 设置页策略分组标题。"
+  },
+  "claudecfgAgyToolPerm": "工具权限策略",
+  "@claudecfgAgyToolPerm": {
+    "description": "Antigravity settings.json 的 toolPermission。"
+  },
+  "claudecfgAgySandbox": "终端沙箱",
+  "@claudecfgAgySandbox": {
+    "description": "Antigravity enableTerminalSandbox 与 --sandbox 开关。"
+  },
+  "claudecfgAgyNonWorkspace": "允许访问工作区外文件",
+  "@claudecfgAgyNonWorkspace": {
+    "description": "Antigravity allowNonWorkspaceAccess 开关。"
+  },
+  "claudecfgAgyArtifactReview": "产物审查策略",
+  "@claudecfgAgyArtifactReview": {
+    "description": "Antigravity artifactReviewPolicy 下拉。"
+  },
+  "claudecfgAgyUseG1Credits": "使用 Google One AI Credits",
+  "@claudecfgAgyUseG1Credits": {
+    "description": "Antigravity useG1Credits 开关。"
+  },
+  "claudecfgAgyQueuedMessages": "排队消息处理",
+  "@claudecfgAgyQueuedMessages": {
+    "description": "Antigravity queuedMessages 选项。"
+  },
+  "claudecfgAgyModelsGCPGroup": "双模型编排、自定义模型与 GCP",
+  "@claudecfgAgyModelsGCPGroup": {
+    "description": "Antigravity 设置页编排与 GCP 分组标题。"
+  },
+  "claudecfgAgyCustomModels": "自定义模型配置路径",
+  "@claudecfgAgyCustomModels": {
+    "description": "Antigravity customModelsConfig 字段。"
+  },
+  "claudecfgAgyProxyGroup": "沙箱代理",
+  "@claudecfgAgyProxyGroup": {
+    "description": "Antigravity sandboxProxy 分组标题。"
+  },
+  "claudecfgAgyProxyPassSet": "已设置密码（留空保持不变）",
+  "@claudecfgAgyProxyPassSet": {
+    "description": "已配置代理密码时的占位提示。"
+  },
+  "claudecfgAgyProxyPassUnset": "可选密码",
+  "@claudecfgAgyProxyPassUnset": {
+    "description": "未配置代理密码时的占位提示。"
+  },
+  "claudecfgAgyProxyClearPass": "清除已保存的代理密码",
+  "@claudecfgAgyProxyClearPass": {
+    "description": "清除沙箱代理密码按钮行标题。"
+  },
+  "claudecfgAgyTrustedWorkspaces": "可信工作区",
+  "@claudecfgAgyTrustedWorkspaces": {
+    "description": "Antigravity trustedWorkspaces 分组标题。"
+  },
+  "claudecfgAgyTrustedWorkspacesFooter": "每行填写一个绝对目录路径。",
+  "@claudecfgAgyTrustedWorkspacesFooter": {
+    "description": "可信工作区输入框说明。"
+  },
+  "claudecfgAgyPlugins": "插件",
+  "@claudecfgAgyPlugins": {
+    "description": "Antigravity 插件管理页标题与入口。"
+  },
+  "claudecfgAgyPluginsLoadFailed": "读取插件列表失败",
+  "@claudecfgAgyPluginsLoadFailed": {
+    "description": "读取插件列表失败标题。"
+  },
+  "claudecfgAgyPluginsFooter": "通过本机 agy plugin 命令管理已安装的插件。",
+  "@claudecfgAgyPluginsFooter": {
+    "description": "插件页底部说明。"
+  },
+  "claudecfgAgyPluginsEmpty": "暂未安装插件",
+  "@claudecfgAgyPluginsEmpty": {
+    "description": "插件列表为空时提示。"
+  },
+  "claudecfgAgyPluginInstall": "安装插件",
+  "@claudecfgAgyPluginInstall": {
+    "description": "安装插件按钮和弹窗标题。"
+  },
+  "claudecfgAgyPluginUninstall": "卸载该插件？",
+  "@claudecfgAgyPluginUninstall": {
+    "description": "卸载插件确认框标题。"
+  },
+  "claudecfgAgyHooks": "钩子",
+  "@claudecfgAgyHooks": {
+    "description": "Antigravity 钩子管理页标题与入口。"
+  },
+  "claudecfgAgyHooksLoadFailed": "读取钩子失败",
+  "@claudecfgAgyHooksLoadFailed": {
+    "description": "读取钩子失败标题。"
+  },
+  "claudecfgAgyHooksFooter": "聚合展示用户级（~/.gemini/config/hooks.json）、项目级（.agents/hooks.json）与只读插件钩子。",
+  "@claudecfgAgyHooksFooter": {
+    "description": "钩子页底部说明。"
+  },
+  "claudecfgAgyHooksEmpty": "暂未配置钩子",
+  "@claudecfgAgyHooksEmpty": {
+    "description": "钩子列表为空时提示。"
+  },
+  "claudecfgAgyHookAdd": "添加钩子",
+  "@claudecfgAgyHookAdd": {
+    "description": "添加钩子按钮。"
+  },
+  "claudecfgAgyHookReadOnly": "只读",
+  "@claudecfgAgyHookReadOnly": {
+    "description": "插件钩子的只读标记。"
+  },
+  "claudecfgAgySidecarsLoadFailed": "读取 Sidecars 失败",
+  "@claudecfgAgySidecarsLoadFailed": {
+    "description": "读取 Sidecars 失败标题。"
+  },
+  "claudecfgAgySidecarsFooter": "在 ~/.gemini/config/config.json 中启停已发现的用户与插件 Sidecar 服务。",
+  "@claudecfgAgySidecarsFooter": {
+    "description": "Sidecars 页底部说明。"
+  },
+  "claudecfgAgySidecarsEmpty": "未发现 Sidecar 服务",
+  "@claudecfgAgySidecarsEmpty": {
+    "description": "Sidecars 列表为空时提示。"
+  },
+  "composerAgyLaunch": "启动项",
+  "@composerAgyLaunch": {
+    "description": "Antigravity 新对话输入栏启动项按钮。"
+  },
+  "composerAgyLaunchTitle": "Antigravity 启动选项",
+  "@composerAgyLaunchTitle": {
+    "description": "Antigravity 启动项弹窗标题。"
+  },
+  "composerAgyAgentPlaceholder": "可选子代理名称",
+  "@composerAgyAgentPlaceholder": {
+    "description": "--agent 输入框占位。"
+  },
+  "chatArtifactsCount": "产物 ({count})",
+  "@chatArtifactsCount": {
+    "description": "聊天页输入栏产物查看按钮。",
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "chatArtifactsTitle": "会话产物",
+  "@chatArtifactsTitle": {
+    "description": "产物查看弹窗标题。"
+  },
+  "chatArtifactTruncated": "已截断至 512 KiB（共 {size} 字节）",
+  "@chatArtifactTruncated": {
+    "description": "产物正文超长截断提示。",
+    "placeholders": {
+      "size": {
+        "type": "String"
+      }
+    }
+  },
+  "tasksSwarmTitle": "协同工作板",
+  "@tasksSwarmTitle": {
+    "description": "后台任务页中 Antigravity Swarm 协同工作板分组标题。"
   }
 }

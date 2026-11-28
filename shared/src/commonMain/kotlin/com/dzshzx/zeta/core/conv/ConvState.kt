@@ -110,6 +110,11 @@ data class ConvState(
     val hostKey: String? = null,
     /** 这个对话用的命令行工具（[Harnesses.CLAUDE] 或 [Harnesses.AGY]）。 */
     val harness: String = Harnesses.CLAUDE,
+    val agent: String? = null,
+    val extraDirs: List<String> = emptyList(),
+    val sandbox: Boolean = false,
+    val artifacts: List<ArtifactInfo> = emptyList(),
+    val swarm: SwarmState? = null,
 ) {
     /** 等待指示旁的一句用界面语言说出来；没有时是空串。 */
     fun statusSaid(): String = coreSaid(statusCode, statusArgs, status)
@@ -121,6 +126,36 @@ data class ConvState(
  */
 @Immutable
 data class ConvMode(val user: String = "", val process: String = "", val shown: String = "")
+
+@Immutable
+data class ArtifactInfo(
+    val name: String,
+    val summary: String = "",
+    val userFacing: Boolean = false,
+    val updatedAt: String = "",
+    val size: Long = 0,
+)
+
+@Immutable
+data class ArtifactContent(
+    val name: String,
+    val summary: String = "",
+    val content: String = "",
+    val truncated: Boolean = false,
+    val size: Long = 0,
+)
+
+@Immutable
+data class SwarmMember(
+    val name: String,
+    val model: String = "",
+    val role: String = "",
+    val status: String = "",
+    val conversationId: String = "",
+)
+
+@Immutable
+data class SwarmState(val title: String = "", val members: List<SwarmMember> = emptyList())
 
 /** 排队的、撤回的一条消息（helper/conv/state.go 的 messageView）。 */
 @Immutable
@@ -189,6 +224,19 @@ private val fieldReaders: Map<String, FieldReader> =
         "model_from_session" to { s, v -> s.copy(modelFromSession = v.flag()) },
         "host_key" to { s, v -> s.copy(hostKey = v.text()) },
         "harness" to { s, v -> s.copy(harness = Harnesses.normalize(v.text())) },
+        "agent" to { s, v -> s.copy(agent = v.text()) },
+        "extra_dirs" to
+            { s, v ->
+                s.copy(
+                    extraDirs =
+                        (v as? JsonArray)
+                            ?.mapNotNull { (it as? JsonPrimitive)?.contentOrNull }
+                            .orEmpty(),
+                )
+            },
+        "sandbox" to { s, v -> s.copy(sandbox = v.flag()) },
+        "artifacts" to { s, v -> s.copy(artifacts = v.objects().map(::artifactInfoOf)) },
+        "swarm" to { s, v -> s.copy(swarm = (v as? JsonObject)?.let(::swarmStateOf)) },
     )
 
 /** 把一条 conv.state 里的字段放进 [base]（整份时 [base] 是空的 [ConvState]）。type、conv、full 这几个键不是字段，读的时候跳过。 */
@@ -213,6 +261,39 @@ private fun JsonObject.textOrNull(key: String): String? = str(key)?.ifEmpty { nu
 
 private fun modeOf(o: JsonObject?): ConvMode =
     ConvMode(o?.str("user").orEmpty(), o?.str("process").orEmpty(), o?.str("shown").orEmpty())
+
+internal fun artifactInfoOf(o: JsonObject): ArtifactInfo =
+    ArtifactInfo(
+        name = o.str("name").orEmpty(),
+        summary = o.str("summary").orEmpty(),
+        userFacing = o.bool("userFacing") == true,
+        updatedAt = o.str("updatedAt").orEmpty(),
+        size = o.long("size") ?: 0,
+    )
+
+internal fun artifactContentOf(o: JsonObject): ArtifactContent =
+    ArtifactContent(
+        name = o.str("name").orEmpty(),
+        summary = o.str("summary").orEmpty(),
+        content = o.str("content").orEmpty(),
+        truncated = o.bool("truncated") == true,
+        size = o.long("size") ?: 0,
+    )
+
+private fun swarmStateOf(o: JsonObject): SwarmState =
+    SwarmState(
+        title = o.str("title").orEmpty(),
+        members =
+            o.arr("members").orEmpty().filterIsInstance<JsonObject>().map { m ->
+                SwarmMember(
+                    name = m.str("name").orEmpty(),
+                    model = m.str("model").orEmpty(),
+                    role = m.str("role").orEmpty(),
+                    status = m.str("status").orEmpty(),
+                    conversationId = m.str("conversationId").orEmpty(),
+                )
+            },
+    )
 
 internal fun convMessageOf(o: JsonObject): ConvMessage =
     ConvMessage(

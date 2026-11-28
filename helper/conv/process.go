@@ -169,6 +169,17 @@ func (c *Conversation) agyLaunchArgs(mode string, o Options) []string {
 	if strings.TrimSpace(c.title) != "" {
 		args = append(args, "--title", c.title)
 	}
+	if strings.TrimSpace(c.agent) != "" {
+		args = append(args, "--agent", strings.TrimSpace(c.agent))
+	}
+	for _, dir := range c.extraDirs {
+		if d := strings.TrimSpace(dir); d != "" {
+			args = append(args, "--add-dir", d)
+		}
+	}
+	if c.sandbox {
+		args = append(args, "--sandbox")
+	}
 	if c.phoneHolder() {
 		args = append(args, "--phone-mcp")
 	}

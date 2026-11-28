@@ -502,3 +502,187 @@ func (cl *Client) SetMcpToken(ctx context.Context, cwd string, s McpServer, toke
 	p["token"] = token
 	return call(ctx, cl.c, "config.mcp.setToken", p)
 }
+
+// ---------- Antigravity 专有配置 ----------
+
+// AgyOrchestrator 是 Antigravity 规划/执行双模型设置。
+type AgyOrchestrator struct {
+	Planner  string `json:"planner"`
+	Executor string `json:"executor"`
+}
+
+// AgySandboxProxy 是终端沙箱代理配置；读回不含密码明文。
+type AgySandboxProxy struct {
+	HTTP        string `json:"http"`
+	HTTPS       string `json:"https"`
+	NoProxy     string `json:"noProxy"`
+	Username    string `json:"username"`
+	HasPassword bool   `json:"hasPassword"`
+}
+
+// AgyGCP 是 Antigravity GCP 项目与区域配置。
+type AgyGCP struct {
+	Project  string `json:"project"`
+	Location string `json:"location"`
+}
+
+// AgySettings 是 ~/.gemini/antigravity-cli/settings.json 的 Antigravity 专有设置视图。
+type AgySettings struct {
+	ToolPermission          string          `json:"toolPermission"`
+	EnableTerminalSandbox   bool            `json:"enableTerminalSandbox"`
+	AllowNonWorkspaceAccess bool            `json:"allowNonWorkspaceAccess"`
+	ArtifactReviewPolicy    string          `json:"artifactReviewPolicy"`
+	UseG1Credits            bool            `json:"useG1Credits"`
+	QueuedMessages          string          `json:"queuedMessages"`
+	Orchestrator            AgyOrchestrator `json:"orchestrator"`
+	SandboxProxy            AgySandboxProxy `json:"sandboxProxy"`
+	TrustedWorkspaces       []string        `json:"trustedWorkspaces"`
+	CustomModelsConfig      string          `json:"customModelsConfig"`
+	GCP                     AgyGCP          `json:"gcp"`
+}
+
+// AgySandboxProxyPatch 用于局部更新沙箱代理配置。
+type AgySandboxProxyPatch struct {
+	HTTP          *string `json:"http,omitempty"`
+	HTTPS         *string `json:"https,omitempty"`
+	NoProxy       *string `json:"noProxy,omitempty"`
+	Username      *string `json:"username,omitempty"`
+	Password      *string `json:"password,omitempty"`
+	ClearPassword bool    `json:"clearPassword,omitempty"`
+}
+
+// AgySettingsPatch 用于局部更新 Antigravity 专有设置。
+type AgySettingsPatch struct {
+	ToolPermission          *string               `json:"toolPermission,omitempty"`
+	EnableTerminalSandbox   *bool                 `json:"enableTerminalSandbox,omitempty"`
+	AllowNonWorkspaceAccess *bool                 `json:"allowNonWorkspaceAccess,omitempty"`
+	ArtifactReviewPolicy    *string               `json:"artifactReviewPolicy,omitempty"`
+	UseG1Credits            *bool                 `json:"useG1Credits,omitempty"`
+	QueuedMessages          *string               `json:"queuedMessages,omitempty"`
+	Orchestrator            *AgyOrchestrator      `json:"orchestrator,omitempty"`
+	SandboxProxy            *AgySandboxProxyPatch `json:"sandboxProxy,omitempty"`
+	TrustedWorkspaces       *[]string             `json:"trustedWorkspaces,omitempty"`
+	CustomModelsConfig      *string               `json:"customModelsConfig,omitempty"`
+	GCP                     *AgyGCP               `json:"gcp,omitempty"`
+}
+
+// AgySettings 读取 Antigravity 专有设置（config.agy.settings.read）。
+func (cl *Client) AgySettings(ctx context.Context) (AgySettings, error) {
+	return get[AgySettings](ctx, cl.c, "config.agy.settings.read", nil)
+}
+
+// UpdateAgySettings 局部更新 Antigravity 专有设置（config.agy.settings.update）。
+func (cl *Client) UpdateAgySettings(ctx context.Context, patch AgySettingsPatch) (AgySettings, error) {
+	return get[AgySettings](ctx, cl.c, "config.agy.settings.update", params{"patch": patch})
+}
+
+// AgyPlugin 是一条已安装的 Antigravity 插件。
+type AgyPlugin struct {
+	Name        string `json:"name"`
+	Version     string `json:"version,omitempty"`
+	Description string `json:"description,omitempty"`
+	Enabled     bool   `json:"enabled"`
+	Source      string `json:"source,omitempty"`
+}
+
+// Plugins 列出已安装的 Antigravity 插件（config.plugins.list）。
+func (cl *Client) Plugins(ctx context.Context) ([]AgyPlugin, error) {
+	return get[[]AgyPlugin](ctx, cl.c, "config.plugins.list", nil)
+}
+
+// SetPluginEnabled 启停插件（config.plugins.setEnabled）。
+func (cl *Client) SetPluginEnabled(ctx context.Context, name string, enabled bool) ([]AgyPlugin, error) {
+	return get[[]AgyPlugin](ctx, cl.c, "config.plugins.setEnabled", params{"name": name, "enabled": enabled})
+}
+
+// InstallPlugin 安装插件（慢；config.plugins.install）。
+func (cl *Client) InstallPlugin(ctx context.Context, target string) ([]AgyPlugin, error) {
+	return get[[]AgyPlugin](ctx, cl.c, "config.plugins.install", params{"target": target})
+}
+
+// UninstallPlugin 卸载插件（慢；config.plugins.uninstall）。
+func (cl *Client) UninstallPlugin(ctx context.Context, name string) ([]AgyPlugin, error) {
+	return get[[]AgyPlugin](ctx, cl.c, "config.plugins.uninstall", params{"name": name})
+}
+
+// AgyHookEntry 是 hooks.json 中的一个命名钩子条目。
+type AgyHookEntry struct {
+	Name         string   `json:"name"`
+	Scope        string   `json:"scope"`
+	Plugin       string   `json:"plugin,omitempty"`
+	ReadOnly     bool     `json:"readOnly,omitempty"`
+	Enabled      bool     `json:"enabled"`
+	Event        string   `json:"event"`
+	Matcher      string   `json:"matcher,omitempty"`
+	Command      string   `json:"command"`
+	Timeout      int      `json:"timeout,omitempty"`
+	Events       []string `json:"events,omitempty"`
+	CommandCount int      `json:"commandCount"`
+}
+
+// AgyHookDraft 用于新建或更新钩子。
+type AgyHookDraft struct {
+	OriginalName string `json:"originalName,omitempty"`
+	Name         string `json:"name"`
+	Scope        string `json:"scope"`
+	Enabled      bool   `json:"enabled"`
+	Event        string `json:"event"`
+	Matcher      string `json:"matcher,omitempty"`
+	Command      string `json:"command"`
+	Timeout      int    `json:"timeout,omitempty"`
+}
+
+// AgyHooksView 是聚合读取的钩子视图。
+type AgyHooksView struct {
+	UserPath    string         `json:"userPath"`
+	ProjectPath string         `json:"projectPath,omitempty"`
+	Hooks       []AgyHookEntry `json:"hooks"`
+}
+
+// Hooks 读取用户/项目/插件钩子（config.hooks.read）。
+func (cl *Client) Hooks(ctx context.Context, cwd string) (AgyHooksView, error) {
+	return get[AgyHooksView](ctx, cl.c, "config.hooks.read", params{"cwd": cwd})
+}
+
+// SetHookEnabled 切换钩子开关（config.hooks.setEnabled）。
+func (cl *Client) SetHookEnabled(ctx context.Context, cwd, scope, name string, enabled bool) (AgyHooksView, error) {
+	return get[AgyHooksView](ctx, cl.c, "config.hooks.setEnabled", params{"cwd": cwd, "scope": scope, "name": name, "enabled": enabled})
+}
+
+// SaveHook 新建或修改钩子（config.hooks.save）。
+func (cl *Client) SaveHook(ctx context.Context, cwd string, draft AgyHookDraft) (AgyHooksView, error) {
+	return get[AgyHooksView](ctx, cl.c, "config.hooks.save", params{"cwd": cwd, "draft": draft})
+}
+
+// DeleteHook 删除钩子（config.hooks.delete）。
+func (cl *Client) DeleteHook(ctx context.Context, cwd, scope, name string) (AgyHooksView, error) {
+	return get[AgyHooksView](ctx, cl.c, "config.hooks.delete", params{"cwd": cwd, "scope": scope, "name": name})
+}
+
+// AgySidecar 是一个后台 Sidecar 服务及其开关状态。
+type AgySidecar struct {
+	ID            string   `json:"id"`
+	DisplayName   string   `json:"displayName"`
+	Description   string   `json:"description,omitempty"`
+	Command       string   `json:"command,omitempty"`
+	Builtin       string   `json:"builtin,omitempty"`
+	Args          []string `json:"args,omitempty"`
+	RestartPolicy string   `json:"restartPolicy,omitempty"`
+	Plugin        string   `json:"plugin,omitempty"`
+	Enabled       bool     `json:"enabled"`
+	ProjectID     string   `json:"projectId,omitempty"`
+}
+
+// Sidecars 列出发现的 Sidecar 服务（config.sidecars.list）。
+func (cl *Client) Sidecars(ctx context.Context) ([]AgySidecar, error) {
+	return get[[]AgySidecar](ctx, cl.c, "config.sidecars.list", nil)
+}
+
+// SetSidecarEnabled 启停 Sidecar 服务（config.sidecars.setEnabled）。
+func (cl *Client) SetSidecarEnabled(ctx context.Context, id string, enabled bool, projectID *string) ([]AgySidecar, error) {
+	p := params{"id": id, "enabled": enabled}
+	if projectID != nil {
+		p["projectId"] = *projectID
+	}
+	return get[[]AgySidecar](ctx, cl.c, "config.sidecars.setEnabled", p)
+}

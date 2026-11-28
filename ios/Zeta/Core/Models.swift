@@ -82,6 +82,8 @@ struct ChatState: Decodable, Sendable {
 
     let tasks: [TaskInfo]
     let todos: [Todo]
+    let artifacts: [ArtifactInfo]?
+    let swarm: SwarmState?
     let process: Bool
     let finished: [String]
     private let rawHarness: String?
@@ -104,7 +106,7 @@ struct ChatState: Decodable, Sendable {
     enum CodingKeys: String, CodingKey {
         case backend, session, title, device, cwd, opening, problem, connected, busy, blocked, status, model, earlier
         case prompts, items, failed, composer
-        case tasks, todos, process, finished
+        case tasks, todos, artifacts, swarm, process, finished
         case rawHarness = "harness"
         case canSwitchHarness = "can_switch_harness"
         case linkProblem = "link_problem"

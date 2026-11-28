@@ -41,7 +41,7 @@ Swift 经三个 C 函数调核心（`hub/cmd/zeta-ios`）：
 | `key` | | `{public, imported, version}`：在用的那把的公钥（authorized_keys 格式）、是不是导入的、版本名 |
 | `importkey` | `key`、`passphrase` | 换用导入的私钥，答同 `key`，另有 `pem`：去掉密码的 OpenSSH 格式，界面存进钥匙串；认不出、没填密码时出错，不换 |
 | `resetkey` | | 换回 Zeta 自己的密钥，答同 `key` |
-| `state` | | 界面要画的全部（`mobile.State`）：设备、会话列表（每项带 `harness`: `"claude"` \| `"agy"`）、聊天页（带 `harness` 和新对话未开始时的 `can_switch_harness`）；聊天页的 `items` 是上次 `state` 以后条目的变化（同桌面版的 `Take`），换了对话时第一项是整份 |
+| `state` | | 界面要画的全部（`mobile.State`）：设备、会话列表（每项带 `harness`: `"claude"` \| `"agy"`）、聊天页（带 `harness`、新对话未开始时的 `can_switch_harness`、Antigravity 产物列表 `artifacts` 与协同工作板 `swarm`；输入栏含 `agent`/`extra_dirs`/`sandbox`/`can_edit_launch`）；聊天页的 `items` 是上次 `state` 以后条目的变化（同桌面版的 `Take`），换了对话时第一项是整份 |
 | `resync` | | 下一次 `state` 整份交聊天页的条目（界面套变化对不上时） |
 | `probe` | `target` | 连一次查到的：`{token, summary, hostname, fingerprint}`；阻塞，最多约 45 秒 |
 | `add` | `token` | 添加探测过的设备 |

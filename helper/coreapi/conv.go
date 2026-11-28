@@ -383,3 +383,61 @@ func (v Conv) WatchSubagent(ctx context.Context, toolUseID string, watch bool) e
 func (cl *Client) WatchActivity(ctx context.Context, watch bool) error {
 	return call(ctx, cl.c, "conv.activity", params{"watch": watch})
 }
+
+// ArtifactInfo 是 Antigravity 会话的一份产物摘要。
+type ArtifactInfo struct {
+	Name       string `json:"name"`
+	Summary    string `json:"summary,omitempty"`
+	UserFacing bool   `json:"userFacing,omitempty"`
+	UpdatedAt  string `json:"updatedAt,omitempty"`
+	Size       int64  `json:"size"`
+}
+
+// ArtifactContent 是单份产物的正文内容。
+type ArtifactContent struct {
+	Name      string `json:"name"`
+	Summary   string `json:"summary,omitempty"`
+	Content   string `json:"content"`
+	Truncated bool   `json:"truncated,omitempty"`
+	Size      int64  `json:"size"`
+}
+
+// SwarmMember 是 Antigravity 协同工作板中的一位成员。
+type SwarmMember struct {
+	Name           string `json:"name"`
+	Model          string `json:"model,omitempty"`
+	Role           string `json:"role,omitempty"`
+	Status         string `json:"status"`
+	ConversationID string `json:"conversationId,omitempty"`
+}
+
+// SwarmState 是 Antigravity 协同工作板状态。
+type SwarmState struct {
+	Title   string        `json:"title,omitempty"`
+	Members []SwarmMember `json:"members"`
+}
+
+// SetAgent 设新 Antigravity 对话的 `--agent` 启动项（conv.set_agent）。
+func (v Conv) SetAgent(ctx context.Context, agent string) error {
+	return call(ctx, v.c, "conv.set_agent", v.p(params{"value": agent}))
+}
+
+// SetExtraDirs 设新 Antigravity 对话的 `--add-dir` 附加目录清单（conv.set_extra_dirs）。
+func (v Conv) SetExtraDirs(ctx context.Context, dirs []string) error {
+	return call(ctx, v.c, "conv.set_extra_dirs", v.p(params{"extra_dirs": dirs}))
+}
+
+// SetSandbox 设新 Antigravity 对话的 `--sandbox` 沙箱开关（conv.set_sandbox）。
+func (v Conv) SetSandbox(ctx context.Context, sandbox bool) error {
+	return call(ctx, v.c, "conv.set_sandbox", v.p(params{"sandbox": sandbox}))
+}
+
+// Artifacts 列出 Antigravity 会话的产物摘要（conv.artifacts）。
+func (v Conv) Artifacts(ctx context.Context) ([]ArtifactInfo, error) {
+	return get[[]ArtifactInfo](ctx, v.c, "conv.artifacts", v.p(nil))
+}
+
+// ReadArtifact 读取 Antigravity 会话的一份产物正文（conv.artifact_read）。
+func (v Conv) ReadArtifact(ctx context.Context, name string) (ArtifactContent, error) {
+	return get[ArtifactContent](ctx, v.c, "conv.artifact_read", v.p(params{"name": name}))
+}

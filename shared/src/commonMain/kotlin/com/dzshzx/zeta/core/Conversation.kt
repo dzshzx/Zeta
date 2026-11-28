@@ -697,6 +697,35 @@ class Conversation(
         choose(choices.copy(harness = normalized, model = "")) { it.setHarness(normalized) }
     }
 
+    val agyAgent: String
+        get() = state.agent.orEmpty()
+
+    val agyExtraDirs: List<String>
+        get() = state.extraDirs
+
+    val agySandbox: Boolean
+        get() = state.sandbox
+
+    val artifacts: List<com.dzshzx.zeta.core.conv.ArtifactInfo>
+        get() = state.artifacts
+
+    val swarm: com.dzshzx.zeta.core.conv.SwarmState?
+        get() = state.swarm
+
+    fun setAgyLaunch(agent: String, dirs: List<String>, sandbox: Boolean) {
+        val target = core ?: return
+        kotlin.concurrent.thread(isDaemon = true, name = "agy-launch") {
+            runCatching {
+                target.setAgent(agent)
+                target.setExtraDirs(dirs)
+                target.setSandbox(sandbox)
+            }
+        }
+    }
+
+    fun readArtifact(name: String): com.dzshzx.zeta.core.conv.ArtifactContent? =
+        core?.readArtifact(name)
+
     /** 用户在这个对话里选了模型（[value] 是选择器里的值，null 或 "default" 是默认模型），只管这个对话。 */
     fun chooseModel(value: String?) =
         choose(choices.copy(model = value.orEmpty())) { it.setModel(value) }

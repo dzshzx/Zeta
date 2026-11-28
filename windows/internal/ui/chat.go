@@ -73,6 +73,8 @@ type chatPane struct {
 		failed error
 		stale  bool
 	}
+	agyLaunch agyLaunchState
+	artifacts artifactsState
 }
 
 // newChatPane 是对话 c 的窗格：会话记录里的图经 loadImage 取，回答里写的图（主机上的文件、网址）经 loadLinked 取。

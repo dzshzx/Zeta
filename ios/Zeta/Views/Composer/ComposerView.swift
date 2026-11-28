@@ -40,9 +40,17 @@ struct ComposerView: View {
             if !slash.isEmpty {
                 SlashList(commands: slash, pick: complete)
             }
-            if chat.canSwitchHarness == true {
-                HStack {
-                    HarnessMenu(harness: chat.harness)
+            if chat.canSwitchHarness == true || !(chat.artifacts ?? []).isEmpty {
+                HStack(spacing: 8) {
+                    if chat.canSwitchHarness == true {
+                        HarnessMenu(harness: chat.harness)
+                    }
+                    if let state, state.canEditLaunch == true {
+                        AgyLaunchButton(composer: state)
+                    }
+                    if let artifacts = chat.artifacts, !artifacts.isEmpty {
+                        ArtifactsButton(artifacts: artifacts)
+                    }
                     Spacer()
                 }
             }

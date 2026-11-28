@@ -3,6 +3,7 @@ package ui
 import (
 	"time"
 
+	"github.com/dzshzx/Zeta/helper/coreapi"
 	"github.com/dzshzx/Zeta/helper/sessionproto"
 	"github.com/dzshzx/Zeta/helper/tasks"
 	"github.com/dzshzx/Zeta/hub"
@@ -64,6 +65,9 @@ func (a *App) tasksPanel(c *ui.Context) {
 	running := false
 	widget.Body(c, "all-tasks", func() {
 		a.backgroundChats(c)
+		if p != nil && p.state.Swarm != nil {
+			a.swarmBoard(c, p.state.Swarm)
+		}
 		var list []tasks.Task
 		if p != nil {
 			list = p.state.Tasks
@@ -106,5 +110,25 @@ func (a *App) backgroundChats(c *ui.Context) {
 func noTasks(c *ui.Context) {
 	widget.Group(c, "", locales.TasksListFooter(), func(l *widget.List) {
 		l.Row(widget.Row{Title: locales.TasksNone(), Summary: locales.TasksNoneSummary()})
+	})
+}
+
+func (a *App) swarmBoard(c *ui.Context, swarm *coreapi.SwarmState) {
+	title := locales.TasksSwarmTitle()
+	if swarm.Title != "" {
+		title += " · " + swarm.Title
+	}
+	widget.Group(c, title, "", func(l *widget.List) {
+		for _, m := range swarm.Members {
+			summary := m.Role
+			if m.Model != "" {
+				if summary != "" {
+					summary = m.Model + " · " + summary
+				} else {
+					summary = m.Model
+				}
+			}
+			l.Row(widget.Row{Key: "swarm-" + m.Name, Title: m.Name, Summary: summary, Value: m.Status})
+		}
 	})
 }

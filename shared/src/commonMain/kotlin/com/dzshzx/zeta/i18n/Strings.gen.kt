@@ -16771,4 +16771,277 @@ object Strings {
      * 诊断页 Antigravity 日志目录为空时的提示。
      */
     fun diagAgyEmpty(): String = catalog.say("diagAgyEmpty")
+
+    /**
+     * 「Antigravity 高级设置」
+     *
+     * Antigravity 高级设置页标题与入口。
+     */
+    fun setupAgySettingsTitle(): String = catalog.say("setupAgySettingsTitle")
+
+    /**
+     * 「读取 Antigravity 设置失败」
+     *
+     * 读取 Antigravity 设置失败提示。
+     */
+    fun setupAgySettingsLoadFailed(): String = catalog.say("setupAgySettingsLoadFailed")
+
+    /**
+     * 「权限与沙箱」
+     *
+     * Antigravity 设置页策略分组标题。
+     */
+    fun setupAgyPolicyGroup(): String = catalog.say("setupAgyPolicyGroup")
+
+    /**
+     * 「工具权限策略」
+     *
+     * Antigravity toolPermission。
+     */
+    fun setupAgyToolPerm(): String = catalog.say("setupAgyToolPerm")
+
+    /**
+     * 「终端沙箱」
+     *
+     * Antigravity enableTerminalSandbox 与 --sandbox 开关。
+     */
+    fun setupAgySandbox(): String = catalog.say("setupAgySandbox")
+
+    /**
+     * 「允许访问工作区外文件」
+     *
+     * Antigravity allowNonWorkspaceAccess 开关。
+     */
+    fun setupAgyNonWorkspace(): String = catalog.say("setupAgyNonWorkspace")
+
+    /**
+     * 「产物审查策略」
+     *
+     * Antigravity artifactReviewPolicy。
+     */
+    fun setupAgyArtifactReview(): String = catalog.say("setupAgyArtifactReview")
+
+    /**
+     * 「使用 Google One AI Credits」
+     *
+     * Antigravity useG1Credits 开关。
+     */
+    fun setupAgyUseG1Credits(): String = catalog.say("setupAgyUseG1Credits")
+
+    /**
+     * 「排队消息处理」
+     *
+     * Antigravity queuedMessages。
+     */
+    fun setupAgyQueuedMessages(): String = catalog.say("setupAgyQueuedMessages")
+
+    /**
+     * 「双模型编排、自定义模型与 GCP」
+     *
+     * Antigravity 编排与 GCP 分组标题。
+     */
+    fun setupAgyModelsGcpGroup(): String = catalog.say("setupAgyModelsGcpGroup")
+
+    /**
+     * 「自定义模型配置路径」
+     *
+     * Antigravity customModelsConfig。
+     */
+    fun setupAgyCustomModels(): String = catalog.say("setupAgyCustomModels")
+
+    /**
+     * 「沙箱代理」
+     *
+     * Antigravity sandboxProxy 分组标题。
+     */
+    fun setupAgyProxyGroup(): String = catalog.say("setupAgyProxyGroup")
+
+    /**
+     * 「已设置密码（留空保持不变）」
+     *
+     * 已配置代理密码时的提示。
+     */
+    fun setupAgyProxyPassSet(): String = catalog.say("setupAgyProxyPassSet")
+
+    /**
+     * 「可选密码」
+     *
+     * 未配置代理密码时的提示。
+     */
+    fun setupAgyProxyPassUnset(): String = catalog.say("setupAgyProxyPassUnset")
+
+    /**
+     * 「清除已保存的代理密码」
+     *
+     * 清除沙箱代理密码按钮。
+     */
+    fun setupAgyProxyClearPass(): String = catalog.say("setupAgyProxyClearPass")
+
+    /**
+     * 「可信工作区」
+     *
+     * Antigravity trustedWorkspaces 分组标题。
+     */
+    fun setupAgyTrustedWorkspaces(): String = catalog.say("setupAgyTrustedWorkspaces")
+
+    /**
+     * 「每行填写一个绝对目录路径。」
+     *
+     * 可信工作区底部说明。
+     */
+    fun setupAgyTrustedWorkspacesFooter(): String = catalog.say("setupAgyTrustedWorkspacesFooter")
+
+    /**
+     * 「插件」
+     *
+     * Antigravity 插件管理页标题与入口。
+     */
+    fun setupAgyPluginsTitle(): String = catalog.say("setupAgyPluginsTitle")
+
+    /**
+     * 「读取插件列表失败」
+     *
+     * 读取插件列表失败提示。
+     */
+    fun setupAgyPluginsLoadFailed(): String = catalog.say("setupAgyPluginsLoadFailed")
+
+    /**
+     * 「通过本机 agy plugin 命令管理已安装的插件。」
+     *
+     * 插件管理页底部说明。
+     */
+    fun setupAgyPluginsFooter(): String = catalog.say("setupAgyPluginsFooter")
+
+    /**
+     * 「暂未安装插件」
+     *
+     * 插件列表为空时提示。
+     */
+    fun setupAgyPluginsEmpty(): String = catalog.say("setupAgyPluginsEmpty")
+
+    /**
+     * 「安装插件」
+     *
+     * 安装插件按钮和弹窗标题。
+     */
+    fun setupAgyPluginInstall(): String = catalog.say("setupAgyPluginInstall")
+
+    /**
+     * 「卸载该插件？」
+     *
+     * 卸载插件确认框标题。
+     */
+    fun setupAgyPluginUninstall(): String = catalog.say("setupAgyPluginUninstall")
+
+    /**
+     * 「钩子」
+     *
+     * Antigravity 钩子管理页标题与入口。
+     */
+    fun setupAgyHooksTitle(): String = catalog.say("setupAgyHooksTitle")
+
+    /**
+     * 「读取钩子失败」
+     *
+     * 读取钩子失败提示。
+     */
+    fun setupAgyHooksLoadFailed(): String = catalog.say("setupAgyHooksLoadFailed")
+
+    /**
+     * 「聚合展示用户级（~/.gemini/config/hooks.json）、项目级（.agents/hooks.json）与只读插件钩子。」
+     *
+     * 钩子管理页底部说明。
+     */
+    fun setupAgyHooksFooter(): String = catalog.say("setupAgyHooksFooter")
+
+    /**
+     * 「暂未配置钩子」
+     *
+     * 钩子列表为空时提示。
+     */
+    fun setupAgyHooksEmpty(): String = catalog.say("setupAgyHooksEmpty")
+
+    /**
+     * 「添加钩子」
+     *
+     * 添加钩子按钮。
+     */
+    fun setupAgyHookAdd(): String = catalog.say("setupAgyHookAdd")
+
+    /**
+     * 「只读」
+     *
+     * 插件钩子的只读标记。
+     */
+    fun setupAgyHookReadOnly(): String = catalog.say("setupAgyHookReadOnly")
+
+    /**
+     * 「读取 Sidecars 失败」
+     *
+     * 读取 Sidecars 失败提示。
+     */
+    fun setupAgySidecarsLoadFailed(): String = catalog.say("setupAgySidecarsLoadFailed")
+
+    /**
+     * 「在 ~/.gemini/config/config.json 中启停已发现的用户与插件 Sidecar 服务。」
+     *
+     * Sidecars 页底部说明。
+     */
+    fun setupAgySidecarsFooter(): String = catalog.say("setupAgySidecarsFooter")
+
+    /**
+     * 「未发现 Sidecar 服务」
+     *
+     * Sidecars 列表为空时提示。
+     */
+    fun setupAgySidecarsEmpty(): String = catalog.say("setupAgySidecarsEmpty")
+
+    /**
+     * 「启动项」
+     *
+     * Antigravity 新对话输入栏启动项按钮。
+     */
+    fun composerAgyLaunch(): String = catalog.say("composerAgyLaunch")
+
+    /**
+     * 「Antigravity 启动选项」
+     *
+     * Antigravity 启动选项弹窗标题。
+     */
+    fun composerAgyLaunchTitle(): String = catalog.say("composerAgyLaunchTitle")
+
+    /**
+     * 「可选子代理名称」
+     *
+     * --agent 输入框占位。
+     */
+    fun composerAgyAgentPlaceholder(): String = catalog.say("composerAgyAgentPlaceholder")
+
+    /**
+     * 「产物 ({count})」
+     *
+     * 聊天页输入栏产物查看按钮。
+     */
+    fun chatArtifactsCount(count: Int): String = catalog.say("chatArtifactsCount", mapOf("count" to count))
+
+    /**
+     * 「会话产物」
+     *
+     * 会话产物弹窗标题。
+     */
+    fun chatArtifactsTitle(): String = catalog.say("chatArtifactsTitle")
+
+    /**
+     * 「已截断至 512 KiB（共 {size} 字节）」
+     *
+     * 产物正文截断提示。
+     */
+    fun chatArtifactTruncated(size: String): String = catalog.say("chatArtifactTruncated", mapOf("size" to size))
+
+    /**
+     * 「协同工作板」
+     *
+     * 后台任务页 Antigravity Swarm 分组标题。
+     */
+    fun tasksSwarmTitle(): String = catalog.say("tasksSwarmTitle")
 }

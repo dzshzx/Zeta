@@ -27,6 +27,10 @@ import com.dzshzx.zeta.ui.components.miuix.MiuixPage
 import com.dzshzx.zeta.ui.components.miuix.PreferenceGroup
 import com.dzshzx.zeta.ui.components.miuix.PreferenceValue
 import com.dzshzx.zeta.ui.components.miuix.SegmentedTabs
+import com.dzshzx.zeta.ui.setup.AgyHooksScreen
+import com.dzshzx.zeta.ui.setup.AgyPluginsScreen
+import com.dzshzx.zeta.ui.setup.AgySettingsScreen
+import com.dzshzx.zeta.ui.setup.AgySidecarsScreen
 import com.dzshzx.zeta.ui.setup.ClaudeAgentsScreen
 import com.dzshzx.zeta.ui.setup.ClaudeMcpScreen
 import com.dzshzx.zeta.ui.setup.ClaudeMemoryScreen
@@ -47,6 +51,10 @@ private enum class HostPage {
     Mcp,
     Agents,
     ToolPermissions,
+    AgySettings,
+    AgyPlugins,
+    AgyHooks,
+    AgySidecars,
 }
 
 /**
@@ -120,6 +128,10 @@ private fun HostSubPage(
             ClaudeAgentsScreen(hub = hub, backend = backend, onBack = close, harness = harness)
         HostPage.ToolPermissions ->
             ToolPermissionsScreen(hub = hub, backend = backend, onBack = close, harness = harness)
+        HostPage.AgySettings -> AgySettingsScreen(hub = hub, backend = backend, onBack = close)
+        HostPage.AgyPlugins -> AgyPluginsScreen(hub = hub, backend = backend, onBack = close)
+        HostPage.AgyHooks -> AgyHooksScreen(hub = hub, backend = backend, onBack = close)
+        HostPage.AgySidecars -> AgySidecarsScreen(hub = hub, backend = backend, onBack = close)
     }
 }
 
@@ -245,6 +257,12 @@ private fun hostConfigGroup(isAgy: Boolean, ready: Boolean, onOpen: (HostPage) -
         entry(Strings.settingsHostMcpServers(), HostPage.Mcp)
         entry(Strings.settingsHostSubagents(), HostPage.Agents)
         entry(Strings.settingsHostToolPermissions(), HostPage.ToolPermissions)
+        if (isAgy) {
+            entry(Strings.setupAgySettingsTitle(), HostPage.AgySettings)
+            entry(Strings.setupAgyPluginsTitle(), HostPage.AgyPlugins)
+            entry(Strings.setupAgyHooksTitle(), HostPage.AgyHooks)
+            entry("Sidecars", HostPage.AgySidecars)
+        }
     }
 }
 

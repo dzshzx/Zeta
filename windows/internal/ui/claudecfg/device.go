@@ -42,6 +42,23 @@ func (p *Page) Sections(c *ui.Context) {
 			})
 		}
 		entry(l, "permissions", locales.ClaudecfgPermissions(), "", "", true, func() { p.OpenPermissions(p.opts.Cwd) })
+		if p.isAgy() {
+			for _, e := range []struct {
+				key, label string
+				v          view
+				open       func()
+			}{
+				{"agy-settings", locales.ClaudecfgAgySettings(), viewAgySettings, p.openAgySettings},
+				{"plugins", locales.ClaudecfgAgyPlugins(), viewPlugins, p.openPlugins},
+				{"hooks", locales.ClaudecfgAgyHooks(), viewHooks, p.openHooks},
+				{"sidecars", "Sidecars", viewSidecars, p.openSidecars},
+			} {
+				entry(l, e.key, e.label, "", "", true, func() {
+					p.push(e.v)
+					e.open()
+				})
+			}
+		}
 	})
 	p.noticeDialog(c)
 }

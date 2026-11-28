@@ -42,7 +42,7 @@ hub/                  客户端共用的中枢（仓根的模块，桌面版和 
 windows/
   cmd/zeta/           入口
   internal/update/    应用内更新：取清单、下载、装 MSI
-  internal/ui/        mygo 界面：窗口、侧栏、聊天、输入栏、各种确认、设置各页（Claude Code 配置、账号与额度、诊断这几页只调核心的 config.*、accounts.*、quota.*、diag.*；诊断页在 ui/diag）
+  internal/ui/        mygo 界面：窗口、侧栏、聊天（含 Antigravity 新对话启动项 `--agent`/`--add-dir`/`--sandbox` 与会话产物查看）、输入栏、各种确认、后台任务与 Swarm 协同工作板、设置各页（Claude Code 配置与 Antigravity 专有配置：高级设置、插件、钩子、Sidecars，账号与额度、诊断这几页只调核心的 config.*、accounts.*、quota.*、diag.*；诊断页在 ui/diag）
   internal/ui/widget/ 配色、字号、图标和共用组件（照 ChatGPT 客户端的样子，见「界面」）
   internal/mathtex/   画公式：排版在中枢的 hub/mathtex（手机版同一个 RaTeX 的 wasm，npm 包 ratex-wasm，版本同 libs.versions.toml 的 ratex，
                       assets.sh 下载并按 sha256 核对，由 wazero 的解释器跑），这里把排出的绘制清单用 KaTeX 字体画

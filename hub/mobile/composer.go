@@ -886,12 +886,16 @@ type Composer struct {
 	AppliedEffort string   `json:"applied_effort"`
 	EffortLevels  []string `json:"effort_levels,omitempty"`
 	// Mode 是权限模式：选过的，没选过时是进程此刻用的；Modes 是可选的几种（字已按界面语言出好）。
-	Mode     string     `json:"mode"`
-	Modes    []Choice   `json:"modes"`
-	Queued   []Queued   `json:"queued"`
-	Steering bool       `json:"steering"`
-	Usage    UsageView  `json:"usage"`
-	Quota    *QuotaView `json:"quota"`
+	Mode          string     `json:"mode"`
+	Modes         []Choice   `json:"modes"`
+	Agent         string     `json:"agent,omitempty"`
+	ExtraDirs     []string   `json:"extra_dirs,omitempty"`
+	Sandbox       bool       `json:"sandbox,omitempty"`
+	CanEditLaunch bool       `json:"can_edit_launch,omitempty"`
+	Queued        []Queued   `json:"queued"`
+	Steering      bool       `json:"steering"`
+	Usage         UsageView  `json:"usage"`
+	Quota         *QuotaView `json:"quota"`
 }
 
 // Attachment 是输入栏上方一个待发的：Picture 的画成缩略图（Thumb 是本机的图片文件，空是灰块），别的画成文件标签。
@@ -970,6 +974,12 @@ func (c *Core) fillComposer(out *Chat, locale string) {
 	if s.Effort != nil {
 		v.Effort = *s.Effort
 	}
+	if s.Agent != nil {
+		v.Agent = *s.Agent
+	}
+	v.ExtraDirs = slices.Clone(s.ExtraDirs)
+	v.Sandbox = s.Sandbox
+	v.CanEditLaunch = sessionproto.NormalizeHarness(s.Harness) == sessionproto.HarnessAgy && out.CanSwitchHarness
 	activeModel := s.ReportedModel
 	if s.Model != nil && *s.Model != "" && *s.Model != chat.DefaultModel {
 		activeModel = *s.Model
@@ -1124,6 +1134,49 @@ func init() {
 	})
 	inChat("composer.harness", func(p harnessValueParams) (convDo, error) {
 		return func(ctx context.Context, conv *chat.Conversation) error { return conv.SetHarness(ctx, p.Value) }, nil
+	})
+	inChat("composer.set_agent", func(p harnessValueParams) (convDo, error) {
+		return func(ctx context.Context, conv *chat.Conversation) error { return conv.SetAgent(ctx, p.Value) }, nil
+	})
+	inChat("composer.set_extra_dirs", func(p struct {
+		Dirs []string `json:"dirs"`
+	}) (convDo, error) {
+		return func(ctx context.Context, conv *chat.Conversation) error { return conv.SetExtraDirs(ctx, p.Dirs) }, nil
+	})
+	inChat("composer.set_sandbox", func(p struct {
+		Sandbox bool `json:"sandbox"`
+	}) (convDo, error) {
+		return func(ctx context.Context, conv *chat.Conversation) error { return conv.SetSandbox(ctx, p.Sandbox) }, nil
+	})
+	blocking("chat.artifacts", func(c *Core, _ none) (any, error) {
+		var conv *chat.Conversation
+		c.Do(func() {
+			if ch := c.hub.Chat(); ch != nil {
+				conv = ch.Conv
+			}
+		})
+		if conv == nil {
+			return nil, locales.Err(locales.MobileChatNotOpen)
+		}
+		ctx, cancel := context.WithTimeout(context.Background(), coreTimeout)
+		defer cancel()
+		return conv.Artifacts(ctx)
+	})
+	blocking("chat.artifact_read", func(c *Core, p struct {
+		Name string `json:"name"`
+	}) (any, error) {
+		var conv *chat.Conversation
+		c.Do(func() {
+			if ch := c.hub.Chat(); ch != nil {
+				conv = ch.Conv
+			}
+		})
+		if conv == nil {
+			return nil, locales.Err(locales.MobileChatNotOpen)
+		}
+		ctx, cancel := context.WithTimeout(context.Background(), coreTimeout)
+		defer cancel()
+		return conv.ReadArtifact(ctx, p.Name)
 	})
 	inChat("composer.model", func(p choiceParams) (convDo, error) {
 		return func(ctx context.Context, conv *chat.Conversation) error { return conv.SetModel(ctx, p.Value) }, nil

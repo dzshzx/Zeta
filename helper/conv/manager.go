@@ -85,6 +85,9 @@ type request struct {
 	Last      string              `json:"last"`        // conv.fork：从这一项所在那一轮之后分支
 	ToolUseID string              `json:"tool_use_id"` // conv.subagent：发起这个子代理的 Agent 调用
 	Resend    bool                `json:"resend"`      // conv.rewrite、conv.restore_code：照 target 原样重发
+	ExtraDirs []string            `json:"extra_dirs"`  // conv.set_extra_dirs
+	Sandbox   bool                `json:"sandbox"`     // conv.set_sandbox
+	Name      string              `json:"name"`        // conv.artifact_read
 	Message
 }
 
@@ -292,6 +295,21 @@ var handlers = map[string]func(c *Conversation, client int, r request) (any, err
 	},
 	"conv.subagent": func(c *Conversation, client int, r request) (any, error) {
 		return nil, c.watchSubagent(client, r.ToolUseID, r.Watch)
+	},
+	"conv.set_agent": func(c *Conversation, _ int, r request) (any, error) {
+		return nil, c.chooseAgent(value(r))
+	},
+	"conv.set_extra_dirs": func(c *Conversation, _ int, r request) (any, error) {
+		return nil, c.chooseExtraDirs(r.ExtraDirs)
+	},
+	"conv.set_sandbox": func(c *Conversation, _ int, r request) (any, error) {
+		return nil, c.chooseSandbox(r.Sandbox)
+	},
+	"conv.artifacts": func(c *Conversation, _ int, _ request) (any, error) {
+		return c.listArtifacts(), nil
+	},
+	"conv.artifact_read": func(c *Conversation, _ int, r request) (any, error) {
+		return c.readArtifact(r.Name)
 	},
 }
 

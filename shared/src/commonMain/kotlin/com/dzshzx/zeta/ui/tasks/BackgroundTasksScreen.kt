@@ -72,6 +72,36 @@ private fun listFooter(): String = Strings.tasksListFooter()
 
 private fun conversationsFooter(): String = Strings.tasksConversationsFooter()
 
+private fun androidx.compose.foundation.lazy.LazyListScope.swarmBoardItems(
+    shown: List<Conversation>,
+) {
+    shown.forEach { c ->
+        val swarm = c.swarm
+        if (swarm != null && swarm.members.isNotEmpty()) {
+            item(key = "swarm:" + c.key) { SwarmBoardGroup(swarm) }
+        }
+    }
+}
+
+@Composable
+private fun SwarmBoardGroup(swarm: com.dzshzx.zeta.core.conv.SwarmState) {
+    val title =
+        if (swarm.title.isNotBlank()) "${Strings.tasksSwarmTitle()} · ${swarm.title}"
+        else Strings.tasksSwarmTitle()
+    PreferenceGroup(title = title) {
+        swarm.members.forEach { m ->
+            item(key = m.name) {
+                val summary = listOf(m.model, m.role).filter { it.isNotBlank() }.joinToString(" · ")
+                BasicComponent(
+                    title = m.name,
+                    summary = summary.ifBlank { null },
+                    endActions = { PreferenceValue(m.status, clickable = false) },
+                )
+            }
+        }
+    }
+}
+
 internal fun Conversation.label(): String = title.ifBlank { Strings.tasksUntitled() }
 
 /** 正在看哪个对话的哪个任务。 */
@@ -121,6 +151,7 @@ fun BackgroundTasksScreen(
         if (all) {
             item(key = "conversations") { ParkedConversationsGroup(hub, onOpenConversation) }
         }
+        swarmBoardItems(shown)
         val withTasks = shown.filter { it.tasks.list.isNotEmpty() }
         if (withTasks.isEmpty()) {
             item(key = "empty") { NoTasksGroup(gone = !all && shown.isEmpty()) }

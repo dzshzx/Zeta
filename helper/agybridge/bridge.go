@@ -31,6 +31,9 @@ type options struct {
 	effort         string
 	systemPrompt   string
 	title          string
+	agent          string
+	extraDirs      []string
+	sandbox        bool
 	phoneMCP       bool
 	helperBin      string
 }
@@ -211,6 +214,14 @@ func parseArgs(args []string) options {
 			o.systemPrompt = next()
 		case "--title":
 			o.title = next()
+		case "--agent":
+			o.agent = next()
+		case "--add-dir":
+			if dir := next(); dir != "" {
+				o.extraDirs = append(o.extraDirs, dir)
+			}
+		case "--sandbox":
+			o.sandbox = true
 		case "--phone-mcp":
 			o.phoneMCP = true
 		case "--mcp-config", "--settings", "--name":
@@ -228,7 +239,7 @@ func (b *bridge) start() error {
 		}
 		b.mcp = relay
 	}
-	acp, err := startACP(os.Getenv("ZETA_AGY_BIN"), b.opts.cwd, b.stderr, b.handleACPNotify, b.handleACPRequest)
+	acp, err := startACP(os.Getenv("ZETA_AGY_BIN"), b.opts.cwd, b.opts.extraDirs, b.opts.agent, b.opts.sandbox, b.stderr, b.handleACPNotify, b.handleACPRequest)
 	if err != nil {
 		b.mcp.close()
 		return err

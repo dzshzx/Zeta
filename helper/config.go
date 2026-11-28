@@ -66,6 +66,70 @@ var configMethods = map[string]func(context.Context, *claudecfg.Store, json.RawM
 	"config.mcp.addStdio": withParams(addStdioMcp),
 	"config.mcp.remove":   withParams(removeMcp),
 	"config.mcp.setToken": withParams(setMcpToken),
+
+	"config.agy.settings.read": noParams(func(_ context.Context, s *claudecfg.Store) (any, error) {
+		return s.ReadAgySettings()
+	}),
+	"config.agy.settings.update": withParams(func(_ context.Context, s *claudecfg.Store, p struct {
+		Patch claudecfg.AgySettingsPatch `json:"patch"`
+	}) (any, error) {
+		return s.UpdateAgySettings(p.Patch)
+	}),
+	"config.plugins.list": noParams(func(ctx context.Context, s *claudecfg.Store) (any, error) {
+		return s.ListPlugins(ctx)
+	}),
+	"config.plugins.setEnabled": withParams(func(ctx context.Context, s *claudecfg.Store, p struct {
+		Name    string `json:"name"`
+		Enabled bool   `json:"enabled"`
+	}) (any, error) {
+		return s.SetPluginEnabled(ctx, p.Name, p.Enabled)
+	}),
+	"config.plugins.install": withParams(func(ctx context.Context, s *claudecfg.Store, p struct {
+		Target string `json:"target"`
+	}) (any, error) {
+		return s.InstallPlugin(ctx, p.Target)
+	}),
+	"config.plugins.uninstall": withParams(func(ctx context.Context, s *claudecfg.Store, p struct {
+		Name string `json:"name"`
+	}) (any, error) {
+		return s.UninstallPlugin(ctx, p.Name)
+	}),
+	"config.hooks.read": withParams(func(_ context.Context, s *claudecfg.Store, p struct {
+		Cwd string `json:"cwd"`
+	}) (any, error) {
+		return s.ReadHooks(p.Cwd)
+	}),
+	"config.hooks.setEnabled": withParams(func(_ context.Context, s *claudecfg.Store, p struct {
+		Cwd     string `json:"cwd"`
+		Scope   string `json:"scope"`
+		Name    string `json:"name"`
+		Enabled bool   `json:"enabled"`
+	}) (any, error) {
+		return s.SetHookEnabled(p.Cwd, p.Scope, p.Name, p.Enabled)
+	}),
+	"config.hooks.save": withParams(func(_ context.Context, s *claudecfg.Store, p struct {
+		Cwd   string                 `json:"cwd"`
+		Draft claudecfg.AgyHookDraft `json:"draft"`
+	}) (any, error) {
+		return s.SaveHook(p.Cwd, p.Draft)
+	}),
+	"config.hooks.delete": withParams(func(_ context.Context, s *claudecfg.Store, p struct {
+		Cwd   string `json:"cwd"`
+		Scope string `json:"scope"`
+		Name  string `json:"name"`
+	}) (any, error) {
+		return s.DeleteHook(p.Cwd, p.Scope, p.Name)
+	}),
+	"config.sidecars.list": noParams(func(_ context.Context, s *claudecfg.Store) (any, error) {
+		return s.ListSidecars()
+	}),
+	"config.sidecars.setEnabled": withParams(func(_ context.Context, s *claudecfg.Store, p struct {
+		ID        string  `json:"id"`
+		Enabled   bool    `json:"enabled"`
+		ProjectID *string `json:"projectId,omitempty"`
+	}) (any, error) {
+		return s.SetSidecarEnabled(p.ID, p.Enabled, p.ProjectID)
+	}),
 }
 
 // handleConfig 处理一个 config.* 请求：params 是请求那一行（或只有参数的对象），多出的字段（id、method）不管。

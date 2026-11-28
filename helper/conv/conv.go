@@ -76,6 +76,9 @@ type Conversation struct {
 	reportedModel      string  // Claude Code 报的、实际在用的模型
 	switchedInTerminal string  // 终端里 /model 换的、之后还没回答过的模型
 	effort             string
+	agent              string
+	extraDirs          []string
+	sandbox            bool
 	modes              modes
 	commands           json.RawMessage
 	models             json.RawMessage

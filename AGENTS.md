@@ -2,7 +2,7 @@
 
 Zeta（Ζ）是面向多个 Code Agent（当前支持 Claude Code 与 Antigravity CLI `agy`）的跨平台原生客户端，主力场景是经 SSH 连接远程 Linux 主机上的 Code Agent 进行开发，并在 Android 端提供手机操作与可选的本机 Linux 环境能力；默认分支 `master`。各端共用 Go 核心（主机端 `zeta-helper serve`、客户端通用层 `client/` 与中枢 `hub/`），界面分别采用各平台原生框架：Windows 用 Go + mygo（`windows/`），Android 用 Kotlin + Jetpack Compose + Miuix（`app/`），iOS 用 Swift + SwiftUI（`ios/`）。功能按三组归属，加功能先定属于哪组：
 
-- 多端共有（主力场景）：连接远程 Linux 主机（或手机本机 Debian）上的多个 Code Agent 进行开发，涵盖双工具共存与统一会话管理（新对话自由选工具）、确认与提问、子代理与后台任务、账号额度与中转、各工具配置页（记忆/规则、Skills、MCP、Subagent、工具权限）、诊断及与终端交接。逻辑放 Go 核心（主机上的 `zeta-helper serve` 与 `client/`、`hub/`，见 `docs/core.md`），各端只画界面。
+- 多端共有（主力场景）：连接远程 Linux 主机（或手机本机 Debian）上的多个 Code Agent 进行开发，涵盖双工具共存与统一会话管理（新对话自由选工具）、Antigravity 新对话启动项（`--agent`、`--add-dir`、`--sandbox`）、会话产物查看与 Swarm 协同工作板、确认与提问、子代理与后台任务、账号额度与中转、各工具配置页（记忆/规则、Skills、MCP、Subagent、工具权限及 Antigravity 高级设置/插件/钩子/Sidecars）、诊断及与终端交接。逻辑放 Go 核心（主机上的 `zeta-helper serve` 与 `client/`、`hub/`，见 `docs/core.md`），各端只画界面。
 - Android 版独有（`app/`）：手机一侧的扩展能力，包括手机操作工具与后台虚拟屏、语音与数字助理、定时任务与通知触发、超级岛，以及可选的本机 Debian 环境；完整清单以 `docs/desktop.md` 开头桌面版不做的那串为准。
 - Windows 版（`windows/`）与 iOS 版（`ios/`）：Windows 版用 Go + mygo 做桌面交互、托盘、MSI 安装与应用内更新（见 `docs/desktop.md`）；iOS 版用 Swift + SwiftUI 做移动端界面与灵动岛实时活动（见 `docs/ios.md`）。
 

@@ -13,6 +13,7 @@ import (
 	"time"
 
 	"github.com/dzshzx/Zeta/helper/agyacct"
+	"github.com/dzshzx/Zeta/helper/agystore"
 	"github.com/dzshzx/Zeta/helper/claudecfg"
 	"github.com/dzshzx/Zeta/helper/conv"
 	"github.com/dzshzx/Zeta/helper/core"
@@ -93,6 +94,10 @@ func newConversations(e *env, quota *quotaWatch) *conversations {
 		Rename:       renameSession,
 		SessionImage: func(file, ref string) (conv.Image, error) { return convImage(e, file, ref) },
 		Commands:     conv.NewCommandStore(commandsFile(e)),
+		Artifacts:    func(session string) []agystore.ArtifactInfo { return agystore.ListArtifacts(e.agy, session) },
+		ReadArtifact: func(session, name string) (agystore.ArtifactContent, error) {
+			return agystore.ReadArtifact(e.agy, session, name)
+		},
 	}, h.send)
 	go adoptHosts(e, h.m)
 	return h

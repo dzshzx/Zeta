@@ -5,6 +5,7 @@ import (
 	"slices"
 
 	"github.com/dzshzx/Zeta/client/hostlink"
+	"github.com/dzshzx/Zeta/helper/coreapi"
 	"github.com/dzshzx/Zeta/helper/prompt"
 	"github.com/dzshzx/Zeta/helper/sessionproto"
 	"github.com/dzshzx/Zeta/helper/tasks"
@@ -83,10 +84,12 @@ type Chat struct {
 	// Failed 是最近一次操作（发消息、停止、回应确认）没成的原因，交出去一次就清掉。
 	Failed string `json:"failed"`
 	// Tasks、Todos、Process 同 conv.state；Finished 是上次 state 以后答完的各轮的结局（通知用，tasks.go）。
-	Tasks    []tasks.Task `json:"tasks"`
-	Todos    []Todo       `json:"todos"`
-	Process  bool         `json:"process"`
-	Finished []string     `json:"finished"`
+	Tasks     []tasks.Task           `json:"tasks"`
+	Todos     []Todo                 `json:"todos"`
+	Artifacts []coreapi.ArtifactInfo `json:"artifacts"`
+	Swarm     *coreapi.SwarmState    `json:"swarm"`
+	Process   bool                   `json:"process"`
+	Finished  []string               `json:"finished"`
 	// Composer 是输入栏（composer.go），对话还没打开成时为 null。
 	Composer *Composer `json:"composer"`
 	// 下面是聊天页的操作要的（chat 块）：现在能不能改写、分支（CanRewind）、正在剪会话、正在载入更早的；
@@ -153,6 +156,11 @@ func (c *Core) chatState(locale string) *Chat {
 	s := u.State
 	out.Harness = sessionproto.NormalizeHarness(s.Harness)
 	out.CanSwitchHarness = ch.Session.ID == "" && s.CanSwitchHarness() && ch.Conv.CanSwitchHarness()
+	out.Artifacts = s.Artifacts
+	if out.Artifacts == nil {
+		out.Artifacts = []coreapi.ArtifactInfo{}
+	}
+	out.Swarm = s.Swarm
 	out.Session = cmp.Or(s.Session, out.Session)
 	out.Title = cmp.Or(s.Title, out.Title)
 	if out.Title == "" {

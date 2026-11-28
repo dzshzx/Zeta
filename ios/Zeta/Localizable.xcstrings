@@ -7823,6 +7823,153 @@
           }
         }
       }
+    },
+    "Antigravity 高级设置": {
+      "localizations": { "en": { "stringUnit": { "state": "translated", "value": "Antigravity Settings" } } }
+    },
+    "权限与沙箱": {
+      "localizations": { "en": { "stringUnit": { "state": "translated", "value": "Permissions & Sandbox" } } }
+    },
+    "工具权限策略": {
+      "localizations": { "en": { "stringUnit": { "state": "translated", "value": "Tool permission policy" } } }
+    },
+    "终端沙箱": {
+      "localizations": { "en": { "stringUnit": { "state": "translated", "value": "Terminal sandbox" } } }
+    },
+    "允许访问工作区外文件": {
+      "localizations": { "en": { "stringUnit": { "state": "translated", "value": "Allow non-workspace access" } } }
+    },
+    "产物审查策略": {
+      "localizations": { "en": { "stringUnit": { "state": "translated", "value": "Artifact review policy" } } }
+    },
+    "使用 Google One AI Credits": {
+      "localizations": { "en": { "stringUnit": { "state": "translated", "value": "Use Google One AI Credits" } } }
+    },
+    "排队消息处理": {
+      "localizations": { "en": { "stringUnit": { "state": "translated", "value": "Queued messages" } } }
+    },
+    "双模型编排、自定义模型与 GCP": {
+      "localizations": { "en": { "stringUnit": { "state": "translated", "value": "Orchestrator, Custom Models & GCP" } } }
+    },
+    "自定义模型配置路径": {
+      "localizations": { "en": { "stringUnit": { "state": "translated", "value": "Custom models config path" } } }
+    },
+    "沙箱代理": {
+      "localizations": { "en": { "stringUnit": { "state": "translated", "value": "Sandbox Proxy" } } }
+    },
+    "已设置密码（留空保持不变）": {
+      "localizations": { "en": { "stringUnit": { "state": "translated", "value": "Password set (leave blank to keep)" } } }
+    },
+    "可选密码": {
+      "localizations": { "en": { "stringUnit": { "state": "translated", "value": "Optional password" } } }
+    },
+    "清除已保存的代理密码": {
+      "localizations": { "en": { "stringUnit": { "state": "translated", "value": "Clear saved proxy password" } } }
+    },
+    "可信工作区": {
+      "localizations": { "en": { "stringUnit": { "state": "translated", "value": "Trusted Workspaces" } } }
+    },
+    "每行填写一个绝对目录路径。": {
+      "localizations": { "en": { "stringUnit": { "state": "translated", "value": "Enter one absolute directory path per line." } } }
+    },
+    "读取 Antigravity 设置失败": {
+      "localizations": { "en": { "stringUnit": { "state": "translated", "value": "Failed to load Antigravity settings" } } }
+    },
+    "插件": {
+      "localizations": { "en": { "stringUnit": { "state": "translated", "value": "Plugins" } } }
+    },
+    "暂未安装插件": {
+      "localizations": { "en": { "stringUnit": { "state": "translated", "value": "No plugins installed" } } }
+    },
+    "通过本机 agy plugin 命令管理已安装的插件。": {
+      "localizations": { "en": { "stringUnit": { "state": "translated", "value": "Managed via agy plugin commands on this device." } } }
+    },
+    "安装插件": {
+      "localizations": { "en": { "stringUnit": { "state": "translated", "value": "Install Plugin" } } }
+    },
+    "插件名、路径或地址": {
+      "localizations": { "en": { "stringUnit": { "state": "translated", "value": "Plugin name, path, or URL" } } }
+    },
+    "卸载该插件？": {
+      "localizations": { "en": { "stringUnit": { "state": "translated", "value": "Uninstall Plugin?" } } }
+    },
+    "读取插件列表失败": {
+      "localizations": { "en": { "stringUnit": { "state": "translated", "value": "Failed to load plugins" } } }
+    },
+    "钩子": {
+      "localizations": { "en": { "stringUnit": { "state": "translated", "value": "Hooks" } } }
+    },
+    "暂未配置钩子": {
+      "localizations": { "en": { "stringUnit": { "state": "translated", "value": "No hooks configured" } } }
+    },
+    "聚合展示用户级（~/.gemini/config/hooks.json）、项目级（.agents/hooks.json）与只读插件钩子。": {
+      "localizations": { "en": { "stringUnit": { "state": "translated", "value": "Shows user (~/.gemini/config/hooks.json), project (.agents/hooks.json), and read-only plugin hooks." } } }
+    },
+    "只读": {
+      "localizations": { "en": { "stringUnit": { "state": "translated", "value": "Read-only" } } }
+    },
+    "读取钩子失败": {
+      "localizations": { "en": { "stringUnit": { "state": "translated", "value": "Failed to load hooks" } } }
+    },
+    "保存钩子失败": {
+      "localizations": { "en": { "stringUnit": { "state": "translated", "value": "Failed to save hook" } } }
+    },
+    "添加钩子": {
+      "localizations": { "en": { "stringUnit": { "state": "translated", "value": "Add Hook" } } }
+    },
+    "编辑钩子": {
+      "localizations": { "en": { "stringUnit": { "state": "translated", "value": "Edit Hook" } } }
+    },
+    "钩子名称": {
+      "localizations": { "en": { "stringUnit": { "state": "translated", "value": "Hook name" } } }
+    },
+    "执行命令": {
+      "localizations": { "en": { "stringUnit": { "state": "translated", "value": "Command" } } }
+    },
+    "超时秒数（可选）": {
+      "localizations": { "en": { "stringUnit": { "state": "translated", "value": "Timeout seconds (optional)" } } }
+    },
+    "未发现 Sidecar 服务": {
+      "localizations": { "en": { "stringUnit": { "state": "translated", "value": "No sidecars discovered" } } }
+    },
+    "在 ~/.gemini/config/config.json 中启停已发现的用户与插件 Sidecar 服务。": {
+      "localizations": { "en": { "stringUnit": { "state": "translated", "value": "Toggle discovered user and plugin sidecars in ~/.gemini/config/config.json." } } }
+    },
+    "读取 Sidecars 失败": {
+      "localizations": { "en": { "stringUnit": { "state": "translated", "value": "Failed to load sidecars" } } }
+    },
+    "切换 Sidecar 失败": {
+      "localizations": { "en": { "stringUnit": { "state": "translated", "value": "Failed to toggle sidecar" } } }
+    },
+    "启动项": {
+      "localizations": { "en": { "stringUnit": { "state": "translated", "value": "Launch" } } }
+    },
+    "启动项 ●": {
+      "localizations": { "en": { "stringUnit": { "state": "translated", "value": "Launch ●" } } }
+    },
+    "Antigravity 启动选项": {
+      "localizations": { "en": { "stringUnit": { "state": "translated", "value": "Antigravity Launch Options" } } }
+    },
+    "终端沙箱 (--sandbox)": {
+      "localizations": { "en": { "stringUnit": { "state": "translated", "value": "Terminal sandbox (--sandbox)" } } }
+    },
+    "子代理名称 (--agent，可选)": {
+      "localizations": { "en": { "stringUnit": { "state": "translated", "value": "Subagent name (--agent, optional)" } } }
+    },
+    "附加目录 (--add-dir)": {
+      "localizations": { "en": { "stringUnit": { "state": "translated", "value": "Extra directories (--add-dir)" } } }
+    },
+    "会话产物": {
+      "localizations": { "en": { "stringUnit": { "state": "translated", "value": "Session Artifacts" } } }
+    },
+    "产物 (%lld)": {
+      "localizations": { "en": { "stringUnit": { "state": "translated", "value": "Artifacts (%lld)" } } }
+    },
+    "已截断至 512 KiB（共 %lld 字节）": {
+      "localizations": { "en": { "stringUnit": { "state": "translated", "value": "Truncated to 512 KiB (%lld bytes total)" } } }
+    },
+    "协同工作板": {
+      "localizations": { "en": { "stringUnit": { "state": "translated", "value": "Swarm" } } }
     }
   }
 }

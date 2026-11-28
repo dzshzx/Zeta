@@ -63,6 +63,10 @@ const (
 	viewAgent
 	viewPermissions
 	viewPermServer
+	viewAgySettings
+	viewPlugins
+	viewHooks
+	viewSidecars
 )
 
 // Page 是一台设备上的这部分界面的状态。
@@ -82,12 +86,16 @@ type Page struct {
 
 	notice *notice
 
-	memory memoryState
-	doc    documentState
-	skills skillsState
-	mcp    mcpState
-	agents agentsState
-	perm   permState
+	memory   memoryState
+	doc      documentState
+	skills   skillsState
+	mcp      mcpState
+	agents   agentsState
+	perm     permState
+	agySet   agySettingsState
+	plugins  pluginsState
+	hooks    hooksState
+	sidecars sidecarsState
 }
 
 type notice struct {
@@ -204,6 +212,14 @@ func (p *Page) SubPage(c *ui.Context) {
 		p.permissionsPage(c)
 	case viewPermServer:
 		p.permServerPage(c)
+	case viewAgySettings:
+		p.agySettingsPage(c)
+	case viewPlugins:
+		p.pluginsPage(c)
+	case viewHooks:
+		p.hooksPage(c)
+	case viewSidecars:
+		p.sidecarsPage(c)
 	}
 	p.noticeDialog(c)
 }

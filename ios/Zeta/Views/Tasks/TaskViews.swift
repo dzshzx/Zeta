@@ -6,6 +6,39 @@ enum TaskPage: Hashable {
     case subagent(String)
 }
 
+private struct SwarmSection: View {
+    let swarm: SwarmState
+
+    var body: some View {
+        Section(headerText) {
+            ForEach(swarm.members) { member in
+                HStack {
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text(member.name)
+                        if let detail = subtitle(member) {
+                            Text(detail).font(.caption).foregroundStyle(.secondary)
+                        }
+                    }
+                    Spacer()
+                    Text(member.status).font(.caption).foregroundStyle(.secondary)
+                }
+            }
+        }
+    }
+
+    private var headerText: String {
+        if let title = swarm.title, !title.isEmpty {
+            return String(localized: "协同工作板") + " · " + title
+        }
+        return String(localized: "协同工作板")
+    }
+
+    private func subtitle(_ member: SwarmMember) -> String? {
+        let parts = [member.model, member.role].compactMap { $0 }.filter { !$0.isEmpty }
+        return parts.isEmpty ? nil : parts.joined(separator: " · ")
+    }
+}
+
 extension View {
     /// 任务详情和子代理页的去处（放在任务页所在的 NavigationStack 里）。[close] 关掉任务面板、回到聊天（子代理页的「所属对话」）。
     func taskPages(close: @escaping () -> Void) -> some View {
@@ -50,6 +83,9 @@ struct BackgroundTasksView: View {
                 Text("各设备上正在回复、等待回应或仍有后台任务的对话。")
             }
             if let chat = model.state.chat {
+                if let swarm = chat.swarm {
+                    SwarmSection(swarm: swarm)
+                }
                 TaskRows(title: chat.title, tasks: chat.tasks)
             }
         }
@@ -83,6 +119,9 @@ struct ChatTasksView: View {
     var body: some View {
         List {
             if let chat = model.state.chat {
+                if let swarm = chat.swarm {
+                    SwarmSection(swarm: swarm)
+                }
                 TaskRows(title: chat.title, tasks: chat.tasks)
             }
         }

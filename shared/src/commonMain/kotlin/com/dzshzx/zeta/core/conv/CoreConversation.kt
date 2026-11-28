@@ -404,6 +404,23 @@ internal constructor(
         request("conv.harness", mapOf("value" to JsonPrimitive(normalized)))
     }
 
+    fun setAgent(value: String) {
+        request("conv.set_agent", mapOf("value" to JsonPrimitive(value)))
+    }
+
+    fun setExtraDirs(dirs: List<String>) {
+        request("conv.set_extra_dirs", mapOf("extra_dirs" to JsonArray(dirs.map(::JsonPrimitive))))
+    }
+
+    fun setSandbox(sandbox: Boolean) {
+        request("conv.set_sandbox", mapOf("sandbox" to JsonPrimitive(sandbox)))
+    }
+
+    fun readArtifact(name: String): ArtifactContent? {
+        val raw = request("conv.artifact_read", mapOf("name" to JsonPrimitive(name)))
+        return (raw as? JsonObject)?.let(::artifactContentOf)
+    }
+
     /** 只管这个对话的模型；null 回到默认。 */
     fun setModel(value: String?) {
         request("conv.model", valueParams(value))

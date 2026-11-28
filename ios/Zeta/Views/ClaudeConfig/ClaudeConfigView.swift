@@ -38,6 +38,12 @@ private struct ClaudeConfigForm: View {
                 NavigationLink("MCP 服务器") { McpView(calls: store.calls, cwd: store.cwd) }
                 NavigationLink("Subagent") { AgentsView(calls: store.calls) }
                 NavigationLink("工具权限") { PermissionsView(calls: store.calls, cwd: store.cwd) }
+                if store.isAgy {
+                    NavigationLink("Antigravity 高级设置") { AgySettingsView(calls: store.calls) }
+                    NavigationLink("插件") { PluginsView(calls: store.calls) }
+                    NavigationLink("钩子") { HooksView(calls: store.calls, cwd: store.cwd) }
+                    NavigationLink("Sidecars") { SidecarsView(calls: store.calls) }
+                }
             } header: {
                 Text(store.isAgy ? "Antigravity 配置" : "Claude Code 配置")
             } footer: {

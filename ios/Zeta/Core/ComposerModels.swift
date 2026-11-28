@@ -19,6 +19,10 @@ struct ComposerState: Decodable, Sendable {
     let effortLevels: [String]?
     let mode: String
     let modes: [Choice]
+    let agent: String?
+    let extraDirs: [String]?
+    let sandbox: Bool?
+    let canEditLaunch: Bool?
     let queued: [QueuedMessage]
     let steering: Bool
     let usage: UsageInfo
@@ -26,10 +30,12 @@ struct ComposerState: Decodable, Sendable {
 
     enum CodingKeys: String, CodingKey {
         case text, rev, ready, uploading, attachments, problems, process, model, effort, mode, modes, queued, steering
-        case usage, quota
+        case usage, quota, agent, sandbox
         case tooLarge = "too_large"
         case appliedEffort = "applied_effort"
         case effortLevels = "effort_levels"
+        case extraDirs = "extra_dirs"
+        case canEditLaunch = "can_edit_launch"
     }
 }
 

@@ -130,14 +130,16 @@ var forwarded = []string{"config.", "diag.", "system."}
 const coreTimeout = 60 * time.Second
 
 var slowMethods = map[string]time.Duration{
-	"config.mcp.status":    3 * time.Minute,
-	"config.mcp.tools":     3 * time.Minute,
-	"config.mcp.addHttp":   3 * time.Minute,
-	"config.mcp.addStdio":  3 * time.Minute,
-	"config.mcp.remove":    3 * time.Minute,
-	"config.mcp.setToken":  3 * time.Minute,
-	"system.claude_update": 6 * time.Minute,
-	"system.agy_update":    6 * time.Minute,
+	"config.mcp.status":        3 * time.Minute,
+	"config.mcp.tools":         3 * time.Minute,
+	"config.mcp.addHttp":       3 * time.Minute,
+	"config.mcp.addStdio":      3 * time.Minute,
+	"config.mcp.remove":        3 * time.Minute,
+	"config.mcp.setToken":      3 * time.Minute,
+	"config.plugins.install":   3 * time.Minute,
+	"config.plugins.uninstall": 3 * time.Minute,
+	"system.claude_update":     6 * time.Minute,
+	"system.agy_update":        6 * time.Minute,
 }
 
 type coreParams struct {

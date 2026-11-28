@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"time"
 
+	"github.com/dzshzx/Zeta/helper/agystore"
 	"github.com/dzshzx/Zeta/helper/sessionproto"
 	"github.com/dzshzx/Zeta/helper/usage"
 )
@@ -73,6 +74,10 @@ type Deps struct {
 	SessionImage func(file, ref string) (Image, error)
 	// Commands 记着这台主机上各工作目录最近一次拿到的斜杠命令，还没起进程时打开对话也给得出来；可以是 nil
 	Commands *CommandStore
+	// Artifacts 列出 Antigravity 会话 brain/<session> 下的可见产物；可以是 nil
+	Artifacts func(session string) []agystore.ArtifactInfo
+	// ReadArtifact 读取 Antigravity 会话单份产物正文；可以是 nil
+	ReadArtifact func(session, name string) (agystore.ArtifactContent, error)
 }
 
 // Quota 是订阅额度的去处，几个对话共用一份。方法在各对话自己的 goroutine 上调用，几个对话可能同时调。

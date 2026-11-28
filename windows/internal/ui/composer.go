@@ -70,7 +70,9 @@ func (a *App) composerToolbar(c *ui.Context, p *chatPane, ready bool) {
 		if p.src.Conv != nil {
 			if p.canSwitchHarness() {
 				a.harnessMenu(c, p)
+				a.agyLaunchButton(c, p)
 			}
+			a.artifactsButton(c, p)
 			a.modelMenu(c, p)
 			a.effortMenu(c, p)
 			a.hostLoadChip(c, p)

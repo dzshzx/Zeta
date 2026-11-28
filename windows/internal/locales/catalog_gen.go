@@ -14954,3 +14954,555 @@ func ClaudecfgToolSteps() string { return In(i18n.Locale()).ClaudecfgToolSteps()
 func (msgs Messages) ClaudecfgToolSteps() string {
 	return Catalog.Format(msgs.locale, "claudecfgToolSteps", nil)
 }
+
+// ClaudecfgAgySettings says "Antigravity 高级设置"
+// in the language the app shows.
+//
+// Antigravity 专有设置页标题与入口。
+func ClaudecfgAgySettings() string { return In(i18n.Locale()).ClaudecfgAgySettings() }
+
+// ClaudecfgAgySettings says "Antigravity 高级设置"
+// in the language of msgs.
+//
+// Antigravity 专有设置页标题与入口。
+func (msgs Messages) ClaudecfgAgySettings() string {
+	return Catalog.Format(msgs.locale, "claudecfgAgySettings", nil)
+}
+
+// ClaudecfgAgySettingsLoadFailed says "读取 Antigravity 设置失败"
+// in the language the app shows.
+//
+// 读取 Antigravity 设置失败弹窗标题。
+func ClaudecfgAgySettingsLoadFailed() string {
+	return In(i18n.Locale()).ClaudecfgAgySettingsLoadFailed()
+}
+
+// ClaudecfgAgySettingsLoadFailed says "读取 Antigravity 设置失败"
+// in the language of msgs.
+//
+// 读取 Antigravity 设置失败弹窗标题。
+func (msgs Messages) ClaudecfgAgySettingsLoadFailed() string {
+	return Catalog.Format(msgs.locale, "claudecfgAgySettingsLoadFailed", nil)
+}
+
+// ClaudecfgAgyPolicyGroup says "权限与沙箱"
+// in the language the app shows.
+//
+// Antigravity 设置页策略分组标题。
+func ClaudecfgAgyPolicyGroup() string { return In(i18n.Locale()).ClaudecfgAgyPolicyGroup() }
+
+// ClaudecfgAgyPolicyGroup says "权限与沙箱"
+// in the language of msgs.
+//
+// Antigravity 设置页策略分组标题。
+func (msgs Messages) ClaudecfgAgyPolicyGroup() string {
+	return Catalog.Format(msgs.locale, "claudecfgAgyPolicyGroup", nil)
+}
+
+// ClaudecfgAgyToolPerm says "工具权限策略"
+// in the language the app shows.
+//
+// Antigravity settings.json 的 toolPermission。
+func ClaudecfgAgyToolPerm() string { return In(i18n.Locale()).ClaudecfgAgyToolPerm() }
+
+// ClaudecfgAgyToolPerm says "工具权限策略"
+// in the language of msgs.
+//
+// Antigravity settings.json 的 toolPermission。
+func (msgs Messages) ClaudecfgAgyToolPerm() string {
+	return Catalog.Format(msgs.locale, "claudecfgAgyToolPerm", nil)
+}
+
+// ClaudecfgAgySandbox says "终端沙箱"
+// in the language the app shows.
+//
+// Antigravity enableTerminalSandbox 与 --sandbox 开关。
+func ClaudecfgAgySandbox() string { return In(i18n.Locale()).ClaudecfgAgySandbox() }
+
+// ClaudecfgAgySandbox says "终端沙箱"
+// in the language of msgs.
+//
+// Antigravity enableTerminalSandbox 与 --sandbox 开关。
+func (msgs Messages) ClaudecfgAgySandbox() string {
+	return Catalog.Format(msgs.locale, "claudecfgAgySandbox", nil)
+}
+
+// ClaudecfgAgyNonWorkspace says "允许访问工作区外文件"
+// in the language the app shows.
+//
+// Antigravity allowNonWorkspaceAccess 开关。
+func ClaudecfgAgyNonWorkspace() string { return In(i18n.Locale()).ClaudecfgAgyNonWorkspace() }
+
+// ClaudecfgAgyNonWorkspace says "允许访问工作区外文件"
+// in the language of msgs.
+//
+// Antigravity allowNonWorkspaceAccess 开关。
+func (msgs Messages) ClaudecfgAgyNonWorkspace() string {
+	return Catalog.Format(msgs.locale, "claudecfgAgyNonWorkspace", nil)
+}
+
+// ClaudecfgAgyArtifactReview says "产物审查策略"
+// in the language the app shows.
+//
+// Antigravity artifactReviewPolicy 下拉。
+func ClaudecfgAgyArtifactReview() string { return In(i18n.Locale()).ClaudecfgAgyArtifactReview() }
+
+// ClaudecfgAgyArtifactReview says "产物审查策略"
+// in the language of msgs.
+//
+// Antigravity artifactReviewPolicy 下拉。
+func (msgs Messages) ClaudecfgAgyArtifactReview() string {
+	return Catalog.Format(msgs.locale, "claudecfgAgyArtifactReview", nil)
+}
+
+// ClaudecfgAgyUseG1Credits says "使用 Google One AI Credits"
+// in the language the app shows.
+//
+// Antigravity useG1Credits 开关。
+func ClaudecfgAgyUseG1Credits() string { return In(i18n.Locale()).ClaudecfgAgyUseG1Credits() }
+
+// ClaudecfgAgyUseG1Credits says "使用 Google One AI Credits"
+// in the language of msgs.
+//
+// Antigravity useG1Credits 开关。
+func (msgs Messages) ClaudecfgAgyUseG1Credits() string {
+	return Catalog.Format(msgs.locale, "claudecfgAgyUseG1Credits", nil)
+}
+
+// ClaudecfgAgyQueuedMessages says "排队消息处理"
+// in the language the app shows.
+//
+// Antigravity queuedMessages 选项。
+func ClaudecfgAgyQueuedMessages() string { return In(i18n.Locale()).ClaudecfgAgyQueuedMessages() }
+
+// ClaudecfgAgyQueuedMessages says "排队消息处理"
+// in the language of msgs.
+//
+// Antigravity queuedMessages 选项。
+func (msgs Messages) ClaudecfgAgyQueuedMessages() string {
+	return Catalog.Format(msgs.locale, "claudecfgAgyQueuedMessages", nil)
+}
+
+// ClaudecfgAgyModelsGCPGroup says "双模型编排、自定义模型与 GCP"
+// in the language the app shows.
+//
+// Antigravity 设置页编排与 GCP 分组标题。
+func ClaudecfgAgyModelsGCPGroup() string { return In(i18n.Locale()).ClaudecfgAgyModelsGCPGroup() }
+
+// ClaudecfgAgyModelsGCPGroup says "双模型编排、自定义模型与 GCP"
+// in the language of msgs.
+//
+// Antigravity 设置页编排与 GCP 分组标题。
+func (msgs Messages) ClaudecfgAgyModelsGCPGroup() string {
+	return Catalog.Format(msgs.locale, "claudecfgAgyModelsGCPGroup", nil)
+}
+
+// ClaudecfgAgyCustomModels says "自定义模型配置路径"
+// in the language the app shows.
+//
+// Antigravity customModelsConfig 字段。
+func ClaudecfgAgyCustomModels() string { return In(i18n.Locale()).ClaudecfgAgyCustomModels() }
+
+// ClaudecfgAgyCustomModels says "自定义模型配置路径"
+// in the language of msgs.
+//
+// Antigravity customModelsConfig 字段。
+func (msgs Messages) ClaudecfgAgyCustomModels() string {
+	return Catalog.Format(msgs.locale, "claudecfgAgyCustomModels", nil)
+}
+
+// ClaudecfgAgyProxyGroup says "沙箱代理"
+// in the language the app shows.
+//
+// Antigravity sandboxProxy 分组标题。
+func ClaudecfgAgyProxyGroup() string { return In(i18n.Locale()).ClaudecfgAgyProxyGroup() }
+
+// ClaudecfgAgyProxyGroup says "沙箱代理"
+// in the language of msgs.
+//
+// Antigravity sandboxProxy 分组标题。
+func (msgs Messages) ClaudecfgAgyProxyGroup() string {
+	return Catalog.Format(msgs.locale, "claudecfgAgyProxyGroup", nil)
+}
+
+// ClaudecfgAgyProxyPassSet says "已设置密码（留空保持不变）"
+// in the language the app shows.
+//
+// 已配置代理密码时的占位提示。
+func ClaudecfgAgyProxyPassSet() string { return In(i18n.Locale()).ClaudecfgAgyProxyPassSet() }
+
+// ClaudecfgAgyProxyPassSet says "已设置密码（留空保持不变）"
+// in the language of msgs.
+//
+// 已配置代理密码时的占位提示。
+func (msgs Messages) ClaudecfgAgyProxyPassSet() string {
+	return Catalog.Format(msgs.locale, "claudecfgAgyProxyPassSet", nil)
+}
+
+// ClaudecfgAgyProxyPassUnset says "可选密码"
+// in the language the app shows.
+//
+// 未配置代理密码时的占位提示。
+func ClaudecfgAgyProxyPassUnset() string { return In(i18n.Locale()).ClaudecfgAgyProxyPassUnset() }
+
+// ClaudecfgAgyProxyPassUnset says "可选密码"
+// in the language of msgs.
+//
+// 未配置代理密码时的占位提示。
+func (msgs Messages) ClaudecfgAgyProxyPassUnset() string {
+	return Catalog.Format(msgs.locale, "claudecfgAgyProxyPassUnset", nil)
+}
+
+// ClaudecfgAgyProxyClearPass says "清除已保存的代理密码"
+// in the language the app shows.
+//
+// 清除沙箱代理密码按钮行标题。
+func ClaudecfgAgyProxyClearPass() string { return In(i18n.Locale()).ClaudecfgAgyProxyClearPass() }
+
+// ClaudecfgAgyProxyClearPass says "清除已保存的代理密码"
+// in the language of msgs.
+//
+// 清除沙箱代理密码按钮行标题。
+func (msgs Messages) ClaudecfgAgyProxyClearPass() string {
+	return Catalog.Format(msgs.locale, "claudecfgAgyProxyClearPass", nil)
+}
+
+// ClaudecfgAgyTrustedWorkspaces says "可信工作区"
+// in the language the app shows.
+//
+// Antigravity trustedWorkspaces 分组标题。
+func ClaudecfgAgyTrustedWorkspaces() string { return In(i18n.Locale()).ClaudecfgAgyTrustedWorkspaces() }
+
+// ClaudecfgAgyTrustedWorkspaces says "可信工作区"
+// in the language of msgs.
+//
+// Antigravity trustedWorkspaces 分组标题。
+func (msgs Messages) ClaudecfgAgyTrustedWorkspaces() string {
+	return Catalog.Format(msgs.locale, "claudecfgAgyTrustedWorkspaces", nil)
+}
+
+// ClaudecfgAgyTrustedWorkspacesFooter says "每行填写一个绝对目录路径。"
+// in the language the app shows.
+//
+// 可信工作区输入框说明。
+func ClaudecfgAgyTrustedWorkspacesFooter() string {
+	return In(i18n.Locale()).ClaudecfgAgyTrustedWorkspacesFooter()
+}
+
+// ClaudecfgAgyTrustedWorkspacesFooter says "每行填写一个绝对目录路径。"
+// in the language of msgs.
+//
+// 可信工作区输入框说明。
+func (msgs Messages) ClaudecfgAgyTrustedWorkspacesFooter() string {
+	return Catalog.Format(msgs.locale, "claudecfgAgyTrustedWorkspacesFooter", nil)
+}
+
+// ClaudecfgAgyPlugins says "插件"
+// in the language the app shows.
+//
+// Antigravity 插件管理页标题与入口。
+func ClaudecfgAgyPlugins() string { return In(i18n.Locale()).ClaudecfgAgyPlugins() }
+
+// ClaudecfgAgyPlugins says "插件"
+// in the language of msgs.
+//
+// Antigravity 插件管理页标题与入口。
+func (msgs Messages) ClaudecfgAgyPlugins() string {
+	return Catalog.Format(msgs.locale, "claudecfgAgyPlugins", nil)
+}
+
+// ClaudecfgAgyPluginsLoadFailed says "读取插件列表失败"
+// in the language the app shows.
+//
+// 读取插件列表失败标题。
+func ClaudecfgAgyPluginsLoadFailed() string { return In(i18n.Locale()).ClaudecfgAgyPluginsLoadFailed() }
+
+// ClaudecfgAgyPluginsLoadFailed says "读取插件列表失败"
+// in the language of msgs.
+//
+// 读取插件列表失败标题。
+func (msgs Messages) ClaudecfgAgyPluginsLoadFailed() string {
+	return Catalog.Format(msgs.locale, "claudecfgAgyPluginsLoadFailed", nil)
+}
+
+// ClaudecfgAgyPluginsFooter says "通过本机 agy plugin 命令管理已安装的插件。"
+// in the language the app shows.
+//
+// 插件页底部说明。
+func ClaudecfgAgyPluginsFooter() string { return In(i18n.Locale()).ClaudecfgAgyPluginsFooter() }
+
+// ClaudecfgAgyPluginsFooter says "通过本机 agy plugin 命令管理已安装的插件。"
+// in the language of msgs.
+//
+// 插件页底部说明。
+func (msgs Messages) ClaudecfgAgyPluginsFooter() string {
+	return Catalog.Format(msgs.locale, "claudecfgAgyPluginsFooter", nil)
+}
+
+// ClaudecfgAgyPluginsEmpty says "暂未安装插件"
+// in the language the app shows.
+//
+// 插件列表为空时提示。
+func ClaudecfgAgyPluginsEmpty() string { return In(i18n.Locale()).ClaudecfgAgyPluginsEmpty() }
+
+// ClaudecfgAgyPluginsEmpty says "暂未安装插件"
+// in the language of msgs.
+//
+// 插件列表为空时提示。
+func (msgs Messages) ClaudecfgAgyPluginsEmpty() string {
+	return Catalog.Format(msgs.locale, "claudecfgAgyPluginsEmpty", nil)
+}
+
+// ClaudecfgAgyPluginInstall says "安装插件"
+// in the language the app shows.
+//
+// 安装插件按钮和弹窗标题。
+func ClaudecfgAgyPluginInstall() string { return In(i18n.Locale()).ClaudecfgAgyPluginInstall() }
+
+// ClaudecfgAgyPluginInstall says "安装插件"
+// in the language of msgs.
+//
+// 安装插件按钮和弹窗标题。
+func (msgs Messages) ClaudecfgAgyPluginInstall() string {
+	return Catalog.Format(msgs.locale, "claudecfgAgyPluginInstall", nil)
+}
+
+// ClaudecfgAgyPluginUninstall says "卸载该插件？"
+// in the language the app shows.
+//
+// 卸载插件确认框标题。
+func ClaudecfgAgyPluginUninstall() string { return In(i18n.Locale()).ClaudecfgAgyPluginUninstall() }
+
+// ClaudecfgAgyPluginUninstall says "卸载该插件？"
+// in the language of msgs.
+//
+// 卸载插件确认框标题。
+func (msgs Messages) ClaudecfgAgyPluginUninstall() string {
+	return Catalog.Format(msgs.locale, "claudecfgAgyPluginUninstall", nil)
+}
+
+// ClaudecfgAgyHooks says "钩子"
+// in the language the app shows.
+//
+// Antigravity 钩子管理页标题与入口。
+func ClaudecfgAgyHooks() string { return In(i18n.Locale()).ClaudecfgAgyHooks() }
+
+// ClaudecfgAgyHooks says "钩子"
+// in the language of msgs.
+//
+// Antigravity 钩子管理页标题与入口。
+func (msgs Messages) ClaudecfgAgyHooks() string {
+	return Catalog.Format(msgs.locale, "claudecfgAgyHooks", nil)
+}
+
+// ClaudecfgAgyHooksLoadFailed says "读取钩子失败"
+// in the language the app shows.
+//
+// 读取钩子失败标题。
+func ClaudecfgAgyHooksLoadFailed() string { return In(i18n.Locale()).ClaudecfgAgyHooksLoadFailed() }
+
+// ClaudecfgAgyHooksLoadFailed says "读取钩子失败"
+// in the language of msgs.
+//
+// 读取钩子失败标题。
+func (msgs Messages) ClaudecfgAgyHooksLoadFailed() string {
+	return Catalog.Format(msgs.locale, "claudecfgAgyHooksLoadFailed", nil)
+}
+
+// ClaudecfgAgyHooksFooter says "聚合展示用户级（~/.gemini/config/hooks.json）、项目级（.agents/hooks.json）与只读插件钩子。"
+// in the language the app shows.
+//
+// 钩子页底部说明。
+func ClaudecfgAgyHooksFooter() string { return In(i18n.Locale()).ClaudecfgAgyHooksFooter() }
+
+// ClaudecfgAgyHooksFooter says "聚合展示用户级（~/.gemini/config/hooks.json）、项目级（.agents/hooks.json）与只读插件钩子。"
+// in the language of msgs.
+//
+// 钩子页底部说明。
+func (msgs Messages) ClaudecfgAgyHooksFooter() string {
+	return Catalog.Format(msgs.locale, "claudecfgAgyHooksFooter", nil)
+}
+
+// ClaudecfgAgyHooksEmpty says "暂未配置钩子"
+// in the language the app shows.
+//
+// 钩子列表为空时提示。
+func ClaudecfgAgyHooksEmpty() string { return In(i18n.Locale()).ClaudecfgAgyHooksEmpty() }
+
+// ClaudecfgAgyHooksEmpty says "暂未配置钩子"
+// in the language of msgs.
+//
+// 钩子列表为空时提示。
+func (msgs Messages) ClaudecfgAgyHooksEmpty() string {
+	return Catalog.Format(msgs.locale, "claudecfgAgyHooksEmpty", nil)
+}
+
+// ClaudecfgAgyHookAdd says "添加钩子"
+// in the language the app shows.
+//
+// 添加钩子按钮。
+func ClaudecfgAgyHookAdd() string { return In(i18n.Locale()).ClaudecfgAgyHookAdd() }
+
+// ClaudecfgAgyHookAdd says "添加钩子"
+// in the language of msgs.
+//
+// 添加钩子按钮。
+func (msgs Messages) ClaudecfgAgyHookAdd() string {
+	return Catalog.Format(msgs.locale, "claudecfgAgyHookAdd", nil)
+}
+
+// ClaudecfgAgyHookReadOnly says "只读"
+// in the language the app shows.
+//
+// 插件钩子的只读标记。
+func ClaudecfgAgyHookReadOnly() string { return In(i18n.Locale()).ClaudecfgAgyHookReadOnly() }
+
+// ClaudecfgAgyHookReadOnly says "只读"
+// in the language of msgs.
+//
+// 插件钩子的只读标记。
+func (msgs Messages) ClaudecfgAgyHookReadOnly() string {
+	return Catalog.Format(msgs.locale, "claudecfgAgyHookReadOnly", nil)
+}
+
+// ClaudecfgAgySidecarsLoadFailed says "读取 Sidecars 失败"
+// in the language the app shows.
+//
+// 读取 Sidecars 失败标题。
+func ClaudecfgAgySidecarsLoadFailed() string {
+	return In(i18n.Locale()).ClaudecfgAgySidecarsLoadFailed()
+}
+
+// ClaudecfgAgySidecarsLoadFailed says "读取 Sidecars 失败"
+// in the language of msgs.
+//
+// 读取 Sidecars 失败标题。
+func (msgs Messages) ClaudecfgAgySidecarsLoadFailed() string {
+	return Catalog.Format(msgs.locale, "claudecfgAgySidecarsLoadFailed", nil)
+}
+
+// ClaudecfgAgySidecarsFooter says "在 ~/.gemini/config/config.json 中启停已发现的用户与插件 Sidecar 服务。"
+// in the language the app shows.
+//
+// Sidecars 页底部说明。
+func ClaudecfgAgySidecarsFooter() string { return In(i18n.Locale()).ClaudecfgAgySidecarsFooter() }
+
+// ClaudecfgAgySidecarsFooter says "在 ~/.gemini/config/config.json 中启停已发现的用户与插件 Sidecar 服务。"
+// in the language of msgs.
+//
+// Sidecars 页底部说明。
+func (msgs Messages) ClaudecfgAgySidecarsFooter() string {
+	return Catalog.Format(msgs.locale, "claudecfgAgySidecarsFooter", nil)
+}
+
+// ClaudecfgAgySidecarsEmpty says "未发现 Sidecar 服务"
+// in the language the app shows.
+//
+// Sidecars 列表为空时提示。
+func ClaudecfgAgySidecarsEmpty() string { return In(i18n.Locale()).ClaudecfgAgySidecarsEmpty() }
+
+// ClaudecfgAgySidecarsEmpty says "未发现 Sidecar 服务"
+// in the language of msgs.
+//
+// Sidecars 列表为空时提示。
+func (msgs Messages) ClaudecfgAgySidecarsEmpty() string {
+	return Catalog.Format(msgs.locale, "claudecfgAgySidecarsEmpty", nil)
+}
+
+// ComposerAgyLaunch says "启动项"
+// in the language the app shows.
+//
+// Antigravity 新对话输入栏启动项按钮。
+func ComposerAgyLaunch() string { return In(i18n.Locale()).ComposerAgyLaunch() }
+
+// ComposerAgyLaunch says "启动项"
+// in the language of msgs.
+//
+// Antigravity 新对话输入栏启动项按钮。
+func (msgs Messages) ComposerAgyLaunch() string {
+	return Catalog.Format(msgs.locale, "composerAgyLaunch", nil)
+}
+
+// ComposerAgyLaunchTitle says "Antigravity 启动选项"
+// in the language the app shows.
+//
+// Antigravity 启动项弹窗标题。
+func ComposerAgyLaunchTitle() string { return In(i18n.Locale()).ComposerAgyLaunchTitle() }
+
+// ComposerAgyLaunchTitle says "Antigravity 启动选项"
+// in the language of msgs.
+//
+// Antigravity 启动项弹窗标题。
+func (msgs Messages) ComposerAgyLaunchTitle() string {
+	return Catalog.Format(msgs.locale, "composerAgyLaunchTitle", nil)
+}
+
+// ComposerAgyAgentPlaceholder says "可选子代理名称"
+// in the language the app shows.
+//
+// --agent 输入框占位。
+func ComposerAgyAgentPlaceholder() string { return In(i18n.Locale()).ComposerAgyAgentPlaceholder() }
+
+// ComposerAgyAgentPlaceholder says "可选子代理名称"
+// in the language of msgs.
+//
+// --agent 输入框占位。
+func (msgs Messages) ComposerAgyAgentPlaceholder() string {
+	return Catalog.Format(msgs.locale, "composerAgyAgentPlaceholder", nil)
+}
+
+// ChatArtifactsCount says "产物 ({count})"
+// in the language the app shows.
+//
+// 聊天页输入栏产物查看按钮。
+func ChatArtifactsCount(count int) string { return In(i18n.Locale()).ChatArtifactsCount(count) }
+
+// ChatArtifactsCount says "产物 ({count})"
+// in the language of msgs.
+//
+// 聊天页输入栏产物查看按钮。
+func (msgs Messages) ChatArtifactsCount(count int) string {
+	return Catalog.Format(msgs.locale, "chatArtifactsCount", map[string]any{"count": count})
+}
+
+// ChatArtifactsTitle says "会话产物"
+// in the language the app shows.
+//
+// 产物查看弹窗标题。
+func ChatArtifactsTitle() string { return In(i18n.Locale()).ChatArtifactsTitle() }
+
+// ChatArtifactsTitle says "会话产物"
+// in the language of msgs.
+//
+// 产物查看弹窗标题。
+func (msgs Messages) ChatArtifactsTitle() string {
+	return Catalog.Format(msgs.locale, "chatArtifactsTitle", nil)
+}
+
+// ChatArtifactTruncated says "已截断至 512 KiB（共 {size} 字节）"
+// in the language the app shows.
+//
+// 产物正文超长截断提示。
+func ChatArtifactTruncated(size string) string { return In(i18n.Locale()).ChatArtifactTruncated(size) }
+
+// ChatArtifactTruncated says "已截断至 512 KiB（共 {size} 字节）"
+// in the language of msgs.
+//
+// 产物正文超长截断提示。
+func (msgs Messages) ChatArtifactTruncated(size string) string {
+	return Catalog.Format(msgs.locale, "chatArtifactTruncated", map[string]any{"size": size})
+}
+
+// TasksSwarmTitle says "协同工作板"
+// in the language the app shows.
+//
+// 后台任务页中 Antigravity Swarm 协同工作板分组标题。
+func TasksSwarmTitle() string { return In(i18n.Locale()).TasksSwarmTitle() }
+
+// TasksSwarmTitle says "协同工作板"
+// in the language of msgs.
+//
+// 后台任务页中 Antigravity Swarm 协同工作板分组标题。
+func (msgs Messages) TasksSwarmTitle() string {
+	return Catalog.Format(msgs.locale, "tasksSwarmTitle", nil)
+}

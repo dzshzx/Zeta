@@ -888,6 +888,8 @@ private fun ConversationInput(
                     allowed = allowedEfforts,
                     onChange = conversation::chooseEffort,
                 )
+                AgyLaunchChip(conversation)
+                ArtifactsChip(conversation)
                 UsageButton(conversation.usage, onClick = { viewingUsage = true })
             },
             status = {

@@ -41,10 +41,15 @@ type State struct {
 	// Steering：立即插话发出去了，还没有结果。
 	Steering bool `json:"steering"`
 	// Model、Effort 是这个对话指定的（nil 是用默认），ReportedModel 是 Claude Code 报的。
-	Model         *string `json:"model"`
-	Effort        *string `json:"effort"`
-	ReportedModel string  `json:"reported_model"`
-	Mode          Mode    `json:"mode"`
+	Model         *string                `json:"model"`
+	Effort        *string                `json:"effort"`
+	Agent         *string                `json:"agent"`
+	ExtraDirs     []string               `json:"extra_dirs"`
+	Sandbox       bool                   `json:"sandbox"`
+	Artifacts     []coreapi.ArtifactInfo `json:"artifacts"`
+	Swarm         *coreapi.SwarmState    `json:"swarm"`
+	ReportedModel string                 `json:"reported_model"`
+	Mode          Mode                   `json:"mode"`
 	// Prompts 是等用户回应的请求，按到达顺序，界面弹第一个。
 	Prompts []prompt.Prompt `json:"prompts"`
 	Tasks   []tasks.Task    `json:"tasks"`
